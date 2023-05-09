@@ -32,12 +32,13 @@ static float directions[NUM_DIRECTIONS];
 
 float CompassAverage(float in)
 {
-    int i;
-    directions[cbufpointer] = in;
+    directions[cbufpointer++] = in;
+    if(cbufpointer >=  NUM_DIRECTIONS){
+        cbufpointer = 0;
+    }
     float sum_x = 0.0, sum_y = 0.0, avg_dir;
-
     // Convert the compass directions to Cartesian coordinates
-    for (i = 0; i < NUM_DIRECTIONS; i++)
+    for (int i = 0; i < NUM_DIRECTIONS; i++)
     {
         sum_x += cos(directions[i] * M_PI / 180.0);
         sum_y += sin(directions[i] * M_PI / 180.0);
@@ -69,6 +70,7 @@ void CompassTask(void *arg)
     {
         float heading = GetHeading();
         heading = CompassAverage(heading);
+        Serial.printf("Direction: %3.2f\n\r",heading);
         delay(100);
     }
 }

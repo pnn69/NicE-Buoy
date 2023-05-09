@@ -8,16 +8,19 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include <Arduino.h>
 #include "compass.h"
 #include "gps.h"
+#include "esc.h"
+#include "indicator.h"
 
 void setup()
 {
     Serial.begin(9600);
     xTaskCreate(CompassTask, "CompassTask", 100, NULL, 1, NULL);
     xTaskCreate(CompassTask, "GpsTask", 100, NULL, 1, NULL);
+    xTaskCreate(EscTask, "EscTask", 100, NULL, 1, NULL);
+    xTaskCreate(IndicatorTask, "IndicatorTask", 100, NULL, 1, NULL);
 }
-
 void loop()
 {
-    Serial.println(GetHeading());
-    delay(101);
+    Serial.println("*");
+    delay(1000);
 }
