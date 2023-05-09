@@ -6,13 +6,18 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 433MHz is SX1278
 */
 #include <Arduino.h>
+#include "compass.h"
+#include "gps.h"
 
 void setup()
 {
-    // put your setup code here, to run once:
+    Serial.begin(9600);
+    xTaskCreate(CompassTask, "CompassTask", 100, NULL, 1, NULL);
+    xTaskCreate(CompassTask, "GpsTask", 100, NULL, 1, NULL);
 }
 
 void loop()
 {
-    // put your main code here, to run repeatedly:
+    Serial.println(GetHeading());
+    delay(100);
 }
