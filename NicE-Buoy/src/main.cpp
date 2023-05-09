@@ -19,5 +19,5 @@ void setup()
 void loop()
 {
     Serial.println(GetHeading());
-    delay(100);
+    delay(101);
 }
