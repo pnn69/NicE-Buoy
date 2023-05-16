@@ -2,7 +2,8 @@
 #define COMPASS_H_
 
 void CompassTask(void* arg);
-void InitCompass(void);
-float GetHeading();
+bool InitCompass(void);
+float GetHeading(void);
+float CompassAverage(float);
 
 #endif /* COMPASS_H_ */

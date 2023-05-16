@@ -8,12 +8,17 @@ https://github.com/pololu/lsm303-arduino/tree/master/examples
 
 #include <Wire.h>
 #include <LSM303.h>
+#include <stdio.h>
+#include <stdio.h>
+#include <math.h>
 
-bool LSM303ok = false;
+
+#define NUM_DIRECTIONS 5
 
 LSM303 compass;
 
-int InitCompass(void)
+bool LSM303ok = false;
+bool InitCompass(void)
 {
     LSM303ok = compass.init();
     compass.enableDefault();
@@ -22,14 +27,8 @@ int InitCompass(void)
     return LSM303ok;
 }
 
-#include <stdio.h>
-#include <stdio.h>
-#include <math.h>
-
-#define NUM_DIRECTIONS 8
 static int cbufpointer = 0;
 static float directions[NUM_DIRECTIONS];
-
 float CompassAverage(float in)
 {
     directions[cbufpointer++] = in;
@@ -58,7 +57,8 @@ float GetHeading(void)
     if (LSM303ok)
     {
         compass.read();
-        return (compass.heading());
+        //return compass.heading((LSM303::vector<int>){0, 0, 1});
+        return compass.heading();
     }
     return -1;
 }

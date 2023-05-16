@@ -1,9 +1,14 @@
 /*
 Indicator
 */
+#include <Arduino.h>
+#include "indicator.h"
 #include <FastLED.h>
 #define NUM_STRIPS 2
-#define NUM_LEDS_PER_STRIP 5
+#define NUM_LEDS_PER_STRIP 10
+
+QueueHandle_t indicatorque;
+
 CRGB leds[NUM_STRIPS][NUM_LEDS_PER_STRIP];
 
 void InitFastled(void)
@@ -14,18 +19,54 @@ void InitFastled(void)
 
 void IndicatorTask(void *arg)
 {
+    LMessage msg;
+    CRGB bbcolor;
+    CRGB sbcolor;
+    int bb = 0, sb = 0;
+    indicatorque = xQueueCreate(10, sizeof(LMessage));
     while (1)
     {
-        for (int x = 0; x < NUM_STRIPS; x++)
+        if (xQueueReceive(indicatorque, (void *)&msg, 0) == pdTRUE)
         {
-            // This inner loop will go over each led in the current strip, one at a time
-            for (int i = 0; i < NUM_LEDS_PER_STRIP; i++)
+            bb = msg.speedbb;
+            sb = msg.speedsb;
+        }
+        bbcolor = CRGB::Green;
+        if (bb < 0)
+        {
+            bbcolor = CRGB::Red;
+            bb = bb * -1;
+        }
+        sbcolor = CRGB::Green;
+
+        if (sb < 0)
+        {
+            sbcolor = CRGB::Red;
+            sb = sb * -1;
+        }
+
+        for (int i = 0; i < NUM_LEDS_PER_STRIP; i++)
+        {
+            if (bb > 0)
             {
-                leds[x][i] = CRGB::Red;
-                FastLED.show();
-                leds[x][i] = CRGB::Black;
+                leds[0][i] = bbcolor;
+                bb = bb - 10;
+            }
+            else
+            {
+                leds[0][i] = CRGB::Black;
+            }
+            if (sb > 0)
+            {
+                leds[1][i] = sbcolor;
+                sb = sb - 10;
+            }
+            else
+            {
+                leds[1][i] = CRGB::Black;
             }
         }
-        delay(100);
+        FastLED.show();
     }
+    delay(10);
 }
