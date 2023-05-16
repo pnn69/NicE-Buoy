@@ -6,6 +6,7 @@ https://dronebotworkshop.com/esp32-servo/
 #include <ESP32Servo.h>
 #include "esc.h"
 #include "indicator.h"
+#include "io.h"
 // cannels for esc
 
 QueueHandle_t escspeed;
@@ -14,8 +15,6 @@ Servo escbb;      // create servo object to control a servo
 Servo escsb;      // create servo object to control a servo
 int speed_bb = 0; // variable to store the speed bb
 int speed_sb = 0; // variable to store the speed sb
-int esc_bb_pin = 13;
-int esc_sb_pin = 14;
 
 // value = map(value, 0, 180, 1000, 2000);
 
@@ -45,16 +44,17 @@ void EscTask(void *arg)
         {
             speedbb = rcv_msg.speedbb;
             speedsb = rcv_msg.speedsb;
+            escbb.write(map(speedbb, -100, 100, 0, 180)); // tell servo to go to position in variable 'pos'
+            escsb.write(map(speedsb, -100, 100, 0, 180)); // tell servo to go to position in variable 'pos'
+            snd_msg.speedbb = speedbb;
+            snd_msg.speedsb = speedsb;
+
+            if (xQueueSend(indicatorque, (void *)&snd_msg, 10) != pdTRUE)
+            {
+                Serial.println("Error sending speed to indicatorque");
+            }
+            //Serial.printf("esc speed bb: %03d speed sb: %03d\r\n", speedbb, speedsb);
         }
-        escbb.write(map(speedbb, -100, 100, 0, 180)); // tell servo to go to position in variable 'pos'
-        escsb.write(map(speedsb, -100, 100, 0, 180)); // tell servo to go to position in variable 'pos'
-        snd_msg.speedbb = speedbb;
-        snd_msg.speedsb = speedsb;
-        if (xQueueSend(indicatorque, (void *)&snd_msg, 10) != pdTRUE)
-        {
-            Serial.println("Error sending speed to indicatorque");
-        }
-        Serial.printf("esc speed bb: %03d speed sb: %03d\r\n", speedbb, speedsb);
-        delay(100);
+        delay(10);
     }
 }

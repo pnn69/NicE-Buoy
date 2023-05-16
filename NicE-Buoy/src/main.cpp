@@ -13,12 +13,17 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "indicator.h"
 #include <math.h>
 #include <Wire.h>
+#include "io.h"
 
 unsigned long timestamp;
 static float heading = 0;
 static double gpslatitude = 52.32097917684152, gpslongitude = 4.965395389421265; // home
-static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357;   // steiger wsvop
+static double tglatitude = 52.29326976307006 , tglongitude = 4.9328016467347435; // grasveld wsvop
+//static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
 static unsigned long tgdir = 0, tgdistance = 0;
+unsigned long previousTime = 0;
+int speedbb = 0, speedsb = 0;
+bool ledstatus = false;
 
 double smallestAngle(double heading1, double heading2)
 {
@@ -50,11 +55,11 @@ double Angle2SpeedFactor(double angle)
     // cos(correctonAngle * M_PI / 180.0); not working for mall angles
     if (angle <= 90)
     {
-        return map(angle, 0, 90, 1, 0);
+        return (map(angle, 0, 90, 100, 0) / 100.0);
     }
     else
     {
-        return map(angle, 90, 180, 0, -1);
+        return (map(angle, 90, 180, 0, -100) / 100.0);
     }
 }
 
@@ -66,32 +71,37 @@ if heading > 180 SB motor 100% and BB motor less
 Speed is a function of distance start slowing donw if Buoy is less than 10 meter away for targed
 The distance is in meters.
 */
-void CalcEngingSpeed(float magheading, unsigned long tgheading, unsigned long tgdistance)
+void CalcEngingSpeed(float magheading, unsigned long tgheading, unsigned long tgdistance, int *bb, int *sb)
 {
     Message snd_msg;
     int speed = 0.0;
     double correctonAngle = 0;
-    if (tgdistance < 1)
+    if (tgdistance < 5)
     {
         speed = 0;
     }
     else
     {
-        speed = map(tgdistance, 1, 10, 10, 100); // map speed 1-10 meter -> 10-100%
+        tgdistance = constrain(tgdistance, 0, 20);
+        speed = map(tgdistance, 5, 20, 10, 100); // map speed 1-10 meter -> 10-100%
     }
 
     // Angle between calculated angel to steer and the current direction of the vessel
     correctonAngle = smallestAngle(magheading, tgheading);
+    // Serial.printf("correctonAngle %.4f Angle2SpeedFactor %.4f \n",correctonAngle,Angle2SpeedFactor(correctonAngle));
     if (determineDirection(magheading, tgheading))
     {
-        snd_msg.speedbb = speed;
-        snd_msg.speedsb = int(speed * Angle2SpeedFactor(correctonAngle));
+        *bb = speed;
+        *sb = int(speed * Angle2SpeedFactor(correctonAngle));
     }
     else
     {
-        snd_msg.speedbb = int(speed * Angle2SpeedFactor(correctonAngle));
-        snd_msg.speedsb = speed;
+        *bb = int(speed * Angle2SpeedFactor(correctonAngle));
+        *sb = speed;
     }
+
+    snd_msg.speedbb = *bb;
+    snd_msg.speedsb = *sb;
     if (xQueueSend(escspeed, (void *)&snd_msg, 10) != pdTRUE)
     {
         Serial.println("Error sending speed to esc");
@@ -101,48 +111,51 @@ void CalcEngingSpeed(float magheading, unsigned long tgheading, unsigned long tg
 void setup()
 {
     Serial.begin(115200);
+    pinMode(led_pin,OUTPUT);
+    digitalWrite(led_pin,false);
     Wire.begin();
     if (InitCompass())
     {
         Serial.println("Compass found!!");
-    }else{
+    }
+    else
+    {
         Serial.println("Compass ERROR!!");
     }
     InitGps();
-    // xTaskCreate(EscTask, "EscTask", 100, NULL, 1, NULL);
-    // xTaskCreate(IndicatorTask, "IndicatorTask", 100, NULL, 1, NULL);
+    xTaskCreate(EscTask, "EscTask", 2400, NULL, 5, NULL);
+    xTaskCreate(IndicatorTask, "IndicatorTask", 2400, NULL, 5, NULL);
     Serial.println("Setup done.");
     delay(1000);
     timestamp = millis();
 }
+
 void loop()
 {
     if (millis() % 100)
     { // do stuff every 100msec
         heading = CompassAverage(GetHeading());
-        //heading = GetHeading();
+        // heading = GetHeading();
         RouteToPoint(gpslatitude, gpslongitude, tglatitude, tglongitude, &tgdistance, &tgdir); // calculate heading and distance
-        if (tgdistance < 5000)                                                                // test if target is in range
+        if (tgdistance < 5000)                                                                 // test if target is in range
         {
-            //CalcEngingSpeed(heading, tgdir, tgdistance);
+            CalcEngingSpeed(heading, tgdir, tgdistance, &speedbb, &speedsb);
         }
         else
         {
-            //CalcEngingSpeed(heading, heading, 0); //do notihing
+            CalcEngingSpeed(heading, heading, 0,&speedbb, &speedsb); // do notihing
         }
+        GetNewGpsData(&gpslatitude, &gpslongitude);
     }
-    if (millis() % 1000)
+    if (millis() - previousTime > 1000)
     { // do stuff every second
-        Serial.printf("Compass heading : %3.2f\n\r", heading);
-        if (GetNewGpsData(&gpslatitude, &gpslongitude))
-        {
-            Serial.printf(" lat:%3.5f long:%3.5f\n\r", gpslatitude, gpslongitude);
-            Serial.printf(" Distance:%d direction:%d\n\r", tgdistance, tgdir);
-        }
-        else
-        {
-            Serial.println("No new gps data!");
-        }
+        previousTime = millis();
+        digitalWrite(led_pin,ledstatus);
+        ledstatus = !ledstatus;
+        Serial.printf("\n\rlat:%3.5f long:%3.5f\n\r", gpslatitude, gpslongitude);
+        Serial.printf("Compass heading: %3.0f Target heading: %3d \n\r", heading, tgdir);
+        Serial.printf("Distance:%d direction:%d\n\r", tgdistance, tgdir);
+        Serial.printf("Speed BB:%d Speed SB:%d\n\r", speedbb,speedsb);
     }
-    delay(1000);
+    delay(10);
 }

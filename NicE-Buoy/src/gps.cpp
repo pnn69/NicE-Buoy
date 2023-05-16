@@ -3,14 +3,12 @@
     https://github.com/plerup/espsoftwareserial/blob/main/examples/swsertest/swsertest.ino
 */
 #include <TinyGPSPlus.h>
-#include <SoftwareSerial.h>
 #include "io.h"
 
 #define GPSBAUD 9600
 
 double lat, lng, speed, dir;
 
-EspSoftwareSerial::UART gpsSerial;
 TinyGPSPlus gps;
 /*
     Display data trough the RS232 interface
@@ -40,9 +38,13 @@ void displayGPSInfo(void)
 int GetNewGpsData(double *gpslat, double *gpslng)
 {
     char in;
-    while (gpsSerial.available() > 0)
+    //while (gpsSerial.available() > 0)
+    while (Serial1.available() > 0)
     {
-        if (gps.encode(gpsSerial.read()))
+        //in = Serial1.read();
+        //Serial.print(in);
+        //if (gps.encode(in))
+        if (gps.encode(Serial1.read()))
             if (gps.location.isValid())
             {
                 *gpslat = gps.location.lat();
@@ -66,7 +68,7 @@ void RouteToPoint(double lat1, double lon1, double lat2, double lon2, unsigned l
 
 int InitGps(void)
 {
-    gpsSerial.begin(GPSBAUD, EspSoftwareSerial::SWSERIAL_8N1, GpsRX, GpsTX, false, 160);
+    Serial1.begin(GPSBAUD,SERIAL_8N1, GpsRX, GpsTX);
     Serial.println(PSTR("\nGPS port created"));
     return 0;
 }
