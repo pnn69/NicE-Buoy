@@ -14,12 +14,14 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include <math.h>
 #include <Wire.h>
 #include "io.h"
+#include "oled_ssd1306.h"
+#include "LiLlora.h"
 
 unsigned long timestamp;
 static float heading = 0;
-static double gpslatitude = 52.32097917684152, gpslongitude = 4.965395389421265; // home
-static double tglatitude = 52.29326976307006 , tglongitude = 4.9328016467347435; // grasveld wsvop
-//static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
+static double gpslatitude = 52.34567, gpslongitude = 4.567;                     // home
+static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
+// static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
 static unsigned long tgdir = 0, tgdistance = 0;
 unsigned long previousTime = 0;
 int speedbb = 0, speedsb = 0;
@@ -111,8 +113,9 @@ void CalcEngingSpeed(float magheading, unsigned long tgheading, unsigned long tg
 void setup()
 {
     Serial.begin(115200);
-    pinMode(led_pin,OUTPUT);
-    digitalWrite(led_pin,false);
+    pinMode(led_pin, OUTPUT);
+    digitalWrite(led_pin, false);
+    initSSD1306();
     Wire.begin();
     if (InitCompass())
     {
@@ -123,6 +126,7 @@ void setup()
         Serial.println("Compass ERROR!!");
     }
     InitGps();
+    InitLora();
     xTaskCreate(EscTask, "EscTask", 2400, NULL, 5, NULL);
     xTaskCreate(IndicatorTask, "IndicatorTask", 2400, NULL, 5, NULL);
     Serial.println("Setup done.");
@@ -132,6 +136,10 @@ void setup()
 
 void loop()
 {
+    if (loraOK)
+    {
+        polLora();
+    }
     if (millis() % 100)
     { // do stuff every 100msec
         heading = CompassAverage(GetHeading());
@@ -143,19 +151,22 @@ void loop()
         }
         else
         {
-            CalcEngingSpeed(heading, heading, 0,&speedbb, &speedsb); // do notihing
+            CalcEngingSpeed(heading, heading, 0, &speedbb, &speedsb); // do notihing
         }
         GetNewGpsData(&gpslatitude, &gpslongitude);
     }
     if (millis() - previousTime > 1000)
     { // do stuff every second
         previousTime = millis();
-        digitalWrite(led_pin,ledstatus);
+        digitalWrite(led_pin, ledstatus);
+        udateDisplay(speedsb, speedbb);
         ledstatus = !ledstatus;
         Serial.printf("\n\rlat:%3.5f long:%3.5f\n\r", gpslatitude, gpslongitude);
         Serial.printf("Compass heading: %3.0f Target heading: %3d \n\r", heading, tgdir);
         Serial.printf("Distance:%d direction:%d\n\r", tgdistance, tgdir);
-        Serial.printf("Speed BB:%d Speed SB:%d\n\r", speedbb,speedsb);
+        Serial.printf("Speed BB:%d Speed SB:%d\n\r", speedbb, speedsb);
+        // displayGPSInfo();
+        Serial.println();
     }
     delay(10);
 }

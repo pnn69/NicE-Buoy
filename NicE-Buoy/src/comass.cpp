@@ -13,7 +13,7 @@ https://github.com/pololu/lsm303-arduino/tree/master/examples
 #include <math.h>
 
 
-#define NUM_DIRECTIONS 5
+#define NUM_DIRECTIONS 50
 
 LSM303 compass;
 
