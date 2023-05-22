@@ -3,7 +3,8 @@
 
 extern bool displayOK;
 bool initSSD1306(void);
-void speedbars(int sb, int bb);
-void udateDisplay(int sb, int bb, unsigned long distance, unsigned long direction);
+void speedbars(int sb,int bb);
+void udateDisplay(void);
+
 
 #endif /* OLED_SSD1306_H_ */

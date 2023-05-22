@@ -29,7 +29,7 @@ bool initSSD1306(void)
     display.setCursor(6 * 7, 10);
     display.print("NicE BUOY");
     display.setCursor(3 * 7, 20);
-    display.printf("Sailing for you!");
+    display.print("Sailing for you!");
     display.display();
     return true;
 }
@@ -60,24 +60,23 @@ void speedbars(int sb, int bb)
         display.fillRect(128 - barwide, 32 + 32 * sb / 100, barwide, -32 * sb / 100, WHITE);
     }
 }
-void udateDisplay(int sb, int bb, unsigned long distance, unsigned long direction)
+
+void udateDisplay(void)
 {
     if (displayOK)
     {
         display.clearDisplay();
-        speedbars(sb, bb);
         display.setCursor(6 * 7, 10);
         display.print("NicE BUOY");
         display.setCursor(3 * 6, 20);
-        display.printf("Buoy %d",buoyID);
-        display.setCursor(barwide + 7, 30);
-        display.printf("Dist: %3dM", distance);
-        display.setCursor(barwide + 7, 40);
-        display.printf("Dir: %3d", direction);
-        display.setCursor(barwide + 7, 55);
-        display.printf("%4d%%", bb);
-        display.setCursor(128 - barwide - 5 * 7, 55);
-        display.printf("%4d%%", sb);
+        // display.printf("%2.5lf",buoy1.gpslatitude);
+        // display.print(" ");
+        // display.printf("%2.5lf",buoy1.gpslongitude);
+        display.printf("%d", buoy1.tgdir);
+        display.print(" ");
+        display.printf("%d", buoy1.tgdistance);
+        display.print(" ");
+        display.printf("%d", buoy1.rssi);
         display.display();
     }
 }

@@ -44,10 +44,8 @@ extern loraDataType loraIn;
 extern loraDataType loraOut;
 
 extern bool loraOK;
-void sendLoraPos(bool, double, double);
-void sendLoraDirHeadingAncher(bool answ, unsigned long tgdir, unsigned long tgdistance);
 bool InitLora(void);
-void sendLora(void);
 int polLora(void);
+bool sendLora(void);
 
 #endif /* LORA_H_ */
