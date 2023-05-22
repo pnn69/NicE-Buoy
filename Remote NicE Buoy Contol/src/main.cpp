@@ -123,6 +123,8 @@ void loop()
                 break;
             default:
                 Serial.println("unknown command");
+                // just for git test
+
                 break;
             }
             udateDisplay();
