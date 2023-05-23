@@ -43,8 +43,6 @@ void sendLora(void)
     LoRa.write(loraOut.destination); // add destination address
     LoRa.write(loraOut.sender);      // add sender address
     LoRa.write(loraOut.id);
-    LoRa.write(loraOut.rssi);
-    LoRa.write(loraOut.snr);
     LoRa.write(loraOut.messagelength);
     LoRa.print(loraOut.message);
     LoRa.endPacket(); // finish packet and send it
@@ -53,53 +51,62 @@ void sendLora(void)
 void sendLoraPos(bool answ, double lat, double lon)
 {
     String msg = String(lat, 8) + "," + String(lon, 8);
+    loraOut.destination = loraIn.sender;
+    loraOut.sender = buoyID;
+    if (answ)
+    {
+        loraOut.id = loraIn.id |= 1UL << 7 * answ; // set bit if is answer
+    }
+    else
+    {
+        loraOut.id = loraIn.id; // set bit if is answer
+    }
+    loraOut.messagelength = msg.length();
+    loraOut.message = msg;
+    sendLora();
+}
+void sendLoraAncherPos(bool answ)
+{
+    double lat, lon;
+    GetAnchorPosMemory(&lat, &lon);
+    String msg = String(lat, 8) + "," + String(lon, 8);
+    Serial.print("retrieved pos: ");
     Serial.println(msg);
     loraOut.destination = loraIn.sender;
     loraOut.sender = buoyID;
     if (answ)
     {
         loraOut.id = loraIn.id |= 1UL << 7 * answ; // set bit if is answer
-        loraOut.rssi = loraIn.rssi;
-        loraOut.snr = loraIn.snr;
     }
     else
     {
         loraOut.id = loraIn.id; // set bit if is answer
-        loraOut.rssi = 0;
-        loraOut.snr = -1;
     }
     loraOut.messagelength = msg.length();
     loraOut.message = msg;
     sendLora();
 }
-
 void sendLoraDirHeadingAncher(bool answ, unsigned long tgdir, unsigned long tgdistance)
 {
     String msg = String(tgdir) + "," + String(tgdistance);
-    Serial.println(msg);
     loraOut.destination = loraIn.sender;
     loraOut.sender = buoyID;
     if (answ)
     {
         loraOut.id = loraIn.id |= 1UL << 7 * answ; // set bit if is answer
-        loraOut.rssi = loraIn.rssi;
-        loraOut.snr = loraIn.snr;
     }
     else
     {
-        loraOut.id = loraIn.id; // set bit if is answer
-        loraOut.rssi = 0;
-        loraOut.snr = -1;
+        loraOut.id = loraIn.id; // request
     }
     loraOut.messagelength = msg.length();
     loraOut.message = msg;
     sendLora();
-
 }
 
-int onReceive(int packetSize)
+int polLora(void)
 {
-    if (packetSize == 0)
+    if (LoRa.parsePacket() == 0)
         return 0; // if there's no packet, return
 
     // read packet header bytes:
@@ -130,9 +137,4 @@ int onReceive(int packetSize)
     loraIn.rssi = LoRa.packetRssi();
     loraIn.snr = LoRa.packetSnr();
     return incomingMsgId;
-}
-
-int polLora(void)
-{
-    return (onReceive(LoRa.parsePacket()));
 }

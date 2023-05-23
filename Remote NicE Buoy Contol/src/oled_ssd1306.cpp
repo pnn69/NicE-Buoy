@@ -72,11 +72,11 @@ void udateDisplay(void)
         // display.printf("%2.5lf",buoy1.gpslatitude);
         // display.print(" ");
         // display.printf("%2.5lf",buoy1.gpslongitude);
-        display.printf("%d", buoy1.tgdir);
+        display.printf("%d", buoy[1].tgdir);
         display.print(" ");
-        display.printf("%d", buoy1.tgdistance);
+        display.printf("%d", buoy[1].tgdistance);
         display.print(" ");
-        display.printf("%d", buoy1.rssi);
+        display.printf("%d", buoy[1].rssi);
         display.display();
     }
 }

@@ -21,7 +21,6 @@ byte destination = 0x01;  // destination to send to
 struct loraDataType loraIn;
 struct loraDataType loraOut;
 
-
 bool loraOK = false;
 
 bool InitLora(void)
@@ -41,16 +40,16 @@ bool InitLora(void)
 
 void sendMessage(String outgoing)
 {
-    LoRa.beginPacket();            // start packet
-    LoRa.write(destination);       // add destination address
-    LoRa.write(localAddress);      // add sender address
-    //LoRa.write(msgCount);          // add message ID
-    LoRa.write(4);          // add message ID
+    LoRa.beginPacket();       // start packet
+    LoRa.write(destination);  // add destination address
+    LoRa.write(localAddress); // add sender address
+    LoRa.write(msgCount);          // add message ID
+    //LoRa.write(4);                 // add message ID
     LoRa.write(outgoing.length()); // add payload length
     LoRa.print(outgoing);          // add payload
     LoRa.endPacket();              // finish packet and send it
     msgCount++;                    // increment message ID
-    if (msgCount > 5)
+    if (msgCount > 10)
         msgCount = 0;
 }
 
@@ -61,17 +60,15 @@ bool sendLora(void)
     return 1;
 }
 
-int onReceive(int packetSize)
+int polLora(void)
 {
-    if (packetSize == 0)
+    if (LoRa.parsePacket() == 0)
         return 0; // if there's no packet, return
 
     // read packet header bytes:
     int recipient = LoRa.read();       // recipient address
-    byte sender = LoRa.read();         // sender address
+    int sender = LoRa.read();         // sender address
     char incomingMsgId = LoRa.read();  // incoming msg ID
-    char rssi = LoRa.read();            // rssi address
-    float snr = LoRa.read();           // rssi address
     byte incomingLength = LoRa.read(); // incoming msg length
     String incoming = "";
 
@@ -79,7 +76,6 @@ int onReceive(int packetSize)
     {
         incoming += (char)LoRa.read();
     }
-    Serial.println("Incomming data");
 
     if (incomingLength != incoming.length())
     { // check length for error
@@ -95,17 +91,17 @@ int onReceive(int packetSize)
     }
 
     // if message is for this device, or broadcast, print details:
-    Serial.println("Received from: 0x" + String(sender, HEX));
-    Serial.println("Sent to: 0x" + String(recipient, HEX));
-    if(incomingMsgId & ( 1 << 7)){
-        Serial.println("Is answer on request");
-    }
-    Serial.println("Message ID: " + String(incomingMsgId,DEC));
-    Serial.println("RSSI: " + String(LoRa.packetRssi()));
-    Serial.println("Snr: " + String(LoRa.packetSnr()));
-    Serial.println("Message length: " + String(incomingLength));
-    Serial.println("Message: " + incoming);
-    Serial.println();
+    // Serial.println("Received from: 0x" + String(sender, HEX));
+    // Serial.println("Sent to: 0x" + String(recipient, HEX));
+    // if(incomingMsgId & ( 1 << 7)){
+    //     Serial.println("Is answer on request");
+    // }
+    // Serial.println("Message ID: " + String(incomingMsgId,DEC));
+    // Serial.println("RSSI: " + String(LoRa.packetRssi()));
+    // Serial.println("Snr: " + String(LoRa.packetSnr()));
+    // Serial.println("Message length: " + String(incomingLength));
+    // Serial.println("Message: " + incoming);
+    // Serial.println();
     // Get and store the data
     loraIn.recipient = recipient;
     loraIn.sender = sender;
@@ -115,9 +111,4 @@ int onReceive(int packetSize)
     loraIn.rssi = LoRa.packetRssi();
     loraIn.snr = LoRa.packetSnr();
     return incomingMsgId;
-}
-
-int polLora(void)
-{
-    return onReceive(LoRa.parsePacket());
 }

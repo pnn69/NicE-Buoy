@@ -13,8 +13,6 @@ struct buoyDataType
     float snr;
 };
 
-extern buoyDataType buoy1;
-extern buoyDataType buoy2;
-extern buoyDataType buoy3;
+extern buoyDataType buoy[3];
 
 #endif /* GENERA:_H_ */

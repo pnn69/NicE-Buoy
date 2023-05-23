@@ -12,8 +12,8 @@ https://github.com/pololu/lsm303-arduino/tree/master/examples
 #include <stdio.h>
 #include <math.h>
 
-
 #define NUM_DIRECTIONS 50
+#define NUM_POSITIONS 50
 
 LSM303 compass;
 
@@ -32,7 +32,8 @@ static float directions[NUM_DIRECTIONS];
 float CompassAverage(float in)
 {
     directions[cbufpointer++] = in;
-    if(cbufpointer >=  NUM_DIRECTIONS){
+    if (cbufpointer >= NUM_DIRECTIONS)
+    {
         cbufpointer = 0;
     }
     float sum_x = 0.0, sum_y = 0.0, avg_dir;
@@ -57,7 +58,7 @@ float GetHeading(void)
     if (LSM303ok)
     {
         compass.read();
-        //return compass.heading((LSM303::vector<int>){0, 0, 1});
+        // return compass.heading((LSM303::vector<int>){0, 0, 1});
         return compass.heading();
     }
     return -1;
@@ -70,7 +71,28 @@ void CompassTask(void *arg)
     {
         float heading = GetHeading();
         heading = CompassAverage(heading);
-        Serial.printf("Direction: %3.2f\n\r",heading);
+        Serial.printf("Direction: %3.2f\n\r", heading);
         delay(100);
     }
+}
+
+static int pbufpointer = 0;
+static double lats[NUM_POSITIONS];
+static double lons[NUM_POSITIONS];
+void GpsAverage(double *lat, double *lon)
+{
+    lats[pbufpointer] = *lat;
+    lons[pbufpointer++] = *lon;
+    if (pbufpointer >= NUM_POSITIONS)
+    {
+        pbufpointer = 0;
+    }
+    double latss = 0, lonss = 0;
+    for (int i = 0; i < NUM_POSITIONS; i++)
+    {
+        latss += lats[i];
+        lonss += lons[i];
+    }
+    *lat = latss / NUM_POSITIONS;
+    *lon = lonss / NUM_POSITIONS;
 }

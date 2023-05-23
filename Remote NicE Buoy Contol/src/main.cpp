@@ -24,11 +24,54 @@ unsigned long previousTime = 0;
 int speedbb = 0, speedsb = 0;
 bool ledstatus = false;
 
-buoyDataType buoy1;
-buoyDataType buoy2;
-buoyDataType buoy3;
-// loraDataType loraIn;
-// loraDataType loraOut;
+const byte numChars = 32;
+char receivedChars[numChars]; // an array to store the received data
+boolean newData = false;
+int dataNumber = 0; // new for this version
+
+buoyDataType buoy[3];
+
+void recvWithEndMarker()
+{
+    static byte ndx = 0;
+    char endMarker = '\n';
+    char rc;
+
+    if (Serial.available() > 0)
+    {
+        rc = Serial.read();
+
+        if (rc != endMarker)
+        {
+            receivedChars[ndx] = rc;
+            ndx++;
+            if (ndx >= numChars)
+            {
+                ndx = numChars - 1;
+            }
+        }
+        else
+        {
+            receivedChars[ndx] = '\0'; // terminate the string
+            ndx = 0;
+            newData = true;
+        }
+    }
+}
+
+void showNewNumber()
+{
+    if (newData == true)
+    {
+        dataNumber = 0;                   // new for this version
+        dataNumber = atoi(receivedChars); // new for this version
+        Serial.print("This just in ... ");
+        Serial.println(receivedChars);
+        Serial.print("Data as Number ... "); // new for this version
+        Serial.println(dataNumber);          // new for this version
+        newData = false;
+    }
+}
 
 double smallestAngle(double heading1, double heading2)
 {
@@ -100,7 +143,8 @@ void loop()
             String decode = loraIn.message;
             char tmparr[100];
             Serial.printf("Messag recieved ");
-            Serial.print("RSSI: " + String(loraIn.rssi) + "\r\n");
+            Serial.print("Sender:" + String(loraIn.sender) + " RSSI:" + String(loraIn.rssi) + " msg:" + msg + "\r\n");
+            int id = loraIn.sender;
             switch (msg)
             {
             case (POSITION + 128):
@@ -108,18 +152,23 @@ void loop()
                 decode.toCharArray(tmparr, decode.length() + 1);
                 double lat1, lon1;
                 sscanf(tmparr, "%lf,%lf", &lat1, &lon1);
-                buoy1.gpslatitude = lat1;
-                buoy1.gpslongitude = lon1;
-                buoy1.rssi = loraIn.rssi;
+                buoy[1].gpslatitude = lat1;
+                buoy[1].gpslongitude = lon1;
+                buoy[1].rssi = loraIn.rssi;
                 break;
             case (GET_DIR_DISTANSE_ANCHER_POSITION + 128):
                 Serial.println("direction and distance target recieved on request!");
                 decode.toCharArray(tmparr, decode.length() + 1);
                 unsigned long dist, dir;
                 sscanf(tmparr, "%d,%d", &dir, &dist);
-                buoy1.tgdir = dir;
-                buoy1.tgdistance = dist;
-                buoy1.rssi = loraIn.rssi;
+                buoy[1].tgdir = dir;
+                buoy[1].tgdistance = dist;
+                buoy[1].rssi = loraIn.rssi;
+                break;
+            case SET_CURREND_POSITION_AS_ANCHER_POSITION + 128:
+                Serial.println("New anchor position recieved on request!");
+                Serial.println(String(loraIn.message));
+                buoy[1].rssi = loraIn.rssi;
                 break;
             default:
                 Serial.println("unknown command");
@@ -130,10 +179,13 @@ void loop()
             udateDisplay();
         }
     }
-    if (millis() - previousTime > 3000)
+    if (millis() - previousTime > 500)
     { // do stuff every second
         previousTime = millis();
         sendLora();
     }
+    recvWithEndMarker();
+    showNewNumber();
+
     delay(1);
 }

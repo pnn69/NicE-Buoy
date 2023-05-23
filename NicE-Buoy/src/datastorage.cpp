@@ -28,18 +28,18 @@ void BuoyID(bool store, char *id)
 /*
     Anchor position
 */
-void AnchorPosMemory(bool store, double *lat, double *lon)
+void GetAnchorPosMemory(double *lat, double *lon)
 {
-    if (store == true)
-    {
-        storage.putDouble("latAnchor", *lat);
-        storage.putDouble("lonAnchor", *lon);
-    }
-    else
-    {
-        *lat = storage.getDouble("latAnchor", 0);
-        *lon = storage.getDouble("lonAnchor", 0);
-    }
+    *lat = storage.getDouble("latAnchor", 0);
+    *lon = storage.getDouble("lonAnchor", 0);
+    Serial.printf("Ancher pos form memory  %lf %lf\r", *lat, *lon);
+}
+
+void SetAnchorPosMemory(double lat, double lon)
+{
+    Serial.printf("Store Ancher pos to memory  %lf %lf\r", lat, lon);
+    storage.putDouble("latAnchor", lat);
+    storage.putDouble("lonAnchor", lon);
 }
 
 /*

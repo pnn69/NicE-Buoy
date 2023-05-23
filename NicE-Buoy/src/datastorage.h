@@ -2,7 +2,8 @@
 #define DATASTORAGE_H_
 
 void InitMemory(void);
-void AnchorPosMemory(bool, double *, double *);
+void GetAnchorPosMemory(double *lat, double *lon);
+void SetAnchorPosMemory(double lat, double lon);
 void DockMemory(bool, double *, double *);
 void BuoyID(bool, char *);
 
