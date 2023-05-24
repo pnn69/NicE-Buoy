@@ -1,5 +1,6 @@
 #ifndef GGENERAL_H_
 #define GENERAL_H_
+#include "../../dependency/command.h"
 
 struct buoyDataType
 {
@@ -13,6 +14,6 @@ struct buoyDataType
     float snr;
 };
 
-extern buoyDataType buoy[3];
+extern buoyDataType buoy[4];
 
 #endif /* GENERA:_H_ */

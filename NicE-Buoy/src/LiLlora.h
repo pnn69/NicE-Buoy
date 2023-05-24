@@ -8,25 +8,6 @@
     rssi and snr are 1 and -1 at request (No rssi known)
 
 */
-#define POSITION 1
-#define BATTERY_LEVEL 2
-#define ANCHER_POSITION 3
-#define GET_DIR_DISTANSE_ANCHER_POSITION 4
-#define GET_ANCHER_POSITION_AS_TARGET_POSITION 5
-#define SET_CURREND_POSITION_AS_ANCHER_POSITION 6
-#define DOC_POSITION 7
-#define SET_DOC_POSITION 8
-#define BUOY_ID 9
-#define SET_BUOY_ID 10
-#define SET_SAIL_DIR_SPEED 11
-#define SET_SAIL_SPEED 12
-#define SET_SAIL_DIR 13
-#define SET_SBpwr_BBpwr 14
-#define BUOY_MODE 15
-
-#define SAIL_TO_DOC_POSITION 20
-
-#define SYSTEM_STASTUS 90
 
 struct loraDataType
 {
@@ -44,9 +25,10 @@ extern loraDataType loraIn;
 extern loraDataType loraOut;
 
 extern bool loraOK;
-void sendLoraPos(bool, double, double);
-void sendLoraAncherPos(bool);
-void sendLoraDirHeadingAncher(bool answ, unsigned long tgdir, unsigned long tgdistance);
+void sendLoraPos(int id,double lat, double lon);
+void sendLoraAnchorPos(bool);
+void sendLoraDirDistanceTarget(unsigned long tgdir, unsigned long tgdistance);
+void sendLoraDirDistanceSbSpeedBbSpeedTarget(unsigned long tgdir, unsigned long tgdistance, int sb,int bb);
 bool InitLora(void);
 void sendLora(void);
 int polLora(void);

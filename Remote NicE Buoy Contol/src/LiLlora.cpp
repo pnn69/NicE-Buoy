@@ -6,6 +6,8 @@ https://github.com/sandeepmistry/arduino-LoRa/blob/master/examples/LoRaDuplex/Lo
 #include <LoRa.h>
 #include "io.h"
 #include "LiLlora.h"
+#include "general.h"
+
 int counter = 0;
 
 const int csPin = 18;    // LoRa radio chip select
@@ -38,26 +40,34 @@ bool InitLora(void)
     return true;
 }
 
-void sendMessage(String outgoing)
+void sendMessage(String outgoing, int dest, int id)
 {
-    LoRa.beginPacket();       // start packet
-    LoRa.write(destination);  // add destination address
-    LoRa.write(localAddress); // add sender address
-    LoRa.write(msgCount);          // add message ID
-    //LoRa.write(4);                 // add message ID
+    LoRa.beginPacket();            // start packet
+    LoRa.write(dest);              // add destination address
+    LoRa.write(localAddress);      // add sender address
+    LoRa.write(id);                // add message ID
     LoRa.write(outgoing.length()); // add payload length
     LoRa.print(outgoing);          // add payload
     LoRa.endPacket();              // finish packet and send it
-    msgCount++;                    // increment message ID
-    if (msgCount > 10)
-        msgCount = 0;
 }
 
 bool sendLora(void)
 {
     String message = "HeLoRa World!"; // send a message
-    sendMessage(message);
+    sendMessage(message, 0xff, 0xfe);
     return 1;
+}
+
+void sendLoraSetTargetPosition(void)
+{
+    String message = ""; // send a message
+    sendMessage(message, 0x01, SET_TARGET_POSITION);
+}
+
+void sendLoraReset(void)
+{
+    String message = ""; // send a message
+    sendMessage(message, 0x01, RESET);
 }
 
 int polLora(void)
@@ -67,7 +77,7 @@ int polLora(void)
 
     // read packet header bytes:
     int recipient = LoRa.read();       // recipient address
-    int sender = LoRa.read();         // sender address
+    int sender = LoRa.read();          // sender address
     char incomingMsgId = LoRa.read();  // incoming msg ID
     byte incomingLength = LoRa.read(); // incoming msg length
     String incoming = "";
@@ -104,7 +114,14 @@ int polLora(void)
     // Serial.println();
     // Get and store the data
     loraIn.recipient = recipient;
-    loraIn.sender = sender;
+    if (sender < 4)
+    {
+        loraIn.sender = sender;
+    }
+    else
+    {
+        loraIn.sender = 0;
+    }
     loraIn.id = incomingMsgId;
     loraIn.messagelength = incomingLength;
     loraIn.message = incoming;

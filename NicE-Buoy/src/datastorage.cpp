@@ -13,31 +13,29 @@ void InitMemory(void)
 /*
     ID of the buoy
 */
-void BuoyID(bool store, char *id)
+void SetMemoryBuoyID(char id)
 {
-    if (store == true)
-    {
-        storage.putChar("NicE_BuoyID", *id);
-    }
-    else
-    {
-        *id = (storage.getChar("NicE_BuoyID", 0));
-    }
+    storage.putChar("NicE_BuoyID", id);
+    Serial.printf("Stored BuoyID in memory  %d\r", id);
+}
+void GetMemoryBuoyID(char *id)
+{
+    *id = (storage.getChar("NicE_BuoyID", 0));
+    Serial.printf("Get BuoyID from memory  %d\r", *id);
 }
 
 /*
     Anchor position
 */
-void GetAnchorPosMemory(double *lat, double *lon)
+void GetMemoryAnchorPos(double *lat, double *lon)
 {
     *lat = storage.getDouble("latAnchor", 0);
     *lon = storage.getDouble("lonAnchor", 0);
-    Serial.printf("Ancher pos form memory  %lf %lf\r", *lat, *lon);
+    Serial.printf("Ancher pos form memory  %.8lf %.8lf\r", *lat, *lon);
 }
-
-void SetAnchorPosMemory(double lat, double lon)
+void SetMemoryAnchorPos(double lat, double lon)
 {
-    Serial.printf("Store Ancher pos to memory  %lf %lf\r", lat, lon);
+    Serial.printf("Store Ancher pos to memory  %.8lf %.8lf\r", lat, lon);
     storage.putDouble("latAnchor", lat);
     storage.putDouble("lonAnchor", lon);
 }
@@ -45,16 +43,15 @@ void SetAnchorPosMemory(double lat, double lon)
 /*
     Dock position
 */
-void DockMemory(bool store, double *lat, double *lon)
+void SetMemoryDockPos(double lat, double lon)
 {
-    if (store == true)
-    {
-        storage.putDouble("latDock", *lat);
-        storage.putDouble("lonDock", *lon);
-    }
-    else
-    {
-        *lat = storage.getDouble("latDock", 0);
-        *lon = storage.getDouble("lonDock", 0);
-    }
+    Serial.printf("Store Doc pos in memory  %.8lf %.8lf\r", lat, lon);
+    storage.putDouble("latDock", lat);
+    storage.putDouble("lonDock", lon);
+}
+void GetMemoryDockPos(double *lat, double *lon)
+{
+    *lat = storage.getDouble("latDock", 0);
+    *lon = storage.getDouble("lonDock", 0);
+    Serial.printf("Get Doc pos form memory  %.8lf %.8lf\r", *lat, *lon);
 }

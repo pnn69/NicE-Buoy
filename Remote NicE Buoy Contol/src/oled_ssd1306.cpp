@@ -66,17 +66,44 @@ void udateDisplay(void)
     if (displayOK)
     {
         display.clearDisplay();
-        display.setCursor(6 * 7, 10);
-        display.print("NicE BUOY");
-        display.setCursor(3 * 6, 20);
-        // display.printf("%2.5lf",buoy1.gpslatitude);
-        // display.print(" ");
-        // display.printf("%2.5lf",buoy1.gpslongitude);
-        display.printf("%d", buoy[1].tgdir);
+        display.setCursor(0, 8);
+        display.printf("B1> %d", buoy[1].tgdir);
         display.print(" ");
         display.printf("%d", buoy[1].tgdistance);
         display.print(" ");
         display.printf("%d", buoy[1].rssi);
+
+        display.setCursor(3*8, 16);
+        display.printf("SB:%d%%", buoy[1].speedsb);
+        display.setCursor(9*8, 16);
+        display.printf("BB:%d%%", buoy[1].speedbb);
+
+        display.setCursor(0, 26);
+        display.printf("B2> %d", buoy[2].tgdir);
+        display.print(" ");
+        display.printf("%d", buoy[2].tgdistance);
+        display.print(" ");
+        display.printf("%d", buoy[2].rssi);
+
+        display.setCursor(3*8, 34);
+        display.printf("SB:%d%%", buoy[2].speedsb);
+        display.setCursor(9*8, 34);
+        display.printf("BB:%d%%", buoy[2].speedbb);
+
+
+        display.setCursor(0, 44);
+        display.printf("B3> %d", buoy[3].tgdir);
+        display.print(" ");
+        display.printf("%d", buoy[3].tgdistance);
+        display.print(" ");
+        display.printf("%d", buoy[3].rssi);
+
+        display.setCursor(3*8, 52);
+        display.printf("SB:%d%%", buoy[3].speedsb);
+        display.setCursor(9*8, 52);
+        display.printf("BB:%d%%", buoy[3].speedbb);
+
         display.display();
+
     }
 }

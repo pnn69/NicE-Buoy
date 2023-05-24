@@ -13,6 +13,7 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "oled_ssd1306.h"
 #include "LiLlora.h"
 #include "general.h"
+#include "../../dependency/command.h"
 
 unsigned long timestamp;
 static float heading = 0;
@@ -24,14 +25,12 @@ unsigned long previousTime = 0;
 int speedbb = 0, speedsb = 0;
 bool ledstatus = false;
 
-const byte numChars = 32;
+const byte numChars = 5;
 char receivedChars[numChars]; // an array to store the received data
-boolean newData = false;
-int dataNumber = 0; // new for this version
 
-buoyDataType buoy[3];
+buoyDataType buoy[4];
 
-void recvWithEndMarker()
+bool serialPortDataIn(int *nr)
 {
     static byte ndx = 0;
     char endMarker = '\n';
@@ -40,7 +39,6 @@ void recvWithEndMarker()
     if (Serial.available() > 0)
     {
         rc = Serial.read();
-
         if (rc != endMarker)
         {
             receivedChars[ndx] = rc;
@@ -54,23 +52,11 @@ void recvWithEndMarker()
         {
             receivedChars[ndx] = '\0'; // terminate the string
             ndx = 0;
-            newData = true;
+            *nr = atoi(receivedChars); // new for this version
+            return true;
         }
     }
-}
-
-void showNewNumber()
-{
-    if (newData == true)
-    {
-        dataNumber = 0;                   // new for this version
-        dataNumber = atoi(receivedChars); // new for this version
-        Serial.print("This just in ... ");
-        Serial.println(receivedChars);
-        Serial.print("Data as Number ... "); // new for this version
-        Serial.println(dataNumber);          // new for this version
-        newData = false;
-    }
+    return false;
 }
 
 double smallestAngle(double heading1, double heading2)
@@ -142,36 +128,48 @@ void loop()
         {
             String decode = loraIn.message;
             char tmparr[100];
+            unsigned long dist, dir;
+            int sb, bb;
             Serial.printf("Messag recieved ");
             Serial.print("Sender:" + String(loraIn.sender) + " RSSI:" + String(loraIn.rssi) + " msg:" + msg + "\r\n");
             int id = loraIn.sender;
             switch (msg)
             {
-            case (POSITION + 128):
-                Serial.println("Position recieved on request!");
+            case (POSITION):
+                Serial.println("Position recieved!");
                 decode.toCharArray(tmparr, decode.length() + 1);
                 double lat1, lon1;
                 sscanf(tmparr, "%lf,%lf", &lat1, &lon1);
-                buoy[1].gpslatitude = lat1;
-                buoy[1].gpslongitude = lon1;
-                buoy[1].rssi = loraIn.rssi;
+                buoy[loraIn.sender].gpslatitude = lat1;
+                buoy[loraIn.sender].gpslongitude = lon1;
+                buoy[loraIn.sender].rssi = loraIn.rssi;
                 break;
-            case (GET_DIR_DISTANSE_ANCHER_POSITION + 128):
-                Serial.println("direction and distance target recieved on request!");
+            case (DIR_DISTANSE_TO_TARGET_POSITION):
+                Serial.println("direction and distance target recieved!");
                 decode.toCharArray(tmparr, decode.length() + 1);
-                unsigned long dist, dir;
                 sscanf(tmparr, "%d,%d", &dir, &dist);
-                buoy[1].tgdir = dir;
-                buoy[1].tgdistance = dist;
-                buoy[1].rssi = loraIn.rssi;
+                buoy[loraIn.sender].tgdir = dir;
+                buoy[loraIn.sender].tgdistance = dist;
+                buoy[loraIn.sender].rssi = loraIn.rssi;
                 break;
-            case SET_CURREND_POSITION_AS_ANCHER_POSITION + 128:
-                Serial.println("New anchor position recieved on request!");
+            case (DIR_DISTANSE_SBSPPEED_BBSPEED_TARGET_POSITION):
+                Serial.println("direction and distance target recieved!");
+                decode.toCharArray(tmparr, decode.length() + 1);
+                sscanf(tmparr, "%d,%d,%d,%d", &dir, &dist, &sb, &bb);
+                buoy[loraIn.sender].tgdir = dir;
+                buoy[loraIn.sender].tgdistance = dist;
+                buoy[loraIn.sender].speedsb = sb;
+                buoy[loraIn.sender].speedbb = bb;
+                buoy[loraIn.sender].rssi = loraIn.rssi;
+                break;
+
+            case ANCHOR_POSITION:
+                Serial.println("New anchor position recieved!");
                 Serial.println(String(loraIn.message));
-                buoy[1].rssi = loraIn.rssi;
+                buoy[loraIn.sender].rssi = loraIn.rssi;
                 break;
             default:
-                Serial.println("unknown command");
+                Serial.println("unknown command: " + msg);
                 // just for git test
 
                 break;
@@ -182,10 +180,21 @@ void loop()
     if (millis() - previousTime > 500)
     { // do stuff every second
         previousTime = millis();
-        sendLora();
+        digitalWrite(led_pin, ledstatus);
+        ledstatus = !ledstatus;
     }
-    recvWithEndMarker();
-    showNewNumber();
+    int nr;
+    if (serialPortDataIn(&nr))
+    {
+        Serial.printf("New data on serial port: %d\n", nr);
+        if(nr == 18){
+            sendLoraSetTargetPosition();
+        }
+        if(nr == RESET){
+            sendLoraReset();
+        }
+
+    }
 
     delay(1);
 }

@@ -18,8 +18,9 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "LiLlora.h"
 #include "datastorage.h"
 #include "calculate.h"
+#include "../../dependency/command.h"
 
-unsigned long secstamp, msecstamp;
+unsigned long secstamp, msecstamp, updatestamp;
 static float heading = 0;
 static double gpslatitude = 0, gpslongitude = 0;                                //
 static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
@@ -83,7 +84,7 @@ void setup()
     pinMode(led_pin, OUTPUT);
     digitalWrite(led_pin, false);
     InitMemory();
-    BuoyID(0, &buoyID);
+    GetMemoryBuoyID(&buoyID);
     InitLora();
     InitCompass();
     InitGps();
@@ -103,30 +104,37 @@ void loop()
         int msg = polLora();
         if (msg)
         {
-            Serial.printf("Messag recieved ");
+            Serial.printf("Message recieved ");
             Serial.print("Sender:" + String(loraIn.sender) + " RSSI:" + String(loraIn.rssi) + " msg:" + msg + "\r\n");
             switch (msg)
             {
-            case POSITION:
-                sendLoraPos(1, gpslatitude, gpslongitude);
+            case GET_POSITION:
+                sendLoraPos(POSITION, gpslatitude, gpslongitude);
                 break;
-            case GET_DIR_DISTANSE_ANCHER_POSITION:
-                sendLoraDirHeadingAncher(1, tgdir, tgdistance);
+            case GET_DIR_DISTANSE_TARGET_POSITION:
+                sendLoraDirDistanceTarget(tgdir, tgdistance);
                 break;
-            case GET_ANCHER_POSITION_AS_TARGET_POSITION:
-                Serial.print("Set target to  ancher position: ");
-                // GetAnchorPosMemory(&tglatitude, &tglongitude);
+            case SET_ANCHOR_POSITION_AS_TARGET_POSITION:
+                Serial.print("Set target to  ANCHOR position");
+                GetMemoryAnchorPos(&tglatitude, &tglongitude);
+                sendLoraPos(TARGET_POSITION, tglatitude, tglongitude);
                 break;
-            case SET_CURREND_POSITION_AS_ANCHER_POSITION:
+            case SET_CURREND_POSITION_AS_ANCHOR_POSITION:
                 if (gpslatitude != 0 || gpslongitude != 0)
                 {
-                    Serial.print("storing new anchher position: ");
-                    Serial.print(gpslatitude);
-                    Serial.print(",");
-                    Serial.println(gpslongitude);
-                    // SetAnchorPosMemory(gpslatitude, gpslongitude); // put current position in memory as anchor position
+                    SetMemoryAnchorPos(gpslatitude, gpslongitude); // put current position in memory as anchor position
                 }
-                sendLoraAncherPos(1); // Send new positon back.
+                sendLoraPos(ANCHOR_POSITION, tglatitude, tglongitude);
+                break;
+            case SET_TARGET_POSITION:
+                if (gpslatitude != 0 || gpslongitude != 0)
+                {
+                    tglatitude = gpslatitude;
+                    tglongitude = gpslongitude;
+                }
+                break;
+            case RESET:
+                ESP.restart();
                 break;
             default:
                 // Serial.println("unknown command");
@@ -138,6 +146,16 @@ void loop()
     { // do stuff every 100 milisecond
         msecstamp = millis();
         heading = CompassAverage(GetHeading());
+    }
+
+    // do stuff every 0.5 second
+    if (millis() - secstamp > 500)
+    {
+        secstamp = millis();
+        if (GetNewGpsData(&gpslatitude, &gpslongitude))
+        {
+            // GpsAverage(&gpslatitude, &gpslongitude);
+        }
         RouteToPoint(gpslatitude, gpslongitude, tglatitude, tglongitude, &tgdistance, &tgdir); // calculate heading and distance
         if (tgdistance < 5000)                                                                 // test if target is in range
         {
@@ -151,18 +169,16 @@ void loop()
         snd_msg.speedbb = speedbb;
         snd_msg.speedsb = speedsb;
         xQueueSend(escspeed, (void *)&snd_msg, 10);
-        if (GetNewGpsData(&gpslatitude, &gpslongitude))
-        {
-            GpsAverage(&gpslatitude, &gpslongitude);
-        }
-    }
-
-    if (millis() - secstamp > 500)
-    { // do stuff every second
-        secstamp = millis();
         digitalWrite(led_pin, ledstatus);
         ledstatus = !ledstatus;
         udateDisplay(speedsb, speedbb, tgdistance, tgdir);
+    }
+
+    // do stuff every 5 second
+    if (millis() - updatestamp > 5000)
+    {
+        updatestamp = millis();
+        sendLoraDirDistanceSbSpeedBbSpeedTarget(tgdir, tgdistance, speedbb, speedsb);
     }
 
     recvWithEndMarker();
