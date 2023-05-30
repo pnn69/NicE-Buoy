@@ -18,6 +18,7 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "LiLlora.h"
 #include "datastorage.h"
 #include "calculate.h"
+#include "general.h"
 #include "../../dependency/command.h"
 
 unsigned long secstamp, msecstamp, updatestamp;
@@ -29,7 +30,7 @@ static unsigned long tgdir = 0, tgdistance = 0;
 int speedbb = 0, speedsb = 0;
 bool ledstatus = false;
 char buoyID = 0;
-
+char status = LOCK_ANCHOR_POS; // IDLE
 const byte numChars = 32;
 char receivedChars[numChars]; // an array to store the received data
 boolean newData = false;
@@ -92,6 +93,7 @@ void setup()
     xTaskCreate(EscTask, "EscTask", 2400, NULL, 5, NULL);
     xTaskCreate(IndicatorTask, "IndicatorTask", 2400, NULL, 5, NULL);
     Serial.printf("BuoyID = %d\n\r", buoyID);
+    Serial.printf("Status = %d\n\r", status);
     Serial.println("Setup done.");
     secstamp = millis();
     msecstamp = millis();
@@ -165,13 +167,43 @@ void loop()
         {
             CalcEngingSpeed(heading, heading, 0, &speedbb, &speedsb); // do notihing
         }
+
+        /*
+        Do stuff depending on the status of the buoy
+        */
+        switch (status)
+        {
+        case IDLE:
+            speedbb = 0;
+            speedsb = 0;
+            break;
+        case LOCK:
+            speedbb = speedbb;
+            speedsb = speedsb;
+            break;
+        case UNLOCK:
+            status = IDLE;
+            break;
+        case LOCK_ANCHOR_POS:
+            GetMemoryAnchorPos(&tglatitude, &tglongitude);
+            status = LOCK;
+            break;
+        case LOCK_POS:
+            tglatitude = gpslatitude;
+            tglongitude = gpslongitude;
+            status = LOCK;
+            break;
+        default:
+            // Serial.println("unknown command");
+            break;
+        }
         Message snd_msg;
         snd_msg.speedbb = speedbb;
         snd_msg.speedsb = speedsb;
         xQueueSend(escspeed, (void *)&snd_msg, 10);
         digitalWrite(led_pin, ledstatus);
         ledstatus = !ledstatus;
-        udateDisplay(speedsb, speedbb, tgdistance, tgdir);
+        udateDisplay(speedsb, speedbb, tgdistance, tgdir,gpsvalid);
     }
 
     // do stuff every 5 second

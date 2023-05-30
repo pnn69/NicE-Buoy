@@ -21,7 +21,7 @@ void SetMemoryBuoyID(char id)
 void GetMemoryBuoyID(char *id)
 {
     *id = (storage.getChar("NicE_BuoyID", 0));
-    Serial.printf("Get BuoyID from memory  %d\r", *id);
+    Serial.printf("Get BuoyID from memory  %d\r\n", *id);
 }
 
 /*
@@ -31,11 +31,11 @@ void GetMemoryAnchorPos(double *lat, double *lon)
 {
     *lat = storage.getDouble("latAnchor", 0);
     *lon = storage.getDouble("lonAnchor", 0);
-    Serial.printf("Ancher pos form memory  %.8lf %.8lf\r", *lat, *lon);
+    Serial.printf("Anchor pos form memory  %.8lf %.8lf\r\n", *lat, *lon);
 }
 void SetMemoryAnchorPos(double lat, double lon)
 {
-    Serial.printf("Store Ancher pos to memory  %.8lf %.8lf\r", lat, lon);
+    Serial.printf("Store anchor pos to memory  %.8lf %.8lf\r\n", lat, lon);
     storage.putDouble("latAnchor", lat);
     storage.putDouble("lonAnchor", lon);
 }
@@ -45,7 +45,7 @@ void SetMemoryAnchorPos(double lat, double lon)
 */
 void SetMemoryDockPos(double lat, double lon)
 {
-    Serial.printf("Store Doc pos in memory  %.8lf %.8lf\r", lat, lon);
+    Serial.printf("Store Doc pos in memory  %.8lf %.8lf\r\n", lat, lon);
     storage.putDouble("latDock", lat);
     storage.putDouble("lonDock", lon);
 }
@@ -53,5 +53,5 @@ void GetMemoryDockPos(double *lat, double *lon)
 {
     *lat = storage.getDouble("latDock", 0);
     *lon = storage.getDouble("lonDock", 0);
-    Serial.printf("Get Doc pos form memory  %.8lf %.8lf\r", *lat, *lon);
+    Serial.printf("Get Doc pos form memory  %.8lf %.8lf\r\n", *lat, *lon);
 }

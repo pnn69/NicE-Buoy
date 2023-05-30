@@ -8,6 +8,7 @@
 #define GPSBAUD 9600
 
 double lat, lng, speed, dir;
+bool gpsvalid =  false;
 
 TinyGPSPlus gps;
 
@@ -129,9 +130,11 @@ int GetNewGpsData(double *gpslat, double *gpslng)
             {
                 *gpslat = gps.location.lat();
                 *gpslng = gps.location.lng();
+                gpsvalid = true;
                 return 1;
             }
     }
+    gpsvalid = false;
     return 0;
 }
 /*

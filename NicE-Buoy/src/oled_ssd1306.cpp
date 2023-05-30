@@ -60,7 +60,7 @@ void speedbars(int sb, int bb)
         display.fillRect(128 - barwide, 32 + 32 * sb / 100, barwide, -32 * sb / 100, WHITE);
     }
 }
-void udateDisplay(int sb, int bb, unsigned long distance, unsigned long direction)
+void udateDisplay(int sb, int bb, unsigned long distance, unsigned long direction, bool fix)
 {
     if (displayOK)
     {
@@ -69,13 +69,19 @@ void udateDisplay(int sb, int bb, unsigned long distance, unsigned long directio
         display.setCursor(6 * 7, 10);
         display.print("NicE BUOY");
         display.setCursor(3 * 6, 20);
-        display.printf("Buoy %d",buoyID);
+        display.printf("Buoy %d", buoyID);
         display.setCursor(barwide + 7, 30);
         display.printf("Dist: %3dM", distance);
         display.setCursor(barwide + 7, 40);
         display.printf("Dir: %3d", direction);
         display.setCursor(barwide + 7, 55);
         display.printf("%4d%%", bb);
+        display.setCursor(128/2, 55);
+        if(fix){
+            display.printf("*");
+        }else{
+            display.printf("O");
+        }
         display.setCursor(128 - barwide - 5 * 7, 55);
         display.printf("%4d%%", sb);
         display.display();

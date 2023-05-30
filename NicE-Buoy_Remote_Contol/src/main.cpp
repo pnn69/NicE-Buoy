@@ -13,6 +13,7 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "oled_ssd1306.h"
 #include "LiLlora.h"
 #include "general.h"
+#include "webinterface.h"
 #include "../../dependency/command.h"
 
 unsigned long timestamp;
@@ -28,7 +29,7 @@ bool ledstatus = false;
 const byte numChars = 5;
 char receivedChars[numChars]; // an array to store the received data
 
-buoyDataType buoy[4];
+buoyDataType buoy[NR_BUOYS];
 
 bool serialPortDataIn(int *nr)
 {
@@ -59,53 +60,6 @@ bool serialPortDataIn(int *nr)
     return false;
 }
 
-double smallestAngle(double heading1, double heading2)
-{
-    double angle = fmod(heading2 - heading1 + 360, 360); // Calculate the difference and keep it within 360 degrees
-    if (angle > 180)
-    {
-        angle = 360 - angle; // Take the smaller angle between the two
-    }
-    return angle;
-}
-
-int determineDirection(double heading1, double heading2)
-{
-    double angle = fmod(heading2 - heading1 + 360, 360); // Calculate the difference and keep it within 360 degrees
-    if (angle > 180)
-    {
-        return 1; // Angle is greater than 180, SB (turn right)
-    }
-    else
-    {
-        return 0; // Angle is less than or equal to 180, BB (Turn left)
-    }
-}
-/*
-    adjust speed Cosinus does not work here. We have to do it manually
-*/
-double Angle2SpeedFactor(double angle)
-{
-    // cos(correctonAngle * M_PI / 180.0); not working for mall angles
-    if (angle <= 90)
-    {
-        return (map(angle, 0, 90, 100, 0) / 100.0);
-    }
-    else
-    {
-        return (map(angle, 90, 180, 0, -100) / 100.0);
-    }
-}
-
-/*
-calculate the speed of both motors depeniding on the angle and distance to the target.
-Send the result to the esc module
-if heading < 180 BB motor 100% and SB motor less
-if heading > 180 SB motor 100% and BB motor less
-Speed is a function of distance start slowing donw if Buoy is less than 10 meter away for targed
-The distance is in meters.
-*/
-
 void setup()
 {
     Serial.begin(115200);
@@ -113,14 +67,28 @@ void setup()
     digitalWrite(led_pin, false);
     initSSD1306();
     Wire.begin();
-    InitLora();
+    //InitLora();
+    websetup();
     Serial.println("Setup done.");
     delay(1000);
+// fill buoy with dummy data
+#ifdef DEBUG
+    buoy[1].gpslatitude = 52.1;
+    buoy[1].gpslongitude = 4.1;
+    buoy[1].rssi = loraIn.rssi -11;
+    buoy[2].gpslatitude = 52.2;
+    buoy[2].gpslongitude = 4.2;
+    buoy[2].rssi = loraIn.rssi -22;
+    buoy[3].gpslatitude = 52.3;
+    buoy[3].gpslongitude = 4.3;
+    buoy[3].rssi = loraIn.rssi -33;
+#endif
     timestamp = millis();
 }
 
 void loop()
 {
+    webloop();
     if (loraOK)
     {
         int msg = polLora();
@@ -140,38 +108,48 @@ void loop()
                 decode.toCharArray(tmparr, decode.length() + 1);
                 double lat1, lon1;
                 sscanf(tmparr, "%lf,%lf", &lat1, &lon1);
-                buoy[loraIn.sender].gpslatitude = lat1;
-                buoy[loraIn.sender].gpslongitude = lon1;
-                buoy[loraIn.sender].rssi = loraIn.rssi;
+                if (NR_BUOYS > loraIn.sender)
+                {
+                    buoy[loraIn.sender].gpslatitude = lat1;
+                    buoy[loraIn.sender].gpslongitude = lon1;
+                    buoy[loraIn.sender].rssi = loraIn.rssi;
+                }
                 break;
             case (DIR_DISTANSE_TO_TARGET_POSITION):
                 Serial.println("direction and distance target recieved!");
                 decode.toCharArray(tmparr, decode.length() + 1);
                 sscanf(tmparr, "%d,%d", &dir, &dist);
-                buoy[loraIn.sender].tgdir = dir;
-                buoy[loraIn.sender].tgdistance = dist;
-                buoy[loraIn.sender].rssi = loraIn.rssi;
+                if (NR_BUOYS > loraIn.sender)
+                {
+                    buoy[loraIn.sender].tgdir = dir;
+                    buoy[loraIn.sender].tgdistance = dist;
+                    buoy[loraIn.sender].rssi = loraIn.rssi;
+                }
                 break;
             case (DIR_DISTANSE_SBSPPEED_BBSPEED_TARGET_POSITION):
                 Serial.println("direction and distance target recieved!");
                 decode.toCharArray(tmparr, decode.length() + 1);
                 sscanf(tmparr, "%d,%d,%d,%d", &dir, &dist, &sb, &bb);
-                buoy[loraIn.sender].tgdir = dir;
-                buoy[loraIn.sender].tgdistance = dist;
-                buoy[loraIn.sender].speedsb = sb;
-                buoy[loraIn.sender].speedbb = bb;
-                buoy[loraIn.sender].rssi = loraIn.rssi;
+                if (NR_BUOYS > loraIn.sender)
+                {
+                    buoy[loraIn.sender].tgdir = dir;
+                    buoy[loraIn.sender].tgdistance = dist;
+                    buoy[loraIn.sender].speedsb = sb;
+                    buoy[loraIn.sender].speedbb = bb;
+                    buoy[loraIn.sender].rssi = loraIn.rssi;
+                }
                 break;
 
             case ANCHOR_POSITION:
                 Serial.println("New anchor position recieved!");
                 Serial.println(String(loraIn.message));
-                buoy[loraIn.sender].rssi = loraIn.rssi;
+                if (NR_BUOYS > loraIn.sender)
+                {
+                    buoy[loraIn.sender].rssi = loraIn.rssi;
+                }
                 break;
             default:
                 Serial.println("unknown command: " + msg);
-                // just for git test
-
                 break;
             }
             udateDisplay();
@@ -187,13 +165,14 @@ void loop()
     if (serialPortDataIn(&nr))
     {
         Serial.printf("New data on serial port: %d\n", nr);
-        if(nr == 18){
+        if (nr == SET_TARGET_POSITION)
+        { // 18
             sendLoraSetTargetPosition();
         }
-        if(nr == RESET){
+        if (nr == RESET)
+        { // 36
             sendLoraReset();
         }
-
     }
 
     delay(1);
