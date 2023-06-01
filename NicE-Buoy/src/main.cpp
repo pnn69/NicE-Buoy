@@ -36,7 +36,7 @@ char receivedChars[numChars]; // an array to store the received data
 boolean newData = false;
 int dataNumber = 0; // new for this version
 
-void recvWithEndMarker()
+bool serialPortDataIn(int *nr)
 {
     static byte ndx = 0;
     char endMarker = '\n';
@@ -45,7 +45,6 @@ void recvWithEndMarker()
     if (Serial.available() > 0)
     {
         rc = Serial.read();
-
         if (rc != endMarker)
         {
             receivedChars[ndx] = rc;
@@ -59,23 +58,11 @@ void recvWithEndMarker()
         {
             receivedChars[ndx] = '\0'; // terminate the string
             ndx = 0;
-            newData = true;
+            *nr = atoi(receivedChars); // new for this version
+            return true;
         }
     }
-}
-
-void showNewNumber()
-{
-    if (newData == true)
-    {
-        dataNumber = 0;                   // new for this version
-        dataNumber = atoi(receivedChars); // new for this version
-        Serial.print("This just in ... ");
-        Serial.println(receivedChars);
-        Serial.print("Data as Number ... "); // new for this version
-        Serial.println(dataNumber);          // new for this version
-        newData = false;
-    }
+    return false;
 }
 
 void setup()
@@ -122,6 +109,10 @@ void loop()
             case GET_DIR_DISTANSE_TARGET_POSITION:
                 sendLoraDirDistanceTarget(tgdir, tgdistance);
                 break;
+            case GET_DIR_DISTANSE_SPEED_SBSPPEED_BBSPEED_TARGET_POSITION_STATUS:
+                sendLoraDirDistanceSbSpeedBbSpeedTargetStatus(tgdir, tgdistance, speed, speedbb, speedsb, (int)heading, status);
+                break;
+
             case SET_ANCHOR_POSITION_AS_TARGET_POSITION:
                 // Serial.print("Set target to  ANCHOR position");
                 GetMemoryAnchorPos(&tglatitude, &tglongitude);
@@ -158,6 +149,8 @@ void loop()
                     tglatitude = gpslatitude;
                     tglongitude = gpslongitude;
                 }
+                sendLoraDocPositonSet(tglatitude, tglongitude);
+                delay(100);
                 status = LOCKED;
                 break;
             case SET_SAIL_DIR_SPEED:
@@ -174,60 +167,58 @@ void loop()
                 }
                 cdir = ddir;
                 status = REMOTE;
+                CalcEngingSpeed(cdir, (unsigned long)heading, cspeed, &speedbb, &speedsb);
+                sendLoraSailDirSpeed((int)heading, cspeed, speedbb, speedsb);
                 break;
             case SET_BUOY_MODE_IDLE:
                 status = IDLE;
+                break;
+            case SET_STATUS:
+                decode.toCharArray(tmparr, decode.length() + 1);
+                sscanf(tmparr, "%d", &status);
                 break;
 
             case RESET:
                 ESP.restart();
                 break;
             default:
-                Serial.println("unknown command");
+                // Serial.println("unknown command");
                 break;
             }
         }
     }
-    if (millis() - secstamp > 100)
-    { // do stuff every 100 milisecond
+    /*
+     do stuff every 100 milisecond
+    */
+    if (millis() - msecstamp >= 10)
+    {
         msecstamp = millis();
+        digitalWrite(led_pin, ledstatus);
+        ledstatus = false;
         heading = CompassAverage(GetHeading());
     }
 
     // do stuff every 0.5 second
-    if (millis() - secstamp > 1000)
+    if (millis() - secstamp >= 500)
     {
         secstamp = millis();
         if (GetNewGpsData(&gpslatitude, &gpslongitude))
         {
             // GpsAverage(&gpslatitude, &gpslongitude);
         }
-        RouteToPoint(gpslatitude, gpslongitude, tglatitude, tglongitude, &tgdistance, &tgdir); // calculate heading and distance
-        if (tgdistance < 5000)                                                                 // test if target is in range
-        {
-            speed = CalcEngingSpeedBuoy(heading, tgdir, tgdistance, &speedbb, &speedsb);
-        }
-        else
-        {
-            speed = CalcEngingSpeedBuoy(heading, heading, 0, &speedbb, &speedsb); // do notihing
-        }
-
         /*
         Do stuff depending on the status of the buoy
         */
         switch (status)
         {
         case IDLE:
+            speed = 0;
             speedbb = 0;
             speedsb = 0;
             break;
         case REMOTE:
             CalcEngingSpeed(cdir, (unsigned long)heading, cspeed, &speedbb, &speedsb);
-            updatestamp = 0;
             // Serial.printf("Sail tgdir:%d heading:%.0f speed:%d bb:%d sb:%d\r\n", cdir, heading, cspeed, speedbb, speedsb);
-            break;
-        case LOCKED:
-            status = LOCKED;
             break;
         case UNLOCK:
             status = IDLE;
@@ -242,7 +233,15 @@ void loop()
             status = LOCKED;
             break;
         default:
-            Serial.println("unknown command");
+            RouteToPoint(gpslatitude, gpslongitude, tglatitude, tglongitude, &tgdistance, &tgdir); // calculate heading and distance
+            if (tgdistance < 5000)                                                                 // test if target is in range
+            {
+                speed = CalcEngingSpeedBuoy(heading, tgdir, tgdistance, &speedbb, &speedsb);
+            }
+            else
+            {
+                speed = CalcEngingSpeedBuoy(heading, heading, 0, &speedbb, &speedsb); // do notihing
+            }
             break;
         }
         Message snd_msg;
@@ -250,20 +249,14 @@ void loop()
         snd_msg.speedsb = speedsb;
         xQueueSend(escspeed, (void *)&snd_msg, 10);
         digitalWrite(led_pin, ledstatus);
-        ledstatus = !ledstatus;
         udateDisplay(speedsb, speedbb, tgdistance, tgdir, (unsigned long)heading, gpsvalid);
     }
 
-    // do stuff every 5 second
-    if (millis() - updatestamp > 1000)
+    int nr;
+    if (serialPortDataIn(&nr))
     {
-        updatestamp = millis();
-        sendLoraDirDistanceSbSpeedBbSpeedTarget(tgdir, tgdistance, speed, speedbb, speedsb, (int)heading);
-        delay(100);
+        Serial.printf("New data on serial port: %d\n", nr);
     }
-
-    recvWithEndMarker();
-    showNewNumber();
 
     delay(1);
 }

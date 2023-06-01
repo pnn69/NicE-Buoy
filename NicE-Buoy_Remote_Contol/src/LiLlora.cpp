@@ -42,10 +42,7 @@ bool InitLora(void)
 
 void sendMessage(String outgoing, int dest, int id)
 {
-    Serial.print("Lora id:");
-    Serial.print(id);
-    Serial.print(" msg>");
-    Serial.println(outgoing);
+    ledstatus = true;
     LoRa.beginPacket();            // start packet
     LoRa.write(dest);              // add destination address
     LoRa.write(localAddress);      // add sender address
@@ -62,10 +59,16 @@ bool sendLora(int buoy)
     return 1;
 }
 
+void sendLoraSetGetPosition(int buoy)
+{
+    String msg = ""; // send a message
+    sendMessage(msg, buoy, GET_DIR_DISTANSE_SPEED_SBSPPEED_BBSPEED_TARGET_POSITION_STATUS);
+}
 void sendLoraSetTargetPosition(int buoy)
 {
     String msg = ""; // send a message
     sendMessage(msg, buoy, SET_TARGET_POSITION);
+    Serial.println("Lora out:" + msg + " " + SET_TARGET_POSITION);
 }
 
 void sendLoraSetDocPosition(int buoy)
@@ -82,7 +85,7 @@ void sendLoraGoToDocPosition(int buoy)
 
 void sendLoraSetSailDirSpeed(int buoy, int tgdir, int speed)
 {
-    String msg = String(tgdir) + "," + speed;
+    String msg = String(tgdir) + "," + String(speed);
     sendMessage(msg, buoy, SET_SAIL_DIR_SPEED);
 }
 
@@ -98,11 +101,16 @@ void sendLoraReset(int buoy)
     sendMessage(msg, buoy, RESET);
 }
 
+void sendLoraStatus(int buoy, int status)
+{
+    String msg = String(status); // send a message
+    sendMessage(msg, buoy, SET_STATUS);
+}
+
 int polLora(void)
 {
     if (LoRa.parsePacket() == 0)
         return 0; // if there's no packet, return
-
     // read packet header bytes:
     int recipient = LoRa.read();       // recipient address
     int sender = LoRa.read();          // sender address
@@ -120,14 +128,13 @@ int polLora(void)
         Serial.println("error: message length does not match length");
         return 0; // skip rest of function
     }
-
+    ledstatus = true;
     // if the recipient isn't this device or broadcast,
     if (recipient != localAddress && recipient != 0xFF)
     {
         Serial.println("This message is not for me.");
         return 0; // skip rest of function
     }
-
     loraIn.recipient = recipient;
     if (sender < 4)
     {

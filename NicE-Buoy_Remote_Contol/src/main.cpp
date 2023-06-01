@@ -17,7 +17,7 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "menu.h"
 #include "../../dependency/command.h"
 
-unsigned long timestamp;
+unsigned long timestamp, msecstamp;
 static float heading = 0;
 static double gpslatitude = 52.34567, gpslongitude = 4.567;                     // home
 static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
@@ -85,6 +85,7 @@ void setup()
     buoy[3].rssi = loraIn.rssi - 33;
 #endif
     timestamp = millis();
+    msecstamp = millis();
 }
 
 void loop()
@@ -98,14 +99,14 @@ void loop()
             String decode = loraIn.message;
             char tmparr[100];
             unsigned long dist, dir;
-            int sp, sb, bb, he;
-            Serial.printf("Lora messag recieved ");
-            Serial.print("Sender:" + String(loraIn.sender) + " RSSI:" + String(loraIn.rssi) + " msg:" + msg + "\r\n");
+            int sp, sb, bb, he, st;
+            // Serial.printf("Lora messag recieved ");
+            // Serial.print("Sender:" + String(loraIn.sender) + " RSSI:" + String(loraIn.rssi) + " msg:" + msg + "\r\n");
             int id = loraIn.sender;
             switch (msg)
             {
             case (POSITION):
-                Serial.println("Position recieved!");
+                // Serial.println("Position recieved!");
                 decode.toCharArray(tmparr, decode.length() + 1);
                 double lat1, lon1;
                 sscanf(tmparr, "%lf,%lf", &lat1, &lon1);
@@ -143,6 +144,40 @@ void loop()
                 }
                 break;
 
+            case (DIR_DISTANSE_SPEED_SBSPPEED_BBSPEED_TARGET_POSITION_STATUS):
+                // Serial.println("direction and distance target recieved!");
+                decode.toCharArray(tmparr, decode.length() + 1);
+                sscanf(tmparr, "%d,%d,%d,%d,%d,%d,%d", &dir, &dist, &sp, &sb, &bb, &he, &st);
+                if (NR_BUOYS > loraIn.sender)
+                {
+                    buoy[loraIn.sender].tgdir = dir;
+                    buoy[loraIn.sender].mdir = he;
+                    buoy[loraIn.sender].tgdistance = dist;
+                    buoy[loraIn.sender].speed = sp;
+                    buoy[loraIn.sender].speedsb = sb;
+                    buoy[loraIn.sender].speedbb = bb;
+                    buoy[loraIn.sender].rssi = loraIn.rssi;
+                }
+                break;
+            case SAIL_DIR_SPEED:
+                decode.toCharArray(tmparr, decode.length() + 1);
+                sscanf(tmparr, "%d,%d,%d,%d", &he, &sp, &sb, &bb);
+                if (NR_BUOYS > loraIn.sender)
+                {
+                    buoy[loraIn.sender].tgdir = 0;
+                    buoy[loraIn.sender].mdir = he;
+                    buoy[loraIn.sender].tgdistance = 0;
+                    buoy[loraIn.sender].speed = sp;
+                    buoy[loraIn.sender].speedsb = sb;
+                    buoy[loraIn.sender].speedbb = bb;
+                    buoy[loraIn.sender].rssi = loraIn.rssi;
+                }
+                break;
+            case TARGET_POSITION_SET:
+                Serial.println("New anchor position SET!");
+                buoy[loraIn.sender].status = LOCKED;
+                break;
+
             case ANCHOR_POSITION:
                 Serial.println("New anchor position recieved!");
                 Serial.println(String(loraIn.message));
@@ -159,14 +194,34 @@ void loop()
             notify = loraIn.sender;
         }
     }
-    if (millis() - previousTime > 1000)
+    /*
+    runs each 10 msec
+    */
+    if (millis() - msecstamp >= 10)
+    {
+        msecstamp = millis();
+        digitalWrite(led_pin, ledstatus);
+        ledstatus = false;
+    }
+
+    if (millis() - previousTime >= 1000)
     { // do stuff every second
         previousTime = millis();
-        digitalWrite(led_pin, ledstatus);
-        ledstatus = !ledstatus;
         if (buoy[1].status == REMOTE)
         {
             menu(REMOTE, 1);
+        }
+        else if (buoy[1].status == LOCKING)
+        {
+            menu(SET_TARGET_POSITION, 1);
+        }
+        else if (buoy[1].status == LOCKED)
+        {
+            menu(GET_DIR_DISTANSE_SPEED_SBSPPEED_BBSPEED_TARGET_POSITION_STATUS, 1);
+        }
+        else
+        {
+            sendLoraSetGetPosition(1);
         }
     }
     int nr;

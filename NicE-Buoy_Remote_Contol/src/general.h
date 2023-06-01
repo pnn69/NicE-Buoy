@@ -18,6 +18,7 @@ struct buoyDataType
     int status;
 };
 
+extern bool ledstatus;
 extern buoyDataType buoy[NR_BUOYS];
 
 #endif /* GENERA:_H_ */

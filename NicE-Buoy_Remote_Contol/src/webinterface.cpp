@@ -27,81 +27,57 @@ void notifyClients(int buoy_nr)
 {
     char buffer[500];
     DynamicJsonDocument doc(500);
-    if (buoy_nr == 1)
+
+    String n = String(buoy_nr);
+    doc["mdir" + n] = buoy[buoy_nr].mdir;
+    doc["tgdistance" + n] = buoy[buoy_nr].tgdistance;
+    doc["speedsb" + n] = buoy[buoy_nr].speedsb;
+    doc["speedbb" + n] = buoy[buoy_nr].speedbb;
+    doc["rssi" + n] = buoy[buoy_nr].rssi;
+
+    if (buoy[buoy_nr].status == LOCKED)
     {
-        // Serial.print("status:");
-        // Serial.println(buoy[1].status);
-        doc["mdir1"] = buoy[1].mdir;
-
-        if (buoy[1].status == LOCKED)
+        if (determineDirection(buoy[1].tgdir, buoy[1].mdir))
         {
-            if (determineDirection(buoy[1].tgdir, buoy[1].mdir))
-            {
-                doc["ddir1"] = smallestAngle(buoy[1].tgdir, buoy[1].mdir);
-                doc["tgdir1"] = buoy[1].tgdir;
-            }
-            else
-            {
-                doc["ddir1"] = -1 * smallestAngle(buoy[1].tgdir, buoy[1].mdir);
-                doc["tgdir1"] = buoy[1].tgdir;
-            }
-
-            doc["speed1"] = buoy[1].speed;
-        }
-        else if (buoy[1].status == REMOTE)
-        {
-            doc["ddir1"] = buoy[1].cdir;
-            doc["speed1"] = buoy[1].cspeed;
-            doc["tgdir1"] = buoy[1].tgdir;
+            doc["ddir" + n] = smallestAngle(buoy[buoy_nr].tgdir, buoy[buoy_nr].mdir);
+            doc["tgdir" + n] = buoy[buoy_nr].tgdir;
         }
         else
         {
-            if (determineDirection(buoy[1].tgdir, buoy[1].mdir))
-            {
-                doc["ddir1"] = smallestAngle(buoy[1].tgdir, buoy[1].mdir);
-                doc["tgdir1"] = buoy[1].tgdir;
-            }
-            else
-            {
-                doc["ddir1"] = -1 * smallestAngle(buoy[1].tgdir, buoy[1].mdir);
-                doc["tgdir1"] = buoy[1].tgdir;
-            }
-            doc["speed1"] = buoy[1].speed;
+            doc["ddir" + n] = -1 * smallestAngle(buoy[buoy_nr].tgdir, buoy[buoy_nr].mdir);
+            doc["tgdir" + n] = buoy[buoy_nr].tgdir;
         }
-        doc["tgdistance1"] = buoy[1].tgdistance;
-        doc["speedsb1"] = buoy[1].speedsb;
-        doc["speedbb1"] = buoy[1].speedbb;
-        doc["rssi1"] = buoy[1].rssi;
+
+        doc["speed" + n] = buoy[buoy_nr].speed;
     }
-    if (buoy_nr == 2)
+    else if (buoy[buoy_nr].status == REMOTE)
     {
-        if (buoy[2].status == LOCKED)
-        {
-            doc["ddir2"] = smallestAngle(buoy[2].tgdir, buoy[2].mdir);
-            doc["speed2"] = buoy[2].speed;
-        }
-        doc["mdir2"] = buoy[2].mdir;
-        doc["tgdir2"] = buoy[2].tgdir;
-        doc["tgdistance2"] = buoy[2].tgdistance;
-        doc["speed2"] = buoy[2].speed;
-        doc["speedsb2"] = buoy[2].speedsb;
-        doc["speedbb2"] = buoy[2].speedbb;
-        doc["rssi2"] = buoy[2].rssi;
+        doc["ddir" + n] = buoy[buoy_nr].cdir;
+        doc["speed" + n] = buoy[buoy_nr].cspeed;
+        doc["tgdir" + n] = buoy[buoy_nr].tgdir;
     }
-    if (buoy_nr == 3)
+    else if (buoy[buoy_nr].status == IDLE)
     {
-        if (buoy[3].status == LOCKED)
+        doc["ddir" + n] = 0;
+        doc["speed" + n] = 0;
+        doc["tgdir" + n] = 0;
+        doc["tgdistance" + n] = 0;
+        doc["speedsb" + n] = 0;
+        doc["speedbb" + n] = 0;
+    }
+    else
+    {
+        if (determineDirection(buoy[buoy_nr].tgdir, buoy[buoy_nr].mdir))
         {
-            doc["ddir3"] = smallestAngle(buoy[3].tgdir, buoy[3].mdir);
-            doc["speed3"] = buoy[3].speed;
+            doc["ddir" + n] = smallestAngle(buoy[buoy_nr].tgdir, buoy[buoy_nr].mdir);
+            doc["tgdir" + n] = buoy[buoy_nr].tgdir;
         }
-        doc["mdir3"] = buoy[3].mdir;
-        doc["tgdir3"] = buoy[3].tgdir;
-        doc["tgdistance3"] = buoy[3].tgdistance;
-        doc["speed3"] = buoy[3].speed;
-        doc["speedsb3"] = buoy[3].speedsb;
-        doc["speedbb3"] = buoy[3].speedbb;
-        doc["rssi3"] = buoy[3].rssi;
+        else
+        {
+            doc["ddir" + n] = -1 * smallestAngle(buoy[buoy_nr].tgdir, buoy[buoy_nr].mdir);
+            doc["tgdir" + n] = buoy[buoy_nr].tgdir;
+        }
+        doc["speed" + n] = buoy[buoy_nr].speed;
     }
     serializeJson(doc, buffer);
     ws.textAll(buffer);
@@ -123,14 +99,15 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             Serial.println(err.c_str());
             return;
         }
-        notify = true;
+        Serial.println("New data form websocket");
         JsonObject obj = doc.as<JsonObject>();
-        const char *error;
-        error = obj["toggle"];
-        // Is there an error after all?
-        if (error != nullptr)
+        if (doc.containsKey("GETSTATUS"))
         {
-            ledState = !ledState;
+            char buffer[500];
+            DynamicJsonDocument doc1(500);
+            doc1["STATUS1"] = buoy[1].status;
+            serializeJson(doc1, buffer);
+            ws.textAll(buffer);
         }
         if (doc.containsKey("Rudder1"))
         {
@@ -140,7 +117,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
                 Serial.print("Rudder1 found: ");
                 Serial.printf("%d\r\n", buoy[1].cdir);
             }
-            notify = 1;
+            // notify = 1;
         }
 
         if (doc.containsKey("Speed1"))
@@ -151,65 +128,44 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
                 Serial.print("Speed1 found: ");
                 Serial.printf("%d\r\n", buoy[1].cspeed);
             }
-            notify = 1;
+            // notify = 1;
         }
         if (doc.containsKey("LOCKEDBUOY1"))
         {
-            String in = doc["LOCKEDBUOY1"];
-            if (in == "true")
-            {
-                // menu(SET_ANCHOR_POSITION_AS_TARGET_POSITION, 1);
-                menu(SET_TARGET_POSITION, 1);
-                buoy[1].speed = 0;
-                buoy[1].status = LOCKED;
-            }
-            else
-            {
-                menu(SET_BUOY_MODE_IDLE, 1);
-                buoy[1].status = IDLE;
-            }
-            notify = 1;
+            menu(SET_TARGET_POSITION, 1);
+            buoy[1].speed = 0;
+            buoy[1].status = LOCKING;
+            // notify = 1;
         }
         if (doc.containsKey("REMOTEBUOY1"))
         {
-            String in = doc["REMOTEBUOY1"];
-            if (in == "true")
-            {
-                // menu(SET_ANCHOR_POSITION_AS_TARGET_POSITION, 1);
-                menu(SET_SAIL_DIR_SPEED, 1);
-                buoy[1].cdir = 0;
-                buoy[1].cspeed = 0;
-                buoy[1].status = REMOTE;
-            }
-            else
-            {
-                menu(SET_BUOY_MODE_IDLE, 1);
-                buoy[1].status = IDLE;
-            }
-            notify = 1;
+            menu(SET_SAIL_DIR_SPEED, 1);
+            buoy[1].cdir = 0;
+            buoy[1].cspeed = 0;
+            buoy[1].status = REMOTE;
+            // notify = 1;
         }
         if (doc.containsKey("DOCBUOY1"))
         {
-            String in = doc["DOCBUOY1"];
-            if (in == "true")
-            {
-                // menu(SET_ANCHOR_POSITION_AS_TARGET_POSITION, 1);
-                menu(GOTO_DOC_POSITION, 1);
-                buoy[1].tgdir = 0;
-                buoy[1].speed = 0;
-                buoy[1].status = DOC;
-            }
-            else
-            {
-                menu(SET_BUOY_MODE_IDLE, 1);
-                buoy[1].status = IDLE;
-            }
-            notify = 1;
+            menu(GOTO_DOC_POSITION, 1);
+            buoy[1].tgdir = 0;
+            buoy[1].speed = 0;
+            buoy[1].status = DOC;
+            // notify = 1;
+        }
+        if (doc.containsKey("IDLEBUOY1"))
+        {
+            menu(SET_BUOY_MODE_IDLE, 1);
+            buoy[1].tgdir = 0;
+            buoy[1].speed = 0;
+            buoy[1].status = IDLE;
+            // notify = 1;
         }
         if (buoy[1].status == REMOTE)
         {
-             sendLoraSetSailDirSpeed(1, buoy[1].cdir, buoy[1].cspeed);
+            sendLoraSetSailDirSpeed(1, buoy[1].cdir, buoy[1].cspeed);
         }
+        // Serial.printf("Status %d\r\n", buoy[1].status);
     }
 }
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
@@ -239,23 +195,6 @@ void initWebSocket()
 {
     ws.onEvent(onEvent);
     server.addHandler(&ws);
-}
-
-String processor(const String &var)
-{
-    Serial.println(var);
-    if (var == "STATE")
-    {
-        if (ledState)
-        {
-            return "ON";
-        }
-        else
-        {
-            return "OFF";
-        }
-    }
-    return String();
 }
 
 void websetup()
@@ -309,6 +248,9 @@ void websetup()
     server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/style.css", "text/css"); });
     //              { request->send(200, "/style.css", "text/css"); });
+    server.on("/index.js", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/index.js", "text/js"); });
+
     // Start server
     AsyncElegantOTA.begin(&server);
     server.begin();

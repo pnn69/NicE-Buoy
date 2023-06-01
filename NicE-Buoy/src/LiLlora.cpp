@@ -48,7 +48,8 @@ void sendLora(void)
     LoRa.write(loraOut.messagelength);
     LoRa.print(loraOut.message);
     LoRa.endPacket(); // finish packet and send it
-    //Serial.println(loraOut.message);
+    ledstatus = true;
+    // Serial.println(loraOut.message);
 }
 
 void sendLoraPos(int id, double lat, double lon)
@@ -73,13 +74,43 @@ void sendLoraDirDistanceTarget(unsigned long tgdir, unsigned long tgdistance)
     loraOut.message = msg;
     sendLora();
 }
-
+void sendLoraDocPositonSet(unsigned long tgdir, unsigned long tgdistance)
+{
+    String msg = String(tgdir) + "," + String(tgdistance);
+    loraOut.destination = 0xFF;
+    loraOut.sender = buoyID;
+    loraOut.id = TARGET_POSITION_SET;
+    loraOut.messagelength = msg.length();
+    loraOut.message = msg;
+    sendLora();
+}
 void sendLoraDirDistanceSbSpeedBbSpeedTarget(unsigned long tgdir, unsigned long tgdistance, int sp, int sb, int bb, int heading)
 {
     String msg = String(tgdir) + "," + String(tgdistance) + "," + sp + "," + sb + "," + bb + "," + String(heading);
     loraOut.destination = 0xFF;
     loraOut.sender = buoyID;
     loraOut.id = DIR_DISTANSE_SPEED_SBSPPEED_BBSPEED_TARGET_POSITION;
+    loraOut.messagelength = msg.length();
+    loraOut.message = msg;
+    sendLora();
+}
+void sendLoraDirDistanceSbSpeedBbSpeedTargetStatus(unsigned long tgdir, unsigned long tgdistance, int sp, int sb, int bb, int heading, int status)
+{
+    String msg = String(tgdir) + "," + String(tgdistance) + "," + sp + "," + sb + "," + bb + "," + String(heading) + "," + status;
+    loraOut.destination = 0xFF;
+    loraOut.sender = buoyID;
+    loraOut.id = DIR_DISTANSE_SPEED_SBSPPEED_BBSPEED_TARGET_POSITION_STATUS;
+    loraOut.messagelength = msg.length();
+    loraOut.message = msg;
+    sendLora();
+}
+
+void sendLoraSailDirSpeed(int heading, int sp, int bb, int sb)
+{
+    String msg = String(heading) + "," + sp + "," + bb + "," + sb;
+    loraOut.destination = 0xFF;
+    loraOut.sender = buoyID;
+    loraOut.id = SAIL_DIR_SPEED;
     loraOut.messagelength = msg.length();
     loraOut.message = msg;
     sendLora();

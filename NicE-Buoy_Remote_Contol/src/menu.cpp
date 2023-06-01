@@ -7,10 +7,13 @@ void menu(int inp, int buoy_nr)
 {
     switch (inp)
     {
+    case GET_DIR_DISTANSE_SPEED_SBSPPEED_BBSPEED_TARGET_POSITION_STATUS:
+        sendLoraSetGetPosition(buoy_nr);
+        break;
     case SET_TARGET_POSITION:
         sendLoraSetTargetPosition(buoy_nr);
         break;
-    case DOC_POSITION:
+    case SET_DOC_POSITION:
         sendLoraSetDocPosition(buoy_nr);
         break;
     case GOTO_DOC_POSITION:

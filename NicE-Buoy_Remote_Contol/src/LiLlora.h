@@ -28,6 +28,8 @@ void sendLoraSetTargetPosition(int buoy);
 void sendLoraSetDocPosition(int buoy);
 void sendLoraGoToDocPosition(int buoy);
 void sendLoraSetSailDirSpeed(int buoy, int tgdir, int speed);
+void sendLoraStatus(int buoy, int status);
+void sendLoraSetGetPosition(int buoy);
 void sendLoraSetIdle(int buoy);
 void sendLoraReset(int buoy);
 
