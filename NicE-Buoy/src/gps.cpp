@@ -7,8 +7,8 @@
 
 #define GPSBAUD 9600
 
-double lat, lng, speed, dir;
-bool gpsvalid =  false;
+static double lat, lng, speed, dir;
+bool gpsvalid = false;
 
 TinyGPSPlus gps;
 

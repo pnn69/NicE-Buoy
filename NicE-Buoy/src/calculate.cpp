@@ -11,6 +11,9 @@ double smallestAngle(double heading1, double heading2)
     return angle;
 }
 
+/*
+    calculate the smallest angle between two directions
+*/
 int determineDirection(double heading1, double heading2)
 {
     double angle = fmod(heading2 - heading1 + 360, 360); // Calculate the difference and keep it within 360 degrees
@@ -23,6 +26,22 @@ int determineDirection(double heading1, double heading2)
         return 0; // Angle is less than or equal to 180, BB (Turn left)
     }
 }
+
+/*
+    Calculate the new direction to stear given an relative direction change
+    heading1 = delta heading2 = current direction
+    retuns the new course to stear
+*/
+int CalcNewDirection(double heading1, double heading2)
+{
+    int dirout = heading2 - heading1;
+    if (dirout < 0)
+    {
+        dirout = 360 - dirout;
+    }
+    return dirout;
+}
+
 /*
     adjust speed Cosinus does not work here. We have to do it manually
 */
@@ -47,7 +66,7 @@ if heading > 180 SB motor 100% and BB motor less
 Speed is a function of distance start slowing donw if Buoy is less than 10 meter away for targed
 The distance is in meters.
 */
-void CalcEngingSpeed(float magheading, unsigned long tgheading, unsigned long tgdistance, int *bb, int *sb)
+int CalcEngingSpeedBuoy(float magheading, unsigned long tgheading, unsigned long tgdistance, int *bb, int *sb)
 {
     int speed = 0;
     double correctonAngle = 0;
@@ -61,6 +80,25 @@ void CalcEngingSpeed(float magheading, unsigned long tgheading, unsigned long tg
         speed = map(tgdistance, 5, 20, 10, 100); // map speed 1-10 meter -> 10-100%
     }
 
+    // Angle between calculated angel to steer and the current direction of the vessel
+    correctonAngle = smallestAngle(magheading, tgheading);
+    // Serial.printf("correctonAngle %.4f Angle2SpeedFactor %.4f \n",correctonAngle,Angle2SpeedFactor(correctonAngle));
+    if (determineDirection(magheading, tgheading))
+    {
+        *bb = speed;
+        *sb = int(speed * Angle2SpeedFactor(correctonAngle));
+    }
+    else
+    {
+        *bb = int(speed * Angle2SpeedFactor(correctonAngle));
+        *sb = speed;
+    }
+    return speed;
+}
+
+void CalcEngingSpeed(float magheading, unsigned long tgheading, int speed, int *bb, int *sb)
+{
+    double correctonAngle = 0;
     // Angle between calculated angel to steer and the current direction of the vessel
     correctonAngle = smallestAngle(magheading, tgheading);
     // Serial.printf("correctonAngle %.4f Angle2SpeedFactor %.4f \n",correctonAngle,Angle2SpeedFactor(correctonAngle));

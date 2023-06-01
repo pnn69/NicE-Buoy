@@ -14,6 +14,7 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "LiLlora.h"
 #include "general.h"
 #include "webinterface.h"
+#include "menu.h"
 #include "../../dependency/command.h"
 
 unsigned long timestamp;
@@ -67,7 +68,7 @@ void setup()
     digitalWrite(led_pin, false);
     initSSD1306();
     Wire.begin();
-    //InitLora();
+    InitLora();
     websetup();
     Serial.println("Setup done.");
     delay(1000);
@@ -75,13 +76,13 @@ void setup()
 #ifdef DEBUG
     buoy[1].gpslatitude = 52.1;
     buoy[1].gpslongitude = 4.1;
-    buoy[1].rssi = loraIn.rssi -11;
+    buoy[1].rssi = loraIn.rssi - 11;
     buoy[2].gpslatitude = 52.2;
     buoy[2].gpslongitude = 4.2;
-    buoy[2].rssi = loraIn.rssi -22;
+    buoy[2].rssi = loraIn.rssi - 22;
     buoy[3].gpslatitude = 52.3;
     buoy[3].gpslongitude = 4.3;
-    buoy[3].rssi = loraIn.rssi -33;
+    buoy[3].rssi = loraIn.rssi - 33;
 #endif
     timestamp = millis();
 }
@@ -97,8 +98,8 @@ void loop()
             String decode = loraIn.message;
             char tmparr[100];
             unsigned long dist, dir;
-            int sb, bb;
-            Serial.printf("Messag recieved ");
+            int sp, sb, bb, he;
+            Serial.printf("Lora messag recieved ");
             Serial.print("Sender:" + String(loraIn.sender) + " RSSI:" + String(loraIn.rssi) + " msg:" + msg + "\r\n");
             int id = loraIn.sender;
             switch (msg)
@@ -116,7 +117,7 @@ void loop()
                 }
                 break;
             case (DIR_DISTANSE_TO_TARGET_POSITION):
-                Serial.println("direction and distance target recieved!");
+                // Serial.println("direction and distance target recieved!");
                 decode.toCharArray(tmparr, decode.length() + 1);
                 sscanf(tmparr, "%d,%d", &dir, &dist);
                 if (NR_BUOYS > loraIn.sender)
@@ -126,14 +127,16 @@ void loop()
                     buoy[loraIn.sender].rssi = loraIn.rssi;
                 }
                 break;
-            case (DIR_DISTANSE_SBSPPEED_BBSPEED_TARGET_POSITION):
-                Serial.println("direction and distance target recieved!");
+            case (DIR_DISTANSE_SPEED_SBSPPEED_BBSPEED_TARGET_POSITION):
+                // Serial.println("direction and distance target recieved!");
                 decode.toCharArray(tmparr, decode.length() + 1);
-                sscanf(tmparr, "%d,%d,%d,%d", &dir, &dist, &sb, &bb);
+                sscanf(tmparr, "%d,%d,%d,%d,%d,%d", &dir, &dist, &sp, &sb, &bb, &he);
                 if (NR_BUOYS > loraIn.sender)
                 {
                     buoy[loraIn.sender].tgdir = dir;
+                    buoy[loraIn.sender].mdir = he;
                     buoy[loraIn.sender].tgdistance = dist;
+                    buoy[loraIn.sender].speed = sp;
                     buoy[loraIn.sender].speedsb = sb;
                     buoy[loraIn.sender].speedbb = bb;
                     buoy[loraIn.sender].rssi = loraIn.rssi;
@@ -153,26 +156,24 @@ void loop()
                 break;
             }
             udateDisplay();
+            notify = loraIn.sender;
         }
     }
-    if (millis() - previousTime > 500)
+    if (millis() - previousTime > 1000)
     { // do stuff every second
         previousTime = millis();
         digitalWrite(led_pin, ledstatus);
         ledstatus = !ledstatus;
+        if (buoy[1].status == REMOTE)
+        {
+            menu(REMOTE, 1);
+        }
     }
     int nr;
     if (serialPortDataIn(&nr))
     {
         Serial.printf("New data on serial port: %d\n", nr);
-        if (nr == SET_TARGET_POSITION)
-        { // 18
-            sendLoraSetTargetPosition();
-        }
-        if (nr == RESET)
-        { // 36
-            sendLoraReset();
-        }
+        menu(nr, 1);
     }
 
     delay(1);

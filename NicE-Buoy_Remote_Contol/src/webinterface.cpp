@@ -7,6 +7,9 @@
 #include <ArduinoOTA.h>
 #include "SPIFFS.h"
 #include "general.h"
+#include "menu.h"
+#include "calculate.h"
+#include "LiLlora.h"
 
 // Replace with your network credentials
 const char *ssid = "NicE_Engineering_UPC";
@@ -18,17 +21,91 @@ AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
 bool ledState = 0;
-bool notify = false;
+int notify = 0;
 
-void notifyClients()
+void notifyClients(int buoy_nr)
 {
-    char buffer[100];
-    DynamicJsonDocument doc(200);
-    doc["Speed1"] = (buoy[1].speedbb + buoy[1].speedsb) / 2;
-    doc["Dir1"] = buoy[1].mdir;
+    char buffer[500];
+    DynamicJsonDocument doc(500);
+    if (buoy_nr == 1)
+    {
+        // Serial.print("status:");
+        // Serial.println(buoy[1].status);
+        doc["mdir1"] = buoy[1].mdir;
+
+        if (buoy[1].status == LOCKED)
+        {
+            if (determineDirection(buoy[1].tgdir, buoy[1].mdir))
+            {
+                doc["ddir1"] = smallestAngle(buoy[1].tgdir, buoy[1].mdir);
+                doc["tgdir1"] = buoy[1].tgdir;
+            }
+            else
+            {
+                doc["ddir1"] = -1 * smallestAngle(buoy[1].tgdir, buoy[1].mdir);
+                doc["tgdir1"] = buoy[1].tgdir;
+            }
+
+            doc["speed1"] = buoy[1].speed;
+        }
+        else if (buoy[1].status == REMOTE)
+        {
+            doc["ddir1"] = buoy[1].cdir;
+            doc["speed1"] = buoy[1].cspeed;
+            doc["tgdir1"] = buoy[1].tgdir;
+        }
+        else
+        {
+            if (determineDirection(buoy[1].tgdir, buoy[1].mdir))
+            {
+                doc["ddir1"] = smallestAngle(buoy[1].tgdir, buoy[1].mdir);
+                doc["tgdir1"] = buoy[1].tgdir;
+            }
+            else
+            {
+                doc["ddir1"] = -1 * smallestAngle(buoy[1].tgdir, buoy[1].mdir);
+                doc["tgdir1"] = buoy[1].tgdir;
+            }
+            doc["speed1"] = buoy[1].speed;
+        }
+        doc["tgdistance1"] = buoy[1].tgdistance;
+        doc["speedsb1"] = buoy[1].speedsb;
+        doc["speedbb1"] = buoy[1].speedbb;
+        doc["rssi1"] = buoy[1].rssi;
+    }
+    if (buoy_nr == 2)
+    {
+        if (buoy[2].status == LOCKED)
+        {
+            doc["ddir2"] = smallestAngle(buoy[2].tgdir, buoy[2].mdir);
+            doc["speed2"] = buoy[2].speed;
+        }
+        doc["mdir2"] = buoy[2].mdir;
+        doc["tgdir2"] = buoy[2].tgdir;
+        doc["tgdistance2"] = buoy[2].tgdistance;
+        doc["speed2"] = buoy[2].speed;
+        doc["speedsb2"] = buoy[2].speedsb;
+        doc["speedbb2"] = buoy[2].speedbb;
+        doc["rssi2"] = buoy[2].rssi;
+    }
+    if (buoy_nr == 3)
+    {
+        if (buoy[3].status == LOCKED)
+        {
+            doc["ddir3"] = smallestAngle(buoy[3].tgdir, buoy[3].mdir);
+            doc["speed3"] = buoy[3].speed;
+        }
+        doc["mdir3"] = buoy[3].mdir;
+        doc["tgdir3"] = buoy[3].tgdir;
+        doc["tgdistance3"] = buoy[3].tgdistance;
+        doc["speed3"] = buoy[3].speed;
+        doc["speedsb3"] = buoy[3].speedsb;
+        doc["speedbb3"] = buoy[3].speedbb;
+        doc["rssi3"] = buoy[3].rssi;
+    }
     serializeJson(doc, buffer);
     ws.textAll(buffer);
-    Serial.printf("Websocket data out: %s <-Len%d\n", (char *)buffer, strlen(buffer));
+    // Serial.printf("Websocket data out: %s <-Len%d\n", (char *)buffer, strlen(buffer));
 }
 
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
@@ -46,6 +123,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             Serial.println(err.c_str());
             return;
         }
+        notify = true;
         JsonObject obj = doc.as<JsonObject>();
         const char *error;
         error = obj["toggle"];
@@ -54,25 +132,83 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
         {
             ledState = !ledState;
         }
-        if (doc.containsKey("Speed1"))
-        {
-            {
-                buoy[1].speedbb = doc["Speed1"];
-                buoy[1].speedsb = doc["Speed1"];
-                Serial.print("Speed found: ");
-                Serial.printf("%d\r\n", buoy[1].speedbb);
-            }
-            notify = true;
-        }
-
         if (doc.containsKey("Rudder1"))
         {
+            if (buoy[1].status != LOCKED)
             {
-                buoy[1].mdir = doc["Rudder1"];
+                buoy[1].cdir = doc["Rudder1"];
                 Serial.print("Rudder1 found: ");
-                Serial.printf("%d\r\n", buoy[1].mdir);
+                Serial.printf("%d\r\n", buoy[1].cdir);
             }
-            notify = true;
+            notify = 1;
+        }
+
+        if (doc.containsKey("Speed1"))
+        {
+            if (buoy[1].status != LOCKED)
+            {
+                buoy[1].cspeed = doc["Speed1"];
+                Serial.print("Speed1 found: ");
+                Serial.printf("%d\r\n", buoy[1].cspeed);
+            }
+            notify = 1;
+        }
+        if (doc.containsKey("LOCKEDBUOY1"))
+        {
+            String in = doc["LOCKEDBUOY1"];
+            if (in == "true")
+            {
+                // menu(SET_ANCHOR_POSITION_AS_TARGET_POSITION, 1);
+                menu(SET_TARGET_POSITION, 1);
+                buoy[1].speed = 0;
+                buoy[1].status = LOCKED;
+            }
+            else
+            {
+                menu(SET_BUOY_MODE_IDLE, 1);
+                buoy[1].status = IDLE;
+            }
+            notify = 1;
+        }
+        if (doc.containsKey("REMOTEBUOY1"))
+        {
+            String in = doc["REMOTEBUOY1"];
+            if (in == "true")
+            {
+                // menu(SET_ANCHOR_POSITION_AS_TARGET_POSITION, 1);
+                menu(SET_SAIL_DIR_SPEED, 1);
+                buoy[1].cdir = 0;
+                buoy[1].cspeed = 0;
+                buoy[1].status = REMOTE;
+            }
+            else
+            {
+                menu(SET_BUOY_MODE_IDLE, 1);
+                buoy[1].status = IDLE;
+            }
+            notify = 1;
+        }
+        if (doc.containsKey("DOCBUOY1"))
+        {
+            String in = doc["DOCBUOY1"];
+            if (in == "true")
+            {
+                // menu(SET_ANCHOR_POSITION_AS_TARGET_POSITION, 1);
+                menu(GOTO_DOC_POSITION, 1);
+                buoy[1].tgdir = 0;
+                buoy[1].speed = 0;
+                buoy[1].status = DOC;
+            }
+            else
+            {
+                menu(SET_BUOY_MODE_IDLE, 1);
+                buoy[1].status = IDLE;
+            }
+            notify = 1;
+        }
+        if (buoy[1].status == REMOTE)
+        {
+             sendLoraSetSailDirSpeed(1, buoy[1].cdir, buoy[1].cspeed);
         }
     }
 }
@@ -154,7 +290,7 @@ void websetup()
         Serial.println("No WiFi network found!");
         Serial.print("Seting up AP: ");
         Serial.println("NicE_Buoy_Control");
-        WiFi.softAP("NicE_Buoy_Control", password);
+        WiFi.softAP("NicE_Buoy_Control_192.168.4.1");
         IPAddress IP = WiFi.softAPIP();
         Serial.print("AP IP address: ");
         Serial.println(IP);
@@ -183,8 +319,8 @@ void webloop()
     ws.cleanupClients();
     if (notify)
     {
-        notify = false;
-        notifyClients();
+        notifyClients(notify);
+        notify = 0;
     }
     // digitalWrite(ledPin, ledState);
 }

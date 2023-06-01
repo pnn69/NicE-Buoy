@@ -9,6 +9,7 @@ Lora message: Destination,SenderAddres,MSGID,Length,Message
 #include "LiLlora.h"
 #include "datastorage.h"
 #include "general.h"
+#include "../../dependency/command.h"
 
 int counter = 0;
 
@@ -47,6 +48,7 @@ void sendLora(void)
     LoRa.write(loraOut.messagelength);
     LoRa.print(loraOut.message);
     LoRa.endPacket(); // finish packet and send it
+    //Serial.println(loraOut.message);
 }
 
 void sendLoraPos(int id, double lat, double lon)
@@ -72,12 +74,12 @@ void sendLoraDirDistanceTarget(unsigned long tgdir, unsigned long tgdistance)
     sendLora();
 }
 
-void sendLoraDirDistanceSbSpeedBbSpeedTarget(unsigned long tgdir, unsigned long tgdistance, int sb, int bb)
+void sendLoraDirDistanceSbSpeedBbSpeedTarget(unsigned long tgdir, unsigned long tgdistance, int sp, int sb, int bb, int heading)
 {
-    String msg = String(tgdir) + "," + String(tgdistance) + "," + sb + "," + bb;
+    String msg = String(tgdir) + "," + String(tgdistance) + "," + sp + "," + sb + "," + bb + "," + String(heading);
     loraOut.destination = 0xFF;
     loraOut.sender = buoyID;
-    loraOut.id = DIR_DISTANSE_SBSPPEED_BBSPEED_TARGET_POSITION;
+    loraOut.id = DIR_DISTANSE_SPEED_SBSPPEED_BBSPEED_TARGET_POSITION;
     loraOut.messagelength = msg.length();
     loraOut.message = msg;
     sendLora();

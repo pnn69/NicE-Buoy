@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>NicE Dimmer</title>
+    <title>NicE Buoy</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="discription" content="NicE buoy remote controller">
     <link rel="stylesheet" type="text/css" href="style.css">
@@ -18,36 +18,82 @@
         </div>
 
         <div class="card">
-            <h2>
-                <p class="card-title">Buoy 1</p>
+            <div class="container">
+                <div class="barcontainer">
+                    <div class="bar" id="bb1" style="height:70%">
+                    </div>
+                </div>
+                <div class=" barcontainer">
+                    <div class="bar" id="sb1" style="height:70%">
+                    </div>
+                </div>
+
+                <h2>
+                    Buoy 1
+                </h2>
                 <button id="LOOK_Buoy_1" class="button"
-                    onclick="myFunctionLock()">UNLOCKED</button>
-            </h2>
+                    onclick="myFunctionLock1()">Locked off</button>
+                <button id="Remote_Buoy_1" class="button"
+                    onclick="myFunctionRemote1()">Remote off</button>
+                <button id="Doc_Buoy_1" class="button"
+                    onclick="myFunctionDoc1()">Doc off</button>
 
-            <p class="switch">BB
-                <input type="range" onchange="Rudder1(this.value)" id="Rudder1"
-                    min="-100" max="100" step="10" value="0" class="slider">SB
-            </p>
-            <p class="state">Rudder: <span id="rudderValue1"></span>
-                &percnt;</p>
 
-            << <input type="range" onchange="Speed1(this.value)" id="Speed1"
-                min="-100" max="100" step="10" value="0" class="slider">>>
+                <p class="switch">BB
+                    <input type="range" onchange="Rudder1(this.value)"
+                        id="Rudder1" min="-180" max="180" step="10" value="0"
+                        class="slider">SB
                 </p>
-                <p class="state">Throttle: <span id="throttleValue1"></span>
-                    &percnt;</p>
+                <p class="state">Rudder: <span id="rudder1"></span>
+                    &deg;</p>
+
+                << <input type="range" onchange="Speed1(this.value)" id="Speed1"
+                    min="-100" max="100" step="10" value="0" class="slider">>>
+                    </p>
+
+                    <p class="state">Throttle: <span id="speed1"></span>
+                        &percnt;</p>
+            </div>
+            <h2>
+                <p>Heading:<span id="mdir1"></span>&deg; Target:<span
+                        id="tdir1"></span>&deg; Target:<span
+                        id="tgdistance1"></span>M </p>
+                <p class="rssi1"> Rssi:<span id="rssi1"></span>dBm</p>
+            </h2>
         </div>
-        <b> Status:</b>
-        <div id="status">Status window</div>
+
+        <h3> Status: <div id="status"> Status window </div>
+        </h3>
+
+
+
     </header>
     <script>
-        var knob = document.getElementById('knob');
-        var potentiometer = document.getElementById('potentiometer');
+
+
         //var gateway = `ws://${window.location.hostname}/ws`;
         //var gateway = `ws://192.168.178.132/ws`;
         var gateway = `ws://192.168.1.24/ws`;
         var websocket;
         window.addEventListener("load", onLoad);
+
+        function move() {
+            var elem = document.getElementById("myBar");
+            var width = 1;
+            var id = setInterval(frame, 10);
+            function frame() {
+                if (width >= 100) {
+                    clearInterval(id);
+                } else {
+                    width++;
+                    elem.style.width = width + '%';
+                }
+            }
+        }
+
+
+
+
         function getValues() {
             websocket.send("getValues");
         }
@@ -72,79 +118,98 @@
             console.log(event);
             //toStatus(event.data);
             var stuff = JSON.parse(event.data);
-            var val = stuff["Speed1"];
+            var val = stuff["speed1"];
             if (val != undefined) {
-                document.getElementById("throttleValue1").value = val;
                 document.getElementById("Speed1").value = val;
+                document.getElementById("speed1").innerHTML = val;
             }
-            var val = stuff["Dir1"];
+            var val = stuff["ddir1"];
             if (val != undefined) {
-                document.getElementById("RudderValue1").value = val;
                 document.getElementById("Rudder1").value = val;
+                document.getElementById("rudder1").innerHTML = val;
             }
-            val = stuff["DIM2"];
+            var val = stuff["tgdir1"];
             if (val != undefined) {
-                document.getElementById("dim2").value = val;
+                document.getElementById("tdir1").innerHTML = val;
             }
-            val = stuff["DIM3"];
+            var val = stuff["mdir1"];
             if (val != undefined) {
-                document.getElementById("dim3").value = val;
+                document.getElementById("mdir1").innerHTML = val;
             }
-            val = stuff["CHN1"];
+            var val = stuff["rssi1"];
             if (val != undefined) {
-                var x = document.getElementById("channel1");
-                if (val == true) {
-                    x.innerHTML = "ON";
-                } else {
-                    x.innerHTML = "OFF";
-                }
+                document.getElementById("rssi1").innerHTML = val;
             }
-            val = stuff["CHN2"];
+            var val = stuff["tgdistance1"];
             if (val != undefined) {
-                var x = document.getElementById("channel2");
-                if (val == true) {
-                    x.innerHTML = "ON";
-                } else {
-                    x.innerHTML = "OFF";
-                }
+                document.getElementById("tgdistance1").innerHTML = val;
             }
-            val = stuff["CHN3"];
+            var val = stuff["speedbb1"];
             if (val != undefined) {
-                var x = document.getElementById("channel3");
-                if (val == true) {
-                    x.innerHTML = "ON";
-                } else {
-                    x.innerHTML = "OFF";
-                }
+                document.getElementById("bb1").innerHTML = val + "%";
+                document.getElementById("bb1").style = "height:" + val + "%";
             }
-            val = stuff["OnOff"];
+            var val = stuff["speedsb1"];
             if (val != undefined) {
-                var x = document.getElementById("OnOff");
-                if (val == true) {
-                    x.innerHTML = "Global ON";
-                } else {
-                    x.innerHTML = "Global OFF";
-                }
+                document.getElementById("sb1").innerHTML = val + "%";
+                document.getElementById("sb1").style = "height:" + val + "%";
             }
-            val = stuff["STATUS"];
-            if (val != undefined) {
-                document.getElementById("status").innerHTML = val;
-            }
-            knob.style.transform = 'translate(-50%, -50%) rotate(' + position + 'deg)';
+
         }
+
         function onLoad(event) {
             initWebSocket();
             toStatus("No connection");
         }
 
-        function myFunctionLock() {
+        function myFunctionLock1() {
             var x = document.getElementById("LOOK_Buoy_1");
-            if (x.innerHTML === "LOCKED") {
-                x.innerHTML = "UNLOCKED";
-                websocket.send(JSON.stringify({ LOCKEDBUOY1: false }));
-            } else {
-                x.innerHTML = "LOCKED";
+            if (x.innerHTML === "Locked off") {
+                x.innerHTML = "Locked on";
                 websocket.send(JSON.stringify({ LOCKEDBUOY1: true }));
+
+                var x = document.getElementById("Remote_Buoy_1");
+                x.innerHTML = "Remote off";
+                var x = document.getElementById("Doc_Buoy_1");
+                x.innerHTML = "Doc off";
+
+            } else {
+                x.innerHTML = "Locked off";
+                websocket.send(JSON.stringify({ LOCKEDBUOY1: false }));
+            }
+        }
+
+        function myFunctionRemote1() {
+            var x = document.getElementById("Remote_Buoy_1");
+            if (x.innerHTML === "Remote off") {
+                x.innerHTML = "Remote on";
+                websocket.send(JSON.stringify({ REMOTEBUOY1: true }));
+
+                var x = document.getElementById("LOOK_Buoy_1");
+                x.innerHTML = "Locked off";
+                var x = document.getElementById("Doc_Buoy_1");
+                x.innerHTML = "Doc off";
+
+            } else {
+                x.innerHTML = "Remote off";
+                websocket.send(JSON.stringify({ REMOTEBUOY1: false }));
+            }
+        }
+
+        function myFunctionDoc1() {
+            var x = document.getElementById("Doc_Buoy_1");
+            if (x.innerHTML === "Doc off") {
+                x.innerHTML = "Doc on";
+                websocket.send(JSON.stringify({ DOCBUOY1: true }));
+
+                var x = document.getElementById("LOOK_Buoy_1");
+                x.innerHTML = "Locked off";
+                var x = document.getElementById("Remote_Buoy_1");
+                x.innerHTML = "Remote off";
+
+            } else {
+                x.innerHTML = "Doc off";
+                websocket.send(JSON.stringify({ DOCBUOY1: false }));
             }
         }
 

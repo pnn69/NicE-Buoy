@@ -42,6 +42,10 @@ bool InitLora(void)
 
 void sendMessage(String outgoing, int dest, int id)
 {
+    Serial.print("Lora id:");
+    Serial.print(id);
+    Serial.print(" msg>");
+    Serial.println(outgoing);
     LoRa.beginPacket();            // start packet
     LoRa.write(dest);              // add destination address
     LoRa.write(localAddress);      // add sender address
@@ -51,23 +55,47 @@ void sendMessage(String outgoing, int dest, int id)
     LoRa.endPacket();              // finish packet and send it
 }
 
-bool sendLora(void)
+bool sendLora(int buoy)
 {
-    String message = "HeLoRa World!"; // send a message
-    sendMessage(message, 0xff, 0xfe);
+    String msg = "HeLoRa World!"; // send a msg
+    sendMessage(msg, buoy, 0xfe);
     return 1;
 }
 
-void sendLoraSetTargetPosition(void)
+void sendLoraSetTargetPosition(int buoy)
 {
-    String message = ""; // send a message
-    sendMessage(message, 0x01, SET_TARGET_POSITION);
+    String msg = ""; // send a message
+    sendMessage(msg, buoy, SET_TARGET_POSITION);
 }
 
-void sendLoraReset(void)
+void sendLoraSetDocPosition(int buoy)
 {
-    String message = ""; // send a message
-    sendMessage(message, 0x01, RESET);
+    String msg = ""; // send a message
+    sendMessage(msg, buoy, SET_DOC_POSITION);
+}
+
+void sendLoraGoToDocPosition(int buoy)
+{
+    String msg = ""; // send a message
+    sendMessage(msg, buoy, GOTO_DOC_POSITION);
+}
+
+void sendLoraSetSailDirSpeed(int buoy, int tgdir, int speed)
+{
+    String msg = String(tgdir) + "," + speed;
+    sendMessage(msg, buoy, SET_SAIL_DIR_SPEED);
+}
+
+void sendLoraSetIdle(int buoy)
+{
+    String msg = ""; // send a message
+    sendMessage(msg, buoy, SET_BUOY_MODE_IDLE);
+}
+
+void sendLoraReset(int buoy)
+{
+    String msg = ""; // send a message
+    sendMessage(msg, buoy, RESET);
 }
 
 int polLora(void)
@@ -100,19 +128,6 @@ int polLora(void)
         return 0; // skip rest of function
     }
 
-    // if message is for this device, or broadcast, print details:
-    // Serial.println("Received from: 0x" + String(sender, HEX));
-    // Serial.println("Sent to: 0x" + String(recipient, HEX));
-    // if(incomingMsgId & ( 1 << 7)){
-    //     Serial.println("Is answer on request");
-    // }
-    // Serial.println("Message ID: " + String(incomingMsgId,DEC));
-    // Serial.println("RSSI: " + String(LoRa.packetRssi()));
-    // Serial.println("Snr: " + String(LoRa.packetSnr()));
-    // Serial.println("Message length: " + String(incomingLength));
-    // Serial.println("Message: " + incoming);
-    // Serial.println();
-    // Get and store the data
     loraIn.recipient = recipient;
     if (sender < 4)
     {

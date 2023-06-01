@@ -25,10 +25,10 @@ extern loraDataType loraIn;
 extern loraDataType loraOut;
 
 extern bool loraOK;
-void sendLoraPos(int id,double lat, double lon);
+void sendLoraPos(int id, double lat, double lon);
 void sendLoraAnchorPos(bool);
 void sendLoraDirDistanceTarget(unsigned long tgdir, unsigned long tgdistance);
-void sendLoraDirDistanceSbSpeedBbSpeedTarget(unsigned long tgdir, unsigned long tgdistance, int sb,int bb);
+void sendLoraDirDistanceSbSpeedBbSpeedTarget(unsigned long tgdir, unsigned long tgdistance, int sp, int sb, int bb, int heading);
 bool InitLora(void);
 void sendLora(void);
 int polLora(void);

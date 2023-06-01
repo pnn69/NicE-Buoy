@@ -10,11 +10,12 @@ struct buoyDataType
     double ancorlatitude, ancorlongitude;
     double doclatitude, doclongitude;
     unsigned long tgdir, tgdistance;
-    int mdir;
-    int speedbb, speedsb;
+    int mdir, ddir, cdir;
+    int speed, speedbb, speedsb, cspeed;
     int rssi;
     int mode;
     float snr;
+    int status;
 };
 
 extern buoyDataType buoy[NR_BUOYS];
