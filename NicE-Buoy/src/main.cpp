@@ -19,22 +19,22 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "datastorage.h"
 #include "calculate.h"
 #include "general.h"
+#include "webinterface.h"
 #include "../../dependency/command.h"
 
 unsigned long secstamp, msecstamp, updatestamp;
-static float heading = 0;
-static double gpslatitude = 0, gpslongitude = 0;                                //
-static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
-// static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
-static unsigned long tgdir = 0, tgdistance = 0, cdir = 0;
-int speedbb = 0, speedsb = 0, speed = 0, cspeed = 0;
+// static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
+//  static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
+// static unsigned long tgdir = 0, tgdistance = 0, cdir = 0;
 bool ledstatus = false;
 char buoyID = 0;
-char status = IDLE; // IDLE
+byte status = IDLE; // IDLE
 const byte numChars = 32;
 char receivedChars[numChars]; // an array to store the received data
 boolean newData = false;
 int dataNumber = 0; // new for this version
+
+buoyDataType buoy;
 
 bool serialPortDataIn(int *nr)
 {
@@ -69,8 +69,8 @@ void setup()
 {
     Wire.begin();
     Serial.begin(115200);
-    pinMode(led_pin, OUTPUT);
-    digitalWrite(led_pin, false);
+    pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, false);
     InitMemory();
     GetMemoryBuoyID(&buoyID);
     InitLora();
@@ -79,113 +79,32 @@ void setup()
     initSSD1306();
     xTaskCreate(EscTask, "EscTask", 2400, NULL, 5, NULL);
     xTaskCreate(IndicatorTask, "IndicatorTask", 2400, NULL, 5, NULL);
+    // websetup();
     Serial.printf("BuoyID = %d\n\r", buoyID);
     Serial.printf("Status = %d\n\r", status);
-    Serial.println("Setup done.");
     secstamp = millis();
     msecstamp = millis();
     status = IDLE; // IDLE
+    buoy.tglatitude = 52.29326976307006;
+    buoy.tglongitude = 4.9328016467347435; // grasveld wsvop
+    // static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
     // SetMemoryDockPos(52.29308075283747, 4.932570409845357);
+    LMessage snd_msg;
+    snd_msg.ledstatus[0] = CRGB::Red;
+    snd_msg.ledstatus[1] = CRGB::Blue;
+    if (xQueueSend(indicatorque, (void *)&snd_msg, 10) != pdTRUE)
+    {
+        Serial.println("Error sending speed to indicatorque");
+    }
+    Serial.println("Setup done.");
 }
 
 void loop()
 {
+    // webloop();
     if (loraOK)
     {
-        int msg = polLora();
-        if (msg)
-        {
-            secstamp = 0;
-            String decode = loraIn.message;
-            char tmparr[100];
-            int ddir;
-            Serial.printf("Message recieved ");
-            Serial.print("Sender:" + String(loraIn.sender) + " RSSI:" + String(loraIn.rssi) + " msg:" + msg + "\r\n");
-            switch (msg)
-            {
-            case GET_POSITION:
-                sendLoraPos(POSITION, gpslatitude, gpslongitude);
-                break;
-            case GET_DIR_DISTANSE_TARGET_POSITION:
-                sendLoraDirDistanceTarget(tgdir, tgdistance);
-                break;
-            case GET_DIR_DISTANSE_SPEED_SBSPPEED_BBSPEED_TARGET_POSITION_STATUS:
-                sendLoraDirDistanceSbSpeedBbSpeedTargetStatus(tgdir, tgdistance, speed, speedbb, speedsb, (int)heading, status);
-                break;
-
-            case SET_ANCHOR_POSITION_AS_TARGET_POSITION:
-                // Serial.print("Set target to  ANCHOR position");
-                GetMemoryAnchorPos(&tglatitude, &tglongitude);
-                sendLoraPos(TARGET_POSITION, tglatitude, tglongitude);
-                status = LOCKED;
-                break;
-            case SET_ANGHOR_POSITION:
-                if (gpslatitude != 0 || gpslongitude != 0)
-                {
-                    SetMemoryAnchorPos(gpslatitude, gpslongitude);
-                    tglatitude = gpslatitude;
-                    tglongitude = gpslongitude;
-                }
-                status = LOCKED;
-                break;
-
-            case GOTO_DOC_POSITION:
-                // Serial.print("Set target to  Doc position");
-                GetMemoryDockPos(&tglatitude, &tglongitude);
-                sendLoraPos(TARGET_POSITION, tglatitude, tglongitude);
-                status = LOCKED;
-                break;
-            case SET_CURREND_POSITION_AS_ANCHOR_POSITION:
-                if (gpslatitude != 0 || gpslongitude != 0)
-                {
-                    SetMemoryAnchorPos(gpslatitude, gpslongitude); // put current position in memory as anchor position
-                }
-                sendLoraPos(ANCHOR_POSITION, tglatitude, tglongitude);
-                status = LOCKED;
-                break;
-            case SET_TARGET_POSITION:
-                if (gpslatitude != 0 || gpslongitude != 0)
-                {
-                    tglatitude = gpslatitude;
-                    tglongitude = gpslongitude;
-                }
-                sendLoraDocPositonSet(tglatitude, tglongitude);
-                delay(100);
-                status = LOCKED;
-                break;
-            case SET_SAIL_DIR_SPEED:
-                decode.toCharArray(tmparr, decode.length() + 1);
-                sscanf(tmparr, "%d,%d", &ddir, &cspeed);
-                ddir = heading - ddir;
-                if (ddir < 0)
-                {
-                    ddir = 360 - ddir;
-                }
-                if (ddir > 360)
-                {
-                    ddir = ddir - 360;
-                }
-                cdir = ddir;
-                status = REMOTE;
-                CalcEngingSpeed(cdir, (unsigned long)heading, cspeed, &speedbb, &speedsb);
-                sendLoraSailDirSpeed((int)heading, cspeed, speedbb, speedsb);
-                break;
-            case SET_BUOY_MODE_IDLE:
-                status = IDLE;
-                break;
-            case SET_STATUS:
-                decode.toCharArray(tmparr, decode.length() + 1);
-                sscanf(tmparr, "%d", &status);
-                break;
-
-            case RESET:
-                ESP.restart();
-                break;
-            default:
-                // Serial.println("unknown command");
-                break;
-            }
-        }
+        polLora();
     }
     /*
      do stuff every 100 milisecond
@@ -193,16 +112,16 @@ void loop()
     if (millis() - msecstamp >= 10)
     {
         msecstamp = millis();
-        digitalWrite(led_pin, ledstatus);
+        digitalWrite(LED_PIN, ledstatus);
         ledstatus = false;
-        heading = CompassAverage(GetHeading());
+        // buoy.heading = CompassAverage(GetHeading());
     }
 
     // do stuff every 0.5 second
     if (millis() - secstamp >= 500)
     {
         secstamp = millis();
-        if (GetNewGpsData(&gpslatitude, &gpslongitude))
+        if (GetNewGpsData(&buoy.gpslatitude, &buoy.gpslongitude))
         {
             // GpsAverage(&gpslatitude, &gpslongitude);
         }
@@ -211,45 +130,65 @@ void loop()
         */
         switch (status)
         {
-        case IDLE:
-            speed = 0;
-            speedbb = 0;
-            speedsb = 0;
-            break;
-        case REMOTE:
-            CalcEngingSpeed(cdir, (unsigned long)heading, cspeed, &speedbb, &speedsb);
-            // Serial.printf("Sail tgdir:%d heading:%.0f speed:%d bb:%d sb:%d\r\n", cdir, heading, cspeed, speedbb, speedsb);
-            break;
         case UNLOCK:
             status = IDLE;
+        case IDLE:
+            buoy.speed = 0;
+            buoy.speedbb = 0;
+            buoy.speedsb = 0;
             break;
-        case LOCK_ANCHOR_POS:
-            GetMemoryAnchorPos(&tglatitude, &tglongitude);
-            status = LOCKED;
+        case REMOTE:
+            CalcEngingSpeed(buoy.cdir, (unsigned long)buoy.mheading, buoy.cspeed, &buoy.speedbb, &buoy.speedsb);
             break;
-        case LOCK_POS:
-            tglatitude = gpslatitude;
-            tglongitude = gpslongitude;
-            status = LOCKED;
-            break;
-        default:
-            RouteToPoint(gpslatitude, gpslongitude, tglatitude, tglongitude, &tgdistance, &tgdir); // calculate heading and distance
-            if (tgdistance < 5000)                                                                 // test if target is in range
+        case LOCKED:
+            RouteToPoint(buoy.gpslatitude, buoy.gpslongitude, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
+            // Serial.print("dist:");
+            // Serial.print(buoy.tgdistance);
+            // Serial.print(" dir:");
+            // Serial.println(buoy.tgdir);
+            if (buoy.tgdistance < 5000) // test if target is in range
             {
-                speed = CalcEngingSpeedBuoy(heading, tgdir, tgdistance, &speedbb, &speedsb);
+                buoy.speed = CalcEngingSpeedBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, &buoy.speedbb, &buoy.speedsb);
             }
             else
             {
-                speed = CalcEngingSpeedBuoy(heading, heading, 0, &speedbb, &speedsb); // do notihing
+                buoy.speed = CalcEngingSpeedBuoy(buoy.tgdir, buoy.mheading, 0, &buoy.speedbb, &buoy.speedsb); // do notihing
             }
             break;
+        default:
+            buoy.speed = 0;
+            buoy.speedbb = 0;
+            buoy.speedsb = 0;
         }
+        /*
+        Sending data to ESC
+        */
         Message snd_msg;
-        snd_msg.speedbb = speedbb;
-        snd_msg.speedsb = speedsb;
+        snd_msg.speedbb = buoy.speedbb;
+        snd_msg.speedsb = buoy.speedsb;
+        if (gpsvalid)
+        {
+            snd_msg.ledstatus[0] = CRGB::Green;
+            snd_msg.ledstatus[1] = CRGB::Blue;
+        }
+        else
+        {
+            snd_msg.ledstatus[0] = CRGB::Red;
+            snd_msg.ledstatus[1] = CRGB::Blue;
+        }
         xQueueSend(escspeed, (void *)&snd_msg, 10);
-        digitalWrite(led_pin, ledstatus);
-        udateDisplay(speedsb, speedbb, tgdistance, tgdir, (unsigned long)heading, gpsvalid);
+        // LMessage snd_st;
+        // if(gpsvalid){
+        //     snd_st.stbb = CRGB:: Green;
+        // }else{
+        //     snd_st.stbb = CRGB:: Red;
+        // }
+        // xQueueSend(indicatorqueSt, (void *)&snd_st, 10);
+        // digitalWrite(LED_PIN, ledstatus);
+        /*
+        Update dislpay
+        */
+        udateDisplay(buoy.speedsb, buoy.speedbb, buoy.tgdistance, buoy.tgdir, (unsigned long)buoy.mheading, gpsvalid);
     }
 
     int nr;

@@ -73,10 +73,10 @@ void udateDisplay(void)
         display.print(" ");
         display.printf("%d", buoy[1].rssi);
 
-        display.setCursor(3*8, 16);
-        display.printf("SB:%d%%", buoy[1].speedsb);
-        display.setCursor(9*8, 16);
+        display.setCursor(3 * 8, 16);
         display.printf("BB:%d%%", buoy[1].speedbb);
+        display.setCursor(9 * 8, 16);
+        display.printf("SB:%d%%", buoy[1].speedsb);
 
         display.setCursor(0, 26);
         display.printf("B2> %d", buoy[2].tgdir);
@@ -85,11 +85,10 @@ void udateDisplay(void)
         display.print(" ");
         display.printf("%d", buoy[2].rssi);
 
-        display.setCursor(3*8, 34);
-        display.printf("SB:%d%%", buoy[2].speedsb);
-        display.setCursor(9*8, 34);
+        display.setCursor(3 * 8, 34);
         display.printf("BB:%d%%", buoy[2].speedbb);
-
+        display.setCursor(9 * 8, 34);
+        display.printf("SB:%d%%", buoy[2].speedsb);
 
         display.setCursor(0, 44);
         display.printf("B3> %d", buoy[3].tgdir);
@@ -98,12 +97,11 @@ void udateDisplay(void)
         display.print(" ");
         display.printf("%d", buoy[3].rssi);
 
-        display.setCursor(3*8, 52);
-        display.printf("SB:%d%%", buoy[3].speedsb);
-        display.setCursor(9*8, 52);
+        display.setCursor(3 * 8, 52);
         display.printf("BB:%d%%", buoy[3].speedbb);
+        display.setCursor(9 * 8, 52);
+        display.printf("SB:%d%%", buoy[3].speedsb);
 
         display.display();
-
     }
 }

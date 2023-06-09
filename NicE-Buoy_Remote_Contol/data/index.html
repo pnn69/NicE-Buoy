@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-    <title>NicE buoy remote controller!!!</title>
+    <title>NicE buoy remote controller</title>
     <Meta charset="ÜTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="discription" content="NicE buoy remote controller">
@@ -16,16 +16,18 @@
         <div class="topnav">
             <!-- Dit is voor commentaar wordt niet weergegeven -->
             <h1>NicE buoy remote controller</h1>
+            <p id="status"> Status window</p>
         </div>
 
         <div id="buoybox">
             <h2>
                 Buoy 1
             </h2>
+
         </div>
 
         <div class="card">
-            <div class="container">
+            <div class="barscontainer">
                 <div class="barcontainer">
                     <div class="bar" id="bb1" style="height:70%">
                     </div>
@@ -44,9 +46,8 @@
                     <input type="radio" name="mode" id="Idle_1">
                     <label for="Idle_1">Standby</label><br>
                 </div>
-
-                <p class="switch">BB<input type="range" id="Rudder1" min="-180"
-                        max="180" step="10" value="0" class="slider">SB
+                <p class="switch">BB<input type="range" id="Rudder1" min="-100"
+                        max="100" step="10" value="0" class="slider">SB
                 <p class="state">Rudder: <span id="rudder1"></span>
                     &deg;</p>
 
@@ -64,10 +65,10 @@
                     </h3>
                 </div>
                 <p class="rssi1"> Rssi:<span id="rssi1"></span>dBm</p>
+
+                </p>
             </div>
         </div>
-
-        Status: <div id="status"> Status window </div>
     </header>
     <script src="index.js"></script>
 </body>

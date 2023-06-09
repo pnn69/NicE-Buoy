@@ -1,5 +1,6 @@
 #ifndef LORA_H_
 #define LORA_H_
+#include "Arduino.h"
 
 /*
     MSG_ID (127 msg possible)
@@ -15,6 +16,7 @@ struct loraDataType
     byte sender;
     int recipient;
     byte id;
+    byte status;
     byte messagelength;
     String message;
     int rssi;
@@ -25,13 +27,6 @@ extern loraDataType loraIn;
 extern loraDataType loraOut;
 
 extern bool loraOK;
-void sendLoraPos(int id, double lat, double lon);
-void sendLoraAnchorPos(bool);
-void sendLoraDirDistanceTarget(unsigned long tgdir, unsigned long tgdistance);
-void sendLoraDirDistanceSbSpeedBbSpeedTarget(unsigned long tgdir, unsigned long tgdistance, int sp, int sb, int bb, int heading);
-void sendLoraDirDistanceSbSpeedBbSpeedTargetStatus(unsigned long tgdir, unsigned long tgdistance, int sp, int sb, int bb, int heading, int status);
-void sendLoraDocPositonSet(unsigned long tgdir, unsigned long tgdistance);
-void sendLoraSailDirSpeed(int heading, int sp, int sb, int bb);
 bool InitLora(void);
 void sendLora(void);
 int polLora(void);

@@ -3,6 +3,7 @@
 #include "../../dependency/command.h"
 #define NR_BUOYS 4
 #define DEBUG true
+#include "Arduino.h"
 
 struct buoyDataType
 {
@@ -16,9 +17,13 @@ struct buoyDataType
     int mode;
     float snr;
     int status;
+    int cmnd;
+    bool ackOK;
+    byte gsa;
 };
 
 extern bool ledstatus;
 extern buoyDataType buoy[NR_BUOYS];
+extern int notify;
 
 #endif /* GENERA:_H_ */

@@ -1,15 +1,22 @@
 #ifndef IO_H_
 #define IO_H_
 
-#define sda 21
-#define scl 22
-#define GpsRX 13
-#define GpsTX 15
-#define switch1_pin 12
-#define switch2_pin 14
-#define led_pin 25
-#define LEDSTRIP1 0
-#define LEDSTRIP2 4
+#define SDA 21
+#define SCL 22
+#define GPS_RX 13
+#define GPS_TX 15
+
+#define SWITCH_STANDBY 12
+#define SWITCH_REMOTE 14
+#define SWITCH_LOCK 02
+
+#define LED_PIN 25
+#define LED_STRIP1 0
+#define LED_STRIP2 4
+
+#define POT_SPEED 36
+#define POT_RUDDER 39
+#define BATC_PIN 35
 
 #define RADIO_SCLK_PIN 5
 #define RADIO_MISO_PIN 19
@@ -25,7 +32,6 @@
 #define SDCARD_SCLK 14
 #define SDCARD_CS 13
 
-#define ADC_PIN 35
 #define LoRa_frequency 433E6
 
 #endif /* IO_H_ */

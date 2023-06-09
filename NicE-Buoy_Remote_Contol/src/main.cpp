@@ -14,10 +14,10 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "LiLlora.h"
 #include "general.h"
 #include "webinterface.h"
-#include "menu.h"
+#include "adc.h"
 #include "../../dependency/command.h"
 
-unsigned long timestamp, msecstamp;
+unsigned long timestamp, msecstamp, hsecstamp;
 static float heading = 0;
 static double gpslatitude = 52.34567, gpslongitude = 4.567;                     // home
 static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
@@ -26,50 +26,53 @@ static unsigned long tgdir = 0, tgdistance = 0;
 unsigned long previousTime = 0;
 int speedbb = 0, speedsb = 0;
 bool ledstatus = false;
+static bool ackOK[4];
 
 const byte numChars = 5;
 char receivedChars[numChars]; // an array to store the received data
 
 buoyDataType buoy[NR_BUOYS];
 
-bool serialPortDataIn(int *nr)
-{
-    static byte ndx = 0;
-    char endMarker = '\n';
-    char rc;
+// bool serialPortDataIn(int *nr)
+// {
+//     static byte ndx = 0;
+//     char endMarker = '\n';
+//     char rc;
 
-    if (Serial.available() > 0)
-    {
-        rc = Serial.read();
-        if (rc != endMarker)
-        {
-            receivedChars[ndx] = rc;
-            ndx++;
-            if (ndx >= numChars)
-            {
-                ndx = numChars - 1;
-            }
-        }
-        else
-        {
-            receivedChars[ndx] = '\0'; // terminate the string
-            ndx = 0;
-            *nr = atoi(receivedChars); // new for this version
-            return true;
-        }
-    }
-    return false;
-}
+//     if (Serial.available() > 0)
+//     {
+//         rc = Serial.read();
+//         if (rc != endMarker)
+//         {
+//             receivedChars[ndx] = rc;
+//             ndx++;
+//             if (ndx >= numChars)
+//             {
+//                 ndx = numChars - 1;
+//             }
+//         }
+//         else
+//         {
+//             receivedChars[ndx] = '\0'; // terminate the string
+//             ndx = 0;
+//             *nr = atoi(receivedChars); // new for this version
+//             return true;
+//         }
+//     }
+//     return false;
+// }
 
 void setup()
 {
     Serial.begin(115200);
-    pinMode(led_pin, OUTPUT);
-    digitalWrite(led_pin, false);
+    pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, false);
     initSSD1306();
     Wire.begin();
     InitLora();
     websetup();
+    readAdc();
+    adc.newdata = false;
     Serial.println("Setup done.");
     delay(1000);
 // fill buoy with dummy data
@@ -84,152 +87,110 @@ void setup()
     buoy[3].gpslongitude = 4.3;
     buoy[3].rssi = loraIn.rssi - 33;
 #endif
+    buoy[1].status = IDLE;
+    buoy[2].status = IDLE;
+    buoy[3].status = IDLE;
+    buoy[1].ackOK = true;
+    buoy[2].ackOK = true;
+    buoy[3].ackOK = true;
+
     timestamp = millis();
     msecstamp = millis();
+    hsecstamp = millis();
 }
 
 void loop()
 {
     webloop();
-    if (loraOK)
+
+    if (polLora())
     {
-        int msg = polLora();
-        if (msg)
-        {
-            String decode = loraIn.message;
-            char tmparr[100];
-            unsigned long dist, dir;
-            int sp, sb, bb, he, st;
-            // Serial.printf("Lora messag recieved ");
-            // Serial.print("Sender:" + String(loraIn.sender) + " RSSI:" + String(loraIn.rssi) + " msg:" + msg + "\r\n");
-            int id = loraIn.sender;
-            switch (msg)
-            {
-            case (POSITION):
-                // Serial.println("Position recieved!");
-                decode.toCharArray(tmparr, decode.length() + 1);
-                double lat1, lon1;
-                sscanf(tmparr, "%lf,%lf", &lat1, &lon1);
-                if (NR_BUOYS > loraIn.sender)
-                {
-                    buoy[loraIn.sender].gpslatitude = lat1;
-                    buoy[loraIn.sender].gpslongitude = lon1;
-                    buoy[loraIn.sender].rssi = loraIn.rssi;
-                }
-                break;
-            case (DIR_DISTANSE_TO_TARGET_POSITION):
-                // Serial.println("direction and distance target recieved!");
-                decode.toCharArray(tmparr, decode.length() + 1);
-                sscanf(tmparr, "%d,%d", &dir, &dist);
-                if (NR_BUOYS > loraIn.sender)
-                {
-                    buoy[loraIn.sender].tgdir = dir;
-                    buoy[loraIn.sender].tgdistance = dist;
-                    buoy[loraIn.sender].rssi = loraIn.rssi;
-                }
-                break;
-            case (DIR_DISTANSE_SPEED_SBSPPEED_BBSPEED_TARGET_POSITION):
-                // Serial.println("direction and distance target recieved!");
-                decode.toCharArray(tmparr, decode.length() + 1);
-                sscanf(tmparr, "%d,%d,%d,%d,%d,%d", &dir, &dist, &sp, &sb, &bb, &he);
-                if (NR_BUOYS > loraIn.sender)
-                {
-                    buoy[loraIn.sender].tgdir = dir;
-                    buoy[loraIn.sender].mdir = he;
-                    buoy[loraIn.sender].tgdistance = dist;
-                    buoy[loraIn.sender].speed = sp;
-                    buoy[loraIn.sender].speedsb = sb;
-                    buoy[loraIn.sender].speedbb = bb;
-                    buoy[loraIn.sender].rssi = loraIn.rssi;
-                }
-                break;
-
-            case (DIR_DISTANSE_SPEED_SBSPPEED_BBSPEED_TARGET_POSITION_STATUS):
-                // Serial.println("direction and distance target recieved!");
-                decode.toCharArray(tmparr, decode.length() + 1);
-                sscanf(tmparr, "%d,%d,%d,%d,%d,%d,%d", &dir, &dist, &sp, &sb, &bb, &he, &st);
-                if (NR_BUOYS > loraIn.sender)
-                {
-                    buoy[loraIn.sender].tgdir = dir;
-                    buoy[loraIn.sender].mdir = he;
-                    buoy[loraIn.sender].tgdistance = dist;
-                    buoy[loraIn.sender].speed = sp;
-                    buoy[loraIn.sender].speedsb = sb;
-                    buoy[loraIn.sender].speedbb = bb;
-                    buoy[loraIn.sender].rssi = loraIn.rssi;
-                }
-                break;
-            case SAIL_DIR_SPEED:
-                decode.toCharArray(tmparr, decode.length() + 1);
-                sscanf(tmparr, "%d,%d,%d,%d", &he, &sp, &sb, &bb);
-                if (NR_BUOYS > loraIn.sender)
-                {
-                    buoy[loraIn.sender].tgdir = 0;
-                    buoy[loraIn.sender].mdir = he;
-                    buoy[loraIn.sender].tgdistance = 0;
-                    buoy[loraIn.sender].speed = sp;
-                    buoy[loraIn.sender].speedsb = sb;
-                    buoy[loraIn.sender].speedbb = bb;
-                    buoy[loraIn.sender].rssi = loraIn.rssi;
-                }
-                break;
-            case TARGET_POSITION_SET:
-                Serial.println("New anchor position SET!");
-                buoy[loraIn.sender].status = LOCKED;
-                break;
-
-            case ANCHOR_POSITION:
-                Serial.println("New anchor position recieved!");
-                Serial.println(String(loraIn.message));
-                if (NR_BUOYS > loraIn.sender)
-                {
-                    buoy[loraIn.sender].rssi = loraIn.rssi;
-                }
-                break;
-            default:
-                Serial.println("unknown command: " + msg);
-                break;
-            }
-            udateDisplay();
-            notify = loraIn.sender;
-        }
+        udateDisplay();
+        notify = loraIn.sender;
     }
+
     /*
     runs each 10 msec
     */
     if (millis() - msecstamp >= 10)
     {
         msecstamp = millis();
-        digitalWrite(led_pin, ledstatus);
+        digitalWrite(LED_PIN, ledstatus);
         ledstatus = false;
+    }
+
+   /*
+    runs each 100 msec
+    read adc values and send new setting if has been updated by user
+    */
+    if (millis() - hsecstamp >= 100)
+    {
+        hsecstamp = millis();
+        if(SWITCH_REMOTE == 0)
+        {
+            buoy[1].status = REMOTE;
+            buoy[1].cmnd = SAIL_DIR_SPEED;            
+        }
+        if(SWITCH_LOCK == 0)       {
+            buoy[1].status = LOCKING;
+            buoy[1].cmnd = TARGET_POSITION;
+        }
+        if(SWITCH_STANDBY == 0)
+        {
+            buoy[1].status = IDLE;
+            buoy[1].cmnd = BUOY_MODE_IDLE;
+        }
+        readAdc();
+        for (int i = 1; i < NR_BUOYS; i++)
+        {
+            if(buoy[i].status == REMOTE)
+            {
+                if(adc.newdata == true)
+                {
+                    Serial.printf("New data from ADC! speed:%d rudder:%d\r\n",adc.speed,adc.rudder);
+                    buoy[i].cspeed = adc.speed;
+                    buoy[i].cdir = adc.rudder;
+                    buoy[i].cmnd = SAIL_DIR_SPEED;
+                    adc.newdata = false;
+                    loraMenu(i);
+                }
+            }
+        }
     }
 
     if (millis() - previousTime >= 1000)
     { // do stuff every second
         previousTime = millis();
-        if (buoy[1].status == REMOTE)
+        for (int i = 1; i < NR_BUOYS; i++)
         {
-            menu(REMOTE, 1);
-        }
-        else if (buoy[1].status == LOCKING)
-        {
-            menu(SET_TARGET_POSITION, 1);
-        }
-        else if (buoy[1].status == LOCKED)
-        {
-            menu(GET_DIR_DISTANSE_SPEED_SBSPPEED_BBSPEED_TARGET_POSITION_STATUS, 1);
-        }
-        else
-        {
-            sendLoraSetGetPosition(1);
+            if (
+                buoy[i].status == LOCKED ||
+                buoy[i].status == GOTO_DOC_POSITION ||
+                buoy[i].status == SAIL_DIR_SPEED ||
+                buoy[i].status == REMOTE
+                )
+            {
+                loraMenu(i);
+            }
         }
     }
-    int nr;
-    if (serialPortDataIn(&nr))
+
+    /*
+        repeat last command again.
+    */
+    for (int i = 1; i < NR_BUOYS; i++)
     {
-        Serial.printf("New data on serial port: %d\n", nr);
-        menu(nr, 1);
+        if (buoy[i].ackOK == false)
+        {
+            loraMenu(i);
+        }
     }
+
+    // int nr;
+    // if (serialPortDataIn(&nr))
+    // {
+    //     Serial.printf("New data on serial port: %d\n", nr);
+    // }
 
     delay(1);
 }

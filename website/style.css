@@ -1,11 +1,28 @@
+/* CSS reset, dit niet aanpassen! */
+
 html {
-    font-family: Arial, Helvetica, sans-serif;
-    text-align: center;
+    box-sizing: border-box;
+}
+
+*,
+*:before,
+*:after {
+    box-sizing: inherit;
 }
 
 body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
     background-color: lightsteelblue;
 }
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Hieronder mag je eigen CSS code */
 
 header {
     background-color: rgb(13, 101, 216);
@@ -13,6 +30,10 @@ header {
     width: 1024;
     margin-left: auto;
     margin-right: auto;
+}
+
+body {
+    background-color: lightsteelblue;
 }
 
 h1 {

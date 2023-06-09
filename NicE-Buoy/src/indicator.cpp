@@ -6,7 +6,7 @@ Indicator
 #include <FastLED.h>
 #include "io.h"
 #define NUM_STRIPS 2
-#define NUM_LEDS_PER_STRIP 10
+#define NUM_LEDS_PER_STRIP 11
 
 QueueHandle_t indicatorque;
 
@@ -46,12 +46,12 @@ void IndicatorTask(void *arg)
                 sb = sb * -1;
             }
 
-            for (int i = 0; i < NUM_LEDS_PER_STRIP; i++)
+            for (int i = 0; i < NUM_LEDS_PER_STRIP - 1; i++)
             {
                 if (bb > 0)
                 {
                     leds[0][i] = bbcolor;
-                    bb = bb - 100/NUM_LEDS_PER_STRIP;
+                    bb = bb - 100 / NUM_LEDS_PER_STRIP - 1;
                 }
                 else
                 {
@@ -60,13 +60,15 @@ void IndicatorTask(void *arg)
                 if (sb > 0)
                 {
                     leds[1][i] = sbcolor;
-                    sb = sb - 100/NUM_LEDS_PER_STRIP;
+                    sb = sb - 100 / NUM_LEDS_PER_STRIP - 1;
                 }
                 else
                 {
                     leds[1][i] = CRGB::Black;
                 }
             }
+            leds[0][10] = msg.ledstatus[0];
+            leds[1][10] = msg.ledstatus[1];
             FastLED.show();
         }
         delay(10);

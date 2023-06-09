@@ -147,11 +147,12 @@ void RouteToPoint(double lat1, double lon1, double lat2, double lon2, unsigned l
 {
     *distance = gps.distanceBetween(lat1, lon1, lat2, lon2);
     *direction = gps.courseTo(lat1, lon1, lat2, lon2);
+    // Serial.printf("distance: %.2lf Direction: %.3lf\r\n",distance,direction);
 }
 
 int InitGps(void)
 {
-    Serial1.begin(GPSBAUD, SERIAL_8N1, GpsRX, GpsTX);
+    Serial1.begin(GPSBAUD, SERIAL_8N1, GPSRX, GPSTX);
     Serial.println(PSTR("GPS port created"));
     return 0;
 }

@@ -11,6 +11,7 @@ struct loraDataType
     byte sender;
     int recipient;
     byte id;
+    byte heading;
     byte messagelength;
     String message;
     int rssi;
@@ -19,18 +20,12 @@ struct loraDataType
 
 extern loraDataType loraIn;
 extern loraDataType loraOut;
-
 extern bool loraOK;
+
+void sendMessage(String outgoing, byte dest, byte id);
 bool InitLora(void);
 int polLora(void);
-bool sendLora(int buoy);
-void sendLoraSetTargetPosition(int buoy);
-void sendLoraSetDocPosition(int buoy);
-void sendLoraGoToDocPosition(int buoy);
-void sendLoraSetSailDirSpeed(int buoy, int tgdir, int speed);
-void sendLoraStatus(int buoy, int status);
-void sendLoraSetGetPosition(int buoy);
-void sendLoraSetIdle(int buoy);
-void sendLoraReset(int buoy);
+bool sendLoraHello(int buoy);
+void loraMenu(int buoy_nr);
 
 #endif /* LORA_H_ */

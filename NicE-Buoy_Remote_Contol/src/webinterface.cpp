@@ -1,13 +1,12 @@
 // Import required libraries
 #include <WiFi.h>
+#include <ArduinoOTA.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include <AsyncElegantOTA.h>;
 #include <ArduinoJson.h>
 #include <ArduinoOTA.h>
 #include "SPIFFS.h"
 #include "general.h"
-#include "menu.h"
 #include "calculate.h"
 #include "LiLlora.h"
 
@@ -21,7 +20,49 @@ AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
 bool ledState = 0;
+static bool OTA = false;
 int notify = 0;
+int radiobutton[NR_BUOYS];
+
+/* ****************************************************************************/
+/* * Over the air setup */
+/* * If timers are used kill the processes befor going to dwonload the new
+ * firmware */
+/* * To realise that kill them in the function ArduinoOTA.onStart */
+/* ***************************************************************************
+ */
+void setup_OTA()
+{
+    char ssidl[26];
+    char buf[40];
+    byte mac[6];
+    WiFi.macAddress(mac);
+    strcpy(ssidl, "NicE_Buoy_Control");
+    Serial.print("[SETUP] OTA...");
+    sprintf(buf, "%s-%02x:%02x:%02x:%02x:%02x:%02x", ssidl, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    ArduinoOTA.setHostname(buf);
+    ArduinoOTA.onStart([]()
+                       {
+    /* switch off all processes here!!!!! */
+    Serial.println();
+    Serial.println("Recieving new firmware now!"); });
+    ArduinoOTA.onEnd([]()
+                     {
+    /* do stuff after update here!! */
+    Serial.println("\nRecieving done!");
+    Serial.println("Storing in memory and reboot!");
+    Serial.println(); });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
+                          { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); });
+    ArduinoOTA.onError([](ota_error_t error)
+                       { ESP.restart(); });
+    /* setup the OTA server */
+    ArduinoOTA.begin();
+    Serial.println("...done!");
+    OTA = true;
+    Serial.print("OTA ID: ");
+    Serial.println(buf);
+}
 
 void notifyClients(int buoy_nr)
 {
@@ -29,10 +70,12 @@ void notifyClients(int buoy_nr)
     DynamicJsonDocument doc(500);
 
     String n = String(buoy_nr);
+    doc["STATUS" + n] = radiobutton[buoy_nr];
     doc["mdir" + n] = buoy[buoy_nr].mdir;
     doc["tgdistance" + n] = buoy[buoy_nr].tgdistance;
-    doc["speedsb" + n] = buoy[buoy_nr].speedsb;
+    doc["speed" + n] = buoy[buoy_nr].speed;
     doc["speedbb" + n] = buoy[buoy_nr].speedbb;
+    doc["speedsb" + n] = buoy[buoy_nr].speedsb;
     doc["rssi" + n] = buoy[buoy_nr].rssi;
 
     if (buoy[buoy_nr].status == LOCKED)
@@ -53,8 +96,6 @@ void notifyClients(int buoy_nr)
     else if (buoy[buoy_nr].status == REMOTE)
     {
         doc["ddir" + n] = buoy[buoy_nr].cdir;
-        doc["speed" + n] = buoy[buoy_nr].cspeed;
-        doc["tgdir" + n] = buoy[buoy_nr].tgdir;
     }
     else if (buoy[buoy_nr].status == IDLE)
     {
@@ -62,8 +103,8 @@ void notifyClients(int buoy_nr)
         doc["speed" + n] = 0;
         doc["tgdir" + n] = 0;
         doc["tgdistance" + n] = 0;
-        doc["speedsb" + n] = 0;
         doc["speedbb" + n] = 0;
+        doc["speedsb" + n] = 0;
     }
     else
     {
@@ -90,7 +131,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
     if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT)
     {
         data[len] = 0;
-        Serial.printf("Websocket data in: %s <-Len %d\n", (char *)data, len);
+        Serial.printf("Websocket data in: %s\n", (char *)data);
         DynamicJsonDocument doc(len * 2);
         DeserializationError err = deserializeJson(doc, data);
         if (err)
@@ -99,7 +140,6 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             Serial.println(err.c_str());
             return;
         }
-        Serial.println("New data form websocket");
         JsonObject obj = doc.as<JsonObject>();
         if (doc.containsKey("GETSTATUS"))
         {
@@ -109,13 +149,32 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             serializeJson(doc1, buffer);
             ws.textAll(buffer);
         }
+        if (doc.containsKey("Lock_Buoy_1"))
+        {
+            radiobutton[1] = 2;
+            notify = true;
+        }
+        if (doc.containsKey("Remote_Buoy_1"))
+        {
+            radiobutton[1] = 6;
+            notify = true;
+        }
+        if (doc.containsKey("Doc_Buoy_1"))
+        {
+            radiobutton[1] = 7;
+            notify = true;
+        }
+        if (doc.containsKey("Idle_1"))
+        {
+            radiobutton[1] = 1;
+            notify = true;
+        }
+
         if (doc.containsKey("Rudder1"))
         {
             if (buoy[1].status != LOCKED)
             {
                 buoy[1].cdir = doc["Rudder1"];
-                Serial.print("Rudder1 found: ");
-                Serial.printf("%d\r\n", buoy[1].cdir);
             }
             // notify = 1;
         }
@@ -125,46 +184,62 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             if (buoy[1].status != LOCKED)
             {
                 buoy[1].cspeed = doc["Speed1"];
-                Serial.print("Speed1 found: ");
-                Serial.printf("%d\r\n", buoy[1].cspeed);
             }
             // notify = 1;
         }
         if (doc.containsKey("LOCKEDBUOY1"))
         {
-            menu(SET_TARGET_POSITION, 1);
+            buoy[1].cdir = 0;
+            buoy[1].cspeed = 0;
             buoy[1].speed = 0;
+            buoy[1].speedbb = 0;
+            buoy[1].speedsb = 0;
+
             buoy[1].status = LOCKING;
+            buoy[1].cmnd = TARGET_POSITION;
+            buoy[1].ackOK = false;
+            buoy[1].gsa = SET;
+
             // notify = 1;
         }
         if (doc.containsKey("REMOTEBUOY1"))
         {
-            menu(SET_SAIL_DIR_SPEED, 1);
             buoy[1].cdir = 0;
             buoy[1].cspeed = 0;
+            buoy[1].speed = 0;
+            buoy[1].speedbb = 0;
+            buoy[1].speedsb = 0;
             buoy[1].status = REMOTE;
-            // notify = 1;
+            buoy[1].cmnd = SAIL_DIR_SPEED;
+            buoy[1].ackOK = false;
+            buoy[1].gsa = SET;
         }
         if (doc.containsKey("DOCBUOY1"))
         {
-            menu(GOTO_DOC_POSITION, 1);
             buoy[1].tgdir = 0;
             buoy[1].speed = 0;
             buoy[1].status = DOC;
-            // notify = 1;
+            buoy[1].cmnd = GOTO_DOC_POSITION;
+            buoy[1].ackOK = false;
+            buoy[1].gsa = SET;
         }
         if (doc.containsKey("IDLEBUOY1"))
         {
-            menu(SET_BUOY_MODE_IDLE, 1);
             buoy[1].tgdir = 0;
             buoy[1].speed = 0;
             buoy[1].status = IDLE;
-            // notify = 1;
+            buoy[1].cmnd = BUOY_MODE_IDLE;
+            buoy[1].ackOK = false;
+            buoy[1].gsa = SET;
         }
         if (buoy[1].status == REMOTE)
         {
-            sendLoraSetSailDirSpeed(1, buoy[1].cdir, buoy[1].cspeed);
+            buoy[1].status = REMOTE;
+            buoy[1].cmnd = SAIL_DIR_SPEED;
+            buoy[1].ackOK = false;
+            buoy[1].gsa = SET;
         }
+        notify = 1;
         // Serial.printf("Status %d\r\n", buoy[1].status);
     }
 }
@@ -174,6 +249,7 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
     {
     case WS_EVT_CONNECT:
         Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+        notify = true;
         break;
     case WS_EVT_DISCONNECT:
         Serial.printf("WebSocket client #%u disconnected\n", client->id());
@@ -250,14 +326,17 @@ void websetup()
     //              { request->send(200, "/style.css", "text/css"); });
     server.on("/index.js", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/index.js", "text/js"); });
-
     // Start server
-    AsyncElegantOTA.begin(&server);
     server.begin();
+    // setup_OTA();
 }
 
 void webloop()
 {
+    if (OTA)
+    {
+        ArduinoOTA.handle();
+    }
     ws.cleanupClients();
     if (notify)
     {

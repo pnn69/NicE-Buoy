@@ -17,14 +17,14 @@ https://github.com/pololu/lsm303-arduino/tree/master/examples
 
 LSM303 compass;
 
-bool LSM303ok = false;
+bool COMPASSok = false;
 bool InitCompass(void)
 {
     LSM303ok = compass.init();
     compass.enableDefault();
     compass.m_min = (LSM303::vector<int16_t>){-32767, -32767, -32767};
     compass.m_max = (LSM303::vector<int16_t>){+32767, +32767, +32767};
-    return LSM303ok;
+    Serial.println() return LSM303ok;
 }
 
 static int cbufpointer = 0;

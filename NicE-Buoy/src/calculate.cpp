@@ -48,6 +48,7 @@ int CalcNewDirection(double heading1, double heading2)
 double Angle2SpeedFactor(double angle)
 {
     // cos(correctonAngle * M_PI / 180.0); not working for mall angles
+    angle = constrain(angle, 0, 180);
     if (angle <= 90)
     {
         return (map(angle, 0, 90, 100, 0) / 100.0);
@@ -104,12 +105,12 @@ void CalcEngingSpeed(float magheading, unsigned long tgheading, int speed, int *
     // Serial.printf("correctonAngle %.4f Angle2SpeedFactor %.4f \n",correctonAngle,Angle2SpeedFactor(correctonAngle));
     if (determineDirection(magheading, tgheading))
     {
-        *bb = speed;
-        *sb = int(speed * Angle2SpeedFactor(correctonAngle));
+        *bb = int(speed * Angle2SpeedFactor(correctonAngle));
+        *sb = speed;
     }
     else
     {
-        *bb = int(speed * Angle2SpeedFactor(correctonAngle));
-        *sb = speed;
+        *bb = speed;
+        *sb = int(speed * Angle2SpeedFactor(correctonAngle));
     }
 }

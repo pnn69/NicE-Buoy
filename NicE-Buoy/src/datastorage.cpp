@@ -8,7 +8,7 @@ void InitMemory(void)
     // has to use a namespace name to prevent key name collisions. We will open storage in
     // RW-mode (second parameter has to be false).
     // Note: Namespace name is limited to 15 chars.
-    storage.begin("NicE_Buoy_Data", false);
+    storage.begin("NicE_Buoy_Data");
 }
 /*
     ID of the buoy
