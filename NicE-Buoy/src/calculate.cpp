@@ -102,7 +102,7 @@ void CalcEngingSpeed(float magheading, unsigned long tgheading, int speed, int *
     double correctonAngle = 0;
     // Angle between calculated angel to steer and the current direction of the vessel
     correctonAngle = smallestAngle(magheading, tgheading);
-    // Serial.printf("correctonAngle %.4f Angle2SpeedFactor %.4f \n",correctonAngle,Angle2SpeedFactor(correctonAngle));
+    Serial.printf("correctonAngle %.4f Angle2SpeedFactor %.4f \n",correctonAngle,Angle2SpeedFactor(correctonAngle));
     if (determineDirection(magheading, tgheading))
     {
         *bb = int(speed * Angle2SpeedFactor(correctonAngle));

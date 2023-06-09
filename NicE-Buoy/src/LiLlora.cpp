@@ -249,10 +249,11 @@ int polLora(void)
         CalcEngingSpeed(buoy.cdir, (unsigned long)buoy.mheading, buoy.cspeed, &buoy.speedbb, &buoy.speedsb);
         msg = String(SAIL_DIR_SPEED) + "," + buoy.cdir + "," + buoy.cspeed + "," + buoy.speedbb + "," + buoy.speedsb;
         loraOut.id = ACK;
-        Serial.printf("BB: %d SB: %d\r\n", buoy.speedbb, buoy.speedsb);
+        Serial.printf("cdir:%d Mdir:%d BB:%d SB:%d\r\n",buoy.cdir, (unsigned long)buoy.mheading, buoy.speedbb, buoy.speedsb);
         loraOut.messagelength = msg.length();
         loraOut.message = msg;
         sendLora();
+        delay(5000);
         break;
 
     case BUOY_MODE_IDLE:

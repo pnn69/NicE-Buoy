@@ -45,19 +45,19 @@ void speedbars(int sb, int bb)
     display.drawRect(128 - barwide, 0, barwide, 64, WHITE);
     if (bb >= 0)
     {
-        display.fillRect(0, 32, barwide, 32 * bb / 100, WHITE);
+        display.fillRect(128 - barwide, 32, barwide, 32 * bb / 100, WHITE);
     }
     else
     {
-        display.fillRect(0, 32 + 32 * bb / 100, barwide, -32 * bb / 100, WHITE);
+        display.fillRect(128 - barwide, 32 + 32 * bb / 100, barwide, -32 * bb / 100, WHITE);
     }
     if (sb >= 0)
     {
-        display.fillRect(128 - barwide, 32, barwide, 32 * sb / 100, WHITE);
+        display.fillRect(0, 32, barwide, 32 * sb / 100, WHITE);
     }
     else
     {
-        display.fillRect(128 - barwide, 32 + 32 * sb / 100, barwide, -32 * sb / 100, WHITE);
+        display.fillRect(0, 32 + 32 * sb / 100, barwide, -32 * sb / 100, WHITE);
     }
 }
 void udateDisplay(int sb, int bb, unsigned long distance, unsigned long direction, unsigned long mdirection, bool fix)

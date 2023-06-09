@@ -7,24 +7,30 @@ https://github.com/pololu/lsm303-arduino/tree/master/examples
 */
 
 #include <Wire.h>
-#include <LSM303.h>
-#include <stdio.h>
 #include <stdio.h>
 #include <math.h>
+#include "bmm150.h"
+#include "bmm150_defs.h"
 
 #define NUM_DIRECTIONS 50
 #define NUM_POSITIONS 50
 
-LSM303 compass;
+BMM150 bmm = BMM150();
 
 bool COMPASSok = false;
 bool InitCompass(void)
 {
-    LSM303ok = compass.init();
-    compass.enableDefault();
-    compass.m_min = (LSM303::vector<int16_t>){-32767, -32767, -32767};
-    compass.m_max = (LSM303::vector<int16_t>){+32767, +32767, +32767};
-    Serial.println() return LSM303ok;
+    if (bmm.initialize() == BMM150_E_ID_NOT_CONFORM)
+    {
+        Serial.println("Chip ID can not read!");
+        return false;
+    }
+    else
+    {
+        Serial.println("Compass found!");
+    }
+    COMPASSok = true;
+    return true;
 }
 
 static int cbufpointer = 0;
@@ -55,11 +61,31 @@ float CompassAverage(float in)
 
 float GetHeading(void)
 {
-    if (LSM303ok)
+    if (COMPASSok)
     {
-        compass.read();
-        // return compass.heading((LSM303::vector<int>){0, 0, 1});
-        return compass.heading();
+        bmm150_mag_data value;
+        bmm.read_mag_data();
+
+        value.x = bmm.raw_mag_data.raw_datax;
+        value.y = bmm.raw_mag_data.raw_datay;
+        value.z = bmm.raw_mag_data.raw_dataz;
+
+        float xyHeading = atan2(value.x, value.y);
+        float zxHeading = atan2(value.z, value.x);
+        float heading = xyHeading;
+
+        if (heading < 0)
+        {
+            heading += 2 * PI;
+        }
+        if (heading > 2 * PI)
+        {
+            heading -= 2 * PI;
+        }
+        float headingDegrees = heading * 180 / M_PI;
+        float xyHeadingDegrees = xyHeading * 180 / M_PI;
+        float zxHeadingDegrees = zxHeading * 180 / M_PI;
+        return xyHeadingDegrees;
     }
     return -1;
 }

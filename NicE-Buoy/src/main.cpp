@@ -77,7 +77,7 @@ void setup()
     InitCompass();
     InitGps();
     initSSD1306();
-    xTaskCreate(EscTask, "EscTask", 2400, NULL, 5, NULL);
+    xTaskCreate(EscTask, "EscTask", 2400, NULL, 25, NULL);
     xTaskCreate(IndicatorTask, "IndicatorTask", 2400, NULL, 5, NULL);
     // websetup();
     Serial.printf("BuoyID = %d\n\r", buoyID);
@@ -114,7 +114,7 @@ void loop()
         msecstamp = millis();
         digitalWrite(LED_PIN, ledstatus);
         ledstatus = false;
-        // buoy.heading = CompassAverage(GetHeading());
+        buoy.mheading = CompassAverage(GetHeading());
     }
 
     // do stuff every 0.5 second
