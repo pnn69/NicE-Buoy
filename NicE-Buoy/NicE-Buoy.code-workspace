@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"name": "Remot NicE Buoy Contol",
+			"path": "../Remot NicE Buoy Contol"
+		}
+	],
+    "settings": {
+        "files.associations": {
+            "adafruit_ssd1306.h": "c"
+        }
+    }
+}
