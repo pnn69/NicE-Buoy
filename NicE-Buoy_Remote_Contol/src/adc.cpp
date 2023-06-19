@@ -24,7 +24,7 @@ void readAdc(void)
     tmp = constrain(tmp,47,4047);
     if (adc.rawr - 10 > tmp || adc.rawr + 10 < tmp)
     {
-        adc.rudder = map(tmp, 47, 4047, -179, 179); // 4095;
+        adc.rudder = map(tmp, 47, 4047, -135, 135); // 4095;
         adc.rawr = tmp;
         adc.newdata = true;
     }

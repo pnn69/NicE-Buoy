@@ -106,14 +106,14 @@ void CalcEngingSpeed(float magheading, int tgheading, int speed, int *bb, int *s
     // Serial.printf("correctonAngle %.4f Angle2SpeedFactor %.4f \n", correctonAngle, Angle2SpeedFactor(correctonAngle));
     if (determineDirection(magheading, tgheading))
     {
-        *bb = int(speed * Angle2SpeedFactor(correctonAngle));
-        *sb = speed;
-        // Serial.println("Stuurboord");
-    }
-    else
-    {
         *bb = speed;
         *sb = int(speed * Angle2SpeedFactor(correctonAngle));
         // Serial.println("Bakboord");
+    }
+    else
+    {
+        *bb = int(speed * Angle2SpeedFactor(correctonAngle));
+        *sb = speed;
+        // Serial.println("Stuurboord");
     }
 }

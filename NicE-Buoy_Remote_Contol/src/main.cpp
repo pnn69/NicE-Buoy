@@ -223,7 +223,7 @@ void loop()
             {
                 if (adc.newdata == true)
                 {
-                    Serial.printf("New data from ADC! speed:%d rudder:%d\r\n", adc.speed, adc.rudder);
+                    //Serial.printf("New data from ADC! speed:%d rudder:%d\r\n", adc.speed, adc.rudder);
                     buoy[i].cspeed = adc.speed;
                     buoy[i].cdir = adc.rudder;
                     buoy[i].cmnd = SAIL_DIR_SPEED;

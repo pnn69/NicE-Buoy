@@ -83,7 +83,7 @@ void setup()
     initSSD1306();
     xTaskCreate(EscTask, "EscTask", 2400, NULL, 25, NULL);
     xTaskCreate(IndicatorTask, "IndicatorTask", 2400, NULL, 5, NULL);
-    websetup();
+    //websetup();
     Serial.printf("BuoyID = %d\n\r", buoyID);
     Serial.printf("Status = %d\n\r", status);
     secstamp = millis();

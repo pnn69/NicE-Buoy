@@ -1,6 +1,19 @@
 #ifndef GPS_H_
 #define GPS_H_
 
+struct GpsDataType
+{
+    long lat;
+    long lon;
+    int speed;
+    float id;
+    bool fix;
+    byte sats;
+    byte fixtype;
+    int lastfix;
+};
+
+
 extern bool gpsvalid;
 void displayGPSInfo(void);
 int InitGps(void);

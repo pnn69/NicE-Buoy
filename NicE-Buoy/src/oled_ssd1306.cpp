@@ -44,21 +44,22 @@ void speedbars(int sb, int bb)
         bb = 1;
     display.drawRect(0, 0, barwide, 64, WHITE);
     display.drawRect(128 - barwide, 0, barwide, 64, WHITE);
-    if (bb >= 0)
+    if (bb <= 0)
     {
-        display.fillRect(128 - barwide, 32, barwide, 32 * bb / 100, WHITE);
+        display.fillRect(0, 32, barwide, 32 * -bb / 100, WHITE);
     }
     else
     {
-        display.fillRect(128 - barwide, 32 + 32 * bb / 100, barwide, -32 * bb / 100, WHITE);
+        display.fillRect(0, 32 + 32 * -bb / 100, barwide, 32 * bb / 100, WHITE);
     }
-    if (sb >= 0)
+
+    if (sb <= 0)
     {
-        display.fillRect(0, 32, barwide, 32 * sb / 100, WHITE);
+        display.fillRect(128 - barwide, 32, barwide, 32 * -sb / 100, WHITE);
     }
     else
     {
-        display.fillRect(0, 32 + 32 * sb / 100, barwide, -32 * sb / 100, WHITE);
+        display.fillRect(128 - barwide, 32 + 32 * -sb / 100, barwide, 32 * sb / 100, WHITE);
     }
 }
 void udateDisplay(int sb, int bb, unsigned long distance, unsigned long direction, unsigned long mdirection, bool fix)
@@ -70,7 +71,7 @@ void udateDisplay(int sb, int bb, unsigned long distance, unsigned long directio
         display.setCursor(6 * 5, 10);
         display.printf("NicE BUOY %d", buoyID);
         display.setCursor(17, 20);
-        display.printf("Stat:%d Rssi:%d", status,loraIn.rssi);
+        display.printf("Stat:%d Rssi:%d", status, loraIn.rssi);
         display.setCursor(barwide + 7, 30);
         display.printf("Dist: %3dM", distance);
         display.setCursor(barwide + 7, 40);

@@ -246,10 +246,10 @@ int polLora(void)
             buoy.cdir = ddir;
             status = REMOTE;
         }
-        CalcEngingSpeed(buoy.cdir, buoy.mheading, buoy.cspeed, &buoy.speedbb, &buoy.speedsb);
+        CalcEngingSpeed(buoy.mheading, buoy.cdir, buoy.cspeed, &buoy.speedbb, &buoy.speedsb);
         msg = String(SAIL_DIR_SPEED) + "," + buoy.mheading + "," + buoy.cspeed + "," + buoy.speedbb + "," + buoy.speedsb;
         loraOut.id = ACK;
-        Serial.printf("cdir:%d Mdir:%d BB:%d SB:%d\r\n", buoy.cdir, buoy.mheading, buoy.speedbb, buoy.speedsb);
+        Serial.printf("Mdir:%d cdir:%d BB:%d SB:%d\r\n", buoy.mheading, buoy.cdir, buoy.speedbb, buoy.speedsb);
         loraOut.messagelength = msg.length();
         loraOut.message = msg;
         sendLora();
