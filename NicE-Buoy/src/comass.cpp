@@ -4,6 +4,8 @@ Compass LSM303DLHC Magnetic / accelorometer for comesating tilt
 https://github.com/pololu/lsm303-arduino/tree/master
 https://github.com/pololu/lsm303-arduino/tree/master/examples
 
+https://www.youtube.com/watch?v=HHJEaB1iS30
+
 */
 
 #include <Wire.h>

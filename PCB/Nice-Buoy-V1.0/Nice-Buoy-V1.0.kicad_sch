@@ -1,0 +1,27 @@
+(kicad_sch (version 20230121) (generator eeschema)
+
+  (uuid 77bea089-a6ae-4a6f-b95b-7a9010ad7c5d)
+
+  (paper "A4")
+
+  (title_block
+    (title "NicE Buoy")
+    (date "2023-06-20")
+    (rev "1.1")
+    (company "NicE Engineering")
+  )
+
+  (lib_symbols
+  )
+
+
+  (text "ESP32\nLORA\nGPS\nCOMPASS\nGIRO\nACCELOROMETER\nBATTERY MONITOR\nPOWERSUPPY 5V 3.3V\nMODE SWITCH\nLEDSTRIP\n"
+    (at 17.145 35.56 0)
+    (effects (font (size 1.27 1.27)) (justify left bottom))
+    (uuid a8705544-687a-4eb4-8757-449e0d3ddfdd)
+  )
+
+  (sheet_instances
+    (path "/" (page "1"))
+  )
+)
