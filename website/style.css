@@ -7,59 +7,21 @@
     padding: 0;
 }
 
-/**
- * CSS bar graph with Positive and Negative values
- */
-.graph {
-    width: 100px;
-    border: 1px solid #aeaeae;
-    background-color: #eaeaea;
+.progress-bar {
+    width: 20px;
+    height: 200px;
+    background-color: lightgray;
+    transform: rotate(180deg);
 }
 
-/* Start of "Micro clearfix" */
-
-.cf {
-    zoom: 1;
+.progress-bar-fill {
+    transition: height 0.3s ease-in-out;
 }
 
-.cf:before,
-.cf:after {
-    content: "";
-    display: table;
+.negative {
+    background-color: #ff6b6b;
 }
 
-.cf:after {
-    clear: both;
-}
-
-/* End of "Micro clearfix" */
-
-
-.ext {
-    width: 50px;
-    padding: 2px 0;
-}
-
-.ext.neg {
-    border-right: 1px solid black;
-}
-
-.ext.pos {
-    margin-left: 50px;
-    border-left: 1px solid black;
-}
-
-.ext.neg .bar {
-    float: right;
-    margin-bottom: 5px;
-    background-color: red;
-}
-
-.ext.pos .bar {
-
-    background-color: green;
-}
-
-.bar {
-    height: 5px;
+.positive {
+    background-color: #6dff6b;
 }
