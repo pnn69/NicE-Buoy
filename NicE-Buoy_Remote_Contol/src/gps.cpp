@@ -9,7 +9,7 @@
 #define GPSBAUD 9600
 
 static double lat, lng, speed, dir;
-bool gpsvalid = false;
+static bool firstfix = false;
 
 TinyGPSPlus gps;
 GpsDataType gpsdata;
@@ -118,7 +118,7 @@ void displayGPSInfo(void)
 /*
     Collect GPS data if new data is gatherd
 */
-int GetNewGpsData(double *gpslat, double *gpslng)
+int GetNewGpsData(void)
 {
     char in;
     // while (gpsSerial.available() > 0)
@@ -132,13 +132,17 @@ int GetNewGpsData(double *gpslat, double *gpslng)
             {
                 gpsdata.lat = gps.location.lat();
                 gpsdata.lon = gps.location.lng();
+                if (firstfix == false)
+                {
+                    gpsdata.dlat = gpsdata.lat;
+                    gpsdata.dlon = gpsdata.lon;
+                    firstfix = true;
+                }
                 gpsdata.corrlat = gpsdata.lat - gpsdata.dlat;
                 gpsdata.corrlon = gpsdata.lon - gpsdata.dlon;
                 gpsdata.speed = gps.speed.kmph();
                 gpsdata.cource = gps.course.deg();
                 gpsdata.fix = true;
-                *gpslat = gpsdata.lat;
-                *gpslng = gpsdata.lon;
                 return 1;
             }
             else
@@ -146,7 +150,6 @@ int GetNewGpsData(double *gpslat, double *gpslng)
                 gpsdata.fix = false;
             }
     }
-    gpsvalid = false;
     return 0;
 }
 /*
@@ -164,7 +167,7 @@ void RouteToPoint(double lat1, double lon1, double lat2, double lon2, unsigned l
 
 int InitGps(void)
 {
-    Serial1.begin(GPSBAUD, SERIAL_8N1, GPSRX, GPSTX);
+    Serial1.begin(GPSBAUD, SERIAL_8N1, GPS_RX, GPS_TX);
     Serial.println(PSTR("GPS port created"));
     return 0;
 }
@@ -175,7 +178,7 @@ void GpsTask(void *arg)
     double la, lo;
     while (1)
     {
-        GetNewGpsData(&la, &lo);
+        GetNewGpsData();
         delay(1000);
     }
 }

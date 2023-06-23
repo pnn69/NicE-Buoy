@@ -96,7 +96,7 @@ int decodeMsg()
         return 0; // skip rest of function
     }
     // if the recipient isn't this device or broadcast,
-    if (recipient != buoyID && recipient != 0xFF)
+    if (recipient != buoyID && recipient != 0x0)
     {
         return 0; // skip rest of function
     }

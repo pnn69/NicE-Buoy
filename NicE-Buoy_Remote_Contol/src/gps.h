@@ -14,11 +14,10 @@ struct GpsDataType
 
 extern GpsDataType gpsdata;
 
-extern bool gpsvalid;
 void displayGPSInfo(void);
 int InitGps(void);
 void RouteToPoint(double lat1, double lon1, double lat2, double lon2, unsigned long *distance, unsigned long *direction);
-int GetNewGpsData(double *gpslat, double *gpslng);
+int GetNewGpsData(void);
 void GpsTask(void *arg);
 
 #endif /* GPS_H_ */

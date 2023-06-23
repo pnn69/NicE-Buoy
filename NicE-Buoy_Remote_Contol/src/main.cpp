@@ -15,6 +15,7 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "general.h"
 #include "webinterface.h"
 #include "adc.h"
+#include "gps.h"
 #include "../../dependency/command.h"
 
 unsigned long timestamp, msecstamp, hsecstamp, sec5stamp;
@@ -77,6 +78,7 @@ void setup()
     InitLora();
     websetup();
     readAdc();
+    InitGps();
     adc.newdata = false;
     Serial.println("Setup done.");
     delay(1000);
@@ -223,7 +225,7 @@ void loop()
             {
                 if (adc.newdata == true)
                 {
-                    //Serial.printf("New data from ADC! speed:%d rudder:%d\r\n", adc.speed, adc.rudder);
+                    // Serial.printf("New data from ADC! speed:%d rudder:%d\r\n", adc.speed, adc.rudder);
                     buoy[i].cspeed = adc.speed;
                     buoy[i].cdir = adc.rudder;
                     buoy[i].cmnd = SAIL_DIR_SPEED;
@@ -246,6 +248,12 @@ void loop()
                 buoy[i].status == REMOTE)
             {
                 loraMenu(i);
+                delay(250);
+            }
+            if (gpsdata.fix == true)
+            {
+                buoy[0].cmnd = DGPS;
+                loraMenu(0);
             }
         }
     }

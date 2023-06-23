@@ -4,6 +4,7 @@
 #include <Adafruit_SSD1306.h>
 #include "general.h"
 #include "LiLlora.h"
+#include "gps.h"
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
@@ -68,8 +69,10 @@ void udateDisplay(int sb, int bb, unsigned long distance, unsigned long directio
     {
         display.clearDisplay();
         speedbars(sb, bb);
-        display.setCursor(6 * 5, 10);
+        display.setCursor(6 * 5, 0);
         display.printf("NicE BUOY %d", buoyID);
+        display.setCursor(barwide + 7, 10);
+        display.printf("GPS Cource:%0.1lf", gpsdata.cource);
         display.setCursor(17, 20);
         display.printf("Stat:%d Rssi:%d", status, loraIn.rssi);
         display.setCursor(barwide + 7, 30);

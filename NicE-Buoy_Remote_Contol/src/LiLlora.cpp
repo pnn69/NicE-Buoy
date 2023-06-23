@@ -6,6 +6,7 @@ https://github.com/sandeepmistry/arduino-LoRa/blob/master/examples/LoRaDuplex/Lo
 #include <LoRa.h>
 #include "io.h"
 #include "LiLlora.h"
+#include "gps.h"
 #include "general.h"
 
 int counter = 0;
@@ -252,7 +253,7 @@ int polLora(void)
 
 void loraMenu(int buoy_nr)
 {
-    if (lasttransmission + 250 > millis())
+    if (lasttransmission + 150 > millis())
     { // prefend fast transmissions
         return;
     }
@@ -305,6 +306,12 @@ void loraMenu(int buoy_nr)
     case BUOY_MODE_IDLE:
         msg = String(BUOY_MODE_IDLE);
         sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
+        break;
+
+    case DGPS:
+        msg = String(DGPS) + "," + gpsdata.corrlat + "," + gpsdata.corrlon;
+        sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
+        buoy[buoy_nr].ackOK = true;
         break;
 
     default:
