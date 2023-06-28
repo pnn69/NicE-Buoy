@@ -3,8 +3,8 @@
 
 #define SDA 21
 #define SCL 22
-#define GPS_RX 13
-#define GPS_TX 15
+#define GPS_RX 15
+#define GPS_TX 13
 
 #define SWITCH_PIN_IDLE 13
 #define SWITCH_PIN_REMOTE 4

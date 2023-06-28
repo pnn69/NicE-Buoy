@@ -247,14 +247,14 @@ void loop()
                 buoy[i].status == SAIL_DIR_SPEED ||
                 buoy[i].status == REMOTE)
             {
-                loraMenu(i);
-                delay(250);
+                while (loraMenu(i));
             }
-            if (gpsdata.fix == true)
-            {
-                buoy[0].cmnd = DGPS;
-                loraMenu(0);
-            }
+        }
+        GetNewGpsData();
+        if (gpsdata.fix == true)
+        {
+            buoy[0].cmnd = DGPS;
+            while (loraMenu(0));
         }
     }
 

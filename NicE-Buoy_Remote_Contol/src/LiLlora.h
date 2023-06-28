@@ -26,6 +26,6 @@ void sendMessage(String outgoing, byte dest, byte id);
 bool InitLora(void);
 int polLora(void);
 bool sendLoraHello(int buoy);
-void loraMenu(int buoy_nr);
+bool loraMenu(int buoy_nr);
 
 #endif /* LORA_H_ */

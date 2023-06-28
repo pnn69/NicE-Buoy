@@ -4,8 +4,6 @@
 
 struct buoyDataType
 {
-    double gpslatitude, gpslongitude;
-    int gpsheading;
     int mheading;
     double tglatitude, tglongitude;
     double ancorlatitude, ancorlongitude;

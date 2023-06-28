@@ -83,7 +83,7 @@ void setup()
     initSSD1306();
     xTaskCreate(EscTask, "EscTask", 2400, NULL, 25, NULL);
     xTaskCreate(IndicatorTask, "IndicatorTask", 2400, NULL, 5, NULL);
-    //websetup();
+    // websetup();
     Serial.printf("BuoyID = %d\n\r", buoyID);
     Serial.printf("Status = %d\n\r", status);
     secstamp = millis();
@@ -152,10 +152,7 @@ void loop()
     if (millis() - secstamp >= 500)
     {
         secstamp = millis();
-        if (GetNewGpsData(&buoy.gpslatitude, &buoy.gpslongitude))
-        {
-            // GpsAverage(&gpslatitude, &gpslongitude);
-        }
+        GetNewGpsData();
         /*
         Do stuff depending on the status of the buoy
         */
@@ -172,7 +169,7 @@ void loop()
             CalcEngingSpeed(buoy.cdir, buoy.mheading, buoy.cspeed, &buoy.speedbb, &buoy.speedsb);
             break;
         case LOCKED:
-            RouteToPoint(buoy.gpslatitude, buoy.gpslongitude, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
+            RouteToPoint(gpsdata.dlat, gpsdata.dlon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
             // Serial.print("dist:");
             // Serial.print(buoy.tgdistance);
             // Serial.print(" dir:");
@@ -198,33 +195,31 @@ void loop()
         snd_msg.speedbb = buoy.speedbb;
         snd_msg.speedsb = buoy.speedsb;
         blink = !blink;
-        if (blink)
+        if (blink == true & gpsdata.fix == true)
         {
-            if (gpsvalid)
-            {
                 snd_msg.ledstatus1 = CRGB::Blue;
-            }
-            if (status == LOCKED)
-            {
-                snd_msg.ledstatus2 = CRGB::Red;
-            }
-            else if (status == IDLE)
-            {
-                snd_msg.ledstatus2 = CRGB::Green;
-            }
-            else if (status == REMOTE)
-            {
-                snd_msg.ledstatus2 = CRGB::Pink;
-            }
-            else if (status == DOC)
-            {
-                snd_msg.ledstatus2 = CRGB::Orange;
-            }
         }
         else
         {
             snd_msg.ledstatus1 = CRGB::Black;
         }
+        if (status == LOCKED)
+        {
+            snd_msg.ledstatus2 = CRGB::Red;
+        }
+        else if (status == IDLE)
+        {
+            snd_msg.ledstatus2 = CRGB::Green;
+        }
+        else if (status == REMOTE)
+        {
+            snd_msg.ledstatus2 = CRGB::Pink;
+        }
+        else if (status == DOC)
+        {
+            snd_msg.ledstatus2 = CRGB::Orange;
+        }
+
         xQueueSend(escspeed, (void *)&snd_msg, 10);
 
         /*

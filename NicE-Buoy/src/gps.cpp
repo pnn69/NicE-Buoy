@@ -118,7 +118,7 @@ void displayGPSInfo(void)
 /*
     Collect GPS data if new data is gatherd
 */
-int GetNewGpsData(double *gpslat, double *gpslng)
+int GetNewGpsData()
 {
     char in;
     // while (gpsSerial.available() > 0)
@@ -132,13 +132,13 @@ int GetNewGpsData(double *gpslat, double *gpslng)
             {
                 gpsdata.lat = gps.location.lat();
                 gpsdata.lon = gps.location.lng();
-                gpsdata.corrlat = gpsdata.lat - gpsdata.dlat;
-                gpsdata.corrlon = gpsdata.lon - gpsdata.dlon;
+                gpsdata.dlat = gpsdata.lat + gpsdata.corrlat;
+                gpsdata.dlon = gpsdata.lon + gpsdata.corrlon;
                 gpsdata.speed = gps.speed.kmph();
                 gpsdata.cource = gps.course.deg();
                 gpsdata.fix = true;
-                *gpslat = gpsdata.lat;
-                *gpslng = gpsdata.lon;
+                //Serial.printf("From %0.8lf,%0.8lf\r\n",gpsdata.lat,gpsdata.lon);
+                //Serial.printf("To:  %0.8lf,%0.8lf\r\n",gpsdata.dlat,gpsdata.dlon);
                 return 1;
             }
             else
@@ -172,10 +172,9 @@ int InitGps(void)
 void GpsTask(void *arg)
 {
     InitGps();
-    double la, lo;
     while (1)
     {
-        GetNewGpsData(&la, &lo);
-        delay(1000);
+        GetNewGpsData();
+        delay(500);
     }
 }

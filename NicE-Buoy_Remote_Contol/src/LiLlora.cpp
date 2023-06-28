@@ -251,11 +251,11 @@ int polLora(void)
     but prefent to many transmissions in a short time
 */
 
-void loraMenu(int buoy_nr)
+bool loraMenu(int buoy_nr)
 {
     if (lasttransmission + 150 > millis())
     { // prefend fast transmissions
-        return;
+        return 1;
     }
     String msg = "";
     buoy[buoy_nr].ackOK = false;
@@ -309,7 +309,13 @@ void loraMenu(int buoy_nr)
         break;
 
     case DGPS:
-        msg = String(DGPS) + "," + gpsdata.corrlat + "," + gpsdata.corrlon;
+        if (gpsdata.corrlat == 0 && gpsdata.corrlon == 0)
+        {
+            buoy[buoy_nr].ackOK = true;
+            break;
+        }
+        msg = String(DGPS) + "," + String(gpsdata.corrlat, 8) + "," + String(gpsdata.corrlon, 8);
+        buoy[buoy_nr].gsa = SET;
         sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
         buoy[buoy_nr].ackOK = true;
         break;
@@ -319,4 +325,5 @@ void loraMenu(int buoy_nr)
         buoy[buoy_nr].ackOK = true;
         break;
     }
+    return 0;
 }

@@ -24,9 +24,10 @@ typedef enum
     DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_TARGET_POSITION,
     SAIL_DIR_SPEED,
     SBPWR_BBPWR,
-    DGPS,
     BUOY_MODE_IDLE,
     SYSTEM_STASTUS,
+    DGPS, //deltaLattitude, deltaLongitude
+    DGPSPOSITION,
     TXT,
     RESET
 

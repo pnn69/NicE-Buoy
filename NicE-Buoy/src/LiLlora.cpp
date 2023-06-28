@@ -10,6 +10,7 @@ Lora message: Destination,SenderAddres,MSGID,Length,Message
 #include "datastorage.h"
 #include "general.h"
 #include "calculate.h"
+#include "gps.h"
 #include "../../dependency/command.h"
 
 int counter = 0;
@@ -153,7 +154,18 @@ int polLora(void)
     case POSITION:
         if (loraIn.id == GET)
         {
-            msg = String(cmnd) + String(buoy.gpslatitude, 8) + "," + String(buoy.gpslongitude, 8) + "," + String(status);
+            msg = String(cmnd) + String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(status);
+            loraOut.messagelength = msg.length();
+            loraOut.message = msg;
+            loraOut.id = ACK;
+            sendLora();
+        }
+        break;
+
+    case DGPSPOSITION:
+        if (loraIn.id == GET)
+        {
+            msg = String(cmnd) + String(gpsdata.dlat, 8) + "," + String(gpsdata.dlon, 8) + "," + String(status);
             loraOut.messagelength = msg.length();
             loraOut.message = msg;
             loraOut.id = ACK;
@@ -217,16 +229,28 @@ int polLora(void)
     case TARGET_POSITION:
         if (loraIn.id == SET)
         {
-            if (buoy.gpslatitude != 0 || buoy.gpslongitude != 0)
+            if (gpsdata.lat != 0 || gpsdata.lon != 0)
             {
-                buoy.tglatitude = buoy.gpslatitude;
-                buoy.tglongitude = buoy.gpslongitude;
+                buoy.tglatitude = gpsdata.lat;
+                buoy.tglongitude = gpsdata.lon;
                 msg = String(TARGET_POSITION);
                 loraOut.messagelength = msg.length();
                 loraOut.message = msg;
                 loraOut.id = ACK;
                 sendLora();
                 status = LOCKED;
+            }
+        }
+        break;
+    case DGPS:
+        if (loraIn.id == SET)
+        {
+            double dlat, dlon;
+            sscanf(messageArr, "%lf,%lf", &dlat, &dlon);
+            if (dlat < 0.01 && dlon < 0.01)
+            { // do sanity check
+                gpsdata.corrlat = dlat;
+                gpsdata.corrlon = dlon;
             }
         }
         break;

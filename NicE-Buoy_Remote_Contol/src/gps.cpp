@@ -9,7 +9,7 @@
 #define GPSBAUD 9600
 
 static double lat, lng, speed, dir;
-static bool firstfix = false;
+static unsigned int firstfix = 0;
 
 TinyGPSPlus gps;
 GpsDataType gpsdata;
@@ -120,23 +120,22 @@ void displayGPSInfo(void)
 */
 int GetNewGpsData(void)
 {
-    char in;
-    // while (gpsSerial.available() > 0)
+    //char in;
     while (Serial1.available() > 0)
     {
-        // in = Serial1.read();
-        // Serial.print(in);
+        //in = Serial1.read();
+        //Serial.print(in);
         // if (gps.encode(in))
         if (gps.encode(Serial1.read()))
             if (gps.location.isValid())
             {
                 gpsdata.lat = gps.location.lat();
                 gpsdata.lon = gps.location.lng();
-                if (firstfix == false)
+                if (firstfix > 50)
                 {
                     gpsdata.dlat = gpsdata.lat;
                     gpsdata.dlon = gpsdata.lon;
-                    firstfix = true;
+                    firstfix++;
                 }
                 gpsdata.corrlat = gpsdata.lat - gpsdata.dlat;
                 gpsdata.corrlon = gpsdata.lon - gpsdata.dlon;
