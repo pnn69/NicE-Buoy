@@ -23,7 +23,7 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "../../dependency/command.h"
 
 static unsigned long secstamp, msecstamp, updatestamp, hstamp, sec5stamp;
-// static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
+static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
 //  static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
 // static unsigned long tgdir = 0, tgdistance = 0, cdir = 0;
 bool ledstatus = false;
@@ -146,6 +146,7 @@ void loop()
     {
         hstamp = millis();
         buoy.mheading = CompassAverage(GetHeading());
+        //buoy.mheading =GetHeading();
     }
 
     // do stuff every 0.5 second

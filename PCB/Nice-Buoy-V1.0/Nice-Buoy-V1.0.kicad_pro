@@ -326,6 +326,34 @@
     [
       "77bea089-a6ae-4a6f-b95b-7a9010ad7c5d",
       ""
+    ],
+    [
+      "20fb3964-c9d0-4636-b697-42bcddc45d6f",
+      "CPU"
+    ],
+    [
+      "b4716c37-6296-4cc3-83d4-c08b9373ace7",
+      "PSU"
+    ],
+    [
+      "5de18435-a564-4df7-8a35-1fb2031e5a06",
+      "Compass-Giro"
+    ],
+    [
+      "ca10023c-a303-42f5-abd0-839d0a1e9923",
+      "ESC"
+    ],
+    [
+      "4c7fada6-d8ca-4665-9ffe-0c10d1b3ee88",
+      "GPS"
+    ],
+    [
+      "119d66a5-d5b4-44ba-85f5-156e3d153693",
+      "Dispaly"
+    ],
+    [
+      "2492f2a5-e94b-4e5c-ae70-d9541294065a",
+      "Ledstrip"
     ]
   ],
   "text_variables": {}

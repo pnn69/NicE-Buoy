@@ -14,7 +14,7 @@ https://www.youtube.com/watch?v=HHJEaB1iS30
 #include "bmm150.h"
 #include "bmm150_defs.h"
 
-#define NUM_DIRECTIONS 50
+#define NUM_DIRECTIONS 5
 #define NUM_POSITIONS 50
 
 BMM150 bmm = BMM150();
@@ -27,10 +27,7 @@ bool InitCompass(void)
         Serial.println("Chip ID can not read!");
         return false;
     }
-    else
-    {
-        Serial.println("Compass found!");
-    }
+    Serial.println("Compass found!");
     COMPASSok = true;
     return true;
 }
@@ -87,7 +84,18 @@ float GetHeading(void)
         float headingDegrees = heading * 180 / M_PI;
         float xyHeadingDegrees = xyHeading * 180 / M_PI;
         float zxHeadingDegrees = zxHeading * 180 / M_PI;
+        if (xyHeadingDegrees < 0)
+        {
+            xyHeadingDegrees += 360;
+        }
+        if (zxHeadingDegrees < 0)
+        {
+            zxHeadingDegrees += 360;
+        }
+        // Serial.print("Heading: ");
+        // Serial.println(headingDegrees);
         return xyHeadingDegrees;
+        // return headingDegrees;
     }
     return -1;
 }
