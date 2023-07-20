@@ -22,7 +22,7 @@ extern loraDataType loraIn;
 extern loraDataType loraOut;
 extern bool loraOK;
 
-void sendMessage(String outgoing, byte dest, byte id);
+bool sendMessage(String outgoing, byte dest, byte id);
 bool InitLora(void);
 int polLora(void);
 bool sendLoraHello(int buoy);

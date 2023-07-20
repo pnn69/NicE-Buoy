@@ -4,32 +4,26 @@ Compass LSM303DLHC Magnetic / accelorometer for comesating tilt
 https://github.com/pololu/lsm303-arduino/tree/master
 https://github.com/pololu/lsm303-arduino/tree/master/examples
 
-https://www.youtube.com/watch?v=HHJEaB1iS30
-
 */
 
 #include <Wire.h>
+#include <LSM303.h>
 #include <stdio.h>
 #include <math.h>
-#include "bmm150.h"
-#include "bmm150_defs.h"
 
 #define NUM_DIRECTIONS 5
 #define NUM_POSITIONS 50
 
-BMM150 bmm = BMM150();
+LSM303 compass;
 
-bool COMPASSok = false;
+bool LSM303ok = false;
 bool InitCompass(void)
 {
-    if (bmm.initialize() == BMM150_E_ID_NOT_CONFORM)
-    {
-        Serial.println("Chip ID can not read!");
-        return false;
-    }
-    Serial.println("Compass found!");
-    COMPASSok = true;
-    return true;
+    LSM303ok = compass.init();
+    compass.enableDefault();
+    compass.m_min = (LSM303::vector<int16_t>){-535, -645, -382};
+    compass.m_max = (LSM303::vector<int16_t>){+576, +466, +754};
+    return LSM303ok;
 }
 
 static int cbufpointer = 0;
@@ -60,42 +54,18 @@ float CompassAverage(float in)
 
 float GetHeading(void)
 {
-    if (COMPASSok)
+    //float tmp;
+    if (LSM303ok)
     {
-        bmm150_mag_data value;
-        bmm.read_mag_data();
-
-        value.x = bmm.raw_mag_data.raw_datax;
-        value.y = bmm.raw_mag_data.raw_datay;
-        value.z = bmm.raw_mag_data.raw_dataz;
-
-        float xyHeading = atan2(value.x, value.y);
-        float zxHeading = atan2(value.z, value.x);
-        float heading = xyHeading;
-
-        if (heading < 0)
-        {
-            heading += 2 * PI;
-        }
-        if (heading > 2 * PI)
-        {
-            heading -= 2 * PI;
-        }
-        float headingDegrees = heading * 180 / M_PI;
-        float xyHeadingDegrees = xyHeading * 180 / M_PI;
-        float zxHeadingDegrees = zxHeading * 180 / M_PI;
-        if (xyHeadingDegrees < 0)
-        {
-            xyHeadingDegrees += 360;
-        }
-        if (zxHeadingDegrees < 0)
-        {
-            zxHeadingDegrees += 360;
-        }
-        // Serial.print("Heading: ");
-        // Serial.println(headingDegrees);
-        return xyHeadingDegrees;
-        // return headingDegrees;
+        compass.read();
+        // tmp = compass.heading((LSM303::vector<int>){1, 0, 0});
+        // Serial.printf("Dir x: %0.1f ", tmp);
+        // tmp = compass.heading((LSM303::vector<int>){0, 1, 0});
+        // Serial.printf("Dir y: %0.1f ", tmp);
+        // tmp = compass.heading((LSM303::vector<int>){0, 0, 1});
+        // Serial.printf("Dir z: %0.1f\r\n", tmp);
+        // tmp = compass.heading();
+        return compass.heading();
     }
     return -1;
 }

@@ -26,8 +26,9 @@ typedef enum
     SBPWR_BBPWR,
     BUOY_MODE_IDLE,
     SYSTEM_STASTUS,
-    DGPS, //deltaLattitude, deltaLongitude
+    DGPS, // deltaLattitude, deltaLongitude
     DGPSPOSITION,
+    GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING,
     TXT,
     RESET
 
@@ -46,7 +47,8 @@ typedef enum
     REMOTEING,
     GET,
     SET,
-    ACK
+    ACK,
+    INF // info no action
 } Status_t;
 
 #endif /* COMMANDS_H_ */

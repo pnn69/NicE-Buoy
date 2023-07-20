@@ -137,8 +137,8 @@ int GetNewGpsData()
                 gpsdata.speed = gps.speed.kmph();
                 gpsdata.cource = gps.course.deg();
                 gpsdata.fix = true;
-                //Serial.printf("From %0.8lf,%0.8lf\r\n",gpsdata.lat,gpsdata.lon);
-                //Serial.printf("To:  %0.8lf,%0.8lf\r\n",gpsdata.dlat,gpsdata.dlon);
+                // Serial.printf("From %0.8lf,%0.8lf\r\n",gpsdata.lat,gpsdata.lon);
+                // Serial.printf("To:  %0.8lf,%0.8lf\r\n",gpsdata.dlat,gpsdata.dlon);
                 return 1;
             }
             else
@@ -166,7 +166,7 @@ int InitGps(void)
 {
     Serial1.begin(GPSBAUD, SERIAL_8N1, GPSRX, GPSTX);
     Serial.println(PSTR("GPS port created"));
-    return 0;
+    return 1;
 }
 
 void GpsTask(void *arg)

@@ -28,7 +28,8 @@ extern loraDataType loraOut;
 
 extern bool loraOK;
 bool InitLora(void);
-void sendLora(void);
+bool sendLora(void);
 int polLora(void);
+bool loraMenu(int cmnd);
 
 #endif /* LORA_H_ */

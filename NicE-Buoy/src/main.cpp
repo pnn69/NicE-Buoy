@@ -22,9 +22,9 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "webinterface.h"
 #include "../../dependency/command.h"
 
-static unsigned long secstamp, msecstamp, updatestamp, hstamp, sec5stamp;
-static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
-//  static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
+static unsigned long secstamp, sec05stamp, msecstamp, updatestamp, hstamp, sec5stamp;
+// static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
+static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
 // static unsigned long tgdir = 0, tgdistance = 0, cdir = 0;
 bool ledstatus = false;
 char buoyID = 0;
@@ -73,13 +73,22 @@ void setup()
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, false);
     InitMemory();
-    Bootcnt(&bootCount, true);
+    // Bootcnt(&bootCount, true);
     GetMemoryBuoyID(&buoyID);
     LastStatus(&status, false, &buoy.tglatitude, &buoy.tglongitude);
     lstatus = status;
-    InitLora();
-    InitCompass();
-    InitGps();
+    if (InitLora())
+    {
+        Serial.println("Lora Module OK!");
+    }
+    if (InitCompass())
+    {
+        Serial.println("Compas OK!");
+    }
+    if (InitGps())
+    {
+        Serial.println("GPS OK!");
+    }
     initSSD1306();
     xTaskCreate(EscTask, "EscTask", 2400, NULL, 25, NULL);
     xTaskCreate(IndicatorTask, "IndicatorTask", 2400, NULL, 5, NULL);
@@ -108,7 +117,7 @@ void setup()
     }
     //     delay(500);
     // }
-
+    LastStatus(&status, false, &buoy.tglatitude, &buoy.tglongitude); // get last status and restore
     Serial.println("Setup done.");
 }
 
@@ -133,26 +142,18 @@ void loop()
             lstatus = status;
         }
     }
-    /*
-     do stuff every 5 sec
-    */
-    if (millis() - sec5stamp >= 5000)
-    {
-        sec5stamp = millis();
-        Serial.printf("bootCount:%d\r\n", bootCount);
-    }
 
     if (millis() - hstamp >= 100)
     {
         hstamp = millis();
         buoy.mheading = CompassAverage(GetHeading());
-        //buoy.mheading =GetHeading();
+        // buoy.mheading =GetHeading();
     }
 
     // do stuff every 0.5 second
-    if (millis() - secstamp >= 500)
+    if (millis() - sec05stamp >= 500)
     {
-        secstamp = millis();
+        sec05stamp = millis();
         GetNewGpsData();
         /*
         Do stuff depending on the status of the buoy
@@ -198,7 +199,7 @@ void loop()
         blink = !blink;
         if (blink == true & gpsdata.fix == true)
         {
-                snd_msg.ledstatus1 = CRGB::Blue;
+            snd_msg.ledstatus1 = CRGB::Blue;
         }
         else
         {
@@ -227,6 +228,22 @@ void loop()
         Update dislpay
         */
         udateDisplay(buoy.speedsb, buoy.speedbb, buoy.tgdistance, buoy.tgdir, (unsigned long)buoy.mheading, gpsvalid);
+    }
+
+    // do stuff every second
+    if (millis() - secstamp >= 1000)
+    {
+        secstamp = millis();
+        // loraMenu(GPS_LAT_LON_FIX_HEADING_SPEED);
+    }
+    /*
+     do stuff every 5 sec
+    */
+    if (millis() - sec5stamp >= 5000)
+    {
+        sec5stamp = millis();
+        // Serial.printf("bootCount:%d\r\n", bootCount);
+        loraMenu(GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING);
     }
 
     int nr;

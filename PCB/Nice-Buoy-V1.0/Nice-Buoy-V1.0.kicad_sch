@@ -148,7 +148,7 @@
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid 9433a341-a920-478b-8681-7a87bb5110e7)
   )
-  (text "ESP32\nLORA\nGPS\nCOMPASS\nGIRO\nACCELOROMETER\nBATTERY MONITOR\nPOWERSUPPY 5V 3.3V\nMODE SWITCH\nLEDSTRIP\n"
+  (text "ESP32\nLORA\nGPS\nCOMPASS\nGIRO\nACCELOROMETER\nBATTERY MONITOR\nPOWERSUPPY 5V 3.3V\nMODE SWITCH\nLEDSTRIP\nLipo monitoring\n"
     (at 17.145 35.56 0)
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid a8705544-687a-4eb4-8757-449e0d3ddfdd)
