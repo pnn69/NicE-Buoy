@@ -26,9 +26,9 @@ void InitEsc(void)
     ESP32PWM::allocateTimer(1);
     ESP32PWM::allocateTimer(2);
     ESP32PWM::allocateTimer(3);
-    escbb.setPeriodHertz(400);            // standard 50 hz servo
+    escbb.setPeriodHertz(400);            // standard 400 hz servo
     escbb.attach(ESC_BB_PIN, 1000, 2000); // attaches the servo on pin 18 to the servo object
-    escsb.setPeriodHertz(400);            // standard 50 hz servo
+    escsb.setPeriodHertz(400);            // standard 400 hz servo
     escsb.attach(ESC_SB_PIN, 1000, 2000); // attaches the servo on pin 18 to the servo object
 }
 
@@ -37,6 +37,16 @@ void EscTask(void *arg)
     Message rcv_msg;
     LMessage snd_msg;
     InitEsc();
+    // esc init sequence
+    escbb.write(map(-1, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+    escsb.write(map(-1, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+    delay(100);
+    escbb.write(map(1, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+    escsb.write(map(1, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+    delay(100);
+    escbb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+    escsb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+
     escspeed = xQueueCreate(10, sizeof(Message));
     sec01stamp = millis();
     while (1)

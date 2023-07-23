@@ -156,6 +156,11 @@ void loop()
         hstamp = millis();
         buoy.mheading = CompassAverage(GetHeading());
         // buoy.mheading =GetHeading();
+        if (gpsdata.fix == false)
+        {
+            FrontLed = !FrontLed; // blink led
+            digitalWrite(LEDSTRIP1, FrontLed);
+        }
     }
 
     // do stuff every 0.5 second
@@ -164,19 +169,22 @@ void loop()
         sec05stamp = millis();
         if (LEDSTRIP == false)
         {
-            if (gpsdata.fix == true && status != LOCKED)
+            if (gpsdata.fix == true)
             {
-                FrontLed = !FrontLed; // blink led
+                if (status != LOCKED)
+                {
+                    FrontLed = !FrontLed; // blink led
+                }
+                else if (status == LOCKED)
+                {
+                    FrontLed = 1; // Led on
+                }
+                else
+                {
+                    FrontLed = 0; // Led off
+                }
+                digitalWrite(LEDSTRIP1, FrontLed);
             }
-            else if (status == LOCKED)
-            {
-                FrontLed = 1; // Led on
-            }
-            else
-            {
-                FrontLed = 0; // Led off
-            }
-            digitalWrite(LEDSTRIP1, FrontLed);
             if (digitalRead(LEDSTRIP2) == 0)
             {
                 keypressed++;
