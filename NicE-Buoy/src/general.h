@@ -26,4 +26,5 @@ extern char buoyID;
 extern bool ledstatus;
 extern byte status;
 
+extern bool LEDSTRIP;
 #endif /* GENERA:_H_ */

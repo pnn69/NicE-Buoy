@@ -24,7 +24,7 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 
 static unsigned long secstamp, sec05stamp, msecstamp, updatestamp, hstamp, sec5stamp;
 // static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
-static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
+// static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
 // static unsigned long tgdir = 0, tgdistance = 0, cdir = 0;
 bool ledstatus = false;
 char buoyID = 0;
@@ -36,6 +36,9 @@ int dataNumber = 0; // new for this version
 static bool blink = false;
 int bootCount = 0;
 buoyDataType buoy;
+bool LEDSTRIP = false;
+bool FrontLed = false;
+char keypressed = 0;
 
 bool serialPortDataIn(int *nr)
 {
@@ -72,6 +75,11 @@ void setup()
     Serial.begin(115200);
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, false);
+    if (LEDSTRIP == false)
+    {
+        pinMode(LEDSTRIP1, OUTPUT);
+        pinMode(LEDSTRIP2, INPUT_PULLUP);
+    }
     InitMemory();
     // Bootcnt(&bootCount, true);
     GetMemoryBuoyID(&buoyID);
@@ -154,6 +162,47 @@ void loop()
     if (millis() - sec05stamp >= 500)
     {
         sec05stamp = millis();
+        if (LEDSTRIP == false)
+        {
+            if (gpsdata.fix == true && status != LOCKED)
+            {
+                FrontLed = !FrontLed; // blink led
+            }
+            else if (status == LOCKED)
+            {
+                FrontLed = 1; // Led on
+            }
+            else
+            {
+                FrontLed = 0; // Led off
+            }
+            digitalWrite(LEDSTRIP1, FrontLed);
+            if (digitalRead(LEDSTRIP2) == 0)
+            {
+                keypressed++;
+            }
+            else
+            {
+                keypressed = 0;
+            }
+            if (keypressed == 2)
+            {
+                if (status == LOCKED)
+                {
+                    status = IDLE;
+                }
+                else
+                {
+                    if (gpsdata.fix == 1)
+                    {
+                        buoy.tglatitude = gpsdata.lat;
+                        buoy.tglongitude = gpsdata.lon;
+                        status = LOCKED;
+                    }
+                }
+            }
+        }
+
         GetNewGpsData();
         /*
         Do stuff depending on the status of the buoy

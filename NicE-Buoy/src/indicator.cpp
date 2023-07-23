@@ -5,6 +5,7 @@ Indicator
 #include "indicator.h"
 #include <FastLED.h>
 #include "io.h"
+#include "general.h"
 #define NUM_STRIPS 2
 #define NUM_LEDS_PER_STRIP 11
 
@@ -14,8 +15,11 @@ CRGB leds[NUM_STRIPS][NUM_LEDS_PER_STRIP];
 
 void InitFastled(void)
 {
-    FastLED.addLeds<NEOPIXEL, LEDSTRIP1>(leds[0], NUM_LEDS_PER_STRIP);
-    FastLED.addLeds<NEOPIXEL, LEDSTRIP2>(leds[1], NUM_LEDS_PER_STRIP);
+    if (LEDSTRIP == true)
+    {
+        FastLED.addLeds<NEOPIXEL, LEDSTRIP1>(leds[0], NUM_LEDS_PER_STRIP);
+        FastLED.addLeds<NEOPIXEL, LEDSTRIP2>(leds[1], NUM_LEDS_PER_STRIP);
+    }
 }
 
 void IndicatorTask(void *arg)
@@ -69,7 +73,10 @@ void IndicatorTask(void *arg)
             }
             leds[0][10] = msg.ledstatus1;
             leds[1][10] = msg.ledstatus2;
-            FastLED.show();
+            if (LEDSTRIP == true)
+            {
+                FastLED.show();
+            }
         }
         delay(1);
     }

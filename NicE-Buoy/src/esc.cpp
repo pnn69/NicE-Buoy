@@ -11,10 +11,11 @@ https://dronebotworkshop.com/esp32-servo/
 
 QueueHandle_t escspeed;
 
-Servo escbb;      // create servo object to control a servo
-Servo escsb;      // create servo object to control a servo
-int speed_bb = 0; // variable to store the speed bb
-int speed_sb = 0; // variable to store the speed sb
+Servo escbb; // create servo object to control a servo
+Servo escsb; // create servo object to control a servo
+static unsigned long sec01stamp;
+static int speedbb = 0, speedsb = 0;
+static int speedbbsetpoint = 0, speedsbsetpoint = 0;
 
 // value = map(value, 0, 180, 1000, 2000);
 
@@ -25,9 +26,9 @@ void InitEsc(void)
     ESP32PWM::allocateTimer(1);
     ESP32PWM::allocateTimer(2);
     ESP32PWM::allocateTimer(3);
-    escbb.setPeriodHertz(400); // standard 50 hz servo
+    escbb.setPeriodHertz(400);            // standard 50 hz servo
     escbb.attach(ESC_BB_PIN, 1000, 2000); // attaches the servo on pin 18 to the servo object
-    escsb.setPeriodHertz(400);             // standard 50 hz servo
+    escsb.setPeriodHertz(400);            // standard 50 hz servo
     escsb.attach(ESC_SB_PIN, 1000, 2000); // attaches the servo on pin 18 to the servo object
 }
 
@@ -37,25 +38,54 @@ void EscTask(void *arg)
     LMessage snd_msg;
     InitEsc();
     escspeed = xQueueCreate(10, sizeof(Message));
-    int speedbb = 0, speedsb = 0;
+    sec01stamp = millis();
     while (1)
     {
         if (xQueueReceive(escspeed, (void *)&rcv_msg, 0) == pdTRUE)
         {
-            speedbb = rcv_msg.speedbb;
-            speedsb = rcv_msg.speedsb;
-            escbb.write(map(speedbb, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
-            escsb.write(map(speedsb, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
-            snd_msg.speedbb = speedbb;
-            snd_msg.speedsb = speedsb;
+            speedbbsetpoint = rcv_msg.speedbb;
+            speedsbsetpoint = rcv_msg.speedsb;
+            snd_msg.speedbb = speedbbsetpoint;
+            snd_msg.speedsb = speedsbsetpoint;
             snd_msg.ledstatus1 = rcv_msg.ledstatus1;
             snd_msg.ledstatus2 = rcv_msg.ledstatus2;
             if (xQueueSend(indicatorque, (void *)&snd_msg, 10) != pdTRUE)
             {
                 Serial.println("Error sending speed to indicatorque");
             }
+            // Serial.printf("esc speed bb: %03d speed sb: %03d\r\n", speedbbsetpoint, speedsbsetpoint);
+        }
+        // smoodly go to setpoint
+        if (millis() - sec01stamp >= 25)
+        {
+            sec01stamp = millis();
+            if (speedbb != speedbbsetpoint)
+            {
+                if (speedbb < speedbbsetpoint)
+                {
+                    speedbb++;
+                }
+                else
+                {
+                    speedbb--;
+                }
+                escbb.write(map(speedbb, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+            }
+            if (speedsb != speedsbsetpoint)
+            {
+                if (speedsb < speedsbsetpoint)
+                {
+                    speedsb++;
+                }
+                else
+                {
+                    speedsb--;
+                }
+                escsb.write(map(speedsb, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+            }
+            // Serial.printf("esc speed bb: %03d speed sb: %03d\r\n", speedbbsetpoint, speedsbsetpoint);
             // Serial.printf("esc speed bb: %03d speed sb: %03d\r\n", speedbb, speedsb);
         }
-        delay(10);
+        delay(1);
     }
 }
