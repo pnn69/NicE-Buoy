@@ -14,10 +14,24 @@ QueueHandle_t escspeed;
 Servo escbb; // create servo object to control a servo
 Servo escsb; // create servo object to control a servo
 static unsigned long sec01stamp;
+static unsigned long sec30000stamp;
 static int speedbb = 0, speedsb = 0;
 static int speedbbsetpoint = 0, speedsbsetpoint = 0;
 
 // value = map(value, 0, 180, 1000, 2000);
+
+void triggerESC(void)
+{
+    Serial.println("Trigger ESC");
+    escbb.write(map(100, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+    escsb.write(map(100, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+    delay(10);
+    escbb.write(map(-100, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+    escsb.write(map(-100, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+    delay(10);
+    escbb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+    escsb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+}
 
 void InitEsc(void)
 {
@@ -38,17 +52,10 @@ void EscTask(void *arg)
     LMessage snd_msg;
     InitEsc();
     // esc init sequence
-    escbb.write(map(-1, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
-    escsb.write(map(-1, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
-    delay(100);
-    escbb.write(map(1, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
-    escsb.write(map(1, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
-    delay(100);
-    escbb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
-    escsb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
-
+    triggerESC();
     escspeed = xQueueCreate(10, sizeof(Message));
     sec01stamp = millis();
+    sec30000stamp = millis();
     while (1)
     {
         if (xQueueReceive(escspeed, (void *)&rcv_msg, 0) == pdTRUE)
@@ -80,6 +87,7 @@ void EscTask(void *arg)
                     speedbb--;
                 }
                 escbb.write(map(speedbb, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+                sec30000stamp = millis();
             }
             if (speedsb != speedsbsetpoint)
             {
@@ -92,9 +100,15 @@ void EscTask(void *arg)
                     speedsb--;
                 }
                 escsb.write(map(speedsb, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+                sec30000stamp = millis();
             }
             // Serial.printf("esc speed bb: %03d speed sb: %03d\r\n", speedbbsetpoint, speedsbsetpoint);
             // Serial.printf("esc speed bb: %03d speed sb: %03d\r\n", speedbb, speedsb);
+        }
+        if (millis() - sec30000stamp >= 1000 * 60 * 5) // no ESC command for 5 minutes... trigger ESC so prevent from beeping
+        {
+            sec30000stamp = millis();
+            triggerESC();
         }
         delay(1);
     }
