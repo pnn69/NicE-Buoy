@@ -268,23 +268,14 @@ int polLora(void)
     case SAIL_DIR_SPEED:
         if (loraIn.id == SET)
         {
-            sscanf(messageArr, "%d,%d", &ddir, &buoy.cspeed);
-            ddir = buoy.mheading + ddir;
-            if (ddir < 0)
-            {
-                ddir += 360;
-            }
-            if (ddir > 360)
-            {
-                ddir -= 360;
-            }
-            buoy.cdir = ddir;
             status = REMOTE;
+            sscanf(messageArr, "%d,%d", &buoy.cdir, &buoy.cspeed);
+            CalcEngingSpeed(buoy.cdir, 0, buoy.cspeed, &buoy.speedbb, &buoy.speedsb);
+            // Serial.printf("ddir:%03d speed:%03d\r\n",ddir,buoy.cspeed);
         }
-        CalcEngingSpeed(buoy.mheading, buoy.cdir, buoy.cspeed, &buoy.speedbb, &buoy.speedsb);
         msg = String(SAIL_DIR_SPEED) + "," + buoy.mheading + "," + buoy.cspeed + "," + buoy.speedbb + "," + buoy.speedsb;
         loraOut.id = ACK;
-        Serial.printf("Mdir:%d cdir:%d BB:%d SB:%d\r\n", buoy.mheading, buoy.cdir, buoy.speedbb, buoy.speedsb);
+        // Serial.printf("Mdir:%d cdir:%d BB:%d SB:%d\r\n", buoy.mheading, buoy.cdir, buoy.speedbb, buoy.speedsb);
         loraOut.messagelength = msg.length();
         loraOut.message = msg;
         while (sendLora())
@@ -333,7 +324,7 @@ bool loraMenu(int cmnd)
     switch (cmnd)
     {
     case GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING:
-        msg = String(GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING) + "," + String(gpsdata.lat, 8)+ "," + String(gpsdata.lon, 8) + "," + String(gpsdata.fix) + "," + String(gpsdata.cource) + "," + String(buoy.mheading);
+        msg = String(GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING) + "," + String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.fix) + "," + String(gpsdata.cource) + "," + String(buoy.mheading);
         loraOut.messagelength = msg.length();
         loraOut.message = msg;
         loraOut.sender = buoyID;

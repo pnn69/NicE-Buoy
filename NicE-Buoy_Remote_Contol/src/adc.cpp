@@ -3,6 +3,9 @@
 #include "io.h"
 #include "general.h"
 
+#define MUTE 400
+#define MUTE_RUDDER 100
+#define JITTER 20
 struct adcDataType adc;
 
 /*
@@ -19,25 +22,57 @@ struct adcDataType adc;
 */
 void readAdc(void)
 {
-    int tmp;
-    tmp = analogRead(POT_RUDDER);
-    tmp = constrain(tmp,47,4047);
-    if (adc.rawr - 10 > tmp || adc.rawr + 10 < tmp)
+    int tmp, newValue;
+    tmp = 0;
+    for(int i=0;i<20;i++){
+        tmp += analogRead(POT_RUDDER)/20;
+    }
+    //tmp = analogRead(POT_RUDDER);
+    tmp = constrain(tmp, 47, 4047);
+    if (tmp < 2000 - MUTE_RUDDER)
     {
-        adc.rudder = map(tmp, 47, 4047, -135, 135); // 4095;
+        newValue = map(tmp, 47, 2000 - MUTE_RUDDER, -135, 0); // 4095;
+    }
+    else if (tmp > 2000 + MUTE)
+    {
+        newValue = map(tmp,2000 + MUTE_RUDDER,4047, 0, 135); // 4095;
+    }
+    else
+    {
+        newValue = 0;
+    }
+    if (adc.rawr - JITTER > tmp || adc.rawr + JITTER < tmp)
+    {
         adc.rawr = tmp;
+        adc.rudder = newValue;
         adc.newdata = true;
     }
-    tmp = analogRead(POT_SPEED);
-    tmp = constrain(tmp,47,4047);
-    if (adc.raws - 10 > tmp || adc.raws + 10 < tmp)
+
+    //tmp = analogRead(POT_SPEED);
+    tmp = 0;
+    for(int i=0;i<20;i++){
+        tmp += analogRead(POT_SPEED)/20;
+    }
+
+    tmp = constrain(tmp, 47, 4047);
+    if (tmp < 2000 - MUTE)
+    {
+        newValue = map(tmp, 47, 2000 - MUTE, -100, 0); // 4095;
+    }
+    else if (tmp > 2000 + MUTE)
+    {
+        newValue = map(tmp, 2000 + MUTE, 4047, 0, 100); // 4095;
+    }
+    else
+    {
+        newValue = 0;
+    }
+
+    if (adc.raws - JITTER > tmp || adc.raws + JITTER < tmp)
     {
         adc.raws = tmp;
-        tmp = map(tmp, 47, 4047, -100, 100); // 4095;
-        if( -5 < tmp && tmp < 5){
-            tmp = 0;
-        }
-        adc.speed = tmp;
+        adc.speed = newValue;
         adc.newdata = true;
     }
+    //Serial.printf("Dir raw:%04d converted:%04d,Speed Raw:%04d converted:%04d\r\n", adc.rawr, adc.rudder, adc.raws, adc.speed);
 }

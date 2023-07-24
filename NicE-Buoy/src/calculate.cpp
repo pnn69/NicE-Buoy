@@ -45,7 +45,7 @@ int CalcNewDirection(double heading1, double heading2)
 /*
     adjust speed Cosinus does not work here. We have to do it manually
 */
-double Angle2SpeedFactor(double angle)
+float Angle2SpeedFactor(float angle)
 {
     // cos(correctonAngle * M_PI / 180.0); not working for mall angles
     angle = constrain(angle, 0, 180);
@@ -116,4 +116,8 @@ void CalcEngingSpeed(float magheading, int tgheading, int speed, int *bb, int *s
         *sb = speed;
         // Serial.println("Stuurboord");
     }
+}
+void CalculatSailSpeed(int dir, int speed, int *bb, int *sb)
+{
+
 }

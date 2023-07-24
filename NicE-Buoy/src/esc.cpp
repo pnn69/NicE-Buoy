@@ -10,6 +10,9 @@ https://dronebotworkshop.com/esp32-servo/
 // cannels for esc
 
 QueueHandle_t escspeed;
+#define ESC_ARM_TIME  10
+#define ESC_MAX 2000 //2000
+#define ESC_MIN 1000 //1000
 
 Servo escbb; // create servo object to control a servo
 Servo escsb; // create servo object to control a servo
@@ -22,13 +25,20 @@ static int speedbbsetpoint = 0, speedsbsetpoint = 0;
 
 void triggerESC(void)
 {
+    unsigned long now;
     Serial.println("Trigger ESC");
-    escbb.write(map(100, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
-    escsb.write(map(100, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
-    delay(10);
-    escbb.write(map(-100, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
-    escsb.write(map(-100, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
-    delay(10);
+    escbb.write(map(5, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+    escsb.write(map(5, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+    now = millis();
+    while(millis() < now + ESC_ARM_TIME);
+    escbb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'W
+    escsb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+    now = millis();
+    while(millis() < now + ESC_ARM_TIME);
+    escbb.write(map(-5, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+    escsb.write(map(-5, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+    now = millis();
+    while(millis() < now + ESC_ARM_TIME);
     escbb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
     escsb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
 }
@@ -41,9 +51,9 @@ void InitEsc(void)
     ESP32PWM::allocateTimer(2);
     ESP32PWM::allocateTimer(3);
     escbb.setPeriodHertz(400);            // standard 400 hz servo
-    escbb.attach(ESC_BB_PIN, 1000, 2000); // attaches the servo on pin 18 to the servo object
+    escbb.attach(ESC_BB_PIN, ESC_MIN,ESC_MAX); // attaches the servo on pin 18 to the servo object
     escsb.setPeriodHertz(400);            // standard 400 hz servo
-    escsb.attach(ESC_SB_PIN, 1000, 2000); // attaches the servo on pin 18 to the servo object
+    escsb.attach(ESC_SB_PIN, ESC_MIN,ESC_MAX); // attaches the servo on pin 18 to the servo object
 }
 
 void EscTask(void *arg)
@@ -102,7 +112,7 @@ void EscTask(void *arg)
                 escsb.write(map(speedsb, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
                 sec30000stamp = millis();
             }
-            // Serial.printf("esc speed bb: %03d speed sb: %03d\r\n", speedbbsetpoint, speedsbsetpoint);
+            //Serial.printf("esc speed bb: %03d setp: %03d, speed sb: %03d setp:%03d\r\n",speedbb, speedbbsetpoint,speedsb, speedsbsetpoint);
             // Serial.printf("esc speed bb: %03d speed sb: %03d\r\n", speedbb, speedsb);
         }
         if (millis() - sec30000stamp >= 1000 * 60 * 5) // no ESC command for 5 minutes... trigger ESC so prevent from beeping

@@ -225,7 +225,7 @@ void loop()
             buoy.speedsb = 0;
             break;
         case REMOTE:
-            CalcEngingSpeed(buoy.cdir, buoy.mheading, buoy.cspeed, &buoy.speedbb, &buoy.speedsb);
+            CalcEngingSpeed(buoy.cdir, 0, buoy.cspeed, &buoy.speedbb, &buoy.speedsb);
             break;
         case LOCKED:
             RouteToPoint(gpsdata.dlat, gpsdata.dlon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
