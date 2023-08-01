@@ -137,6 +137,7 @@ int GetNewGpsData()
                 gpsdata.speed = gps.speed.kmph();
                 gpsdata.cource = gps.course.deg();
                 gpsdata.fix = true;
+                gpsdata.nrsats = gps.satellites.value();
                 // Serial.printf("From %0.8lf,%0.8lf\r\n",gpsdata.lat,gpsdata.lon);
                 // Serial.printf("To:  %0.8lf,%0.8lf\r\n",gpsdata.dlat,gpsdata.dlon);
                 return 1;

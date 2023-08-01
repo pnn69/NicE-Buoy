@@ -18,6 +18,7 @@ struct buoyDataType
     int mode;
     float snr;
     int status;
+    byte remotestatus;
     int cmnd;
     bool ackOK;
     byte gsa;

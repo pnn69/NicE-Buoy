@@ -2,11 +2,20 @@
 #include "adc.h"
 #include "io.h"
 #include "general.h"
+#include "esp_adc_cal.h"
 
 #define MUTE 400
 #define MUTE_RUDDER 100
 #define JITTER 20
 struct adcDataType adc;
+
+uint32_t readADC_Cal(int ADC_Raw)
+{
+  esp_adc_cal_characteristics_t adc_chars;
+  
+  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 1100, &adc_chars);
+  return(esp_adc_cal_raw_to_voltage(ADC_Raw, &adc_chars));
+}
 
 /*
     Potentiometer connected to vcc (3.3V)
@@ -74,5 +83,6 @@ void readAdc(void)
         adc.speed = newValue;
         adc.newdata = true;
     }
+    adc.vbat = readADC_Cal(analogRead(BATC_PIN))*2/1000.0;
     //Serial.printf("Dir raw:%04d converted:%04d,Speed Raw:%04d converted:%04d\r\n", adc.rawr, adc.rudder, adc.raws, adc.speed);
 }

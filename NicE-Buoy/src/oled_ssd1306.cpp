@@ -63,6 +63,8 @@ void speedbars(int sb, int bb)
         display.fillRect(128 - barwide, 32 + 32 * -sb / 100, barwide, 32 * sb / 100, WHITE);
     }
 }
+
+
 void udateDisplay(int sb, int bb, unsigned long distance, unsigned long direction, unsigned long mdirection, bool fix)
 {
     if (displayOK)

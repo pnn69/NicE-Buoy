@@ -34,7 +34,7 @@ bool initSSD1306(void)
     return true;
 }
 
-void speedbars(int sb, int bb)
+void speedbars(int bb, int sb)
 {
 #define barwide 10
     if (sb == 0)
@@ -43,65 +43,97 @@ void speedbars(int sb, int bb)
         bb = 1;
     display.drawRect(0, 0, barwide, 64, WHITE);
     display.drawRect(128 - barwide, 0, barwide, 64, WHITE);
-    if (bb >= 0)
+    if (bb <= 0)
     {
-        display.fillRect(0, 32, barwide, 32 * bb / 100, WHITE);
+        display.fillRect(0, 32, barwide, 32 * -bb / 100, WHITE);
     }
     else
     {
-        display.fillRect(0, 32 + 32 * bb / 100, barwide, -32 * bb / 100, WHITE);
+        display.fillRect(0, 32 + 32 * -bb / 100, barwide, 32 * bb / 100, WHITE);
     }
-    if (sb >= 0)
+
+    if (sb <= 0)
     {
-        display.fillRect(128 - barwide, 32, barwide, 32 * sb / 100, WHITE);
+        display.fillRect(128 - barwide, 32, barwide, 32 * -sb / 100, WHITE);
     }
     else
     {
-        display.fillRect(128 - barwide, 32 + 32 * sb / 100, barwide, -32 * sb / 100, WHITE);
+        display.fillRect(128 - barwide, 32 + 32 * -sb / 100, barwide, 32 * sb / 100, WHITE);
     }
+}
+
+void ShowBuoyData(int buoyID)
+{
+    display.clearDisplay();
+    speedbars(buoy[buoyID].speedbb, buoy[buoyID].speedsb);
+    display.setCursor(6 * 5, 0);
+    display.printf("NicE BUOY %d", buoyID);
+    display.setCursor(barwide + 7, 10);
+    display.printf("GPS Cource:%0.1lf", buoy[buoyID].mdir);
+    display.setCursor(17, 20);
+    display.printf("Stat:%d Rssi:%d", buoy[buoyID].status, buoy[buoyID].rssi);
+    display.setCursor(barwide + 7, 30);
+    display.printf("Dist: %3dM", buoy[buoyID].tgdistance);
+    display.setCursor(barwide + 7, 40);
+    display.printf("Dir:%3d HDG:%3d", buoy[buoyID].tgdir, buoy[buoyID].mdir);
+    display.setCursor(barwide + 7, 55);
+    display.printf("%4d%%", buoy[buoyID].speedbb);
+    display.setCursor(128 / 2, 55);
+    if (buoy[buoyID].fix)
+    {
+        display.printf("*");
+    }
+    else
+    {
+        display.printf("O");
+    }
+    display.setCursor(128 - barwide - 5 * 7, 55);
+    display.printf("%4d%%", buoy[buoyID].speedsb);
+    display.display();
 }
 
 void udateDisplay(void)
 {
     if (displayOK)
     {
-        display.clearDisplay();
-        display.setCursor(0, 8);
-        display.printf("B1> %d", buoy[1].tgdir);
-        display.print(" ");
-        display.printf("%d", buoy[1].tgdistance);
-        display.print(" ");
-        display.printf("%d", buoy[1].rssi);
+        ShowBuoyData(1);
+        // display.clearDisplay();
+        // display.setCursor(0, 8);
+        // display.printf("B1> %d", buoy[1].tgdir);
+        // display.print(" ");
+        // display.printf("%d", buoy[1].tgdistance);
+        // display.print(" ");
+        // display.printf("%d", buoy[1].rssi);
 
-        display.setCursor(3 * 8, 16);
-        display.printf("BB:%d%%", buoy[1].speedbb);
-        display.setCursor(9 * 8, 16);
-        display.printf("SB:%d%%", buoy[1].speedsb);
+        // display.setCursor(3 * 8, 16);
+        // display.printf("BB:%d%%", buoy[1].speedbb);
+        // display.setCursor(9 * 8, 16);
+        // display.printf("SB:%d%%", buoy[1].speedsb);
 
-        display.setCursor(0, 26);
-        display.printf("B2> %d", buoy[2].tgdir);
-        display.print(" ");
-        display.printf("%d", buoy[2].tgdistance);
-        display.print(" ");
-        display.printf("%d", buoy[2].rssi);
+        // display.setCursor(0, 26);
+        // display.printf("B2> %d", buoy[2].tgdir);
+        // display.print(" ");
+        // display.printf("%d", buoy[2].tgdistance);
+        // display.print(" ");
+        // display.printf("%d", buoy[2].rssi);
 
-        display.setCursor(3 * 8, 34);
-        display.printf("BB:%d%%", buoy[2].speedbb);
-        display.setCursor(9 * 8, 34);
-        display.printf("SB:%d%%", buoy[2].speedsb);
+        // display.setCursor(3 * 8, 34);
+        // display.printf("BB:%d%%", buoy[2].speedbb);
+        // display.setCursor(9 * 8, 34);
+        // display.printf("SB:%d%%", buoy[2].speedsb);
 
-        display.setCursor(0, 44);
-        display.printf("B3> %d", buoy[3].tgdir);
-        display.print(" ");
-        display.printf("%d", buoy[3].tgdistance);
-        display.print(" ");
-        display.printf("%d", buoy[3].rssi);
+        // display.setCursor(0, 44);
+        // display.printf("B3> %d", buoy[3].tgdir);
+        // display.print(" ");
+        // display.printf("%d", buoy[3].tgdistance);
+        // display.print(" ");
+        // display.printf("%d", buoy[3].rssi);
 
-        display.setCursor(3 * 8, 52);
-        display.printf("BB:%d%%", buoy[3].speedbb);
-        display.setCursor(9 * 8, 52);
-        display.printf("SB:%d%%", buoy[3].speedsb);
+        // display.setCursor(3 * 8, 52);
+        // display.printf("BB:%d%%", buoy[3].speedbb);
+        // display.setCursor(9 * 8, 52);
+        // display.printf("SB:%d%%", buoy[3].speedsb);
 
-        display.display();
+        // display.display();
     }
 }

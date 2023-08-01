@@ -48,6 +48,7 @@ typedef enum
     GET,
     SET,
     ACK,
+    NACK,
     INF // info no action
 } Status_t;
 

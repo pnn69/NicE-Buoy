@@ -86,10 +86,11 @@ bool sendLoraHello(int buoy)
 int decodeMsg()
 {
     // read packet header bytes:
-    int recipient = LoRa.read();       // recipient address
-    byte sender = LoRa.read();         // sender address
-    byte incomingMsgId = LoRa.read();  // incoming msg ID
-    int sstatus = LoRa.read();         // incoming status (not used yet)
+    int recipient = LoRa.read();      // recipient address
+    byte sender = LoRa.read();        // sender address
+    byte incomingMsgId = LoRa.read(); // incoming msg ID
+    byte bstatus = LoRa.read();
+    int mheading = LoRa.read();        // incoming status (not used yet)
     byte incomingLength = LoRa.read(); // incoming msg length
     String incoming = "";
     while (LoRa.available())
@@ -111,7 +112,8 @@ int decodeMsg()
     loraIn.recipient = recipient;
     loraIn.sender = sender;
     loraIn.id = incomingMsgId;
-    loraIn.heading = sstatus;
+    loraIn.status = bstatus;
+    loraIn.heading = mheading;
     loraIn.messagelength = incomingLength;
     loraIn.message = incoming;
     loraIn.rssi = LoRa.packetRssi();
@@ -136,10 +138,9 @@ int polLora(void)
     {
         String decode = loraIn.message;
         char messarr[100];
-        int ddir;
         int dir, dist;
         int sp, sb, bb, he;
-        Serial.print("Lora in from:" + String(loraIn.sender) + " RSSI:" + String(loraIn.rssi) + " msg <" + loraIn.message + "> \r\n");
+        Serial.print("Lora in from:" + String(loraIn.sender) + " RSSI:" + String(loraIn.rssi) + " msg <" + loraIn.message + "> status:" + String(loraIn.status) + "\r\n");
         // Serial.printf(">Heading: %d", loraIn.heading);
         //  if (loraIn.id == ACK)
         //  {
@@ -167,6 +168,7 @@ int polLora(void)
 
         if (NR_BUOYS > loraIn.sender)
         {
+            buoy[loraIn.sender].remotestatus = loraIn.status;
             buoy[loraIn.sender].mdir = loraIn.heading;
             switch (cmnd)
             {
@@ -185,15 +187,14 @@ int polLora(void)
                        &buoy[loraIn.sender].tgdir,
                        &buoy[loraIn.sender].tgdistance,
                        &buoy[loraIn.sender].speed,
+                       &buoy[loraIn.sender].speedbb,
                        &buoy[loraIn.sender].speedsb,
-                       &buoy[loraIn.sender].speed,
                        &buoy[loraIn.sender].mdir);
                 buoy[loraIn.sender].rssi = loraIn.rssi;
                 buoy[loraIn.sender].ackOK = loraIn.id;
                 break;
 
             case GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING:
-                // Serial.println("direction and distance target recieved!");
                 sscanf(messarr, "%lf,%lf,%d,%d,%d,%d",
                        &buoy[loraIn.sender].gpslatitude,
                        &buoy[loraIn.sender].gpslongitude,
@@ -217,9 +218,12 @@ int polLora(void)
                 break;
 
             case (TARGET_POSITION):
-                buoy[loraIn.sender].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_TARGET_POSITION;
-                buoy[loraIn.sender].status = LOCKED;
-                buoy[loraIn.sender].ackOK = loraIn.id;
+                if (loraIn.id == ACK)
+                {
+                    buoy[loraIn.sender].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_TARGET_POSITION;
+                    buoy[loraIn.sender].status = LOCKED;
+                    buoy[loraIn.sender].ackOK = loraIn.id;
+                }
                 break;
 
             case (GOTO_TARGET_POSITION):

@@ -144,7 +144,7 @@ void loop()
         msecstamp = millis();
         digitalWrite(LED_PIN, ledstatus);
         ledstatus = false;
-        if (status != lstatus)
+        if (status != lstatus) //store status in memory
         {
             LastStatus(&status, true, &buoy.tglatitude, &buoy.tglongitude);
             lstatus = status;

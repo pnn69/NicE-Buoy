@@ -52,6 +52,7 @@ bool sendLora(void)
     LoRa.write(loraOut.destination); // add destination address
     LoRa.write(loraOut.sender);      // add sender address
     LoRa.write(loraOut.id);
+    LoRa.write(status);
     LoRa.write(buoy.mheading);
     LoRa.write(loraOut.messagelength);
     LoRa.print(loraOut.message);
@@ -130,11 +131,9 @@ int polLora(void)
     {
         return 0;
     }
-    float heading = 0;
     char messageArr[100];
-    int ddir;
-    // Serial.print("Lora in for:" + String(loraIn.recipient) + " from:" + String(loraIn.sender) + " RSSI:" + String(loraIn.rssi) + " msg <" + loraIn.message);
-    // Serial.printf("> Remote status: %d", loraIn.status);
+    Serial.print("Lora in for:" + String(loraIn.recipient) + " from:" + String(loraIn.sender) + " RSSI:" + String(loraIn.rssi) + " msg <" + loraIn.message);
+    Serial.printf("> Remote status: %d", loraIn.status);
     //  if (loraIn.id == ACK)
     //  {
     //      Serial.printf(" ACK");
@@ -240,17 +239,24 @@ int polLora(void)
     case TARGET_POSITION:
         if (loraIn.id == SET)
         {
-            if (gpsdata.lat != 0 || gpsdata.lon != 0)
+            if ((gpsdata.lat != 0 || gpsdata.lon != 0) && gpsdata.fix > 0)
             {
+
                 buoy.tglatitude = gpsdata.lat;
                 buoy.tglongitude = gpsdata.lon;
                 msg = String(TARGET_POSITION);
-                loraOut.messagelength = msg.length();
-                loraOut.message = msg;
                 loraOut.id = ACK;
-                sendLora();
                 status = LOCKED;
             }
+            else
+            {
+                msg = String(TARGET_POSITION);
+                loraOut.id = NACK;
+                status = IDLE;
+            }
+            loraOut.messagelength = msg.length();
+            loraOut.message = msg;
+            sendLora();
         }
         break;
     case DGPS:
@@ -324,7 +330,7 @@ bool loraMenu(int cmnd)
     switch (cmnd)
     {
     case GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING:
-        msg = String(GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING) + "," + String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.fix) + "," + String(gpsdata.cource) + "," + String(buoy.mheading);
+        msg = String(GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING) + "," + String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.fix) + "," + String((int)gpsdata.cource) + "," + String(buoy.mheading);
         loraOut.messagelength = msg.length();
         loraOut.message = msg;
         loraOut.sender = buoyID;

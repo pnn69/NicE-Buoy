@@ -8,6 +8,7 @@ struct adcDataType
     int speed;
     unsigned int raws;
     bool newdata;
+    float vbat;
 };
 
 extern adcDataType adc;

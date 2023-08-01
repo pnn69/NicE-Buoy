@@ -9,6 +9,7 @@ struct GpsDataType
     double cource = 0; //degrees
     bool fix = false;
     byte fixtype = 0; //0-3
+    byte nrsats = 0;
     int lastfix = 0; //ms
 };
 

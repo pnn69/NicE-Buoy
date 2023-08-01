@@ -10,8 +10,8 @@
 #define ESC_SB_PIN 14
 
 #define LED_PIN 25
-#define LEDSTRIP1 0
-#define LEDSTRIP2 4
+#define LEDSTRIP1 0 //used for led in switch
+#define LEDSTRIP2 4 //used for switch
 
 #define SWITCH_STANDBY 36
 #define SWITCH_LOCK 39

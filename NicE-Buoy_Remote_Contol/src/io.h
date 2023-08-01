@@ -6,9 +6,7 @@
 #define GPS_RX 15
 #define GPS_TX 13
 
-#define SWITCH_PIN_IDLE 13
-#define SWITCH_PIN_REMOTE 4
-#define SWITCH_PIN_LOCK 12
+#define SWITCH_PIN_REMOTE_LOCK 13
 
 #define LED_PIN 25
 #define LED_STRIP1 0
