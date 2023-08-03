@@ -148,7 +148,7 @@
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid 9433a341-a920-478b-8681-7a87bb5110e7)
   )
-  (text "ESP32\nLORA\nGPS\nCOMPASS\nGIRO\nACCELOROMETER\nBATTERY MONITOR\nPOWERSUPPY 5V 3.3V\nMODE SWITCH\nLEDSTRIP\nLipo monitoring\n"
+  (text "ESP32\nLORA\nGPS\nCOMPASS\nGIRO\nACCELOROMETER\nBATTERY MONITOR\nPOWERSUPPY 12V 5V 3.3V\nMODE SWITCH\nLEDSTRIP\nLipo monitoring\n"
     (at 17.145 35.56 0)
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid a8705544-687a-4eb4-8757-449e0d3ddfdd)
@@ -214,7 +214,7 @@
   (symbol (lib_id "Connector:Conn_01x04_Pin") (at 249.555 26.035 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no)
     (uuid 48d56cfd-5603-46be-9f56-9fbcf2335e0c)
-    (property "Reference" "J1" (at 250.19 19.05 0)
+    (property "Reference" "J201" (at 250.19 19.05 0)
       (effects (font (size 1.27 1.27)))
     )
     (property "Value" "GroveStandard" (at 241.3 27.305 0)
@@ -233,7 +233,7 @@
     (instances
       (project "Nice-Buoy-V1.0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
-          (reference "J1") (unit 1)
+          (reference "J201") (unit 1)
         )
       )
     )
@@ -242,7 +242,7 @@
   (symbol (lib_id "Connector:Conn_01x04_Pin") (at 250.19 42.545 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no)
     (uuid a2295d0b-6fa9-40ab-9b7f-faee09d1f0a3)
-    (property "Reference" "J2" (at 250.825 35.56 0)
+    (property "Reference" "J202" (at 250.825 35.56 0)
       (effects (font (size 1.27 1.27)))
     )
     (property "Value" "GroveStandard" (at 241.935 43.815 0)
@@ -261,8 +261,25 @@
     (instances
       (project "Nice-Buoy-V1.0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
-          (reference "J2") (unit 1)
+          (reference "J202") (unit 1)
         )
+      )
+    )
+  )
+
+  (sheet (at 120.65 158.75) (size 44.45 25.4) (fields_autoplaced)
+    (stroke (width 0.1524) (type solid))
+    (fill (color 0 0 0 0.0000))
+    (uuid 015165a8-30a1-4680-bca0-c8d83aec4be2)
+    (property "Sheetname" "Accumonitor" (at 120.65 158.0384 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheetfile" "untitled.kicad_sch" (at 120.65 184.7346 0)
+      (effects (font (size 1.27 1.27)) (justify left top) hide)
+    )
+    (instances
+      (project "Nice-Buoy-V1.0"
+        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d" (page "9"))
       )
     )
   )

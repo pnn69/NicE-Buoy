@@ -247,7 +247,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "Nice-Buoy-V1.0.kicad_pro",
+    "filename": "Simulate.kicad_pro",
     "version": 1
   },
   "net_settings": {
@@ -289,7 +289,7 @@
     "page_layout_descr_file": ""
   },
   "schematic": {
-    "annotate_start_num": 200,
+    "annotate_start_num": 0,
     "drawing": {
       "dashed_lines_dash_length_ratio": 12.0,
       "dashed_lines_gap_length_ratio": 3.0,
@@ -314,16 +314,14 @@
     "net_format_name": "",
     "ngspice": {
       "fix_include_paths": true,
-      "fix_passive_vals": false,
       "meta": {
         "version": 0
       },
       "model_mode": 0,
-      "workbook_filename": ""
+      "workbook_filename": "Simulate.wbk"
     },
     "page_layout_descr_file": "",
     "plot_directory": "",
-    "spice_adjust_passive_values": false,
     "spice_current_sheet_as_root": false,
     "spice_external_command": "spice \"%I\"",
     "spice_model_current_sheet_as_root": true,
@@ -334,40 +332,8 @@
   },
   "sheets": [
     [
-      "77bea089-a6ae-4a6f-b95b-7a9010ad7c5d",
+      "04920bbf-cace-4fcb-b8cd-7970a9a34255",
       ""
-    ],
-    [
-      "20fb3964-c9d0-4636-b697-42bcddc45d6f",
-      "CPU"
-    ],
-    [
-      "b4716c37-6296-4cc3-83d4-c08b9373ace7",
-      "PSU"
-    ],
-    [
-      "5de18435-a564-4df7-8a35-1fb2031e5a06",
-      "Compass-Giro"
-    ],
-    [
-      "ca10023c-a303-42f5-abd0-839d0a1e9923",
-      "ESC"
-    ],
-    [
-      "4c7fada6-d8ca-4665-9ffe-0c10d1b3ee88",
-      "GPS"
-    ],
-    [
-      "119d66a5-d5b4-44ba-85f5-156e3d153693",
-      "Dispaly"
-    ],
-    [
-      "015165a8-30a1-4680-bca0-c8d83aec4be2",
-      "Accumonitor"
-    ],
-    [
-      "2492f2a5-e94b-4e5c-ae70-d9541294065a",
-      "Ledstrip"
     ]
   ],
   "text_variables": {}
