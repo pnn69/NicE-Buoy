@@ -89,6 +89,10 @@
     (uuid 5b3cb686-20bb-45a4-930a-88498799905d)
   )
 
+  (wire (pts (xy 76.2 113.03) (xy 95.25 113.03))
+    (stroke (width 0) (type default))
+    (uuid 60fa8f77-6883-47a8-bb54-bf2ae55c6a08)
+  )
   (wire (pts (xy 115.57 120.65) (xy 115.57 132.08))
     (stroke (width 0) (type default))
     (uuid 63692bde-5661-4dae-8ad9-211ecb89a73f)
@@ -290,6 +294,10 @@
       (effects (font (size 1.27 1.27)) (justify right))
       (uuid 3487cc0f-5b98-4d2e-bc5b-cecd5ac25af7)
     )
+    (pin "Vbatt" input (at 76.2 113.03 0)
+      (effects (font (size 1.27 1.27)) (justify right))
+      (uuid cffc3a8b-0a30-4323-84c2-3c18b7d9fd6d)
+    )
     (instances
       (project "Nice-Buoy-V1.0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d" (page "7"))
@@ -363,6 +371,10 @@
     (pin "SDA_DISP" bidirectional (at 118.11 120.65 270)
       (effects (font (size 1.27 1.27)) (justify left))
       (uuid 3b2077b1-4986-410e-9ce3-c055177063dc)
+    )
+    (pin "Vbatt" output (at 95.25 113.03 180)
+      (effects (font (size 1.27 1.27)) (justify left))
+      (uuid 15f08dff-15c0-44b9-b430-ee928a52321c)
     )
     (instances
       (project "Nice-Buoy-V1.0"
