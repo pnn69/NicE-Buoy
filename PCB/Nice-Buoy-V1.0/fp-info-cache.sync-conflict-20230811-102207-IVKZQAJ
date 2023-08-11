@@ -1,0 +1,477 @@
+113760760435290
+A_Connector
+691382000002 - Phoenix 2
+<b>WR-TBL Serie 382 - 2.50 mm Vertical PCB Header<br></b>Max Height = 10.1mm , Pitch 2.5mm , 2pins
+
+0
+2
+2
+A_Connector
+691382000004 - Phoenix 4
+WR-TBL Terminal block - serie 382 2,50mm - PCB Vertical - 04p
+
+0
+4
+4
+A_Connector
+691382000006 - Phoenix 6
+<b>WR-TBL Serie 382 - 2.50 mm Vertical PCB Header<br></b>Max Height = 10.1mm , Pitch 2.5mm , 6pins
+
+0
+6
+6
+A_Connector
+691382000008 - Phoenix 8
+WR-TBL Terminal block - serie 382 2,50mm - PCB Vertical - 08p
+
+0
+8
+8
+A_Connector
+BarrelJack_2x6.5mm_LCSC_DC-005A-2.5A-2.0
+Barreljack 2x6.4mm LCSC C480363 https://www.hongsuigroup.com/cpzx/dc/dip/831.html
+
+0
+3
+3
+A_Connector
+BarrelJack_5mm_Wurth_6941xx301002
+Inner diameter 2.05mm or 2.55mm depending on exact order number, http://katalog.we-online.de/em/datasheet/6941xx301002.pdf
+
+0
+3
+3
+A_Connector
+CJT_A2001WV-S-2P
+Vertical wire-to-board connector
+
+0
+4
+3
+A_Connector
+CJT_A2001WV-S-3P
+Vertical wire-to-board connector
+
+0
+5
+4
+A_Connector
+CJT_A2001WV-S-4P
+Vertical wire-to-board connector
+
+0
+6
+5
+A_Connector
+CJT_A2001WV-S-5P
+Vertical wire-to-board connector
+
+0
+7
+6
+A_Connector
+Connector_1x04_P5_Screw
+
+
+0
+4
+4
+A_Connector
+Connector_SCED_End_TJ381
+
+
+0
+2
+1
+A_Connector
+Connector_SCED_TJ381
+
+
+0
+2
+1
+A_Connector
+Connector_SCED_TJ952-04-NP-02
+
+
+0
+4
+2
+A_Connector
+Connector_SCED_TJ952-04-NP-04
+
+
+0
+8
+4
+A_Connector
+Edge_Connector_6.3x8mm_P7.9
+For screw terminals
+
+0
+2
+2
+A_Connector
+Edge_Connector_6.3x13mm_P7.9
+For screw terminals
+
+0
+2
+2
+A_Connector
+Faston
+
+1217861-1p
+0
+2
+1
+A_Connector
+Faston_Curved
+
+1217861-1p
+0
+3
+1
+A_Connector
+HJBright_A1254H-03Q_P1.25
+3 pin locking socket, Body 7x4.05x4.25mm, Component 7x4.85x4.25mm
+
+0
+5
+4
+A_Connector
+HJBright_A1254H-04Q_P1.25
+4 pin locking socket, Body 8.25x4.05x4.25mm, Component 8.25x4.85x4.25mm
+
+0
+6
+5
+A_Connector
+HJBright_F0525H-23A-02_P0.5mm
+23 pin locking FFC/PFC connector, Contacts on top
+
+0
+25
+24
+A_Connector
+HJBright_F0525H-26A-02_P0.5mm
+23 pin locking FFC/PFC connector, Contacts on top
+
+0
+28
+27
+A_Connector
+HJBright_F0525H-28A-02_P0.5mm
+23 pin locking FFC/PFC connector, Contacts on top
+
+0
+30
+29
+A_Connector
+Header_1x01_P2.54
+Body 12.7x2.54mm, Pitch 100mil, No component
+
+0
+1
+1
+A_Connector
+Header_1x02_P2.54_Jumper
+Body 5.08x2.54mm, Pitch 100mil, Vertical pins, Jumper
+
+0
+2
+2
+A_Connector
+Header_1x02_P2.54_Male
+Body 5.08x2.54mm, Pitch 100mil, Vertical pins, Jumper
+
+0
+2
+2
+A_Connector
+Header_1x03_P2.54_Male
+Body 7.62x2.54mm, Pitch 100mil, Vertical pins, Jumper
+
+0
+3
+3
+A_Connector
+Header_1x04_P2.54_Male
+Body 10.16x2.54mm, Pitch 100mil, Vertical pins, Jumper
+
+0
+4
+4
+A_Connector
+Header_1x05_P2.54
+Body 12.7x2.54mm, Pitch 100mil, No component
+
+0
+5
+5
+A_Connector
+Header_1x05_P2.54_Female_H
+Body 12.7x11.303mm, Pitch 100mil, Horizontal sockets
+
+0
+5
+5
+A_Connector
+Header_1x05_P2.54_Female_H_Flip
+Body 12.7x11.303mm, Pitch 100mil, Horizontal sockets, Pin order flipped
+
+0
+5
+5
+A_Connector
+Header_1x05_P2.54_Male
+Body 12.7x2.54mm, Pitch 100mil, Vertical pins
+
+0
+5
+5
+A_Connector
+Header_1x06_P2.54_Male
+Body 15.24x2.54mm, Pitch 100mil, Vertical pins
+
+0
+6
+6
+A_Connector
+Header_1x08_P2.54_Male
+Body 15.24x2.54mm, Pitch 100mil, Vertical pins
+
+0
+8
+8
+A_Connector
+Header_2x04_P1.27
+Through hole straight pin header, 2x04, 1.27mm pitch, double rows
+Through hole pin header THT 2x04 1.27mm double row
+0
+8
+8
+A_Connector
+Header_2x04_P2.54_IDC
+Body 17.78x9.0mm, Pitch 100mil, Boxheader
+
+0
+8
+8
+A_Connector
+Header_2x04_P2.54_IDC_Horizontal
+Body 17.78x9.0mm, Pitch 100mil, Boxheader
+
+0
+8
+8
+A_Connector
+Header_2x06_P2.54_IDC
+Body 22.86x9.0mm, Pitch 100mil, Boxheader
+
+0
+12
+12
+A_Connector
+Header_2x06_P2.54_Male
+Body 15.24x2.54mm, Pitch 100mil, Vertical pins
+
+0
+12
+12
+A_Connector
+Header_2x06_P2.54_Male_SMD
+Body 5.08x15.24mm, Component 7.4x15.24mm
+
+0
+12
+12
+A_Connector
+Header_2x07_P2.54_IDC
+Body 25.4x9.0mm, Pitch 100mil, Boxheader
+MC9A12
+0
+14
+14
+A_Connector
+Header_2x07_P2.54_Male_SMD
+Body 5.08x17.78mm, Component 7.4x17.78mm
+
+0
+14
+14
+A_Connector
+Header_2x10_P2.54_IDC
+Body 33.02x9mm, Pitch 100mil, Boxheader
+
+0
+20
+20
+A_Connector
+HighPowerScrewTerminal
+
+
+0
+4
+1
+A_Connector
+JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical
+JST XH series connector, B4B-XH-A (http://www.jst-mfg.com/product/pdf/eng/eXH.pdf)
+
+0
+4
+4
+A_Connector
+Micro_SD_Socket_CGT_MEM2061
+Push-Push type, Detect SW, Body 14x15.45mm, (Height 1.88)
+https://www.farnell.com/cad/2342890.pdf
+0
+12
+11
+A_Connector
+NAWI_WJ128V-5.0_1x02_P5.0
+Screw terminal, chainable, Phoenix-clone, https://datasheet.lcsc.com/szlcsc/1912251632_Ningbo-Kangnex-Elec-WJ128V-5-0-2P_C8269.pdf
+
+0
+2
+2
+A_Connector
+PinHeader_1x06_P2.54mm_Horizontal
+Through hole angled pin header, 1x06, 2.54mm pitch, 6mm pin length, single row
+Through hole angled pin header THT 1x06 2.54mm single row
+0
+6
+6
+A_Connector
+PinHeader_1x06_P2.54mm_Horizontal_Reversed
+Through hole angled pin header, 1x06, 2.54mm pitch, 6mm pin length, single row
+Through hole angled pin header THT 1x06 2.54mm single row
+0
+6
+6
+A_Connector
+PinHeader_1x06_P2.54mm_Horizontal_rev
+Through hole angled pin header, 1x06, 2.54mm pitch, 6mm pin length, single row
+Through hole angled pin header THT 1x06 2.54mm single row
+0
+6
+6
+A_Connector
+RJ22_4P4C_Vertical
+RJ14 connector 6P4C Horizontal http://www.connfly.com/userfiles/image/UpLoadFile/File/2012/10/26/DS1133.pdf
+RJ14 connector 6P4C Connfly DS1133 RJE1J-144-0410
+0
+4
+4
+A_Connector
+RJ45_8P8C_Vertical
+RJ45 vertical connector https://www.on-shore.com/wp-content/uploads/PJ012-8P8CX.pdf
+RJ45 PJ012
+0
+8
+8
+A_Connector
+RJ_4P4C_ContactsOnTop
+Body 18.0x11.2mm, Pitch 1.27mm, Unshielded
+215875-1, MHRJJ44NFV-1
+0
+4
+4
+A_Connector
+RJ_8P8C_ContactsOnBottom_SmallPins
+R-RJ45R08P-A004
+
+0
+8
+8
+A_Connector
+RJ_8P8C_ContactsOnTop
+Body 18.0x15.2mm, Pitch 1.27mm, Unshielded
+54602-x08
+0
+8
+8
+A_Connector
+RJ_8P8C_Vertical
+RJ45 vertical connector https://www.on-shore.com/wp-content/uploads/PJ012-8P8CX.pdf
+RJ45 PJ012
+0
+8
+8
+A_Connector
+SMA_Amphenol_11mm Long
+https://www.amphenolrf.com/downloads/dl/file/id/7023/product/3103/901_144_customer_drawing.pdf
+SMA THT Female Jack Vertical
+0
+5
+2
+A_Connector
+SMA_Amphenol_901-143_Horizontal_JLC
+ Amphenol RF 901-143 https://www.amphenolrf.com/library/download/link/link_id/585682
+SMA THT Female Jack Horizontal
+0
+5
+2
+A_Connector
+USB-A-TH
+Samtec USB A connector  USB-AM-S-F-B-TH
+USB A connector
+0
+6
+5
+A_Connector
+USB-B
+Body 16.5x12.3mm, Component 16.5x14.3mm
+USB-B-S-RA, USBBSRA
+0
+6
+5
+A_Connector
+USB-B-Micro_Amphenol
+Amphenol (Molex is compatible)
+http://www.molex.com/pdm_docs/sd/1050170001_sd.pdf
+0
+13
+6
+A_Connector
+USB-B-Mini_SMD
+Body 9.25x7.8mm, Component 9.25x9.7mm, Pitch 0.8mm
+Wuerth 65100516121 https://katalog.we-online.de/em/datasheet/65100516121.pdf
+0
+9
+6
+A_Connector
+USBBSRA
+USB-B-S-RA
+Connector
+0
+6
+5
+A_Connector
+Wurth_WR-WST_6P_IDC
+Just PCB pads & holes, Cable Assembly: 490107670612S, https://www.we-online.com/catalog/datasheet/490107670612.pdf
+Program Debug Press REDFIT
+0
+6
+6
+A_Connector
+Wurth_WR-WST_8P_IDC
+Just PCB pads & holes, CableAssembly: 490107670812s, https://www.we-online.com/catalog/datasheet/490107670812.pdf
+Program Debug Press REDFIT
+0
+8
+8
+A_Connector
+Zippor_MPF-803930-002
+Wire terminal
+
+0
+2
+1
+A_Connector
+xt60-m
+
+
+0
+2
+2

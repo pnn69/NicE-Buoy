@@ -251,11 +251,11 @@
         )
       )
     )
-    (symbol "power:+3V3" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
+    (symbol "power:+3.3V" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
       (property "Reference" "#PWR" (at 0 -3.81 0)
         (effects (font (size 1.27 1.27)) hide)
       )
-      (property "Value" "+3V3" (at 0 3.556 0)
+      (property "Value" "+3.3V" (at 0 3.556 0)
         (effects (font (size 1.27 1.27)))
       )
       (property "Footprint" "" (at 0 0 0)
@@ -267,10 +267,10 @@
       (property "ki_keywords" "global power" (at 0 0 0)
         (effects (font (size 1.27 1.27)) hide)
       )
-      (property "ki_description" "Power symbol creates a global label with name \"+3V3\"" (at 0 0 0)
+      (property "ki_description" "Power symbol creates a global label with name \"+3.3V\"" (at 0 0 0)
         (effects (font (size 1.27 1.27)) hide)
       )
-      (symbol "+3V3_0_1"
+      (symbol "+3.3V_0_1"
         (polyline
           (pts
             (xy -0.762 1.27)
@@ -296,9 +296,9 @@
           (fill (type none))
         )
       )
-      (symbol "+3V3_1_1"
+      (symbol "+3.3V_1_1"
         (pin power_in line (at 0 0 90) (length 0) hide
-          (name "+3V3" (effects (font (size 1.27 1.27))))
+          (name "+3.3V" (effects (font (size 1.27 1.27))))
           (number "1" (effects (font (size 1.27 1.27))))
         )
       )
@@ -482,7 +482,7 @@
           (reference "#PWR038") (unit 1)
         )
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4c7fada6-d8ca-4665-9ffe-0c10d1b3ee88"
-          (reference "#PWR064") (unit 1)
+          (reference "#PWR0505") (unit 1)
         )
       )
     )
@@ -491,7 +491,7 @@
   (symbol (lib_id "power:GND") (at 147.32 100.33 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid 1fa0397b-107c-49e2-81b1-1eb2282214ab)
-    (property "Reference" "#PWR032" (at 147.32 106.68 0)
+    (property "Reference" "#PWR0504" (at 147.32 106.68 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "GND" (at 147.32 105.41 0)
@@ -507,7 +507,7 @@
     (instances
       (project "Nice-Buoy-V1.0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4c7fada6-d8ca-4665-9ffe-0c10d1b3ee88"
-          (reference "#PWR032") (unit 1)
+          (reference "#PWR0504") (unit 1)
         )
       )
     )
@@ -547,7 +547,7 @@
           (reference "C104") (unit 1)
         )
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4c7fada6-d8ca-4665-9ffe-0c10d1b3ee88"
-          (reference "C16") (unit 1)
+          (reference "C501") (unit 1)
         )
       )
     )
@@ -584,7 +584,7 @@
           (reference "C20") (unit 1)
         )
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4c7fada6-d8ca-4665-9ffe-0c10d1b3ee88"
-          (reference "C25") (unit 1)
+          (reference "C502") (unit 1)
         )
       )
     )
@@ -593,7 +593,7 @@
   (symbol (lib_id "Jumper:SolderJumper_3_Bridged12") (at 133.35 86.36 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no)
     (uuid a1c12081-9f24-45e1-87d5-5f2e43474cbe)
-    (property "Reference" "JP1" (at 133.35 80.01 0)
+    (property "Reference" "JP501" (at 133.35 80.01 0)
       (effects (font (size 1.27 1.27)))
     )
     (property "Value" "5V/3.3V" (at 133.35 82.55 0)
@@ -611,7 +611,7 @@
     (instances
       (project "Nice-Buoy-V1.0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4c7fada6-d8ca-4665-9ffe-0c10d1b3ee88"
-          (reference "JP1") (unit 1)
+          (reference "JP501") (unit 1)
         )
       )
     )
@@ -648,7 +648,7 @@
           (reference "J202") (unit 1)
         )
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4c7fada6-d8ca-4665-9ffe-0c10d1b3ee88"
-          (reference "J8") (unit 1)
+          (reference "J501") (unit 1)
         )
       )
     )
@@ -682,7 +682,35 @@
           (reference "#PWR0107") (unit 1)
         )
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4c7fada6-d8ca-4665-9ffe-0c10d1b3ee88"
-          (reference "#PWR030") (unit 1)
+          (reference "#PWR0502") (unit 1)
+        )
+      )
+    )
+  )
+
+  (symbol (lib_id "power:+3.3V") (at 143.51 86.36 0) (unit 1)
+    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
+    (uuid ee336426-597c-442e-9bfb-f999770a5686)
+    (property "Reference" "#PWR02" (at 143.51 90.17 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Value" "+3.3V" (at 143.51 81.28 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Footprint" "" (at 143.51 86.36 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Datasheet" "" (at 143.51 86.36 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (pin "1" (uuid 30dfb786-bd0a-4b20-bbd6-7d260f764e9f))
+    (instances
+      (project "Nice-Buoy-V1.0"
+        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
+          (reference "#PWR02") (unit 1)
+        )
+        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4c7fada6-d8ca-4665-9ffe-0c10d1b3ee88"
+          (reference "#PWR0503") (unit 1)
         )
       )
     )
@@ -691,7 +719,7 @@
   (symbol (lib_id "power:+5V") (at 123.19 86.36 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid f14ec4be-b6b4-472c-aebb-2ebf58db0196)
-    (property "Reference" "#PWR029" (at 123.19 90.17 0)
+    (property "Reference" "#PWR0501" (at 123.19 90.17 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "+5V" (at 123.19 81.28 0)
@@ -707,32 +735,7 @@
     (instances
       (project "Nice-Buoy-V1.0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4c7fada6-d8ca-4665-9ffe-0c10d1b3ee88"
-          (reference "#PWR029") (unit 1)
-        )
-      )
-    )
-  )
-
-  (symbol (lib_id "power:+3V3") (at 143.51 86.36 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
-    (uuid f65a2b38-63e5-4a62-a3ef-b12a8513f803)
-    (property "Reference" "#PWR031" (at 143.51 90.17 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Value" "+3V3" (at 143.51 81.28 0)
-      (effects (font (size 1.27 1.27)))
-    )
-    (property "Footprint" "" (at 143.51 86.36 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "" (at 143.51 86.36 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid ff0e6172-54b3-4773-a7f1-e8efd57ef459))
-    (instances
-      (project "Nice-Buoy-V1.0"
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4c7fada6-d8ca-4665-9ffe-0c10d1b3ee88"
-          (reference "#PWR031") (unit 1)
+          (reference "#PWR0501") (unit 1)
         )
       )
     )

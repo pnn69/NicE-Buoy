@@ -701,7 +701,7 @@
           (reference "C2") (unit 1)
         )
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
-          (reference "C31") (unit 1)
+          (reference "C602") (unit 1)
         )
       )
     )
@@ -710,7 +710,7 @@
   (symbol (lib_id "power:+3.3V") (at 143.51 73.66 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid 432fcdfe-31b9-4e34-ac93-8bc4020643ba)
-    (property "Reference" "#PWR067" (at 143.51 77.47 0)
+    (property "Reference" "#PWR0604" (at 143.51 77.47 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "+3.3V" (at 143.51 68.58 0)
@@ -726,22 +726,22 @@
     (instances
       (project "Nice-Buoy-V1.0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
-          (reference "#PWR067") (unit 1)
+          (reference "#PWR0604") (unit 1)
         )
       )
     )
   )
 
   (symbol (lib_id "Jumper:Jumper_2_Open") (at 120.65 96.52 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no)
+    (in_bom no) (on_board yes) (dnp no)
     (uuid 43fd7135-54f7-4bc1-a636-49e8c3609b75)
-    (property "Reference" "JP4" (at 114.3 95.25 0)
+    (property "Reference" "JP603" (at 114.3 95.25 0)
       (effects (font (size 1.27 1.27)))
     )
     (property "Value" "D2" (at 127 95.25 0)
       (effects (font (size 1.27 1.27)))
     )
-    (property "Footprint" "" (at 120.65 96.52 0)
+    (property "Footprint" "Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm" (at 120.65 96.52 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Datasheet" "~" (at 120.65 96.52 0)
@@ -752,7 +752,7 @@
     (instances
       (project "Nice-Buoy-V1.0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
-          (reference "JP4") (unit 1)
+          (reference "JP603") (unit 1)
         )
       )
     )
@@ -761,7 +761,7 @@
   (symbol (lib_id "power:GND") (at 97.79 91.44 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid 569f4ad3-80d2-4341-97f9-d1ea6ce3f31f)
-    (property "Reference" "#PWR065" (at 97.79 97.79 0)
+    (property "Reference" "#PWR0601" (at 97.79 97.79 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "GND" (at 97.79 96.52 0)
@@ -777,7 +777,7 @@
     (instances
       (project "Nice-Buoy-V1.0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
-          (reference "#PWR065") (unit 1)
+          (reference "#PWR0601") (unit 1)
         )
       )
     )
@@ -786,7 +786,7 @@
   (symbol (lib_id "power:GND") (at 134.62 182.88 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid 666cf76a-f25f-4f1b-9102-ccc25049eb3f)
-    (property "Reference" "#PWR068" (at 134.62 189.23 0)
+    (property "Reference" "#PWR0603" (at 134.62 189.23 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "GND" (at 134.62 187.96 0)
@@ -802,7 +802,7 @@
     (instances
       (project "Nice-Buoy-V1.0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
-          (reference "#PWR068") (unit 1)
+          (reference "#PWR0603") (unit 1)
         )
       )
     )
@@ -842,7 +842,7 @@
           (reference "C1") (unit 1)
         )
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
-          (reference "C30") (unit 1)
+          (reference "C601") (unit 1)
         )
       )
     )
@@ -851,7 +851,7 @@
   (symbol (lib_id "power:+3.3V") (at 134.62 177.8 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid 82164c12-3bb9-4218-82f8-60dd82b0e6ea)
-    (property "Reference" "#PWR069" (at 134.62 181.61 0)
+    (property "Reference" "#PWR0602" (at 134.62 181.61 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "+3.3V" (at 134.62 172.72 0)
@@ -867,22 +867,22 @@
     (instances
       (project "Nice-Buoy-V1.0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
-          (reference "#PWR069") (unit 1)
+          (reference "#PWR0602") (unit 1)
         )
       )
     )
   )
 
   (symbol (lib_id "Jumper:Jumper_2_Bridged") (at 120.65 91.44 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no)
+    (in_bom no) (on_board yes) (dnp no)
     (uuid 842b2aac-cf3b-40e4-865d-624b9989460c)
-    (property "Reference" "JP2" (at 114.3 90.17 0)
+    (property "Reference" "JP601" (at 114.3 90.17 0)
       (effects (font (size 1.27 1.27)))
     )
     (property "Value" "D0" (at 127 90.17 0)
       (effects (font (size 1.27 1.27)))
     )
-    (property "Footprint" "" (at 120.65 91.44 0)
+    (property "Footprint" "Jumper:SolderJumper-2_P1.3mm_Bridged_RoundedPad1.0x1.5mm" (at 120.65 91.44 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Datasheet" "~" (at 120.65 91.44 0)
@@ -893,22 +893,22 @@
     (instances
       (project "Nice-Buoy-V1.0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
-          (reference "JP2") (unit 1)
+          (reference "JP601") (unit 1)
         )
       )
     )
   )
 
   (symbol (lib_id "Jumper:Jumper_2_Open") (at 120.65 99.06 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no)
+    (in_bom no) (on_board yes) (dnp no)
     (uuid 9a66e43d-fa13-4be1-9e91-97694f4076d0)
-    (property "Reference" "JP5" (at 114.3 97.79 0)
+    (property "Reference" "JP604" (at 114.3 97.79 0)
       (effects (font (size 1.27 1.27)))
     )
     (property "Value" "D3" (at 127 97.79 0)
       (effects (font (size 1.27 1.27)))
     )
-    (property "Footprint" "" (at 120.65 99.06 0)
+    (property "Footprint" "Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm" (at 120.65 99.06 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Datasheet" "~" (at 120.65 99.06 0)
@@ -919,7 +919,7 @@
     (instances
       (project "Nice-Buoy-V1.0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
-          (reference "JP5") (unit 1)
+          (reference "JP604") (unit 1)
         )
       )
     )
@@ -928,7 +928,7 @@
   (symbol (lib_id "power:GND") (at 143.51 121.92 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid a4ccae88-ad9c-4311-8f9e-c2779b6af28a)
-    (property "Reference" "#PWR066" (at 143.51 128.27 0)
+    (property "Reference" "#PWR0605" (at 143.51 128.27 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "GND" (at 143.51 127 0)
@@ -944,22 +944,22 @@
     (instances
       (project "Nice-Buoy-V1.0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
-          (reference "#PWR066") (unit 1)
+          (reference "#PWR0605") (unit 1)
         )
       )
     )
   )
 
   (symbol (lib_id "Jumper:Jumper_2_Open") (at 120.65 104.14 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no)
+    (in_bom no) (on_board yes) (dnp no)
     (uuid ac267bdc-075f-4d44-8e2a-ff1057c1808f)
-    (property "Reference" "JP7" (at 114.3 102.87 0)
+    (property "Reference" "JP606" (at 114.3 102.87 0)
       (effects (font (size 1.27 1.27)))
     )
     (property "Value" "D5" (at 127 102.87 0)
       (effects (font (size 1.27 1.27)))
     )
-    (property "Footprint" "" (at 120.65 104.14 0)
+    (property "Footprint" "Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm" (at 120.65 104.14 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Datasheet" "~" (at 120.65 104.14 0)
@@ -970,22 +970,22 @@
     (instances
       (project "Nice-Buoy-V1.0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
-          (reference "JP7") (unit 1)
+          (reference "JP606") (unit 1)
         )
       )
     )
   )
 
   (symbol (lib_id "Jumper:Jumper_2_Open") (at 120.65 93.98 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no)
+    (in_bom no) (on_board yes) (dnp no)
     (uuid b0e64938-0051-4166-ac28-d8eb49889091)
-    (property "Reference" "JP3" (at 114.3 92.71 0)
+    (property "Reference" "JP602" (at 114.3 92.71 0)
       (effects (font (size 1.27 1.27)))
     )
     (property "Value" "D1" (at 127 92.71 0)
       (effects (font (size 1.27 1.27)))
     )
-    (property "Footprint" "" (at 120.65 93.98 0)
+    (property "Footprint" "Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm" (at 120.65 93.98 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Datasheet" "~" (at 120.65 93.98 0)
@@ -996,7 +996,7 @@
     (instances
       (project "Nice-Buoy-V1.0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
-          (reference "JP3") (unit 1)
+          (reference "JP602") (unit 1)
         )
       )
     )
@@ -1005,13 +1005,13 @@
   (symbol (lib_id "Connector:Conn_Coaxial") (at 97.79 86.36 0) (mirror y) (unit 1)
     (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid b93d8e0b-a28b-4a1b-809c-7e6a44a94189)
-    (property "Reference" "J1" (at 98.1074 80.01 0)
+    (property "Reference" "J601" (at 98.1074 80.01 0)
       (effects (font (size 1.27 1.27)))
     )
     (property "Value" "Conn_Coaxial" (at 98.1074 82.55 0)
       (effects (font (size 1.27 1.27)))
     )
-    (property "Footprint" "" (at 97.79 86.36 0)
+    (property "Footprint" "Connector_Coaxial:U.FL_Hirose_U.FL-R-SMT-1_Vertical" (at 97.79 86.36 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Datasheet" " ~" (at 97.79 86.36 0)
@@ -1022,7 +1022,7 @@
     (instances
       (project "Nice-Buoy-V1.0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
-          (reference "J1") (unit 1)
+          (reference "J601") (unit 1)
         )
       )
     )
@@ -1062,22 +1062,22 @@
           (reference "C3") (unit 1)
         )
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
-          (reference "C32") (unit 1)
+          (reference "C603") (unit 1)
         )
       )
     )
   )
 
   (symbol (lib_id "Jumper:Jumper_2_Open") (at 120.65 101.6 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no)
+    (in_bom no) (on_board yes) (dnp no)
     (uuid d905ace1-8d26-4ac7-bcf2-f480ba3e4def)
-    (property "Reference" "JP6" (at 114.3 100.33 0)
+    (property "Reference" "JP605" (at 114.3 100.33 0)
       (effects (font (size 1.27 1.27)))
     )
     (property "Value" "D4" (at 127 100.33 0)
       (effects (font (size 1.27 1.27)))
     )
-    (property "Footprint" "" (at 120.65 101.6 0)
+    (property "Footprint" "Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm" (at 120.65 101.6 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Datasheet" "~" (at 120.65 101.6 0)
@@ -1088,7 +1088,7 @@
     (instances
       (project "Nice-Buoy-V1.0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
-          (reference "JP6") (unit 1)
+          (reference "JP605") (unit 1)
         )
       )
     )
@@ -1134,7 +1134,7 @@
           (reference "U1") (unit 1)
         )
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
-          (reference "U10") (unit 1)
+          (reference "U601") (unit 1)
         )
       )
     )

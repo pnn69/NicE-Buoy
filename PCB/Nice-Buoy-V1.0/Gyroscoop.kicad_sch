@@ -135,11 +135,11 @@
         )
       )
     )
-    (symbol "power:+3V3" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
+    (symbol "power:+3.3V" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
       (property "Reference" "#PWR" (at 0 -3.81 0)
         (effects (font (size 1.27 1.27)) hide)
       )
-      (property "Value" "+3V3" (at 0 3.556 0)
+      (property "Value" "+3.3V" (at 0 3.556 0)
         (effects (font (size 1.27 1.27)))
       )
       (property "Footprint" "" (at 0 0 0)
@@ -151,10 +151,10 @@
       (property "ki_keywords" "global power" (at 0 0 0)
         (effects (font (size 1.27 1.27)) hide)
       )
-      (property "ki_description" "Power symbol creates a global label with name \"+3V3\"" (at 0 0 0)
+      (property "ki_description" "Power symbol creates a global label with name \"+3.3V\"" (at 0 0 0)
         (effects (font (size 1.27 1.27)) hide)
       )
-      (symbol "+3V3_0_1"
+      (symbol "+3.3V_0_1"
         (polyline
           (pts
             (xy -0.762 1.27)
@@ -180,9 +180,9 @@
           (fill (type none))
         )
       )
-      (symbol "+3V3_1_1"
+      (symbol "+3.3V_1_1"
         (pin power_in line (at 0 0 90) (length 0) hide
-          (name "+3V3" (effects (font (size 1.27 1.27))))
+          (name "+3.3V" (effects (font (size 1.27 1.27))))
           (number "1" (effects (font (size 1.27 1.27))))
         )
       )
@@ -235,14 +235,14 @@
   (junction (at 133.35 58.42) (diameter 0) (color 0 0 0 0)
     (uuid 64092814-ffee-4325-a2fa-d1f6dd7b8beb)
   )
-  (junction (at 158.75 179.07) (diameter 0) (color 0 0 0 0)
-    (uuid 6975e324-b7be-4654-93c4-8ade4a7494d1)
-  )
   (junction (at 133.35 88.9) (diameter 0) (color 0 0 0 0)
     (uuid 7045cc39-6d04-42bc-8c9d-fa662a630e4d)
   )
   (junction (at 147.32 179.07) (diameter 0) (color 0 0 0 0)
     (uuid b0028e06-cd59-4cc3-b940-43ed7d9c4a7e)
+  )
+  (junction (at 158.75 179.07) (diameter 0) (color 0 0 0 0)
+    (uuid e04d0e56-3337-49ef-8d05-9b980736230e)
   )
   (junction (at 158.75 184.15) (diameter 0) (color 0 0 0 0)
     (uuid e4b54524-b096-4f3b-a84d-1a18cf49b5d2)
@@ -337,47 +337,13 @@
     (uuid f5d3ec31-3051-4b19-9a0d-3afbde13c9db)
   )
 
-  (symbol (lib_id "power:+3V3") (at 158.75 179.07 0) (unit 1)
+  (symbol (lib_id "power:+3.3V") (at 135.89 55.88 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
-    (uuid 44492803-a07c-4e71-875e-8e82ffdbcb6c)
-    (property "Reference" "#PWR0223" (at 158.75 182.88 0)
+    (uuid 210283d8-9ada-4f27-b24e-206d3fee3f0b)
+    (property "Reference" "#PWR02" (at 135.89 59.69 0)
       (effects (font (size 1.27 1.27)) hide)
     )
-    (property "Value" "+3V3" (at 158.75 173.99 0)
-      (effects (font (size 1.27 1.27)))
-    )
-    (property "Footprint" "" (at 158.75 179.07 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "" (at 158.75 179.07 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid 1cb29f69-4fcc-4558-a0e6-ab0660acb206))
-    (instances
-      (project "Nice-Buoy-V1.0"
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/015165a8-30a1-4680-bca0-c8d83aec4be2"
-          (reference "#PWR0223") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-          (reference "#PWR0106") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
-          (reference "#PWR0403") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/9167f605-a28a-45d2-89c4-0ef95e0daf5c"
-          (reference "#PWR035") (unit 1)
-        )
-      )
-    )
-  )
-
-  (symbol (lib_id "power:+3V3") (at 135.89 55.88 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
-    (uuid 445b6ffb-1165-4ff4-b1d1-3efbe5356b63)
-    (property "Reference" "#PWR034" (at 135.89 59.69 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Value" "+3V3" (at 135.89 50.8 0)
+    (property "Value" "+3.3V" (at 135.89 50.8 0)
       (effects (font (size 1.27 1.27)))
     )
     (property "Footprint" "" (at 135.89 55.88 0)
@@ -386,11 +352,14 @@
     (property "Datasheet" "" (at 135.89 55.88 0)
       (effects (font (size 1.27 1.27)) hide)
     )
-    (pin "1" (uuid b67882e5-9b6d-4bc4-837c-85dd763d2ed3))
+    (pin "1" (uuid fc793af4-8e02-4b1d-9fe5-d2f1ec844e22))
     (instances
       (project "Nice-Buoy-V1.0"
+        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
+          (reference "#PWR02") (unit 1)
+        )
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/9167f605-a28a-45d2-89c4-0ef95e0daf5c"
-          (reference "#PWR034") (unit 1)
+          (reference "#PWR0802") (unit 1)
         )
       )
     )
@@ -433,7 +402,7 @@
           (reference "C402") (unit 1)
         )
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/9167f605-a28a-45d2-89c4-0ef95e0daf5c"
-          (reference "C18") (unit 1)
+          (reference "C802") (unit 1)
         )
       )
     )
@@ -476,7 +445,7 @@
           (reference "C401") (unit 1)
         )
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/9167f605-a28a-45d2-89c4-0ef95e0daf5c"
-          (reference "C17") (unit 1)
+          (reference "C801") (unit 1)
         )
       )
     )
@@ -485,7 +454,7 @@
   (symbol (lib_id "power:GND") (at 133.35 91.44 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid 8c286fe1-015b-4c44-a83b-1fc6cb32fdfc)
-    (property "Reference" "#PWR033" (at 133.35 97.79 0)
+    (property "Reference" "#PWR0801" (at 133.35 97.79 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "GND" (at 133.35 96.52 0)
@@ -501,7 +470,7 @@
     (instances
       (project "Nice-Buoy-V1.0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/9167f605-a28a-45d2-89c4-0ef95e0daf5c"
-          (reference "#PWR033") (unit 1)
+          (reference "#PWR0801") (unit 1)
         )
       )
     )
@@ -540,7 +509,35 @@
           (reference "U801") (unit 1)
         )
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/9167f605-a28a-45d2-89c4-0ef95e0daf5c"
-          (reference "U5") (unit 1)
+          (reference "U801") (unit 1)
+        )
+      )
+    )
+  )
+
+  (symbol (lib_id "power:+3.3V") (at 158.75 179.07 0) (unit 1)
+    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
+    (uuid b73481e5-0a16-4482-b319-11cc3b582de0)
+    (property "Reference" "#PWR02" (at 158.75 182.88 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Value" "+3.3V" (at 158.75 173.99 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Footprint" "" (at 158.75 179.07 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Datasheet" "" (at 158.75 179.07 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (pin "1" (uuid 58fcc127-9669-401c-a28d-6917362c2b53))
+    (instances
+      (project "Nice-Buoy-V1.0"
+        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
+          (reference "#PWR02") (unit 1)
+        )
+        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/9167f605-a28a-45d2-89c4-0ef95e0daf5c"
+          (reference "#PWR0803") (unit 1)
         )
       )
     )
@@ -550,7 +547,7 @@
     (in_bom yes) (on_board yes) (dnp no)
     (uuid d69f2e7c-5c4a-47d4-9fa2-fbaeb83fe922)
     (property "Reference" "C25" (at 160.02 177.8 0)
-      (effects (font (size 1.27 1.27)) (justify left))
+      (effects (font (size 1.27 1.27)) (justify left) hide)
     )
     (property "Value" "100n" (at 160.02 184.15 0)
       (effects (font (size 1.27 1.27)) (justify left))
@@ -583,7 +580,7 @@
           (reference "C404") (unit 1)
         )
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/9167f605-a28a-45d2-89c4-0ef95e0daf5c"
-          (reference "C19") (unit 1)
+          (reference "C803") (unit 1)
         )
       )
     )
@@ -620,7 +617,7 @@
           (reference "#PWR0404") (unit 1)
         )
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/9167f605-a28a-45d2-89c4-0ef95e0daf5c"
-          (reference "#PWR036") (unit 1)
+          (reference "#PWR0804") (unit 1)
         )
       )
     )
