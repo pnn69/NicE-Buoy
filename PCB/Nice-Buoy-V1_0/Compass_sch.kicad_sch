@@ -378,7 +378,7 @@
     )
     (pin "1" (uuid 613d2830-be30-451a-ae84-aea716060b69))
     (instances
-      (project "Nice-Buoy-V1.0"
+      (project "Nice-Buoy-V1_0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
           (reference "#PWR02") (unit 1)
         )
@@ -406,7 +406,7 @@
     )
     (pin "1" (uuid f7b49588-1ee7-4ee2-81f3-aa5927e6b9f3))
     (instances
-      (project "Nice-Buoy-V1.0"
+      (project "Nice-Buoy-V1_0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/b4716c37-6296-4cc3-83d4-c08b9373ace7"
           (reference "#PWR0121") (unit 1)
         )
@@ -440,7 +440,7 @@
     )
     (pin "1" (uuid 05c31e26-7355-445b-8260-cad2d4a5375f))
     (instances
-      (project "Nice-Buoy-V1.0"
+      (project "Nice-Buoy-V1_0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
           (reference "#PWR02") (unit 1)
         )
@@ -477,7 +477,7 @@
           (reference "C25") (unit 1)
         )
       )
-      (project "Nice-Buoy-V1.0"
+      (project "Nice-Buoy-V1_0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/015165a8-30a1-4680-bca0-c8d83aec4be2"
           (reference "C218") (unit 1)
         )
@@ -519,7 +519,7 @@
     (pin "8" (uuid c6ad8d27-f75d-4bf9-b50f-7dec43eb6bed))
     (pin "9" (uuid 8a48f4bf-8fc4-44b6-8f49-f161f783ff1b))
     (instances
-      (project "Nice-Buoy-V1.0"
+      (project "Nice-Buoy-V1_0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
           (reference "U301") (unit 1)
         )
@@ -553,7 +553,7 @@
           (reference "C24") (unit 1)
         )
       )
-      (project "Nice-Buoy-V1.0"
+      (project "Nice-Buoy-V1_0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/b4716c37-6296-4cc3-83d4-c08b9373ace7"
           (reference "C211") (unit 1)
         )
@@ -593,7 +593,7 @@
           (reference "C25") (unit 1)
         )
       )
-      (project "Nice-Buoy-V1.0"
+      (project "Nice-Buoy-V1_0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/015165a8-30a1-4680-bca0-c8d83aec4be2"
           (reference "C218") (unit 1)
         )
@@ -624,7 +624,7 @@
     )
     (pin "1" (uuid 4eeafa46-113d-42c7-89c0-f9a5030c2644))
     (instances
-      (project "Nice-Buoy-V1.0"
+      (project "Nice-Buoy-V1_0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/b4716c37-6296-4cc3-83d4-c08b9373ace7"
           (reference "#PWR0121") (unit 1)
         )
@@ -667,7 +667,7 @@
           (reference "C25") (unit 1)
         )
       )
-      (project "Nice-Buoy-V1.0"
+      (project "Nice-Buoy-V1_0"
         (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/015165a8-30a1-4680-bca0-c8d83aec4be2"
           (reference "C218") (unit 1)
         )

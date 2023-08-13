@@ -1,6 +1,6 @@
 {
   "board": {
-    "active_layer": 0,
+    "active_layer": 2,
     "active_layer_preset": "",
     "auto_track_width": true,
     "hidden_netclasses": [],
@@ -16,10 +16,10 @@
     },
     "selection_filter": {
       "dimensions": true,
-      "footprints": true,
+      "footprints": false,
       "graphics": true,
       "keepouts": true,
-      "lockedItems": true,
+      "lockedItems": false,
       "otherItems": true,
       "pads": true,
       "text": true,
@@ -37,6 +37,7 @@
       8,
       9,
       10,
+      11,
       12,
       13,
       15,
@@ -59,14 +60,15 @@
       33,
       34,
       35,
+      36,
       39,
       40
     ],
-    "visible_layers": "ffc5027_fffffff9",
+    "visible_layers": "ffdff7f_fffffff9",
     "zone_display_mode": 0
   },
   "meta": {
-    "filename": "Nice-Buoy-V1.0.kicad_prl",
+    "filename": "Nice-Buoy-V1_0.kicad_prl",
     "version": 3
   },
   "project": {
