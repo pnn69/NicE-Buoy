@@ -304,7 +304,7 @@ int polLora(void)
     case SYSTEM_STASTUS:
         if (loraIn.id == SET)
         {
-            sscanf(messageArr, "%c", &status);
+            sscanf(messageArr, "%d", &status);
         }
         msg = String(SYSTEM_STASTUS);
         loraOut.id = INF;

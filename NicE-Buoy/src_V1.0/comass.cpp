@@ -55,7 +55,7 @@ bool CalibrateCompass(void)
         if (lokcnt++ > 250)
         {
             lokcnt = 0;
-            digitalWrite(LED_PIN, lokon);
+            digitalWrite(LEDSTRIP1, lokon);
             lokon = !lokon;
             Serial.printf("Calllibration factors Compass: MaxX:%d MaxY:%d MaxZ:%d MaxX:%d MaxY:%d MaxZ:%d\r\n", running_max.x, running_max.y, running_max.z, running_min.x, running_min.y, running_min.z);
         }

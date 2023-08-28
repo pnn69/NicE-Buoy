@@ -74,7 +74,8 @@ void EscTask(void *arg)
             speedsbsetpoint = rcv_msg.speedsb;
             snd_msg.speedbb = speedbbsetpoint;
             snd_msg.speedsb = speedsbsetpoint;
-            snd_msg.ledstatus = rcv_msg.ledstatus;
+            snd_msg.ledstatus1 = rcv_msg.ledstatus1;
+            snd_msg.ledstatus2 = rcv_msg.ledstatus2;
             if (xQueueSend(indicatorque, (void *)&snd_msg, 10) != pdTRUE)
             {
                 Serial.println("Error sending speed to indicatorque");

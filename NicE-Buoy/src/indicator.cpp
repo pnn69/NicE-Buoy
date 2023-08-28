@@ -6,27 +6,24 @@ Indicator
 #include <FastLED.h>
 #include "io.h"
 #include "general.h"
-#define NUM_STRIPS 2
-#define NUM_LEDS_PER_STRIP 11
+#define NUM_STRIPS 1
+#define NUM_LEDS 3
 
 QueueHandle_t indicatorque;
 
-CRGB leds[NUM_STRIPS][NUM_LEDS_PER_STRIP];
+CRGB leds[NUM_LEDS];
 
 void InitFastled(void)
 {
     if (LEDSTRIP == true)
     {
-        FastLED.addLeds<NEOPIXEL, LEDSTRIP1>(leds[0], NUM_LEDS_PER_STRIP);
-        FastLED.addLeds<NEOPIXEL, LEDSTRIP2>(leds[1], NUM_LEDS_PER_STRIP);
+        FastLED.addLeds<NEOPIXEL, LEDSTRIPPIN>(leds, NUM_LEDS);
     }
 }
 
 void IndicatorTask(void *arg)
 {
     LMessage msg;
-    CRGB bbcolor;
-    CRGB sbcolor;
     int bb = 0, sb = 0;
     InitFastled();
     indicatorque = xQueueCreate(10, sizeof(LMessage));
@@ -34,45 +31,25 @@ void IndicatorTask(void *arg)
     {
         if (xQueueReceive(indicatorque, (void *)&msg, 0) == pdTRUE)
         {
-            bb = msg.speedbb;
-            sb = msg.speedsb;
-            bbcolor = CRGB::Green;
+            bb = map(msg.speedbb, 0, 100, 0, 255);
+            sb = map(msg.speedsb, 0, 100, 0, 255);
             if (bb < 0)
             {
-                bbcolor = CRGB::Red;
-                bb = bb * -1;
+                leds[0] = CHSV(bb, 0, 0);
             }
-
-            sbcolor = CRGB::Green;
+            else
+            {
+                leds[0] = CHSV(0, bb, 0);
+            }
             if (sb < 0)
             {
-                sbcolor = CRGB::Red;
-                sb = sb * -1;
+                leds[1] = CHSV(sb, 0, 0);
             }
-
-            for (int i = 0; i < NUM_LEDS_PER_STRIP - 1; i++)
+            else
             {
-                if (bb > 0)
-                {
-                    leds[0][i] = bbcolor;
-                    bb = bb - 100 / NUM_LEDS_PER_STRIP - 1;
-                }
-                else
-                {
-                    leds[0][i] = CRGB::Black;
-                }
-                if (sb > 0)
-                {
-                    leds[1][i] = sbcolor;
-                    sb = sb - 100 / NUM_LEDS_PER_STRIP - 1;
-                }
-                else
-                {
-                    leds[1][i] = CRGB::Black;
-                }
+                leds[1] = CHSV(0, sb, 0);
             }
-            leds[0][10] = msg.ledstatus1;
-            leds[1][10] = msg.ledstatus2;
+            leds[2] = msg.ledstatus;
             if (LEDSTRIP == true)
             {
                 FastLED.show();

@@ -77,7 +77,8 @@ void setup()
     digitalWrite(LED_PIN, false);
     if (LEDSTRIP == false)
     {
-        pinMode(LEDSTRIP, OUTPUT);
+        pinMode(LEDSTRIP1, OUTPUT);
+        pinMode(LEDSTRIP2, INPUT_PULLUP);
     }
     InitMemory();
     // Bootcnt(&bootCount, true);
@@ -91,19 +92,19 @@ void setup()
     if (InitCompass())
     {
         Serial.println("Compas OK!");
-        // while (digitalRead(LEDSTRIP2) == 0 && keypressed < 100)
-        // {
-        //     keypressed++;
-        //     delay(50);
-        //     FrontLed = !FrontLed; // blink led
-        //     digitalWrite(LEDSTRIP1, FrontLed);
-        // }
-        // if (keypressed >= 100)
-        // {
-        //     CalibrateCompass();
+        while (digitalRead(LEDSTRIP2) == 0 && keypressed < 100)
+        {
+            keypressed++;
+            delay(50);
+            FrontLed = !FrontLed; // blink led
+            digitalWrite(LEDSTRIP1, FrontLed);
+        }
+        if (keypressed >= 100)
+        {
+            CalibrateCompass();
 
-        //     keypressed = 0;
-        // }
+            keypressed = 0;
+        }
     }
     if (InitGps())
     {
@@ -119,7 +120,8 @@ void setup()
     msecstamp = millis();
     hstamp = millis();
     LMessage snd_msg;
-    snd_msg.ledstatus = CRGB::Green;
+    snd_msg.ledstatus1 = CRGB::Green;
+    snd_msg.ledstatus2 = CRGB::Red;
     // for (int t = 0; t < 11; t++)
     // {
     //     snd_msg.speedbb = t * 10;
@@ -170,7 +172,7 @@ void loop()
         if (gpsdata.fix == false)
         {
             FrontLed = !FrontLed; // blink led
-//            digitalWrite(LEDSTRIP, FrontLed);
+            digitalWrite(LEDSTRIP1, FrontLed);
         }
     }
 
@@ -194,13 +196,13 @@ void loop()
                 {
                     FrontLed = 0; // Led off
                 }
-                //digitalWrite(LEDSTRIP1, FrontLed);
+                digitalWrite(LEDSTRIP1, FrontLed);
             }
-            //if (digitalRead(LEDSTRIP2) == 0)
-            //{
-            //    keypressed++;
-            //}
-            //else
+            if (digitalRead(LEDSTRIP2) == 0)
+            {
+                keypressed++;
+            }
+            else
             {
                 keypressed = 0;
             }
@@ -299,27 +301,27 @@ void loop()
             blink = !blink;
             if (blink == true && gpsdata.fix == true)
             {
-                snd_msg.ledstatus = CRGB::Blue;
+                snd_msg.ledstatus1 = CRGB::Blue;
             }
             else
             {
-                snd_msg.ledstatus = CRGB::Black;
+                snd_msg.ledstatus1 = CRGB::Black;
             }
             if (status == LOCKED)
             {
-                //snd_msg.ledstatus2 = CRGB::Red;
+                snd_msg.ledstatus2 = CRGB::Red;
             }
             else if (status == IDLE)
             {
-                //snd_msg.ledstatus2 = CRGB::Green;
+                snd_msg.ledstatus2 = CRGB::Green;
             }
             else if (status == REMOTE)
             {
-               // snd_msg.ledstatus2 = CRGB::Pink;
+                snd_msg.ledstatus2 = CRGB::Pink;
             }
             else if (status == DOC)
             {
-                //snd_msg.ledstatus2 = CRGB::Orange;
+                snd_msg.ledstatus2 = CRGB::Orange;
             }
 
             xQueueSend(escspeed, (void *)&snd_msg, 10);

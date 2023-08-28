@@ -9,7 +9,8 @@ typedef struct LMessage
 {
     int speedbb;
     int speedsb;
-    CRGB ledstatus;
+    CRGB ledstatus1;
+    CRGB ledstatus2;
 } LMessage;
 
 void IndicatorTask(void *arg);
