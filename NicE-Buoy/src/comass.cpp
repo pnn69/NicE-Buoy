@@ -93,17 +93,19 @@ float CompassAverage(float in)
 
 float GetHeading(void)
 {
-    // float tmp;
+    float tmp;
     if (LSM303ok)
     {
-        compass.read();
+        // Serial.printf("Getting compass data now\r\n");
+        // compass.read();
         // tmp = compass.heading((LSM303::vector<int>){1, 0, 0});
         // Serial.printf("Dir x: %0.1f ", tmp);
         // tmp = compass.heading((LSM303::vector<int>){0, 1, 0});
         // Serial.printf("Dir y: %0.1f ", tmp);
         // tmp = compass.heading((LSM303::vector<int>){0, 0, 1});
-        // Serial.printf("Dir z: %0.1f\r\n", tmp);
+        // Serial.printf("Dir z: %0.1f", tmp);
         // tmp = compass.heading();
+        // Serial.printf("Dir default: %0.1f\r\n", tmp);
         return compass.heading();
     }
     return -1;

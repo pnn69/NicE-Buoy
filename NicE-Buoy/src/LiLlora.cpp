@@ -33,10 +33,10 @@ bool InitLora(void)
     LoRa.setPins(RADIO_CS_PIN, RADIO_RST_PIN, RADIO_DIO0_PIN);
     if (!LoRa.begin(LoRa_frequency))
     {
-        Serial.println(" failed!");
+        Serial.println("Failed!");
         return false;
     }
-    Serial.println(" Succes!");
+    Serial.println("Succes!");
     loraOK = true;
     return true;
 }
@@ -217,7 +217,7 @@ int polLora(void)
     case GOTO_DOC_POSITION:
         if (loraIn.id == SET)
         {
-            GetMemoryDockPos(&buoy.tglatitude, &buoy.tglongitude);
+            MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude,true);
             msg = String(GOTO_DOC_POSITION);
             loraOut.messagelength = msg.length();
             loraOut.message = msg;

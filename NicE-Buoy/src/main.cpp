@@ -36,10 +36,11 @@ int dataNumber = 0; // new for this version
 static bool blink = false;
 int bootCount = 0;
 buoyDataType buoy;
-bool LEDSTRIP = false;
 bool FrontLed = false;
 char keypressed = 0;
 
+LMessage snd_msg;
+SMessage snd_st;
 bool serialPortDataIn(int *nr)
 {
     static byte ndx = 0;
@@ -69,20 +70,20 @@ bool serialPortDataIn(int *nr)
     return false;
 }
 
+/**********************************************************************************************************************************************************/
+/* setup */
+/**********************************************************************************************************************************************************/
 void setup()
 {
-    Wire.begin();
     Serial.begin(115200);
+    initSSD1306();
+    Wire.begin();
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, false);
-    if (LEDSTRIP == false)
-    {
-        pinMode(LEDSTRIP, OUTPUT);
-    }
     InitMemory();
     // Bootcnt(&bootCount, true);
-    GetMemoryBuoyID(&buoyID);
-    LastStatus(&status, false, &buoy.tglatitude, &buoy.tglongitude);
+    MemoryBuoyID(&buoyID, true);
+    LastStatus(&status, &buoy.tglatitude, &buoy.tglongitude, true);
     lstatus = status;
     if (InitLora())
     {
@@ -109,7 +110,6 @@ void setup()
     {
         Serial.println("GPS OK!");
     }
-    initSSD1306();
     xTaskCreate(EscTask, "EscTask", 2400, NULL, 25, NULL);
     xTaskCreate(IndicatorTask, "IndicatorTask", 2400, NULL, 5, NULL);
     // websetup();
@@ -118,31 +118,31 @@ void setup()
     secstamp = millis();
     msecstamp = millis();
     hstamp = millis();
-    LMessage snd_msg;
-    snd_msg.ledstatus = CRGB::Green;
-    // for (int t = 0; t < 11; t++)
-    // {
-    //     snd_msg.speedbb = t * 10;
-    //     snd_msg.speedsb = t * 10;
-    //     if (xQueueSend(indicatorque, (void *)&snd_msg, 10) != pdTRUE)
-    //     {
-    //         Serial.println("Error sending speed to indicatorque");
-    //     }
-    //     delay(500);
-    // }
+
+    snd_msg.speedbb = -50;
+    snd_msg.speedsb = 50;
     if (xQueueSend(indicatorque, (void *)&snd_msg, 10) != pdTRUE)
     {
         Serial.println("Error sending speed to indicatorque");
     }
-    //     delay(500);
-    // }
-    LastStatus(&status, false, &buoy.tglatitude, &buoy.tglongitude); // get last status and restore
+    snd_st.ledstatus = CRGB(0, 0, 200);
+    if (xQueueSend(statusque, (void *)&snd_st, 10) != pdTRUE)
+    {
+        Serial.println("Error sending speed to statusque");
+    }
+
+    LastStatus(&status, &buoy.tglatitude, &buoy.tglongitude, true); // get last status and restore
     Serial.println("Setup done.");
 }
+
+/**********************************************************************************************************************************************************/
+/* main loop */
+/**********************************************************************************************************************************************************/
 
 void loop()
 {
     webloop();
+
     if (loraOK)
     {
         polLora();
@@ -157,8 +157,7 @@ void loop()
         ledstatus = false;
         if (status != lstatus) // store status in memory
         {
-            LastStatus(&status, true, &buoy.tglatitude, &buoy.tglongitude);
-            lstatus = status;
+            LastStatus(&status, &buoy.tglatitude, &buoy.tglongitude, true);
         }
     }
 
@@ -166,11 +165,18 @@ void loop()
     {
         hstamp = millis();
         buoy.mheading = CompassAverage(GetHeading());
-        // buoy.mheading =GetHeading();
+        buoy.mheading = GetHeading();
         if (gpsdata.fix == false)
         {
             FrontLed = !FrontLed; // blink led
-//            digitalWrite(LEDSTRIP, FrontLed);
+            LMessage snd_msg;
+            snd_st.ledstatus = CRGB(0, 0, 200 * FrontLed);
+            if (xQueueSend(statusque, (void *)&snd_st, 10) != pdTRUE)
+            {
+                Serial.println("Error sending speed to indicatorque");
+            }
+
+            //            digitalWrite(LEDSTRIP, FrontLed);
         }
     }
 
@@ -178,163 +184,146 @@ void loop()
     if (millis() - sec05stamp >= 500)
     {
         sec05stamp = millis();
-        if (LEDSTRIP == false)
+
+        if (gpsdata.fix == true)
         {
-            if(gpsdata.fix == true)
+            if (status != LOCKED)
             {
-                if (status != LOCKED)
-                {
-                    FrontLed = !FrontLed; // blink led
-                }
-                else if (status == LOCKED)
-                {
-                    FrontLed = 1; // Led on
-                }
-                else
-                {
-                    FrontLed = 0; // Led off
-                }
-                //digitalWrite(LEDSTRIP1, FrontLed);
+                FrontLed = !FrontLed; // blink led
             }
-            //if (digitalRead(LEDSTRIP2) == 0)
-            //{
-            //    keypressed++;
-            //}
-            //else
+            else if (status == LOCKED)
             {
-                keypressed = 0;
-            }
-            if (keypressed == 2)
-            {
-                if (status == LOCKED)
-                {
-                    status = IDLE;
-                }
-                else
-                {
-                    if (gpsdata.fix == 1)
-                    {
-                        buoy.tglatitude = gpsdata.lat;
-                        buoy.tglongitude = gpsdata.lon;
-                        status = LOCKED;
-                    }
-                }
-            }
-            if (keypressed == 10)
-            {
-                if (gpsdata.fix == 1)
-                {
-                    int tmp;
-                    RouteToPoint(gpsdata.dlat, gpsdata.dlon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
-                    if (buoy.tgdir < 180 && buoy.mheading < 180)
-                    {
-                        tmp = (int)buoy.tgdir - (int)buoy.mheading;
-                    }
-                    else if (buoy.tgdir < 180 && buoy.mheading > 180)
-                    {
-                        tmp = 360 - (int)buoy.tgdir - (int)buoy.mheading;
-                    }
-                    else
-                    {
-                        tmp = (int)buoy.tgdir - (int)buoy.mheading;
-                    }
-
-                    buoy.mcorrdir = tmp;
-
-                    Serial.printf(" dirgps %d dir mag%d =correction %d\r\n", buoy.tgdir, buoy.mheading, (int)buoy.mcorrdir);
-                    status = IDLE;
-                    Message snd_msg;
-                    snd_msg.speedbb = 10;
-                    snd_msg.speedsb = 10;
-                    xQueueSend(escspeed, (void *)&snd_msg, 10);
-                    delay(10);
-                    snd_msg.speedbb = 0;
-                    snd_msg.speedsb = 0;
-                    xQueueSend(escspeed, (void *)&snd_msg, 10);
-                }
-            }
-
-            GetNewGpsData();
-            /*
-            Do stuff depending on the status of the buoy
-            */
-            switch (status)
-            {
-            case UNLOCK:
-                status = IDLE;
-            case IDLE:
-                buoy.speed = 0;
-                buoy.speedbb = 0;
-                buoy.speedsb = 0;
-                break;
-            case REMOTE:
-                CalcEngingSpeed(buoy.cdir, 0, buoy.cspeed, &buoy.speedbb, &buoy.speedsb);
-                break;
-            case LOCKED:
-                RouteToPoint(gpsdata.dlat, gpsdata.dlon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
-                // Serial.print("dist:");
-                // Serial.print(buoy.tgdistance);
-                // Serial.print(" dir:");
-                // Serial.println(buoy.tgdir);
-                if (buoy.tgdistance < 5000) // test if target is in range
-                {
-                    buoy.speed = CalcEngingSpeedBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, &buoy.speedbb, &buoy.speedsb);
-                }
-                else
-                {
-                    buoy.speed = CalcEngingSpeedBuoy(buoy.tgdir, buoy.mheading, 0, &buoy.speedbb, &buoy.speedsb); // do notihing
-                }
-                break;
-            default:
-                buoy.speed = 0;
-                buoy.speedbb = 0;
-                buoy.speedsb = 0;
-            }
-            /*
-            Sending data to ESC
-            */
-            Message snd_msg;
-            snd_msg.speedbb = buoy.speedbb;
-            snd_msg.speedsb = buoy.speedsb;
-            blink = !blink;
-            if (blink == true && gpsdata.fix == true)
-            {
-                snd_msg.ledstatus = CRGB::Blue;
+                FrontLed = 1; // Led on
             }
             else
             {
-                snd_msg.ledstatus = CRGB::Black;
+                FrontLed = 0; // Led off
             }
-            if (status == LOCKED)
+            snd_st.ledstatus = CRGB(0, 0, 200 * FrontLed);
+            if (xQueueSend(statusque, (void *)&snd_st, 10) != pdTRUE)
             {
-                //snd_msg.ledstatus2 = CRGB::Red;
-            }
-            else if (status == IDLE)
-            {
-                //snd_msg.ledstatus2 = CRGB::Green;
-            }
-            else if (status == REMOTE)
-            {
-               // snd_msg.ledstatus2 = CRGB::Pink;
-            }
-            else if (status == DOC)
-            {
-                //snd_msg.ledstatus2 = CRGB::Orange;
+                Serial.println("Error sending speed to indicatorque");
             }
 
-            xQueueSend(escspeed, (void *)&snd_msg, 10);
-
-            /*
-            Update dislpay
-            */
-            udateDisplay(buoy.speedsb, buoy.speedbb, buoy.tgdistance, buoy.tgdir, (unsigned long)buoy.mheading, gpsvalid);
+            // digitalWrite(LEDSTRIP1, FrontLed);
         }
+        //         if (keypressed == 10)
+        //         {
+        //             if (gpsdata.fix == 1)
+        //             {
+        //                 int tmp;
+        //                 RouteToPoint(gpsdata.dlat, gpsdata.dlon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
+        //                 if (buoy.tgdir < 180 && buoy.mheading < 180)
+        //                 {
+        //                     tmp = (int)buoy.tgdir - (int)buoy.mheading;
+        //                 }
+        //                 else if (buoy.tgdir < 180 && buoy.mheading > 180)
+        //                 {
+        //                     tmp = 360 - (int)buoy.tgdir - (int)buoy.mheading;
+        //                 }
+        //                 else
+        //                 {
+        //                     tmp = (int)buoy.tgdir - (int)buoy.mheading;
+        //                 }
+
+        //                 buoy.mcorrdir = tmp;
+
+        //                 Serial.printf(" dirgps %d dir mag%d =correction %ld\r\n", buoy.tgdir, buoy.mheading, (int)buoy.mcorrdir);
+        //                 status = IDLE;
+        //                 Message snd_msg;
+        //                 snd_msg.speedbb = 10;
+        //                 snd_msg.speedsb = 10;
+        //                 xQueueSend(escspeed, (void *)&snd_msg, 10);
+        //                 delay(10);
+        //                 snd_msg.speedbb = 0;
+        //                 snd_msg.speedsb = 0;
+        //                 xQueueSend(escspeed, (void *)&snd_msg, 10);
+        //             }
+        //         }
+
+        GetNewGpsData();
+        /*
+        Do stuff depending on the status of the buoy
+        */
+        switch (status)
+        {
+        case UNLOCK:
+            status = IDLE;
+        case IDLE:
+            buoy.speed = 0;
+            buoy.speedbb = 0;
+            buoy.speedsb = 0;
+            break;
+        case REMOTE:
+            CalcEngingSpeed(buoy.cdir, 0, buoy.cspeed, &buoy.speedbb, &buoy.speedsb);
+            break;
+        case LOCKED:
+            RouteToPoint(gpsdata.dlat, gpsdata.dlon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
+            // Serial.print("dist:");
+            // Serial.print(buoy.tgdistance);
+            // Serial.print(" dir:");
+            // Serial.println(buoy.tgdir);
+            if (buoy.tgdistance < 5000) // test if target is in range
+            {
+                buoy.speed = CalcEngingSpeedBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, &buoy.speedbb, &buoy.speedsb);
+            }
+            else
+            {
+                buoy.speed = CalcEngingSpeedBuoy(buoy.tgdir, buoy.mheading, 0, &buoy.speedbb, &buoy.speedsb); // do notihing
+            }
+            break;
+        default:
+            buoy.speed = 0;
+            buoy.speedbb = 0;
+            buoy.speedsb = 0;
+        }
+        /*
+        Sending data to ESC
+        */
+        Message snd_msg;
+        snd_msg.speedbb = buoy.speedbb;
+        snd_msg.speedsb = buoy.speedsb;
+        blink = !blink;
+        if (blink == true && gpsdata.fix == true)
+        {
+            snd_msg.ledstatus = CRGB::Blue;
+        }
+        else
+        {
+            snd_msg.ledstatus = CRGB::Black;
+        }
+        if (status == LOCKED)
+        {
+            // snd_msg.ledstatus2 = CRGB::Red;
+        }
+        else if (status == IDLE)
+        {
+            // snd_msg.ledstatus2 = CRGB::Green;
+        }
+        else if (status == REMOTE)
+        {
+            // snd_msg.ledstatus2 = CRGB::Pink;
+        }
+        else if (status == DOC)
+        {
+            // snd_msg.ledstatus2 = CRGB::Orange;
+        }
+
+        xQueueSend(escspeed, (void *)&snd_msg, 10);
+
+        /*
+        Update dislpay
+        */
+        udateDisplay(buoy.speedsb, buoy.speedbb, buoy.tgdistance, buoy.tgdir, (unsigned long)buoy.mheading, gpsvalid);
     }
-    // do stuff every second
+
+    // // do stuff every second
     if (millis() - secstamp >= 1000)
     {
         secstamp = millis();
-        // loraMenu(GPS_LAT_LON_FIX_HEADING_SPEED);
+        Serial.printf("Get heading\r\n");
+        GetHeading();
+        //  loraMenu(GPS_LAT_LON_FIX_HEADING_SPEED);
     }
     /*
      do stuff every 5 sec

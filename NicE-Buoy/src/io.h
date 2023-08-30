@@ -5,8 +5,8 @@
 #define SCL 22
 #define SDA_DISP 16
 #define SCL_DISP 17
-#define GPSRX 32
-#define GPSTX 33
+#define GPSRX 33
+#define GPSTX 32
 
 #define ESC_BB_PIN 12
 #define ESC_SB_PIN 14

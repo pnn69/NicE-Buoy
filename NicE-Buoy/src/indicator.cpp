@@ -10,15 +10,13 @@ Indicator
 #define NUM_LEDS 3
 
 QueueHandle_t indicatorque;
+QueueHandle_t statusque;
 
 CRGB leds[NUM_LEDS];
 
 void InitFastled(void)
 {
-    if (LEDSTRIP == true)
-    {
-        FastLED.addLeds<NEOPIXEL, LEDSTRIPPIN>(leds, NUM_LEDS);
-    }
+    FastLED.addLeds<NEOPIXEL, LEDSTRIPPIN>(leds, NUM_LEDS);
 }
 
 void IndicatorTask(void *arg)
@@ -27,33 +25,37 @@ void IndicatorTask(void *arg)
     int bb = 0, sb = 0;
     InitFastled();
     indicatorque = xQueueCreate(10, sizeof(LMessage));
+    statusque = xQueueCreate(10, sizeof(SMessage));
     while (1)
     {
         if (xQueueReceive(indicatorque, (void *)&msg, 0) == pdTRUE)
         {
-            bb = map(msg.speedbb, 0, 100, 0, 255);
-            sb = map(msg.speedsb, 0, 100, 0, 255);
-            if (bb < 0)
+            if (msg.speedbb < 0)
             {
-                leds[0] = CHSV(bb, 0, 0);
+                bb = map(msg.speedbb, 0, 100, 0, 255);
+                leds[0] = CRGB(bb, 0, 0);
             }
             else
             {
-                leds[0] = CHSV(0, bb, 0);
+                bb = map(msg.speedbb, 0, -100, 0, 255);
+                leds[0] = CRGB(0, bb, 0);
             }
-            if (sb < 0)
+            if (msg.speedsb < 0)
             {
-                leds[1] = CHSV(sb, 0, 0);
+                sb = map(msg.speedsb, 0, 100, 0, 255);
+                leds[1] = CRGB(sb, 0, 0);
             }
             else
             {
-                leds[1] = CHSV(0, sb, 0);
+                sb = map(msg.speedsb, 0, -100, 0, 255);
+                leds[1] = CRGB(0, sb, 0);
             }
+            FastLED.show();
+        }
+        if (xQueueReceive(statusque, (void *)&msg, 0) == pdTRUE)
+        {
             leds[2] = msg.ledstatus;
-            if (LEDSTRIP == true)
-            {
-                FastLED.show();
-            }
+            FastLED.show();
         }
         delay(1);
     }
