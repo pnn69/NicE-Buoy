@@ -142,6 +142,44 @@ void LastStatus(byte *data, double *tglat, double *tglon, bool get)
     compass.m_min = (LSM303::vector<int16_t>){-535, -645, -382};
     compass.m_max = (LSM303::vector<int16_t>){+576, +466, +754};
 */
+void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, float *MinX, float *MinY, float *MinZ, bool get)
+{
+    StartMem();
+    if (get)
+    {
+        *MaxX = (int16_t)storage.getFloat("MaxX", 576);
+        *MaxY = (int16_t)storage.getFloat("MaxY", 466);
+        *MaxZ = (int16_t)storage.getFloat("MaxZ", 754);
+        *MinX = (int16_t)storage.getFloat("MinX", -535);
+        *MinY = (int16_t)storage.getFloat("MinY", -645);
+        *MinZ = (int16_t)storage.getFloat("MinZ", -382);
+    }
+    else
+    {
+        storage.putFloat("MaxX", *MaxX);
+        storage.putFloat("MaxY", *MaxY);
+        storage.putFloat("MaxZ", *MaxZ);
+        storage.putFloat("MinX", *MinX);
+        storage.putFloat("MinY", *MinY);
+        storage.putFloat("MinZ", *MinZ);
+    }
+    StopMem();
+}
+
+void CompassOffsetCorrection(int *delta, bool get)
+{
+    StartMem();
+    if (get)
+    {
+        *delta = storage.getInt("Delta", 0);
+    }
+    else
+    {
+        storage.putInt("Delta", *delta);
+    }
+    StopMem();
+}
+
 void CompassCallibrationFactors(int16_t *MaxX, int16_t *MaxY, int16_t *MaxZ, int16_t *MinX, int16_t *MinY, int16_t *MinZ, bool get)
 {
     StartMem();
@@ -166,16 +204,3 @@ void CompassCallibrationFactors(int16_t *MaxX, int16_t *MaxY, int16_t *MaxZ, int
     StopMem();
 }
 
-void CompassOffsetCorrection(int *delta, bool get)
-{
-    StartMem();
-    if (get)
-    {
-        *delta = storage.getInt("Delta", 0);
-    }
-    else
-    {
-        storage.putInt("Delta", *delta);
-    }
-    StopMem();
-}

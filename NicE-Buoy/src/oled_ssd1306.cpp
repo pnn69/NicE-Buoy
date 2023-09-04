@@ -78,9 +78,9 @@ void udateDisplay(int sb, int bb, unsigned long distance, unsigned long directio
         display.setCursor(17, 20);
         display.printf("Stat:%d Rssi:%d", status, loraIn.rssi);
         display.setCursor(barwide + 7, 30);
-        display.printf("Dist: %3dM", distance);
+        display.printf("Dist: %3ldM", distance);
         display.setCursor(barwide + 7, 40);
-        display.printf("Dir:%3d HDG:%3d", direction, mdirection);
+        display.printf("Dir:%3d HDG:%3ld", direction, mdirection);
         display.setCursor(barwide + 7, 55);
         display.printf("%4d%%", bb);
         display.setCursor(128 / 2, 55);

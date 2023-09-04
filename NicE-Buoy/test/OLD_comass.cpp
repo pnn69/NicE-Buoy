@@ -3,7 +3,7 @@ Get direction comppass
 Compass LSM303DLHC Magnetic / accelorometer for comesating tilt
 https://github.com/pololu/lsm303-arduino/tree/master
 https://github.com/pololu/lsm303-arduino/tree/master/examples
-
+deze bekijken > https://gist.github.com/CalebFenton/a97444750eb43e3354fd2d0196a2ebcf
 */
 
 #include <Wire.h>
@@ -12,14 +12,37 @@ https://github.com/pololu/lsm303-arduino/tree/master/examples
 #include <math.h>
 #include "datastorage.h"
 #include "io.h"
+#include <LSM303AGR_ACC_Sensor.h>
+#include <LSM303AGR_MAG_Sensor.h>
 
 #define NUM_DIRECTIONS 5
 #define NUM_POSITIONS 50
 
+#define DEV_I2C Wire // Or Wire
+#define SerialPort Serial
+// Components.
+LSM303AGR_ACC_Sensor Acc(&DEV_I2C);
+LSM303AGR_MAG_Sensor Mag(&DEV_I2C);
+bool LSM303ok = false;
+
+
+bool InitCompass(void)
+{
+    DEV_I2C.begin();
+    // Initlialize components.
+    Acc.begin();
+    Acc.Enable();
+    Acc.EnableTemperatureSensor();
+    Mag.begin();
+    Mag.Enable();
+    LSM303ok = true;
+    return LSM303ok;
+}
+
 LSM303 compass;
 
-bool LSM303ok = false;
-bool InitCompass(void)
+
+bool InitCompassp(void)
 {
     int16_t MaxX, MaxY, MaxZ, MinX, MinY, MinZ;
 
@@ -43,7 +66,7 @@ bool CalibrateCompass(void)
     bool lokon = 0;
     Serial.println("Callibrating compass now!!!");
     calstamp = millis();
-    while (millis() - calstamp <= 1000*60) // 1 minute callibrating
+    while (millis() - calstamp <= 1000 * 60) // 1 minute callibrating
     {
         compass.read();
         running_min.x = min(running_min.x, compass.m.x);
@@ -106,7 +129,24 @@ float GetHeading(void)
         // Serial.printf("Dir z: %0.1f", tmp);
         // tmp = compass.heading();
         // Serial.printf("Dir default: %0.1f\r\n", tmp);
-        return compass.heading();
+        int32_t magnetometer[3];
+        Mag.GetAxes(magnetometer);
+
+        // Output data.
+        SerialPort.print("Mag[mGauss: ");
+        SerialPort.print(magnetometer[0]);
+        SerialPort.print(" ");
+        SerialPort.print(magnetometer[1]);
+        SerialPort.print(" ");
+        SerialPort.print(magnetometer[2]);
+        float heading = (atan2(magnetometer[1],magnetometer[0]) - 0.1) * 180 / PI;
+        if (heading < 0) heading += 360;
+        if (heading > 360) heading -= 360;
+        SerialPort.print(" ");
+        SerialPort.println(heading);
+
+        //return compass.heading();
+        return 0;
     }
     return -1;
 }

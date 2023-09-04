@@ -497,7 +497,7 @@
     (property "Reference" "U301" (at 131.7341 101.6 0)
       (effects (font (size 1.27 1.27)) (justify left))
     )
-    (property "Value" "LSM303C" (at 131.7341 104.14 0)
+    (property "Value" "LSM303AGRTR" (at 131.7341 104.14 0)
       (effects (font (size 1.27 1.27)) (justify left))
     )
     (property "Footprint" "Package_LGA:LGA-12_2x2mm_P0.5mm" (at 130.81 106.68 0)

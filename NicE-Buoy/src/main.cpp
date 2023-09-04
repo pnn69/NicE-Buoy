@@ -6,8 +6,10 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 433MHz is SX1278
 */
 #include <Arduino.h>
+#include "general.h"
 #include "freertos/task.h"
 #include "compass.h"
+#include "adc.h"
 #include "gps.h"
 #include "esc.h"
 #include "indicator.h"
@@ -18,9 +20,9 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "LiLlora.h"
 #include "datastorage.h"
 #include "calculate.h"
-#include "general.h"
 #include "webinterface.h"
 #include "../../dependency/command.h"
+#include "io23017.h"
 
 static unsigned long secstamp, sec05stamp, msecstamp, hstamp, sec5stamp;
 // static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
@@ -36,11 +38,12 @@ int dataNumber = 0; // new for this version
 static bool blink = false;
 int bootCount = 0;
 buoyDataType buoy;
+switchStatus frontsw;
 bool FrontLed = false;
 char keypressed = 0;
 
-LMessage snd_msg;
-SMessage snd_st;
+MessageSP snd_sp;
+MessageST snd_st;
 bool serialPortDataIn(int *nr)
 {
     static byte ndx = 0;
@@ -81,6 +84,7 @@ void setup()
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, false);
     InitMemory();
+    initMCP23017();
     // Bootcnt(&bootCount, true);
     MemoryBuoyID(&buoyID, true);
     LastStatus(&status, &buoy.tglatitude, &buoy.tglongitude, true);
@@ -89,22 +93,9 @@ void setup()
     {
         Serial.println("Lora Module OK!");
     }
-    if (InitCompass())
+    if (!InitCompass())
     {
         Serial.println("Compas OK!");
-        // while (digitalRead(LEDSTRIP2) == 0 && keypressed < 100)
-        // {
-        //     keypressed++;
-        //     delay(50);
-        //     FrontLed = !FrontLed; // blink led
-        //     digitalWrite(LEDSTRIP1, FrontLed);
-        // }
-        // if (keypressed >= 100)
-        // {
-        //     CalibrateCompass();
-
-        //     keypressed = 0;
-        // }
     }
     if (InitGps())
     {
@@ -118,19 +109,49 @@ void setup()
     secstamp = millis();
     msecstamp = millis();
     hstamp = millis();
-
-    snd_msg.speedbb = -50;
-    snd_msg.speedsb = 50;
-    if (xQueueSend(indicatorque, (void *)&snd_msg, 10) != pdTRUE)
-    {
-        Serial.println("Error sending speed to indicatorque");
-    }
     snd_st.ledstatus = CRGB(0, 0, 200);
-    if (xQueueSend(statusque, (void *)&snd_st, 10) != pdTRUE)
+    snd_st.ledstatusbb = CRGB(200, 0, 0);
+    snd_st.ledstatussb = CRGB(0, 200, 0);
+    if (xQueueSend(indicatorqueSt, (void *)&snd_st, 10) != pdTRUE)
     {
         Serial.println("Error sending speed to statusque");
     }
-
+    for (int i = 0; i <= 100; i++)
+    {
+        snd_sp.speedbb = i;
+        snd_sp.speedsb = i;
+        xQueueSend(indicatorqueSp, (void *)&snd_sp, 10); // send to indicator
+    }
+    for (int i = 100; i >= -100; i--)
+    {
+        snd_sp.speedbb = i;
+        snd_sp.speedsb = i;
+        xQueueSend(indicatorqueSp, (void *)&snd_sp, 10); // send to indicator
+    }
+    for (int i = -100; i <= 0; i++)
+    {
+        snd_sp.speedbb = i;
+        snd_sp.speedsb = i;
+        xQueueSend(indicatorqueSp, (void *)&snd_sp, 10); // send to indicator
+    }
+    snd_st.ledstatus = CRGB(0, 0, 0);
+    snd_st.ledstatusbb = CRGB(0, 0, 0);
+    snd_st.ledstatussb = CRGB(0, 0, 0);
+    if (xQueueSend(indicatorqueSt, (void *)&snd_st, 10) != pdTRUE)
+    {
+        Serial.println("Error sending speed to statusque");
+    }
+    delay(500);
+    adc_switch(); // read out switches
+    if (frontsw.switch1upact)
+    {
+        delay(500);
+        adc_switch(); // read out switches
+        if (frontsw.switch1upact)
+        {
+            CalibrateCompass(); //calibrate compass
+        }
+    }
     LastStatus(&status, &buoy.tglatitude, &buoy.tglongitude, true); // get last status and restore
     Serial.println("Setup done.");
 }
@@ -164,14 +185,14 @@ void loop()
     if (millis() - hstamp >= 100)
     {
         hstamp = millis();
-        buoy.mheading = CompassAverage(GetHeading());
+        //buoy.mheading = CompassAverage(GetHeading());
         buoy.mheading = GetHeading();
         if (gpsdata.fix == false)
         {
             FrontLed = !FrontLed; // blink led
-            LMessage snd_msg;
+            MessageST snd_st;
             snd_st.ledstatus = CRGB(0, 0, 200 * FrontLed);
-            if (xQueueSend(statusque, (void *)&snd_st, 10) != pdTRUE)
+            if (xQueueSend(indicatorqueSt, (void *)&snd_st, 10) != pdTRUE)
             {
                 Serial.println("Error sending speed to indicatorque");
             }
@@ -200,7 +221,7 @@ void loop()
                 FrontLed = 0; // Led off
             }
             snd_st.ledstatus = CRGB(0, 0, 200 * FrontLed);
-            if (xQueueSend(statusque, (void *)&snd_st, 10) != pdTRUE)
+            if (xQueueSend(indicatorqueSt, (void *)&snd_st, 10) != pdTRUE)
             {
                 Serial.println("Error sending speed to indicatorque");
             }
@@ -283,14 +304,19 @@ void loop()
         Message snd_msg;
         snd_msg.speedbb = buoy.speedbb;
         snd_msg.speedsb = buoy.speedsb;
+        xQueueSend(escspeed, (void *)&snd_msg, 10); // update esc
+        snd_sp.speedbb = buoy.speedbb;
+        snd_sp.speedsb = buoy.speedsb;
+        xQueueSend(indicatorqueSp, (void *)&snd_sp, 10); // send to led indicator
+
         blink = !blink;
         if (blink == true && gpsdata.fix == true)
         {
-            snd_msg.ledstatus = CRGB::Blue;
+            // snd_msg.ledstatus = CRGB::Blue;
         }
         else
         {
-            snd_msg.ledstatus = CRGB::Black;
+            // snd_msg.ledstatus = CRGB::Black;
         }
         if (status == LOCKED)
         {
@@ -309,8 +335,6 @@ void loop()
             // snd_msg.ledstatus2 = CRGB::Orange;
         }
 
-        xQueueSend(escspeed, (void *)&snd_msg, 10);
-
         /*
         Update dislpay
         */
@@ -322,7 +346,10 @@ void loop()
     {
         secstamp = millis();
         Serial.printf("Get heading\r\n");
-        GetHeading();
+        float mag = GetHeading();
+        Serial.printf("heading %f\r\n",mag);
+        adc_switch();
+
         //  loraMenu(GPS_LAT_LON_FIX_HEADING_SPEED);
     }
     /*

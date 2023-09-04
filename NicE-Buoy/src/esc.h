@@ -7,7 +7,6 @@ typedef struct Message
 {
     int speedbb;
     int speedsb;
-    CRGB ledstatus;
 } Message;
 
 void EscTask(void *arg);

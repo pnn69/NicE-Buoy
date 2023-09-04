@@ -1017,9 +1017,6 @@
     (property "Datasheet" " ~" (at 97.79 86.36 0)
       (effects (font (size 1.27 1.27)) hide)
     )
-    (property "LCSC" "C88374" (at 98.1074 80.01 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
     (pin "1" (uuid a13f9fd8-38e1-4f43-b5fe-5e7de3328fd2))
     (pin "2" (uuid 6d9fb900-7093-425e-9f74-9d21a6079049))
     (instances

@@ -20,8 +20,16 @@ struct buoyDataType
     byte gsa;
 };
 
-extern buoyDataType buoy;
+struct switchStatus
+{
+    int switch1upcnt, switch2upcnt;
+    int switch1dwncnt, switch2dwncnt;
+    bool switch1upact, switch2upact;
+    bool switch1dwnact, switch2dwnact;
+};
 
+extern buoyDataType buoy;
+extern switchStatus frontsw;
 extern char buoyID;
 extern bool ledstatus;
 extern byte status;

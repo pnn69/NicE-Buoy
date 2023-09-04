@@ -1,7 +1,7 @@
 #ifndef COMPASS_H_
 #define COMPASS_H_
 
-//void CompassTask(void *arg);
+void CompassTask(void *arg);
 bool InitCompass(void);
 bool CalibrateCompass(void);
 float GetHeading(void);

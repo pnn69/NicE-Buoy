@@ -74,11 +74,6 @@ void EscTask(void *arg)
             speedsbsetpoint = rcv_msg.speedsb;
             snd_msg.speedbb = speedbbsetpoint;
             snd_msg.speedsb = speedsbsetpoint;
-            snd_msg.ledstatus = rcv_msg.ledstatus;
-            if (xQueueSend(indicatorque, (void *)&snd_msg, 10) != pdTRUE)
-            {
-                Serial.println("Error sending speed to indicatorque");
-            }
             // Serial.printf("esc speed bb: %03d speed sb: %03d\r\n", speedbbsetpoint, speedsbsetpoint);
         }
         // smoodly go to setpoint

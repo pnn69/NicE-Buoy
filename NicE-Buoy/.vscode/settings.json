@@ -1,5 +1,7 @@
 {
     "files.associations": {
-        "adafruit_ssd1306.h": "c"
+        "adafruit_ssd1306.h": "c",
+        "adafruit_mcp23x17.h": "c",
+        "wire.h": "c"
     }
 }

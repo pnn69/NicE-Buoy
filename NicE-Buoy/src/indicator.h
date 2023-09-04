@@ -2,22 +2,21 @@
 #define INDICATOR_H_
 #include <FastLED.h>
 
-extern QueueHandle_t indicatorque;
+extern QueueHandle_t indicatorqueSp;
 extern QueueHandle_t indicatorqueSt;
-extern QueueHandle_t statusque;
 
 typedef struct LMessage
 {
     int speedbb;
     int speedsb;
-    CRGB ledstatus;
-} LMessage;
+} MessageSP;
 
 typedef struct SMessage
 {
     CRGB ledstatus;
-} SMessage;
-
+    CRGB ledstatusbb;
+    CRGB ledstatussb;
+} MessageST;
 
 void IndicatorTask(void *arg);
 
