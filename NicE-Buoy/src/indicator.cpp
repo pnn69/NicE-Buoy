@@ -12,6 +12,8 @@ Indicator
 
 QueueHandle_t indicatorqueSp; // speed que
 QueueHandle_t indicatorqueSt; // status que
+QueueHandle_t indicatorqueBb; // status que
+QueueHandle_t indicatorqueSb; // status que
 
 CRGB leds[NUM_BARR * 2 + BARR_OFFSET];
 
@@ -23,13 +25,19 @@ void InitFastled(void)
 void IndicatorTask(void *arg)
 {
     MessageSP msgSP;
-    MessageST msgST;
+    MessageSq msgSt;
+    MessageSq msgBb;
+    MessageSq msgSb;
+
     CRGB bbcolor;
     CRGB sbcolor;
     int bb = 0, sb = 0;
     InitFastled();
     indicatorqueSp = xQueueCreate(10, sizeof(MessageSP));
-    indicatorqueSt = xQueueCreate(10, sizeof(MessageST));
+    indicatorqueSt = xQueueCreate(10, sizeof(CRGB));
+    indicatorqueBb = xQueueCreate(10, sizeof(CRGB));
+    indicatorqueSb = xQueueCreate(10, sizeof(CRGB));
+
     while (1)
     {
         if (xQueueReceive(indicatorqueSp, (void *)&msgSP, 0) == pdTRUE)
@@ -80,13 +88,25 @@ void IndicatorTask(void *arg)
             FastLED.show();
         }
 
-        if (xQueueReceive(indicatorqueSt, (void *)&msgST, 0) == pdTRUE)
+        if (xQueueReceive(indicatorqueBb, (void *)&msgBb, 0) == pdTRUE)
         {
-            leds[2] = msgST.ledstatus;
-            leds[1] = msgST.ledstatussb;
-            leds[0] = msgST.ledstatusbb;
+            leds[0] = msgBb.ledstatus;
             FastLED.show();
         }
+        if (xQueueReceive(indicatorqueSb, (void *)&msgSb, 0) == pdTRUE)
+        {
+            leds[1] = msgSb.ledstatus;
+            FastLED.show();
+        }
+        if (xQueueReceive(indicatorqueSt, (void *)&msgSt, 0) == pdTRUE)
+        {
+            leds[2] = msgSt.ledstatus;
+            FastLED.show();
+        }
+
+
+
+
         delay(1);
     }
 }

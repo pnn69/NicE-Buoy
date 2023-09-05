@@ -78,7 +78,7 @@ bool sendLora(void)
 
 void sendLoraAck(byte id, int cmnd, int status)
 {
-    String msg = cmnd + String(buoy.mheading);
+    String msg = cmnd + String(buoy.mheading,0);
     loraOut.destination = loraIn.sender;
     loraOut.sender = buoyID;
     loraOut.id = id; // set bit if is answer
@@ -184,7 +184,7 @@ int polLora(void)
     case DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_TARGET_POSITION:
         if (loraIn.id == GET)
         {
-            msg = String(cmnd) + "," + String(buoy.tgdir) + "," + String(buoy.tgdistance) + "," + buoy.speed + "," + buoy.speedbb + "," + buoy.speedsb + "," + buoy.mheading;
+            msg = String(cmnd) + "," + String(buoy.tgdir) + "," + String(buoy.tgdistance) + "," + buoy.speed + "," + buoy.speedbb + "," + buoy.speedsb + "," + String(buoy.mheading,0);
             loraOut.messagelength = msg.length();
             loraOut.message = msg;
             loraOut.id = ACK;
@@ -330,7 +330,7 @@ bool loraMenu(int cmnd)
     switch (cmnd)
     {
     case GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING:
-        msg = String(GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING) + "," + String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.fix) + "," + String((int)gpsdata.cource) + "," + String(buoy.mheading);
+        msg = String(GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING) + "," + String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.fix) + "," + String((int)gpsdata.cource) + "," + String((int)gpsdata.speed) + "," + String(buoy.mheading,0);
         loraOut.messagelength = msg.length();
         loraOut.message = msg;
         loraOut.sender = buoyID;

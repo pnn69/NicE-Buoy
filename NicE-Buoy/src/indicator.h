@@ -4,6 +4,8 @@
 
 extern QueueHandle_t indicatorqueSp;
 extern QueueHandle_t indicatorqueSt;
+extern QueueHandle_t indicatorqueBb;
+extern QueueHandle_t indicatorqueSb;
 
 typedef struct LMessage
 {
@@ -11,12 +13,11 @@ typedef struct LMessage
     int speedsb;
 } MessageSP;
 
-typedef struct SMessage
+typedef struct QStatus
 {
     CRGB ledstatus;
-    CRGB ledstatusbb;
-    CRGB ledstatussb;
-} MessageST;
+} MessageSq;
+
 
 void IndicatorTask(void *arg);
 

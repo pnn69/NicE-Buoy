@@ -12,7 +12,7 @@ struct loraDataType
     int recipient;
     byte id;
     byte status;
-    byte heading;
+    int heading;
     byte messagelength;
     String message;
     int rssi;

@@ -79,4 +79,6 @@ void adc_switch(void)
     {
         frontsw.switch2dwnact = 0;
     }
+    adc_result = analogReadMilliVolts(VBATT);
+    buoy.vbatt = adc_result*0.013339;
 }

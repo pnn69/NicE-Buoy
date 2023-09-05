@@ -183,7 +183,7 @@ int polLora(void)
 
             case DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_TARGET_POSITION:
                 // Serial.println("direction and distance target recieved!");
-                sscanf(messarr, "%d,%d,%d,%d,%d,%d",
+                sscanf(messarr, "%ld,%ld,%d,%d,%d,%d",
                        &buoy[loraIn.sender].tgdir,
                        &buoy[loraIn.sender].tgdistance,
                        &buoy[loraIn.sender].speed,
@@ -239,7 +239,7 @@ int polLora(void)
                     buoy[loraIn.sender].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_TARGET_POSITION;
                     buoy[loraIn.sender].status = LOCKED;
                     buoy[loraIn.sender].ackOK = loraIn.id;
-                    buoy[loraIn.sender].ackOK == true;
+                    buoy[loraIn.sender].ackOK = true;
                 }
                 break;
 

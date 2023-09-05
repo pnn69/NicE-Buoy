@@ -69,11 +69,11 @@ void ShowBuoyData(int buoyID)
     display.setCursor(6 * 5, 0);
     display.printf("NicE BUOY %d", buoyID);
     display.setCursor(barwide + 7, 10);
-    display.printf("GPS Cource:%0.1lf", buoy[buoyID].mdir);
+    display.printf("GPS Cource:%d", buoy[buoyID].mdir);
     display.setCursor(17, 20);
     display.printf("Stat:%d Rssi:%d", buoy[buoyID].status, buoy[buoyID].rssi);
     display.setCursor(barwide + 7, 30);
-    display.printf("Dist: %3dM", buoy[buoyID].tgdistance);
+    display.printf("Dist: %3ldM", buoy[buoyID].tgdistance);
     display.setCursor(barwide + 7, 40);
     display.printf("Dir:%3d HDG:%3d", buoy[buoyID].tgdir, buoy[buoyID].mdir);
     display.setCursor(barwide + 7, 55);

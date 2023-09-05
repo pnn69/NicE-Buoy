@@ -180,7 +180,7 @@ void CompassOffsetCorrection(int *delta, bool get)
     StopMem();
 }
 
-void CompassCallibrationFactors(int16_t *MaxX, int16_t *MaxY, int16_t *MaxZ, int16_t *MinX, int16_t *MinY, int16_t *MinZ, bool get)
+void CompassCallibrationFactorsInt(int16_t *MaxX, int16_t *MaxY, int16_t *MaxZ, int16_t *MinX, int16_t *MinY, int16_t *MinZ, bool get)
 {
     StartMem();
     if (get)
@@ -203,4 +203,3 @@ void CompassCallibrationFactors(int16_t *MaxX, int16_t *MaxY, int16_t *MaxZ, int
     }
     StopMem();
 }
-

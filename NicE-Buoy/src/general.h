@@ -4,7 +4,7 @@
 
 struct buoyDataType
 {
-    int mheading;
+    float mheading;
     double tglatitude, tglongitude;
     double ancorlatitude, ancorlongitude;
     double doclatitude, doclongitude;
@@ -18,6 +18,7 @@ struct buoyDataType
     int cmnd;
     bool ackOK;
     byte gsa;
+    float vbatt;
 };
 
 struct switchStatus
