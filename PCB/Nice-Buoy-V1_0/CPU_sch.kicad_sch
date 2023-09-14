@@ -2937,6 +2937,10 @@
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid 39b690ab-5878-41a8-aa71-af1060e4f531)
   )
+  (text "GPIO13 buzzer added" (at 19.05 36.83 0)
+    (effects (font (size 1.27 1.27)) (justify left bottom))
+    (uuid 3ba4b826-fbda-4122-ac96-aeab8b2b68a5)
+  )
   (text "Program enable" (at 23.495 234.95 0)
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid 6a0470c2-cc4b-4803-9510-2fe3447cccf8)
@@ -2946,7 +2950,7 @@
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid bdababdf-5c7d-461d-9e2f-0f974afa12f5)
   )
-  (text "Not programming.\nDR0 should be connected toe GPIO0 now to GPIO2\nRework: \nconnect GPIO0 to GPIO2\nPin 25 to 24"
+  (text "Not programming.\nDR0 should be connected toe GPIO0 now to GPIO2\nRework: \nconnect GPIO0 to GPIO2\nPin 25 to 24\nESC signal to weak. Change R401 and R402 to 0 ohm\n"
     (at 19.05 26.67 0)
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid e495ed36-196b-4112-be5a-93c191225ae7)

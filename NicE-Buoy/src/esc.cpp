@@ -50,9 +50,9 @@ void InitEsc(void)
     ESP32PWM::allocateTimer(1);
     ESP32PWM::allocateTimer(2);
     ESP32PWM::allocateTimer(3);
-    escbb.setPeriodHertz(400);            // standard 400 hz servo
+    escbb.setPeriodHertz(100);            // standard 400 hz servo
     escbb.attach(ESC_BB_PIN, ESC_MIN,ESC_MAX); // attaches the servo on pin 18 to the servo object
-    escsb.setPeriodHertz(400);            // standard 400 hz servo
+    escsb.setPeriodHertz(100);            // standard 400 hz servo
     escsb.attach(ESC_SB_PIN, ESC_MIN,ESC_MAX); // attaches the servo on pin 18 to the servo object
 }
 

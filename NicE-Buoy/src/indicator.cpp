@@ -103,10 +103,6 @@ void IndicatorTask(void *arg)
             leds[2] = msgSt.ledstatus;
             FastLED.show();
         }
-
-
-
-
         delay(1);
     }
 }

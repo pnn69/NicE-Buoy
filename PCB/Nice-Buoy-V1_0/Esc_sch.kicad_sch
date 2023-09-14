@@ -199,6 +199,11 @@
     (uuid eac8a0cc-d516-418c-a938-1a67919aa1cc)
   )
 
+  (text "Change R401 and R402 to 0 ohm\nsignal to weak" (at 72.39 95.25 0)
+    (effects (font (size 1.27 1.27)) (justify left bottom))
+    (uuid 76101782-e6b7-4717-867c-ceaaa557464a)
+  )
+
   (hierarchical_label "ESC_BB" (shape output) (at 106.68 82.55 180) (fields_autoplaced)
     (effects (font (size 1.27 1.27)) (justify right))
     (uuid 3a0003a3-bd84-425c-ab4c-61046dfa1fdf)

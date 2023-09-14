@@ -51,4 +51,5 @@
 #define SWITCH1 36
 #define SWITCH2 39
 
+#define BUZZERPIN 13
 #endif /* IO_H_ */

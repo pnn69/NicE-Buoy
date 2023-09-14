@@ -23,6 +23,7 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "webinterface.h"
 #include "../../dependency/command.h"
 #include "io23017.h"
+#include "buzzer.h"
 
 static unsigned long secstamp, sec05stamp, msecstamp, hstamp, sec5stamp;
 // static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
@@ -44,6 +45,7 @@ char keypressed = 0;
 
 MessageSP snd_sp;
 MessageSq snd_sq;
+MessageBuzz snd_buz;
 
 bool serialPortDataIn(int *nr)
 {
@@ -84,6 +86,9 @@ void setup()
     Wire.begin();
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, false);
+    pinMode(BUZZERPIN, OUTPUT_OPEN_DRAIN);
+    digitalWrite(BUZZERPIN, false);
+    Serial.println("BEEP!");
     InitMemory();
     initMCP23017();
     // Bootcnt(&bootCount, true);
@@ -102,19 +107,20 @@ void setup()
     {
         Serial.println("GPS OK!");
     }
+    xTaskCreate(IndicatorTask, "IndicatorTask", 2400, NULL, 1, NULL);
     xTaskCreate(EscTask, "EscTask", 2400, NULL, 25, NULL);
-    xTaskCreate(IndicatorTask, "IndicatorTask", 2400, NULL, 5, NULL);
+    xTaskCreate(BuzzerTask, "BuzzerTask", 1024, NULL, 5, NULL);
     // websetup();
     Serial.printf("BuoyID = %d\n\r", buoyID);
     Serial.printf("Status = %d\n\r", status);
     secstamp = millis();
     msecstamp = millis();
     hstamp = millis();
-    snd_sq.ledstatus = CRGB(0, 0, 200);
+    snd_sq.ledstatus = CRGB(0, 0, 20);
     xQueueSend(indicatorqueSt, (void *)&snd_sq, 10);
-    snd_sq.ledstatus = CRGB(200, 0, 0);
+    snd_sq.ledstatus = CRGB(20, 0, 0);
     xQueueSend(indicatorqueBb, (void *)&snd_sq, 10);
-    snd_sq.ledstatus = CRGB(0, 200, 0);
+    snd_sq.ledstatus = CRGB(0, 20, 0);
     xQueueSend(indicatorqueSb, (void *)&snd_sq, 10);
 
     for (int i = 0; i <= 100; i++)
@@ -156,7 +162,12 @@ void setup()
     xQueueSend(indicatorqueSt, (void *)&snd_sq, 10);
     xQueueSend(indicatorqueBb, (void *)&snd_sq, 10);
     xQueueSend(indicatorqueSb, (void *)&snd_sq, 10);
-
+    snd_buz.repeat = 50;
+    xQueueSend(Buzzerque, (void *)&snd_buz, 10);
+    delay(150);
+    xQueueSend(Buzzerque, (void *)&snd_buz, 10);
+    delay(150);
+    xQueueSend(Buzzerque, (void *)&snd_buz, 10);
     Serial.println("Setup done.");
 }
 
@@ -178,6 +189,7 @@ void loop()
     if (millis() - msecstamp >= 10)
     {
         msecstamp = millis();
+        adc_switch();
         digitalWrite(LED_PIN, !ledstatus);
         ledstatus = false;
         if (status != lstatus) // store status in memory
@@ -191,7 +203,7 @@ void loop()
     if (millis() - hstamp >= 100)
     {
         hstamp = millis();
-        // GetNewGpsData();
+        GetNewGpsData();
         buoy.mheading = CompassAverage(GetHeading());
         // Serial.printf( "heading %f\r\n",buoy.mheading);
         if (gpsdata.fix == false)
@@ -210,11 +222,11 @@ void loop()
 
         if (gpsdata.fix == true)
         {
-            snd_sq.ledstatus = CRGB(0, 50, 0);
+            snd_sq.ledstatus = CRGB(0, 10, 0);
         }
         else
         {
-            snd_sq.ledstatus = CRGB(50, 0, 0);
+            snd_sq.ledstatus = CRGB(10, 0, 0);
         }
         xQueueSend(indicatorqueSt, (void *)&snd_sq, 10);
         if (gpsdata.fix == true)
@@ -232,11 +244,11 @@ void loop()
             xQueueSend(indicatorqueBb, (void *)&snd_sq, 10);
         }
 
-        if (frontsw.switch1upcnt != 0)
+        if (frontsw.switch1upact == 0 && frontsw.switch1upcnt != 0)
         {
+            Serial.printf("Key1 pressed %d \r\n", frontsw.switch1upcnt);
             if (frontsw.switch1upcnt == 2)
             {
-                Serial.printf("Key1 pressed %d act = %d\r\n", frontsw.switch1upcnt, frontsw.switch1upact);
                 if (status == LOCKED)
                 {
                     status = IDLE;
@@ -255,19 +267,14 @@ void loop()
                 snd_msg.speedbb = 10;
                 snd_msg.speedsb = 10;
                 xQueueSend(escspeed, (void *)&snd_msg, 10);
-                delay(10);
+                delay(500);
                 snd_msg.speedbb = 0;
                 snd_msg.speedsb = 0;
                 xQueueSend(escspeed, (void *)&snd_msg, 10);
-                frontsw.switch1upcnt = 0;
             }
-            if (frontsw.switch1upact == 0)
-            {
-                frontsw.switch1upcnt = 0;
-            }
+            frontsw.switch1upcnt = 0;
         }
 
-        GetNewGpsData();
         /*
         Do stuff depending on the status of the buoy
         */
@@ -352,8 +359,8 @@ void loop()
     if (millis() - secstamp >= 1000)
     {
         secstamp = millis();
-        adc_switch();
-        //  loraMenu(GPS_LAT_LON_FIX_HEADING_SPEED);
+
+        // loraMenu(GPS_LAT_LON_FIX_HEADING_SPEED);
     }
     /*
      do stuff every 5 sec

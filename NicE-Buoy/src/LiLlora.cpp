@@ -277,7 +277,7 @@ int polLora(void)
             status = REMOTE;
             sscanf(messageArr, "%d,%d", &buoy.cdir, &buoy.cspeed);
             CalcEngingSpeed(buoy.cdir, 0, buoy.cspeed, &buoy.speedbb, &buoy.speedsb);
-            // Serial.printf("ddir:%03d speed:%03d\r\n",ddir,buoy.cspeed);
+            //Serial.printf("speedbb:%03d speedsb:%03d\r\n",buoy.speedbb, buoy.speedsb);
         }
         msg = String(SAIL_DIR_SPEED) + "," + buoy.mheading + "," + buoy.cspeed + "," + buoy.speedbb + "," + buoy.speedsb;
         loraOut.id = ACK;
