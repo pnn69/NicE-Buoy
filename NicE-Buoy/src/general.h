@@ -35,4 +35,7 @@ extern char buoyID;
 extern bool ledstatus;
 extern byte status;
 
+#define BUZZERON 0
+#define BUZZEROFF 1
+
 #endif /* GENERA:_H_ */

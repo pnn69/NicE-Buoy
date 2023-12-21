@@ -5,7 +5,7 @@
 #include "buzzer.h"
 
 #define DEBOUNCE 50
-#define BUZZTIME 25
+#define BUZZTIME 100
 
 MessageBuzz snd_buzz;
 
@@ -20,6 +20,8 @@ void adc_switch(void)
 {
     if (skip == 0)
     {
+        snd_buzz.repeat = 0;
+        snd_buzz.pauze = 0;
         int adc_result = analogReadMilliVolts(SWITCH1);
         if (adc_result > 2000)
         {
@@ -32,7 +34,7 @@ void adc_switch(void)
             {
                 frontsw.switch1upcnt++;
             }
-            snd_buzz.repeat = BUZZTIME;
+            snd_buzz.time = BUZZTIME;
             xQueueSend(Buzzerque, (void *)&snd_buzz, 10);
             skip = DEBOUNCE;
         }
@@ -52,7 +54,7 @@ void adc_switch(void)
                 frontsw.switch1dwncnt++;
             }
             frontsw.switch1upact = 1;
-            snd_buzz.repeat = BUZZTIME;
+            snd_buzz.time = BUZZTIME;
             xQueueSend(Buzzerque, (void *)&snd_buzz, 10);
             skip = DEBOUNCE;
         }
@@ -73,7 +75,7 @@ void adc_switch(void)
                 frontsw.switch2upcnt++;
             }
             frontsw.switch2upact = 1;
-            snd_buzz.repeat = BUZZTIME;
+            snd_buzz.time = BUZZTIME;
             xQueueSend(Buzzerque, (void *)&snd_buzz, 10);
             skip = DEBOUNCE;
         }
@@ -93,7 +95,7 @@ void adc_switch(void)
                 frontsw.switch2dwncnt++;
             }
             frontsw.switch2upact = 1;
-            snd_buzz.repeat = BUZZTIME;
+            snd_buzz.time = BUZZTIME;
             xQueueSend(Buzzerque, (void *)&snd_buzz, 10);
             skip = DEBOUNCE;
         }
@@ -103,7 +105,9 @@ void adc_switch(void)
         }
         adc_result = analogReadMilliVolts(VBATT);
         buoy.vbatt = adc_result * 0.013339;
-    }else{
+    }
+    else
+    {
         skip--;
     }
 }

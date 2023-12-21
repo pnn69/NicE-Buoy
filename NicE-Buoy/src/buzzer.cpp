@@ -1,10 +1,11 @@
 #include <Arduino.h>
 #include "buzzer.h"
 #include "io.h"
+#include "general.h"
 QueueHandle_t Buzzerque; // speed que
 
 MessageBuzz msgBuzz;
-
+static unsigned long bstamp;
 void BuzzerTask(void *arg)
 {
     Buzzerque = xQueueCreate(10, sizeof(msgBuzz));
@@ -12,13 +13,20 @@ void BuzzerTask(void *arg)
     {
         if (xQueueReceive(Buzzerque, (void *)&msgBuzz, 0) == pdTRUE)
         {
-            for (int t = 0; t < msgBuzz.repeat; t++)
+            do
             {
-                digitalWrite(BUZZERPIN, false);
-                delay(1);
-                digitalWrite(BUZZERPIN, true);
-                delay(1);
-            }
+                bstamp = millis();
+                while (bstamp + msgBuzz.time > millis())
+                {
+                    digitalWrite(BUZZERPIN, BUZZERON);
+                    delay(1);
+                    digitalWrite(BUZZERPIN, BUZZEROFF);
+                    delay(1);
+                }
+                if(msgBuzz.pauze != 0){
+                    vTaskDelay(pdMS_TO_TICKS(msgBuzz.pauze));
+                }
+            }while(msgBuzz.repeat-- != 0 );
         }
         vTaskDelay(1);
     }

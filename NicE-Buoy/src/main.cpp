@@ -43,9 +43,9 @@ switchStatus frontsw;
 bool FrontLed = false;
 char keypressed = 0;
 
-MessageSP snd_sp;
-MessageSq snd_sq;
-MessageBuzz snd_buz;
+MessageSP snd_sp; /* Speed sb(-100%<>100%),bb(-100%<>100%) */
+MessageSq snd_sq; /* Ledstatus CRGB */
+MessageBuzz snd_buz; /* on(true/false),time(msec),pauze(msec),repeat(x) */
 
 bool serialPortDataIn(int *nr)
 {
@@ -87,8 +87,7 @@ void setup()
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, false);
     pinMode(BUZZERPIN, OUTPUT_OPEN_DRAIN);
-    digitalWrite(BUZZERPIN, false);
-    Serial.println("BEEP!");
+    digitalWrite(BUZZERPIN, BUZZEROFF);
     InitMemory();
     initMCP23017();
     // Bootcnt(&bootCount, true);
@@ -162,11 +161,9 @@ void setup()
     xQueueSend(indicatorqueSt, (void *)&snd_sq, 10);
     xQueueSend(indicatorqueBb, (void *)&snd_sq, 10);
     xQueueSend(indicatorqueSb, (void *)&snd_sq, 10);
-    snd_buz.repeat = 50;
-    xQueueSend(Buzzerque, (void *)&snd_buz, 10);
-    delay(150);
-    xQueueSend(Buzzerque, (void *)&snd_buz, 10);
-    delay(150);
+    snd_buz.repeat = 3;
+    snd_buz.time = 100;
+    snd_buz.pauze = 25;
     xQueueSend(Buzzerque, (void *)&snd_buz, 10);
     Serial.println("Setup done.");
 }
@@ -177,30 +174,26 @@ void setup()
 
 void loop()
 {
-    webloop();
-
-    if (loraOK)
-    {
-        polLora();
-    }
-    /*
-     do stuff every 100 milisecond
-    */
-    if (millis() - msecstamp >= 10)
+    webloop();                      /*update websocket*/
+    if (millis() - msecstamp >= 10) /*10 msec loop*/
     {
         msecstamp = millis();
-        adc_switch();
-        digitalWrite(LED_PIN, !ledstatus);
-        ledstatus = false;
-        if (status != lstatus) // store status in memory
+        digitalWrite(LED_PIN, !ledstatus); /* If green led is turned on by incomming lora message. turn it off */
+        ledstatus = false;                 /*clear ledstatus*/
+        if (loraOK)                        /*check incomming lora messages*/
         {
-            LastStatus(&status, &buoy.tglatitude, &buoy.tglongitude, true);
-            lstatus = status;
-            Serial.printf("Status updated in memory\r\n");
+            polLora();
         }
-    }
+        adc_switch(); /*read switch status*/
+        // if (status != lstatus) // store status in memory
+        // {
+        //     LastStatus(&status, &buoy.tglatitude, &buoy.tglongitude, true);
+        //     lstatus = status;
+        //     Serial.printf("Status updated in memory\r\n");
+        // }
+    } /*Done 10 msec loop*/
 
-    if (millis() - hstamp >= 100)
+    if (millis() - hstamp >= 100) /*100 msec loop*/
     {
         hstamp = millis();
         GetNewGpsData();

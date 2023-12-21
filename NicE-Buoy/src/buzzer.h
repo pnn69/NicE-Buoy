@@ -6,9 +6,9 @@ extern QueueHandle_t Buzzerque; // speed que
 typedef struct BMessage
 {
     bool on;
-    int time;
-    int pauze;
-    int repeat;
+    unsigned int time;
+    unsigned int pauze;
+    unsigned int repeat;
 } MessageBuzz;
 
 void BuzzerTask(void *arg);
