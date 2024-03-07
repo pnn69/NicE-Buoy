@@ -1,686 +1,1684 @@
-(kicad_sch (version 20230121) (generator eeschema)
-
-  (uuid a0fcd802-1b6f-4ac1-834f-c3224306524e)
-
-  (paper "A4")
-
-  (lib_symbols
-    (symbol "Device:C_Small" (pin_numbers hide) (pin_names (offset 0.254) hide) (in_bom yes) (on_board yes)
-      (property "Reference" "C" (at 0.254 1.778 0)
-        (effects (font (size 1.27 1.27)) (justify left))
-      )
-      (property "Value" "C_Small" (at 0.254 -2.032 0)
-        (effects (font (size 1.27 1.27)) (justify left))
-      )
-      (property "Footprint" "" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "Datasheet" "~" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "ki_keywords" "capacitor cap" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "ki_description" "Unpolarized capacitor, small symbol" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "ki_fp_filters" "C_*" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (symbol "C_Small_0_1"
-        (polyline
-          (pts
-            (xy -1.524 -0.508)
-            (xy 1.524 -0.508)
-          )
-          (stroke (width 0.3302) (type default))
-          (fill (type none))
-        )
-        (polyline
-          (pts
-            (xy -1.524 0.508)
-            (xy 1.524 0.508)
-          )
-          (stroke (width 0.3048) (type default))
-          (fill (type none))
-        )
-      )
-      (symbol "C_Small_1_1"
-        (pin passive line (at 0 2.54 270) (length 2.032)
-          (name "~" (effects (font (size 1.27 1.27))))
-          (number "1" (effects (font (size 1.27 1.27))))
-        )
-        (pin passive line (at 0 -2.54 90) (length 2.032)
-          (name "~" (effects (font (size 1.27 1.27))))
-          (number "2" (effects (font (size 1.27 1.27))))
-        )
-      )
-    )
-    (symbol "Sensor_Motion:LSM303C" (in_bom yes) (on_board yes)
-      (property "Reference" "U" (at -11.43 15.24 0)
-        (effects (font (size 1.27 1.27)) (justify right))
-      )
-      (property "Value" "LSM303C" (at -5.08 13.97 0)
-        (effects (font (size 1.27 1.27)) (justify right top))
-      )
-      (property "Footprint" "Package_LGA:LGA-12_2x2mm_P0.5mm" (at 1.27 -19.05 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "Datasheet" "www.st.com/resource/en/datasheet/lsm303c.pdf" (at 2.54 -16.51 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "ki_keywords" "Accelerometer Magnetometer MEMS" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "ki_description" "I2C/SPI, 3D Accelerometer and 3D Magnetometer" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "ki_fp_filters" "LGA*2x2mm*P0.5mm*" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (symbol "LSM303C_0_1"
-        (rectangle (start 13.97 11.43) (end -13.97 -11.43)
-          (stroke (width 0.254) (type default))
-          (fill (type background))
-        )
-      )
-      (symbol "LSM303C_1_1"
-        (pin input line (at -17.78 5.08 0) (length 3.81)
-          (name "SCL/SPC" (effects (font (size 1.27 1.27))))
-          (number "1" (effects (font (size 1.27 1.27))))
-        )
-        (pin power_in line (at 0 15.24 270) (length 3.81)
-          (name "VDDIO" (effects (font (size 1.27 1.27))))
-          (number "10" (effects (font (size 1.27 1.27))))
-        )
-        (pin output line (at 17.78 5.08 180) (length 3.81)
-          (name "DRDY_MAG" (effects (font (size 1.27 1.27))))
-          (number "11" (effects (font (size 1.27 1.27))))
-        )
-        (pin output line (at 17.78 0 180) (length 3.81)
-          (name "INT_XL" (effects (font (size 1.27 1.27))))
-          (number "12" (effects (font (size 1.27 1.27))))
-        )
-        (pin input line (at -17.78 0 0) (length 3.81)
-          (name "CS_XL" (effects (font (size 1.27 1.27))))
-          (number "2" (effects (font (size 1.27 1.27))))
-        )
-        (pin input line (at -17.78 -2.54 0) (length 3.81)
-          (name "CS_MAG" (effects (font (size 1.27 1.27))))
-          (number "3" (effects (font (size 1.27 1.27))))
-        )
-        (pin bidirectional line (at -17.78 2.54 0) (length 3.81)
-          (name "SDA/SDI/SDO" (effects (font (size 1.27 1.27))))
-          (number "4" (effects (font (size 1.27 1.27))))
-        )
-        (pin passive line (at 17.78 -5.08 180) (length 3.81)
-          (name "C1" (effects (font (size 1.27 1.27))))
-          (number "5" (effects (font (size 1.27 1.27))))
-        )
-        (pin power_in line (at 0 -15.24 90) (length 3.81)
-          (name "GND" (effects (font (size 1.27 1.27))))
-          (number "6" (effects (font (size 1.27 1.27))))
-        )
-        (pin output line (at 17.78 2.54 180) (length 3.81)
-          (name "INT_MAG" (effects (font (size 1.27 1.27))))
-          (number "7" (effects (font (size 1.27 1.27))))
-        )
-        (pin passive line (at 0 -15.24 90) (length 3.81) hide
-          (name "GND" (effects (font (size 1.27 1.27))))
-          (number "8" (effects (font (size 1.27 1.27))))
-        )
-        (pin power_in line (at 2.54 15.24 270) (length 3.81)
-          (name "VDD" (effects (font (size 1.27 1.27))))
-          (number "9" (effects (font (size 1.27 1.27))))
-        )
-      )
-    )
-    (symbol "power:+3.3V" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
-      (property "Reference" "#PWR" (at 0 -3.81 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "Value" "+3.3V" (at 0 3.556 0)
-        (effects (font (size 1.27 1.27)))
-      )
-      (property "Footprint" "" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "Datasheet" "" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "ki_keywords" "global power" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "ki_description" "Power symbol creates a global label with name \"+3.3V\"" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (symbol "+3.3V_0_1"
-        (polyline
-          (pts
-            (xy -0.762 1.27)
-            (xy 0 2.54)
-          )
-          (stroke (width 0) (type default))
-          (fill (type none))
-        )
-        (polyline
-          (pts
-            (xy 0 0)
-            (xy 0 2.54)
-          )
-          (stroke (width 0) (type default))
-          (fill (type none))
-        )
-        (polyline
-          (pts
-            (xy 0 2.54)
-            (xy 0.762 1.27)
-          )
-          (stroke (width 0) (type default))
-          (fill (type none))
-        )
-      )
-      (symbol "+3.3V_1_1"
-        (pin power_in line (at 0 0 90) (length 0) hide
-          (name "+3.3V" (effects (font (size 1.27 1.27))))
-          (number "1" (effects (font (size 1.27 1.27))))
-        )
-      )
-    )
-    (symbol "power:GND" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
-      (property "Reference" "#PWR" (at 0 -6.35 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "Value" "GND" (at 0 -3.81 0)
-        (effects (font (size 1.27 1.27)))
-      )
-      (property "Footprint" "" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "Datasheet" "" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "ki_keywords" "global power" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "ki_description" "Power symbol creates a global label with name \"GND\" , ground" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (symbol "GND_0_1"
-        (polyline
-          (pts
-            (xy 0 0)
-            (xy 0 -1.27)
-            (xy 1.27 -1.27)
-            (xy 0 -2.54)
-            (xy -1.27 -1.27)
-            (xy 0 -1.27)
-          )
-          (stroke (width 0) (type default))
-          (fill (type none))
-        )
-      )
-      (symbol "GND_1_1"
-        (pin power_in line (at 0 0 270) (length 0) hide
-          (name "GND" (effects (font (size 1.27 1.27))))
-          (number "1" (effects (font (size 1.27 1.27))))
-        )
-      )
-    )
-  )
-
-  (junction (at 129.54 69.85) (diameter 0) (color 0 0 0 0)
-    (uuid 0098cfbf-bb82-4347-9f97-819dacff0c3b)
-  )
-  (junction (at 148.59 177.8) (diameter 0) (color 0 0 0 0)
-    (uuid 2dbfe9cd-334f-4d6e-9751-37de68eee3c3)
-  )
-  (junction (at 148.59 182.88) (diameter 0) (color 0 0 0 0)
-    (uuid 2e843a69-57a3-4f53-b103-67038f39ef2f)
-  )
-  (junction (at 160.02 182.88) (diameter 0) (color 0 0 0 0)
-    (uuid 81ccee99-bb05-4dcc-a91c-bed935df368e)
-  )
-  (junction (at 160.02 177.8) (diameter 0) (color 0 0 0 0)
-    (uuid b6de7950-ebdb-4780-b393-862a3491c353)
-  )
-  (junction (at 129.54 105.41) (diameter 0) (color 0 0 0 0)
-    (uuid dc6c526d-36bf-4f8e-9dcd-71fd11015f40)
-  )
-  (junction (at 109.22 87.63) (diameter 0) (color 0 0 0 0)
-    (uuid f0814f3a-b77d-495b-9e7b-be5e15d65f03)
-  )
-  (junction (at 130.81 69.85) (diameter 0) (color 0 0 0 0)
-    (uuid f368afa9-9f9b-40e5-90f6-a3c78c8c9dc4)
-  )
-
-  (no_connect (at 147.32 82.55) (uuid 0e19a744-9722-4422-b132-b5b0a9d913cf))
-  (no_connect (at 147.32 85.09) (uuid 0f80f33a-94a3-455d-8170-ddc6504f717b))
-  (no_connect (at 147.32 87.63) (uuid f35fc842-6072-4987-86c5-6d2bc8aa20e0))
-
-  (wire (pts (xy 95.25 82.55) (xy 111.76 82.55))
-    (stroke (width 0) (type default))
-    (uuid 1e61c88c-8f0b-4f75-8c25-ea14856ca59b)
-  )
-  (wire (pts (xy 147.32 92.71) (xy 149.86 92.71))
-    (stroke (width 0) (type default))
-    (uuid 1f01b715-2cde-4c5b-bc70-be942455c673)
-  )
-  (wire (pts (xy 129.54 105.41) (xy 129.54 102.87))
-    (stroke (width 0) (type default))
-    (uuid 1fc1e242-3a04-4f2e-a004-c9d5b5051de7)
-  )
-  (wire (pts (xy 148.59 177.8) (xy 160.02 177.8))
-    (stroke (width 0) (type default))
-    (uuid 2cef891a-5f2a-4ae3-946d-efd39514d555)
-  )
-  (wire (pts (xy 132.08 69.85) (xy 130.81 69.85))
-    (stroke (width 0) (type default))
-    (uuid 3bae88a3-88c5-434e-bef0-d6a2ed0ca866)
-  )
-  (wire (pts (xy 109.22 87.63) (xy 109.22 90.17))
-    (stroke (width 0) (type default))
-    (uuid 41315f95-1900-46c2-820c-3a341008e73a)
-  )
-  (wire (pts (xy 109.22 69.85) (xy 109.22 87.63))
-    (stroke (width 0) (type default))
-    (uuid 47f610f1-6398-4d54-838c-2d1a62fd4e47)
-  )
-  (wire (pts (xy 111.76 87.63) (xy 109.22 87.63))
-    (stroke (width 0) (type default))
-    (uuid 4faaa896-9c49-4e3f-bcfc-5d3170aea172)
-  )
-  (wire (pts (xy 109.22 90.17) (xy 111.76 90.17))
-    (stroke (width 0) (type default))
-    (uuid 4fcdb880-754e-4b75-9747-2bfb1ee07b67)
-  )
-  (wire (pts (xy 149.86 105.41) (xy 129.54 105.41))
-    (stroke (width 0) (type default))
-    (uuid 534e1162-c439-4a50-915c-41852e290f5b)
-  )
-  (wire (pts (xy 135.89 182.88) (xy 148.59 182.88))
-    (stroke (width 0) (type default))
-    (uuid 569da3da-f2ab-4362-8db6-0fe94da6d156)
-  )
-  (wire (pts (xy 129.54 107.95) (xy 129.54 105.41))
-    (stroke (width 0) (type default))
-    (uuid 6bf6efff-02db-4148-8cca-00df859adb6f)
-  )
-  (wire (pts (xy 129.54 69.85) (xy 129.54 72.39))
-    (stroke (width 0) (type default))
-    (uuid 6dda8ab6-53fc-497f-9ea9-c65c48ae66f3)
-  )
-  (wire (pts (xy 130.81 67.31) (xy 130.81 69.85))
-    (stroke (width 0) (type default))
-    (uuid a3d6c3ee-73c0-492e-978d-e495e7189454)
-  )
-  (wire (pts (xy 129.54 69.85) (xy 109.22 69.85))
-    (stroke (width 0) (type default))
-    (uuid b3258217-d377-46ea-8a3f-cec16f3b354f)
-  )
-  (wire (pts (xy 149.86 92.71) (xy 149.86 95.25))
-    (stroke (width 0) (type default))
-    (uuid c4332872-089d-4bdd-bd17-0fa62c88bc1f)
-  )
-  (wire (pts (xy 148.59 182.88) (xy 160.02 182.88))
-    (stroke (width 0) (type default))
-    (uuid c78c3b74-0d87-4109-9775-168b83d6335d)
-  )
-  (wire (pts (xy 95.25 85.09) (xy 111.76 85.09))
-    (stroke (width 0) (type default))
-    (uuid c972c45f-39d9-47be-8e0a-dfb592000642)
-  )
-  (wire (pts (xy 132.08 72.39) (xy 132.08 69.85))
-    (stroke (width 0) (type default))
-    (uuid ca3e2286-c8ba-455d-aa30-2baac4d7fb80)
-  )
-  (wire (pts (xy 130.81 69.85) (xy 129.54 69.85))
-    (stroke (width 0) (type default))
-    (uuid cb823f70-b579-4ed3-af23-959e484101e2)
-  )
-  (wire (pts (xy 135.89 177.8) (xy 148.59 177.8))
-    (stroke (width 0) (type default))
-    (uuid cc1a2cc6-a382-4356-a587-8c971c5dedd3)
-  )
-  (wire (pts (xy 149.86 100.33) (xy 149.86 105.41))
-    (stroke (width 0) (type default))
-    (uuid ddd340f6-72bb-4de7-a753-d260abc8d37a)
-  )
-
-  (text "Compass" (at 109.22 67.31 0)
-    (effects (font (size 1.27 1.27)) (justify left bottom))
-    (uuid 0f9e99ee-f62f-49fe-b603-375a878ff06c)
-  )
-
-  (hierarchical_label "SDA" (shape bidirectional) (at 95.25 85.09 180) (fields_autoplaced)
-    (effects (font (size 1.27 1.27)) (justify right))
-    (uuid 9e4471d8-38c1-43f0-97f2-44b0ab149601)
-  )
-  (hierarchical_label "SCL" (shape output) (at 95.25 82.55 180) (fields_autoplaced)
-    (effects (font (size 1.27 1.27)) (justify right))
-    (uuid f3e6e756-afbc-4c58-a268-21b92bda339c)
-  )
-
-  (symbol (lib_id "power:+3.3V") (at 130.81 67.31 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
-    (uuid 1993d8dc-8af8-45c0-8a52-dd15b650156d)
-    (property "Reference" "#PWR02" (at 130.81 71.12 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Value" "+3.3V" (at 130.81 62.23 0)
-      (effects (font (size 1.27 1.27)))
-    )
-    (property "Footprint" "" (at 130.81 67.31 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "" (at 130.81 67.31 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid 613d2830-be30-451a-ae84-aea716060b69))
-    (instances
-      (project "Nice-Buoy-V1_0"
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-          (reference "#PWR02") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
-          (reference "#PWR0302") (unit 1)
-        )
-      )
-    )
-  )
-
-  (symbol (lib_id "power:GND") (at 129.54 107.95 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
-    (uuid 3959d572-af7e-48ce-9529-d0e2d3dd271d)
-    (property "Reference" "#PWR0121" (at 129.54 114.3 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Value" "GND" (at 129.54 112.395 0)
-      (effects (font (size 1.27 1.27)))
-    )
-    (property "Footprint" "" (at 129.54 107.95 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "" (at 129.54 107.95 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid f7b49588-1ee7-4ee2-81f3-aa5927e6b9f3))
-    (instances
-      (project "Nice-Buoy-V1_0"
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/b4716c37-6296-4cc3-83d4-c08b9373ace7"
-          (reference "#PWR0121") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/015165a8-30a1-4680-bca0-c8d83aec4be2"
-          (reference "#PWR0226") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-          (reference "#PWR0107") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
-          (reference "#PWR0301") (unit 1)
-        )
-      )
-    )
-  )
-
-  (symbol (lib_id "power:+3.3V") (at 160.02 177.8 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
-    (uuid 5c0dd290-e889-4a79-8c32-98a956c66f5f)
-    (property "Reference" "#PWR02" (at 160.02 181.61 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Value" "+3.3V" (at 160.02 172.72 0)
-      (effects (font (size 1.27 1.27)))
-    )
-    (property "Footprint" "" (at 160.02 177.8 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "" (at 160.02 177.8 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid 05c31e26-7355-445b-8260-cad2d4a5375f))
-    (instances
-      (project "Nice-Buoy-V1_0"
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-          (reference "#PWR02") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
-          (reference "#PWR0303") (unit 1)
-        )
-      )
-    )
-  )
-
-  (symbol (lib_id "Device:C_Small") (at 160.02 180.34 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no)
-    (uuid 89893b19-e3ae-40a5-8755-48997ee6ce4c)
-    (property "Reference" "C25" (at 161.29 176.53 0)
-      (effects (font (size 1.27 1.27)) (justify left) hide)
-    )
-    (property "Value" "100n" (at 161.29 182.88 0)
-      (effects (font (size 1.27 1.27)) (justify left))
-    )
-    (property "Footprint" "A_Device:C_0603" (at 160.02 180.34 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "~" (at 160.02 180.34 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "LCSC" "C14663" (at 160.02 180.34 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid 0a3397d4-e31f-42f5-9cb2-1477a8ea5fc3))
-    (pin "2" (uuid 5443c323-7897-407e-a6da-6c72ff929e6c))
-    (instances
-      (project "NIKOLA-02-E-001_PCAScannerController_R1"
-        (path "/347dde4f-80cd-43dc-9631-b7d53d41d2ca/a240e071-8226-4089-9168-599508dd74c4"
-          (reference "C25") (unit 1)
-        )
-      )
-      (project "Nice-Buoy-V1_0"
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/015165a8-30a1-4680-bca0-c8d83aec4be2"
-          (reference "C218") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-          (reference "C104") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
-          (reference "C304") (unit 1)
-        )
-      )
-    )
-  )
-
-  (symbol (lib_id "Sensor_Motion:LSM303C") (at 129.54 87.63 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
-    (uuid b82f44b7-61f2-4046-bec3-579a503e67b4)
-    (property "Reference" "U301" (at 131.7341 101.6 0)
-      (effects (font (size 1.27 1.27)) (justify left))
-    )
-    (property "Value" "LSM303AGRTR" (at 131.7341 104.14 0)
-      (effects (font (size 1.27 1.27)) (justify left))
-    )
-    (property "Footprint" "Package_LGA:LGA-12_2x2mm_P0.5mm" (at 130.81 106.68 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "www.st.com/resource/en/datasheet/lsm303c.pdf" (at 132.08 104.14 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "LCSC" "C126671" (at 131.7341 101.6 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid 9b5f8454-3588-48e9-b6b6-d4a6d035195d))
-    (pin "10" (uuid b69f7403-f6c9-455f-9e2a-093855ae497e))
-    (pin "11" (uuid 993ad04c-85f5-44f2-86e1-e89fb7582397))
-    (pin "12" (uuid f08b8918-8ce8-456a-b4ee-8a3e2c7a1ce5))
-    (pin "2" (uuid fb58392b-9a75-47c8-863f-aeb1856573f1))
-    (pin "3" (uuid c35d7016-7682-4d68-bef0-a7f26a8f923d))
-    (pin "4" (uuid 64fc77eb-76a2-4265-b6da-b0a0055dcb04))
-    (pin "5" (uuid 30e92112-48a7-4fa1-8f02-da161a0aa92b))
-    (pin "6" (uuid d659a08c-1ede-42ed-a9b7-341954ad787a))
-    (pin "7" (uuid f671ed2a-602a-4827-b6fe-dce05c643885))
-    (pin "8" (uuid c6ad8d27-f75d-4bf9-b50f-7dec43eb6bed))
-    (pin "9" (uuid 8a48f4bf-8fc4-44b6-8f49-f161f783ff1b))
-    (instances
-      (project "Nice-Buoy-V1_0"
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
-          (reference "U301") (unit 1)
-        )
-      )
-    )
-  )
-
-  (symbol (lib_id "Device:C_Small") (at 148.59 180.34 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no)
-    (uuid cc282c8e-2d6e-4c8a-9652-ec5a8d77c46c)
-    (property "Reference" "C24" (at 146.05 176.53 0)
-      (effects (font (size 1.27 1.27)) (justify left))
-    )
-    (property "Value" "10u" (at 143.51 184.15 0)
-      (effects (font (size 1.27 1.27)) (justify left))
-    )
-    (property "Footprint" "Capacitor_SMD:C_1210_3225Metric" (at 148.59 180.34 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "~" (at 148.59 180.34 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "LCSC" "C90143" (at 148.59 180.34 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid cdd38247-c06f-4afc-8ac7-89fb9e07fd4f))
-    (pin "2" (uuid d959ea69-5778-46a3-9a8a-222e797c1ca2))
-    (instances
-      (project "NIKOLA-02-E-001_PCAScannerController_R1"
-        (path "/347dde4f-80cd-43dc-9631-b7d53d41d2ca/a240e071-8226-4089-9168-599508dd74c4"
-          (reference "C24") (unit 1)
-        )
-      )
-      (project "Nice-Buoy-V1_0"
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/b4716c37-6296-4cc3-83d4-c08b9373ace7"
-          (reference "C211") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-          (reference "C101") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
-          (reference "C302") (unit 1)
-        )
-      )
-    )
-  )
-
-  (symbol (lib_id "Device:C_Small") (at 135.89 180.34 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no)
-    (uuid d2776d05-5f04-43dd-bf24-8525a6edbe66)
-    (property "Reference" "C25" (at 137.16 176.53 0)
-      (effects (font (size 1.27 1.27)) (justify left))
-    )
-    (property "Value" "100n" (at 137.16 182.88 0)
-      (effects (font (size 1.27 1.27)) (justify left))
-    )
-    (property "Footprint" "A_Device:C_0603" (at 135.89 180.34 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "~" (at 135.89 180.34 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "LCSC" "C14663" (at 135.89 180.34 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid 189b18dc-39c6-4225-96b5-066d6d48169f))
-    (pin "2" (uuid 21cdbf8a-8af0-4fac-9efa-23274b97ed15))
-    (instances
-      (project "NIKOLA-02-E-001_PCAScannerController_R1"
-        (path "/347dde4f-80cd-43dc-9631-b7d53d41d2ca/a240e071-8226-4089-9168-599508dd74c4"
-          (reference "C25") (unit 1)
-        )
-      )
-      (project "Nice-Buoy-V1_0"
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/015165a8-30a1-4680-bca0-c8d83aec4be2"
-          (reference "C218") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-          (reference "C104") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
-          (reference "C301") (unit 1)
-        )
-      )
-    )
-  )
-
-  (symbol (lib_id "power:GND") (at 160.02 182.88 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
-    (uuid d55b322d-ee50-4e09-a1fc-201df1e68a05)
-    (property "Reference" "#PWR0121" (at 160.02 189.23 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Value" "GND" (at 160.02 187.325 0)
-      (effects (font (size 1.27 1.27)))
-    )
-    (property "Footprint" "" (at 160.02 182.88 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "" (at 160.02 182.88 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid 4eeafa46-113d-42c7-89c0-f9a5030c2644))
-    (instances
-      (project "Nice-Buoy-V1_0"
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/b4716c37-6296-4cc3-83d4-c08b9373ace7"
-          (reference "#PWR0121") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/015165a8-30a1-4680-bca0-c8d83aec4be2"
-          (reference "#PWR0226") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-          (reference "#PWR0107") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
-          (reference "#PWR0304") (unit 1)
-        )
-      )
-    )
-  )
-
-  (symbol (lib_id "Device:C_Small") (at 149.86 97.79 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no)
-    (uuid e3e6233a-752c-4198-809b-d5b484f272a0)
-    (property "Reference" "C25" (at 151.13 93.98 0)
-      (effects (font (size 1.27 1.27)) (justify left))
-    )
-    (property "Value" "100n" (at 151.13 100.33 0)
-      (effects (font (size 1.27 1.27)) (justify left))
-    )
-    (property "Footprint" "A_Device:C_0603" (at 149.86 97.79 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "~" (at 149.86 97.79 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "LCSC" "C14663" (at 149.86 97.79 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid 1d19d8a9-b899-4e60-a5b7-48098f03764d))
-    (pin "2" (uuid b518f947-9ae1-49ab-a43a-4861c3a2bcb2))
-    (instances
-      (project "NIKOLA-02-E-001_PCAScannerController_R1"
-        (path "/347dde4f-80cd-43dc-9631-b7d53d41d2ca/a240e071-8226-4089-9168-599508dd74c4"
-          (reference "C25") (unit 1)
-        )
-      )
-      (project "Nice-Buoy-V1_0"
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/015165a8-30a1-4680-bca0-c8d83aec4be2"
-          (reference "C218") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-          (reference "C104") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
-          (reference "C303") (unit 1)
-        )
-      )
-    )
-  )
+(kicad_sch
+	(version 20231120)
+	(generator "eeschema")
+	(generator_version "8.0")
+	(uuid "a0fcd802-1b6f-4ac1-834f-c3224306524e")
+	(paper "A4")
+	(lib_symbols
+		(symbol "Device:C_Small"
+			(pin_numbers hide)
+			(pin_names
+				(offset 0.254) hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "C"
+				(at 0.254 1.778 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "C_Small"
+				(at 0.254 -2.032 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Unpolarized capacitor, small symbol"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "capacitor cap"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "C_*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "C_Small_0_1"
+				(polyline
+					(pts
+						(xy -1.524 -0.508) (xy 1.524 -0.508)
+					)
+					(stroke
+						(width 0.3302)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.524 0.508) (xy 1.524 0.508)
+					)
+					(stroke
+						(width 0.3048)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "C_Small_1_1"
+				(pin passive line
+					(at 0 2.54 270)
+					(length 2.032)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -2.54 90)
+					(length 2.032)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "Sensor_Motion:LSM303C"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "U"
+				(at -11.43 15.24 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify right)
+				)
+			)
+			(property "Value" "LSM303C"
+				(at -5.08 13.97 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify right top)
+				)
+			)
+			(property "Footprint" "Package_LGA:LGA-12_2x2mm_P0.5mm"
+				(at 1.27 -19.05 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "www.st.com/resource/en/datasheet/lsm303c.pdf"
+				(at 2.54 -16.51 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "I2C/SPI, 3D Accelerometer and 3D Magnetometer"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "Accelerometer Magnetometer MEMS"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "LGA*2x2mm*P0.5mm*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "LSM303C_0_1"
+				(rectangle
+					(start 13.97 11.43)
+					(end -13.97 -11.43)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+			)
+			(symbol "LSM303C_1_1"
+				(pin input line
+					(at -17.78 5.08 0)
+					(length 3.81)
+					(name "SCL/SPC"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 0 15.24 270)
+					(length 3.81)
+					(name "VDDIO"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "10"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 17.78 5.08 180)
+					(length 3.81)
+					(name "DRDY_MAG"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "11"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 17.78 0 180)
+					(length 3.81)
+					(name "INT_XL"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "12"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -17.78 0 0)
+					(length 3.81)
+					(name "CS_XL"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -17.78 -2.54 0)
+					(length 3.81)
+					(name "CS_MAG"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin bidirectional line
+					(at -17.78 2.54 0)
+					(length 3.81)
+					(name "SDA/SDI/SDO"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 17.78 -5.08 180)
+					(length 3.81)
+					(name "C1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 0 -15.24 90)
+					(length 3.81)
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 17.78 2.54 180)
+					(length 3.81)
+					(name "INT_MAG"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "7"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -15.24 90)
+					(length 3.81) hide
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "8"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 2.54 15.24 270)
+					(length 3.81)
+					(name "VDD"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "9"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "power:+3.3V"
+			(power)
+			(pin_names
+				(offset 0)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "#PWR"
+				(at 0 -3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Value" "+3.3V"
+				(at 0 3.556 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"+3.3V\""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "+3.3V_0_1"
+				(polyline
+					(pts
+						(xy -0.762 1.27) (xy 0 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 2.54) (xy 0.762 1.27)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "+3.3V_1_1"
+				(pin power_in line
+					(at 0 0 90)
+					(length 0) hide
+					(name "+3.3V"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "power:GND"
+			(power)
+			(pin_names
+				(offset 0)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "#PWR"
+				(at 0 -6.35 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Value" "GND"
+				(at 0 -3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "GND_0_1"
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 -1.27) (xy 1.27 -1.27) (xy 0 -2.54) (xy -1.27 -1.27) (xy 0 -1.27)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "GND_1_1"
+				(pin power_in line
+					(at 0 0 270)
+					(length 0) hide
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+	)
+	(junction
+		(at 129.54 69.85)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "0098cfbf-bb82-4347-9f97-819dacff0c3b")
+	)
+	(junction
+		(at 148.59 177.8)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "2dbfe9cd-334f-4d6e-9751-37de68eee3c3")
+	)
+	(junction
+		(at 148.59 182.88)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "2e843a69-57a3-4f53-b103-67038f39ef2f")
+	)
+	(junction
+		(at 160.02 182.88)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "81ccee99-bb05-4dcc-a91c-bed935df368e")
+	)
+	(junction
+		(at 160.02 177.8)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "b6de7950-ebdb-4780-b393-862a3491c353")
+	)
+	(junction
+		(at 129.54 105.41)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "dc6c526d-36bf-4f8e-9dcd-71fd11015f40")
+	)
+	(junction
+		(at 109.22 87.63)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "f0814f3a-b77d-495b-9e7b-be5e15d65f03")
+	)
+	(junction
+		(at 130.81 69.85)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "f368afa9-9f9b-40e5-90f6-a3c78c8c9dc4")
+	)
+	(no_connect
+		(at 147.32 82.55)
+		(uuid "0e19a744-9722-4422-b132-b5b0a9d913cf")
+	)
+	(no_connect
+		(at 147.32 85.09)
+		(uuid "0f80f33a-94a3-455d-8170-ddc6504f717b")
+	)
+	(no_connect
+		(at 147.32 87.63)
+		(uuid "f35fc842-6072-4987-86c5-6d2bc8aa20e0")
+	)
+	(wire
+		(pts
+			(xy 95.25 82.55) (xy 111.76 82.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1e61c88c-8f0b-4f75-8c25-ea14856ca59b")
+	)
+	(wire
+		(pts
+			(xy 147.32 92.71) (xy 149.86 92.71)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1f01b715-2cde-4c5b-bc70-be942455c673")
+	)
+	(wire
+		(pts
+			(xy 129.54 105.41) (xy 129.54 102.87)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1fc1e242-3a04-4f2e-a004-c9d5b5051de7")
+	)
+	(wire
+		(pts
+			(xy 148.59 177.8) (xy 160.02 177.8)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2cef891a-5f2a-4ae3-946d-efd39514d555")
+	)
+	(wire
+		(pts
+			(xy 132.08 69.85) (xy 130.81 69.85)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3bae88a3-88c5-434e-bef0-d6a2ed0ca866")
+	)
+	(wire
+		(pts
+			(xy 109.22 87.63) (xy 109.22 90.17)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "41315f95-1900-46c2-820c-3a341008e73a")
+	)
+	(wire
+		(pts
+			(xy 109.22 69.85) (xy 109.22 87.63)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "47f610f1-6398-4d54-838c-2d1a62fd4e47")
+	)
+	(wire
+		(pts
+			(xy 111.76 87.63) (xy 109.22 87.63)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4faaa896-9c49-4e3f-bcfc-5d3170aea172")
+	)
+	(wire
+		(pts
+			(xy 109.22 90.17) (xy 111.76 90.17)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4fcdb880-754e-4b75-9747-2bfb1ee07b67")
+	)
+	(wire
+		(pts
+			(xy 149.86 105.41) (xy 129.54 105.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "534e1162-c439-4a50-915c-41852e290f5b")
+	)
+	(wire
+		(pts
+			(xy 135.89 182.88) (xy 148.59 182.88)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "569da3da-f2ab-4362-8db6-0fe94da6d156")
+	)
+	(wire
+		(pts
+			(xy 129.54 107.95) (xy 129.54 105.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6bf6efff-02db-4148-8cca-00df859adb6f")
+	)
+	(wire
+		(pts
+			(xy 129.54 69.85) (xy 129.54 72.39)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6dda8ab6-53fc-497f-9ea9-c65c48ae66f3")
+	)
+	(wire
+		(pts
+			(xy 130.81 67.31) (xy 130.81 69.85)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a3d6c3ee-73c0-492e-978d-e495e7189454")
+	)
+	(wire
+		(pts
+			(xy 129.54 69.85) (xy 109.22 69.85)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b3258217-d377-46ea-8a3f-cec16f3b354f")
+	)
+	(wire
+		(pts
+			(xy 149.86 92.71) (xy 149.86 95.25)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c4332872-089d-4bdd-bd17-0fa62c88bc1f")
+	)
+	(wire
+		(pts
+			(xy 148.59 182.88) (xy 160.02 182.88)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c78c3b74-0d87-4109-9775-168b83d6335d")
+	)
+	(wire
+		(pts
+			(xy 95.25 85.09) (xy 111.76 85.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c972c45f-39d9-47be-8e0a-dfb592000642")
+	)
+	(wire
+		(pts
+			(xy 132.08 72.39) (xy 132.08 69.85)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ca3e2286-c8ba-455d-aa30-2baac4d7fb80")
+	)
+	(wire
+		(pts
+			(xy 130.81 69.85) (xy 129.54 69.85)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cb823f70-b579-4ed3-af23-959e484101e2")
+	)
+	(wire
+		(pts
+			(xy 135.89 177.8) (xy 148.59 177.8)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cc1a2cc6-a382-4356-a587-8c971c5dedd3")
+	)
+	(wire
+		(pts
+			(xy 149.86 100.33) (xy 149.86 105.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ddd340f6-72bb-4de7-a753-d260abc8d37a")
+	)
+	(text "Compass"
+		(exclude_from_sim no)
+		(at 109.22 67.31 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "0f9e99ee-f62f-49fe-b603-375a878ff06c")
+	)
+	(hierarchical_label "SDA"
+		(shape bidirectional)
+		(at 95.25 85.09 180)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "9e4471d8-38c1-43f0-97f2-44b0ab149601")
+	)
+	(hierarchical_label "SCL"
+		(shape output)
+		(at 95.25 82.55 180)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "f3e6e756-afbc-4c58-a268-21b92bda339c")
+	)
+	(symbol
+		(lib_id "power:+3.3V")
+		(at 130.81 67.31 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "1993d8dc-8af8-45c0-8a52-dd15b650156d")
+		(property "Reference" "#PWR0302"
+			(at 130.81 71.12 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+3.3V"
+			(at 130.81 62.23 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 130.81 67.31 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 130.81 67.31 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 130.81 67.31 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "613d2830-be30-451a-ae84-aea716060b69")
+		)
+		(instances
+			(project "Nice-Buoy-V1_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
+					(reference "#PWR0302")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 129.54 107.95 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "3959d572-af7e-48ce-9529-d0e2d3dd271d")
+		(property "Reference" "#PWR0301"
+			(at 129.54 114.3 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 129.54 112.395 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 129.54 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 129.54 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 129.54 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "f7b49588-1ee7-4ee2-81f3-aa5927e6b9f3")
+		)
+		(instances
+			(project "Nice-Buoy-V1_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
+					(reference "#PWR0301")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3.3V")
+		(at 160.02 177.8 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "5c0dd290-e889-4a79-8c32-98a956c66f5f")
+		(property "Reference" "#PWR0303"
+			(at 160.02 181.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+3.3V"
+			(at 160.02 172.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 160.02 177.8 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 160.02 177.8 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 160.02 177.8 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "05c31e26-7355-445b-8260-cad2d4a5375f")
+		)
+		(instances
+			(project "Nice-Buoy-V1_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
+					(reference "#PWR0303")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C_Small")
+		(at 160.02 180.34 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "89893b19-e3ae-40a5-8755-48997ee6ce4c")
+		(property "Reference" "C25"
+			(at 161.29 176.53 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Value" "100n"
+			(at 161.29 182.88 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Device:C_0603"
+			(at 160.02 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 160.02 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 160.02 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C14663"
+			(at 160.02 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "0a3397d4-e31f-42f5-9cb2-1477a8ea5fc3")
+		)
+		(pin "2"
+			(uuid "5443c323-7897-407e-a6da-6c72ff929e6c")
+		)
+		(instances
+			(project "NIKOLA-02-E-001_PCAScannerController_R1"
+				(path "/347dde4f-80cd-43dc-9631-b7d53d41d2ca/a240e071-8226-4089-9168-599508dd74c4"
+					(reference "C25")
+					(unit 1)
+				)
+			)
+			(project "Nice-Buoy-V1_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
+					(reference "C304")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Sensor_Motion:LSM303C")
+		(at 129.54 87.63 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "b82f44b7-61f2-4046-bec3-579a503e67b4")
+		(property "Reference" "U301"
+			(at 131.7341 101.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "LSM303AGRTR"
+			(at 131.7341 104.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Package_LGA:LGA-12_2x2mm_P0.5mm"
+			(at 130.81 106.68 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "www.st.com/resource/en/datasheet/lsm303c.pdf"
+			(at 132.08 104.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 129.54 87.63 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C126671"
+			(at 131.7341 101.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "9b5f8454-3588-48e9-b6b6-d4a6d035195d")
+		)
+		(pin "10"
+			(uuid "b69f7403-f6c9-455f-9e2a-093855ae497e")
+		)
+		(pin "11"
+			(uuid "993ad04c-85f5-44f2-86e1-e89fb7582397")
+		)
+		(pin "12"
+			(uuid "f08b8918-8ce8-456a-b4ee-8a3e2c7a1ce5")
+		)
+		(pin "2"
+			(uuid "fb58392b-9a75-47c8-863f-aeb1856573f1")
+		)
+		(pin "3"
+			(uuid "c35d7016-7682-4d68-bef0-a7f26a8f923d")
+		)
+		(pin "4"
+			(uuid "64fc77eb-76a2-4265-b6da-b0a0055dcb04")
+		)
+		(pin "5"
+			(uuid "30e92112-48a7-4fa1-8f02-da161a0aa92b")
+		)
+		(pin "6"
+			(uuid "d659a08c-1ede-42ed-a9b7-341954ad787a")
+		)
+		(pin "7"
+			(uuid "f671ed2a-602a-4827-b6fe-dce05c643885")
+		)
+		(pin "8"
+			(uuid "c6ad8d27-f75d-4bf9-b50f-7dec43eb6bed")
+		)
+		(pin "9"
+			(uuid "8a48f4bf-8fc4-44b6-8f49-f161f783ff1b")
+		)
+		(instances
+			(project "Nice-Buoy-V1_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
+					(reference "U301")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C_Small")
+		(at 148.59 180.34 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "cc282c8e-2d6e-4c8a-9652-ec5a8d77c46c")
+		(property "Reference" "C24"
+			(at 146.05 176.53 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10u"
+			(at 143.51 184.15 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Capacitor_SMD:C_1210_3225Metric"
+			(at 148.59 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 148.59 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 148.59 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C90143"
+			(at 148.59 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "cdd38247-c06f-4afc-8ac7-89fb9e07fd4f")
+		)
+		(pin "2"
+			(uuid "d959ea69-5778-46a3-9a8a-222e797c1ca2")
+		)
+		(instances
+			(project "NIKOLA-02-E-001_PCAScannerController_R1"
+				(path "/347dde4f-80cd-43dc-9631-b7d53d41d2ca/a240e071-8226-4089-9168-599508dd74c4"
+					(reference "C24")
+					(unit 1)
+				)
+			)
+			(project "Nice-Buoy-V1_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
+					(reference "C302")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C_Small")
+		(at 135.89 180.34 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "d2776d05-5f04-43dd-bf24-8525a6edbe66")
+		(property "Reference" "C25"
+			(at 137.16 176.53 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "100n"
+			(at 137.16 182.88 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Device:C_0603"
+			(at 135.89 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 135.89 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 135.89 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C14663"
+			(at 135.89 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "189b18dc-39c6-4225-96b5-066d6d48169f")
+		)
+		(pin "2"
+			(uuid "21cdbf8a-8af0-4fac-9efa-23274b97ed15")
+		)
+		(instances
+			(project "NIKOLA-02-E-001_PCAScannerController_R1"
+				(path "/347dde4f-80cd-43dc-9631-b7d53d41d2ca/a240e071-8226-4089-9168-599508dd74c4"
+					(reference "C25")
+					(unit 1)
+				)
+			)
+			(project "Nice-Buoy-V1_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
+					(reference "C301")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 160.02 182.88 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "d55b322d-ee50-4e09-a1fc-201df1e68a05")
+		(property "Reference" "#PWR0304"
+			(at 160.02 189.23 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 160.02 187.325 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 160.02 182.88 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 160.02 182.88 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 160.02 182.88 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "4eeafa46-113d-42c7-89c0-f9a5030c2644")
+		)
+		(instances
+			(project "Nice-Buoy-V1_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
+					(reference "#PWR0304")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C_Small")
+		(at 149.86 97.79 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "e3e6233a-752c-4198-809b-d5b484f272a0")
+		(property "Reference" "C25"
+			(at 151.13 93.98 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "100n"
+			(at 151.13 100.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Device:C_0603"
+			(at 149.86 97.79 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 149.86 97.79 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 149.86 97.79 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C14663"
+			(at 149.86 97.79 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "1d19d8a9-b899-4e60-a5b7-48098f03764d")
+		)
+		(pin "2"
+			(uuid "b518f947-9ae1-49ab-a43a-4861c3a2bcb2")
+		)
+		(instances
+			(project "NIKOLA-02-E-001_PCAScannerController_R1"
+				(path "/347dde4f-80cd-43dc-9631-b7d53d41d2ca/a240e071-8226-4089-9168-599508dd74c4"
+					(reference "C25")
+					(unit 1)
+				)
+			)
+			(project "Nice-Buoy-V1_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/5de18435-a564-4df7-8a35-1fb2031e5a06"
+					(reference "C303")
+					(unit 1)
+				)
+			)
+		)
+	)
 )

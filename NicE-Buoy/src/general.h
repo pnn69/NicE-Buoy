@@ -19,6 +19,7 @@ struct buoyDataType
     bool ackOK;
     byte gsa;
     float vbatt;
+    float vperc;
 };
 
 struct switchStatus

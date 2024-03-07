@@ -16,7 +16,7 @@
     },
     "selection_filter": {
       "dimensions": true,
-      "footprints": false,
+      "footprints": true,
       "graphics": true,
       "keepouts": true,
       "lockedItems": false,
@@ -64,8 +64,14 @@
       39,
       40
     ],
-    "visible_layers": "ffdff7f_ffffffff",
+    "visible_layers": "ffdff7f_fffffff9",
     "zone_display_mode": 0
+  },
+  "git": {
+    "repo_password": "",
+    "repo_type": "",
+    "repo_username": "",
+    "ssh_key": ""
   },
   "meta": {
     "filename": "Nice-Buoy-V1_0.kicad_prl",

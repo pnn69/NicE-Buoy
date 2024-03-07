@@ -204,7 +204,6 @@ void loop()
             FrontLed = !FrontLed; // blink led
             snd_sq.ledstatus = CRGB(200 * FrontLed, 0, 0);
             xQueueSend(indicatorqueSt, (void *)&snd_sq, 10);
-            //            digitalWrite(LEDSTRIP, FrontLed);
         }
     }
 
@@ -352,7 +351,6 @@ void loop()
     if (millis() - secstamp >= 1000)
     {
         secstamp = millis();
-
         // loraMenu(GPS_LAT_LON_FIX_HEADING_SPEED);
     }
     /*
@@ -363,6 +361,7 @@ void loop()
         sec5stamp = millis();
         // Serial.printf("bootCount:%d\r\n", bootCount);
         loraMenu(GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING);
+        Serial.printf("Batt percentage %0.1f%% voltage: %0.2f\r\n",buoy.vperc,buoy.vbatt);
     }
 
     int nr;

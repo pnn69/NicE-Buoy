@@ -105,6 +105,9 @@ void adc_switch(void)
         }
         adc_result = analogReadMilliVolts(VBATT);
         buoy.vbatt = adc_result * 0.013339;
+        float perc = map(buoy.vbatt*10, 3.6*60, 4.2*60, 0, 1000);
+        buoy.vperc = (constrain(perc,0,1000))/10.0;
+
     }
     else
     {

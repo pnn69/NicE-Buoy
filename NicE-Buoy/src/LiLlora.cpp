@@ -13,6 +13,18 @@ Lora message: Destination,SenderAddres,MSGID,Length,Message
 #include "gps.h"
 #include "../../dependency/command.h"
 
+#define DEBUG 1
+
+#if DEBUG == 1
+#define debug(x) Serial.print(x)
+#define debugln(x) Serial.println(x)
+#else
+#define debug(x)
+#define debugln(x)
+
+#endif
+
+
 static unsigned long lasttransmission = 0;
 int counter = 0;
 

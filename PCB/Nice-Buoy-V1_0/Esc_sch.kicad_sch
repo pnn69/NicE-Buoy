@@ -1,395 +1,995 @@
-(kicad_sch (version 20230121) (generator eeschema)
-
-  (uuid ce082652-a84a-4002-bf99-575c66af1165)
-
-  (paper "A4")
-
-  (lib_symbols
-    (symbol "Connector:Conn_01x03_Pin" (pin_names (offset 1.016) hide) (in_bom yes) (on_board yes)
-      (property "Reference" "J" (at 0 5.08 0)
-        (effects (font (size 1.27 1.27)))
-      )
-      (property "Value" "Conn_01x03_Pin" (at 0 -5.08 0)
-        (effects (font (size 1.27 1.27)))
-      )
-      (property "Footprint" "" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "Datasheet" "~" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "ki_locked" "" (at 0 0 0)
-        (effects (font (size 1.27 1.27)))
-      )
-      (property "ki_keywords" "connector" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "ki_description" "Generic connector, single row, 01x03, script generated" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "ki_fp_filters" "Connector*:*_1x??_*" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (symbol "Conn_01x03_Pin_1_1"
-        (polyline
-          (pts
-            (xy 1.27 -2.54)
-            (xy 0.8636 -2.54)
-          )
-          (stroke (width 0.1524) (type default))
-          (fill (type none))
-        )
-        (polyline
-          (pts
-            (xy 1.27 0)
-            (xy 0.8636 0)
-          )
-          (stroke (width 0.1524) (type default))
-          (fill (type none))
-        )
-        (polyline
-          (pts
-            (xy 1.27 2.54)
-            (xy 0.8636 2.54)
-          )
-          (stroke (width 0.1524) (type default))
-          (fill (type none))
-        )
-        (rectangle (start 0.8636 -2.413) (end 0 -2.667)
-          (stroke (width 0.1524) (type default))
-          (fill (type outline))
-        )
-        (rectangle (start 0.8636 0.127) (end 0 -0.127)
-          (stroke (width 0.1524) (type default))
-          (fill (type outline))
-        )
-        (rectangle (start 0.8636 2.667) (end 0 2.413)
-          (stroke (width 0.1524) (type default))
-          (fill (type outline))
-        )
-        (pin passive line (at 5.08 2.54 180) (length 3.81)
-          (name "Pin_1" (effects (font (size 1.27 1.27))))
-          (number "1" (effects (font (size 1.27 1.27))))
-        )
-        (pin passive line (at 5.08 0 180) (length 3.81)
-          (name "Pin_2" (effects (font (size 1.27 1.27))))
-          (number "2" (effects (font (size 1.27 1.27))))
-        )
-        (pin passive line (at 5.08 -2.54 180) (length 3.81)
-          (name "Pin_3" (effects (font (size 1.27 1.27))))
-          (number "3" (effects (font (size 1.27 1.27))))
-        )
-      )
-    )
-    (symbol "Device:R_Small" (pin_numbers hide) (pin_names (offset 0.254) hide) (in_bom yes) (on_board yes)
-      (property "Reference" "R" (at 0.762 0.508 0)
-        (effects (font (size 1.27 1.27)) (justify left))
-      )
-      (property "Value" "R_Small" (at 0.762 -1.016 0)
-        (effects (font (size 1.27 1.27)) (justify left))
-      )
-      (property "Footprint" "" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "Datasheet" "~" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "ki_keywords" "R resistor" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "ki_description" "Resistor, small symbol" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "ki_fp_filters" "R_*" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (symbol "R_Small_0_1"
-        (rectangle (start -0.762 1.778) (end 0.762 -1.778)
-          (stroke (width 0.2032) (type default))
-          (fill (type none))
-        )
-      )
-      (symbol "R_Small_1_1"
-        (pin passive line (at 0 2.54 270) (length 0.762)
-          (name "~" (effects (font (size 1.27 1.27))))
-          (number "1" (effects (font (size 1.27 1.27))))
-        )
-        (pin passive line (at 0 -2.54 90) (length 0.762)
-          (name "~" (effects (font (size 1.27 1.27))))
-          (number "2" (effects (font (size 1.27 1.27))))
-        )
-      )
-    )
-    (symbol "power:GND" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
-      (property "Reference" "#PWR" (at 0 -6.35 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "Value" "GND" (at 0 -3.81 0)
-        (effects (font (size 1.27 1.27)))
-      )
-      (property "Footprint" "" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "Datasheet" "" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "ki_keywords" "global power" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (property "ki_description" "Power symbol creates a global label with name \"GND\" , ground" (at 0 0 0)
-        (effects (font (size 1.27 1.27)) hide)
-      )
-      (symbol "GND_0_1"
-        (polyline
-          (pts
-            (xy 0 0)
-            (xy 0 -1.27)
-            (xy 1.27 -1.27)
-            (xy 0 -2.54)
-            (xy -1.27 -1.27)
-            (xy 0 -1.27)
-          )
-          (stroke (width 0) (type default))
-          (fill (type none))
-        )
-      )
-      (symbol "GND_1_1"
-        (pin power_in line (at 0 0 270) (length 0) hide
-          (name "GND" (effects (font (size 1.27 1.27))))
-          (number "1" (effects (font (size 1.27 1.27))))
-        )
-      )
-    )
-  )
-
-
-  (no_connect (at 130.81 110.49) (uuid 55b8c816-5905-4be1-b96b-e497d19427e5))
-  (no_connect (at 130.81 87.63) (uuid 7e16f3e2-b20f-412b-8eb8-4c3f3c1c4221))
-
-  (wire (pts (xy 121.92 105.41) (xy 130.81 105.41))
-    (stroke (width 0) (type default))
-    (uuid 090cdf8e-49d9-4bc5-9df9-be0989d8fe87)
-  )
-  (wire (pts (xy 106.68 82.55) (xy 116.84 82.55))
-    (stroke (width 0) (type default))
-    (uuid 17fba279-f170-43fa-9884-2afd18e7454e)
-  )
-  (wire (pts (xy 106.68 105.41) (xy 116.84 105.41))
-    (stroke (width 0) (type default))
-    (uuid 19baee81-5b68-4cbf-8470-8e7eecd96b40)
-  )
-  (wire (pts (xy 121.92 82.55) (xy 130.81 82.55))
-    (stroke (width 0) (type default))
-    (uuid 52c2179b-ee36-4ef6-b4d0-3a671ffb3efb)
-  )
-  (wire (pts (xy 128.27 107.95) (xy 128.27 113.03))
-    (stroke (width 0) (type default))
-    (uuid 679b4e77-ba62-405b-9495-d048179f0bdd)
-  )
-  (wire (pts (xy 128.27 85.09) (xy 128.27 90.17))
-    (stroke (width 0) (type default))
-    (uuid 6bdded77-7f54-401b-b666-8208dd0f0da0)
-  )
-  (wire (pts (xy 130.81 85.09) (xy 128.27 85.09))
-    (stroke (width 0) (type default))
-    (uuid 6d52e42e-8b3a-4827-8f77-21ae275c69b9)
-  )
-  (wire (pts (xy 130.81 107.95) (xy 128.27 107.95))
-    (stroke (width 0) (type default))
-    (uuid eac8a0cc-d516-418c-a938-1a67919aa1cc)
-  )
-
-  (text "Change R401 and R402 to 0 ohm\nsignal to weak" (at 72.39 95.25 0)
-    (effects (font (size 1.27 1.27)) (justify left bottom))
-    (uuid 76101782-e6b7-4717-867c-ceaaa557464a)
-  )
-
-  (hierarchical_label "ESC_BB" (shape output) (at 106.68 82.55 180) (fields_autoplaced)
-    (effects (font (size 1.27 1.27)) (justify right))
-    (uuid 3a0003a3-bd84-425c-ab4c-61046dfa1fdf)
-  )
-  (hierarchical_label "ESC_SB" (shape output) (at 106.68 105.41 180) (fields_autoplaced)
-    (effects (font (size 1.27 1.27)) (justify right))
-    (uuid d5293192-54a6-4fa4-8d58-d30cdba274dc)
-  )
-
-  (symbol (lib_id "power:GND") (at 128.27 90.17 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
-    (uuid 27797bbd-6076-41d1-80ac-520a5d03a61c)
-    (property "Reference" "#PWR0401" (at 128.27 96.52 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Value" "GND" (at 128.27 95.25 0)
-      (effects (font (size 1.27 1.27)))
-    )
-    (property "Footprint" "" (at 128.27 90.17 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "" (at 128.27 90.17 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid c7350b4e-0200-4cb3-b0c6-830f330d3fbe))
-    (instances
-      (project "Nice-Buoy-V1_0"
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/ca10023c-a303-42f5-abd0-839d0a1e9923"
-          (reference "#PWR0401") (unit 1)
-        )
-      )
-    )
-  )
-
-  (symbol (lib_id "Connector:Conn_01x03_Pin") (at 135.89 107.95 0) (mirror y) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no)
-    (uuid 35bb66b1-69e2-4564-ad3b-b216b4d1b5d5)
-    (property "Reference" "J402" (at 133.35 101.6 0)
-      (effects (font (size 1.27 1.27)))
-    )
-    (property "Value" "ESC-SB" (at 140.97 107.95 0)
-      (effects (font (size 1.27 1.27)))
-    )
-    (property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical" (at 135.89 107.95 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "~" (at 135.89 107.95 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "LCSC" "C161870" (at 135.89 107.95 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid fedfcd3d-d4b9-422b-80f7-f99201d65d5b))
-    (pin "2" (uuid 27984b0f-f809-4bb4-9297-124469e1b16a))
-    (pin "3" (uuid c60b82fc-6752-4187-86f7-c051b144427a))
-    (instances
-      (project "Nice-Buoy-V1_0"
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/ca10023c-a303-42f5-abd0-839d0a1e9923"
-          (reference "J402") (unit 1)
-        )
-      )
-    )
-  )
-
-  (symbol (lib_id "Device:R_Small") (at 119.38 82.55 90) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no)
-    (uuid 4a34375d-04c6-43c0-859e-c307c95654d7)
-    (property "Reference" "R106" (at 114.3 81.28 90)
-      (effects (font (size 1.27 1.27)))
-    )
-    (property "Value" "100" (at 119.38 85.09 90)
-      (effects (font (size 1.27 1.27)))
-    )
-    (property "Footprint" "A_Device:R_0603" (at 119.38 82.55 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "~" (at 119.38 82.55 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "LCSC" "C25205" (at 114.3 81.28 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid f58ecc23-f52e-4ead-96e3-29008deb4506))
-    (pin "2" (uuid 7dffc2f4-1cfa-4c92-a5fc-3126ac025d78))
-    (instances
-      (project "Nice-Buoy-V1_0"
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/b4716c37-6296-4cc3-83d4-c08b9373ace7"
-          (reference "R106") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/015165a8-30a1-4680-bca0-c8d83aec4be2"
-          (reference "R5") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/ca10023c-a303-42f5-abd0-839d0a1e9923"
-          (reference "R401") (unit 1)
-        )
-      )
-    )
-  )
-
-  (symbol (lib_id "Connector:Conn_01x03_Pin") (at 135.89 85.09 0) (mirror y) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no)
-    (uuid 67d49d8c-b80b-4bd3-8f21-c7b051e3285e)
-    (property "Reference" "J401" (at 133.35 78.74 0)
-      (effects (font (size 1.27 1.27)))
-    )
-    (property "Value" "ESC-BB" (at 140.97 85.09 0)
-      (effects (font (size 1.27 1.27)))
-    )
-    (property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical" (at 135.89 85.09 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "~" (at 135.89 85.09 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "LCSC" "C161870" (at 135.89 85.09 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid 8480c72a-17b8-4255-96ae-f7363e421cf7))
-    (pin "2" (uuid abb9c078-f5c6-4936-a833-262edeebd80c))
-    (pin "3" (uuid 815486c1-bc27-4a0f-834a-9cc5bd648a78))
-    (instances
-      (project "Nice-Buoy-V1_0"
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/ca10023c-a303-42f5-abd0-839d0a1e9923"
-          (reference "J401") (unit 1)
-        )
-      )
-    )
-  )
-
-  (symbol (lib_id "Device:R_Small") (at 119.38 105.41 90) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no)
-    (uuid 7689df49-8372-45ea-8616-d01a8df4fd51)
-    (property "Reference" "R106" (at 114.3 104.14 90)
-      (effects (font (size 1.27 1.27)))
-    )
-    (property "Value" "100" (at 119.38 107.95 90)
-      (effects (font (size 1.27 1.27)))
-    )
-    (property "Footprint" "A_Device:R_0603" (at 119.38 105.41 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "~" (at 119.38 105.41 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "LCSC" "C25205" (at 114.3 104.14 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid 793357d6-afdf-4efd-8120-a945defd2b40))
-    (pin "2" (uuid b6c49823-c618-4352-8589-cbb26d2b52a1))
-    (instances
-      (project "Nice-Buoy-V1_0"
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/b4716c37-6296-4cc3-83d4-c08b9373ace7"
-          (reference "R106") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/015165a8-30a1-4680-bca0-c8d83aec4be2"
-          (reference "R5") (unit 1)
-        )
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/ca10023c-a303-42f5-abd0-839d0a1e9923"
-          (reference "R402") (unit 1)
-        )
-      )
-    )
-  )
-
-  (symbol (lib_id "power:GND") (at 128.27 113.03 0) (unit 1)
-    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
-    (uuid 970621ff-be82-4522-9df1-3248ef40354b)
-    (property "Reference" "#PWR0402" (at 128.27 119.38 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Value" "GND" (at 128.27 118.11 0)
-      (effects (font (size 1.27 1.27)))
-    )
-    (property "Footprint" "" (at 128.27 113.03 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (property "Datasheet" "" (at 128.27 113.03 0)
-      (effects (font (size 1.27 1.27)) hide)
-    )
-    (pin "1" (uuid 1a79a50b-9bb8-4b8e-b4f4-929e68fc98c7))
-    (instances
-      (project "Nice-Buoy-V1_0"
-        (path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/ca10023c-a303-42f5-abd0-839d0a1e9923"
-          (reference "#PWR0402") (unit 1)
-        )
-      )
-    )
-  )
+(kicad_sch
+	(version 20231120)
+	(generator "eeschema")
+	(generator_version "8.0")
+	(uuid "ce082652-a84a-4002-bf99-575c66af1165")
+	(paper "A4")
+	(lib_symbols
+		(symbol "Connector:Conn_01x03_Pin"
+			(pin_names
+				(offset 1.016) hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "J"
+				(at 0 5.08 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "Conn_01x03_Pin"
+				(at 0 -5.08 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Generic connector, single row, 01x03, script generated"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_locked" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "connector"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "Connector*:*_1x??_*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "Conn_01x03_Pin_1_1"
+				(polyline
+					(pts
+						(xy 1.27 -2.54) (xy 0.8636 -2.54)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 0) (xy 0.8636 0)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 2.54) (xy 0.8636 2.54)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start 0.8636 -2.413)
+					(end 0 -2.667)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(rectangle
+					(start 0.8636 0.127)
+					(end 0 -0.127)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(rectangle
+					(start 0.8636 2.667)
+					(end 0 2.413)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(pin passive line
+					(at 5.08 2.54 180)
+					(length 3.81)
+					(name "Pin_1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 5.08 0 180)
+					(length 3.81)
+					(name "Pin_2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 5.08 -2.54 180)
+					(length 3.81)
+					(name "Pin_3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "Device:R_Small"
+			(pin_numbers hide)
+			(pin_names
+				(offset 0.254) hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "R"
+				(at 0.762 0.508 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "R_Small"
+				(at 0.762 -1.016 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Resistor, small symbol"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "R resistor"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "R_*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "R_Small_0_1"
+				(rectangle
+					(start -0.762 1.778)
+					(end 0.762 -1.778)
+					(stroke
+						(width 0.2032)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "R_Small_1_1"
+				(pin passive line
+					(at 0 2.54 270)
+					(length 0.762)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -2.54 90)
+					(length 0.762)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "power:GND"
+			(power)
+			(pin_names
+				(offset 0)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "#PWR"
+				(at 0 -6.35 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Value" "GND"
+				(at 0 -3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "GND_0_1"
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 -1.27) (xy 1.27 -1.27) (xy 0 -2.54) (xy -1.27 -1.27) (xy 0 -1.27)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "GND_1_1"
+				(pin power_in line
+					(at 0 0 270)
+					(length 0) hide
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+	)
+	(no_connect
+		(at 130.81 110.49)
+		(uuid "55b8c816-5905-4be1-b96b-e497d19427e5")
+	)
+	(no_connect
+		(at 130.81 87.63)
+		(uuid "7e16f3e2-b20f-412b-8eb8-4c3f3c1c4221")
+	)
+	(wire
+		(pts
+			(xy 121.92 105.41) (xy 130.81 105.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "090cdf8e-49d9-4bc5-9df9-be0989d8fe87")
+	)
+	(wire
+		(pts
+			(xy 106.68 82.55) (xy 116.84 82.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "17fba279-f170-43fa-9884-2afd18e7454e")
+	)
+	(wire
+		(pts
+			(xy 106.68 105.41) (xy 116.84 105.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "19baee81-5b68-4cbf-8470-8e7eecd96b40")
+	)
+	(wire
+		(pts
+			(xy 121.92 82.55) (xy 130.81 82.55)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "52c2179b-ee36-4ef6-b4d0-3a671ffb3efb")
+	)
+	(wire
+		(pts
+			(xy 128.27 107.95) (xy 128.27 113.03)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "679b4e77-ba62-405b-9495-d048179f0bdd")
+	)
+	(wire
+		(pts
+			(xy 128.27 85.09) (xy 128.27 90.17)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6bdded77-7f54-401b-b666-8208dd0f0da0")
+	)
+	(wire
+		(pts
+			(xy 130.81 85.09) (xy 128.27 85.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6d52e42e-8b3a-4827-8f77-21ae275c69b9")
+	)
+	(wire
+		(pts
+			(xy 130.81 107.95) (xy 128.27 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "eac8a0cc-d516-418c-a938-1a67919aa1cc")
+	)
+	(text "Change R401 and R402 to 0 ohm\nsignal to weak"
+		(exclude_from_sim no)
+		(at 72.39 95.25 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "76101782-e6b7-4717-867c-ceaaa557464a")
+	)
+	(hierarchical_label "ESC_BB"
+		(shape output)
+		(at 106.68 82.55 180)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "3a0003a3-bd84-425c-ab4c-61046dfa1fdf")
+	)
+	(hierarchical_label "ESC_SB"
+		(shape output)
+		(at 106.68 105.41 180)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "d5293192-54a6-4fa4-8d58-d30cdba274dc")
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 128.27 90.17 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "27797bbd-6076-41d1-80ac-520a5d03a61c")
+		(property "Reference" "#PWR0401"
+			(at 128.27 96.52 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 128.27 95.25 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 128.27 90.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 128.27 90.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 128.27 90.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "c7350b4e-0200-4cb3-b0c6-830f330d3fbe")
+		)
+		(instances
+			(project "Nice-Buoy-V1_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/ca10023c-a303-42f5-abd0-839d0a1e9923"
+					(reference "#PWR0401")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:Conn_01x03_Pin")
+		(at 135.89 107.95 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "35bb66b1-69e2-4564-ad3b-b216b4d1b5d5")
+		(property "Reference" "J402"
+			(at 133.35 101.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "ESC-SB"
+			(at 140.97 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
+			(at 135.89 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 135.89 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 135.89 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C161870"
+			(at 135.89 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "fedfcd3d-d4b9-422b-80f7-f99201d65d5b")
+		)
+		(pin "2"
+			(uuid "27984b0f-f809-4bb4-9297-124469e1b16a")
+		)
+		(pin "3"
+			(uuid "c60b82fc-6752-4187-86f7-c051b144427a")
+		)
+		(instances
+			(project "Nice-Buoy-V1_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/ca10023c-a303-42f5-abd0-839d0a1e9923"
+					(reference "J402")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_Small")
+		(at 119.38 82.55 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "4a34375d-04c6-43c0-859e-c307c95654d7")
+		(property "Reference" "R401"
+			(at 114.3 81.28 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "100"
+			(at 119.38 85.09 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 119.38 82.55 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 119.38 82.55 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 119.38 82.55 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25205"
+			(at 114.3 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "f58ecc23-f52e-4ead-96e3-29008deb4506")
+		)
+		(pin "2"
+			(uuid "7dffc2f4-1cfa-4c92-a5fc-3126ac025d78")
+		)
+		(instances
+			(project "Nice-Buoy-V1_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/ca10023c-a303-42f5-abd0-839d0a1e9923"
+					(reference "R401")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:Conn_01x03_Pin")
+		(at 135.89 85.09 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "67d49d8c-b80b-4bd3-8f21-c7b051e3285e")
+		(property "Reference" "J401"
+			(at 133.35 78.74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "ESC-BB"
+			(at 140.97 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
+			(at 135.89 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 135.89 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 135.89 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C161870"
+			(at 135.89 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "8480c72a-17b8-4255-96ae-f7363e421cf7")
+		)
+		(pin "2"
+			(uuid "abb9c078-f5c6-4936-a833-262edeebd80c")
+		)
+		(pin "3"
+			(uuid "815486c1-bc27-4a0f-834a-9cc5bd648a78")
+		)
+		(instances
+			(project "Nice-Buoy-V1_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/ca10023c-a303-42f5-abd0-839d0a1e9923"
+					(reference "J401")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_Small")
+		(at 119.38 105.41 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "7689df49-8372-45ea-8616-d01a8df4fd51")
+		(property "Reference" "R402"
+			(at 114.3 104.14 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "100"
+			(at 119.38 107.95 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 119.38 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 119.38 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 119.38 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25205"
+			(at 114.3 104.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "793357d6-afdf-4efd-8120-a945defd2b40")
+		)
+		(pin "2"
+			(uuid "b6c49823-c618-4352-8589-cbb26d2b52a1")
+		)
+		(instances
+			(project "Nice-Buoy-V1_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/ca10023c-a303-42f5-abd0-839d0a1e9923"
+					(reference "R402")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 128.27 113.03 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "970621ff-be82-4522-9df1-3248ef40354b")
+		(property "Reference" "#PWR0402"
+			(at 128.27 119.38 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 128.27 118.11 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 128.27 113.03 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 128.27 113.03 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 128.27 113.03 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "1a79a50b-9bb8-4b8e-b4f4-929e68fc98c7")
+		)
+		(instances
+			(project "Nice-Buoy-V1_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/ca10023c-a303-42f5-abd0-839d0a1e9923"
+					(reference "#PWR0402")
+					(unit 1)
+				)
+			)
+		)
+	)
 )
