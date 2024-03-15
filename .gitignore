@@ -1,6 +1,8 @@
 # Prerequisites
 *.d
 
+# backup files
+*.zip
 # Object files
 *.o
 *.ko
