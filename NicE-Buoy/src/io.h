@@ -30,9 +30,9 @@
 // #define RADIO_BUSY_PIN 32
 
 #define MCP23017_ADDR 0x20
-#define SWITCH1_GPA 0
+#define SWITCH1_GPA 2
 #define SWITCH2_GPA 1
-#define SWITCH3_GPA 2
+#define SWITCH3_GPA 0
 #define LED1_GPA 3
 #define LED2_GPA 4
 #define LED3_GPA 5

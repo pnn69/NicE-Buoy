@@ -33,10 +33,19 @@ struct switchStatus
 extern buoyDataType buoy;
 extern switchStatus frontsw;
 extern char buoyID;
-extern bool ledstatus;
+extern bool nwloramsg;
 extern byte status;
 
 #define BUZZERON 0
 #define BUZZEROFF 1
+
+#define DEBUG 1
+#if DEBUG == 1
+#define debug(x) Serial.print(x)
+#define debugln(x) Serial.println(x)
+#else
+#define debug(x)
+#define debugln(x)
+#endif
 
 #endif /* GENERA:_H_ */

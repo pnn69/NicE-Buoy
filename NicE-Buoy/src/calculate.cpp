@@ -1,10 +1,10 @@
 #include <Arduino.h>
 #include <math.h>
 
-#define BouyMinOffsetDistance 1 // Offset for taking action for position controll. Can be 0 till infinety but moste likely 1 - 5
-#define BouyMaxOffsetDistance 20 //Max distance go full speed from here
-#define BuoyMinspeed 10
-#define BuoyMaxCorrectionspeed 50
+#define BOUYMINOFFSETDISTANCE 2  // Offset for taking action for position controll. Can be 0 till infinety but moste likely 1 - 5
+#define BOUYMAXOFFSETDISTANCE 20 // Max distance go full speed from here
+#define BOUYMINSPEED 10
+#define BUOYMAXCORRECTIONSPEED 50
 
 double smallestAngle(double heading1, double heading2)
 {
@@ -76,14 +76,14 @@ int CalcEngingSpeedBuoy(float magheading, int tgheading, unsigned long tgdistanc
 {
     int speed = 0;
     double correctonAngle = 0;
-    if (tgdistance < 2) // do nothing if buoy is in 5 meter from target
+    if (tgdistance < BOUYMINOFFSETDISTANCE) // do nothing if buoy is in 5 meter from target
     {
         speed = 0;
     }
     else
     {
-        tgdistance = constrain(tgdistance, BouyMinOffsetDistance, BouyMaxOffsetDistance);
-        speed = map(tgdistance, BouyMinOffsetDistance, BouyMaxOffsetDistance, BuoyMinspeed, BuoyMaxCorrectionspeed); // map speed 1-10 meter -> BuoyMinspeed - BuoyMaxCorrectionspeed %
+        tgdistance = constrain(tgdistance, BOUYMINOFFSETDISTANCE, BOUYMAXOFFSETDISTANCE);
+        speed = map(tgdistance, BOUYMINOFFSETDISTANCE, BOUYMAXOFFSETDISTANCE, BOUYMINSPEED, BUOYMAXCORRECTIONSPEED); // map speed 1-10 meter -> BOUYMINSPEED - BUOYMAXCORRECTIONSPEED %
     }
 
     // Angle between calculated angel to steer and the current direction of the vessel

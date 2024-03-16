@@ -8,7 +8,7 @@
 typedef enum
 {
     POSITION = 1,
-    BATTERY_LEVEL,
+    BATTERY_VOLTAGE,
     BUOY_MODE,
     TARGET_POSITION,
     GOTO_TARGET_POSITION,
@@ -28,10 +28,10 @@ typedef enum
     SYSTEM_STASTUS,
     DGPS, // deltaLattitude, deltaLongitude
     DGPSPOSITION,
-    GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING,
+    GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING, // lat,lon,fix,heading,speed,m_heading
     TXT,
-    RESET
-
+    RESET,
+    BATTERY_VOLTAGE_PERCENTAGE
 } Command_t;
 
 typedef enum

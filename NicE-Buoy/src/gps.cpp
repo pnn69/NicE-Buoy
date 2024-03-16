@@ -121,33 +121,38 @@ void displayGPSInfo(void)
 int GetNewGpsData()
 {
     char in;
-    // while (gpsSerial.available() > 0)
     while (Serial1.available() > 0)
     {
-        // in = Serial1.read();
-        // Serial.print(in);
-        // if (gps.encode(in))
         if (gps.encode(Serial1.read()))
+        {
             if (gps.location.isValid())
             {
                 gpsdata.lat = gps.location.lat();
                 gpsdata.lon = gps.location.lng();
                 gpsdata.dlat = gpsdata.lat + gpsdata.corrlat;
                 gpsdata.dlon = gpsdata.lon + gpsdata.corrlon;
-                gpsdata.speed = gps.speed.kmph();
-                gpsdata.cource = gps.course.deg();
+                if (gps.speed.isValid())
+                {
+                    gpsdata.speed = gps.speed.kmph();
+                }
+                if (gps.course.isValid())
+                {
+                    gpsdata.cource = gps.course.deg();
+                }
                 gpsdata.fix = true;
                 gpsdata.nrsats = gps.satellites.value();
-                //Serial.printf("From %0.8lf,%0.8lf\r\n",gpsdata.lat,gpsdata.lon);
-                // Serial.printf("To:  %0.8lf,%0.8lf\r\n",gpsdata.dlat,gpsdata.dlon);
+                gpsvalid = true;
+                // Serial.printf("From %0.8lf,%0.8lf\r\n",gpsdata.lat,gpsdata.lon);
+                //  Serial.printf("To:  %0.8lf,%0.8lf\r\n",gpsdata.dlat,gpsdata.dlon);
                 return 1;
             }
             else
             {
                 gpsdata.fix = false;
+                gpsvalid = false;
             }
+        }
     }
-    gpsvalid = false;
     return 0;
 }
 /*

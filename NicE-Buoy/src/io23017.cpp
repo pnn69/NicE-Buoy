@@ -22,9 +22,9 @@ bool initMCP23017(void)
         mcp.pinMode(LED1_GPA, OUTPUT);
         mcp.pinMode(LED2_GPA, OUTPUT);
         mcp.pinMode(LED3_GPA, OUTPUT);
-        mcp.pinMode(SWITCH1_GPA, INPUT);
-        mcp.pinMode(SWITCH2_GPA, INPUT);
-        mcp.pinMode(SWITCH3_GPA, INPUT);
+        mcp.pinMode(SWITCH1_GPA, INPUT_PULLUP);
+        mcp.pinMode(SWITCH2_GPA, INPUT_PULLUP);
+        mcp.pinMode(SWITCH3_GPA, INPUT_PULLUP);
         mcp.pinMode(MAINSSWITCH_LEDGREEN_GPB, OUTPUT);
         mcp.pinMode(MAINSSWITCH_LEDRED_GPB, OUTPUT);
         mcp.pinMode(SWITCHV3V3_GPB, OUTPUT);
@@ -34,6 +34,7 @@ bool initMCP23017(void)
 
         mcp.digitalWrite(LEDYELLOW_GPA, 0);
         mcp.digitalWrite(LEDRED_GPA, 1);
+        mcp.digitalWrite(SWITCHPWRVBATT_GPB, 1);
         mcp.digitalWrite(MAINSSWITCH_LEDGREEN_GPB, 1);
         mcp.digitalWrite(MAINSSWITCH_LEDRED_GPB, 0);
         Serial.println("MCP23017 Initialised");
