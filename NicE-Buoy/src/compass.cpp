@@ -4,6 +4,7 @@
 #include <Adafruit_LSM303AGR_Mag.h>
 #include <Adafruit_LSM303_Accel.h>
 #include <math.h>
+#include "general.h"
 #include "io23017.h"
 #include "io.h"
 #include "datastorage.h"
@@ -23,7 +24,7 @@ struct vector
 // Stores min and max magnetometer values from calibration
 vector<float> m_max;
 vector<float> m_min;
-
+static int magCorrection = 0;
 template <typename Ta, typename Tb, typename To>
 void vector_cross(const vector<Ta> *a, const vector<Tb> *b, vector<To> *out)
 {
@@ -81,7 +82,7 @@ float heading(vector<T> from)
     vector_normalize(&north);
 
     // compute heading
-    //float heading = atan2(vector_dot(&east, &from), vector_dot(&north, &from)) * 180 / PI;
+    // float heading = atan2(vector_dot(&east, &from), vector_dot(&north, &from)) * 180 / PI;
     float heading = atan2(vector_dot(&north, &from), vector_dot(&east, &from)) * 180 / PI;
     if (heading < 0)
     {
@@ -118,6 +119,8 @@ bool InitCompass(void)
     sensors_event_t event;
     mag.getEvent(&event);
     Serial.printf("%f %f %f \r\n", event.magnetic.x, event.magnetic.y, event.magnetic.z);
+    CompassOffsetCorrection(&magCorrection, 1);
+    debugln("Compas Heading Correction: " + magCorrection);
     return 0;
 }
 
@@ -166,9 +169,29 @@ bool CalibrateCompass(void)
     return 0;
 }
 
+/*
+Store magnetic offset (Comass can be mounted on a angle)
+*/
+void callibratCompassOfest(int storeMagCorrection)
+{
+    CompassOffsetCorrection(&storeMagCorrection, 1);
+    magCorrection = storeMagCorrection;
+}
+
 float GetHeading(void)
 {
+    float mHeding = heading((vector<int>){0, 1, 0});
+    mHeding = mHeding - magCorrection;
+    if (mHeding < 0)
+    {
+        mHeding = mHeding + 360.0;
+    }
+    return mHeding;
+}
+float GetHeadingRaw(void)
+{
     return heading((vector<int>){0, 1, 0});
+    CompassOffsetCorrection(&magCorrection, 1); // needed to reload after callibration
 }
 
 static int cbufpointer = 0;
@@ -196,7 +219,6 @@ float CompassAverage(float in)
     }
     return avg_dir;
 }
-
 
 void GpsAverage(double *lat, double *lon)
 {

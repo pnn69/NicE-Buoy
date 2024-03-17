@@ -27,7 +27,7 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 
 #define ESC_UPDATE_DELAY 25
 
-static unsigned long secstamp, sec05stamp, msecstamp, escstamp, hstamp, sec5stamp;
+static unsigned long secstamp, sec05stamp, msecstamp, escstamp, hstamp, sec5stamp, offeststamp;
 // static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
 // static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
 // static unsigned long tgdir = 0, tgdistance = 0, cdir = 0;
@@ -243,7 +243,9 @@ void loop()
             {
                 SWITCH_GRN_OFF;
                 ledswgrn = false;
-            }else{
+            }
+            else
+            {
                 SWITCH_GRN_ON;
                 ledswgrn = true;
             }
@@ -263,40 +265,45 @@ void loop()
             snd_sq.ledstatus = CRGB(0, 200 * FrontLed, 0);
             xQueueSend(indicatorqueBb, (void *)&snd_sq, 10);
         }
-        if ((frontsw.switch1upact == 0 && frontsw.switch1upcnt != 0) || mcp.digitalRead(SWITCH1_GPA) == 0) // check if locked switch is set to active
+        if (FRONTBUTTON_READ == 0 && status != CALIBRATE_OFFSET_MAGNETIC_COMPASS) // check if locked switch is set to active
         {
-            int wdelay = 0;
-            if (mcp.digitalRead(SWITCH1_GPA) == 0)
+            snd_buz.time = 200;
+            snd_buz.repeat = 0;
+            snd_buz.pauze = 0;
+            xQueueSend(Buzzerque, (void *)&snd_buz, 10);
+            frontsw.switch1upcnt = 2;
+            snd_buz.time = BUZZTIME;
+            Serial.printf("Front button pressed\r\n");
+            if (status == LOCKED)
             {
-                frontsw.switch1upcnt = 2;
-                wdelay = 1000;
+                status = IDLE;
+                BUTTON_LIGHT_OFF;
             }
-            Serial.printf("Key1 pressed %d \r\n", frontsw.switch1upcnt);
-            if (frontsw.switch1upcnt == 2)
+            else
             {
-                if (status == LOCKED)
+                if (gpsdata.fix == true)
                 {
-                    status = IDLE;
-                    mcp.digitalWrite(SWITCHPWRVBATT_GPB, 0);
+                    buoy.tglatitude = gpsdata.lat;
+                    buoy.tglongitude = gpsdata.lon;
+                    status = LOCKED;
+                    BUTTON_LIGHT_ON;
                 }
-                else
-                {
-                    if (gpsdata.fix == true)
-                    {
-                        buoy.tglatitude = gpsdata.lat;
-                        buoy.tglongitude = gpsdata.lon;
-                        status = LOCKED;
-                        mcp.digitalWrite(SWITCHPWRVBATT_GPB, 1);
-                    }
-                }
-                Serial.printf("Status set to = %d\r\n", status);
-                Message snd_msg;
-                snd_msg.speedbb = 0;
-                snd_msg.speedsb = 0;
-                xQueueSend(escspeed, (void *)&snd_msg, 10);
-                delay(wdelay);
             }
-            frontsw.switch1upcnt = 0;
+            Message snd_msg;
+            snd_msg.speedbb = 0;
+            snd_msg.speedsb = 0;
+            xQueueSend(escspeed, (void *)&snd_msg, 10);
+            delay(1000);
+            if (FRONTBUTTON_READ == 0 && status == IDLE && gpsdata.fix == true) // Do some checks before going in to calibration mode.
+            {
+                snd_buz.time = 500;
+                snd_buz.repeat = 4;
+                snd_buz.pauze = 25;
+                xQueueSend(Buzzerque, (void *)&snd_buz, 10);
+                status = CALIBRATE_OFFSET_MAGNETIC_COMPASS;
+                offeststamp = millis();
+            }
+            Serial.printf("Status set to = %d\r\n", status);
         }
 
         /*
@@ -320,7 +327,7 @@ void loop()
             break;
         case LOCKED:
             RouteToPoint(gpsdata.dlat, gpsdata.dlon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
-            if (buoy.tgdistance < 5000) // test if target is in range
+            if (buoy.tgdistance < 5000)                                                                                 // test if target is in range
             {
                 buoy.speed = CalcEngingSpeedBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, &buoy.speedbb, &buoy.speedsb);
             }
@@ -329,6 +336,46 @@ void loop()
                 buoy.speed = CalcEngingSpeedBuoy(buoy.tgdir, buoy.mheading, 0, &buoy.speedbb, &buoy.speedsb); // do notihing
             }
             BUTTON_LIGHT_ON;
+            break;
+        case CALIBRATE_OFFSET_MAGNETIC_COMPASS:
+            SWITCH_RED_ON;
+            SWITCH_GRN_OFF;
+            if (BUTTON_LIGHT_READ)
+            {
+                BUTTON_LIGHT_OFF;
+            }
+            else
+            {
+                BUTTON_LIGHT_ON;
+            }
+            if (offeststamp + 5000 < millis())
+            {
+                if (FRONTBUTTON_READ == 0)
+                {
+                    snd_buz.time = 200;
+                    snd_buz.repeat = 0;
+                    snd_buz.pauze = 0;
+                    xQueueSend(Buzzerque, (void *)&snd_buz, 10);
+                    BUTTON_LIGHT_ON;
+                    delay(5000);
+                    if (FRONTBUTTON_READ == 0)
+                    {
+                        snd_buz.time = 100;
+                        snd_buz.repeat = 25;
+                        snd_buz.pauze = 25;
+                        xQueueSend(Buzzerque, (void *)&snd_buz, 10);
+                        RouteToPoint(gpsdata.dlat, gpsdata.dlon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
+                        // callibratCompassOfest((int)(buoy.tgdir - GetHeadingRaw()));                                                 // store magnetic comensation
+                        debugln("New offset stored");
+                        delay(200);
+                        GetHeadingRaw();
+                    }
+                    BUTTON_LIGHT_OFF;
+                    SWITCH_RED_OFF;
+                    SWITCH_GRN_ON;
+                    status = IDLE;
+                }
+            }
             break;
         default:
             buoy.speed = 0;

@@ -186,7 +186,7 @@ int polLora(void)
     case DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_TARGET_POSITION:
         if (loraIn.id == GET)
         {
-            msg = String(cmnd) + "," + String(buoy.tgdir) + "," + String(buoy.tgdistance) + "," + buoy.speed + "," + buoy.speedbb + "," + buoy.speedsb + "," + String(buoy.mheading, 0);
+            msg = String(cmnd) + "," + String(buoy.tgdir) + "," + String(buoy.tgdistance) + "," + String(buoy.speed) + "," + String(buoy.speedbb) + "," + String(buoy.speedsb) + "," + String(buoy.mheading, 0);
             loraOut.messagelength = msg.length();
             loraOut.message = msg;
             loraOut.id = ACK;

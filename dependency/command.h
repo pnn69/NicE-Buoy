@@ -49,7 +49,9 @@ typedef enum
     SET,
     ACK,
     NACK,
-    INF // info no action
+    INF, // info no action
+    CALIBRATE_OFFSET_MAGNETIC_COMPASS
+
 } Status_t;
 
 #endif /* COMMANDS_H_ */

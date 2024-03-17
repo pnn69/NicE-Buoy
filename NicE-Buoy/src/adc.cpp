@@ -5,7 +5,7 @@
 #include "buzzer.h"
 
 #define DEBOUNCE 50
-#define BUZZTIME 100
+
 
 MessageBuzz snd_buzz;
 

@@ -38,6 +38,7 @@ extern byte status;
 
 #define BUZZERON 0
 #define BUZZEROFF 1
+#define BUZZTIME 100
 
 #define DEBUG 1
 #if DEBUG == 1
