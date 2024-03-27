@@ -4823,7 +4823,7 @@
 				)
 			)
 		)
-		(property "Value" "GREEN"
+		(property "Value" "YELLOW"
 			(at 101.6635 113.03 0)
 			(effects
 				(font

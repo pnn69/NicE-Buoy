@@ -9,12 +9,14 @@
 #define JITTER 20
 struct adcDataType adc;
 
+char sw_pos = SW_MID;
+
 uint32_t readADC_Cal(int ADC_Raw)
 {
-  esp_adc_cal_characteristics_t adc_chars;
-  
-  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 1100, &adc_chars);
-  return(esp_adc_cal_raw_to_voltage(ADC_Raw, &adc_chars));
+    esp_adc_cal_characteristics_t adc_chars;
+
+    esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 1100, &adc_chars);
+    return (esp_adc_cal_raw_to_voltage(ADC_Raw, &adc_chars));
 }
 
 /*
@@ -33,10 +35,11 @@ void readAdc(void)
 {
     int tmp, newValue;
     tmp = 0;
-    for(int i=0;i<20;i++){
-        tmp += analogRead(POT_RUDDER)/20;
+    for (int i = 0; i < 20; i++)
+    {
+        tmp += analogRead(POT_RUDDER) / 20;
     }
-    //tmp = analogRead(POT_RUDDER);
+    // tmp = analogRead(POT_RUDDER);
     tmp = constrain(tmp, 47, 4047);
     if (tmp < 2000 - MUTE_RUDDER)
     {
@@ -44,7 +47,7 @@ void readAdc(void)
     }
     else if (tmp > 2000 + MUTE)
     {
-        newValue = map(tmp,2000 + MUTE_RUDDER,4047, 0, 135); // 4095;
+        newValue = map(tmp, 2000 + MUTE_RUDDER, 4047, 0, 135); // 4095;
     }
     else
     {
@@ -57,10 +60,11 @@ void readAdc(void)
         adc.newdata = true;
     }
 
-    //tmp = analogRead(POT_SPEED);
+    // tmp = analogRead(POT_SPEED);
     tmp = 0;
-    for(int i=0;i<20;i++){
-        tmp += analogRead(POT_SPEED)/20;
+    for (int i = 0; i < 20; i++)
+    {
+        tmp += analogRead(POT_SPEED) / 20;
     }
 
     tmp = constrain(tmp, 47, 4047);
@@ -83,6 +87,19 @@ void readAdc(void)
         adc.speed = newValue;
         adc.newdata = true;
     }
-    adc.vbat = readADC_Cal(analogRead(BATC_PIN))*2/1000.0;
-    //Serial.printf("Dir raw:%04d converted:%04d,Speed Raw:%04d converted:%04d\r\n", adc.rawr, adc.rudder, adc.raws, adc.speed);
+    tmp = analogRead(SWITCH_PIN_REMOTE_IDLE_LOCK);
+    if (tmp < 1500)
+    {
+        sw_pos = SW_LEFT;
+    }
+    else if (tmp > 3000)
+    {
+        sw_pos = SW_RIGHT;
+    }
+    else
+    {
+        sw_pos = SW_MID;
+    }
+
+    // Serial.printf("Dir raw:%04d converted:%04d,Speed Raw:%04d converted:%04d\r\n", adc.rawr, adc.rudder, adc.raws, adc.speed);
 }

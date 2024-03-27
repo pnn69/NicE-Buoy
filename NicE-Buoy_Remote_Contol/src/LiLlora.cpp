@@ -260,6 +260,16 @@ int polLora(void)
                 buoy[loraIn.sender].status = IDLE;
                 buoy[loraIn.sender].ackOK = loraIn.id;
                 break;
+            case (NO_POSITION):
+                if (loraIn.id == ACK)
+                {
+                    buoy[loraIn.sender].ackOK = true;
+                }
+                buoy[loraIn.sender].cmnd = NO_POSITION;
+                buoy[loraIn.sender].status = IDLE;
+                buoy[loraIn.sender].ackOK = loraIn.id;
+                break;
+
 
             default:
                 Serial.println("unknown command: " + msg);
@@ -331,6 +341,11 @@ bool loraMenu(int buoy_nr)
 
     case BUOY_MODE_IDLE:
         msg = String(BUOY_MODE_IDLE);
+        sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
+        break;
+
+    case NO_POSITION:
+        msg = String(NO_POSITION);
         sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
         break;
 

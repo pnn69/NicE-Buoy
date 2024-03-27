@@ -3,18 +3,12 @@
 
 #define SDA 21
 #define SCL 22
-#define GPS_RX 15
-#define GPS_TX 13
-
-#define SWITCH_PIN_REMOTE_LOCK 13
 
 #define LED_PIN 25
-#define LED_STRIP1 0
-#define LED_STRIP2 4
 
 #define POT_SPEED 36
 #define POT_RUDDER 39
-#define BATC_PIN 35
+#define SWITCH_PIN_REMOTE_IDLE_LOCK 35
 
 #define RADIO_SCLK_PIN 5
 #define RADIO_MISO_PIN 19
@@ -25,10 +19,8 @@
 #define RADIO_DIO1_PIN 33
 #define RADIO_BUSY_PIN 32
 
-#define SDCARD_MOSI 15
-#define SDCARD_MISO 2
-#define SDCARD_SCLK 14
-#define SDCARD_CS 13
+#define SW_P_1 13
+#define SW_P_2 12
 
 #define LoRa_frequency 433E6
 

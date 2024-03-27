@@ -315,6 +315,7 @@ void loop()
             status = IDLE;
             snd_sq.ledstatus = CRGB(0, 200, 0);
             xQueueSend(indicatorqueBb, (void *)&snd_sq, 10);
+        case NO_POSITION:
         case IDLE:
             buoy.speed = 0;
             buoy.speedbb = 0;
@@ -337,9 +338,12 @@ void loop()
             }
             BUTTON_LIGHT_ON;
             break;
-        case CALIBRATE_OFFSET_MAGNETIC_COMPASS:
+        case CALIBRATE_OFFSET_MAGNETIC_COMPASS: //Calibrate offset magnetic compass due mouning errors
             SWITCH_RED_ON;
             SWITCH_GRN_OFF;
+            buoy.speed = 0;
+            buoy.speedbb = 0;
+            buoy.speedsb = 0;
             if (BUTTON_LIGHT_READ)
             {
                 BUTTON_LIGHT_OFF;
@@ -385,30 +389,6 @@ void loop()
         }
 
         blink = !blink;
-        if (blink == true && gpsdata.fix == true)
-        {
-            // snd_msg.ledstatus = CRGB::Blue;
-        }
-        else
-        {
-            // snd_msg.ledstatus = CRGB::Black;
-        }
-        if (status == LOCKED)
-        {
-            // snd_msg.ledstatus2 = CRGB::Red;
-        }
-        else if (status == IDLE)
-        {
-            // snd_msg.ledstatus2 = CRGB::Green;
-        }
-        else if (status == REMOTE)
-        {
-            // snd_msg.ledstatus2 = CRGB::Pink;
-        }
-        else if (status == DOC)
-        {
-            // snd_msg.ledstatus2 = CRGB::Orange;
-        }
 
         /*
         Update dislpay

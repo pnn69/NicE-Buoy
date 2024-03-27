@@ -166,7 +166,7 @@ void RouteToPoint(double lat1, double lon1, double lat2, double lon2, unsigned l
 
 int InitGps(void)
 {
-    Serial1.begin(GPSBAUD, SERIAL_8N1, GPS_RX, GPS_TX);
+//    Serial1.begin(GPSBAUD, SERIAL_8N1, GPS_RX, GPS_TX);
     Serial.println(PSTR("GPS port created"));
     return 0;
 }

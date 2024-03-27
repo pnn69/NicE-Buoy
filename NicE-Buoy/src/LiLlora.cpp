@@ -170,6 +170,19 @@ int polLora(void)
                 ;
         }
         break;
+    case NO_POSITION:
+        if (loraIn.id == SET)
+        {
+            status = IDLE;
+        }
+        msg = String(BUOY_MODE_IDLE);
+        loraOut.id = ACK;
+        loraOut.messagelength = msg.length();
+        loraOut.message = msg;
+        while (sendLora())
+            ;
+            status =  IDLE;
+        break;
 
     case DGPSPOSITION:
         if (loraIn.id == GET)
@@ -229,6 +242,20 @@ int polLora(void)
                 ;
         }
         break;
+    case CURREND_POSITION_AS_DOC_POSITION:
+        if (gpsdata.fix == true)
+        {
+            MemoryDockPos(&gpsdata.lat, &gpsdata.lon, false);
+            msg = String(CURREND_POSITION_AS_DOC_POSITION);
+            loraOut.messagelength = msg.length();
+            loraOut.message = msg;
+            loraOut.id = ACK;
+            status = IDLE;
+            while (sendLora())
+                ;
+        }
+        if (gpsdata.fix == false)
+            break;
 
     // case SET_CURREND_POSITION_AS_ANCHOR_POSITION:
     //     if (gpslatitude != 0 || gpslongitude != 0)

@@ -26,6 +26,7 @@ static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; 
 static unsigned long tgdir = 0, tgdistance = 0;
 unsigned long previousTime = 0;
 int speedbb = 0, speedsb = 0;
+unsigned int sw_1_cnt = 0;
 bool ledstatus = false;
 static bool ackOK[4];
 static bool switch_IDLE = false;
@@ -69,8 +70,10 @@ void setup()
 {
     Serial.begin(115200);
     pinMode(LED_PIN, OUTPUT);
-    pinMode(SWITCH_PIN_REMOTE_LOCK, INPUT_PULLUP);
+    pinMode(SW_P_1, INPUT_PULLUP);
+    pinMode(SW_P_2, OUTPUT);
     digitalWrite(LED_PIN, false);
+    digitalWrite(SW_P_2, false);
     initSSD1306();
     Wire.begin();
     InitLora();
@@ -112,6 +115,14 @@ void loop()
         msecstamp = millis();
         digitalWrite(LED_PIN, ledstatus);
         ledstatus = false;
+        if (digitalRead(SW_P_1) == 0)
+        {
+            sw_1_cnt++;
+        }
+        else
+        {
+            sw_1_cnt = 0;
+        }
     }
 
     /*
@@ -129,37 +140,14 @@ void loop()
     if (millis() - hsecstamp >= 100)
     {
         hsecstamp = millis();
-        // if(SWITCH_REMOTE == 0)
-        // {
-        //     buoy[1].status = REMOTE;
-        //     buoy[1].cmnd = SAIL_DIR_SPEED;
-        // }
-        // if(SWITCH_LOCK == 0)       {
-        //     buoy[1].status = LOCKING;
-        //     buoy[1].cmnd = TARGET_POSITION;
-        // }
-        if (digitalRead(SWITCH_PIN_REMOTE_LOCK) == 1)
+        readAdc();
+        if (sw_pos == SW_RIGHT && sw_1_cnt > 10)
         {
-            if (switch_REMOTE != 0)
-            {
-                switch_REMOTE = 0;
-                buoy[1].cdir = 0;
-                buoy[1].cspeed = 0;
-                buoy[1].speed = 0;
-                buoy[1].speedbb = 0;
-                buoy[1].speedsb = 0;
-                buoy[1].status = REMOTE;
-                buoy[1].cmnd = SAIL_DIR_SPEED;
-                buoy[1].ackOK = false;
-                buoy[1].gsa = SET;
-                radiobutton[1] = 6;
-                notify = true;
-            }
-        }
-        else
-        {
+            buoy[1].status = REMOTE;
+            buoy[1].cmnd = SAIL_DIR_SPEED;
             if (switch_REMOTE != 1)
             {
+
                 switch_REMOTE = 1;
                 buoy[1].cdir = 0;
                 buoy[1].cspeed = 0;
@@ -170,11 +158,33 @@ void loop()
                 buoy[1].cmnd = TARGET_POSITION;
                 buoy[1].ackOK = false;
                 buoy[1].gsa = SET;
+                adc.newdata = true;
                 radiobutton[1] = 2;
                 notify = true;
             }
         }
-        readAdc();
+        if (sw_pos == SW_LEFT && sw_1_cnt > 10)
+        {
+            buoy[1].status = LOCKING;
+            buoy[1].cmnd = TARGET_POSITION;
+            switch_REMOTE = 0;
+        }
+        if (sw_pos == SW_MID && sw_1_cnt > 10)
+        {
+
+            switch_REMOTE = 0;
+            buoy[1].cdir = 0;
+            buoy[1].cspeed = 0;
+            buoy[1].speed = 0;
+            buoy[1].speedbb = 0;
+            buoy[1].speedsb = 0;
+            buoy[1].status = IDLE;
+            buoy[1].cmnd = NO_POSITION;
+            buoy[1].ackOK = false;
+            buoy[1].gsa = SET;
+            radiobutton[1] = 6;
+            notify = true;
+        }
         // for (int i = 1; i < NR_BUOYS; i++)
         // {
         int i = 1;
@@ -207,7 +217,9 @@ void loop()
                 buoy[i].ackOK = true;
                 while (loraMenu(i))
                     ;
-            }else if(buoy[i].status == LOCKED){
+            }
+            else if (buoy[i].status == LOCKED)
+            {
                 buoy[i].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_TARGET_POSITION;
                 buoy[i].gsa = GET;
                 buoy[i].ackOK = false;
@@ -236,7 +248,6 @@ void loop()
         }
     }
 
-    
     // int nr;
     // if (serialPortDataIn(&nr))
     // {

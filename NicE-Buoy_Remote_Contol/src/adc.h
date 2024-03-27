@@ -11,7 +11,15 @@ struct adcDataType
     float vbat;
 };
 
+typedef enum
+{
+    SW_LEFT = 1,
+    SW_MID,
+    SW_RIGHT
+} Swtch_t;
+
 extern adcDataType adc;
+extern char sw_pos;
 
 void readAdc(void);
 

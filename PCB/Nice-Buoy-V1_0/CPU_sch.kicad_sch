@@ -7399,6 +7399,17 @@
 		)
 		(uuid "3ba4b826-fbda-4122-ac96-aeab8b2b68a5")
 	)
+	(text "New revison canges:\n\nRemove RADIO6 signal\nRelocate RADIO_5 to GPIO27\nConnect label D0 to GPIO2\nAdd Buzzer on GPIO32\nRelocate GPSRX to GPIO34\nRelocate ESC_BB to GPIO4\nRelocate ESC_SB to GPIO2\n\nAdd JTAG:\nTDI GPIO12\nTCK GPIO13\nTDO GPIO15\nTMS GPIO14\nRST GPIO3\nVREF 3.3V\nGND GND\n\n"
+		(exclude_from_sim no)
+		(at 19.05 53.34 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "439e91e2-6538-463a-ae69-e48ea1d7801b")
+	)
 	(text "Program enable"
 		(exclude_from_sim no)
 		(at 23.495 234.95 0)
