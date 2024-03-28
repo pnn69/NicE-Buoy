@@ -321,10 +321,19 @@ void loop()
             buoy.speedbb = 0;
             buoy.speedsb = 0;
             BUTTON_LIGHT_OFF;
+            SWITCH_RED_OFF;
             break;
         case REMOTE:
             CalcEngingSpeed(buoy.cdir, 0, buoy.cspeed, &buoy.speedbb, &buoy.speedsb);
             BUTTON_LIGHT_OFF;
+            if (mcp.digitalRead(MAINSSWITCH_LEDRED_GPB) == 0)
+            {
+                SWITCH_RED_ON;
+            }
+            else
+            {
+                SWITCH_RED_OFF;
+            }
             break;
         case LOCKED:
             RouteToPoint(gpsdata.dlat, gpsdata.dlon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
@@ -337,8 +346,9 @@ void loop()
                 buoy.speed = CalcEngingSpeedBuoy(buoy.tgdir, buoy.mheading, 0, &buoy.speedbb, &buoy.speedsb); // do notihing
             }
             BUTTON_LIGHT_ON;
+            SWITCH_RED_OFF;
             break;
-        case CALIBRATE_OFFSET_MAGNETIC_COMPASS: //Calibrate offset magnetic compass due mouning errors
+        case CALIBRATE_OFFSET_MAGNETIC_COMPASS: // Calibrate offset magnetic compass due mouning errors
             SWITCH_RED_ON;
             SWITCH_GRN_OFF;
             buoy.speed = 0;

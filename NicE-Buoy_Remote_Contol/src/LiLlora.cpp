@@ -140,6 +140,7 @@ int polLora(void)
         char messarr[100];
         int dir, dist;
         int sp, sb, bb, he;
+        float lhe;
         Serial.print("Lora in from:" + String(loraIn.sender) + " RSSI:" + String(loraIn.rssi) + " msg <" + loraIn.message + "> status:" + String(loraIn.status) + "\r\n");
         // Serial.printf(">Heading: %d", loraIn.heading);
         //  if (loraIn.id == ACK)
@@ -206,15 +207,16 @@ int polLora(void)
                 break;
 
             case SAIL_DIR_SPEED:
-                sscanf(messarr, "%d,%d,%d,%d", &he, &sp, &bb, &sb);
+                sscanf(messarr, "%f,%d,%d,%d", &lhe, &sp, &bb, &sb);
                 buoy[loraIn.sender].tgdir = 0;
-                buoy[loraIn.sender].mdir = he;
+                buoy[loraIn.sender].mdir = (int)lhe;
                 buoy[loraIn.sender].tgdistance = 0;
                 buoy[loraIn.sender].speed = sp;
                 buoy[loraIn.sender].speedsb = sb;
                 buoy[loraIn.sender].speedbb = bb;
                 buoy[loraIn.sender].rssi = loraIn.rssi;
                 buoy[loraIn.sender].ackOK = loraIn.id;
+                Serial.printf("REceived %0.2f %d  %d %d \r\n", lhe, sp, bb, sb);
                 break;
 
             case (TARGET_POSITION):
@@ -269,7 +271,6 @@ int polLora(void)
                 buoy[loraIn.sender].status = IDLE;
                 buoy[loraIn.sender].ackOK = loraIn.id;
                 break;
-
 
             default:
                 Serial.println("unknown command: " + msg);
