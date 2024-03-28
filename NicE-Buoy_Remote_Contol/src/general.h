@@ -22,6 +22,8 @@ struct buoyDataType
     int cmnd;
     bool ackOK;
     byte gsa;
+    float voltage;
+    int percentage;
 };
 
 extern bool ledstatus;

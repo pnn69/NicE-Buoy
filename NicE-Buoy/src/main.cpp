@@ -329,10 +329,12 @@ void loop()
             if (mcp.digitalRead(MAINSSWITCH_LEDRED_GPB) == 0)
             {
                 SWITCH_RED_ON;
+                SWITCH_GRN_OFF;
             }
             else
             {
                 SWITCH_RED_OFF;
+                SWITCH_GRN_ON;
             }
             break;
         case LOCKED:

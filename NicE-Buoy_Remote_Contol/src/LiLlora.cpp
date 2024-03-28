@@ -164,8 +164,8 @@ int polLora(void)
         int cmnd = 0;
         sscanf(messarr, "%d", &cmnd);
         int index = loraIn.message.indexOf(",");
-        loraIn.message = loraIn.message.substring(index + 1);
-        loraIn.message.toCharArray(messarr, loraIn.message.length() + 1);
+        loraIn.message = loraIn.message.substring(index + 1);             // strip msg ID
+        loraIn.message.toCharArray(messarr, loraIn.message.length() + 1); // conver to string
 
         if (NR_BUOYS > loraIn.sender)
         {
@@ -216,7 +216,6 @@ int polLora(void)
                 buoy[loraIn.sender].speedbb = bb;
                 buoy[loraIn.sender].rssi = loraIn.rssi;
                 buoy[loraIn.sender].ackOK = loraIn.id;
-                Serial.printf("REceived %0.2f %d  %d %d \r\n", lhe, sp, bb, sb);
                 break;
 
             case (TARGET_POSITION):
@@ -270,6 +269,11 @@ int polLora(void)
                 buoy[loraIn.sender].cmnd = NO_POSITION;
                 buoy[loraIn.sender].status = IDLE;
                 buoy[loraIn.sender].ackOK = loraIn.id;
+                break;
+            case (BATTERY_VOLTAGE_PERCENTAGE):
+                sscanf(messarr, "%f,%d", &lhe, &sp);
+                buoy[loraIn.sender].voltage = lhe;
+                buoy[loraIn.sender].percentage = sp;
                 break;
 
             default:
