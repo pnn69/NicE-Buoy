@@ -18,7 +18,7 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "gps.h"
 #include "../../dependency/command.h"
 
-unsigned long timestamp, msecstamp, hsecstamp, sec5stamp;
+unsigned long timestamp, msecstamp, hsecstamp, sec5stamp,esctamp ;
 static float heading = 0;
 static double gpslatitude = 52.34567, gpslongitude = 4.567;                     // home
 static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop

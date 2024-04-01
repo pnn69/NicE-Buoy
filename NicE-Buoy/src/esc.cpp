@@ -16,9 +16,6 @@ QueueHandle_t escspeed;
 
 Servo escbb; // create servo object to control a servo
 Servo escsb; // create servo object to control a servo
-static unsigned long sec30000stamp;
-static int speedbbsetpoint = 0, speedsbsetpoint = 0;
-static int lspeedbbsetpoint = 0, lspeedsbsetpoint = 0;
 // value = map(value, 0, 180, 1000, 2000);
 
 void triggerESC(void)
@@ -61,27 +58,13 @@ void EscTask(void *arg)
 {
     Message rcv_msg;
     InitEsc();
-    sec30000stamp = millis();
     escspeed = xQueueCreate(10, sizeof(Message));
     while (1)
     {
         if (xQueueReceive(escspeed, (void *)&rcv_msg, 0) == pdTRUE)
         {
-            speedbbsetpoint = rcv_msg.speedbb;
-            speedsbsetpoint = rcv_msg.speedsb;
-            escbb.write(map(speedbbsetpoint, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
-            escsb.write(map(speedsbsetpoint, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
-            if (speedbbsetpoint != lspeedbbsetpoint || speedsbsetpoint != lspeedsbsetpoint)
-            { // if esc is active reset timer.
-                lspeedbbsetpoint = speedbbsetpoint;
-                lspeedsbsetpoint = speedsbsetpoint;
-                sec30000stamp = millis();
-            }
-        }
-        if (millis() - sec30000stamp >= 1000 * 60 * 5) // no ESC command for 5 minutes... trigger ESC so prevent from beeping
-        {
-            sec30000stamp = millis();
-            triggerESC();
+            escbb.write(map(rcv_msg.speedbb, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+            escsb.write(map(rcv_msg.speedsb, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
         }
         delay(1);
     }

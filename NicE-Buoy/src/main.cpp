@@ -26,10 +26,12 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "buzzer.h"
 
 #define ESC_UPDATE_DELAY 25
+#define ESC_TRIGGER 5 * 60 * 1000
 
-static unsigned long secstamp, sec05stamp, msecstamp, escstamp, hstamp, sec5stamp, offeststamp;
+static unsigned long secstamp, sec05stamp, msecstamp, escstamp, hstamp, sec5stamp, offeststamp, esctrigger;
 // static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
 // static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
+
 // static unsigned long tgdir = 0, tgdistance = 0, cdir = 0;
 bool nwloramsg = false;
 bool ledswgrn = false;
@@ -184,6 +186,10 @@ void setup()
     delay(1000);
     BUTTON_LIGHT_OFF;
     SWITCH_RED_OFF;
+    // Postion Steiger WSOP
+    // gpsdata.lat = 52.29308075283747;
+    // gpsdata.lon = 4.932570409845357;
+    // MemoryDockPos(&gpsdata.lat,&gpsdata.lon,0); //store default
 }
 
 /**********************************************************************************************************************************************************/
@@ -315,6 +321,8 @@ void loop()
             status = IDLE;
             snd_sq.ledstatus = CRGB(0, 200, 0);
             xQueueSend(indicatorqueBb, (void *)&snd_sq, 10);
+            buoy.tgdistance = 0;
+            buoy.tgdir = 0;
         case NO_POSITION:
         case IDLE:
             buoy.speed = 0;
@@ -339,7 +347,7 @@ void loop()
             break;
         case LOCKED:
             RouteToPoint(gpsdata.dlat, gpsdata.dlon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
-            if (buoy.tgdistance < 5000)                                                                                 // test if target is in range
+            if (buoy.tgdistance < 2000)                                                                                 // test if target is in range
             {
                 buoy.speed = CalcEngingSpeedBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, &buoy.speedbb, &buoy.speedsb);
             }
@@ -380,8 +388,9 @@ void loop()
                         snd_buz.repeat = 25;
                         snd_buz.pauze = 25;
                         xQueueSend(Buzzerque, (void *)&snd_buz, 10);
+                        // MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude, true);
                         RouteToPoint(gpsdata.dlat, gpsdata.dlon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
-                        // callibratCompassOfest((int)(buoy.tgdir - GetHeadingRaw()));                                                 // store magnetic comensation
+                        callibratCompassOfest((int)(buoy.tgdir - GetHeadingRaw()));                                                 // store magnetic comensation
                         debugln("New offset stored");
                         delay(200);
                         GetHeadingRaw();
@@ -423,7 +432,11 @@ void loop()
         // Serial.printf("bootCount:%d\r\n", bootCount);
         loraMenu(GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING);
         loraMenu(BATTERY_VOLTAGE_PERCENTAGE);
-        Serial.printf("Batt percentage %0.1f%% voltage: %0.2f\r\n", buoy.vperc, buoy.vbatt);
+        if (status == LOCKED)
+        {
+            loraMenu(DIR_DISTANSE_TO_TARGET_POSITION);
+        }
+        Serial.printf("Batt percentage %0.1f%% voltage: %0.2fV target distance %0.0lf target dir %0.0lf\r\n", buoy.vperc, buoy.vbatt, buoy.tgdistance, buoy.tgdir);
     }
 
     int nr;
@@ -441,6 +454,7 @@ void loop()
         Message snd_msg;
         if (spdbb != buoy.speedbb)
         {
+            esctrigger = millis();
             if (spdbb < buoy.speedbb) // slowly go to setpoint
             {
                 spdbb++;
@@ -452,6 +466,7 @@ void loop()
         }
         if (spdsb != buoy.speedsb)
         {
+            esctrigger = millis();
             if (spdsb < buoy.speedsb)
             {
                 spdsb++;
@@ -460,6 +475,14 @@ void loop()
             {
                 spdsb--;
             }
+        }
+        if (millis() - esctrigger > ESC_TRIGGER)
+        {
+            if (buoy.speedsb == 0 && buoy.speedbb == 0)
+            {
+                triggerESC();
+            }
+            esctrigger = millis();
         }
         snd_msg.speedbb = spdbb;
         snd_msg.speedsb = spdsb;

@@ -199,7 +199,7 @@ int polLora(void)
     case DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_TARGET_POSITION:
         if (loraIn.id == GET)
         {
-            msg = String(cmnd) + "," + String(buoy.tgdir) + "," + String(buoy.tgdistance) + "," + String(buoy.speed) + "," + String(buoy.speedbb) + "," + String(buoy.speedsb) + "," + String(buoy.mheading, 0);
+            msg = String(cmnd) + "," + String(buoy.tgdir,0) + "," + String(buoy.tgdistance,0) + "," + String(buoy.speed) + "," + String(buoy.speedbb) + "," + String(buoy.speedsb) + "," + String(buoy.mheading, 0);
             loraOut.messagelength = msg.length();
             loraOut.message = msg;
             loraOut.id = ACK;
@@ -370,6 +370,16 @@ bool loraMenu(int cmnd)
         break;
     case BATTERY_VOLTAGE_PERCENTAGE:
         msg = String(BATTERY_VOLTAGE_PERCENTAGE) + "," + String(buoy.vbatt, 1) + "," + String(buoy.vperc, 0);
+        loraOut.messagelength = msg.length();
+        loraOut.message = msg;
+        loraOut.sender = buoyID;
+        loraOut.id = ACK;
+        loraOut.destination = 254;
+        while (sendLora())
+            ;
+        break;
+    case DIR_DISTANSE_TO_TARGET_POSITION:
+        msg = String(DIR_DISTANSE_TO_TARGET_POSITION) + "," + String(buoy.tgdir, 0) + "," + String(buoy.tgdistance, 0);
         loraOut.messagelength = msg.length();
         loraOut.message = msg;
         loraOut.sender = buoyID;

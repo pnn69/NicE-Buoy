@@ -66,6 +66,13 @@ void speedbars(int sb, int bb)
     }
 }
 
+void BatPowerBarr(float perc){
+    int fill=0;
+    fill = 35 * perc/100;
+    display.drawRect(50, 55, 35, 7, WHITE);
+    display.fillRect(50, 55, fill, 7, WHITE);
+}
+
 void udateDisplay(int sb, int bb, unsigned long distance, unsigned long direction, unsigned long mdirection, bool fix)
 {
     if (displayOK)
@@ -83,18 +90,10 @@ void udateDisplay(int sb, int bb, unsigned long distance, unsigned long directio
         display.printf("Dir:%3d HDG:%3d", (int)direction, (int)mdirection);
         display.setCursor(barwide + 7, 55);
         display.printf("%4d%%", bb);
-        display.setCursor(128 / 2, 55);
-        if (fix)
-        {
-            display.printf("*");
-        }
-        else
-        {
-            display.printf("O");
-        }
         display.setCursor(128 - barwide - 5 * 7, 55);
         display.printf("%4d%%", sb);
         speedbars(sb, bb);
+        BatPowerBarr(buoy.vperc);
         display.display();
     }
 }

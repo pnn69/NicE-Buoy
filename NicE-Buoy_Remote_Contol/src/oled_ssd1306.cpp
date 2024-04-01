@@ -62,6 +62,13 @@ void speedbars(int bb, int sb)
     }
 }
 
+void BatPowerBarr(float perc){
+    int fill=0;
+    fill = 35 * perc/100;
+    display.drawRect(50, 55, 35, 7, WHITE);
+    display.fillRect(50, 55, fill, 7, WHITE);
+}
+
 void ShowBuoyData(int buoyID)
 {
     display.clearDisplay();
@@ -71,24 +78,25 @@ void ShowBuoyData(int buoyID)
     display.setCursor(barwide + 7, 10);
     display.printf("GPS Cource:%d", buoy[buoyID].mdir);
     display.setCursor(17, 20);
-    display.printf("Stat:%d Rssi:%d", buoy[buoyID].status, buoy[buoyID].rssi);
-    display.setCursor(barwide + 7, 30);
-    display.printf("Dist: %3ldM", buoy[buoyID].tgdistance);
-    display.setCursor(barwide + 7, 40);
-    display.printf("Dir:%3d HDG:%3d", buoy[buoyID].tgdir, buoy[buoyID].mdir);
-    display.setCursor(barwide + 7, 55);
-    display.printf("%4d%%", buoy[buoyID].speedbb);
-    display.setCursor(128 / 2, 55);
     if (buoy[buoyID].fix)
     {
-        display.printf("*");
+        display.printf("Fix OK ");
     }
     else
     {
-        display.printf("O");
+        display.printf("No Fix ");
     }
+    display.printf("Rssi:%d", (int)buoy[buoyID].rssi);
+    display.setCursor(barwide + 7, 30);
+    display.printf("Dist: %3ldM", buoy[buoyID].tgdistance);
+    display.setCursor(barwide + 7, 40);
+    display.printf("Dir:%3d HDG:%3d", (int)buoy[buoyID].tgdir, (int)buoy[buoyID].mdir);
+    display.setCursor(barwide + 7, 55);
+    display.printf("%4d%%", buoy[buoyID].speedbb);
+    display.setCursor(128 / 2, 55);
     display.setCursor(128 - barwide - 5 * 7, 55);
     display.printf("%4d%%", buoy[buoyID].speedsb);
+    BatPowerBarr( buoy[buoyID].percentage);
     display.display();
 }
 

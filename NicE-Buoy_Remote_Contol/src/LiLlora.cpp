@@ -78,7 +78,7 @@ bool sendMessage(String outgoing, byte dest, byte id)
 
 bool sendLoraHello(int buoy)
 {
-    String msg = TXT + "HeLoRa World!"; // send a msg
+    String msg = String(TXT) + "HeLoRa World!"; // send a msg
     sendMessage(msg, buoy, GET);
     return 1;
 }
@@ -139,7 +139,7 @@ int polLora(void)
         String decode = loraIn.message;
         char messarr[100];
         int dir, dist;
-        int sp, sb, bb, he;
+        int sp, sb, bb;
         float lhe;
         Serial.print("Lora in from:" + String(loraIn.sender) + " RSSI:" + String(loraIn.rssi) + " msg <" + loraIn.message + "> status:" + String(loraIn.status) + "\r\n");
         // Serial.printf(">Heading: %d", loraIn.heading);
@@ -170,7 +170,7 @@ int polLora(void)
         if (NR_BUOYS > loraIn.sender)
         {
             buoy[loraIn.sender].remotestatus = loraIn.status;
-            buoy[loraIn.sender].mdir = loraIn.heading;
+            // buoy[loraIn.sender].mdir = loraIn.heading;
             switch (cmnd)
             {
             case DIR_DISTANSE_TO_TARGET_POSITION:
@@ -275,7 +275,6 @@ int polLora(void)
                 buoy[loraIn.sender].voltage = lhe;
                 buoy[loraIn.sender].percentage = sp;
                 break;
-
             default:
                 Serial.println("unknown command: " + msg);
                 break;

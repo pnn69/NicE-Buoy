@@ -8,7 +8,6 @@
 
 #define GPSBAUD 9600
 
-static double lat, lng, speed, dir;
 bool gpsvalid = false;
 
 TinyGPSPlus gps;
@@ -120,7 +119,6 @@ void displayGPSInfo(void)
 */
 int GetNewGpsData()
 {
-    char in;
     while (Serial1.available() > 0)
     {
         if (gps.encode(Serial1.read()))
@@ -161,11 +159,13 @@ int GetNewGpsData()
     unsigend long heading in degrees 0-259
     unsigend long distance in meters
 */
-void RouteToPoint(double lat1, double lon1, double lat2, double lon2, unsigned long *distance, unsigned long *direction)
+void RouteToPoint(double lat1, double lon1, double lat2, double lon2, double *distance, double *direction)
 {
-    *distance = gps.distanceBetween(lat1, lon1, lat2, lon2);
+    *distance = (unsigned long)gps.distanceBetween(lat1, lon1, lat2, lon2);
     *direction = gps.courseTo(lat1, lon1, lat2, lon2);
-    // Serial.printf("distance: %.2lf Direction: %.3lf\r\n",distance,direction);
+    //Serial.printf("distance: %.2lf Direction: %.3lf\r\n",distance,direction);
+    //Serial.printf("Lat1: %.8lf Lon1: %.8lf\r\n",lat1,lon1);
+    //Serial.printf("Lat2: %.8lf Lon2: %.8lf\r\n",lat2,lon2);
 }
 
 int InitGps(void)
