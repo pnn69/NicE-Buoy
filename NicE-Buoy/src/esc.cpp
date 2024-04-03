@@ -40,6 +40,12 @@ void triggerESC(void)
     escbb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
     escsb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
 }
+void beepESC(void)
+{
+    for(int t=0;t<10;t++){
+        triggerESC();
+    }
+}
 
 void InitEsc(void)
 {

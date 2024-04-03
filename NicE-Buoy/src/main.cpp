@@ -27,6 +27,8 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 
 #define ESC_UPDATE_DELAY 25
 #define ESC_TRIGGER 5 * 60 * 1000
+#define BUTTON_SHORT 10
+#define BUTTON_LONG 500
 
 static unsigned long secstamp, sec05stamp, msecstamp, escstamp, hstamp, sec5stamp, offeststamp, esctrigger;
 // static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
@@ -34,10 +36,8 @@ static unsigned long secstamp, sec05stamp, msecstamp, escstamp, hstamp, sec5stam
 
 // static unsigned long tgdir = 0, tgdistance = 0, cdir = 0;
 bool nwloramsg = false;
-bool ledswgrn = false;
-bool ledswred = false;
 char buoyID = 0;
-byte status = IDLE, lstatus = 0;
+byte status = IDLE;
 const byte numChars = 32;
 char receivedChars[numChars]; // an array to store the received data
 boolean newData = false;
@@ -48,6 +48,7 @@ buoyDataType buoy;
 switchStatus frontsw;
 bool FrontLed = false;
 int spdbb, spdsb;
+unsigned int sw_button_cnt, lst_button_cnt = 0;
 
 MessageSP snd_sp;    /* Speed sb(-100%<>100%),bb(-100%<>100%) */
 MessageSq snd_sq;    /* Ledstatus CRGB */
@@ -101,7 +102,6 @@ void setup()
     LastStatus(&status, &buoy.tglatitude, &buoy.tglongitude, true);
     SWITCH_GRN_OFF;
     SWITCH_RED_ON;
-    lstatus = status;
     BUTTON_LIGHT_ON;
     if (InitLora())
     {
@@ -164,16 +164,15 @@ void setup()
     /*
      * Callibrate compass if key 1 is pressed or the key mountend on the fornt
      */
-    if (frontsw.switch1upact || mcp.digitalRead(SWITCH1_GPA) == 0)
+    if (frontsw.switch1upact || FRONTBUTTON_READ == PUSHED)
     {
         delay(500);
         adc_switch(); // read out switches
-        if (frontsw.switch1upact || mcp.digitalRead(SWITCH1_GPA) == 0)
+        if (frontsw.switch1upact || FRONTBUTTON_READ == PUSHED)
         {
             CalibrateCompass(); // calibrate compass
         }
     }
-    LastStatus(&status, &buoy.tglatitude, &buoy.tglongitude, true); // get last status and restore
     snd_sq.ledstatus = CRGB(0, 0, 0);
     xQueueSend(indicatorqueSt, (void *)&snd_sq, 10);
     xQueueSend(indicatorqueBb, (void *)&snd_sq, 10);
@@ -183,7 +182,6 @@ void setup()
     snd_buz.pauze = 25;
     xQueueSend(Buzzerque, (void *)&snd_buz, 10);
     Serial.println("Setup done.");
-    delay(1000);
     BUTTON_LIGHT_OFF;
     SWITCH_RED_OFF;
     // Postion Steiger WSOP
@@ -209,25 +207,24 @@ void loop()
         digitalWrite(LED_PIN, !nwloramsg); /* If green led is turned on by incomming lora message. turn it off */
         nwloramsg = false;                 /*clear ledstatus*/
         adc_switch();                      /*read switch status*/
-        if (status != lstatus)             // store status in memory
+        if (FRONTBUTTON_READ == PUSHED)
         {
-            //     LastStatus(&status, &buoy.tglatitude, &buoy.tglongitude, true);
-            lstatus = status;
-            Serial.printf("Status updated in memory\r\n");
+            sw_button_cnt++;
+            lst_button_cnt = sw_button_cnt;
+        }
+        else
+        {
+            sw_button_cnt = 0;
         }
     } /*Done 10 msec loop*/
 
     if (millis() - hstamp > 100) /*100 msec loop*/
     {
         hstamp = millis() - 1;
-        GetNewGpsData();
-        buoy.mheading = CompassAverage(GetHeading());
-        // Serial.printf( "heading %f\r\n",buoy.mheading);
-        if (gpsdata.fix == false)
+        if (GetNewGpsData())
         {
-            FrontLed = !FrontLed; // blink led
-            snd_sq.ledstatus = CRGB(200 * FrontLed, 0, 0);
-            xQueueSend(indicatorqueSt, (void *)&snd_sq, 10);
+            buoy.mheading = CompassAverage(GetHeading());
+            // Serial.printf( "heading %f\r\n",buoy.mheading);
         }
     }
 
@@ -238,78 +235,81 @@ void loop()
 
         if (gpsdata.fix == true)
         {
-            snd_sq.ledstatus = CRGB(0, 10, 0);
+            snd_sq.ledstatus = CRGB(0, 50, 0);
             SWITCH_GRN_ON;
-            ledswgrn = true;
         }
         else
         {
-            snd_sq.ledstatus = CRGB(10, 0, 0);
-            if (ledswgrn)
+            // no fix -> blink leds
+            if (SWITCH_GRN_READ)
             {
+                snd_sq.ledstatus = CRGB(0, 0, 0);
                 SWITCH_GRN_OFF;
-                ledswgrn = false;
             }
             else
             {
+                snd_sq.ledstatus = CRGB(0, 50, 0);
                 SWITCH_GRN_ON;
-                ledswgrn = true;
             }
         }
-        xQueueSend(indicatorqueSt, (void *)&snd_sq, 10); // update light status
-        if (gpsdata.fix == true)
+        xQueueSend(indicatorqueSt, (void *)&snd_sq, 10);
+        if (lst_button_cnt > BUTTON_SHORT && sw_button_cnt == 0)
         {
-
-            if (status == LOCKED)
+            if (lst_button_cnt > BUTTON_LONG)
             {
-                FrontLed = 1; // Led on
-            }
-            else
-            {
-                FrontLed = 0; // Led off
-            }
-            snd_sq.ledstatus = CRGB(0, 200 * FrontLed, 0);
-            xQueueSend(indicatorqueBb, (void *)&snd_sq, 10);
-        }
-        if (FRONTBUTTON_READ == 0 && status != CALIBRATE_OFFSET_MAGNETIC_COMPASS) // check if locked switch is set to active
-        {
-            snd_buz.time = 200;
-            snd_buz.repeat = 0;
-            snd_buz.pauze = 0;
-            xQueueSend(Buzzerque, (void *)&snd_buz, 10);
-            frontsw.switch1upcnt = 2;
-            snd_buz.time = BUZZTIME;
-            Serial.printf("Front button pressed\r\n");
-            if (status == LOCKED)
-            {
-                status = IDLE;
-                BUTTON_LIGHT_OFF;
-            }
-            else
-            {
-                if (gpsdata.fix == true)
+                if (status != CALIBRATE_OFFSET_MAGNETIC_COMPASS) // check if locked switch is set to active
                 {
-                    buoy.tglatitude = gpsdata.lat;
-                    buoy.tglongitude = gpsdata.lon;
-                    status = LOCKED;
-                    BUTTON_LIGHT_ON;
+                    if (status == IDLE && gpsdata.fix == true) // Do some checks before going in to calibration mode.
+                    {
+                        snd_buz.time = 500;
+                        snd_buz.repeat = 4;
+                        snd_buz.pauze = 25;
+                        xQueueSend(Buzzerque, (void *)&snd_buz, 10);
+                        status = CALIBRATE_OFFSET_MAGNETIC_COMPASS;
+                        offeststamp = millis();
+                        Serial.printf("Status set to >CALIBRATE_OFFSET_MAGNETIC_COMPASS< = %d\r\n", status);
+                        beepESC();
+                        buoy.speed = 0;
+                        buoy.speedbb = 0;
+                        buoy.speedsb = 0;
+                        spdbb = 0;
+                        spdsb = 0;
+                    }
                 }
             }
-            Message snd_msg;
-            snd_msg.speedbb = 0;
-            snd_msg.speedsb = 0;
-            xQueueSend(escspeed, (void *)&snd_msg, 10);
-            delay(1000);
-            if (FRONTBUTTON_READ == 0 && status == IDLE && gpsdata.fix == true) // Do some checks before going in to calibration mode.
+            else // short press on button
             {
-                snd_buz.time = 500;
-                snd_buz.repeat = 4;
-                snd_buz.pauze = 25;
-                xQueueSend(Buzzerque, (void *)&snd_buz, 10);
-                status = CALIBRATE_OFFSET_MAGNETIC_COMPASS;
-                offeststamp = millis();
+                if (status == LOCKED)
+                {
+                    status = IDLE;
+                    BUTTON_LIGHT_OFF;
+                    beepESC();
+                    buoy.speed = 0;
+                    buoy.speedbb = 0;
+                    buoy.speedsb = 0;
+                    spdbb = 0;
+                    spdsb = 0;
+                    Serial.printf("Status set to >IDLE< = %d\r\n", status);
+                }
+                else
+                {
+                    if (gpsdata.fix == true)
+                    {
+                        buoy.tglatitude = gpsdata.lat;
+                        buoy.tglongitude = gpsdata.lon;
+                        status = LOCKED;
+                        BUTTON_LIGHT_ON;
+                        beepESC();
+                        buoy.speed = 0;
+                        buoy.speedbb = 0;
+                        buoy.speedsb = 0;
+                        spdbb = 0;
+                        spdsb = 0;
+                        Serial.printf("Status set to >LOCKED< = %d\r\n", status);
+                    }
+                }
             }
-            Serial.printf("Status set to = %d\r\n", status);
+            lst_button_cnt = 0;
         }
 
         /*
@@ -364,6 +364,8 @@ void loop()
             buoy.speed = 0;
             buoy.speedbb = 0;
             buoy.speedsb = 0;
+            spdbb = 0;
+            spdsb = 0;
             if (BUTTON_LIGHT_READ)
             {
                 BUTTON_LIGHT_OFF;
@@ -388,17 +390,20 @@ void loop()
                         snd_buz.repeat = 25;
                         snd_buz.pauze = 25;
                         xQueueSend(Buzzerque, (void *)&snd_buz, 10);
-                        // MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude, true);
                         RouteToPoint(gpsdata.dlat, gpsdata.dlon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
                         callibratCompassOfest((int)(buoy.tgdir - GetHeadingRaw()));                                                 // store magnetic comensation
                         debugln("New offset stored");
                         delay(200);
                         GetHeadingRaw();
+                        beepESC();
+                        spdbb = 0;
+                        spdsb = 0;
                     }
                     BUTTON_LIGHT_OFF;
                     SWITCH_RED_OFF;
                     SWITCH_GRN_ON;
                     status = IDLE;
+                    Serial.printf("Status set to >IDLE< = %d\r\n", status);
                 }
             }
             break;
@@ -429,9 +434,8 @@ void loop()
     if (millis() - sec5stamp > 5000)
     {
         sec5stamp = millis() - 1;
-        // Serial.printf("bootCount:%d\r\n", bootCount);
-        loraMenu(GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING);
-        loraMenu(BATTERY_VOLTAGE_PERCENTAGE);
+        loraMenu(GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING); // pos heading speed to remote
+        loraMenu(BATTERY_VOLTAGE_PERCENTAGE);             // bat voltage and percentage to remote
         if (status == LOCKED)
         {
             loraMenu(DIR_DISTANSE_TO_TARGET_POSITION);

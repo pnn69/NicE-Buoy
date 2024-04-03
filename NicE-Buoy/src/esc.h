@@ -9,6 +9,8 @@ typedef struct Message
     int speedsb;
 } Message;
 
+void InitEsc(void);
+void beepESC(void);
 void triggerESC(void);
 void EscTask(void *arg);
 
