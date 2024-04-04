@@ -286,27 +286,35 @@ bool loraMenu(int buoy_nr)
         break;
 
     case DOC_POSITION:
-        loraOut.msgid = DOC_POSITION;
-        loraOut.gsia = SET;
         msg = "";
         sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
         break;
 
     case RESET:
-        loraOut.msgid = DOC_POSITION;
-        loraOut.gsia = INF;
-        msg = "";
+        msg = String(RESET);
         sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
         break;
 
     case BUOY_MODE_IDLE:
-        loraOut.msgid = BUOY_MODE_IDLE;
-        loraOut.gsia = SET;
-        msg = "";
+        msg = String(BUOY_MODE_IDLE);
         sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
         break;
 
     case NO_POSITION:
+        msg = String(NO_POSITION);
+        sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
+        break;
+
+    case DGPS:
+        if (gpsdata.corrlat == 0 && gpsdata.corrlon == 0)
+        {
+            buoy[buoy_nr].ackOK = true;
+            break;
+        }
+        msg = String(DGPS) + "," + String(gpsdata.corrlat, 8) + "," + String(gpsdata.corrlon, 8);
+        buoy[buoy_nr].gsa = SET;
+        sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
+        buoy[buoy_nr].ackOK = true;
         break;
 
     default:

@@ -183,7 +183,7 @@ int polLora(void)
             break;
 
         case (TARGET_POSITION):
-            if (loraIn.gsia == ACK)
+            if (loraIn.id == ACK)
             {
                 buoy[loraIn.sender].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_TARGET_POSITION;
                 buoy[loraIn.sender].status = LOCKED;
@@ -197,30 +197,50 @@ int polLora(void)
             buoy[loraIn.sender].ackOK = loraIn.gsia;
             break;
 
-        case STORE_DOC_POSITION:
-            if (loraIn.gsia == ACK)
+        case _DOC_POSITION:
+            if (loraIn.id == ACK)
             {
                 Serial.println("Doc position SET!");
+                buoy[loraIn.sender].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_TARGET_POSITION;
+                buoy[loraIn.sender].status = LOCKED;
+                buoy[loraIn.sender].ackOK = loraIn.id;
                 buoy[loraIn.sender].ackOK = true;
             }
             break;
 
+        case ANCHOR_POSITION:
+            buoy[loraIn.sender].ackOK = true;
+            Serial.println("New anchor position recieved!");
+            Serial.println(String(loraIn.message));
+            buoy[loraIn.sender].rssi = loraIn.rssi;
+            buoy[loraIn.sender].ackOK = loraIn.id;
+            break;
+
         case (BUOY_MODE_IDLE):
-            if (loraIn.gsia == ACK)
+            if (loraIn.id == ACK)
             {
                 buoy[loraIn.sender].ackOK = true;
             }
             buoy[loraIn.sender].cmnd = BUOY_MODE_IDLE;
             buoy[loraIn.sender].status = IDLE;
+            buoy[loraIn.sender].ackOK = loraIn.id;
             break;
-
+        case (NO_POSITION):
+            if (loraIn.id == ACK)
+            {
+                buoy[loraIn.sender].ackOK = true;
+            }
+            buoy[loraIn.sender].cmnd = NO_POSITION;
+            buoy[loraIn.sender].status = IDLE;
+            buoy[loraIn.sender].ackOK = loraIn.id;
+            break;
         case (BATTERY_VOLTAGE_PERCENTAGE):
             sscanf(messarr, "%f,%d", &lhe, &sp);
             buoy[loraIn.sender].voltage = lhe;
             buoy[loraIn.sender].percentage = sp;
             break;
         default:
-            Serial.println("unknown command: " + loraIn.msgid);
+            Serial.println("unknown command: " + msg);
             break;
         }
         notify = loraIn.sender;
@@ -247,23 +267,17 @@ bool loraMenu(int buoy_nr)
     switch (buoy[buoy_nr].cmnd)
     {
     case LOCKED:
-        loraOut.msgid = SAIL_DIR_SPEED;
-        loraOut.gsia = GET;
-        msg = String(buoy[buoy_nr].cdir) + "," + String(buoy[buoy_nr].cspeed);
+        msg = String(SAIL_DIR_SPEED) + "," + String(buoy[buoy_nr].cdir) + "," + String(buoy[buoy_nr].cspeed);
         sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
         break;
 
     case DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_TARGET_POSITION:
-        loraOut.msgid = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_TARGET_POSITION;
-        loraOut.gsia = SET;
         msg = String(DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_TARGET_POSITION) + "," + String(buoy[buoy_nr].cdir) + "," + String(buoy[buoy_nr].cspeed);
         buoy[buoy_nr].gsa = GET;
         sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
         break;
 
     case SAIL_DIR_SPEED:
-        loraOut.msgid = SAIL_DIR_SPEED;
-        loraOut.gsia = SET;
         msg = String(SAIL_DIR_SPEED) + "," + String(buoy[buoy_nr].cdir) + "," + String(buoy[buoy_nr].cspeed);
         sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
         break;
@@ -278,35 +292,41 @@ bool loraMenu(int buoy_nr)
         sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
         break;
 
-    case STORE_DOC_POSITION:
-        loraOut.msgid = STORE_DOC_POSITION;
-        loraOut.gsia = SET;
-        msg = buoy[buoy_nr].doclatitude + "," + buoy[buoy_nr].doclongitude;
+    case DOC_POSITION:
+        msg = String(DOC_POSITION) + "," + buoy[buoy_nr].doclatitude + "," + buoy[buoy_nr].doclongitude;
         sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
         break;
 
-    case DOC_POSITION:
-        loraOut.msgid = DOC_POSITION;
-        loraOut.gsia = SET;
-        msg = "";
+    case GOTO_DOC_POSITION:
+        msg = String(GOTO_DOC_POSITION);
         sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
         break;
 
     case RESET:
-        loraOut.msgid = DOC_POSITION;
-        loraOut.gsia = INF;
-        msg = "";
+        msg = String(RESET);
         sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
         break;
 
     case BUOY_MODE_IDLE:
-        loraOut.msgid = BUOY_MODE_IDLE;
-        loraOut.gsia = SET;
-        msg = "";
+        msg = String(BUOY_MODE_IDLE);
         sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
         break;
 
     case NO_POSITION:
+        msg = String(NO_POSITION);
+        sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
+        break;
+
+    case DGPS:
+        if (gpsdata.corrlat == 0 && gpsdata.corrlon == 0)
+        {
+            buoy[buoy_nr].ackOK = true;
+            break;
+        }
+        msg = String(DGPS) + "," + String(gpsdata.corrlat, 8) + "," + String(gpsdata.corrlon, 8);
+        buoy[buoy_nr].gsa = SET;
+        sendMessage(msg, buoy_nr, buoy[buoy_nr].gsa);
+        buoy[buoy_nr].ackOK = true;
         break;
 
     default:
