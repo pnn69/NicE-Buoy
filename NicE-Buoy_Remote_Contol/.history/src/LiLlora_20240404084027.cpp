@@ -42,7 +42,7 @@ bool InitLora(void)
     return true;
 }
 
-bool sendMessage(String outgoing, byte dest, byte msg_id, byte gsia)
+bool sendMessage(String outgoing, byte dest, byte id)
 {
     if (lasttransmission + 150 > millis())
     { // prefend fast transmissions
@@ -52,14 +52,27 @@ bool sendMessage(String outgoing, byte dest, byte msg_id, byte gsia)
     LoRa.beginPacket();            // start packet
     LoRa.write(dest);              // add destination address
     LoRa.write(localAddress);      // add sender address
-    LoRa.write(0);                 // status
-    LoRa.write(msg_id);            // add message ID
-    LoRa.write(gsia);              // status
+    LoRa.write(id);                // add message ID
+    LoRa.write(buoy[dest].status); // status
     LoRa.write(outgoing.length()); // add payload length
     LoRa.print(outgoing);          // add payload
     LoRa.endPacket();              // finish packet and send it
+    Serial.print("Lora out Dest:" + String(dest) + " id:" + id + " status: " + String(buoy[dest].status) + " msg:<" + outgoing + ">");
+    if (id == ACK)
+    {
+        Serial.printf(" ACK");
+    }
+    else if (id == SET)
+    {
+        Serial.printf(" SET");
+    }
+    else if (id == GET)
+    {
+        Serial.printf(" GET");
+    }
+    Serial.println();
+
     lasttransmission = millis();
-    Serial.println("Lora out Dest:" + String(dest) + "Status 0,id:" + String(msg_id) + "gsia:" + String(gsia) + " msg:<" + outgoing + ">");
     return 0;
 }
 
@@ -73,7 +86,21 @@ bool sendLoraHello(int buoy)
 int decodeMsg()
 {
     // read packet header bytes:
-    int recipient = LoRa.read(); // address send to
+    int recipient = LoRa.read();      // recipient address
+    byte sender = LoRa.read();        // sender address
+    byte incomingMsgId = LoRa.read(); // incoming msg ID
+    byte bstatus = LoRa.read();
+    int mheading = LoRa.read();        // incoming status (not used yet)
+    byte incomingLength = LoRa.read(); // incoming msg length
+    String incoming = "";
+    while (LoRa.available())
+    {
+        incoming += (char)LoRa.read();
+    }
+    if (incomingLength != incoming.length())
+    {             // check length for error
+        return 0; // skip rest of function
+    }
     // if the recipient isn't this device or broadcast,
     if (recipient != 0xFF && recipient != 0xFE)
     {
@@ -81,26 +108,13 @@ int decodeMsg()
         Serial.println(" Not for me!");
         return 0; // skip rest of function
     }
-    byte sender_l = LoRa.read();         // sender address
-    byte status_l = LoRa.read();         // status
-    byte incomingMsgId_l = LoRa.read();  // msg ID
-    byte gsia_l = LoRa.read();           // get set info
-    byte incomingLength_l = LoRa.read(); // msg length
-    String incoming = "";
-    while (LoRa.available())
-    {
-        incoming += (char)LoRa.read();
-    }
-    if (incomingLength_l != incoming.length())
-    {             // check length for error
-        return 0; // skip rest of function
-    }
     // Get and store the data
-    loraIn.sender = sender_l;
-    loraIn.status = status_l;
-    loraIn.msgid = incomingMsgId_l;
-    LaraIn.gsi = gsia_l;
-    loraIn.messagelength = incomingLength_l;
+    loraIn.recipient = recipient;
+    loraIn.sender = sender;
+    loraIn.id = incomingMsgId;
+    loraIn.status = bstatus;
+    loraIn.heading = mheading;
+    loraIn.messagelength = incomingLength;
     loraIn.message = incoming;
     loraIn.rssi = LoRa.packetRssi();
     loraIn.snr = LoRa.packetSnr();

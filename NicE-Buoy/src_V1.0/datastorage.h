@@ -6,6 +6,7 @@ void GetMemoryAnchorPos(double *lat, double *lon);
 void SetMemoryAnchorPos(double lat, double lon);
 void SetMemoryDockPos(double lat, double lon);
 void GetMemoryDockPos(double *lat, double *lon);
+void MemoryDockPos(double *lat, double *lon, bool get);
 void SetMemoryBuoyID(char id);
 void GetMemoryBuoyID(char *id);
 void Bootcnt(int *bootcnt, bool add);

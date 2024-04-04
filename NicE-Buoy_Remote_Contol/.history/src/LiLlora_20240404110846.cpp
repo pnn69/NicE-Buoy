@@ -52,14 +52,28 @@ bool sendMessage(String outgoing, byte dest, byte msg_id, byte gsia)
     LoRa.beginPacket();            // start packet
     LoRa.write(dest);              // add destination address
     LoRa.write(localAddress);      // add sender address
-    LoRa.write(0);                 // status
+    LoRa.write(status);            // status
     LoRa.write(msg_id);            // add message ID
     LoRa.write(gsia);              // status
     LoRa.write(outgoing.length()); // add payload length
     LoRa.print(outgoing);          // add payload
     LoRa.endPacket();              // finish packet and send it
+    Serial.print("Lora out Dest:" + String(dest) + " id:" + id + " status: " + String(buoy[dest].status) + " msg:<" + outgoing + ">");
+    if (id == ACK)
+    {
+        Serial.printf(" ACK");
+    }
+    else if (id == SET)
+    {
+        Serial.printf(" SET");
+    }
+    else if (id == GET)
+    {
+        Serial.printf(" GET");
+    }
+    Serial.println();
+
     lasttransmission = millis();
-    Serial.println("Lora out Dest:" + String(dest) + "Status 0,id:" + String(msg_id) + "gsia:" + String(gsia) + " msg:<" + outgoing + ">");
     return 0;
 }
 

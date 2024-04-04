@@ -55,6 +55,21 @@ void GetMemoryDockPos(double *lat, double *lon)
     *lon = storage.getDouble("lonDock", 0);
     Serial.printf("Get Doc pos form memory  %.8lf %.8lf\r\n", *lat, *lon);
 }
+void MemoryDockPos(double *lat, double *lon, bool get)
+{
+    if (get)
+    {
+        *lat = storage.getDouble("latDock", 0);
+        *lon = storage.getDouble("lonDock", 0);
+        Serial.printf("Get Doc pos form memory  %.8lf %.8lf\r\n", *lat, *lon);
+    }
+    else
+    {
+        Serial.printf("Store Doc pos in memory  %.8lf %.8lf\r\n", lat, lon);
+        storage.putDouble("latDock", lat);
+        storage.putDouble("lonDock", lon);
+    }
+}
 
 void Bootcnt(int *bootcnt, bool add)
 {

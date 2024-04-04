@@ -9,9 +9,11 @@ struct loraDataType
 {
     byte destination; // destinatioon
     byte sender;      // sender
-    byte status;      // status zender
-    byte msgid;       // id
-    byte gsia;        // get set info ack
+    byte recipient;   // reciever
+    byte gsi;         // get set info
+    byte id;          // message id
+    byte status;
+    int heading;
     byte messagelength;
     String message;
     int rssi;

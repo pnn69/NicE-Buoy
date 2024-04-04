@@ -58,8 +58,22 @@ bool sendMessage(String outgoing, byte dest, byte msg_id, byte gsia)
     LoRa.write(outgoing.length()); // add payload length
     LoRa.print(outgoing);          // add payload
     LoRa.endPacket();              // finish packet and send it
+    Serial.print("Lora out Dest:" + String(dest) + "Status 0,id:" + String(msg_id) + "gsia:" + String(gsia) + " msg:<" + outgoing + ">");
+    if (id == ACK)
+    {
+        Serial.printf(" ACK");
+    }
+    else if (id == SET)
+    {
+        Serial.printf(" SET");
+    }
+    else if (id == GET)
+    {
+        Serial.printf(" GET");
+    }
+    Serial.println();
+
     lasttransmission = millis();
-    Serial.println("Lora out Dest:" + String(dest) + "Status 0,id:" + String(msg_id) + "gsia:" + String(gsia) + " msg:<" + outgoing + ">");
     return 0;
 }
 

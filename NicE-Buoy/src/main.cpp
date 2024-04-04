@@ -97,6 +97,7 @@ void setup()
     digitalWrite(BUZZERPIN, BUZZEROFF);
     InitMemory();
     initMCP23017();
+    color_printf(COLOR_PRINT_BLUE, "Setup running");
     // Bootcnt(&bootCount, true);
     MemoryBuoyID(&buoyID, true);
     LastStatus(&status, &buoy.tglatitude, &buoy.tglongitude, true);

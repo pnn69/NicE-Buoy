@@ -11,7 +11,7 @@ struct loraDataType
     byte sender;      // sender
     byte status;      // status zender
     byte msgid;       // id
-    byte gsia;        // get set info ack
+    byte gsi;         // get set info
     byte messagelength;
     String message;
     int rssi;
