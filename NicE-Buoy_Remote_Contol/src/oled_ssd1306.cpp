@@ -54,19 +54,20 @@ void speedbars(int bb, int sb)
 
     if (sb <= 0)
     {
-        display.fillRect(128 - barwide, 32, barwide, 32 * -sb / 100, WHITE);
+        display.fillRect(SCREEN_WIDTH - barwide, 32, barwide, 32 * -sb / 100, WHITE);
     }
     else
     {
-        display.fillRect(128 - barwide, 32 + 32 * -sb / 100, barwide, 32 * sb / 100, WHITE);
+        display.fillRect(SCREEN_WIDTH - barwide, 32 + 32 * -sb / 100, barwide, 32 * sb / 100, WHITE);
     }
 }
 
-void BatPowerBarr(float perc){
-    int fill=0;
-    fill = 35 * perc/100;
-    display.drawRect(50, 55, 35, 7, WHITE);
-    display.fillRect(50, 55, fill, 7, WHITE);
+void BatPowerBarr(float perc)
+{
+    int fill = 0;
+    fill = (SCREEN_WIDTH - barwide * 2 - 12) * perc / 100;
+    display.drawRect(barwide + 7, 54, SCREEN_WIDTH - barwide * 2 - 12, 10, WHITE);
+    display.fillRect(barwide + 7,54, fill, 10, WHITE);
 }
 
 void ShowBuoyData(int buoyID)
@@ -76,8 +77,6 @@ void ShowBuoyData(int buoyID)
     display.setCursor(6 * 5, 0);
     display.printf("NicE BUOY %d", buoyID);
     display.setCursor(barwide + 7, 10);
-    display.printf("GPS Cource:%d", buoy[buoyID].mdir);
-    display.setCursor(17, 20);
     if (buoy[buoyID].fix)
     {
         display.printf("Fix OK ");
@@ -87,16 +86,17 @@ void ShowBuoyData(int buoyID)
         display.printf("No Fix ");
     }
     display.printf("Rssi:%d", (int)buoy[buoyID].rssi);
+    display.setCursor(barwide + 7, 20);
+    display.printf("Dist: %3.0lfM", buoy[buoyID].tgdistance);
     display.setCursor(barwide + 7, 30);
-    display.printf("Dist: %3ldM", buoy[buoyID].tgdistance);
-    display.setCursor(barwide + 7, 40);
     display.printf("Dir:%3d HDG:%3d", (int)buoy[buoyID].tgdir, (int)buoy[buoyID].mdir);
-    display.setCursor(barwide + 7, 55);
+    display.setCursor(barwide + 7, 40);
     display.printf("%4d%%", buoy[buoyID].speedbb);
-    display.setCursor(128 / 2, 55);
-    display.setCursor(128 - barwide - 5 * 7, 55);
+    display.printf(" D %d", buoy[buoyID].gpscource);
+    display.setCursor(128 / 2, 40);
+    display.setCursor(128 - barwide - 5 * 7, 40);
     display.printf("%4d%%", buoy[buoyID].speedsb);
-    BatPowerBarr( buoy[buoyID].percentage);
+    BatPowerBarr(buoy[buoyID].percentage);
     display.display();
 }
 

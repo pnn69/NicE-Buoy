@@ -42,9 +42,11 @@ void triggerESC(void)
 }
 void beepESC(void)
 {
-    for(int t=0;t<10;t++){
-        triggerESC();
-    }
+    escbb.setPeriodHertz(0);                  // standard 400 hz servo
+    escsb.setPeriodHertz(0);                  // standard 400 hz servo
+    delay(500);
+    escbb.setPeriodHertz(100);                  // standard 400 hz servo
+    escsb.setPeriodHertz(100);                  // standard 400 hz servo
 }
 
 void InitEsc(void)

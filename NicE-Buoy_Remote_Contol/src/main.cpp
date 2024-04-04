@@ -19,17 +19,14 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "../../dependency/command.h"
 
 unsigned long timestamp, msecstamp, hsecstamp, sec5stamp, esctamp;
-static float heading = 0;
-static double gpslatitude = 52.34567, gpslongitude = 4.567;                     // home
-static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
-// static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
-static unsigned long tgdir = 0, tgdistance = 0;
+// static double gpslatitude = 52.34567, gpslongitude = 4.567;                     // home
+// static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
+//  static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
+// static unsigned long tgdir = 0, tgdistance = 0;
 unsigned long previousTime = 0;
 int speedbb = 0, speedsb = 0;
 unsigned int sw_1_cnt = 0;
 bool ledstatus = false;
-static bool ackOK[4];
-static bool switch_IDLE = false;
 static bool switch_REMOTE = false;
 
 const byte numChars = 5;
@@ -221,22 +218,13 @@ void loop()
             }
             else if (buoy[i].status == LOCKED)
             {
-                buoy[i].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_TARGET_POSITION;
+                buoy[i].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
                 buoy[i].gsa = GET;
                 buoy[i].ackOK = false;
                 while (loraMenu(i))
                     ;
             }
         }
-        GetNewGpsData();
-        if (gpsdata.fix == true)
-        {
-            buoy[0].cmnd = DGPS;
-            while (loraMenu(0))
-                ;
-        }
-        // Serial.printf("Batt voltage %0.2f\r\n", adc.vbat);
-
         /*
             repeat last command again.
         */

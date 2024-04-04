@@ -4,7 +4,7 @@
 #include "general.h"
 #include "esp_adc_cal.h"
 
-#define MUTE 400
+#define MUTE 200
 #define MUTE_RUDDER 100
 #define JITTER 20
 struct adcDataType adc;
@@ -43,11 +43,11 @@ void readAdc(void)
     tmp = constrain(tmp, 47, 4047);
     if (tmp < 2000 - MUTE_RUDDER)
     {
-        newValue = map(tmp, 47, 2000 - MUTE_RUDDER, -135, 0); // 4095;
+        newValue = map(tmp, 47, 2000 - MUTE_RUDDER, -170, 0); // 4095;
     }
     else if (tmp > 2000 + MUTE)
     {
-        newValue = map(tmp, 2000 + MUTE_RUDDER, 4047, 0, 135); // 4095;
+        newValue = map(tmp, 2000 + MUTE_RUDDER, 4047, 0, 170); // 4095;
     }
     else
     {

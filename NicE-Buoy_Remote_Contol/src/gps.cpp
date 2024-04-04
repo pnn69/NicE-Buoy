@@ -8,7 +8,6 @@
 
 #define GPSBAUD 9600
 
-static double lat, lng, speed, dir;
 static unsigned int firstfix = 0;
 
 TinyGPSPlus gps;
@@ -126,7 +125,7 @@ int GetNewGpsData(void)
         //in = Serial1.read();
         //Serial.print(in);
         // if (gps.encode(in))
-        if (gps.encode(Serial1.read()))
+        if (gps.encode(Serial1.read())!=0)
             if (gps.location.isValid())
             {
                 gpsdata.lat = gps.location.lat();
@@ -174,7 +173,7 @@ int InitGps(void)
 void GpsTask(void *arg)
 {
     InitGps();
-    double la, lo;
+    //double la, lo;
     while (1)
     {
         GetNewGpsData();

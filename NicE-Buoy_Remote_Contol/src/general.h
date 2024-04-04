@@ -10,7 +10,7 @@ struct buoyDataType
     double gpslatitude, gpslongitude;
     double ancorlatitude, ancorlongitude;
     double doclatitude, doclongitude;
-    unsigned long tgdir, tgdistance;
+    double tgdir, tgdistance;
     int gpscource, mdir, ddir, cdir;
     int gpsspeed, speed, speedbb, speedsb, cspeed;
     int fix;

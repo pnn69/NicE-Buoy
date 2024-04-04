@@ -36,22 +36,25 @@ typedef enum
     DIR_DISTANSE_ANCHOR_POSITION,
     CURREND_POSITION_AS_ANCHOR_POSITION,
     DIR_DISTANSE_TO_TARGET_POSITION,
-    DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_TARGET_POSITION,
+    DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING,
     SAIL_DIR_SPEED,
     SBPWR_BBPWR,
     BUOY_MODE_IDLE,
     SYSTEM_STASTUS,
-    DGPS, // deltaLattitude, deltaLongitude
-    DGPSPOSITION,
     GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING, // lat,lon,fix,heading,speed,m_heading
+    BATTERY_VOLTAGE_PERCENTAGE,
     TXT,
-    RESET,
-    BATTERY_VOLTAGE_PERCENTAGE
+    RESET
 } Command_t;
 
 typedef enum
 {
-    IDLE = 1,
+    GET = 0,
+    SET,
+    ACK,
+    NAK,
+    INF, // info no action
+    IDLE,
     LOCKING,
     LOCKED,
     LOCK_POS,
@@ -60,11 +63,6 @@ typedef enum
     REMOTE,
     DOC,
     REMOTEING,
-    GET,
-    SET,
-    ACK,
-    NAK,
-    INF, // info no action
     CALIBRATE_OFFSET_MAGNETIC_COMPASS
 
 } Status_t;

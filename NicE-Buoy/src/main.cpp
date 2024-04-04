@@ -236,7 +236,7 @@ void loop()
 
         if (gpsdata.fix == true)
         {
-            snd_sq.ledstatus = CRGB(0, 50, 0);
+            snd_sq.ledstatus = CRGB(0, 20, 0);
             SWITCH_GRN_ON;
         }
         else
@@ -244,24 +244,29 @@ void loop()
             // no fix -> blink leds
             if (SWITCH_GRN_READ)
             {
-                snd_sq.ledstatus = CRGB(0, 0, 0);
+                snd_sq.ledstatus = CRGB(20, 0, 0);
                 SWITCH_GRN_OFF;
             }
             else
             {
-                snd_sq.ledstatus = CRGB(0, 50, 0);
+                snd_sq.ledstatus = CRGB(0, 20, 0);
                 SWITCH_GRN_ON;
             }
         }
         xQueueSend(indicatorqueSt, (void *)&snd_sq, 10);
+        /*
+        key handeling
+        */
         if (lst_button_cnt > BUTTON_SHORT && sw_button_cnt == 0)
         {
-            if (lst_button_cnt > BUTTON_LONG)
+            if (lst_button_cnt > BUTTON_LONG) // Button long pressed?
             {
                 if (status != CALIBRATE_OFFSET_MAGNETIC_COMPASS) // check if locked switch is set to active
                 {
                     if (status == IDLE && gpsdata.fix == true) // Do some checks before going in to calibration mode.
                     {
+                        buoy.tglatitude = gpsdata.lat; //set current position as target postion.
+                        buoy.tglongitude = gpsdata.lon;
                         snd_buz.time = 500;
                         snd_buz.repeat = 4;
                         snd_buz.pauze = 25;
@@ -377,7 +382,7 @@ void loop()
             }
             if (offeststamp + 5000 < millis())
             {
-                if (FRONTBUTTON_READ == 0)
+                if (FRONTBUTTON_READ == PUSHED)
                 {
                     snd_buz.time = 200;
                     snd_buz.repeat = 0;
@@ -385,7 +390,7 @@ void loop()
                     xQueueSend(Buzzerque, (void *)&snd_buz, 10);
                     BUTTON_LIGHT_ON;
                     delay(5000);
-                    if (FRONTBUTTON_READ == 0)
+                    if (FRONTBUTTON_READ == PUSHED)
                     {
                         snd_buz.time = 100;
                         snd_buz.repeat = 25;
@@ -435,11 +440,16 @@ void loop()
     if (millis() - sec5stamp > 5000)
     {
         sec5stamp = millis() - 1;
+        loraIn.recipient = 0xFE;
         loraMenu(GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING); // pos heading speed to remote
         loraMenu(BATTERY_VOLTAGE_PERCENTAGE);             // bat voltage and percentage to remote
         if (status == LOCKED)
         {
             loraMenu(DIR_DISTANSE_TO_TARGET_POSITION);
+        }
+        if (status == REMOTE)
+        {
+            loraMenu(SBPWR_BBPWR);
         }
         Serial.printf("Batt percentage %0.1f%% voltage: %0.2fV target distance %0.0lf target dir %0.0lf\r\n", buoy.vperc, buoy.vbatt, buoy.tgdistance, buoy.tgdir);
     }

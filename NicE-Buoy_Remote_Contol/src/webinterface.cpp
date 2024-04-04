@@ -219,7 +219,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             buoy[1].tgdir = 0;
             buoy[1].speed = 0;
             buoy[1].status = DOC;
-            buoy[1].cmnd = GOTO_DOC_POSITION;
+            buoy[1].cmnd = DOC_POSITION;
             buoy[1].ackOK = false;
             buoy[1].gsa = SET;
         }

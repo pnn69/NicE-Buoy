@@ -43,8 +43,8 @@ void speedbars(int sb, int bb)
     //     sb = 1;
     // if (bb == 0)
     //     bb = 1;
-    bb = constrain(bb,-100,100);
-    sb = constrain(sb,-100,100);
+    bb = constrain(bb, -100, 100);
+    sb = constrain(sb, -100, 100);
     display.drawRect(0, 0, barwide, 64, WHITE);
     display.drawRect(128 - barwide, 0, barwide, 64, WHITE);
     if (bb <= 0)
@@ -66,11 +66,12 @@ void speedbars(int sb, int bb)
     }
 }
 
-void BatPowerBarr(float perc){
-    int fill=0;
-    fill = 35 * perc/100;
-    display.drawRect(50, 55, 35, 7, WHITE);
-    display.fillRect(50, 55, fill, 7, WHITE);
+void BatPowerBarr(float perc)
+{
+    int fill = 0;
+    fill = (SCREEN_WIDTH - barwide * 2 - 12) * perc / 100;
+    display.drawRect(barwide + 7, 54, SCREEN_WIDTH - barwide * 2 - 12, 10, WHITE);
+    display.fillRect(barwide + 7, 54, fill, 10, WHITE);
 }
 
 void udateDisplay(int sb, int bb, unsigned long distance, unsigned long direction, unsigned long mdirection, bool fix)
@@ -81,16 +82,14 @@ void udateDisplay(int sb, int bb, unsigned long distance, unsigned long directio
         display.setCursor(6 * 5, 0);
         display.printf("NicE BUOY %d", buoyID);
         display.setCursor(barwide + 7, 10);
-        display.printf("GPS Cource:%0.1lf", gpsdata.cource);
-        display.setCursor(17, 20);
         display.printf("Stat:%d Rssi:%d", status, loraIn.rssi);
-        display.setCursor(barwide + 7, 30);
+        display.setCursor(barwide + 7, 20);
         display.printf("Dist: %3ldM", distance);
-        display.setCursor(barwide + 7, 40);
+        display.setCursor(barwide + 7, 30);
         display.printf("Dir:%3d HDG:%3d", (int)direction, (int)mdirection);
-        display.setCursor(barwide + 7, 55);
+        display.setCursor(barwide + 7, 40);
         display.printf("%4d%%", bb);
-        display.setCursor(128 - barwide - 5 * 7, 55);
+        display.setCursor(128 - barwide - 5 * 7, 40);
         display.printf("%4d%%", sb);
         speedbars(sb, bb);
         BatPowerBarr(buoy.vperc);

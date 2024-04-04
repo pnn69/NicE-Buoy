@@ -1,9 +1,9 @@
 #include <Arduino.h>
 #include <math.h>
 
-#define BOUYMINOFFSETDISTANCE 2  // Offset for taking action for position controll. Can be 0 till infinety but moste likely 1 - 5
+#define BOUYMINOFFSETDISTANCE 5  // Offset for taking action for position controll. Can be 0 till infinety but moste likely 1 - 5
 #define BOUYMAXOFFSETDISTANCE 20 // Max distance go full speed from here
-#define BOUYMINSPEED 10
+#define BOUYMINSPEED 5
 #define BUOYMAXCORRECTIONSPEED 50
 
 double smallestAngle(double heading1, double heading2)

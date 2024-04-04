@@ -12,11 +12,12 @@
 
 struct loraDataType
 {
-    byte destination;
-    byte sender;
-    int recipient;
-    byte id;
-    byte status;
+    byte recipient;   // destinatioon
+    byte destination; // destinatioon
+    byte sender;      // sender
+    byte status;      // status zender
+    byte msgid;       // id
+    byte gsia;        // get set info ack
     byte messagelength;
     String message;
     int rssi;

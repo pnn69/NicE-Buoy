@@ -22,10 +22,9 @@ extern loraDataType loraIn;
 extern loraDataType loraOut;
 extern bool loraOK;
 
-bool sendMessage(String outgoing, byte dest, byte id);
+bool sendMessage(String outgoing, byte dest, byte msg_id, byte gsia);
 bool InitLora(void);
 int polLora(void);
-bool sendLoraHello(int buoy);
 bool loraMenu(int buoy_nr);
 
 #endif /* LORA_H_ */
