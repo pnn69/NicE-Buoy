@@ -74,7 +74,7 @@ void BatPowerBarr(float perc)
     display.fillRect(barwide + 7, 54, fill, 10, WHITE);
 }
 
-void udateDisplay(int sb, int bb, unsigned long distance, unsigned long direction, unsigned long mdirection, bool fix)
+void udateDisplay(int sb, int bb, unsigned long distance, unsigned int direction, unsigned int mdirection, bool fix)
 {
     if (displayOK)
     {

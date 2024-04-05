@@ -5,6 +5,9 @@
 #define DEBUG true
 #include "Arduino.h"
 
+#define PUSHED 0
+#define RELEASED 1
+
 struct buoyDataType
 {
     double gpslatitude, gpslongitude;
@@ -24,6 +27,7 @@ struct buoyDataType
     byte gsa;
     float voltage;
     int percentage;
+    int dataout;
 };
 
 extern bool ledstatus;

@@ -9,9 +9,16 @@
 #define GPSBAUD 9600
 
 bool gpsvalid = false;
+bool gpsactive = true;
 
 TinyGPSPlus gps;
 GpsDataType gpsdata;
+
+void InitGps(void)
+{
+    Serial1.begin(GPSBAUD, SERIAL_8N1, GPSRX, GPSTX);
+    Serial.println(PSTR("GPS port created"));
+}
 
 static void printFloat(float val, bool valid, int len, int prec)
 {
@@ -119,6 +126,11 @@ void displayGPSInfo(void)
 */
 int GetNewGpsData()
 {
+    if (gpsactive == false) //disabled for dummy data added external
+    {
+        //while (Serial1.available() > 0); //flush data
+        return (0);
+    }
     while (Serial1.available() > 0)
     {
         if (gps.encode(Serial1.read()))
@@ -127,8 +139,6 @@ int GetNewGpsData()
             {
                 gpsdata.lat = gps.location.lat();
                 gpsdata.lon = gps.location.lng();
-                gpsdata.dlat = gpsdata.lat + gpsdata.corrlat;
-                gpsdata.dlon = gpsdata.lon + gpsdata.corrlon;
                 if (gps.speed.isValid())
                 {
                     gpsdata.speed = gps.speed.kmph();
@@ -163,24 +173,7 @@ void RouteToPoint(double lat1, double lon1, double lat2, double lon2, double *di
 {
     *distance = (unsigned long)gps.distanceBetween(lat1, lon1, lat2, lon2);
     *direction = gps.courseTo(lat1, lon1, lat2, lon2);
-    //Serial.printf("distance: %.2lf Direction: %.3lf\r\n",distance,direction);
-    //Serial.printf("Lat1: %.8lf Lon1: %.8lf\r\n",lat1,lon1);
-    //Serial.printf("Lat2: %.8lf Lon2: %.8lf\r\n",lat2,lon2);
-}
-
-int InitGps(void)
-{
-    Serial1.begin(GPSBAUD, SERIAL_8N1, GPSRX, GPSTX);
-    Serial.println(PSTR("GPS port created"));
-    return 1;
-}
-
-void GpsTask(void *arg)
-{
-    InitGps();
-    while (1)
-    {
-        GetNewGpsData();
-        delay(500);
-    }
+    // Serial.printf("distance: %.2lf Direction: %.3lf\r\n",distance,direction);
+    // Serial.printf("Lat1: %.8lf Lon1: %.8lf\r\n",lat1,lon1);
+    // Serial.printf("Lat2: %.8lf Lon2: %.8lf\r\n",lat2,lon2);
 }

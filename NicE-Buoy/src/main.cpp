@@ -97,6 +97,7 @@ void setup()
     digitalWrite(BUZZERPIN, BUZZEROFF);
     InitMemory();
     initMCP23017();
+    InitGps();
     color_printf(COLOR_PRINT_BLUE, "Setup running");
     // Bootcnt(&bootCount, true);
     MemoryBuoyID(&buoyID, true);
@@ -111,10 +112,6 @@ void setup()
     if (!InitCompass())
     {
         Serial.println("Compas OK!");
-    }
-    if (InitGps())
-    {
-        Serial.println("GPS OK!");
     }
     BUTTON_LIGHT_OFF;
     xTaskCreate(IndicatorTask, "IndicatorTask", 2400, NULL, 1, NULL);
@@ -216,17 +213,18 @@ void loop()
         else
         {
             sw_button_cnt = 0;
+            if (lst_button_cnt < BUTTON_SHORT)
+            {
+                lst_button_cnt = 0;
+            }
         }
     } /*Done 10 msec loop*/
 
     if (millis() - hstamp > 100) /*100 msec loop*/
     {
         hstamp = millis() - 1;
-        if (GetNewGpsData())
-        {
-            buoy.mheading = CompassAverage(GetHeading());
-            // Serial.printf( "heading %f\r\n",buoy.mheading);
-        }
+        buoy.mheading = CompassAverage(GetHeading());
+        GetNewGpsData();
     }
 
     // do stuff every 0.5 second
@@ -265,7 +263,7 @@ void loop()
                 {
                     if (status == IDLE && gpsdata.fix == true) // Do some checks before going in to calibration mode.
                     {
-                        buoy.tglatitude = gpsdata.lat; //set current position as target postion.
+                        buoy.tglatitude = gpsdata.lat; // set current position as target postion.
                         buoy.tglongitude = gpsdata.lon;
                         snd_buz.time = 500;
                         snd_buz.repeat = 4;
@@ -329,6 +327,7 @@ void loop()
             xQueueSend(indicatorqueBb, (void *)&snd_sq, 10);
             buoy.tgdistance = 0;
             buoy.tgdir = 0;
+
         case NO_POSITION:
         case IDLE:
             buoy.speed = 0;
@@ -337,6 +336,7 @@ void loop()
             BUTTON_LIGHT_OFF;
             SWITCH_RED_OFF;
             break;
+
         case REMOTE:
             CalcEngingSpeed(buoy.cdir, 0, buoy.cspeed, &buoy.speedbb, &buoy.speedsb);
             BUTTON_LIGHT_OFF;
@@ -351,9 +351,10 @@ void loop()
                 SWITCH_GRN_ON;
             }
             break;
+
         case LOCKED:
-            RouteToPoint(gpsdata.dlat, gpsdata.dlon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
-            if (buoy.tgdistance < 2000)                                                                                 // test if target is in range
+            RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
+            if (buoy.tgdistance < 2000)                                                                               // test if target is in range
             {
                 buoy.speed = CalcEngingSpeedBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, &buoy.speedbb, &buoy.speedsb);
             }
@@ -364,6 +365,7 @@ void loop()
             BUTTON_LIGHT_ON;
             SWITCH_RED_OFF;
             break;
+
         case CALIBRATE_OFFSET_MAGNETIC_COMPASS: // Calibrate offset magnetic compass due mouning errors
             SWITCH_RED_ON;
             SWITCH_GRN_OFF;
@@ -396,8 +398,8 @@ void loop()
                         snd_buz.repeat = 25;
                         snd_buz.pauze = 25;
                         xQueueSend(Buzzerque, (void *)&snd_buz, 10);
-                        RouteToPoint(gpsdata.dlat, gpsdata.dlon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
-                        callibratCompassOfest((int)(buoy.tgdir - GetHeadingRaw()));                                                 // store magnetic comensation
+                        RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
+                        callibratCompassOfest((int)(buoy.tgdir - GetHeadingRaw()));                                               // store magnetic comensation
                         debugln("New offset stored");
                         delay(200);
                         GetHeadingRaw();
@@ -413,6 +415,7 @@ void loop()
                 }
             }
             break;
+
         default:
             buoy.speed = 0;
             buoy.speedbb = 0;
@@ -425,7 +428,7 @@ void loop()
         /*
         Update dislpay
         */
-        udateDisplay(buoy.speedsb, buoy.speedbb, buoy.tgdistance, buoy.tgdir, (unsigned long)buoy.mheading, gpsvalid);
+        udateDisplay(buoy.speedsb, buoy.speedbb, (unsigned long)buoy.tgdistance, (unsigned int)buoy.tgdir, (unsigned int)buoy.mheading, gpsvalid);
     }
 
     // // do stuff every second
@@ -443,15 +446,12 @@ void loop()
         loraIn.recipient = 0xFE;
         loraMenu(GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING); // pos heading speed to remote
         loraMenu(BATTERY_VOLTAGE_PERCENTAGE);             // bat voltage and percentage to remote
+        loraMenu(SBPWR_BBPWR);
         if (status == LOCKED)
         {
             loraMenu(DIR_DISTANSE_TO_TARGET_POSITION);
         }
-        if (status == REMOTE)
-        {
-            loraMenu(SBPWR_BBPWR);
-        }
-        Serial.printf("Batt percentage %0.1f%% voltage: %0.2fV target distance %0.0lf target dir %0.0lf\r\n", buoy.vperc, buoy.vbatt, buoy.tgdistance, buoy.tgdir);
+        // Serial.printf("Batt percentage %0.1f%% voltage: %0.2fV target distance %0.0lf target dir %0.0lf\r\n", buoy.vperc, buoy.vbatt, buoy.tgdistance, buoy.tgdir);
     }
 
     int nr;

@@ -24,13 +24,11 @@ bool initSSD1306(void)
     displayOK = true;
     Serial.println(F("SSD1306 allocation OK"));
     display.clearDisplay();
-    display.setTextSize(1);
+    display.setTextSize(2);
     display.setTextColor(WHITE);
-    display.setCursor(6 * 7, 10);
-    display.print("NicE BUOY");
-    display.setCursor(3 * 7, 20);
-    display.print("Sailing for you!");
+    display.print("NicE BUOY\n\rSailing\n\rfor you!!!");
     display.display();
+    display.setTextSize(1);
     return true;
 }
 
@@ -67,7 +65,7 @@ void BatPowerBarr(float perc)
     int fill = 0;
     fill = (SCREEN_WIDTH - barwide * 2 - 12) * perc / 100;
     display.drawRect(barwide + 7, 54, SCREEN_WIDTH - barwide * 2 - 12, 10, WHITE);
-    display.fillRect(barwide + 7,54, fill, 10, WHITE);
+    display.fillRect(barwide + 7, 54, fill, 10, WHITE);
 }
 
 void ShowBuoyData(int buoyID)
@@ -91,6 +89,7 @@ void ShowBuoyData(int buoyID)
     display.setCursor(barwide + 7, 30);
     display.printf("Dir:%3d HDG:%3d", (int)buoy[buoyID].tgdir, (int)buoy[buoyID].mdir);
     display.setCursor(barwide + 7, 40);
+    buoy[buoyID].speedbb = constrain(buoy[buoyID].speedbb, -100, 100);
     display.printf("%4d%%", buoy[buoyID].speedbb);
     display.printf(" D %d", buoy[buoyID].gpscource);
     display.setCursor(128 / 2, 40);
@@ -100,7 +99,20 @@ void ShowBuoyData(int buoyID)
     display.display();
 }
 
-void udateDisplay(void)
+void showDip(char s, String p)
+{
+    display.clearDisplay();
+    display.setTextSize(s);
+    display.setCursor(0, 0);
+    char pout[100];
+    p.toCharArray(pout, p.length() + 1);
+    display.println(pout);
+    display.setTextSize(1);
+    display.setTextColor(WHITE);
+    display.display();
+}
+
+void updateDisplay(void)
 {
     if (displayOK)
     {

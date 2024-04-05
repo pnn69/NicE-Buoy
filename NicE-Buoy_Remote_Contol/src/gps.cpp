@@ -119,13 +119,14 @@ void displayGPSInfo(void)
 */
 int GetNewGpsData(void)
 {
-    //char in;
+    // char in;
     while (Serial1.available() > 0)
     {
-        //in = Serial1.read();
-        //Serial.print(in);
-        // if (gps.encode(in))
-        if (gps.encode(Serial1.read())!=0)
+        // in = Serial1.read();
+        // Serial.print(in);
+        //  if (gps.encode(in))
+        if (gps.encode(Serial1.read()) != 0)
+        {
             if (gps.location.isValid())
             {
                 gpsdata.lat = gps.location.lat();
@@ -147,6 +148,7 @@ int GetNewGpsData(void)
             {
                 gpsdata.fix = false;
             }
+        }
     }
     return 0;
 }
@@ -165,7 +167,7 @@ void RouteToPoint(double lat1, double lon1, double lat2, double lon2, unsigned l
 
 int InitGps(void)
 {
-//    Serial1.begin(GPSBAUD, SERIAL_8N1, GPS_RX, GPS_TX);
+    //    Serial1.begin(GPSBAUD, SERIAL_8N1, GPS_RX, GPS_TX);
     Serial.println(PSTR("GPS port created"));
     return 0;
 }
@@ -173,7 +175,7 @@ int InitGps(void)
 void GpsTask(void *arg)
 {
     InitGps();
-    //double la, lo;
+    // double la, lo;
     while (1)
     {
         GetNewGpsData();

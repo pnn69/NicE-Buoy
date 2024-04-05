@@ -18,6 +18,9 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "gps.h"
 #include "../../dependency/command.h"
 
+#define SHORTKEYDELAY 10
+#define LONGKEYDELAY 100
+
 unsigned long timestamp, msecstamp, hsecstamp, sec5stamp, esctamp;
 // static double gpslatitude = 52.34567, gpslongitude = 4.567;                     // home
 // static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
@@ -25,7 +28,8 @@ unsigned long timestamp, msecstamp, hsecstamp, sec5stamp, esctamp;
 // static unsigned long tgdir = 0, tgdistance = 0;
 unsigned long previousTime = 0;
 int speedbb = 0, speedsb = 0;
-unsigned int sw_1_cnt = 0;
+unsigned int button_cnt = 0;
+unsigned int lst_button_cnt = 0;
 bool ledstatus = false;
 static bool switch_REMOTE = false;
 
@@ -76,7 +80,7 @@ void setup()
     InitLora();
     websetup();
     readAdc();
-    InitGps();
+    // InitGps();
     color_printf(COLOR_PRINT_BLUE, "Setup running");
     adc.newdata = false;
     Serial.println("Setup done.");
@@ -101,7 +105,6 @@ void loop()
 
     if (polLora())
     {
-        udateDisplay();
         notify = loraIn.sender;
     }
 
@@ -113,14 +116,37 @@ void loop()
         msecstamp = millis();
         digitalWrite(LED_PIN, ledstatus);
         ledstatus = false;
-        if (digitalRead(SW_P_1) == 0)
+        if (digitalRead(SW_P_1) == PUSHED)
         {
-            sw_1_cnt++;
+            button_cnt++;
+            lst_button_cnt = button_cnt;
         }
         else
         {
-            sw_1_cnt = 0;
+            button_cnt = 0;
+            if (lst_button_cnt < SHORTKEYDELAY)
+            {
+                lst_button_cnt = 0;
+            }
         }
+    }
+
+    if (button_cnt > SHORTKEYDELAY)
+    {
+        if (button_cnt > LONGKEYDELAY)
+        {
+            String out = "PUSHED\r\nLONG";
+            showDip(3, out);
+        }
+        else
+        {
+            String out = "PUSHED";
+            showDip(3, out);
+        }
+    }
+    else
+    {
+        updateDisplay();
     }
 
     /*
@@ -132,59 +158,109 @@ void loop()
     }
 
     /*
-     runs each 100 msec
-     read adc values and send new setting if has been updated by user
-     */
+    runs each 100 msec
+    read adc values and send new setting if has been updated by user
+    */
     if (millis() - hsecstamp >= 100)
     {
         hsecstamp = millis();
         readAdc();
-        if (sw_pos == SW_RIGHT && sw_1_cnt > 10)
+        if (button_cnt == 0 && lst_button_cnt > SHORTKEYDELAY)
         {
-            buoy[1].status = REMOTE;
-            buoy[1].cmnd = SAIL_DIR_SPEED;
-            if (switch_REMOTE != 1)
+            if (lst_button_cnt < LONGKEYDELAY)
             {
+                if (sw_pos == SW_RIGHT)
+                {
+                    buoy[1].status = REMOTE;
+                    buoy[1].cmnd = SAIL_DIR_SPEED;
+                    if (switch_REMOTE != 1)
+                    {
 
-                switch_REMOTE = 1;
-                buoy[1].cdir = 0;
-                buoy[1].cspeed = 0;
-                buoy[1].speed = 0;
-                buoy[1].speedbb = 0;
-                buoy[1].speedsb = 0;
-                buoy[1].status = LOCKING;
-                buoy[1].cmnd = TARGET_POSITION;
-                buoy[1].ackOK = false;
-                buoy[1].gsa = SET;
-                adc.newdata = true;
-                radiobutton[1] = 2;
-                notify = true;
+                        switch_REMOTE = 1;
+                        buoy[1].cdir = 0;
+                        buoy[1].cspeed = 0;
+                        buoy[1].speed = 0;
+                        buoy[1].speedbb = 0;
+                        buoy[1].speedsb = 0;
+                        buoy[1].status = LOCKING;
+                        buoy[1].cmnd = TARGET_POSITION;
+                        buoy[1].ackOK = false;
+                        buoy[1].gsa = SET;
+                        adc.newdata = true;
+                        radiobutton[1] = 2;
+                        notify = true;
+                    }
+                    String out = "REMOTE";
+                    showDip(3, out);
+                    delay(1000);
+                }
+                else if (sw_pos == SW_LEFT)
+                {
+                    buoy[1].status = LOCKING;
+                    buoy[1].cmnd = TARGET_POSITION;
+                    switch_REMOTE = 0;
+                    String out = "LOCKED";
+                    showDip(3, out);
+                    delay(1000);
+                }
+                else if (sw_pos == SW_MID)
+                {
+
+                    switch_REMOTE = 0;
+                    buoy[1].cdir = 0;
+                    buoy[1].cspeed = 0;
+                    buoy[1].speed = 0;
+                    buoy[1].speedbb = 0;
+                    buoy[1].speedsb = 0;
+                    buoy[1].status = IDLE;
+                    buoy[1].cmnd = NO_POSITION;
+                    buoy[1].ackOK = false;
+                    buoy[1].gsa = SET;
+                    radiobutton[1] = 6;
+                    notify = true;
+                    String out = "IDLE";
+                    showDip(4, out);
+                    delay(1000);
+                }
             }
-        }
-        if (sw_pos == SW_LEFT && sw_1_cnt > 10)
-        {
-            buoy[1].status = LOCKING;
-            buoy[1].cmnd = TARGET_POSITION;
-            switch_REMOTE = 0;
-        }
-        if (sw_pos == SW_MID && sw_1_cnt > 10)
-        {
+            else // long key pressed
+            {
+                if (sw_pos == SW_RIGHT) // sail to dock positon
+                {
+                    buoy[1].status = DOCK_STORING;
+                    buoy[1].cmnd = STORE_POS_AS_DOC_POSITION;
+                    buoy[1].gsa = SET;
+                    String out = "STORE\r\nDOC POS";
+                    showDip(3, out);
+                    delay(1000);
+                    while (loraMenu(1))
+                        ;
+                    switch_REMOTE = 0;
+                }
+                else if (sw_pos == SW_LEFT)
+                {
+                    buoy[1].status = DOCKING;
+                    buoy[1].cmnd = DOC_POSITION;
+                    buoy[1].gsa = SET;
+                    String out = "SALING\r\n HOME";
+                    showDip(3, out);
+                    delay(1000);
+                    while (loraMenu(1))
+                        ;
+                    switch_REMOTE = 0;
+                }
 
-            switch_REMOTE = 0;
-            buoy[1].cdir = 0;
-            buoy[1].cspeed = 0;
-            buoy[1].speed = 0;
-            buoy[1].speedbb = 0;
-            buoy[1].speedsb = 0;
-            buoy[1].status = IDLE;
-            buoy[1].cmnd = NO_POSITION;
-            buoy[1].ackOK = false;
-            buoy[1].gsa = SET;
-            radiobutton[1] = 6;
-            notify = true;
+                else if (sw_pos == SW_MID)
+                {
+                    String out = "IDLE";
+                    showDip(4, out);
+                    delay(1000);
+                    buoy[1].status = IDLE;
+                }
+            }
+            lst_button_cnt = 0;
         }
-        // for (int i = 1; i < NR_BUOYS; i++)
-        // {
+
         int i = 1;
         if (buoy[i].status == REMOTE)
         {
@@ -195,12 +271,13 @@ void loop()
                 buoy[i].cdir = adc.rudder;
                 buoy[i].cmnd = SAIL_DIR_SPEED;
                 buoy[i].gsa = SET;
+                buoy[i].ackOK = true;
                 adc.newdata = false;
                 while (loraMenu(i))
                     ;
+                delay(100);
             }
         }
-        //        }
     }
 
     if (millis() - previousTime >= 1000)
@@ -212,7 +289,6 @@ void loop()
             {
                 buoy[i].cmnd = TARGET_POSITION;
                 buoy[i].gsa = SET;
-                buoy[i].ackOK = true;
                 while (loraMenu(i))
                     ;
             }
@@ -220,7 +296,20 @@ void loop()
             {
                 buoy[i].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
                 buoy[i].gsa = GET;
-                buoy[i].ackOK = false;
+                while (loraMenu(i))
+                    ;
+            }
+            else if (buoy[i].status == DOCKING)
+            {
+                buoy[i].cmnd = DOC_POSITION;
+                buoy[i].gsa = SET;
+                while (loraMenu(i))
+                    ;
+            }
+            else if (buoy[i].status == DOCK_STORING)
+            {
+                buoy[i].cmnd = STORE_POS_AS_DOC_POSITION;
+                buoy[i].gsa = SET;
                 while (loraMenu(i))
                     ;
             }
@@ -237,11 +326,39 @@ void loop()
         }
     }
 
-    // int nr;
-    // if (serialPortDataIn(&nr))
-    // {
-    //     Serial.printf("New data on serial port: %d\n", nr);
-    // }
+    if (Serial.available())
+    {
+        char nr;
+        nr = Serial.read();
+        // Serial.printf("New data on serial port: %c\n", nr);
+        switch (nr)
+        {
+        case '1':
+            buoy[1].cmnd = GPS_DUMMY;
+            buoy[1].dataout = 1;
+            loraMenu(1);
+            buoy[1].cmnd = 0;
+            break;
+        case '0':
+            buoy[1].cmnd = GPS_DUMMY;
+            buoy[1].dataout = 0;
+            loraMenu(1);
+            buoy[1].cmnd = 0;
+            break;
+        case '+':
+            buoy[1].cmnd = GPS_DUMMY_DELTA_LAT_LON;
+            buoy[1].dataout = 1;
+            loraMenu(1);
+            buoy[1].cmnd = 0;
+            break;
+        case '-':
+            buoy[1].cmnd = GPS_DUMMY_DELTA_LAT_LON;
+            buoy[1].dataout = 0;
+            loraMenu(1);
+            buoy[1].cmnd = 0;
+            break;
+        }
+    }
 
     delay(1);
 }
