@@ -71,21 +71,46 @@ void BatPowerBarr(float perc)
 void ShowBuoyData(int buoyID)
 {
     display.clearDisplay();
+    // putchar(x & (1u << i) ? '1' : '0');
     speedbars(buoy[buoyID].speedbb, buoy[buoyID].speedsb);
-    display.setCursor(6 * 5, 0);
+    display.setCursor(barwide + 7, 0);
     display.printf("NicE BUOY %d", buoyID);
-    display.setCursor(barwide + 7, 10);
     if (buoy[buoyID].fix)
     {
-        display.printf("Fix OK ");
+        display.printf("    *");
     }
     else
     {
-        display.printf("No Fix ");
+        display.printf("    0");
     }
+    String st;
+    switch (buoy[buoyID].status)
+    {
+    case LOCKED:
+        st = "LOCKED";
+        break;
+    case REMOTE:
+        st = "REMOTE";
+        break;
+    case DOCKING:
+        st = "DOCKING";
+        break;
+    case IDLE:
+        st = "IDLE";
+        break;
+    default:
+        st = "";
+        break;
+    }
+    display.setCursor(barwide + 7, 10);
+    display.print(st);
+    display.setCursor(barwide + 55, 10);
     display.printf("Rssi:%d", (int)buoy[buoyID].rssi);
     display.setCursor(barwide + 7, 20);
-    display.printf("Dist: %3.0lfM", buoy[buoyID].tgdistance);
+    if (buoy[buoyID].status == LOCKED)
+    {
+        display.printf("Dist: %4.1lfM", buoy[buoyID].tgdistance);
+    }
     display.setCursor(barwide + 7, 30);
     display.printf("Dir:%3d HDG:%3d", (int)buoy[buoyID].tgdir, (int)buoy[buoyID].mdir);
     display.setCursor(barwide + 7, 40);

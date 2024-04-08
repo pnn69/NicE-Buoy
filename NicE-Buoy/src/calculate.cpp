@@ -1,10 +1,10 @@
 #include <Arduino.h>
 #include <math.h>
 
-#define BOUYMINOFFSETDISTANCE 5  // Offset for taking action for position controll. Can be 0 till infinety but moste likely 1 - 5
-#define BOUYMAXOFFSETDISTANCE 20 // Max distance go full speed from here
-#define BOUYMINSPEED 5
-#define BUOYMAXCORRECTIONSPEED 50
+#define BOUYMINOFFSETDISTANCE 1 // Offset for taking action for position controll. Can be 0 till infinety but moste likely 1 - 5
+#define BOUYMAXOFFSETDISTANCE 8 // Max distance go full speed from here
+#define BOUYMINSPEED 0
+#define MAXCORRECTIONSPEEDPERC 80
 
 double smallestAngle(double heading1, double heading2)
 {
@@ -72,7 +72,7 @@ if heading > 180 SB motor 100% and BB motor less
 Speed is a function of distance start slowing donw if Buoy is less than 10 meter away for targed
 The distance is in meters.
 */
-int CalcEngingSpeedBuoy(float magheading, int tgheading, unsigned long tgdistance, int *bb, int *sb)
+int CalcEngingSpeedBuoy(double magheading, float tgheading, double tgdistance, int *bb, int *sb)
 {
     int speed = 0;
     double correctonAngle = 0;
@@ -83,7 +83,7 @@ int CalcEngingSpeedBuoy(float magheading, int tgheading, unsigned long tgdistanc
     else
     {
         tgdistance = constrain(tgdistance, BOUYMINOFFSETDISTANCE, BOUYMAXOFFSETDISTANCE);
-        speed = map(tgdistance, BOUYMINOFFSETDISTANCE, BOUYMAXOFFSETDISTANCE, BOUYMINSPEED, BUOYMAXCORRECTIONSPEED); // map speed 1-10 meter -> BOUYMINSPEED - BUOYMAXCORRECTIONSPEED %
+        speed = map(tgdistance * 100.0, BOUYMINOFFSETDISTANCE * 100.0, BOUYMAXOFFSETDISTANCE * 100.0, BOUYMINSPEED * 100.0, MAXCORRECTIONSPEEDPERC * 100.0) / 100.0; // map speed 1-10 meter -> BOUYMINSPEED - MAXCORRECTIONSPEEDPERC %
     }
 
     // Angle between calculated angel to steer and the current direction of the vessel

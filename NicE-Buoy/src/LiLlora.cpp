@@ -330,7 +330,7 @@ bool loraMenu(int cmnd)
     switch (cmnd)
     {
     case GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING:
-        loraOut.message = String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.fix) + "," + String((int)gpsdata.cource) + "," + String((int)gpsdata.speed) + "," + String(buoy.mheading, 0);
+        loraOut.message = String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.fix) + "," + String(gpsdata.cource) + "," + String((int)gpsdata.speed) + "," + String(buoy.mheading, 0);
         loraOut.destination = loraIn.recipient;
         loraOut.msgid = cmnd;
         loraOut.gsia = SET;
@@ -346,7 +346,7 @@ bool loraMenu(int cmnd)
             ;
         break;
     case DIR_DISTANSE_TO_TARGET_POSITION:
-        loraOut.message = String((int)buoy.tgdir) + "," + String((int)buoy.tgdistance);
+        loraOut.message = String((int)buoy.tgdir) + "," + String(buoy.tgdistance,1);
         loraOut.destination = loraIn.recipient;
         loraOut.msgid = cmnd;
         loraOut.gsia = SET;

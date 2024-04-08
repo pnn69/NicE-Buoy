@@ -66,8 +66,8 @@ bool sendMessage(String outgoing, byte dest, byte msg_id, byte gsia)
 int decodeMsg()
 {
     // read packet header bytes:
-    int recipient = LoRa.read();                // address send to
-    if (recipient != 0xFF && recipient != 0xFE) // if the recipient isn't this device or broadcast,
+    int recipient = LoRa.read();                                  // address send to
+    if (recipient != 0xFF && recipient != 0xFE && recipient != 1) // if the recipient isn't this device or broadcast,
     {
         Serial.print(recipient);
         Serial.println(" < Not for me!");
@@ -114,7 +114,7 @@ int polLora(void)
 
     String decode = loraIn.message;
     char messarr[100];
-    int dir, dist;
+    double dir, dist;
     int sp, sb, bb;
     float lhe;
     Serial.println("Lora:" + String(loraIn.sender) + " RSSI:" + String(loraIn.rssi) + " msgid:" + String(loraIn.msgid) + " gsia:" + String(loraIn.gsia) + " <" + loraIn.message + "> status:" + String(loraIn.status));
@@ -136,12 +136,11 @@ int polLora(void)
             // Serial.println("direction and distance target recieved!");
             if (loraIn.gsia == SET)
             {
-
-                sscanf(messarr, "%d,%d", &dir, &dist);
+                sscanf(messarr, "%lf,%lf", &dir, &dist);
                 buoy[loraIn.sender].tgdir = dir;
                 buoy[loraIn.sender].tgdistance = dist;
                 buoy[loraIn.sender].rssi = loraIn.rssi;
-                buoy[loraIn.sender].ackOK = loraIn.gsia;
+                buoy[loraIn.sender].ackOK = true;
             }
             break;
 
@@ -157,7 +156,7 @@ int polLora(void)
                        &buoy[loraIn.sender].speedsb,
                        &buoy[loraIn.sender].mdir);
                 buoy[loraIn.sender].rssi = loraIn.rssi;
-                buoy[loraIn.sender].ackOK = loraIn.gsia;
+                buoy[loraIn.sender].ackOK = true;
             }
             break;
 
@@ -173,6 +172,7 @@ int polLora(void)
                        &buoy[loraIn.sender].mdir);
                 buoy[loraIn.sender].rssi = loraIn.rssi;
                 buoy[loraIn.sender].ackOK = loraIn.gsia;
+                buoy[loraIn.sender].ackOK = true;
             }
             break;
 
@@ -187,7 +187,8 @@ int polLora(void)
                 buoy[loraIn.sender].speedsb = sb;
                 buoy[loraIn.sender].speedbb = bb;
                 buoy[loraIn.sender].rssi = loraIn.rssi;
-                buoy[loraIn.sender].ackOK = loraIn.gsia;
+                buoy[loraIn.sender].ackOK = true;
+                // Serial.printf("direction and speed bb:%d sb:%d!",buoy[loraIn.sender].speedbb,buoy[loraIn.sender].speedsb);
             }
             break;
 
@@ -198,6 +199,7 @@ int polLora(void)
                 sscanf(messarr, "%d,%d", &sb, &bb);
                 buoy[loraIn.sender].speedsb = sb;
                 buoy[loraIn.sender].speedbb = bb;
+                buoy[loraIn.sender].ackOK = true;
             }
             break;
 
@@ -207,13 +209,14 @@ int polLora(void)
                 // buoy[loraIn.sender].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
                 buoy[loraIn.sender].status = LOCKED;
                 buoy[loraIn.sender].ackOK = loraIn.gsia;
+                buoy[loraIn.sender].ackOK = true;
             }
             break;
 
         case (GOTO_TARGET_POSITION):
             // buoy[loraIn.sender].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
             buoy[loraIn.sender].status = LOCKED;
-            buoy[loraIn.sender].ackOK = loraIn.gsia;
+            buoy[loraIn.sender].ackOK = true;
             break;
 
         case STORE_DOC_POSITION:
@@ -238,14 +241,13 @@ int polLora(void)
             if (loraIn.gsia == ACK)
             {
                 buoy[loraIn.sender].ackOK = true;
+                buoy[loraIn.sender].status = IDLE;
             }
-            buoy[loraIn.sender].cmnd = BUOY_MODE_IDLE;
-            buoy[loraIn.sender].status = IDLE;
             break;
         case DOC_POSITION:
             if (loraIn.gsia == ACK)
             {
-                buoy[loraIn.sender].ackOK = ACK;
+                buoy[loraIn.sender].ackOK = true;
                 buoy[loraIn.sender].status = LOCKED;
             }
             break;
@@ -299,12 +301,22 @@ bool loraMenu(int buoy_nr)
         break;
 
     case SAIL_DIR_SPEED:
-        msg = String(buoy[buoy_nr].cdir) + "," + String(buoy[buoy_nr].cspeed);
-        loraOut.gsia = SET;
+        if (buoy[buoy_nr].gsa == SET)
+        {
+            msg = String(buoy[buoy_nr].cdir) + "," + String(buoy[buoy_nr].cspeed);
+        }
+        else
+        {
+            msg = "";
+        }
         sendMessage(msg, buoy_nr, buoy[buoy_nr].cmnd, buoy[buoy_nr].gsa);
         break;
+
+    case SBPWR_BBPWR:
+        sendMessage(msg, buoy_nr, buoy[buoy_nr].cmnd, buoy[buoy_nr].gsa);
+        break;
+
     case DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING:
-        loraOut.gsia = GET;
         sendMessage(msg, buoy_nr, buoy[buoy_nr].cmnd, buoy[buoy_nr].gsa);
         break;
 

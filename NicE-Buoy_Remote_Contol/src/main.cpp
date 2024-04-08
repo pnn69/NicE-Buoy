@@ -21,7 +21,7 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #define SHORTKEYDELAY 10
 #define LONGKEYDELAY 100
 
-unsigned long timestamp, msecstamp, hsecstamp, sec5stamp, esctamp;
+unsigned long timestamp, msecstamp, hsecstamp, sec5stamp, esctamp, halfsecstamp;
 // static double gpslatitude = 52.34567, gpslongitude = 4.567;                     // home
 // static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
 //  static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
@@ -97,6 +97,7 @@ void setup()
     msecstamp = millis();
     hsecstamp = millis();
     sec5stamp = millis();
+    halfsecstamp = millis();
 }
 
 void loop()
@@ -135,12 +136,12 @@ void loop()
     {
         if (button_cnt > LONGKEYDELAY)
         {
-            String out = "PUSHED\r\nLONG";
+            String out = "LONG";
             showDip(3, out);
         }
         else
         {
-            String out = "PUSHED";
+            String out = "SHORT";
             showDip(3, out);
         }
     }
@@ -171,7 +172,6 @@ void loop()
             {
                 if (sw_pos == SW_RIGHT)
                 {
-                    buoy[1].status = REMOTE;
                     buoy[1].cmnd = SAIL_DIR_SPEED;
                     if (switch_REMOTE != 1)
                     {
@@ -182,9 +182,7 @@ void loop()
                         buoy[1].speed = 0;
                         buoy[1].speedbb = 0;
                         buoy[1].speedsb = 0;
-                        buoy[1].status = LOCKING;
                         buoy[1].cmnd = TARGET_POSITION;
-                        buoy[1].ackOK = false;
                         buoy[1].gsa = SET;
                         adc.newdata = true;
                         radiobutton[1] = 2;
@@ -193,6 +191,7 @@ void loop()
                     String out = "REMOTE";
                     showDip(3, out);
                     delay(1000);
+                    buoy[1].status = REMOTE;
                 }
                 else if (sw_pos == SW_LEFT)
                 {
@@ -213,14 +212,17 @@ void loop()
                     buoy[1].speedbb = 0;
                     buoy[1].speedsb = 0;
                     buoy[1].status = IDLE;
-                    buoy[1].cmnd = NO_POSITION;
-                    buoy[1].ackOK = false;
+                    buoy[1].cmnd = BUOY_MODE_IDLE;
                     buoy[1].gsa = SET;
                     radiobutton[1] = 6;
                     notify = true;
                     String out = "IDLE";
                     showDip(4, out);
                     delay(1000);
+                    buoy[1].status = IDLE;
+                    buoy[1].gsa = SET;
+                    while (loraMenu(1))
+                        ;
                 }
             }
             else // long key pressed
@@ -252,10 +254,25 @@ void loop()
 
                 else if (sw_pos == SW_MID)
                 {
+                    switch_REMOTE = 0;
+                    buoy[1].cdir = 0;
+                    buoy[1].cspeed = 0;
+                    buoy[1].speed = 0;
+                    buoy[1].speedbb = 0;
+                    buoy[1].speedsb = 0;
+                    buoy[1].status = IDLE;
+                    buoy[1].cmnd = BUOY_MODE_IDLE;
+                    buoy[1].ackOK = false;
+                    buoy[1].gsa = SET;
+                    radiobutton[1] = 6;
+                    notify = true;
                     String out = "IDLE";
                     showDip(4, out);
                     delay(1000);
                     buoy[1].status = IDLE;
+                    buoy[1].gsa = SET;
+                    while (loraMenu(1))
+                        ;
                 }
             }
             lst_button_cnt = 0;
@@ -275,7 +292,6 @@ void loop()
                 adc.newdata = false;
                 while (loraMenu(i))
                     ;
-                delay(100);
             }
         }
     }
@@ -313,15 +329,21 @@ void loop()
                 while (loraMenu(i))
                     ;
             }
+            /*
+                repeat last command again.
+            */
         }
-        /*
-            repeat last command again.
-        */
+    }
+
+    if (halfsecstamp + 750 < millis())
+    {
+        halfsecstamp = millis();
         for (int i = 1; i < NR_BUOYS; i++)
         {
             if (buoy[i].ackOK == false)
             {
                 loraMenu(i);
+                Serial.printf("Repeat command %d\r\n", buoy[i].cmnd);
             }
         }
     }
