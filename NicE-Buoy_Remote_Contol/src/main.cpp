@@ -21,7 +21,7 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #define SHORTKEYDELAY 10
 #define LONGKEYDELAY 100
 
-unsigned long timestamp, msecstamp, hsecstamp, sec5stamp, esctamp, halfsecstamp;
+unsigned long timestamp, msecstamp, hsecstamp, sec5stamp, esctamp, checkAckStamp;
 // static double gpslatitude = 52.34567, gpslongitude = 4.567;                     // home
 // static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
 //  static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
@@ -31,8 +31,6 @@ int speedbb = 0, speedsb = 0;
 unsigned int button_cnt = 0;
 unsigned int lst_button_cnt = 0;
 bool ledstatus = false;
-static bool switch_REMOTE = false;
-
 const byte numChars = 5;
 char receivedChars[numChars]; // an array to store the received data
 
@@ -97,7 +95,7 @@ void setup()
     msecstamp = millis();
     hsecstamp = millis();
     sec5stamp = millis();
-    halfsecstamp = millis();
+    checkAckStamp = millis();
 }
 
 void loop()
@@ -168,44 +166,23 @@ void loop()
         readAdc();
         if (button_cnt == 0 && lst_button_cnt > SHORTKEYDELAY)
         {
+            /*
+            Pushbutton short pressed here
+            action taken depends on the position of the switch (LEFT MID RIGHT)
+            */
             if (lst_button_cnt < LONGKEYDELAY)
             {
-                if (sw_pos == SW_RIGHT)
-                {
-                    buoy[1].cmnd = SAIL_DIR_SPEED;
-                    if (switch_REMOTE != 1)
-                    {
-
-                        switch_REMOTE = 1;
-                        buoy[1].cdir = 0;
-                        buoy[1].cspeed = 0;
-                        buoy[1].speed = 0;
-                        buoy[1].speedbb = 0;
-                        buoy[1].speedsb = 0;
-                        buoy[1].cmnd = TARGET_POSITION;
-                        buoy[1].gsa = SET;
-                        adc.newdata = true;
-                        radiobutton[1] = 2;
-                        notify = true;
-                    }
-                    String out = "REMOTE";
-                    showDip(3, out);
-                    delay(1000);
-                    buoy[1].status = REMOTE;
-                }
-                else if (sw_pos == SW_LEFT)
+                if (sw_pos == SW_LEFT)
                 {
                     buoy[1].status = LOCKING;
                     buoy[1].cmnd = TARGET_POSITION;
-                    switch_REMOTE = 0;
                     String out = "LOCKED";
                     showDip(3, out);
                     delay(1000);
+                    notify = true;
                 }
                 else if (sw_pos == SW_MID)
                 {
-
-                    switch_REMOTE = 0;
                     buoy[1].cdir = 0;
                     buoy[1].cspeed = 0;
                     buoy[1].speed = 0;
@@ -214,47 +191,52 @@ void loop()
                     buoy[1].status = IDLE;
                     buoy[1].cmnd = BUOY_MODE_IDLE;
                     buoy[1].gsa = SET;
+                    buoy[1].ackOK = false;
                     radiobutton[1] = 6;
                     notify = true;
                     String out = "IDLE";
                     showDip(4, out);
                     delay(1000);
                     buoy[1].status = IDLE;
-                    buoy[1].gsa = SET;
-                    while (loraMenu(1))
-                        ;
+                }
+                else if (sw_pos == SW_RIGHT)
+                {
+                    String out = "REMOTE";
+                    showDip(3, out);
+                    delay(1000);
+                    adc.newdata = true;
+                    radiobutton[1] = 2;
+                    notify = true;
+                    buoy[1].cmnd = SAIL_DIR_SPEED;
+                    buoy[1].status = REMOTE;
                 }
             }
-            else // long key pressed
+            /*
+            Pushbutton long pressed here
+            action taken depends on the position of the switch (LEFT MID RIGHT)
+            */
+            else
             {
                 if (sw_pos == SW_RIGHT) // sail to dock positon
                 {
                     buoy[1].status = DOCK_STORING;
                     buoy[1].cmnd = STORE_POS_AS_DOC_POSITION;
                     buoy[1].gsa = SET;
+                    buoy[1].ackOK = false;
                     String out = "STORE\r\nDOC POS";
+                    notify = true;
                     showDip(3, out);
                     delay(1000);
-                    while (loraMenu(1))
-                        ;
-                    switch_REMOTE = 0;
                 }
                 else if (sw_pos == SW_LEFT)
                 {
-                    buoy[1].status = DOCKING;
-                    buoy[1].cmnd = DOC_POSITION;
-                    buoy[1].gsa = SET;
-                    String out = "SALING\r\n HOME";
+                    String out = "No ACTION";
                     showDip(3, out);
                     delay(1000);
-                    while (loraMenu(1))
-                        ;
-                    switch_REMOTE = 0;
                 }
 
                 else if (sw_pos == SW_MID)
                 {
-                    switch_REMOTE = 0;
                     buoy[1].cdir = 0;
                     buoy[1].cspeed = 0;
                     buoy[1].speed = 0;
@@ -262,17 +244,13 @@ void loop()
                     buoy[1].speedsb = 0;
                     buoy[1].status = IDLE;
                     buoy[1].cmnd = BUOY_MODE_IDLE;
-                    buoy[1].ackOK = false;
                     buoy[1].gsa = SET;
+                    buoy[1].ackOK = false;
                     radiobutton[1] = 6;
                     notify = true;
                     String out = "IDLE";
                     showDip(4, out);
                     delay(1000);
-                    buoy[1].status = IDLE;
-                    buoy[1].gsa = SET;
-                    while (loraMenu(1))
-                        ;
                 }
             }
             lst_button_cnt = 0;
@@ -288,10 +266,10 @@ void loop()
                 buoy[i].cdir = adc.rudder;
                 buoy[i].cmnd = SAIL_DIR_SPEED;
                 buoy[i].gsa = SET;
-                buoy[i].ackOK = true;
                 adc.newdata = false;
                 while (loraMenu(i))
                     ;
+                checkAckStamp = millis();
             }
         }
     }
@@ -307,6 +285,7 @@ void loop()
                 buoy[i].gsa = SET;
                 while (loraMenu(i))
                     ;
+                checkAckStamp = millis();
             }
             else if (buoy[i].status == LOCKED)
             {
@@ -314,6 +293,7 @@ void loop()
                 buoy[i].gsa = GET;
                 while (loraMenu(i))
                     ;
+                checkAckStamp = millis();
             }
             else if (buoy[i].status == DOCKING)
             {
@@ -321,6 +301,7 @@ void loop()
                 buoy[i].gsa = SET;
                 while (loraMenu(i))
                     ;
+                checkAckStamp = millis();
             }
             else if (buoy[i].status == DOCK_STORING)
             {
@@ -328,22 +309,24 @@ void loop()
                 buoy[i].gsa = SET;
                 while (loraMenu(i))
                     ;
+                checkAckStamp = millis();
             }
-            /*
-                repeat last command again.
-            */
         }
     }
-
-    if (halfsecstamp + 750 < millis())
+    /*
+    check if messages are acknowleged.
+    if not resend
+    */
+    if (checkAckStamp + 250 < millis())
     {
-        halfsecstamp = millis();
+        checkAckStamp = millis();
         for (int i = 1; i < NR_BUOYS; i++)
         {
             if (buoy[i].ackOK == false)
             {
-                loraMenu(i);
                 Serial.printf("Repeat command %d\r\n", buoy[i].cmnd);
+                while (loraMenu(i))
+                    ;
             }
         }
     }

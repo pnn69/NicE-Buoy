@@ -84,7 +84,7 @@ void ShowBuoyData(int buoyID)
         display.printf("    0");
     }
     String st;
-    switch (buoy[buoyID].status)
+    switch (buoy[buoyID].remotestatus)
     {
     case LOCKED:
         st = "LOCKED";

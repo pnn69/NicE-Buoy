@@ -122,6 +122,7 @@ int polLora(void)
     if (NR_BUOYS > loraIn.sender)
     {
         buoy[loraIn.sender].remotestatus = loraIn.status;
+        buoy[loraIn.sender].rssi = loraIn.rssi;
         if (loraIn.status == IDLE)
         {
             buoy[loraIn.sender].tgdir = 0;
@@ -139,8 +140,6 @@ int polLora(void)
                 sscanf(messarr, "%lf,%lf", &dir, &dist);
                 buoy[loraIn.sender].tgdir = dir;
                 buoy[loraIn.sender].tgdistance = dist;
-                buoy[loraIn.sender].rssi = loraIn.rssi;
-                buoy[loraIn.sender].ackOK = true;
             }
             break;
 
@@ -155,13 +154,12 @@ int polLora(void)
                        &buoy[loraIn.sender].speedbb,
                        &buoy[loraIn.sender].speedsb,
                        &buoy[loraIn.sender].mdir);
-                buoy[loraIn.sender].rssi = loraIn.rssi;
                 buoy[loraIn.sender].ackOK = true;
             }
             break;
 
         case GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING:
-            if (loraIn.gsia == SET || loraIn.gsia == ACK)
+            if (loraIn.gsia == SET)
             {
                 sscanf(messarr, "%lf,%lf,%d,%d,%d,%d",
                        &buoy[loraIn.sender].gpslatitude,
@@ -170,14 +168,15 @@ int polLora(void)
                        &buoy[loraIn.sender].gpscource,
                        &buoy[loraIn.sender].gpsspeed,
                        &buoy[loraIn.sender].mdir);
-                buoy[loraIn.sender].rssi = loraIn.rssi;
-                buoy[loraIn.sender].ackOK = loraIn.gsia;
+            }
+            else if (loraIn.gsia == ACK)
+            {
                 buoy[loraIn.sender].ackOK = true;
             }
             break;
 
         case SAIL_DIR_SPEED:
-            if (loraIn.gsia == SET || loraIn.gsia == ACK)
+            if (loraIn.gsia == SET)
             {
                 sscanf(messarr, "%f,%d,%d,%d", &lhe, &sp, &bb, &sb);
                 buoy[loraIn.sender].tgdir = 0;
@@ -186,19 +185,24 @@ int polLora(void)
                 buoy[loraIn.sender].speed = sp;
                 buoy[loraIn.sender].speedsb = sb;
                 buoy[loraIn.sender].speedbb = bb;
-                buoy[loraIn.sender].rssi = loraIn.rssi;
-                buoy[loraIn.sender].ackOK = true;
                 // Serial.printf("direction and speed bb:%d sb:%d!",buoy[loraIn.sender].speedbb,buoy[loraIn.sender].speedsb);
+            }
+            else if (loraIn.gsia == ACK)
+            {
+                buoy[loraIn.sender].ackOK = true;
             }
             break;
 
         case SBPWR_BBPWR:
-            if (loraIn.gsia == SET || loraIn.gsia == ACK)
+            if (loraIn.gsia == SET)
             {
 
                 sscanf(messarr, "%d,%d", &sb, &bb);
                 buoy[loraIn.sender].speedsb = sb;
                 buoy[loraIn.sender].speedbb = bb;
+            }
+            else if (loraIn.gsia == ACK)
+            {
                 buoy[loraIn.sender].ackOK = true;
             }
             break;
@@ -215,8 +219,11 @@ int polLora(void)
 
         case (GOTO_TARGET_POSITION):
             // buoy[loraIn.sender].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
-            buoy[loraIn.sender].status = LOCKED;
-            buoy[loraIn.sender].ackOK = true;
+            if (loraIn.gsia == ACK)
+            {
+                buoy[loraIn.sender].status = LOCKED;
+                buoy[loraIn.sender].ackOK = true;
+            }
             break;
 
         case STORE_DOC_POSITION:
@@ -253,9 +260,12 @@ int polLora(void)
             break;
 
         case (BATTERY_VOLTAGE_PERCENTAGE):
-            sscanf(messarr, "%f,%d", &lhe, &sp);
-            buoy[loraIn.sender].voltage = lhe;
-            buoy[loraIn.sender].percentage = sp;
+            if (loraIn.gsia == SET)
+            {
+                sscanf(messarr, "%f,%d", &lhe, &sp);
+                buoy[loraIn.sender].voltage = lhe;
+                buoy[loraIn.sender].percentage = sp;
+            }
             break;
         case GPS_DUMMY:
             if (loraIn.gsia == ACK)

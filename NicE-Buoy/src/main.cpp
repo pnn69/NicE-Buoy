@@ -35,27 +35,30 @@ static unsigned long secstamp, sec05stamp, msecstamp, escstamp, hstamp, sec5stam
 // static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
 
 // static unsigned long tgdir = 0, tgdistance = 0, cdir = 0;
-bool nwloramsg = false;
-bool speedChanged = false;
-char buoyID = 0;
-byte status = IDLE;
-const byte numChars = 32;
-char receivedChars[numChars]; // an array to store the received data
-boolean newData = false;
-int dataNumber = 0; // new for this version
-static bool blink = false;
-int bootCount = 0;
-buoyDataType buoy;
-switchStatus frontsw;
-bool FrontLed = false;
-bool oneBeepLongpress = false;
-int spdbb, spdsb;
-unsigned int sw_button_cnt, lst_button_cnt = 0;
+bool nwloramsg = false;                         // Used to clear led status in main
+bool speedChanged = false;                      // chaged speed
+char buoyID = 0;                                // buouy ID
+byte status = IDLE;                             // Status buoy
+const byte numChars = 32;                       //
+char receivedChars[numChars];                   // an array to store the received data
+boolean newData = false;                        //
+int dataNumber = 0;                             // new for this version
+static bool blink = false;                      // for blinking led
+buoyDataType buoy;                              // buoy struckt
+switchStatus frontsw;                           // led struckt
+bool FrontLed = false;                          // status led
+bool oneBeepLongpress = false;                  // on beep only indicator
+int spdbb, spdsb;                               // speed
+unsigned int sw_button_cnt, lst_button_cnt = 0; // button press counters
 
 MessageSP snd_sp;    /* Speed sb(-100%<>100%),bb(-100%<>100%) */
 MessageSq snd_sq;    /* Ledstatus CRGB */
 MessageBuzz snd_buz; /* on(true/false),time(msec),pauze(msec),repeat(x) */
 
+/*
+not usede any more
+onley for testing
+*/
 bool serialPortDataIn(int *nr)
 {
     static byte ndx = 0;
@@ -101,12 +104,11 @@ void setup()
     initMCP23017();
     InitGps();
     color_printf(COLOR_PRINT_BLUE, "Setup running");
-    // Bootcnt(&bootCount, true);
     MemoryBuoyID(&buoyID, true);
     LastStatus(&status, &buoy.tglatitude, &buoy.tglongitude, true);
     SWITCH_GRN_OFF;
     SWITCH_RED_ON;
-    BUTTON_LIGHT_ON;
+    BUTTON_LIGHT_OFF;
     if (InitLora())
     {
         Serial.println("Lora Module OK!");
@@ -115,16 +117,11 @@ void setup()
     {
         Serial.println("Compas OK!");
     }
-    BUTTON_LIGHT_OFF;
     xTaskCreate(IndicatorTask, "IndicatorTask", 2400, NULL, 1, NULL);
     xTaskCreate(EscTask, "EscTask", 2400, NULL, 25, NULL);
     xTaskCreate(BuzzerTask, "BuzzerTask", 1024, NULL, 5, NULL);
     // websetup();
     Serial.printf("BuoyID = %d\n\r", buoyID);
-    Serial.printf("Status = %d\n\r", status);
-    secstamp = millis();
-    msecstamp = millis();
-    hstamp = millis();
     snd_sq.ledstatus = CRGB(0, 0, 20);
     xQueueSend(indicatorqueSt, (void *)&snd_sq, 10);
     snd_sq.ledstatus = CRGB(20, 0, 0);
@@ -187,7 +184,11 @@ void setup()
     xQueueSend(Buzzerque, (void *)&snd_buz, 10);
     Serial.println("Setup done.");
     BUTTON_LIGHT_OFF;
-    SWITCH_RED_OFF;
+    SWITCH_RED_ON;
+    SWITCH_GRN_OFF;
+    secstamp = millis();
+    msecstamp = millis();
+    hstamp = millis();
     // Postion Steiger WSOP
     // gpsdata.lat = 52.29308075283747;
     // gpsdata.lon = 4.932570409845357;
@@ -251,24 +252,25 @@ void loop()
 
         if (gpsdata.fix == true)
         {
-            snd_sq.ledstatus = CRGB(0, 20, 0);
-            SWITCH_GRN_ON;
+            snd_sq.ledstatus = CRGB(0, 20, 0); // internal led GREEN color
+            SWITCH_GRN_ON;                     // externel led GREEN (switch)
         }
         else
         {
             // no fix -> blink leds
             if (SWITCH_GRN_READ)
             {
-                snd_sq.ledstatus = CRGB(20, 0, 0);
-                SWITCH_GRN_OFF;
+                snd_sq.ledstatus = CRGB(20, 0, 0); // internal led RED color
+                SWITCH_GRN_OFF;                    // external led off (switch)
             }
             else
             {
-                snd_sq.ledstatus = CRGB(0, 20, 0);
-                SWITCH_GRN_ON;
+                snd_sq.ledstatus = CRGB(0, 20, 0); // internal led GREEN color
+                SWITCH_GRN_ON;                     // externel led GREEN (switch)
             }
         }
-        xQueueSend(indicatorqueSt, (void *)&snd_sq, 10);
+        xQueueSend(indicatorqueSt, (void *)&snd_sq, 10); // update internal led
+
         /*
         key handeling
         */
@@ -276,9 +278,9 @@ void loop()
         {
             if (lst_button_cnt > BUTTON_LONG) // Button long pressed?
             {
-                if (status == CALIBRATE_OFFSET_MAGNETIC_COMPASS) // check if locked switch is set to active
+                if (status == CALIBRATE_OFFSET_MAGNETIC_COMPASS) // check if compass calibration mode is active
                 {
-                    if (gpsdata.fix == true) // Do some checks before going in to calibration mode.
+                    if (gpsdata.fix == true) // GPS fix ok?
                     {
                         buoy.tglatitude = gpsdata.lat; // set current position as target postion.
                         buoy.tglongitude = gpsdata.lon;
@@ -287,7 +289,7 @@ void loop()
                         snd_buz.pauze = 25;
                         xQueueSend(Buzzerque, (void *)&snd_buz, 10);
                         status = CALIBRATE_OFFSET_MAGNETIC_COMPASS;
-                        offeststamp = millis();
+                        offeststamp = millis(); // restart timer
                         Serial.printf("Status set to >CALIBRATE_OFFSET_MAGNETIC_COMPASS< = %d\r\n", status);
                         beepESC();
                         buoy.speed = 0;
