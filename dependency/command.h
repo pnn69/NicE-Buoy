@@ -64,6 +64,7 @@ typedef enum
     UNLOCK,
     REMOTE,
     DOCKING,
+    DOCKED,
     DOC,
     REMOTEING,
     CALIBRATE_MAGNETIC_COMPASS,

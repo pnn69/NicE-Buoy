@@ -18,8 +18,9 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "gps.h"
 #include "../../dependency/command.h"
 
-#define SHORTKEYDELAY 10
+#define SHORTKEYDELAY 2
 #define LONGKEYDELAY 100
+#define MAX_REPEAT 10
 
 unsigned long timestamp, msecstamp, hsecstamp, sec5stamp, esctamp, checkAckStamp;
 // static double gpslatitude = 52.34567, gpslongitude = 4.567;                     // home
@@ -32,6 +33,7 @@ unsigned int button_cnt = 0;
 unsigned int lst_button_cnt = 0;
 bool ledstatus = false;
 const byte numChars = 5;
+int maxRepeatCount[NR_BUOYS + 1];
 char receivedChars[numChars]; // an array to store the received data
 
 buoyDataType buoy[NR_BUOYS];
@@ -176,6 +178,8 @@ void loop()
                 {
                     buoy[1].status = LOCKING;
                     buoy[1].cmnd = TARGET_POSITION;
+                    buoy[1].gsa = SET;
+                    buoy[1].ackOK = false;
                     String out = "LOCKED";
                     showDip(3, out);
                     delay(1000);
@@ -217,22 +221,16 @@ void loop()
             */
             else
             {
-                if (sw_pos == SW_RIGHT) // sail to dock positon
+                if (sw_pos == SW_LEFT)
                 {
-                    buoy[1].status = DOCK_STORING;
-                    buoy[1].cmnd = STORE_POS_AS_DOC_POSITION;
+                    buoy[1].status = DOCKING;
+                    buoy[1].cmnd = DOC_POSITION;
                     buoy[1].gsa = SET;
                     buoy[1].ackOK = false;
-                    String out = "STORE\r\nDOC POS";
+                    String out = "SAILING\r\nTO DOCK";
+                    showDip(3, out);
+                    delay(1000);
                     notify = true;
-                    showDip(3, out);
-                    delay(1000);
-                }
-                else if (sw_pos == SW_LEFT)
-                {
-                    String out = "No ACTION";
-                    showDip(3, out);
-                    delay(1000);
                 }
 
                 else if (sw_pos == SW_MID)
@@ -250,6 +248,12 @@ void loop()
                     notify = true;
                     String out = "IDLE";
                     showDip(4, out);
+                    delay(1000);
+                }
+                else if (sw_pos == SW_RIGHT) // sail to dock positon
+                {
+                    String out = "No ACTION";
+                    showDip(3, out);
                     delay(1000);
                 }
             }
@@ -278,16 +282,7 @@ void loop()
     { // do stuff every second
         previousTime = millis();
         for (int i = 1; i < NR_BUOYS; i++)
-        {
-            if (buoy[i].status == LOCKING)
-            {
-                buoy[i].cmnd = TARGET_POSITION;
-                buoy[i].gsa = SET;
-                while (loraMenu(i))
-                    ;
-                checkAckStamp = millis();
-            }
-            else if (buoy[i].status == LOCKED)
+            if (buoy[i].status == LOCKED || buoy[i].status == DOCKED)
             {
                 buoy[i].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
                 buoy[i].gsa = GET;
@@ -295,23 +290,6 @@ void loop()
                     ;
                 checkAckStamp = millis();
             }
-            else if (buoy[i].status == DOCKING)
-            {
-                buoy[i].cmnd = DOC_POSITION;
-                buoy[i].gsa = SET;
-                while (loraMenu(i))
-                    ;
-                checkAckStamp = millis();
-            }
-            else if (buoy[i].status == DOCK_STORING)
-            {
-                buoy[i].cmnd = STORE_POS_AS_DOC_POSITION;
-                buoy[i].gsa = SET;
-                while (loraMenu(i))
-                    ;
-                checkAckStamp = millis();
-            }
-        }
     }
     /*
     check if messages are acknowleged.
@@ -322,11 +300,17 @@ void loop()
         checkAckStamp = millis();
         for (int i = 1; i < NR_BUOYS; i++)
         {
-            if (buoy[i].ackOK == false)
+            if (buoy[i].ackOK == false && maxRepeatCount[i] < MAX_REPEAT)
             {
-                Serial.printf("Repeat command %d\r\n", buoy[i].cmnd);
+                Serial.printf("Repeat command %d, %d times\r\n", buoy[i].cmnd, maxRepeatCount[i]);
                 while (loraMenu(i))
                     ;
+                maxRepeatCount[i]++;
+            }
+            else
+            {
+                maxRepeatCount[i] = 0;
+                buoy[i].ackOK = true;
             }
         }
     }

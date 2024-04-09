@@ -105,7 +105,6 @@ void setup()
     InitGps();
     color_printf(COLOR_PRINT_BLUE, "Setup running");
     MemoryBuoyID(&buoyID, true);
-    LastStatus(&status, &buoy.tglatitude, &buoy.tglongitude, true);
     SWITCH_GRN_OFF;
     SWITCH_RED_ON;
     BUTTON_LIGHT_OFF;
@@ -120,7 +119,7 @@ void setup()
     xTaskCreate(IndicatorTask, "IndicatorTask", 2400, NULL, 1, NULL);
     xTaskCreate(EscTask, "EscTask", 2400, NULL, 25, NULL);
     xTaskCreate(BuzzerTask, "BuzzerTask", 1024, NULL, 5, NULL);
-    // websetup();
+    //websetup();
     Serial.printf("BuoyID = %d\n\r", buoyID);
     snd_sq.ledstatus = CRGB(0, 0, 20);
     xQueueSend(indicatorqueSt, (void *)&snd_sq, 10);
@@ -192,7 +191,7 @@ void setup()
     // Postion Steiger WSOP
     // gpsdata.lat = 52.29308075283747;
     // gpsdata.lon = 4.932570409845357;
-    // MemoryDockPos(&gpsdata.lat,&gpsdata.lon,0); //store default
+    // MemoryDockPos(&gpsdata.lat, &gpsdata.lon, false); // store default
 }
 
 /**********************************************************************************************************************************************************/
@@ -276,6 +275,9 @@ void loop()
         */
         if (lst_button_cnt > BUTTON_SHORT && sw_button_cnt == 0)
         {
+            buoy.speed = 0;
+            buoy.speedbb = 0;
+            buoy.speedsb = 0;
             if (lst_button_cnt > BUTTON_LONG) // Button long pressed?
             {
                 if (status == CALIBRATE_OFFSET_MAGNETIC_COMPASS) // check if compass calibration mode is active
@@ -292,11 +294,6 @@ void loop()
                         offeststamp = millis(); // restart timer
                         Serial.printf("Status set to >CALIBRATE_OFFSET_MAGNETIC_COMPASS< = %d\r\n", status);
                         beepESC();
-                        buoy.speed = 0;
-                        buoy.speedbb = 0;
-                        buoy.speedsb = 0;
-                        spdbb = 0;
-                        spdsb = 0;
                     }
                 }
                 else if (gpsdata.fix == true) // Program doc position
@@ -304,26 +301,16 @@ void loop()
                     MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude, false);
                     Serial.printf("Dock position stored!!!\r\n");
                     beepESC();
-                    buoy.speed = 0;
-                    buoy.speedbb = 0;
-                    buoy.speedsb = 0;
-                    spdbb = 0;
-                    spdsb = 0;
                     status = IDLE;
                 }
             }
             else // short press on button
             {
-                if (status == LOCKED)
+                if (status != IDLE)
                 {
                     status = IDLE;
                     BUTTON_LIGHT_OFF;
                     beepESC();
-                    buoy.speed = 0;
-                    buoy.speedbb = 0;
-                    buoy.speedsb = 0;
-                    spdbb = 0;
-                    spdsb = 0;
                     Serial.printf("Status set to >IDLE< = %d\r\n", status);
                 }
                 else
@@ -332,19 +319,14 @@ void loop()
                     {
                         buoy.tglatitude = gpsdata.lat;
                         buoy.tglongitude = gpsdata.lon;
+                        BUTTON_LIGHT_ON;
+                        beepESC();
                         if (status != CALIBRATE_MAGNETIC_COMPASS || status != CALIBRATE_OFFSET_MAGNETIC_COMPASS)
                         {
                             status = LOCKED;
+                            Serial.printf("Status set to >LOCKED< = %d\r\n", status);
                         }
                     }
-                    BUTTON_LIGHT_ON;
-                    beepESC();
-                    buoy.speed = 0;
-                    buoy.speedbb = 0;
-                    buoy.speedsb = 0;
-                    spdbb = 0;
-                    spdsb = 0;
-                    Serial.printf("Status set to >LOCKED< = %d\r\n", status);
                 }
             }
             lst_button_cnt = 0;
@@ -386,6 +368,7 @@ void loop()
             }
             break;
 
+        case DOCKED:
         case LOCKED:
             BUTTON_LIGHT_ON;
             SWITCH_RED_OFF;

@@ -122,6 +122,7 @@ int polLora(void)
     if (NR_BUOYS > loraIn.sender)
     {
         buoy[loraIn.sender].remotestatus = loraIn.status;
+        buoy[loraIn.sender].status = loraIn.status;
         buoy[loraIn.sender].rssi = loraIn.rssi;
         if (loraIn.status == IDLE)
         {
@@ -134,7 +135,7 @@ int polLora(void)
         switch (loraIn.msgid)
         {
         case DIR_DISTANSE_TO_TARGET_POSITION:
-            // Serial.println("direction and distance target recieved!");
+            Serial.println("direction and distance target recieved!");
             if (loraIn.gsia == SET)
             {
                 sscanf(messarr, "%lf,%lf", &dir, &dist);
@@ -255,7 +256,7 @@ int polLora(void)
             if (loraIn.gsia == ACK)
             {
                 buoy[loraIn.sender].ackOK = true;
-                buoy[loraIn.sender].status = LOCKED;
+                buoy[loraIn.sender].status = DOCKED;
             }
             break;
 

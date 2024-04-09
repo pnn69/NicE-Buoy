@@ -51,38 +51,48 @@ void setup_OTA()
 
 void websetup()
 {
-    // Connect to Wi-Fi
-    int se = 0;
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid, password);
-    Serial.print("Connecting to WiFi ..");
-    while (WiFi.status() != WL_CONNECTED && se < 10)
-    {
-        Serial.print('.');
-        delay(1000);
-        se++;
-        if (se > 10)
-            break;
-    }
-    Serial.println(WiFi.localIP());
 
-    if (se >= 10)
+    // int se = 0;
+    // WiFi.mode(WIFI_STA);
+    // WiFi.begin(ssid, password);
+    // Serial.print("Connecting to WiFi ..");
+    // while (WiFi.status() != WL_CONNECTED && se < 10)
+    // {
+    //     Serial.print('.');
+    //     delay(1000);
+    //     se++;
+    //     if (se > 10)
+    //         break;
+    // }
+    // if (se >= 10)
+    // {
+    IPAddress local_IP(192, 168, 4, 1); // Your Desired Static IP Address
+    IPAddress subnet(255, 255, 255, 0);
+    IPAddress gateway(192, 168, 1, 1);
+    IPAddress primaryDNS(0, 0, 0, 0);   // Not Mandatory
+    IPAddress secondaryDNS(0, 0, 0, 0); // Not Mandatory
+    // Configures Static IP Address
+    if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))
     {
-        char ssidl[20];
-        sprintf(ssidl, "NicE_Buoy_%d", buoyID);
-        Serial.println("No WiFi network found!");
-        Serial.print("Seting up AP: ");
-        Serial.println(ssidl);
-        WiFi.softAP(ssidl);
-        IPAddress IP = WiFi.softAPIP();
-        Serial.print("AP IP address: ");
-        Serial.println(IP);
+        Serial.println("Configuration Failed!");
     }
-    else
-    {
-        Serial.println("WiFi network found!");
-        Serial.println(WiFi.localIP());
-    }
+
+    char ssidl[20];
+    sprintf(ssidl, "NicE_Buoy_%d", buoyID);
+    Serial.println("No WiFi network found!");
+    Serial.print("Seting up AP: ");
+    Serial.println(ssidl);
+    WiFi.softAP(ssidl);
+    IPAddress IP = WiFi.softAPIP();
+    Serial.print("AP IP address: ");
+    Serial.println(IP);
+    // }
+    // else
+    // {
+    //     Serial.print("WiFi network found!\r\nConnected to: ");
+    //     Serial.println(ssid);
+    //     Serial.println(WiFi.localIP());
+    // }
     setup_OTA();
     WEBok = true;
 }

@@ -89,6 +89,9 @@ void ShowBuoyData(int buoyID)
     case LOCKED:
         st = "LOCKED";
         break;
+    case DOCKED:
+        st = "DOCKED";
+        break;
     case REMOTE:
         st = "REMOTE";
         break;
@@ -107,7 +110,7 @@ void ShowBuoyData(int buoyID)
     display.setCursor(barwide + 55, 10);
     display.printf("Rssi:%d", (int)buoy[buoyID].rssi);
     display.setCursor(barwide + 7, 20);
-    if (buoy[buoyID].status == LOCKED)
+    if (buoy[buoyID].status == LOCKED || buoy[buoyID].status == DOCKED)
     {
         display.printf("Dist: %4.1lfM", buoy[buoyID].tgdistance);
     }

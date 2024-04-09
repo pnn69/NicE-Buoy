@@ -198,10 +198,9 @@ int polLora(void)
         {
             MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude, true);
             msg = String(buoy.tglatitude, 8) + "." + String(buoy.tglongitude, 8);
+            RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
+            status = DOCKED;
             sendACKNAKINF(msg, ACK);
-            Serial.printf("\r\n\r\nSaling to: %lfN %lfW\r\n\r\n", buoy.tglatitude, buoy.tglongitude);
-            status = LOCKED;
-            delay(100);
         }
         if (loraIn.gsia == GET) // request dock positon
         {
@@ -243,7 +242,7 @@ int polLora(void)
             sscanf(messageArr, "%d,%d", &buoy.cdir, &buoy.cspeed);
             CalcEngingSpeed(buoy.cdir, 0, buoy.cspeed, &buoy.speedbb, &buoy.speedsb);
             msg = String(buoy.mheading, 0) + "," + String(buoy.cspeed) + "," + String(buoy.speedbb) + "," + String(buoy.speedsb);
-            sendACKNAKINF(msg, SET);
+            sendACKNAKINF(msg, ACK);
         }
         else if (loraIn.gsia == GET)
         {
@@ -346,7 +345,7 @@ bool loraMenu(int cmnd)
             ;
         break;
     case DIR_DISTANSE_TO_TARGET_POSITION:
-        loraOut.message = String((int)buoy.tgdir) + "," + String(buoy.tgdistance,1);
+        loraOut.message = String((int)buoy.tgdir) + "," + String(buoy.tgdistance, 1);
         loraOut.destination = loraIn.recipient;
         loraOut.msgid = cmnd;
         loraOut.gsia = SET;
