@@ -79,20 +79,81 @@ void udateDisplay(int sb, int bb, unsigned long distance, unsigned int direction
     if (displayOK)
     {
         display.clearDisplay();
-        display.setCursor(6 * 5, 0);
+        // putchar(x & (1u << i) ? '1' : '0');
+        speedbars(bb, sb);
+        display.setCursor(barwide + 7, 0);
         display.printf("NicE BUOY %d", buoyID);
+        if (gpsdata.fix)
+        {
+            display.printf("    *");
+        }
+        else
+        {
+            display.printf("    0");
+        }
+        String st;
+        switch (status)
+        {
+        case LOCKED:
+            st = "LOCKED";
+            break;
+        case DOCKED:
+            st = "DOCKED";
+            break;
+        case REMOTE:
+            st = "REMOTE";
+            break;
+        case DOCKING:
+            st = "DOCKING";
+            break;
+        case IDLE:
+            st = "IDLE";
+            break;
+        default:
+            st = "";
+            break;
+        }
         display.setCursor(barwide + 7, 10);
-        display.printf("Stat:%d Rssi:%d", status, loraIn.rssi);
+        display.print(st);
+        display.setCursor(barwide + 55, 10);
+        display.printf("Rssi:%d", loraIn.rssi);
         display.setCursor(barwide + 7, 20);
-        display.printf("Dist: %3ldM", distance);
+        if (status == LOCKED || status == DOCKED)
+        {
+            display.printf("Dist:%5.1lfM", buoy.tgdistance);
+            display.setCursor(128 - barwide - 3 * 7, 20);
+            display.printf("%dM", buoy.maxOfsetDist);
+        }
         display.setCursor(barwide + 7, 30);
-        display.printf("Dir:%3d HDG:%3d", (int)direction, (int)mdirection);
+        display.printf("Dir:%3d HDG:%3d", (int)buoy.tgdir, (int)buoy.mdir);
         display.setCursor(barwide + 7, 40);
-        display.printf("%4d%%", bb);
+        buoy.speedbb = constrain(buoy.speedbb, -100, 100);
+        display.printf("%4d%%", buoy.speedbb);
+        display.printf(" D %0.0lf", gpsdata.cource);
+        display.setCursor(128 / 2, 40);
         display.setCursor(128 - barwide - 5 * 7, 40);
-        display.printf("%4d%%", sb);
-        speedbars(sb, bb);
+        buoy.speedsb = constrain(buoy.speedsb, -100, 100);
+        display.printf("%4d%%", buoy.speedsb);
         BatPowerBarr(buoy.vperc);
         display.display();
+        // }
+
+        //         display.clearDisplay();
+        //         display.setCursor(6 * 5, 0);
+        //         display.printf("NicE BUOY %d", buoyID);
+        //         display.setCursor(barwide + 7, 10);
+        //         display.printf("Stat:%d Rssi:%d", status, loraIn.rssi);
+        //         display.setCursor(barwide + 7, 20);
+        //         display.printf("Dist: %3ldM", distance);
+        //         display.setCursor(barwide + 7, 30);
+        //         display.printf("Dir:%3d HDG:%3d", (int)direction, (int)mdirection);
+        //         display.setCursor(barwide + 7, 40);
+        //         display.printf("%4d%%", bb);
+        //         display.setCursor(128 - barwide - 5 * 7, 40);
+        //         display.printf("%4d%%", sb);
+        //         speedbars(sb, bb);
+        //         BatPowerBarr(buoy.vperc);
+        //         display.display();
+        //     }
     }
 }

@@ -10,7 +10,7 @@
 
 bool gpsvalid = false;
 bool gpsactive = true;
-
+unsigned long gpsTimeOut = 0;
 TinyGPSPlus gps;
 GpsDataType gpsdata;
 
@@ -131,12 +131,18 @@ int GetNewGpsData()
         // while (Serial1.available() > 0); //flush data
         return (0);
     }
+    if (gpsTimeOut + 10000 > millis())
+    {
+        gpsdata.fix = false;
+        gpsvalid = false;
+    }
     while (Serial1.available() > 0)
     {
         if (gps.encode(Serial1.read()))
         {
             if (gps.location.isValid())
             {
+                gpsTimeOut = millis();
                 gpsdata.lat = gps.location.lat();
                 gpsdata.lon = gps.location.lng();
                 if (gps.speed.isValid())

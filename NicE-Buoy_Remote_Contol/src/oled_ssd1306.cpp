@@ -124,6 +124,7 @@ void ShowBuoyData(int buoyID)
     display.printf(" D %d", buoy[buoyID].gpscource);
     display.setCursor(128 / 2, 40);
     display.setCursor(128 - barwide - 5 * 7, 40);
+    buoy[buoyID].speedsb = constrain(buoy[buoyID].speedsb, -100, 100);
     display.printf("%4d%%", buoy[buoyID].speedsb);
     BatPowerBarr(buoy[buoyID].percentage);
     display.display();
