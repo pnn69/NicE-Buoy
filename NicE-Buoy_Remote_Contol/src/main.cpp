@@ -38,34 +38,37 @@ char receivedChars[numChars]; // an array to store the received data
 
 buoyDataType buoy[NR_BUOYS];
 
-// bool serialPortDataIn(int *nr)
-// {
-//     static byte ndx = 0;
-//     char endMarker = '\n';
-//     char rc;
+/*
+Read out serial port and return data after <cr>
+*/
+bool serialPortDataIn(int *nr)
+{
+    static byte ndx = 0;
+    char endMarker = '\n';
+    char rc;
 
-//     if (Serial.available() > 0)
-//     {
-//         rc = Serial.read();
-//         if (rc != endMarker)
-//         {
-//             receivedChars[ndx] = rc;
-//             ndx++;
-//             if (ndx >= numChars)
-//             {
-//                 ndx = numChars - 1;
-//             }
-//         }
-//         else
-//         {
-//             receivedChars[ndx] = '\0'; // terminate the string
-//             ndx = 0;
-//             *nr = atoi(receivedChars); // new for this version
-//             return true;
-//         }
-//     }
-//     return false;
-// }
+    if (Serial.available() > 0)
+    {
+        rc = Serial.read();
+        if (rc != endMarker)
+        {
+            receivedChars[ndx] = rc;
+            ndx++;
+            if (ndx >= numChars)
+            {
+                ndx = numChars - 1;
+            }
+        }
+        else
+        {
+            receivedChars[ndx] = '\0'; // terminate the string
+            ndx = 0;
+            *nr = atoi(receivedChars); // new for this version
+            return true;
+        }
+    }
+    return false;
+}
 
 void setup()
 {
@@ -201,7 +204,6 @@ void loop()
                     String out = "IDLE";
                     showDip(4, out);
                     delay(1000);
-                    buoy[1].status = IDLE;
                 }
                 else if (sw_pos == SW_RIGHT)
                 {
@@ -235,25 +237,22 @@ void loop()
 
                 else if (sw_pos == SW_MID)
                 {
-                    buoy[1].cdir = 0;
-                    buoy[1].cspeed = 0;
-                    buoy[1].speed = 0;
-                    buoy[1].speedbb = 0;
-                    buoy[1].speedsb = 0;
-                    buoy[1].status = IDLE;
-                    buoy[1].cmnd = BUOY_MODE_IDLE;
+                    buoy[1].string = "0,-1,0,0";
+                    buoy[1].cmnd = COMPUTE_PARAMETERS;
                     buoy[1].gsa = SET;
                     buoy[1].ackOK = false;
-                    radiobutton[1] = 6;
-                    notify = true;
-                    String out = "IDLE";
+                    String out = "RANGE\r\n -1M";
                     showDip(4, out);
                     delay(1000);
                 }
                 else if (sw_pos == SW_RIGHT) // sail to dock positon
                 {
-                    String out = "No ACTION";
-                    showDip(3, out);
+                    buoy[1].string = "0,1,0,0";
+                    buoy[1].cmnd = COMPUTE_PARAMETERS;
+                    buoy[1].gsa = SET;
+                    buoy[1].ackOK = false;
+                    String out = "RANGE\r\n +1M";
+                    showDip(4, out);
                     delay(1000);
                 }
             }
@@ -281,15 +280,15 @@ void loop()
     if (millis() - previousTime >= 1000)
     { // do stuff every second
         previousTime = millis();
-        for (int i = 1; i < NR_BUOYS; i++)
-            if (buoy[i].status == LOCKED || buoy[i].status == DOCKED)
-            {
-                buoy[i].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
-                buoy[i].gsa = GET;
-                while (loraMenu(i))
-                    ;
-                checkAckStamp = millis();
-            }
+        // for (int i = 1; i < NR_BUOYS; i++)
+        //     if (buoy[i].status == LOCKED || buoy[i].status == DOCKED)
+        //     {
+        //         buoy[i].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
+        //         buoy[i].gsa = GET;
+        //         while (loraMenu(i))
+        //             ;
+        //         checkAckStamp = millis();
+        //     }
     }
     /*
     check if messages are acknowleged.
@@ -306,6 +305,7 @@ void loop()
                 while (loraMenu(i))
                     ;
                 maxRepeatCount[i]++;
+                checkAckStamp = 1500 + millis();
             }
             else
             {
@@ -317,36 +317,40 @@ void loop()
 
     if (Serial.available())
     {
-        char nr;
-        nr = Serial.read();
-        // Serial.printf("New data on serial port: %c\n", nr);
-        switch (nr)
+        int nr;
+        if (serialPortDataIn(&nr))
         {
-        case '1':
-            buoy[1].cmnd = GPS_DUMMY;
-            buoy[1].dataout = 1;
-            loraMenu(1);
-            buoy[1].cmnd = 0;
-            break;
-        case '0':
-            buoy[1].cmnd = GPS_DUMMY;
-            buoy[1].dataout = 0;
-            loraMenu(1);
-            buoy[1].cmnd = 0;
-            break;
-        case '+':
-            buoy[1].cmnd = GPS_DUMMY_DELTA_LAT_LON;
-            buoy[1].dataout = 1;
-            loraMenu(1);
-            buoy[1].cmnd = 0;
-            break;
-        case '-':
-            buoy[1].cmnd = GPS_DUMMY_DELTA_LAT_LON;
-            buoy[1].dataout = 0;
-            loraMenu(1);
-            buoy[1].cmnd = 0;
-            break;
+            Serial.printf("New data on serial port: %d\n", nr);
         }
+
+        // Serial.printf("New data on serial port: %c\n", nr);
+        // switch (nr)
+        // {
+        // case 1:
+        //     buoy[1].cmnd = GPS_DUMMY;
+        //     buoy[1].dataout = 1;
+        //     loraMenu(1);
+        //     buoy[1].cmnd = 0;
+        //     break;
+        // case 0:
+        //     buoy[1].cmnd = GPS_DUMMY;
+        //     buoy[1].dataout = 0;
+        //     loraMenu(1);
+        //     buoy[1].cmnd = 0;
+        //     break;
+        // case '+':
+        //     buoy[1].cmnd = GPS_DUMMY_DELTA_LAT_LON;
+        //     buoy[1].dataout = 1;
+        //     loraMenu(1);
+        //     buoy[1].cmnd = 0;
+        //     break;
+        // case '-':
+        //     buoy[1].cmnd = GPS_DUMMY_DELTA_LAT_LON;
+        //     buoy[1].dataout = 0;
+        //     loraMenu(1);
+        //     buoy[1].cmnd = 0;
+        //     break;
+        // }
     }
 
     delay(1);

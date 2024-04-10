@@ -11,5 +11,6 @@ void LastStatus(byte *data, double *tglat, double *tglon, bool get);
 void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, float *MinX, float *MinY, float *MinZ, bool get);
 void CompassCallibrationFactorsInt(int16_t *MaxX, int16_t *MaxY, int16_t *MaxZ, int16_t *MinX, int16_t *MinY, int16_t *MinZ, bool get);
 void CompassOffsetCorrection(int *delta, bool get);
+void computeParameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int *maxSpeed, bool get);
 
 #endif /* DATASTORAGE_H_ */

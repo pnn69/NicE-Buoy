@@ -16,6 +16,7 @@ struct buoyDataType
     double tgdir, tgdistance;
     int gpscource, mdir, ddir, cdir;
     int gpsspeed, speed, speedbb, speedsb, cspeed;
+    int minOfsetDist,maxOfsetDist,minSpeed,maxSpeed;
     int fix;
     int rssi;
     int mode;
@@ -28,6 +29,7 @@ struct buoyDataType
     float voltage;
     int percentage;
     int dataout;
+    String string;
 };
 
 extern bool ledstatus;

@@ -9,6 +9,7 @@ struct buoyDataType
     double ancorlatitude, ancorlongitude;
     double doclatitude, doclongitude;
     double tgdir, tgdistance;
+    int minOfsetDist, maxOfsetDist, minSpeed, maxSpeed;
     int mdir, ddir, cdir, mcorrdir;
     int speed, speedbb, speedsb, cspeed;
     int rssi;

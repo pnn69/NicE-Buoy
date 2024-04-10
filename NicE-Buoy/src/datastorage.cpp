@@ -203,3 +203,22 @@ void CompassCallibrationFactorsInt(int16_t *MaxX, int16_t *MaxY, int16_t *MaxZ, 
     }
     StopMem();
 }
+void computeParameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int *maxSpeed, bool get)
+{
+    StartMem();
+    if (get)
+    {
+        *minOfsetDist = (int)storage.getInt("minOfsetDist", 1);
+        *maxOfsetDist = (int)storage.getInt("maxOfsetDist", 8);
+        *minSpeed = (int)storage.getInt("minSpeed", 0);
+        *maxSpeed = (int)storage.getInt("maxSpeed", 80);
+    }
+    else
+    {
+        storage.putInt("minOfsetDist", *minOfsetDist);
+        storage.putInt("maxOfsetDist", *maxOfsetDist);
+        storage.putInt("minSpeed", *minSpeed);
+        storage.putInt("maxSpeed", *maxSpeed);
+    }
+    StopMem();
+}

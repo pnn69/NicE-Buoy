@@ -36,7 +36,7 @@ static unsigned long secstamp, sec05stamp, msecstamp, escstamp, hstamp, sec5stam
 
 // static unsigned long tgdir = 0, tgdistance = 0, cdir = 0;
 bool nwloramsg = false;                         // Used to clear led status in main
-bool speedChanged = false;                      // chaged speed
+double distanceChanged = 0;                     // chaged speed
 char buoyID = 0;                                // buouy ID
 byte status = IDLE;                             // Status buoy
 const byte numChars = 32;                       //
@@ -94,6 +94,7 @@ bool serialPortDataIn(int *nr)
 void setup()
 {
     Serial.begin(115200);
+    color_printf(COLOR_PRINT_BLUE, "\r\nSetup running!\r\n");
     initSSD1306();
     Wire.begin();
     pinMode(LED_PIN, OUTPUT);
@@ -103,7 +104,7 @@ void setup()
     InitMemory();
     initMCP23017();
     InitGps();
-    color_printf(COLOR_PRINT_BLUE, "Setup running");
+    initCalculate();
     MemoryBuoyID(&buoyID, true);
     SWITCH_GRN_OFF;
     SWITCH_RED_ON;
@@ -119,7 +120,7 @@ void setup()
     xTaskCreate(IndicatorTask, "IndicatorTask", 2400, NULL, 1, NULL);
     xTaskCreate(EscTask, "EscTask", 2400, NULL, 25, NULL);
     xTaskCreate(BuzzerTask, "BuzzerTask", 1024, NULL, 5, NULL);
-    //websetup();
+    // websetup();
     Serial.printf("BuoyID = %d\n\r", buoyID);
     snd_sq.ledstatus = CRGB(0, 0, 20);
     xQueueSend(indicatorqueSt, (void *)&snd_sq, 10);
@@ -372,14 +373,22 @@ void loop()
         case LOCKED:
             BUTTON_LIGHT_ON;
             SWITCH_RED_OFF;
-            RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
-            if (buoy.tgdistance < 2000)                                                                               // test if target is in range
+            if (gpsdata.fix == true)
             {
-                buoy.speed = CalcEngingSpeedBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, &buoy.speedbb, &buoy.speedsb);
+                RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
+                if (buoy.tgdistance < 2000)                                                                               // test if target is in range
+                {
+                    buoy.speed = CalcEngingSpeedBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, &buoy.speedbb, &buoy.speedsb);
+                }
+                else
+                {
+                    buoy.speed = CalcEngingSpeedBuoy(buoy.tgdir, buoy.mheading, 0, &buoy.speedbb, &buoy.speedsb); // No speed out of range
+                }
             }
             else
             {
-                buoy.speed = 0; // do notihing
+                buoy.speedbb = 0; // no fix kill trusters
+                buoy.speedsb = 0;
             }
             break;
 
@@ -487,16 +496,13 @@ void loop()
         udateDisplay(buoy.speedsb, buoy.speedbb, (unsigned long)buoy.tgdistance, (unsigned int)buoy.tgdir, (unsigned int)buoy.mheading, gpsvalid);
     }
 
-    // // do stuff every second
-    if (millis() - secstamp > 1000)
+    if (distanceChanged != buoy.tgdistance)
     {
-        secstamp = millis() - 1;
-        if (speedChanged == true)
+        if (status == LOCKED || status == DOCKED)
         {
-            speedChanged = false;
-            loraMenu(SBPWR_BBPWR);
+            distanceChanged = buoy.tgdistance;
+            loraMenu(DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING);
         }
-        // loraMenu(GPS_LAT_LON_FIX_HEADING_SPEED);
     }
     /*
      do stuff every 5 sec
@@ -507,10 +513,11 @@ void loop()
         loraIn.recipient = 0xFE;
         loraMenu(GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING); // pos heading speed to remote
         loraMenu(BATTERY_VOLTAGE_PERCENTAGE);             // bat voltage and percentage to remote
-        loraMenu(SBPWR_BBPWR);
-        if (status == LOCKED)
+        if (status == LOCKED || status == DOCKED)
         {
-            loraMenu(DIR_DISTANSE_TO_TARGET_POSITION);
+            loraMenu(COMPUTE_PARAMETERS);
+        }else{
+            loraMenu(SBPWR_BBPWR);
         }
         // Serial.printf("Batt percentage %0.1f%% voltage: %0.2fV target distance %0.0lf target dir %0.0lf\r\n", buoy.vperc, buoy.vbatt, buoy.tgdistance, buoy.tgdir);
     }
@@ -518,7 +525,7 @@ void loop()
     int nr;
     if (serialPortDataIn(&nr))
     {
-        Serial.printf("New data on serial port: %d\n", nr);
+        // Serial.printf("New data on serial port: %d\n", nr);
     }
 
     /*
@@ -531,7 +538,7 @@ void loop()
         if (spdbb != buoy.speedbb)
         {
             esctrigger = millis();
-            speedChanged = true;
+            //            distanceChanged = true;
             if (spdbb < buoy.speedbb) // slowly go to setpoint
             {
                 spdbb++;
@@ -543,7 +550,7 @@ void loop()
         }
         if (spdsb != buoy.speedsb)
         {
-            speedChanged = true;
+            //            distanceChanged = true;
             esctrigger = millis();
             if (spdsb < buoy.speedsb)
             {

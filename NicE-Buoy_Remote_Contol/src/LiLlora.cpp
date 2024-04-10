@@ -117,7 +117,29 @@ int polLora(void)
     double dir, dist;
     int sp, sb, bb;
     float lhe;
-    Serial.println("Lora:" + String(loraIn.sender) + " RSSI:" + String(loraIn.rssi) + " msgid:" + String(loraIn.msgid) + " gsia:" + String(loraIn.gsia) + " <" + loraIn.message + "> status:" + String(loraIn.status));
+    String gsia = "";
+    if (loraIn.gsia == ACK)
+    {
+        gsia = "ACK";
+    }
+    else if (loraIn.gsia == NAK)
+    {
+        gsia = "NAK";
+    }
+    else if (loraIn.gsia == GET)
+    {
+        gsia = "GET";
+    }
+    else if (loraIn.gsia == SET)
+    {
+        gsia = "SET";
+    }
+    else if (loraIn.gsia == INF)
+    {
+        gsia = "INF";
+    }
+
+    Serial.println("Lora in Buoy:" + String(loraIn.sender) + " status:" + String(loraIn.status) + " gsia:" + gsia + " msgid:" + String(loraIn.msgid) + " <" + loraIn.message + ">");
     loraIn.message.toCharArray(messarr, loraIn.message.length() + 1);
     if (NR_BUOYS > loraIn.sender)
     {
@@ -135,7 +157,6 @@ int polLora(void)
         switch (loraIn.msgid)
         {
         case DIR_DISTANSE_TO_TARGET_POSITION:
-            Serial.println("direction and distance target recieved!");
             if (loraIn.gsia == SET)
             {
                 sscanf(messarr, "%lf,%lf", &dir, &dist);
@@ -143,9 +164,19 @@ int polLora(void)
                 buoy[loraIn.sender].tgdistance = dist;
             }
             break;
-
         case DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING:
-            if (loraIn.gsia == ACK)
+            if (loraIn.gsia == SET)
+            {
+                // Serial.println("direction and distance target recieved!");
+                sscanf(messarr, "%lf,%lf,%d,%d,%d,%d",
+                       &buoy[loraIn.sender].tgdir,
+                       &buoy[loraIn.sender].tgdistance,
+                       &buoy[loraIn.sender].speed,
+                       &buoy[loraIn.sender].speedbb,
+                       &buoy[loraIn.sender].speedsb,
+                       &buoy[loraIn.sender].mdir);
+            }
+            else if (loraIn.gsia == ACK)
             {
                 // Serial.println("direction and distance target recieved!");
                 sscanf(messarr, "%lf,%lf,%d,%d,%d,%d",
@@ -280,6 +311,14 @@ int polLora(void)
                 buoy[loraIn.sender].ackOK = true;
             }
             break;
+        case COMPUTE_PARAMETERS:
+            if (loraIn.gsia == ACK)
+            {
+                // Serial.printf("Stored Parameters: Minimum offset distance: %dM Maxumum offset distance: %dM, buoy minimum speed: %d%%, buoy maximum speed: %d%%\r\n", buoy[loraIn.sender].minOfsetDist, buoy[loraIn.sender].maxOfsetDist, buoy[loraIn.sender].minSpeed, buoy[loraIn.sender].maxSpeed);
+                buoy[loraIn.sender].ackOK = true;
+            }
+            sscanf(messarr, "%d,%d,%d,%d", &buoy[loraIn.sender].minOfsetDist, &buoy[loraIn.sender].maxOfsetDist, &buoy[loraIn.sender].minSpeed, &buoy[loraIn.sender].maxSpeed);
+            break;
 
         default:
             Serial.println("unknown command: " + loraIn.msgid);
@@ -410,6 +449,11 @@ bool loraMenu(int buoy_nr)
             buoy[1].gsa = SET;
             sendMessage(msg, buoy_nr, buoy[buoy_nr].cmnd, buoy[buoy_nr].gsa);
         }
+        break;
+    case COMPUTE_PARAMETERS:
+        msg = buoy[1].string;
+        buoy[1].gsa = SET;
+        sendMessage(msg, buoy_nr, buoy[buoy_nr].cmnd, buoy[buoy_nr].gsa);
         break;
 
     default:

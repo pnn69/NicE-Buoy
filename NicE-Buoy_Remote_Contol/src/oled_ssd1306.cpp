@@ -112,7 +112,9 @@ void ShowBuoyData(int buoyID)
     display.setCursor(barwide + 7, 20);
     if (buoy[buoyID].status == LOCKED || buoy[buoyID].status == DOCKED)
     {
-        display.printf("Dist: %4.1lfM", buoy[buoyID].tgdistance);
+        display.printf("Dist:%5.1lfM", buoy[buoyID].tgdistance);
+        display.setCursor(128 - barwide - 3 * 7, 20);
+        display.printf("%dM",buoy[buoyID].maxOfsetDist);
     }
     display.setCursor(barwide + 7, 30);
     display.printf("Dir:%3d HDG:%3d", (int)buoy[buoyID].tgdir, (int)buoy[buoyID].mdir);

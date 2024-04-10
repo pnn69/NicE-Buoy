@@ -60,7 +60,28 @@ bool sendLora(void)
     LoRa.endPacket(); // finish packet and send it
     lasttransmission = millis();
     // ledstatus = true;
-    Serial.print("Lora out desst>:" + String(loraOut.destination) + " status:" + String(status) + " msg_id:" + loraOut.msgid + " gsia:" + String(loraOut.gsia) + " msg <" + String(loraOut.message) + ">\r\n");
+    String gsia = "";
+    if (loraOut.gsia == ACK)
+    {
+        gsia = "ACK";
+    }
+    else if (loraOut.gsia == NAK)
+    {
+        gsia = "NAK";
+    }
+    else if (loraOut.gsia == GET)
+    {
+        gsia = "GET";
+    }
+    else if (loraOut.gsia == SET)
+    {
+        gsia = "SET";
+    }
+    else if (loraOut.gsia == INF)
+    {
+        gsia = "INF";
+    }
+    Serial.print("Lora out desst>:" + String(loraOut.destination) + " status:" + String(status) + " msg_id:" + loraOut.msgid + " gsia:" + gsia + " msg <" + String(loraOut.message) + ">\r\n");
     return 0;
 }
 
@@ -71,7 +92,8 @@ void sendLoraAck(byte msg_id, int cmnd)
     String msg = "";
     loraOut.messagelength = msg.length();
     loraOut.message = msg;
-    sendLora();
+    while (sendLora())
+        ;
 }
 
 int decodeMsg()
@@ -202,7 +224,7 @@ int polLora(void)
             status = DOCKED;
             sendACKNAKINF(msg, ACK);
         }
-        if (loraIn.gsia == GET) // request dock positon
+        else if (loraIn.gsia == GET) // request dock positon
         {
             double tmplat;
             double tmplon;
@@ -214,7 +236,7 @@ int polLora(void)
     case TARGET_POSITION:
         if (loraIn.gsia == SET)
         {
-            if ((gpsdata.lat != 0 || gpsdata.lon != 0) && gpsdata.fix > 0)
+            if ((gpsdata.lat != 0 || gpsdata.lon != 0) && gpsdata.fix == true)
             {
                 buoy.tglatitude = gpsdata.lat;
                 buoy.tglongitude = gpsdata.lon;
@@ -224,12 +246,10 @@ int polLora(void)
             else
             {
                 sendACKNAKINF("", NAK);
+                status = IDLE;
             }
-            loraOut.message = msg;
-            while (sendLora())
-                ;
         }
-        if (loraIn.gsia == GET)
+        else if (loraIn.gsia == GET)
         {
             msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
             sendACKNAKINF(msg, SET);
@@ -301,7 +321,7 @@ int polLora(void)
         if (loraIn.gsia == SET)
         {
             sendACKNAKINF("", ACK);
-            Serial.println();
+            Serial.print("Old value>");
             msg = String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.fix) + "," + String((int)gpsdata.cource) + "," + String((int)gpsdata.speed) + "," + String(buoy.mheading, 0);
             Serial.println(msg);
             double lat, lon;
@@ -309,8 +329,28 @@ int polLora(void)
             gpsdata.lat += lat;
             gpsdata.lon += lon;
             msg = String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.fix) + "," + String((int)gpsdata.cource) + "," + String((int)gpsdata.speed) + "," + String(buoy.mheading, 0);
+            Serial.print("New value>");
             Serial.println(msg);
             Serial.println();
+        }
+        break;
+    case COMPUTE_PARAMETERS:
+        if (loraIn.gsia == SET)
+        {
+            int mind;
+            int maxd;
+            int minsp;
+            int maxsp;
+
+            sscanf(messageArr, "%d,%d,%d,%d", &mind, &maxd, &minsp, &maxsp);
+            setparameters(&mind, &maxd, &minsp, &maxsp);
+            msg = String(buoy.minOfsetDist) + "," + String(buoy.maxOfsetDist) + "," + String(buoy.minSpeed) + "," + String(buoy.maxSpeed);
+            sendACKNAKINF(msg, ACK);
+        }
+        else if (loraIn.gsia == GET)
+        {
+            msg = String(buoy.minOfsetDist) + "," + String(buoy.maxOfsetDist) + "," + String(buoy.minSpeed) + "," + String(buoy.maxSpeed);
+            sendACKNAKINF(msg, ACK);
         }
         break;
 
@@ -352,6 +392,15 @@ bool loraMenu(int cmnd)
         while (sendLora())
             ;
         break;
+    case DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING:
+        loraOut.message = String(buoy.tgdir) + "," + String(buoy.tgdistance) + "," + buoy.speed + "," + buoy.speedbb + "," + buoy.speedsb + "," + String(buoy.mheading, 0);
+        loraOut.destination = loraIn.recipient;
+        loraOut.msgid = cmnd;
+        loraOut.gsia = SET;
+        while (sendLora())
+            ;
+        break;
+
     case SBPWR_BBPWR:
         loraOut.message = String(buoy.speedsb) + "," + String(buoy.speedbb);
         loraOut.destination = loraIn.recipient;
@@ -359,6 +408,14 @@ bool loraMenu(int cmnd)
         loraOut.gsia = SET;
         while (sendLora())
             ;
+        break;
+    case COMPUTE_PARAMETERS:
+        loraOut.msgid = cmnd;
+        loraOut.message = String(buoy.minOfsetDist) + "," + String(buoy.maxOfsetDist) + "," + String(buoy.minSpeed) + "," + String(buoy.maxSpeed);
+        loraOut.gsia = SET;
+        while (sendLora())
+            ;
+
         break;
     }
     return 0;

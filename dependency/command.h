@@ -46,6 +46,7 @@ typedef enum
     TXT,                                           // for text transistons
     GPS_DUMMY,                                     // 1 enable, 0 disable
     GPS_DUMMY_DELTA_LAT_LON,                       // lat(double)/lon(double)
+    COMPUTE_PARAMETERS,                            // (int)buoyMinOffsetDistance, (int)buoyMaxOffsetDistance, (int)buoyMinSpeed, (int)maxCorrectionPeedPercentage
     RESET                                          // reset esp
 } Command_t;
 

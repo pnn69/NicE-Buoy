@@ -1,10 +1,68 @@
 #include <Arduino.h>
 #include <math.h>
+#include "datastorage.h"
+#include "general.h"
 
-#define BOUYMINOFFSETDISTANCE 1 // Offset for taking action for position controll. Can be 0 till infinety but moste likely 1 - 5
-#define BOUYMAXOFFSETDISTANCE 8 // Max distance go full speed from here
-#define BOUYMINSPEED 0
-#define MAXCORRECTIONSPEEDPERC 80
+void initCalculate(void)
+{
+    computeParameters(&buoy.minOfsetDist, &buoy.maxOfsetDist, &buoy.minSpeed, &buoy.maxSpeed, true);
+    Serial.printf("Stored Parameters: Minimum offset distance: %dM Maxumum offset distance: %dM, buoy minimum speed: %d%%, buoy maximum speed: %d%%\r\n", buoy.minOfsetDist, buoy.maxOfsetDist, buoy.minSpeed, buoy.maxSpeed);
+}
+
+/*
+change parematers for speed calculation
+*/
+void setparameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int *maxSpeed)
+{
+    int tbuoyMinOffsetDistance = buoy.minOfsetDist;
+    int tbuoyMaxOffsetDistance = buoy.maxOfsetDist;
+    int tbuoyMinSpeed = buoy.minSpeed;
+    int tbuoymaxSpeed = buoy.maxSpeed;
+    tbuoyMinOffsetDistance += *minOfsetDist;
+    tbuoyMaxOffsetDistance += *maxOfsetDist;
+    tbuoyMinSpeed += *minSpeed;
+    tbuoymaxSpeed += *maxSpeed;
+    /*
+    sanety check
+    */
+    if (tbuoyMinOffsetDistance < 1)
+    {
+        tbuoyMinOffsetDistance = 1;
+    }
+    if (tbuoyMaxOffsetDistance > 20)
+    {
+        tbuoyMaxOffsetDistance = 20;
+    }
+    if (tbuoyMinSpeed < 0)
+    {
+        tbuoyMinSpeed = 0;
+    }
+    if (tbuoymaxSpeed > 80)
+    {
+        tbuoymaxSpeed = 80;
+    }
+
+    if (tbuoyMinOffsetDistance >= tbuoyMaxOffsetDistance)
+    {
+        *minOfsetDist = buoy.minOfsetDist; // Offset for taking action for position controll. Can be 0 till infinety but moste likely 1 - 5
+        *maxOfsetDist = buoy.maxOfsetDist; // Max distance go full speed from here
+        *minSpeed = buoy.minSpeed;         // Min speeed thrusters
+        *maxSpeed = buoy.maxSpeed;         // Max speed thrusters
+    }
+    else
+    {
+        *minOfsetDist = tbuoyMinOffsetDistance; // Offset for taking action for position controll. Can be 0 till infinety but moste likely 1 - 5
+        *maxOfsetDist = tbuoyMaxOffsetDistance; // Max distance go full speed from here
+        *minSpeed = tbuoyMinSpeed;              // Min speeed thrusters
+        *maxSpeed = tbuoymaxSpeed;              // Max speed thrusters
+        buoy.minOfsetDist = tbuoyMinOffsetDistance;
+        buoy.maxOfsetDist = tbuoyMaxOffsetDistance;
+        buoy.minSpeed = tbuoyMinSpeed;
+        buoy.maxSpeed = tbuoymaxSpeed;
+        computeParameters(&buoy.minOfsetDist, &buoy.maxOfsetDist, &buoy.minSpeed, &buoy.maxSpeed, false);
+        //Serial.printf("Stored Parameters: Minimum offset distance: %dM Maxumum offset distance: %dM, buoy minimum speed: %d%%, buoy maximum speed: %d%%\r\n", buoy.minOfsetDist, buoy.maxOfsetDist, buoy.minSpeed, buoy.maxSpeed);
+    }
+}
 
 double smallestAngle(double heading1, double heading2)
 {
@@ -76,14 +134,14 @@ int CalcEngingSpeedBuoy(double magheading, float tgheading, double tgdistance, i
 {
     int speed = 0;
     double correctonAngle = 0;
-    if (tgdistance < BOUYMINOFFSETDISTANCE) // do nothing if buoy is in 5 meter from target
+    if (tgdistance < buoy.minOfsetDist) // do nothing if buoy is in 5 meter from target
     {
         speed = 0;
     }
     else
     {
-        tgdistance = constrain(tgdistance, BOUYMINOFFSETDISTANCE, BOUYMAXOFFSETDISTANCE);
-        speed = map(tgdistance * 100.0, BOUYMINOFFSETDISTANCE * 100.0, BOUYMAXOFFSETDISTANCE * 100.0, BOUYMINSPEED * 100.0, MAXCORRECTIONSPEEDPERC * 100.0) / 100.0; // map speed 1-10 meter -> BOUYMINSPEED - MAXCORRECTIONSPEEDPERC %
+        tgdistance = constrain(tgdistance, buoy.minOfsetDist, buoy.maxOfsetDist);
+        speed = map(tgdistance * 100.0, buoy.minOfsetDist * 100.0, buoy.maxOfsetDist * 100.0, buoy.minSpeed * 100.0, buoy.maxSpeed * 100.0) / 100.0; // map speed 1-10 meter -> buoyMinSpeed - maxCorrectionPeedPercentage %
     }
 
     // Angle between calculated angel to steer and the current direction of the vessel
