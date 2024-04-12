@@ -286,6 +286,10 @@ int polLora(void)
         case DOC_POSITION:
             if (loraIn.gsia == ACK)
             {
+                sscanf(messarr, "%lf,%lf",
+                       &buoy[loraIn.sender].gpslatitude,
+                       &buoy[loraIn.sender].gpslongitude);
+                Serial.printf("Doc positon: https://www.google.nl/maps/@%0.8lf,%0.8lf,16z?entry=ttu\r\n", buoy[loraIn.sender].gpslatitude, buoy[loraIn.sender].gpslongitude);
                 buoy[loraIn.sender].ackOK = true;
                 buoy[loraIn.sender].status = DOCKED;
             }
@@ -311,6 +315,13 @@ int polLora(void)
                 buoy[loraIn.sender].ackOK = true;
             }
             break;
+        case ESC_ON_OFF:
+            if (loraIn.gsia == ACK)
+            {
+                buoy[loraIn.sender].ackOK = true;
+            }
+            break;
+
         case COMPUTE_PARAMETERS:
             if (loraIn.gsia == ACK)
             {
@@ -450,6 +461,21 @@ bool loraMenu(int buoy_nr)
             sendMessage(msg, buoy_nr, buoy[buoy_nr].cmnd, buoy[buoy_nr].gsa);
         }
         break;
+    case ESC_ON_OFF:
+        buoy[1].ackOK = false;
+        buoy[1].gsa = SET;
+        if (buoy[1].dataout == 1)
+        {
+            msg = "1";
+        }
+        if (buoy[1].dataout == 0)
+        {
+            msg = "0";
+        }
+        sendMessage(msg, buoy_nr, buoy[buoy_nr].cmnd, buoy[buoy_nr].gsa);
+
+        break;
+
     case COMPUTE_PARAMETERS:
         msg = buoy[1].string;
         buoy[1].gsa = SET;

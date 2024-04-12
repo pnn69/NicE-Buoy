@@ -36,7 +36,8 @@ static unsigned long secstamp, sec05stamp, msecstamp, escstamp, hstamp, sec5stam
 
 // static unsigned long tgdir = 0, tgdistance = 0, cdir = 0;
 bool nwloramsg = false;                         // Used to clear led status in main
-double distanceChanged = 0;                     // chaged speed
+double distanceChanged = 0;                     // chaged distance
+int speedChanged = 0;                           // chaged speed
 char buoyID = 0;                                // buouy ID
 byte status = IDLE;                             // Status buoy
 const byte numChars = 32;                       //
@@ -117,6 +118,7 @@ void setup()
     {
         Serial.println("Compas OK!");
     }
+    adc_switch(); // read out switches
     xTaskCreate(IndicatorTask, "IndicatorTask", 2400, NULL, 1, NULL);
     xTaskCreate(EscTask, "EscTask", 2400, NULL, 25, NULL);
     xTaskCreate(BuzzerTask, "BuzzerTask", 1024, NULL, 5, NULL);
@@ -154,8 +156,6 @@ void setup()
     {
         Serial.println("Error sending speed to statusque");
     }
-    BUTTON_LIGHT_OFF;
-    delay(400);
     BUTTON_LIGHT_ON;
     adc_switch(); // read out switches
     /*
@@ -167,11 +167,12 @@ void setup()
         adc_switch(); // read out switches
         if (frontsw.switch1upact || FRONTBUTTON_READ == PUSHED)
         {
+            status = CALIBRATE_MAGNETIC_COMPASS;
             beepESC();
             CalibrateCompass(); // calibrate compass
             beepESC();
             offeststamp = millis();
-            status = CALIBRATE_MAGNETIC_COMPASS;
+            status = CALIBRATE_OFFSET_MAGNETIC_COMPASS;
         }
     }
     snd_sq.ledstatus = CRGB(0, 0, 0);
@@ -182,17 +183,33 @@ void setup()
     snd_buz.time = 100;
     snd_buz.pauze = 25;
     xQueueSend(Buzzerque, (void *)&snd_buz, 10);
-    Serial.println("Setup done.");
     BUTTON_LIGHT_OFF;
     SWITCH_RED_ON;
     SWITCH_GRN_OFF;
     secstamp = millis();
     msecstamp = millis();
     hstamp = millis();
-    // Postion Steiger WSOP
+    MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude, true);
+    Serial.printf("Doc positon: https://www.google.nl/maps/@%2.8lf,%2.8lf,16z?entry=ttu\r\n", buoy.tglatitude, buoy.tglongitude);
+    CompassOffsetCorrection(&spdbb, true);
+    Serial.printf("Magnetic correction:%d\r\n", spdbb);
+    spdbb = 0;
+    buoy.muteEsc = false; // enable esc
+    Serial.println("Setup done.");
+
+    // // Postion Steiger WSOP
     // gpsdata.lat = 52.29308075283747;
     // gpsdata.lon = 4.932570409845357;
-    // MemoryDockPos(&gpsdata.lat, &gpsdata.lon, false); // store default
+    // MemoryDockPos(&gpsdata.lat, &gpsdata.lon, false); // store default wsvop
+    // // home
+    // gpsdata.lat = 52.32038;
+    // gpsdata.lon = 4.96563;
+    // gpsdata.fix = true;
+    // gpsdata.nrsats = 10;
+    // gpsactive = false; // disable gps
+    // buoy.muteEsc = true;
+    //CompassOffsetCorrection(&spdbb, false);
+    // status = CALIBRATE_OFFSET_MAGNETIC_COMPASS;
 }
 
 /**********************************************************************************************************************************************************/
@@ -281,28 +298,60 @@ void loop()
             buoy.speedsb = 0;
             if (lst_button_cnt > BUTTON_LONG) // Button long pressed?
             {
-                if (status == CALIBRATE_OFFSET_MAGNETIC_COMPASS) // check if compass calibration mode is active
+
+                /*
+                Button long pressed.
+                */
+                if (gpsdata.fix == true && status != CALIBRATE_OFFSET_MAGNETIC_COMPASS && status != STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS) // Program doc position
+                {
+                    MemoryDockPos(&gpsdata.lat, &gpsdata.lon, false);
+                    Serial.printf("Doc positon: https://www.google.nl/maps/@%2.8lf,%2.8lf,16z?entry=ttu\r\n", gpsdata.lat, gpsdata.lon);
+                    beepESC();
+                    status = IDLE;
+                }
+                /*
+                Callibration procedure :
+                1 Press the push button during power on.
+                2 Rotate buoy on all axes until you hear a beep.
+                3 Place the buoy on a marked position.
+                4 Wait until the green and red switch lights are burning continusly.
+                5 Long press the button until you hear a beep.
+                6 Place te buoy at least 30 meter from the marked position and point the front of the buoy to that marked point.
+                7 long Press the button again until a beep is sounding.Done !
+                */
+                else if (status == CALIBRATE_OFFSET_MAGNETIC_COMPASS) // check if compass calibration mode is active
                 {
                     if (gpsdata.fix == true) // GPS fix ok?
                     {
-                        buoy.tglatitude = gpsdata.lat; // set current position as target postion.
-                        buoy.tglongitude = gpsdata.lon;
+                        // buoy.tglatitude = gpsdata.lat;
+                        // buoy.tglongitude = gpsdata.lon;
+                        MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude, true);
                         snd_buz.time = 500;
                         snd_buz.repeat = 4;
                         snd_buz.pauze = 25;
                         xQueueSend(Buzzerque, (void *)&snd_buz, 10);
-                        status = CALIBRATE_OFFSET_MAGNETIC_COMPASS;
-                        offeststamp = millis(); // restart timer
-                        Serial.printf("Status set to >CALIBRATE_OFFSET_MAGNETIC_COMPASS< = %d\r\n", status);
+                        beepESC();
+                        offeststamp = millis();
+                        status = STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS;
+                        Serial.printf("Status set to >STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS< = %d\r\n", status);
                         beepESC();
                     }
                 }
-                else if (gpsdata.fix == true) // Program doc position
+                else if (status == STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS) // check if compass calibration mode is active
                 {
-                    MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude, false);
-                    Serial.printf("Dock position stored!!!\r\n");
+                    snd_buz.time = 100;
+                    snd_buz.repeat = 25;
+                    snd_buz.pauze = 25;
+                    xQueueSend(Buzzerque, (void *)&snd_buz, 10);
+                    RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
+                    Serial.printf("Mag heading %lf gps heading %f", buoy.mheading, buoy.tgdir);
+                    // store magnetic comensation
+                    int tmp = (int)(buoy.mheading - buoy.tgdir);
+                    storeCompassOfest(&tmp, false);
+                    storeCompassOfest(&tmp, true);
+                    Serial.printf("New offset stored: %d\r\n", tmp);
+                    delay(10000);
                     beepESC();
-                    status = IDLE;
                 }
             }
             else // short press on button
@@ -376,7 +425,8 @@ void loop()
             if (gpsdata.fix == true)
             {
                 RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
-                if (buoy.tgdistance < 2000)                                                                               // test if target is in range
+                // if (buoy.tgdistance < 2000)                                                                               // test if target is in range
+                if (buoy.tgdistance < 6000) // test if target is in range
                 {
                     buoy.speed = CalcEngingSpeedBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, &buoy.speedbb, &buoy.speedsb);
                 }
@@ -392,23 +442,8 @@ void loop()
             }
             break;
 
-            /*
-            Callibration procedure:
-            1 Press the push button during power on.
-            2 Rotate buoy on all axes until you hear a beep.
-            3 Place the buoy on a marked position.
-            4 Wait until the green and red switch lights are burning continusly.
-            5 Short press the button until you hear a beep.
-            6 Place te buoy at least 30 meter from the marked position and point the front of the buoy to that marked point.
-            7 Press the button again until a beep is sounding.
-            Done!
-            */
         case CALIBRATE_MAGNETIC_COMPASS:
             SWITCH_RED_ON;
-            if (offeststamp + 100000 > millis())
-            {
-                status = IDLE;
-            }
             if (BUTTON_LIGHT_READ)
             {
                 BUTTON_LIGHT_OFF;
@@ -416,23 +451,6 @@ void loop()
             else
             {
                 BUTTON_LIGHT_ON;
-            }
-            if (gpsdata.fix == true)
-            {
-                if (FRONTBUTTON_READ == PUSHED)
-                {
-                    delay(500);
-                    {
-                        if (FRONTBUTTON_READ == PUSHED)
-                        {
-                            buoy.tglatitude = gpsdata.lat;
-                            buoy.tglongitude = gpsdata.lon;
-                            status = CALIBRATE_OFFSET_MAGNETIC_COMPASS;
-                            beepESC();
-                            offeststamp = millis();
-                        }
-                    }
-                }
             }
             break;
 
@@ -446,38 +464,6 @@ void loop()
             else
             {
                 BUTTON_LIGHT_ON;
-            }
-            if (offeststamp + 10000 < millis())
-            {
-                if (FRONTBUTTON_READ == PUSHED)
-                {
-                    snd_buz.time = 200;
-                    snd_buz.repeat = 0;
-                    snd_buz.pauze = 0;
-                    xQueueSend(Buzzerque, (void *)&snd_buz, 10);
-                    BUTTON_LIGHT_ON;
-                    delay(5000);
-                    if (FRONTBUTTON_READ == PUSHED)
-                    {
-                        snd_buz.time = 100;
-                        snd_buz.repeat = 25;
-                        snd_buz.pauze = 25;
-                        xQueueSend(Buzzerque, (void *)&snd_buz, 10);
-                        RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
-                        callibratCompassOfest((int)(buoy.tgdir - GetHeadingRaw()));                                               // store magnetic comensation
-                        debugln("New offset stored");
-                        delay(200);
-                        GetHeadingRaw();
-                        beepESC();
-                        spdbb = 0;
-                        spdsb = 0;
-                    }
-                    BUTTON_LIGHT_OFF;
-                    SWITCH_RED_OFF;
-                    SWITCH_GRN_ON;
-                    status = IDLE;
-                    Serial.printf("Status set to >IDLE< = %d\r\n", status);
-                }
             }
             break;
 
@@ -494,8 +480,15 @@ void loop()
         Update dislpay
         */
         udateDisplay(buoy.speedsb, buoy.speedbb, (unsigned long)buoy.tgdistance, (unsigned int)buoy.tgdir, (unsigned int)buoy.mheading, gpsvalid);
+        if (speedChanged != spdbb + spdsb && status == REMOTE)
+        {
+            speedChanged = spdbb + spdsb;
+            loraMenu(SBPWR_BBPWR);
+        }
     }
-
+    /*
+    Send only updated changes
+    */
     if (distanceChanged != buoy.tgdistance)
     {
         if (status == LOCKED || status == DOCKED)
@@ -516,10 +509,12 @@ void loop()
         if (status == LOCKED || status == DOCKED)
         {
             loraMenu(COMPUTE_PARAMETERS);
-        }else{
+        }
+        else
+        {
             loraMenu(SBPWR_BBPWR);
         }
-        // Serial.printf("Batt percentage %0.1f%% voltage: %0.2fV target distance %0.0lf target dir %0.0lf\r\n", buoy.vperc, buoy.vbatt, buoy.tgdistance, buoy.tgdir);
+        Serial.printf("Batt percentage %0.1f%% voltage: %0.2fV target distance %0.0lf target dir %0.0lf\r\n", buoy.vperc, buoy.vbatt, buoy.tgdistance, buoy.tgdir);
     }
 
     int nr;
@@ -569,9 +564,10 @@ void loop()
             }
             esctrigger = millis();
         }
-        snd_msg.speedbb = spdbb;
-        snd_msg.speedsb = spdsb;
-        xQueueSend(escspeed, (void *)&snd_msg, 10); // update esc
+        if (buoy.muteEsc == false)
+        {
+            xQueueSend(escspeed, (void *)&snd_msg, 10); // update esc
+        }
         snd_sp.speedbb = spdbb;
         snd_sp.speedsb = spdsb;
         xQueueSend(indicatorqueSp, (void *)&snd_sp, 10); // send to led indicator

@@ -72,16 +72,16 @@ void ShowBuoyData(int buoyID)
 {
     display.clearDisplay();
     // putchar(x & (1u << i) ? '1' : '0');
-    speedbars(buoy[buoyID].speedbb, buoy[buoyID].speedsb);
     display.setCursor(barwide + 7, 0);
     display.printf("NicE BUOY %d", buoyID);
+    display.setCursor(128 - barwide - 7 - 2, 0);
     if (buoy[buoyID].fix)
     {
-        display.printf("    *");
+        display.printf("*");
     }
     else
     {
-        display.printf("    0");
+        display.printf("0");
     }
     String st;
     switch (buoy[buoyID].remotestatus)
@@ -107,17 +107,17 @@ void ShowBuoyData(int buoyID)
     }
     display.setCursor(barwide + 7, 10);
     display.print(st);
-    display.setCursor(barwide + 55, 10);
-    display.printf("Rssi:%d", (int)buoy[buoyID].rssi);
+    display.setCursor(128 - barwide - 7 * 8 -1, 10);
+    display.printf("Rssi:%04d", (int)buoy[buoyID].rssi);
     display.setCursor(barwide + 7, 20);
     if (buoy[buoyID].status == LOCKED || buoy[buoyID].status == DOCKED)
     {
         display.printf("Dist:%5.1lfM", buoy[buoyID].tgdistance);
-        display.setCursor(128 - barwide - 3 * 7, 20);
-        display.printf("%dM",buoy[buoyID].maxOfsetDist);
+        display.setCursor(128 - barwide - 3 * 7 - 1, 20);
+        display.printf("%02dM", buoy[buoyID].maxOfsetDist);
     }
     display.setCursor(barwide + 7, 30);
-    display.printf("Dir:%3d HDG:%3d", (int)buoy[buoyID].tgdir, (int)buoy[buoyID].mdir);
+    display.printf("Dir:%03.0lf  HDG:%03d", buoy[buoyID].tgdir, buoy[buoyID].mdir);
     display.setCursor(barwide + 7, 40);
     buoy[buoyID].speedbb = constrain(buoy[buoyID].speedbb, -100, 100);
     display.printf("%4d%%", buoy[buoyID].speedbb);
@@ -126,6 +126,7 @@ void ShowBuoyData(int buoyID)
     display.setCursor(128 - barwide - 5 * 7, 40);
     buoy[buoyID].speedsb = constrain(buoy[buoyID].speedsb, -100, 100);
     display.printf("%4d%%", buoy[buoyID].speedsb);
+    speedbars(buoy[buoyID].speedbb, buoy[buoyID].speedsb);
     BatPowerBarr(buoy[buoyID].percentage);
     display.display();
 }

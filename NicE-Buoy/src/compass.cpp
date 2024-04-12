@@ -9,7 +9,7 @@
 #include "io.h"
 #include "datastorage.h"
 
-#define NUM_DIRECTIONS 5
+#define NUM_DIRECTIONS 10
 #define NUM_POSITIONS 50
 
 Adafruit_LSM303AGR_Mag_Unified mag = Adafruit_LSM303AGR_Mag_Unified(12345);
@@ -119,7 +119,7 @@ bool InitCompass(void)
     sensors_event_t event;
     mag.getEvent(&event);
     Serial.printf("%f %f %f \r\n", event.magnetic.x, event.magnetic.y, event.magnetic.z);
-    CompassOffsetCorrection(&magCorrection, 1);
+    CompassOffsetCorrection(&magCorrection, true);
     debugln("Compas Heading Correction: " + magCorrection);
     return 0;
 }
@@ -172,10 +172,12 @@ bool CalibrateCompass(void)
 /*
 Store magnetic offset (Comass can be mounted on a angle)
 */
-void callibratCompassOfest(int storeMagCorrection)
+void storeCompassOfest(int *storeMagCorrection, bool get)
 {
-    CompassOffsetCorrection(&storeMagCorrection, 1);
-    magCorrection = storeMagCorrection;
+    int corr = *storeMagCorrection;
+    CompassOffsetCorrection(&corr, get);
+    *storeMagCorrection = corr;
+    magCorrection = corr;
 }
 
 float GetHeading(void)
@@ -190,8 +192,17 @@ float GetHeading(void)
 }
 float GetHeadingRaw(void)
 {
-    return heading((vector<int>){0, 1, 0});
-    CompassOffsetCorrection(&magCorrection, 1); // needed to reload after callibration
+    float t = heading((vector<int>){0, 1, 0});
+    t = magCorrection + t;
+    if (t > 360)
+    {
+        t -= 360;
+    }
+    else if (t < 0)
+    {
+        t += 360;
+    }
+    return t;
 }
 
 static int cbufpointer = 0;

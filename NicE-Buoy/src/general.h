@@ -21,6 +21,7 @@ struct buoyDataType
     byte gsa;
     float vbatt;
     float vperc;
+    bool muteEsc;
 };
 
 struct switchStatus

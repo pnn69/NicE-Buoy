@@ -219,10 +219,11 @@ int polLora(void)
         if (loraIn.gsia == SET) // sail to doc positon
         {
             MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude, true);
-            msg = String(buoy.tglatitude, 8) + "." + String(buoy.tglongitude, 8);
+            msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
             RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
             status = DOCKED;
             sendACKNAKINF(msg, ACK);
+            Serial.printf("Doc positon: https://www.google.nl/maps/@%2.8lf,%2.8lf,16z?entry=ttu\r\n", buoy.tglatitude, buoy.tglongitude);
         }
         else if (loraIn.gsia == GET) // request dock positon
         {
@@ -353,6 +354,20 @@ int polLora(void)
             sendACKNAKINF(msg, ACK);
         }
         break;
+    case ESC_ON_OFF:
+        int tmp;
+        sscanf(messageArr, "%d", &tmp);
+        buoy.muteEsc = tmp;
+        if (tmp)
+        {
+            Serial.println("ESC off");
+        }
+        else
+        {
+            Serial.println("ESC on");
+        }
+        sendACKNAKINF("", ACK);
+        break;
 
     case RESET:
         ESP.restart();
@@ -369,7 +384,7 @@ bool loraMenu(int cmnd)
     switch (cmnd)
     {
     case GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING:
-        loraOut.message = String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.fix) + "," + String(gpsdata.cource) + "," + String((int)gpsdata.speed) + "," + String(buoy.mheading, 0);
+        loraOut.message = String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.fix) + "," + String((int)gpsdata.cource) + "," + String((int)gpsdata.speed) + "," + String(buoy.mheading, 0);
         loraOut.destination = loraIn.recipient;
         loraOut.msgid = cmnd;
         loraOut.gsia = SET;

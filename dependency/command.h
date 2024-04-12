@@ -47,6 +47,7 @@ typedef enum
     GPS_DUMMY,                                     // 1 enable, 0 disable
     GPS_DUMMY_DELTA_LAT_LON,                       // lat(double)/lon(double)
     COMPUTE_PARAMETERS,                            // (int)buoyMinOffsetDistance, (int)buoyMaxOffsetDistance, (int)buoyMinSpeed, (int)maxCorrectionPeedPercentage
+    ESC_ON_OFF,                                    // enable disable esc (defaut enabled)
     RESET                                          // reset esp
 } Command_t;
 
@@ -70,7 +71,9 @@ typedef enum
     REMOTEING,
     CALIBRATE_MAGNETIC_COMPASS,
     CALIBRATE_OFFSET_MAGNETIC_COMPASS,
-    DOCK_STORING
+    STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS,
+    DOCK_STORING,
+    MUTE_ESC
 
 } Status_t;
 

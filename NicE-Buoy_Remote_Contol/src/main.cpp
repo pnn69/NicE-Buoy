@@ -111,6 +111,30 @@ void loop()
     {
         notify = loraIn.sender;
     }
+    /*
+        check if messages are acknowleged.
+        if not resend
+        */
+    if (checkAckStamp + 250 < millis())
+    {
+        checkAckStamp = millis();
+        for (int i = 1; i < NR_BUOYS; i++)
+        {
+            if (buoy[i].ackOK == false && maxRepeatCount[i] < MAX_REPEAT)
+            {
+                Serial.printf("Repeat command %d, %d times\r\n", buoy[i].cmnd, maxRepeatCount[i]);
+                while (loraMenu(i))
+                    ;
+                maxRepeatCount[i]++;
+                checkAckStamp = 1500 + millis();
+            }
+            else
+            {
+                maxRepeatCount[i] = 0;
+                buoy[i].ackOK = true;
+            }
+        }
+    }
 
     /*
     runs each 10 msec
@@ -273,6 +297,7 @@ void loop()
                 while (loraMenu(i))
                     ;
                 checkAckStamp = millis();
+                delay(200);
             }
         }
     }
@@ -280,77 +305,77 @@ void loop()
     if (millis() - previousTime >= 1000)
     { // do stuff every second
         previousTime = millis();
-        // for (int i = 1; i < NR_BUOYS; i++)
-        //     if (buoy[i].status == LOCKED || buoy[i].status == DOCKED)
-        //     {
-        //         buoy[i].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
-        //         buoy[i].gsa = GET;
-        //         while (loraMenu(i))
-        //             ;
-        //         checkAckStamp = millis();
-        //     }
-    }
-    /*
-    check if messages are acknowleged.
-    if not resend
-    */
-    if (checkAckStamp + 250 < millis())
-    {
-        checkAckStamp = millis();
         for (int i = 1; i < NR_BUOYS; i++)
-        {
-            if (buoy[i].ackOK == false && maxRepeatCount[i] < MAX_REPEAT)
+            if (buoy[i].status == LOCKED || buoy[i].status == DOCKED)
             {
-                Serial.printf("Repeat command %d, %d times\r\n", buoy[i].cmnd, maxRepeatCount[i]);
+                buoy[i].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
+                buoy[i].gsa = GET;
                 while (loraMenu(i))
                     ;
-                maxRepeatCount[i]++;
-                checkAckStamp = 1500 + millis();
+                checkAckStamp = millis();
             }
-            else
+            else if (buoy[i].status == REMOTE)
             {
-                maxRepeatCount[i] = 0;
-                buoy[i].ackOK = true;
+                // Serial.printf("New data from ADC! speed:%d rudder:%d\r\n", adc.speed, adc.rudder);
+                buoy[i].cspeed = adc.speed;
+                buoy[i].cdir = adc.rudder;
+                buoy[i].cmnd = SAIL_DIR_SPEED;
+                buoy[i].gsa = SET;
+                adc.newdata = false;
+                while (loraMenu(i))
+                    ;
+                checkAckStamp = millis();
             }
-        }
     }
 
     if (Serial.available())
     {
-        int nr;
-        if (serialPortDataIn(&nr))
-        {
-            Serial.printf("New data on serial port: %d\n", nr);
-        }
-
-        // Serial.printf("New data on serial port: %c\n", nr);
-        // switch (nr)
+        char nr;
+        // if (serialPortDataIn(&nr))
         // {
-        // case 1:
-        //     buoy[1].cmnd = GPS_DUMMY;
-        //     buoy[1].dataout = 1;
-        //     loraMenu(1);
-        //     buoy[1].cmnd = 0;
-        //     break;
-        // case 0:
-        //     buoy[1].cmnd = GPS_DUMMY;
-        //     buoy[1].dataout = 0;
-        //     loraMenu(1);
-        //     buoy[1].cmnd = 0;
-        //     break;
-        // case '+':
-        //     buoy[1].cmnd = GPS_DUMMY_DELTA_LAT_LON;
-        //     buoy[1].dataout = 1;
-        //     loraMenu(1);
-        //     buoy[1].cmnd = 0;
-        //     break;
-        // case '-':
-        //     buoy[1].cmnd = GPS_DUMMY_DELTA_LAT_LON;
-        //     buoy[1].dataout = 0;
-        //     loraMenu(1);
-        //     buoy[1].cmnd = 0;
-        //     break;
+        //     Serial.printf("New data on serial port: %d\n", nr);
         // }
+        nr = Serial.read();
+        Serial.printf("New data on serial port: %c\n", nr);
+        switch (nr)
+        {
+        case 1:
+            buoy[1].cmnd = GPS_DUMMY;
+            buoy[1].dataout = 1;
+            loraMenu(1);
+            buoy[1].cmnd = 0;
+            break;
+        case 0:
+            buoy[1].cmnd = GPS_DUMMY;
+            buoy[1].dataout = 0;
+            loraMenu(1);
+            buoy[1].cmnd = 0;
+            break;
+        case '+':
+            buoy[1].cmnd = GPS_DUMMY_DELTA_LAT_LON;
+            buoy[1].dataout = 1;
+            loraMenu(1);
+            buoy[1].cmnd = 0;
+            break;
+        case '-':
+            buoy[1].cmnd = GPS_DUMMY_DELTA_LAT_LON;
+            buoy[1].dataout = 0;
+            loraMenu(1);
+            buoy[1].cmnd = 0;
+            break;
+        case 'e':
+            buoy[1].cmnd = ESC_ON_OFF;
+            buoy[1].dataout = 1;
+            loraMenu(1);
+            buoy[1].cmnd = 0;
+            break;
+        case 'r':
+            buoy[1].cmnd = ESC_ON_OFF;
+            buoy[1].dataout = 0;
+            loraMenu(1);
+            buoy[1].cmnd = 0;
+            break;
+        }
     }
 
     delay(1);
