@@ -39,11 +39,14 @@ struct pid
     double ki = 0.4;
     double kd = 0;
     double i = 0;
+    double lastErr = 0;
+    unsigned long lastTime = 0;;
 };
 
 extern buoyDataType buoy;
 extern switchStatus frontsw;
-extern pid buoypid;
+extern pid speedpid;
+extern pid rudderpid;
 extern char buoyID;
 extern bool nwloramsg;
 extern byte status;

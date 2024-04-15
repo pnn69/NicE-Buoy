@@ -106,7 +106,8 @@ void setup()
     initMCP23017();
     InitGps();
     initCalculate();
-    initPid();
+    initRudderPid();
+    initSpeedPid();
     MemoryBuoyID(&buoyID, true);
     SWITCH_GRN_OFF;
     SWITCH_RED_ON;
@@ -190,30 +191,35 @@ void setup()
     secstamp = millis();
     msecstamp = millis();
     hstamp = millis();
+    
     MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude, true);
     Serial.printf("Doc positon: https://www.google.nl/maps/@%2.12lf,%2.12lf,16z?entry=ttu\r\n", buoy.tglatitude, buoy.tglongitude);
     CompassOffsetCorrection(&buoy.magneticCorrection, true);
     Serial.printf("Magnetic correction:%d\r\n", buoy.magneticCorrection);
     computeParameters(&buoy.minOfsetDist, &buoy.maxOfsetDist, &buoy.minSpeed, &buoy.maxSpeed, true);
-    Serial.printf("kp=%2.2lf ki=%2.2lf kd=%2.2lf\r\n", buoypid.kp, buoypid.ki, buoypid.kd);
+    Serial.printf("kp=%2.2lf ki=%2.2lf kd=%2.2lf\r\n", speedpid.kp, speedpid.ki, speedpid.kd);
     buoy.muteEsc = false; // enable esc
     Serial.println("Setup done.");
 
     /**********************************************************************************************************************************************************/
     /* Only for testing */
     /**********************************************************************************************************************************************************/
+    rudderpid.kp = 0.3;
+    rudderpid.ki = 0.02;
+    rudderpid.kd = 0.1;
+    pidRudderParameters(&rudderpid.kp, &rudderpid.ki, &rudderpid.kd, false);
     // // Postion Steiger WSOP as target
     // gpsdata.lat = 52.29308075283747;
     // gpsdata.lon = 4.932570409845357;
     // MemoryDockPos(&gpsdata.lat, &gpsdata.lon, false); // store default wsvop
     // // home
-    // gpsdata.lat = 52.32038;
-    // gpsdata.lon = 4.96563;
-    // // fake fix
-    // gpsdata.fix = true;
-    // gpsdata.nrsats = 10;
-    // // disable gps
-    // gpsactive = false; // disable gps
+    gpsdata.lat = 52.32038;
+    gpsdata.lon = 4.96563;
+    // fake fix
+    gpsdata.fix = true;
+    gpsdata.nrsats = 10;
+    // disable gps
+    gpsactive = false; // disable gps
     // // mute esc
     // buoy.muteEsc = true;
 }
@@ -331,7 +337,7 @@ void loop()
                     beepESC();
                     if (status != CALIBRATE_MAGNETIC_COMPASS || status != CALIBRATE_OFFSET_MAGNETIC_COMPASS)
                     {
-                        resetRudder();
+                        initRudderPid();
                         status = LOCKED;
                         Serial.printf("Status set to >LOCKED< = %d\r\n", status);
                     }
@@ -448,19 +454,28 @@ void loop()
                 SWITCH_GRN_ON;
                 BUTTON_LIGHT_ON;
             }
-            //if (gpsdata.fix == true && buoy.tgdistance < 2000)
+            if (gpsdata.fix == true) // && buoy.tgdistance < 2000)
             {
                 RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate distance and heading
                 buoy.speed = CalcDocSpeed(buoy.tgdistance);
                 if (buoy.speed > 0)
-                {                                                                                              // calculate speed
+                {                                                                                        // calculate speed
                     CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
-                    break;
+                }
+                else
+                {
+
+                    buoy.speedbb = 0; // no fix kill trusters
+                    buoy.speedsb = 0;
+                    buoy.speed = 0;
                 }
             }
-            buoy.speedbb = 0; // no fix kill trusters
-            buoy.speedsb = 0;
-            buoy.speed = 0;
+            else
+            {
+                buoy.speedbb = 0; // no fix kill trusters
+                buoy.speedsb = 0;
+                buoy.speed = 0;
+            }
             break;
 
         case LOCKED:
@@ -561,7 +576,7 @@ void loop()
             }
             break;
         case 4:
-            loraMenu(PID_PARAMETERS); // bat voltage and percentage to remote
+            loraMenu(PID_SPEED_PARAMETERS); // bat voltage and percentage to remote
             msg_cnt = 0;
             if (buoy.vbatt <= 22)
             {
@@ -572,13 +587,17 @@ void loop()
                     snd_msg.speedsb = 0;
                     xQueueSend(escspeed, (void *)&snd_msg, 10); // update esc
                     delay(5000);
-                        if (buoy.vbatt > 22){
-                            break;
-                        }
+                    adc_switch(); /*read switch status*/
+                    delay(100);
+                    adc_switch(); /*read switch status*/
+                    if (buoy.vbatt > 22)
+                    {
+                        break;
+                    }
                 }
                 if (buoy.vbatt <= 22)
                 {
-                    resetRudder();
+                    initRudderPid();
                     MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude, true);
                     status = DOCKED;
                     Serial.println("sailing home!!!!");

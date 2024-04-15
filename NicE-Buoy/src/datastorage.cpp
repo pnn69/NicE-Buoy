@@ -219,20 +219,37 @@ void computeParameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int 
     }
     StopMem();
 }
-void pidParameters(double *p, double *i, double *d,bool get)
+void pidSpeedParameters(double *p, double *i, double *d, bool get)
 {
     StartMem();
     if (get)
     {
-        *p = storage.getDouble("P", 20);
-        *i = storage.getDouble("I", 0.4);
-        *d = storage.getDouble("D", 0);
+        *p = storage.getDouble("Psp", 20);
+        *i = storage.getDouble("Isp", 0.4);
+        *d = storage.getDouble("Dsp", 0);
     }
     else
     {
-        storage.putDouble("P", *p);
-        storage.putDouble("I", *i);
-        storage.putDouble("D", *d);
+        storage.putDouble("Psp", *p);
+        storage.putDouble("Isp", *i);
+        storage.putDouble("Dsp", *d);
+    }
+    StopMem();
+}
+void pidRudderParameters(double *p, double *i, double *d, bool get)
+{
+    StartMem();
+    if (get)
+    {
+        *p = storage.getDouble("Prd", 0.5);
+        *i = storage.getDouble("Ird", 0.02);
+        *d = storage.getDouble("Drd", 0);
+    }
+    else
+    {
+        storage.putDouble("Prd", *p);
+        storage.putDouble("Ird", *i);
+        storage.putDouble("Drd", *d);
     }
     StopMem();
 }

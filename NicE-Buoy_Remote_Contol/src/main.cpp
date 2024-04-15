@@ -261,7 +261,7 @@ void loop()
                 else if (sw_pos == SW_MID)
                 {
                     buoy[1].string = "0,-0.1,0,0";
-                    buoy[1].cmnd = PID_PARAMETERS;
+                    buoy[1].cmnd = PID_SPEED_PARAMETERS;
                     buoy[1].gsa = SET;
                     buoy[1].ackOK = false;
                     String out = "PID -0.1\r\n\r\nKI=" + String(buoy[1].i -0.1, 2);
@@ -271,7 +271,7 @@ void loop()
                 else if (sw_pos == SW_RIGHT) // sail to dock positon
                 {
                     buoy[1].string = "0,0.1,0,0";
-                    buoy[1].cmnd = PID_PARAMETERS;
+                    buoy[1].cmnd = PID_SPEED_PARAMETERS;
                     buoy[1].gsa = SET;
                     buoy[1].ackOK = false;
                     String out = "PID +0.1\r\n\r\nKI=" + String(buoy[1].i +0.1, 2);

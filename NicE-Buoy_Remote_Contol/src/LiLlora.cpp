@@ -315,7 +315,7 @@ int polLora(void)
             }
             sscanf(messarr, "%d,%d,%d,%d", &buoy[loraIn.sender].minOfsetDist, &buoy[loraIn.sender].maxOfsetDist, &buoy[loraIn.sender].minSpeed, &buoy[loraIn.sender].maxSpeed);
             break;
-        case PID_PARAMETERS:
+        case PID_SPEED_PARAMETERS:
             if (loraIn.gsia == ACK)
                 ;
             {
@@ -475,7 +475,7 @@ bool loraMenu(int buoy_nr)
 
         break;
 
-    case PID_PARAMETERS:
+    case PID_SPEED_PARAMETERS:
     case COMPUTE_PARAMETERS:
         msg = buoy[1].string;
         buoy[1].gsa = SET;

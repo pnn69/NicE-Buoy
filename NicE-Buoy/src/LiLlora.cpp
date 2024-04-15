@@ -221,7 +221,7 @@ int polLora(void)
     case DOC_POSITION:
         if (loraIn.gsia == SET) // sail to doc positon
         {
-            resetRudder();
+            initRudderPid();
             MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude, true);
             msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
             RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
@@ -243,7 +243,7 @@ int polLora(void)
         {
             if ((gpsdata.lat != 0 || gpsdata.lon != 0) && gpsdata.fix == true)
             {
-                resetRudder();
+                initRudderPid();
                 buoy.tglatitude = gpsdata.lat;
                 buoy.tglongitude = gpsdata.lon;
                 sendACKNAKINF("", ACK);
@@ -382,7 +382,7 @@ int polLora(void)
             sendACKNAKINF(msg, ACK);
         }
         break;
-    case PID_PARAMETERS:
+    case PID_SPEED_PARAMETERS:
         if (loraIn.gsia == SET)
         {
             double tp;
@@ -390,9 +390,9 @@ int polLora(void)
             double td;
             double n;
             sscanf(messageArr, "%lf,%lf,%lf,%lf", &tp, &ti, &td, &n);
-            tp = buoypid.kp + tp;
-            ti = buoypid.ki + ti;
-            td = buoypid.kd + td;
+            tp = speedpid.kp + tp;
+            ti = speedpid.ki + ti;
+            td = speedpid.kd + td;
             /*
             sanety check
             */
@@ -410,16 +410,16 @@ int polLora(void)
                 break;
             }
 
-            buoypid.kp = tp;
-            buoypid.ki = ti;
-            buoypid.kd = td;
-            pidParameters(&buoypid.kp, &buoypid.ki, &buoypid.kd, false);
-            msg = String(buoypid.kp) + "," + String(buoypid.ki, 1) + "," + String(buoypid.kd), "," + String(buoypid.i, 2);
+            speedpid.kp = tp;
+            speedpid.ki = ti;
+            speedpid.kd = td;
+            pidSpeedParameters(&speedpid.kp, &speedpid.ki, &speedpid.kd, false);
+            msg = String(speedpid.kp) + "," + String(speedpid.ki, 1) + "," + String(speedpid.kd), "," + String(speedpid.i, 2);
             sendACKNAKINF(msg, ACK);
         }
         else if (loraIn.gsia == GET)
         {
-            msg = String(buoypid.kp) + "," + String(buoypid.ki) + "," + String(buoypid.kd), "," + String(buoypid.i, 2);
+            msg = String(speedpid.kp) + "," + String(speedpid.ki) + "," + String(speedpid.kd), "," + String(speedpid.i, 2);
             sendACKNAKINF(msg, ACK);
         }
         break;
@@ -501,9 +501,9 @@ bool loraMenu(int cmnd)
             ;
 
         break;
-    case PID_PARAMETERS:
+    case PID_SPEED_PARAMETERS:
         loraOut.msgid = cmnd;
-        loraOut.message = String(buoypid.kp) + "," + String(buoypid.ki, 4) + "," + String(buoypid.kd) + "," + String(buoypid.i);
+        loraOut.message = String(speedpid.kp) + "," + String(speedpid.ki, 4) + "," + String(speedpid.kd) + "," + String(speedpid.i);
         loraOut.gsia = SET;
         while (sendLora())
             ;

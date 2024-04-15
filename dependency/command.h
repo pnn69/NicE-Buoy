@@ -47,7 +47,8 @@ typedef enum
     GPS_DUMMY,                                     // 1 enable, 0 disable
     GPS_DUMMY_DELTA_LAT_LON,                       // lat(double)/lon(double)
     COMPUTE_PARAMETERS,                            // (int)buoyMinOffsetDistance, (int)buoyMaxOffsetDistance, (int)buoyMinSpeed, (int)maxCorrectionPeedPercentage
-    PID_PARAMETERS,                                // kp=20, ki=0.0001, kd=0;
+    PID_SPEED_PARAMETERS,                          // kp=20, ki=0.4, kd=0;
+    PID_RUDDER_PARAMETERS,                         // kp=.5, ki=0.02, kd=0;
     ESC_ON_OFF,                                    // enable disable esc (defaut enabled)
     RESET                                          // reset esp
 } Command_t;

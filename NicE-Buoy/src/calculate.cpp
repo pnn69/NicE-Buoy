@@ -3,12 +3,13 @@
 #include "datastorage.h"
 #include "general.h"
 
-pid buoypid;
-static unsigned long SpeedlastTime;
-static double SpeederrSum, SpeedlastErr;
+pid speedpid;
+pid rudderpid;
+// static unsigned long speedpid.lastTime;
+// static double SpeederrSum, speedpid.LastErr;
 
-static unsigned long AnglelastTime;
-static double AngleerrSum, AnglelastErr;
+// static unsigned long AnglelastTime;
+// static double rudderpid.i, AnglelastErr;
 
 void initCalculate(void)
 {
@@ -124,11 +125,12 @@ int CalcDocSpeed(double tgdistance)
     return map(tgdistance, 1, 8, 0, 80); // map speed 1-10 meter -> buoyMinSpeed - maxCorrectionPeedPercentage %
 }
 
-void resetRudder(void)
+void initRudderPid(void)
 {
-    AngleerrSum = 0;
-    AnglelastErr = 0;
-    AnglelastTime = millis();
+    pidRudderParameters(&rudderpid.kp, &rudderpid.ki, &rudderpid.kd, true);
+    rudderpid.i = 0;
+    rudderpid.lastErr = 0;
+    rudderpid.lastTime = millis();
 }
 
 void CalcSpeedRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb)
@@ -181,55 +183,47 @@ Calculate power to thrusters
 if heading < 180 BB motor 100% and SB motor less
 if heading > 180 SB motor 100% and BB motor less
 */
-double rudderp = 1.5;
-double rudderi = 0.2;
-double rudderd = 0;
 void CalcRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb)
 {
     double Output = 0;
     unsigned long now = millis();
-    double timeChange = (double)(now - AnglelastTime);
-    double correctonAngle = 0;
-    correctonAngle = smallestAngle(magheading, tgheading);
-    // Serial.printf("Smalest angle: %lf\r\n", correctonAngle);
-
-    // Angle between calculated angel to steer and the current direction of the vessel
-    /*Compute all the working error variables*/
+    double timeChange = (double)(now - rudderpid.lastTime);
+    double correctonAngle = smallestAngle(magheading, tgheading);
+     /*Compute all the working error variables*/
     double error = correctonAngle / 1000;
     if (determineDirection(magheading, tgheading) == true)
     {
         error *= -1;
         correctonAngle *= -1;
     }
-    AngleerrSum += error * timeChange;
-    double dErr = (error - AnglelastErr) / timeChange;
-
-    if (rudderi * AngleerrSum > 90)
+    rudderpid.i += error * timeChange;
+    double dErr = (error - rudderpid.lastErr) / timeChange;
+    if (rudderpid.ki * rudderpid.i > 90)
     {
-        AngleerrSum = 90 / rudderi;
+        rudderpid.i = 90 / rudderpid.ki;
     }
-    if (rudderi * AngleerrSum < -90)
+    if (rudderpid.ki * rudderpid.i < -90)
     {
-        AngleerrSum = -90 / rudderi;
+        rudderpid.i = -90 / rudderpid.ki;
     }
 
-    Output = rudderp * correctonAngle + rudderi * AngleerrSum + rudderi * dErr;
-    // Serial.printf("PID Dir=%1.2lf,  kp=%2.2lf,  I=%2.2lf\r\n", Output, rudderp * correctonAngle, rudderi * AngleerrSum);
+    Output = rudderpid.kp * correctonAngle + rudderpid.ki *rudderpid.i + rudderpid.kd * dErr;
+    Serial.printf("PID Dir=%1.2lf,  kp=%2.2lf,  I=%2.2lf D=%2.8lf\r\n", Output, rudderpid.kp * correctonAngle, rudderpid.ki *rudderpid.i, rudderpid.kd * dErr);
 
-    AnglelastErr = correctonAngle;
-    AnglelastTime = now;
+    rudderpid.lastErr = correctonAngle;
+    rudderpid.lastTime = now;
     Output = constrain(Output, -179, 179);
     float corr = Angle2SpeedFactor(abs(Output));
     float tbb, tsb = 0;
     if (Output < 0)
     {
-        tbb = speed + speed * (1 - corr);
+        tbb = speed; // + speed * (1 - corr);
         tsb = speed * corr;
     }
     else
     {
         tbb = speed * corr;
-        tsb = speed + speed * (1 - corr);
+        tsb = speed; //+ speed * (1 - corr);
     }
     *bb = (int)constrain(tbb, -20, buoy.maxSpeed);
     *sb = (int)constrain(tsb, -20, buoy.maxSpeed);
@@ -237,11 +231,12 @@ void CalcRudderBuoy(double magheading, float tgheading, int speed, int *bb, int 
     return;
 }
 
-void initPid(void)
+void initSpeedPid(void)
 {
-    pidParameters(&buoypid.kp, &buoypid.ki, &buoypid.kd, true);
-    SpeederrSum = 0;
-    SpeedlastErr = 0;
+    pidSpeedParameters(&speedpid.kp, &speedpid.ki, &speedpid.kd, true);
+    speedpid.i = 0;
+    speedpid.lastErr = 0;
+    rudderpid.lastTime = millis();
 }
 
 int hooverPid(double dist)
@@ -249,32 +244,31 @@ int hooverPid(double dist)
     /*How long since we last calculated*/
     double Output = 0;
     unsigned long now = millis();
-    double timeChange = (double)(now - SpeedlastTime);
+    double timeChange = (double)(now - speedpid.lastTime);
 
     /*Compute all the working error variables*/
     double error = (dist - buoy.minOfsetDist) / 1000;
-    SpeederrSum += (error * timeChange);
-    double dErr = (error - SpeedlastErr) / timeChange;
+    speedpid.i += (error * timeChange);
+    double dErr = (error - speedpid.lastErr) / timeChange;
 
     /* Do not sail backwards*/
-    if (SpeederrSum < 0)
+    if (speedpid.i < 0)
     {
-        SpeederrSum = 0;
+        speedpid.i = 0;
     }
 
     /*max 50% I correction*/
-    if (buoypid.ki * SpeederrSum > 50)
+    if (speedpid.ki * speedpid.i > 70)
     {
-        SpeederrSum = 50 / buoypid.ki;
+        speedpid.i = 70 / speedpid.ki;
     }
 
     /*Compute PID Output*/
-    Output = buoypid.kp * (dist - buoy.minOfsetDist) + buoypid.ki * SpeederrSum + buoypid.kd * dErr;
-    buoypid.i = buoypid.ki * SpeederrSum;
+    Output = speedpid.kp * (dist - buoy.minOfsetDist) + speedpid.ki * speedpid.i + speedpid.kd * dErr;
     /*Remember some variables for next time*/
-    SpeedlastErr = dist;
-    SpeedlastTime = now;
-    // Serial.printf("PID speed = %1.2lf,  kp=%2.2lf,  I=%2.2lf , Error= %2lf\r\n", Outputt, buoypid.kp * (dist - buoy.minOfsetDist), buoypid.ki / 1000 * SpeederrSum, SpeederrSum);
+    speedpid.lastErr = dist;
+    speedpid.lastTime = now;
+    // Serial.printf("PID speed = %1.2lf,  kp=%2.2lf,  I=%2.2lf , Error= %2lf\r\n", Outputt, speedpid.kp * (dist - buoy.minOfsetDist), speedpid.ki / 1000 * SpeederrSum, SpeederrSum);
     return constrain(Output, 0, buoy.maxSpeed);
 }
 

@@ -10,7 +10,8 @@ void resetRudder(void);
 void CalcSpeedRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb);
 void CalcRemoteRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb);
 void CalcRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb);
-void initPid(void);
+void initRudderPid(void);
+void initSpeedPid(void);
 int hooverPid(double dist);
 
 #endif /* CALCULATE_H_ */

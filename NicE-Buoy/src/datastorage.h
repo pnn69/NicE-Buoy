@@ -12,6 +12,7 @@ void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, floa
 void CompassCallibrationFactorsInt(int16_t *MaxX, int16_t *MaxY, int16_t *MaxZ, int16_t *MinX, int16_t *MinY, int16_t *MinZ, bool get);
 void CompassOffsetCorrection(int *delta, bool get);
 void computeParameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int *maxSpeed, bool get);
-void pidParameters(double *p, double *i, double *d,bool get);
+void pidSpeedParameters(double *p, double *i, double *d, bool get);
+void pidRudderParameters(double *p, double *i, double *d, bool get);
 
 #endif /* DATASTORAGE_H_ */
