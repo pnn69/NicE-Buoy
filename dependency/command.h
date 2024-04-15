@@ -41,7 +41,7 @@ typedef enum
     SBPWR_BBPWR,                                   // -100/100sb,-100/100bb
     BUOY_MODE_IDLE,                                // ?
     SYSTEM_STASTUS,                                // ?
-    GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING,        // lat,lon,fix,heading,speed,m_heading
+    GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING,  // lat,lon,fix,heading,speed,m_heading
     BATTERY_VOLTAGE_PERCENTAGE,                    // 0.0V, %
     TXT,                                           // for text transistons
     GPS_DUMMY,                                     // 1 enable, 0 disable

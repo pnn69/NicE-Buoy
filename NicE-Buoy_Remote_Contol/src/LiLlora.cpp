@@ -42,12 +42,9 @@ bool InitLora(void)
     return true;
 }
 
-bool sendMessage(String outgoing, byte dest, byte msg_id, byte gsia)
+void sendMessage(String outgoing, byte dest, byte msg_id, byte gsia)
 {
-    if (lasttransmission + 175 > millis())
-    { // prefend fast transmissions
-        return 1;
-    }
+    Serial.println("Lora out dest:" + String(dest) + " id:" + String(msg_id) + " gsia:" + String(gsia) + " <" + outgoing + ">");
     ledstatus = true;
     LoRa.beginPacket();            // start packet
     LoRa.write(dest);              // add destination address
@@ -59,8 +56,6 @@ bool sendMessage(String outgoing, byte dest, byte msg_id, byte gsia)
     LoRa.print(outgoing);          // add payload
     LoRa.endPacket();              // finish packet and send it
     lasttransmission = millis();
-    Serial.println("Lora out dest:" + String(dest) + " id:" + String(msg_id) + " gsia:" + String(gsia) + " <" + outgoing + ">");
-    return 0;
 }
 
 int decodeMsg()
@@ -138,7 +133,6 @@ int polLora(void)
     {
         gsia = "INF";
     }
-
     Serial.println("Lora in Buoy:" + String(loraIn.sender) + " status:" + String(loraIn.status) + " gsia:" + gsia + " msgid:" + String(loraIn.msgid) + " <" + loraIn.message + ">");
     loraIn.message.toCharArray(messarr, loraIn.message.length() + 1);
     if (NR_BUOYS > loraIn.sender)
@@ -190,12 +184,13 @@ int polLora(void)
             }
             break;
 
-        case GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING:
+        case GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING:
             if (loraIn.gsia == SET)
             {
-                sscanf(messarr, "%lf,%lf,%d,%d,%d,%d",
+                sscanf(messarr, "%lf,%lf,%d,%d,%d,%d,%d",
                        &buoy[loraIn.sender].gpslatitude,
                        &buoy[loraIn.sender].gpslongitude,
+                       &buoy[loraIn.sender].nrsats,
                        &buoy[loraIn.sender].fix,
                        &buoy[loraIn.sender].gpscource,
                        &buoy[loraIn.sender].gpsspeed,
@@ -208,7 +203,7 @@ int polLora(void)
             break;
 
         case SAIL_DIR_SPEED:
-            if (loraIn.gsia == SET)
+            if (loraIn.gsia == SET || loraIn.gsia == ACK)
             {
                 sscanf(messarr, "%f,%d,%d,%d", &lhe, &sp, &bb, &sb);
                 buoy[loraIn.sender].tgdir = 0;
@@ -217,25 +212,18 @@ int polLora(void)
                 buoy[loraIn.sender].speed = sp;
                 buoy[loraIn.sender].speedsb = sb;
                 buoy[loraIn.sender].speedbb = bb;
-                // Serial.printf("direction and speed bb:%d sb:%d!",buoy[loraIn.sender].speedbb,buoy[loraIn.sender].speedsb);
-            }
-            else if (loraIn.gsia == ACK)
-            {
                 buoy[loraIn.sender].ackOK = true;
+                // Serial.printf("direction and speed bb:%d sb:%d!",buoy[loraIn.sender].speedbb,buoy[loraIn.sender].speedsb);
             }
             break;
 
         case SBPWR_BBPWR:
-            if (loraIn.gsia == SET)
+            if (loraIn.gsia == SET || loraIn.gsia == ACK)
             {
 
                 sscanf(messarr, "%d,%d", &sb, &bb);
                 buoy[loraIn.sender].speedsb = sb;
                 buoy[loraIn.sender].speedbb = bb;
-            }
-            else if (loraIn.gsia == ACK)
-            {
-                buoy[loraIn.sender].ackOK = true;
             }
             break;
 
@@ -328,14 +316,16 @@ int polLora(void)
             sscanf(messarr, "%d,%d,%d,%d", &buoy[loraIn.sender].minOfsetDist, &buoy[loraIn.sender].maxOfsetDist, &buoy[loraIn.sender].minSpeed, &buoy[loraIn.sender].maxSpeed);
             break;
         case PID_PARAMETERS:
-            if (loraIn.gsia == ACK);
+            if (loraIn.gsia == ACK)
+                ;
             {
-                sscanf(messarr, "%lf,%lf,%lf,%lf",&buoy[loraIn.sender].p, &buoy[loraIn.sender].i,&buoy[loraIn.sender].d,&buoy[loraIn.sender].ki);
+                sscanf(messarr, "%lf,%lf,%lf,%lf", &buoy[loraIn.sender].p, &buoy[loraIn.sender].i, &buoy[loraIn.sender].d, &buoy[loraIn.sender].ki);
                 buoy[loraIn.sender].ackOK = true;
             }
-            if (loraIn.gsia == ACK || loraIn.gsia == SET);
+            if (loraIn.gsia == ACK || loraIn.gsia == SET)
+                ;
             {
-                sscanf(messarr, "%lf,%lf,%lf,%lf",&buoy[loraIn.sender].p, &buoy[loraIn.sender].i,&buoy[loraIn.sender].d,&buoy[loraIn.sender].ki);
+                sscanf(messarr, "%lf,%lf,%lf,%lf", &buoy[loraIn.sender].p, &buoy[loraIn.sender].i, &buoy[loraIn.sender].d, &buoy[loraIn.sender].ki);
                 buoy[loraIn.sender].ackOK = true;
             }
             break;
@@ -364,7 +354,7 @@ bool loraMenu(int buoy_nr)
     }
     String msg = "";
     buoy[buoy_nr].ackOK = false;
-
+    checkAckStamp =500 + millis();
     switch (buoy[buoy_nr].cmnd)
     {
     case LOCKED:

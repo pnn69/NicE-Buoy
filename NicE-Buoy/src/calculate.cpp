@@ -82,6 +82,7 @@ double smallestAngle(double heading1, double heading2)
 
 /*
     calculate the smallest angle between two directions
+    return 1 if angle is >180
 */
 bool determineDirection(double heading1, double heading2)
 {
@@ -152,21 +153,45 @@ void CalcSpeedRudderBuoy(double magheading, float tgheading, int speed, int *bb,
 }
 
 /*
+Compute power to trusters
+*/
+void CalcRemoteRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb)
+{
+    bool dir = determineDirection(magheading, tgheading);
+    double correctonAngle = smallestAngle(magheading, tgheading);
+    float corr = Angle2SpeedFactor(abs(correctonAngle));
+    float tbb, tsb;
+    if (dir == 1)
+    {
+        tbb = speed + speed * (1 - corr);
+        tsb = speed * corr;
+    }
+    else
+    {
+        tbb = speed * corr;
+        tsb = speed + speed * (1 - corr);
+    }
+    *bb = (int)constrain(tbb, -60, 100);
+    *sb = (int)constrain(tsb, -60, 100);
+    return;
+}
+
+/*
 Calculate power to thrusters
 if heading < 180 BB motor 100% and SB motor less
 if heading > 180 SB motor 100% and BB motor less
 */
-double rudderp = 2;
+double rudderp = 1.5;
 double rudderi = 0.2;
 double rudderd = 0;
-void CalcEngingRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb)
+void CalcRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb)
 {
     double Output = 0;
     unsigned long now = millis();
     double timeChange = (double)(now - AnglelastTime);
     double correctonAngle = 0;
     correctonAngle = smallestAngle(magheading, tgheading);
-    //Serial.printf("Smalest angle: %lf\r\n", correctonAngle);
+    // Serial.printf("Smalest angle: %lf\r\n", correctonAngle);
 
     // Angle between calculated angel to steer and the current direction of the vessel
     /*Compute all the working error variables*/
@@ -189,23 +214,26 @@ void CalcEngingRudderBuoy(double magheading, float tgheading, int speed, int *bb
     }
 
     Output = rudderp * correctonAngle + rudderi * AngleerrSum + rudderi * dErr;
-    //Serial.printf("PID Dir=%1.2lf,  kp=%2.2lf,  I=%2.2lf\r\n", Output, rudderp * correctonAngle, rudderi * AngleerrSum);
+    // Serial.printf("PID Dir=%1.2lf,  kp=%2.2lf,  I=%2.2lf\r\n", Output, rudderp * correctonAngle, rudderi * AngleerrSum);
 
     AnglelastErr = correctonAngle;
     AnglelastTime = now;
     Output = constrain(Output, -179, 179);
-    // Serial.println(Angle2SpeedFactor(Output));
+    float corr = Angle2SpeedFactor(abs(Output));
+    float tbb, tsb = 0;
     if (Output < 0)
     {
-        *bb = speed;
-        *sb = (int)(speed * Angle2SpeedFactor(abs(Output)));
+        tbb = speed + speed * (1 - corr);
+        tsb = speed * corr;
     }
     else
     {
-        *bb = (int)(speed * Angle2SpeedFactor(abs(Output)));
-        *sb = speed;
+        tbb = speed * corr;
+        tsb = speed + speed * (1 - corr);
     }
-    //Serial.printf("sb=%d, bb=%d",*sb,*bb);
+    *bb = (int)constrain(tbb, -20, buoy.maxSpeed);
+    *sb = (int)constrain(tsb, -20, buoy.maxSpeed);
+    // Serial.printf("corr=%2.3f ,delata + %d, sb=%d, bb=%d\r\n", corr, (int)(speed * (1 - corr)), *sb, *bb);
     return;
 }
 

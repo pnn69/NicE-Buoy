@@ -266,7 +266,7 @@ int polLora(void)
         {
             status = REMOTE;
             sscanf(messageArr, "%d,%d", &buoy.cdir, &buoy.cspeed);
-            CalcEngingRudderBuoy(buoy.cdir, 0, buoy.cspeed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
+            CalcRemoteRudderBuoy(buoy.cdir, 0, buoy.cspeed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
             msg = String(buoy.mheading, 0) + "," + String(buoy.cspeed) + "," + String(buoy.speedbb) + "," + String(buoy.speedsb);
             sendACKNAKINF(msg, ACK);
         }
@@ -452,8 +452,8 @@ bool loraMenu(int cmnd)
 {
     switch (cmnd)
     {
-    case GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING:
-        loraOut.message = String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.fix) + "," + String((int)gpsdata.cource) + "," + String((int)gpsdata.speed) + "," + String(buoy.mheading);
+    case GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING:
+        loraOut.message = String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.nrsats) + "," + String(gpsdata.fix) + "," + String((int)gpsdata.cource) + "," + String((int)gpsdata.speed) + "," + String(buoy.mheading);
         loraOut.destination = loraIn.recipient;
         loraOut.msgid = cmnd;
         loraOut.gsia = SET;

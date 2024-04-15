@@ -123,10 +123,9 @@ void loop()
             if (buoy[i].ackOK == false && maxRepeatCount[i] < MAX_REPEAT)
             {
                 Serial.printf("Repeat command %d, %d times\r\n", buoy[i].cmnd, maxRepeatCount[i]);
-                while (loraMenu(i))
-                    ;
+                loraMenu(i);
                 maxRepeatCount[i]++;
-                checkAckStamp = 1500 + millis();
+                checkAckStamp = 500 + millis();
             }
             else
             {
@@ -209,7 +208,7 @@ void loop()
                     buoy[1].ackOK = false;
                     String out = "LOCKED";
                     showDip(3, out);
-                    delay(1000);
+                    delay(2000);
                     notify = true;
                 }
                 else if (sw_pos == SW_MID)
@@ -227,13 +226,13 @@ void loop()
                     notify = true;
                     String out = "IDLE";
                     showDip(4, out);
-                    delay(1000);
+                    delay(2000);
                 }
                 else if (sw_pos == SW_RIGHT)
                 {
                     String out = "REMOTE";
                     showDip(3, out);
-                    delay(1000);
+                    delay(2000);
                     adc.newdata = true;
                     radiobutton[1] = 2;
                     notify = true;
@@ -255,7 +254,7 @@ void loop()
                     buoy[1].ackOK = false;
                     String out = "SAILING\r\nTO DOCK";
                     showDip(3, out);
-                    delay(1000);
+                    delay(5000);
                     notify = true;
                 }
 
@@ -265,9 +264,9 @@ void loop()
                     buoy[1].cmnd = PID_PARAMETERS;
                     buoy[1].gsa = SET;
                     buoy[1].ackOK = false;
-                    String out = "PID ki\r\n -0.1";
-                    showDip(4, out);
-                    delay(1000);
+                    String out = "PID -0.1\r\n\r\nKI=" + String(buoy[1].i -0.1, 2);
+                    showDip(2, out);
+                    delay(3000);
                 }
                 else if (sw_pos == SW_RIGHT) // sail to dock positon
                 {
@@ -275,9 +274,9 @@ void loop()
                     buoy[1].cmnd = PID_PARAMETERS;
                     buoy[1].gsa = SET;
                     buoy[1].ackOK = false;
-                    String out = "PID ki\r\n +0.1";
-                    showDip(4, out);
-                    delay(1000);
+                    String out = "PID +0.1\r\n\r\nKI=" + String(buoy[1].i +0.1, 2);
+                    showDip(2, out);
+                    delay(3000);
                 }
             }
             lst_button_cnt = 0;
@@ -294,10 +293,7 @@ void loop()
                 buoy[i].cmnd = SAIL_DIR_SPEED;
                 buoy[i].gsa = SET;
                 adc.newdata = false;
-                while (loraMenu(i))
-                    ;
-                checkAckStamp = millis();
-                delay(200);
+                loraMenu(i);
             }
         }
     }
@@ -312,9 +308,7 @@ void loop()
                 {
                     buoy[i].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
                     buoy[i].gsa = GET;
-                    while (loraMenu(i))
-                        ;
-                    checkAckStamp = millis();
+                    loraMenu(i);
                 }
                 else if (buoy[i].status == REMOTE)
                 {
@@ -324,9 +318,7 @@ void loop()
                     buoy[i].cmnd = SAIL_DIR_SPEED;
                     buoy[i].gsa = SET;
                     adc.newdata = false;
-                    while (loraMenu(i))
-                        ;
-                    checkAckStamp = millis();
+                    loraMenu(i);
                 }
             }
     }

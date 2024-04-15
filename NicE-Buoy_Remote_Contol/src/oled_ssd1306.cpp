@@ -74,6 +74,8 @@ void ShowBuoyData(int buoyID)
     // putchar(x & (1u << i) ? '1' : '0');
     display.setCursor(barwide + 7, 0);
     display.printf("NicE BUOY %d", buoyID);
+    display.setCursor(128 - barwide - 7 * 3 - 2, 0);
+    display.printf("%d", buoy[buoyID].nrsats);
     display.setCursor(128 - barwide - 7 - 2, 0);
     if (buoy[buoyID].fix)
     {
@@ -123,6 +125,7 @@ void ShowBuoyData(int buoyID)
     }
     else
     {
+        display.printf("KI:%1.1lf", buoy[buoyID].i);
         display.setCursor(128 - barwide - 7 * 8 - 1, 20);
         display.printf("Rssi:%04d", (int)buoy[buoyID].rssi);
     }

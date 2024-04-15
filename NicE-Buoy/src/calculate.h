@@ -8,7 +8,8 @@ void setparameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int *max
 int CalcDocSpeed(double tgdistance);
 void resetRudder(void);
 void CalcSpeedRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb);
-void CalcEngingRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb);
+void CalcRemoteRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb);
+void CalcRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb);
 void initPid(void);
 int hooverPid(double dist);
 

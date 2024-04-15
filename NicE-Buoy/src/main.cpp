@@ -419,7 +419,7 @@ void loop()
             break;
 
         case REMOTE:
-            CalcSpeedRudderBuoy(buoy.cdir, 0, buoy.cspeed, &buoy.speedbb, &buoy.speedsb);
+            CalcRemoteRudderBuoy(buoy.cdir, 0, buoy.cspeed, &buoy.speedbb, &buoy.speedsb);
             BUTTON_LIGHT_OFF;
             if (mcp.digitalRead(MAINSSWITCH_LEDRED_GPB) == 0)
             {
@@ -448,13 +448,13 @@ void loop()
                 SWITCH_GRN_ON;
                 BUTTON_LIGHT_ON;
             }
-            if (gpsdata.fix == true && buoy.tgdistance < 2000)
+            //if (gpsdata.fix == true && buoy.tgdistance < 2000)
             {
                 RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate distance and heading
                 buoy.speed = CalcDocSpeed(buoy.tgdistance);
                 if (buoy.speed > 0)
                 {                                                                                              // calculate speed
-                    CalcEngingRudderBuoy(buoy.tgdir, buoy.mheading, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
+                    CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
                     break;
                 }
             }
@@ -472,7 +472,7 @@ void loop()
                 buoy.speed = hooverPid(buoy.tgdistance);
                 if (buoy.speed > 0)
                 {
-                    CalcEngingRudderBuoy(buoy.tgdir, buoy.mheading, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
+                    CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
                 }
                 else
                 {
@@ -519,11 +519,12 @@ void loop()
     Update dislpay
     */
     // udateDisplay(buoy.speedsb, buoy.speedbb, (unsigned long)buoy.tgdistance, (unsigned int)buoy.tgdir, (unsigned int)buoy.mheading, gpsvalid);
-    if (speedChanged != spdbb + spdsb && status == REMOTE)
-    {
-        speedChanged = spdbb + spdsb;
-        loraMenu(SBPWR_BBPWR);
-    }
+    // if (speedChanged != spdbb + spdsb && status == REMOTE)
+    // {
+    //     speedChanged = spdbb + spdsb;
+    //     loraMenu(SBPWR_BBPWR);
+    //     delay(200);
+    // }
 
     /*
     Send only updated changes
@@ -548,7 +549,7 @@ void loop()
         switch (msg_cnt)
         {
         case 1:
-            loraMenu(GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING); // pos heading speed to remote
+            loraMenu(GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING); // pos heading speed to remote
             break;
         case 2:
             loraMenu(BATTERY_VOLTAGE_PERCENTAGE); // bat voltage and percentage to remote
@@ -601,11 +602,6 @@ void loop()
     {
         escstamp = millis() - 1; // to make it correct. > used instead of >=
         Message snd_msg;
-        if (status == REMOTE)
-        {
-            spdbb = buoy.speedbb;
-            spdsb = buoy.speedsb;
-        }
         if (spdbb != buoy.speedbb)
         {
             esctrigger = millis();

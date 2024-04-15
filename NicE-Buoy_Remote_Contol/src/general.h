@@ -17,6 +17,7 @@ struct buoyDataType
     int gpscource, mdir, ddir, cdir;
     int gpsspeed, speed, speedbb, speedsb, cspeed;
     int minOfsetDist, maxOfsetDist, minSpeed, maxSpeed;
+    int nrsats;
     int fix;
     int rssi;
     int mode;
@@ -39,5 +40,6 @@ struct buoyDataType
 extern bool ledstatus;
 extern buoyDataType buoy[NR_BUOYS];
 extern int notify;
+extern unsigned long checkAckStamp;
 
 #endif /* GENERA:_H_ */
