@@ -3,10 +3,16 @@
 #include "datastorage.h"
 #include "general.h"
 
+pid buoypid;
+static unsigned long SpeedlastTime;
+static double SpeederrSum, SpeedlastErr;
+
+static unsigned long AnglelastTime;
+static double AngleerrSum, AnglelastErr;
+
 void initCalculate(void)
 {
     computeParameters(&buoy.minOfsetDist, &buoy.maxOfsetDist, &buoy.minSpeed, &buoy.maxSpeed, true);
-    Serial.printf("Stored Parameters: Minimum offset distance: %dM Maxumum offset distance: %dM, buoy minimum speed: %d%%, buoy maximum speed: %d%%\r\n", buoy.minOfsetDist, buoy.maxOfsetDist, buoy.minSpeed, buoy.maxSpeed);
 }
 
 /*
@@ -60,7 +66,7 @@ void setparameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int *max
         buoy.minSpeed = tbuoyMinSpeed;
         buoy.maxSpeed = tbuoymaxSpeed;
         computeParameters(&buoy.minOfsetDist, &buoy.maxOfsetDist, &buoy.minSpeed, &buoy.maxSpeed, false);
-        //Serial.printf("Stored Parameters: Minimum offset distance: %dM Maxumum offset distance: %dM, buoy minimum speed: %d%%, buoy maximum speed: %d%%\r\n", buoy.minOfsetDist, buoy.maxOfsetDist, buoy.minSpeed, buoy.maxSpeed);
+        Serial.printf("Stored Parameters: Minimum offset distance: %dM Maxumum offset distance: %dM, buoy minimum speed: %d%%, buoy maximum speed: %d%%\r\n", buoy.minOfsetDist, buoy.maxOfsetDist, buoy.minSpeed, buoy.maxSpeed);
     }
 }
 
@@ -77,7 +83,7 @@ double smallestAngle(double heading1, double heading2)
 /*
     calculate the smallest angle between two directions
 */
-int determineDirection(double heading1, double heading2)
+bool determineDirection(double heading1, double heading2)
 {
     double angle = fmod(heading2 - heading1 + 360, 360); // Calculate the difference and keep it within 360 degrees
     if (angle > 180)
@@ -88,21 +94,6 @@ int determineDirection(double heading1, double heading2)
     {
         return 0; // Angle is less than or equal to 180, BB (Turn left)
     }
-}
-
-/*
-    Calculate the new direction to stear given an relative direction change
-    heading1 = delta heading2 = current direction
-    retuns the new course to stear
-*/
-int CalcNewDirection(double heading1, double heading2)
-{
-    int dirout = heading2 - heading1;
-    if (dirout < 0)
-    {
-        dirout = 360 - dirout;
-    }
-    return dirout;
 }
 
 /*
@@ -123,44 +114,23 @@ float Angle2SpeedFactor(float angle)
 }
 
 /*
-calculate the speed of both motors depeniding on the angle and distance to the target.
-Send the result to the esc module
-if heading < 180 BB motor 100% and SB motor less
-if heading > 180 SB motor 100% and BB motor less
-Speed is a function of distance start slowing donw if Buoy is less than 10 meter away for targed
+calculate the speed sailing home.
 The distance is in meters.
 */
-int CalcEngingSpeedBuoy(double magheading, float tgheading, double tgdistance, int *bb, int *sb)
+int CalcDocSpeed(double tgdistance)
 {
-    int speed = 0;
-    double correctonAngle = 0;
-    if (tgdistance < buoy.minOfsetDist) // do nothing if buoy is in 5 meter from target
-    {
-        speed = 0;
-    }
-    else
-    {
-        tgdistance = constrain(tgdistance, buoy.minOfsetDist, buoy.maxOfsetDist);
-        speed = map(tgdistance * 100.0, buoy.minOfsetDist * 100.0, buoy.maxOfsetDist * 100.0, buoy.minSpeed * 100.0, buoy.maxSpeed * 100.0) / 100.0; // map speed 1-10 meter -> buoyMinSpeed - maxCorrectionPeedPercentage %
-    }
-
-    // Angle between calculated angel to steer and the current direction of the vessel
-    correctonAngle = smallestAngle(magheading, tgheading);
-    // Serial.printf("correctonAngle %.4f Angle2SpeedFactor %.4f \n",correctonAngle,Angle2SpeedFactor(correctonAngle));
-    if (determineDirection(magheading, tgheading))
-    {
-        *bb = speed;
-        *sb = int(speed * Angle2SpeedFactor(correctonAngle));
-    }
-    else
-    {
-        *bb = int(speed * Angle2SpeedFactor(correctonAngle));
-        *sb = speed;
-    }
-    return speed;
+    tgdistance = constrain(tgdistance, 0, 8);
+    return map(tgdistance, 1, 8, 0, 80); // map speed 1-10 meter -> buoyMinSpeed - maxCorrectionPeedPercentage %
 }
 
-void CalcEngingSpeed(float magheading, int tgheading, int speed, int *bb, int *sb)
+void resetRudder(void)
+{
+    AngleerrSum = 0;
+    AnglelastErr = 0;
+    AnglelastTime = millis();
+}
+
+void CalcSpeedRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb)
 {
     double correctonAngle = 0;
     // Serial.printf("Mhead:%.0f thead:%d, Speed:%d\n\r", magheading, tgheading, speed);
@@ -180,6 +150,106 @@ void CalcEngingSpeed(float magheading, int tgheading, int speed, int *bb, int *s
         // Serial.println("Stuurboord");
     }
 }
+
+/*
+Calculate power to thrusters
+if heading < 180 BB motor 100% and SB motor less
+if heading > 180 SB motor 100% and BB motor less
+*/
+double rudderp = 2;
+double rudderi = 0.2;
+double rudderd = 0;
+void CalcEngingRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb)
+{
+    double Output = 0;
+    unsigned long now = millis();
+    double timeChange = (double)(now - AnglelastTime);
+    double correctonAngle = 0;
+    correctonAngle = smallestAngle(magheading, tgheading);
+    //Serial.printf("Smalest angle: %lf\r\n", correctonAngle);
+
+    // Angle between calculated angel to steer and the current direction of the vessel
+    /*Compute all the working error variables*/
+    double error = correctonAngle / 1000;
+    if (determineDirection(magheading, tgheading) == true)
+    {
+        error *= -1;
+        correctonAngle *= -1;
+    }
+    AngleerrSum += error * timeChange;
+    double dErr = (error - AnglelastErr) / timeChange;
+
+    if (rudderi * AngleerrSum > 90)
+    {
+        AngleerrSum = 90 / rudderi;
+    }
+    if (rudderi * AngleerrSum < -90)
+    {
+        AngleerrSum = -90 / rudderi;
+    }
+
+    Output = rudderp * correctonAngle + rudderi * AngleerrSum + rudderi * dErr;
+    //Serial.printf("PID Dir=%1.2lf,  kp=%2.2lf,  I=%2.2lf\r\n", Output, rudderp * correctonAngle, rudderi * AngleerrSum);
+
+    AnglelastErr = correctonAngle;
+    AnglelastTime = now;
+    Output = constrain(Output, -179, 179);
+    // Serial.println(Angle2SpeedFactor(Output));
+    if (Output < 0)
+    {
+        *bb = speed;
+        *sb = (int)(speed * Angle2SpeedFactor(abs(Output)));
+    }
+    else
+    {
+        *bb = (int)(speed * Angle2SpeedFactor(abs(Output)));
+        *sb = speed;
+    }
+    //Serial.printf("sb=%d, bb=%d",*sb,*bb);
+    return;
+}
+
+void initPid(void)
+{
+    pidParameters(&buoypid.kp, &buoypid.ki, &buoypid.kd, true);
+    SpeederrSum = 0;
+    SpeedlastErr = 0;
+}
+
+int hooverPid(double dist)
+{
+    /*How long since we last calculated*/
+    double Output = 0;
+    unsigned long now = millis();
+    double timeChange = (double)(now - SpeedlastTime);
+
+    /*Compute all the working error variables*/
+    double error = (dist - buoy.minOfsetDist) / 1000;
+    SpeederrSum += (error * timeChange);
+    double dErr = (error - SpeedlastErr) / timeChange;
+
+    /* Do not sail backwards*/
+    if (SpeederrSum < 0)
+    {
+        SpeederrSum = 0;
+    }
+
+    /*max 50% I correction*/
+    if (buoypid.ki * SpeederrSum > 50)
+    {
+        SpeederrSum = 50 / buoypid.ki;
+    }
+
+    /*Compute PID Output*/
+    Output = buoypid.kp * (dist - buoy.minOfsetDist) + buoypid.ki * SpeederrSum + buoypid.kd * dErr;
+    buoypid.i = buoypid.ki * SpeederrSum;
+    /*Remember some variables for next time*/
+    SpeedlastErr = dist;
+    SpeedlastTime = now;
+    // Serial.printf("PID speed = %1.2lf,  kp=%2.2lf,  I=%2.2lf , Error= %2lf\r\n", Outputt, buoypid.kp * (dist - buoy.minOfsetDist), buoypid.ki / 1000 * SpeederrSum, SpeederrSum);
+    return constrain(Output, 0, buoy.maxSpeed);
+}
+
 void CalculatSailSpeed(int dir, int speed, int *bb, int *sb)
 {
 }

@@ -4,24 +4,25 @@
 
 struct buoyDataType
 {
-    float mheading;
+    float mheading = 0;
     double tglatitude, tglongitude;
     double ancorlatitude, ancorlongitude;
     double doclatitude, doclongitude;
     double tgdir, tgdistance;
     int minOfsetDist, maxOfsetDist, minSpeed, maxSpeed;
-    int mdir, ddir, cdir, mcorrdir;
-    int speed, speedbb, speedsb, cspeed;
+    int mdir, ddir, cdir, magneticCorrection;
+    int speed = 0, speedbb = 0, speedsb = 0, cspeed = 0;
     int rssi;
     int mode;
     float snr;
-    int status;
+    int status = IDLE;
     int cmnd;
     bool ackOK;
     byte gsa;
     float vbatt;
     float vperc;
-    bool muteEsc;
+    bool muteEsc = false;
+    float speedIntergrator = 0;
 };
 
 struct switchStatus
@@ -32,8 +33,17 @@ struct switchStatus
     bool switch1dwnact, switch2dwnact;
 };
 
+struct pid
+{
+    double kp = 20;
+    double ki = 0.4;
+    double kd = 0;
+    double i = 0;
+};
+
 extern buoyDataType buoy;
 extern switchStatus frontsw;
+extern pid buoypid;
 extern char buoyID;
 extern bool nwloramsg;
 extern byte status;

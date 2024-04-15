@@ -110,17 +110,13 @@ bool InitCompass(void)
     if (!accel.begin())
     {
         Serial.println("Unable to initialize LSM303 accelerometer");
-        while (1)
-            ;
     }
 
     accel.setRange(LSM303_RANGE_4G);
     accel.setMode(LSM303_MODE_NORMAL);
     sensors_event_t event;
     mag.getEvent(&event);
-    Serial.printf("%f %f %f \r\n", event.magnetic.x, event.magnetic.y, event.magnetic.z);
     CompassOffsetCorrection(&magCorrection, true);
-    debugln("Compas Heading Correction: " + magCorrection);
     return 0;
 }
 
@@ -169,21 +165,10 @@ bool CalibrateCompass(void)
     return 0;
 }
 
-/*
-Store magnetic offset (Comass can be mounted on a angle)
-*/
-void storeCompassOfest(int *storeMagCorrection, bool get)
-{
-    int corr = *storeMagCorrection;
-    CompassOffsetCorrection(&corr, get);
-    *storeMagCorrection = corr;
-    magCorrection = corr;
-}
-
 float GetHeading(void)
 {
     float mHeding = heading((vector<int>){0, 1, 0});
-    mHeding = mHeding - magCorrection;
+    mHeding = mHeding + buoy.magneticCorrection;
     if (mHeding < 0)
     {
         mHeding = mHeding + 360.0;

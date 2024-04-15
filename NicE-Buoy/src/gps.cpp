@@ -131,41 +131,37 @@ int GetNewGpsData()
         // while (Serial1.available() > 0); //flush data
         return (0);
     }
-    if (gpsTimeOut + 10000 > millis())
-    {
-        gpsdata.fix = false;
-        gpsvalid = false;
-    }
     while (Serial1.available() > 0)
     {
         if (gps.encode(Serial1.read()))
         {
-            if (gps.location.isValid())
-            {
-                gpsTimeOut = millis();
-                gpsdata.lat = gps.location.lat();
-                gpsdata.lon = gps.location.lng();
-                if (gps.speed.isValid())
+            if (gps.location.isUpdated())
+                if (gps.location.isValid())
                 {
-                    gpsdata.speed = gps.speed.kmph();
+                    {
+                        gpsTimeOut = millis();
+                        gpsdata.lat = gps.location.lat();
+                        gpsdata.lon = gps.location.lng();
+                        if (gps.speed.isValid())
+                        {
+                            gpsdata.speed = gps.speed.kmph();
+                        }
+                        if (gps.course.isValid())
+                        {
+                            gpsdata.cource = gps.course.deg();
+                        }
+                        gpsdata.fix = true;
+                        gpsdata.nrsats = (unsigned int)gps.satellites.value();
+                        gpsvalid = true;
+                        return 1;
+                    }
                 }
-                if (gps.course.isValid())
-                {
-                    gpsdata.cource = gps.course.deg();
-                }
-                gpsdata.fix = true;
-                gpsdata.nrsats = gps.satellites.value();
-                gpsvalid = true;
-                // Serial.printf("From %0.8lf,%0.8lf\r\n",gpsdata.lat,gpsdata.lon);
-                //  Serial.printf("To:  %0.8lf,%0.8lf\r\n",gpsdata.dlat,gpsdata.dlon);
-                return 1;
-            }
-            else
-            {
-                gpsdata.fix = false;
-                gpsvalid = false;
-            }
         }
+    }
+    if (gpsTimeOut + 5000 < millis())
+    {
+        gpsdata.fix = false;
+        gpsvalid = false;
     }
     return 0;
 }

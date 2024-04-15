@@ -242,18 +242,14 @@ int polLora(void)
         case (TARGET_POSITION):
             if (loraIn.gsia == ACK)
             {
-                // buoy[loraIn.sender].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
-                buoy[loraIn.sender].status = LOCKED;
-                buoy[loraIn.sender].ackOK = loraIn.gsia;
+                Serial.println("\r\nPosition locked!");
                 buoy[loraIn.sender].ackOK = true;
             }
             break;
 
         case (GOTO_TARGET_POSITION):
-            // buoy[loraIn.sender].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
             if (loraIn.gsia == ACK)
             {
-                buoy[loraIn.sender].status = LOCKED;
                 buoy[loraIn.sender].ackOK = true;
             }
             break;
@@ -261,7 +257,7 @@ int polLora(void)
         case STORE_DOC_POSITION:
             if (loraIn.gsia == ACK)
             {
-                Serial.println("Doc position SET!");
+                Serial.println("\r\nDoc position SET!");
                 buoy[loraIn.sender].ackOK = true;
                 buoy[loraIn.sender].status = IDLE;
             }
@@ -286,6 +282,7 @@ int polLora(void)
         case DOC_POSITION:
             if (loraIn.gsia == ACK)
             {
+                Serial.println("\r\nDoc position locked!");
                 sscanf(messarr, "%lf,%lf",
                        &buoy[loraIn.sender].gpslatitude,
                        &buoy[loraIn.sender].gpslongitude);
@@ -329,6 +326,18 @@ int polLora(void)
                 buoy[loraIn.sender].ackOK = true;
             }
             sscanf(messarr, "%d,%d,%d,%d", &buoy[loraIn.sender].minOfsetDist, &buoy[loraIn.sender].maxOfsetDist, &buoy[loraIn.sender].minSpeed, &buoy[loraIn.sender].maxSpeed);
+            break;
+        case PID_PARAMETERS:
+            if (loraIn.gsia == ACK);
+            {
+                sscanf(messarr, "%lf,%lf,%lf,%lf",&buoy[loraIn.sender].p, &buoy[loraIn.sender].i,&buoy[loraIn.sender].d,&buoy[loraIn.sender].ki);
+                buoy[loraIn.sender].ackOK = true;
+            }
+            if (loraIn.gsia == ACK || loraIn.gsia == SET);
+            {
+                sscanf(messarr, "%lf,%lf,%lf,%lf",&buoy[loraIn.sender].p, &buoy[loraIn.sender].i,&buoy[loraIn.sender].d,&buoy[loraIn.sender].ki);
+                buoy[loraIn.sender].ackOK = true;
+            }
             break;
 
         default:
@@ -476,6 +485,7 @@ bool loraMenu(int buoy_nr)
 
         break;
 
+    case PID_PARAMETERS:
     case COMPUTE_PARAMETERS:
         msg = buoy[1].string;
         buoy[1].gsa = SET;

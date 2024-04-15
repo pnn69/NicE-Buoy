@@ -16,7 +16,7 @@ struct buoyDataType
     double tgdir, tgdistance;
     int gpscource, mdir, ddir, cdir;
     int gpsspeed, speed, speedbb, speedsb, cspeed;
-    int minOfsetDist,maxOfsetDist,minSpeed,maxSpeed;
+    int minOfsetDist, maxOfsetDist, minSpeed, maxSpeed;
     int fix;
     int rssi;
     int mode;
@@ -30,6 +30,10 @@ struct buoyDataType
     int percentage;
     int dataout;
     String string;
+    double p = 0;
+    double i = 0;
+    double d = 0;
+    double ki = 0;
 };
 
 extern bool ledstatus;

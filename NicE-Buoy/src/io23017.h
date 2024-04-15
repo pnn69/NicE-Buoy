@@ -16,6 +16,7 @@
 #define FRONTBUTTON_READ mcp.digitalRead(SWITCH1_GPA)
 #define BUTTON_LIGHT_READ mcp.digitalRead(SWITCHPWRVBATT_GPB)
 #define SWITCH_GRN_READ mcp.digitalRead(MAINSSWITCH_LEDGREEN_GPB)
+#define SWITCH_RED_READ mcp.digitalRead(MAINSSWITCH_LEDRED_GPB)
 
 bool initMCP23017(void);
 extern Adafruit_MCP23X17 mcp;

@@ -182,7 +182,7 @@ void loop()
         sec05stamp = millis();
         if (LEDSTRIP == false)
         {
-            if(gpsdata.fix == true)
+            if (gpsdata.fix == true)
             {
                 if (status != LOCKED)
                 {
@@ -241,9 +241,9 @@ void loop()
                         tmp = (int)buoy.tgdir - (int)buoy.mheading;
                     }
 
-                    buoy.mcorrdir = tmp;
+                    buoy.magneticCorrection = tmp;
 
-                    Serial.printf(" dirgps %d dir mag%d =correction %d\r\n", buoy.tgdir, buoy.mheading, (int)buoy.mcorrdir);
+                    Serial.printf(" dirgps %d dir mag%d =correction %d\r\n", buoy.tgdir, buoy.mheading, (int)buoy.magneticCorrection);
                     status = IDLE;
                     Message snd_msg;
                     snd_msg.speedbb = 10;

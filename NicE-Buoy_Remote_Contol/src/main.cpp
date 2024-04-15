@@ -81,7 +81,7 @@ void setup()
     initSSD1306();
     Wire.begin();
     InitLora();
-    websetup();
+    // websetup();
     readAdc();
     // InitGps();
     color_printf(COLOR_PRINT_BLUE, "Setup running");
@@ -105,7 +105,7 @@ void setup()
 
 void loop()
 {
-    webloop();
+    // webloop();
 
     if (polLora())
     {
@@ -261,21 +261,21 @@ void loop()
 
                 else if (sw_pos == SW_MID)
                 {
-                    buoy[1].string = "0,-1,0,0";
-                    buoy[1].cmnd = COMPUTE_PARAMETERS;
+                    buoy[1].string = "0,-0.1,0,0";
+                    buoy[1].cmnd = PID_PARAMETERS;
                     buoy[1].gsa = SET;
                     buoy[1].ackOK = false;
-                    String out = "RANGE\r\n -1M";
+                    String out = "PID ki\r\n -0.1";
                     showDip(4, out);
                     delay(1000);
                 }
                 else if (sw_pos == SW_RIGHT) // sail to dock positon
                 {
-                    buoy[1].string = "0,1,0,0";
-                    buoy[1].cmnd = COMPUTE_PARAMETERS;
+                    buoy[1].string = "0,0.1,0,0";
+                    buoy[1].cmnd = PID_PARAMETERS;
                     buoy[1].gsa = SET;
                     buoy[1].ackOK = false;
-                    String out = "RANGE\r\n +1M";
+                    String out = "PID ki\r\n +0.1";
                     showDip(4, out);
                     delay(1000);
                 }
@@ -302,29 +302,32 @@ void loop()
         }
     }
 
-    if (millis() - previousTime >= 1000)
+    if (millis() - previousTime >= 50000)
     { // do stuff every second
         previousTime = millis();
         for (int i = 1; i < NR_BUOYS; i++)
-            if (buoy[i].status == LOCKED || buoy[i].status == DOCKED)
+            if (buoy[i].ackOK == true)
             {
-                buoy[i].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
-                buoy[i].gsa = GET;
-                while (loraMenu(i))
-                    ;
-                checkAckStamp = millis();
-            }
-            else if (buoy[i].status == REMOTE)
-            {
-                // Serial.printf("New data from ADC! speed:%d rudder:%d\r\n", adc.speed, adc.rudder);
-                buoy[i].cspeed = adc.speed;
-                buoy[i].cdir = adc.rudder;
-                buoy[i].cmnd = SAIL_DIR_SPEED;
-                buoy[i].gsa = SET;
-                adc.newdata = false;
-                while (loraMenu(i))
-                    ;
-                checkAckStamp = millis();
+                if (buoy[i].status == LOCKED || buoy[i].status == DOCKED)
+                {
+                    buoy[i].cmnd = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
+                    buoy[i].gsa = GET;
+                    while (loraMenu(i))
+                        ;
+                    checkAckStamp = millis();
+                }
+                else if (buoy[i].status == REMOTE)
+                {
+                    // Serial.printf("New data from ADC! speed:%d rudder:%d\r\n", adc.speed, adc.rudder);
+                    buoy[i].cspeed = adc.speed;
+                    buoy[i].cdir = adc.rudder;
+                    buoy[i].cmnd = SAIL_DIR_SPEED;
+                    buoy[i].gsa = SET;
+                    adc.newdata = false;
+                    while (loraMenu(i))
+                        ;
+                    checkAckStamp = millis();
+                }
             }
     }
 
@@ -339,13 +342,13 @@ void loop()
         Serial.printf("New data on serial port: %c\n", nr);
         switch (nr)
         {
-        case 1:
+        case '1':
             buoy[1].cmnd = GPS_DUMMY;
             buoy[1].dataout = 1;
             loraMenu(1);
             buoy[1].cmnd = 0;
             break;
-        case 0:
+        case '2':
             buoy[1].cmnd = GPS_DUMMY;
             buoy[1].dataout = 0;
             loraMenu(1);

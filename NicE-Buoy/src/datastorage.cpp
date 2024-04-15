@@ -47,13 +47,10 @@ void MemoryBuoyID(char *id, bool get)
     if (get)
     {
         *id = (storage.getChar("NicE_BuoyID", 0));
-        Serial.printf("Get BuoyID from memory  %d\r\n", *id);
     }
     else
     {
-
         storage.putChar("NicE_BuoyID", *id);
-        Serial.printf("Stored BuoyID in memory  %d\r", *id);
     }
     StopMem();
 }
@@ -89,11 +86,11 @@ void MemoryDockPos(double *lat, double *lon, bool get)
     {
         *lat = storage.getDouble("latDock", 0);
         *lon = storage.getDouble("lonDock", 0);
-        Serial.printf("Get Doc pos form memory  %.8lf %.8lf\r\n", *lat, *lon);
+        // Serial.printf("Get Doc pos form memory  %.8lf %.8lf\r\n", *lat, *lon);
     }
     else
     {
-        Serial.printf("Store Doc pos in memory  %.8lf %.8lf\r\n", *lat, *lon);
+        // Serial.printf("Store Doc pos in memory  %.8lf %.8lf\r\n", *lat, *lon);
         storage.putDouble("latDock", *lat);
         storage.putDouble("lonDock", *lon);
     }
@@ -219,6 +216,23 @@ void computeParameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int 
         storage.putInt("maxOfsetDist", *maxOfsetDist);
         storage.putInt("minSpeed", *minSpeed);
         storage.putInt("maxSpeed", *maxSpeed);
+    }
+    StopMem();
+}
+void pidParameters(double *p, double *i, double *d,bool get)
+{
+    StartMem();
+    if (get)
+    {
+        *p = storage.getDouble("P", 20);
+        *i = storage.getDouble("I", 0.4);
+        *d = storage.getDouble("D", 0);
+    }
+    else
+    {
+        storage.putDouble("P", *p);
+        storage.putDouble("I", *i);
+        storage.putDouble("D", *d);
     }
     StopMem();
 }

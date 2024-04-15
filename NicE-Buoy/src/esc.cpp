@@ -42,6 +42,7 @@ void triggerESC(void)
 }
 void beepESC(void)
 {
+    Serial.println("Beep ESC");
     escbb.setPeriodHertz(0);                  // standard 400 hz servo
     escsb.setPeriodHertz(0);                  // standard 400 hz servo
     delay(500);

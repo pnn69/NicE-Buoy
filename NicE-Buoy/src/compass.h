@@ -5,7 +5,6 @@
 bool InitCompass(void);
 bool CalibrateCompass(void);
 void callibratCompassOfest(int magCorrection);
-void storeCompassOfest(int *storeMagCorrection, bool get);
 float GetHeading(void);
 float GetHeadingRaw(void);
 float CompassAverage(float);

@@ -95,7 +95,9 @@ void sendLoraAck(byte msg_id, int cmnd)
     while (sendLora())
         ;
 }
-
+/*
+decoding incomming lora messages
+*/
 int decodeMsg()
 {
     // read packet header bytes:
@@ -135,6 +137,7 @@ int decodeMsg()
 
 void sendACKNAKINF(String t, Status_t inp)
 {
+    delay(100);
     loraOut.message = t;
     loraOut.sender = loraIn.sender;
     loraOut.msgid = loraIn.msgid;
@@ -218,6 +221,7 @@ int polLora(void)
     case DOC_POSITION:
         if (loraIn.gsia == SET) // sail to doc positon
         {
+            resetRudder();
             MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude, true);
             msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
             RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
@@ -239,6 +243,7 @@ int polLora(void)
         {
             if ((gpsdata.lat != 0 || gpsdata.lon != 0) && gpsdata.fix == true)
             {
+                resetRudder();
                 buoy.tglatitude = gpsdata.lat;
                 buoy.tglongitude = gpsdata.lon;
                 sendACKNAKINF("", ACK);
@@ -261,7 +266,7 @@ int polLora(void)
         {
             status = REMOTE;
             sscanf(messageArr, "%d,%d", &buoy.cdir, &buoy.cspeed);
-            CalcEngingSpeed(buoy.cdir, 0, buoy.cspeed, &buoy.speedbb, &buoy.speedsb);
+            CalcEngingRudderBuoy(buoy.cdir, 0, buoy.cspeed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
             msg = String(buoy.mheading, 0) + "," + String(buoy.cspeed) + "," + String(buoy.speedbb) + "," + String(buoy.speedsb);
             sendACKNAKINF(msg, ACK);
         }
@@ -344,6 +349,29 @@ int polLora(void)
             int maxsp;
 
             sscanf(messageArr, "%d,%d,%d,%d", &mind, &maxd, &minsp, &maxsp);
+            /*
+            sanety check
+            */
+            if (mind < 0 || mind > 20)
+            {
+                Serial.printf("bad input parameter min distance: %d", mind);
+                break;
+            }
+            if (maxd < 2 || maxd > 20)
+            {
+                Serial.printf("bad input parameter max distance: %d", maxd);
+                break;
+            }
+            if (minsp < 0)
+            {
+                Serial.printf("bad input parameter min speed: %d", minsp);
+                break;
+            }
+            if (maxsp < 0 || maxsp > 80)
+            {
+                Serial.printf("bad input parameter max speed: %d", maxsp);
+                break;
+            }
             setparameters(&mind, &maxd, &minsp, &maxsp);
             msg = String(buoy.minOfsetDist) + "," + String(buoy.maxOfsetDist) + "," + String(buoy.minSpeed) + "," + String(buoy.maxSpeed);
             sendACKNAKINF(msg, ACK);
@@ -351,6 +379,47 @@ int polLora(void)
         else if (loraIn.gsia == GET)
         {
             msg = String(buoy.minOfsetDist) + "," + String(buoy.maxOfsetDist) + "," + String(buoy.minSpeed) + "," + String(buoy.maxSpeed);
+            sendACKNAKINF(msg, ACK);
+        }
+        break;
+    case PID_PARAMETERS:
+        if (loraIn.gsia == SET)
+        {
+            double tp;
+            double ti;
+            double td;
+            double n;
+            sscanf(messageArr, "%lf,%lf,%lf,%lf", &tp, &ti, &td, &n);
+            tp = buoypid.kp + tp;
+            ti = buoypid.ki + ti;
+            td = buoypid.kd + td;
+            /*
+            sanety check
+            */
+            if (tp < 0 || tp > 30)
+            {
+                break;
+            }
+            if (ti < -30 || ti > 30)
+            {
+
+                break;
+            }
+            if (td < -10 || td > 30)
+            {
+                break;
+            }
+
+            buoypid.kp = tp;
+            buoypid.ki = ti;
+            buoypid.kd = td;
+            pidParameters(&buoypid.kp, &buoypid.ki, &buoypid.kd, false);
+            msg = String(buoypid.kp) + "," + String(buoypid.ki, 1) + "," + String(buoypid.kd), "," + String(buoypid.i, 2);
+            sendACKNAKINF(msg, ACK);
+        }
+        else if (loraIn.gsia == GET)
+        {
+            msg = String(buoypid.kp) + "," + String(buoypid.ki) + "," + String(buoypid.kd), "," + String(buoypid.i, 2);
             sendACKNAKINF(msg, ACK);
         }
         break;
@@ -384,7 +453,7 @@ bool loraMenu(int cmnd)
     switch (cmnd)
     {
     case GPS_LAT_LON_FIX_HEADING_SPEED_MHEADING:
-        loraOut.message = String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.fix) + "," + String((int)gpsdata.cource) + "," + String((int)gpsdata.speed) + "," + String(buoy.mheading, 0);
+        loraOut.message = String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.fix) + "," + String((int)gpsdata.cource) + "," + String((int)gpsdata.speed) + "," + String(buoy.mheading);
         loraOut.destination = loraIn.recipient;
         loraOut.msgid = cmnd;
         loraOut.gsia = SET;
@@ -431,6 +500,13 @@ bool loraMenu(int cmnd)
         while (sendLora())
             ;
 
+        break;
+    case PID_PARAMETERS:
+        loraOut.msgid = cmnd;
+        loraOut.message = String(buoypid.kp) + "," + String(buoypid.ki, 4) + "," + String(buoypid.kd) + "," + String(buoypid.i);
+        loraOut.gsia = SET;
+        while (sendLora())
+            ;
         break;
     }
     return 0;

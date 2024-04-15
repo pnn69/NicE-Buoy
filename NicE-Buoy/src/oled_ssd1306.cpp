@@ -39,10 +39,6 @@ bool initSSD1306(void)
 void speedbars(int sb, int bb)
 {
 #define barwide 10
-    // if (sb == 0)
-    //     sb = 1;
-    // if (bb == 0)
-    //     bb = 1;
     bb = constrain(bb, -100, 100);
     sb = constrain(sb, -100, 100);
     display.drawRect(0, 0, barwide, 64, WHITE);
@@ -82,8 +78,8 @@ void udateDisplay(int sb, int bb, unsigned long distance, unsigned int direction
         // putchar(x & (1u << i) ? '1' : '0');
         display.setCursor(barwide + 7, 0);
         display.printf("NicE BUOY %d", buoyID);
-        display.setCursor(128 - barwide - 7*3 - 2, 0);
-            display.printf("%d",gpsdata.nrsats);
+        display.setCursor(128 - barwide - 7 * 3 - 2, 0);
+        display.printf("%d", gpsdata.nrsats);
         display.setCursor(128 - barwide - 7 - 2, 0);
         if (fix)
         {
@@ -112,10 +108,10 @@ void udateDisplay(int sb, int bb, unsigned long distance, unsigned int direction
             st = "IDLE";
             break;
         case CALIBRATE_MAGNETIC_COMPASS:
-            st = "C COMPASS";
+            st = "C COMP";
             break;
-        case CALIBRATE_OFFSET_MAGNETIC_COMPASS:
-            st = "C M OFFSET";
+        case STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS:
+            st = "C OFFS";
             break;
 
         default:
@@ -136,15 +132,13 @@ void udateDisplay(int sb, int bb, unsigned long distance, unsigned int direction
         display.setCursor(barwide + 7, 30);
         display.printf("Dir:%03.0lf  HDG:%3.0lf", buoy.tgdir, buoy.mheading);
         display.setCursor(barwide + 7, 40);
-        buoy.speedbb = constrain(buoy.speedbb, -100, 100);
         display.printf("%4d%%", buoy.speedbb);
         display.printf(" D %1.0lf", gpsdata.cource);
         display.setCursor(128 / 2, 40);
         display.setCursor(128 - barwide - 5 * 7, 40);
-        buoy.speedsb = constrain(buoy.speedsb, -100, 100);
         display.printf("%4d%%", buoy.speedsb);
         BatPowerBarr(buoy.vperc);
-        speedbars(bb, sb);
+        speedbars(sb, bb);
         display.display();
         // }
 

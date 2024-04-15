@@ -101,20 +101,30 @@ void ShowBuoyData(int buoyID)
     case IDLE:
         st = "IDLE";
         break;
+    case CALIBRATE_MAGNETIC_COMPASS:
+        st = "C COMP";
+        break;
+    case STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS:
+        st = "C OFFS";
+        break;
     default:
         st = "";
         break;
     }
     display.setCursor(barwide + 7, 10);
     display.print(st);
-    display.setCursor(128 - barwide - 7 * 8 -1, 10);
-    display.printf("Rssi:%04d", (int)buoy[buoyID].rssi);
+    display.setCursor(128 - barwide - 7 * 8 - 1, 10);
+    // display.printf("Rssi:%04d", (int)buoy[buoyID].rssi);
+    display.printf("Ki:%2.2lf", buoy[buoyID].ki);
     display.setCursor(barwide + 7, 20);
     if (buoy[buoyID].status == LOCKED || buoy[buoyID].status == DOCKED)
     {
         display.printf("Dist:%5.1lfM", buoy[buoyID].tgdistance);
-        display.setCursor(128 - barwide - 3 * 7 - 1, 20);
-        display.printf("%02dM", buoy[buoyID].maxOfsetDist);
+    }
+    else
+    {
+        display.setCursor(128 - barwide - 7 * 8 - 1, 20);
+        display.printf("Rssi:%04d", (int)buoy[buoyID].rssi);
     }
     display.setCursor(barwide + 7, 30);
     display.printf("Dir:%03.0lf  HDG:%03d", buoy[buoyID].tgdir, buoy[buoyID].mdir);
