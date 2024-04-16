@@ -9,7 +9,7 @@ pid rudderpid;
 // static double SpeederrSum, speedpid.LastErr;
 
 // static unsigned long AnglelastTime;
-// static double rudderpid.i, AnglelastErr;
+// static double rudderpid.iintergrate, AnglelastErr;
 
 void initCalculate(void)
 {
@@ -128,7 +128,7 @@ int CalcDocSpeed(double tgdistance)
 void initRudderPid(void)
 {
     pidRudderParameters(&rudderpid.kp, &rudderpid.ki, &rudderpid.kd, true);
-    rudderpid.i = 0;
+    rudderpid.iintergrate = 0;
     rudderpid.lastErr = 0;
     rudderpid.lastTime = millis();
 }
@@ -177,58 +177,72 @@ void CalcRemoteRudderBuoy(double magheading, float tgheading, int speed, int *bb
     *sb = (int)constrain(tsb, -60, 100);
     return;
 }
+void rotateToTargedHeading(double mheading, float theading, int *bb, int *sb)
+{
+    double correctonAngle = smallestAngle(mheading, theading);
+    int speed = map(correctonAngle, 20, 180, 5, 40);
+    if (determineDirection(mheading, theading) == true)
+    {
+        *bb = speed;
+        *sb = -speed;
+    }
+    else
+    {
+        *bb = -speed;
+        *sb = speed;
+    }
+}
 
 /*
 Calculate power to thrusters
 if heading < 180 BB motor 100% and SB motor less
 if heading > 180 SB motor 100% and BB motor less
 */
-void CalcRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb)
+bool CalcRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb)
 {
     double Output = 0;
     unsigned long now = millis();
-    double timeChange = (double)(now - rudderpid.lastTime);
+    /*Compute all the working error variables*/
     double correctonAngle = smallestAngle(magheading, tgheading);
-     /*Compute all the working error variables*/
+    if (correctonAngle > 45)
+    {
+        int bbb, sbb;
+        rotateToTargedHeading(magheading, tgheading, &bbb, &sbb);
+        *bb = bbb;
+        *sb = sbb;
+        return false;
+    }
+    double timeChange = (double)(now - rudderpid.lastTime);
     double error = correctonAngle / 1000;
     if (determineDirection(magheading, tgheading) == true)
     {
         error *= -1;
         correctonAngle *= -1;
     }
-    rudderpid.i += error * timeChange;
+    rudderpid.iintergrate += error * timeChange;
     double dErr = (error - rudderpid.lastErr) / timeChange;
-    if (rudderpid.ki * rudderpid.i > 90)
+    if (rudderpid.ki * rudderpid.iintergrate > 90)
     {
-        rudderpid.i = 90 / rudderpid.ki;
+        rudderpid.iintergrate = 90 / rudderpid.ki;
     }
-    if (rudderpid.ki * rudderpid.i < -90)
+    if (rudderpid.ki * rudderpid.iintergrate < -90)
     {
-        rudderpid.i = -90 / rudderpid.ki;
+        rudderpid.iintergrate = -90 / rudderpid.ki;
     }
-
-    Output = rudderpid.kp * correctonAngle + rudderpid.ki *rudderpid.i + rudderpid.kd * dErr;
-    Serial.printf("PID Dir=%1.2lf,  kp=%2.2lf,  I=%2.2lf D=%2.8lf\r\n", Output, rudderpid.kp * correctonAngle, rudderpid.ki *rudderpid.i, rudderpid.kd * dErr);
-
+    rudderpid.p = rudderpid.kp * correctonAngle;
+    rudderpid.i = rudderpid.ki * rudderpid.iintergrate;
+    rudderpid.d = rudderpid.kd * dErr;
+    Output = rudderpid.p + rudderpid.i + rudderpid.d;
     rudderpid.lastErr = correctonAngle;
     rudderpid.lastTime = now;
-    Output = constrain(Output, -179, 179);
-    float corr = Angle2SpeedFactor(abs(Output));
-    float tbb, tsb = 0;
-    if (Output < 0)
-    {
-        tbb = speed; // + speed * (1 - corr);
-        tsb = speed * corr;
-    }
-    else
-    {
-        tbb = speed * corr;
-        tsb = speed; //+ speed * (1 - corr);
-    }
-    *bb = (int)constrain(tbb, -20, buoy.maxSpeed);
-    *sb = (int)constrain(tsb, -20, buoy.maxSpeed);
-    // Serial.printf("corr=%2.3f ,delata + %d, sb=%d, bb=%d\r\n", corr, (int)(speed * (1 - corr)), *sb, *bb);
-    return;
+    Output = constrain(Output, -50, 50);
+
+    /*calculate proportion thrusters*/
+    *bb = (int)constrain((int)(speed - Output), -20, BUOYMAXSPEED);
+    *sb = (int)constrain((int)(speed + Output), -20, BUOYMAXSPEED);
+    // Serial.printf("Speed in:%d Correcton Rudder:%.1lf BB=%d,SB=%d p=%.2lf, i=%.2lf, d=%.2lf\r\n", speed, Output, (int)(speed + Output), (int)(speed - Output), rudderpid.p, rudderpid.i, rudderpid.d);
+    Serial.printf("BB=%d,SB=%d    Speed in:%d  Corr=%2.2lf     p=%.2lf, i=%.2lf, d=%.2lf\r\n", (int)(speed + Output), (int)(speed - Output), speed,Output, rudderpid.p, rudderpid.i, rudderpid.d);
+    return true;
 }
 
 void initSpeedPid(void)
@@ -241,35 +255,39 @@ void initSpeedPid(void)
 
 int hooverPid(double dist)
 {
+    /*Do not use the pid loop if is out of range*/
+    if (dist > buoy.maxOfsetDist)
+    {
+        return BUOYMAXSPEED;
+    }
     /*How long since we last calculated*/
     double Output = 0;
     unsigned long now = millis();
     double timeChange = (double)(now - speedpid.lastTime);
-
     /*Compute all the working error variables*/
     double error = (dist - buoy.minOfsetDist) / 1000;
-    speedpid.i += (error * timeChange);
+    speedpid.iintergrate += (error * timeChange);
     double dErr = (error - speedpid.lastErr) / timeChange;
-
     /* Do not sail backwards*/
-    if (speedpid.i < 0)
+    if (speedpid.iintergrate < 0)
     {
-        speedpid.i = 0;
+        speedpid.iintergrate = 0;
     }
-
-    /*max 50% I correction*/
-    if (speedpid.ki * speedpid.i > 70)
+    /*max 70% I correction*/
+    if (speedpid.ki * speedpid.iintergrate > 70)
     {
-        speedpid.i = 70 / speedpid.ki;
+        speedpid.iintergrate = 70 / speedpid.ki;
     }
-
     /*Compute PID Output*/
-    Output = speedpid.kp * (dist - buoy.minOfsetDist) + speedpid.ki * speedpid.i + speedpid.kd * dErr;
+    speedpid.p = speedpid.kp * (dist - buoy.minOfsetDist);
+    speedpid.i = speedpid.ki * speedpid.iintergrate;
+    speedpid.d = speedpid.kd * dErr;
+    Output = speedpid.p + speedpid.i + speedpid.d;
     /*Remember some variables for next time*/
     speedpid.lastErr = dist;
     speedpid.lastTime = now;
-    // Serial.printf("PID speed = %1.2lf,  kp=%2.2lf,  I=%2.2lf , Error= %2lf\r\n", Outputt, speedpid.kp * (dist - buoy.minOfsetDist), speedpid.ki / 1000 * SpeederrSum, SpeederrSum);
-    return constrain(Output, 0, buoy.maxSpeed);
+    Serial.printf("Speed:%.1lf p=%.2lf, i=%.2lf, d=%.2lf\r\n ", Output, speedpid.p, speedpid.i, speedpid.d);
+    return constrain(Output, 0, BUOYMAXSPEED);
 }
 
 void CalculatSailSpeed(int dir, int speed, int *bb, int *sb)

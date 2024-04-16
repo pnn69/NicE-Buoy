@@ -38,9 +38,12 @@ struct pid
     double kp = 20;
     double ki = 0.4;
     double kd = 0;
+    double p = 0;
     double i = 0;
+    double d = 0;
     double lastErr = 0;
-    unsigned long lastTime = 0;;
+    unsigned long lastTime = 0;
+    double iintergrate = 0;
 };
 
 extern buoyDataType buoy;
@@ -54,6 +57,9 @@ extern byte status;
 #define BUZZERON 0
 #define BUZZEROFF 1
 #define BUZZTIME 100
+
+//#define BUOYMAXSPEED 80
+#define BUOYMAXSPEED 20
 
 #define DEBUG 1
 #if DEBUG == 1

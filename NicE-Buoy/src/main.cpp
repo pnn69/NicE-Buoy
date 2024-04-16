@@ -191,37 +191,49 @@ void setup()
     secstamp = millis();
     msecstamp = millis();
     hstamp = millis();
-    
+    Serial.println("Paramters buoy!\r\n***");
     MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude, true);
     Serial.printf("Doc positon: https://www.google.nl/maps/@%2.12lf,%2.12lf,16z?entry=ttu\r\n", buoy.tglatitude, buoy.tglongitude);
     CompassOffsetCorrection(&buoy.magneticCorrection, true);
     Serial.printf("Magnetic correction:%d\r\n", buoy.magneticCorrection);
     computeParameters(&buoy.minOfsetDist, &buoy.maxOfsetDist, &buoy.minSpeed, &buoy.maxSpeed, true);
-    Serial.printf("kp=%2.2lf ki=%2.2lf kd=%2.2lf\r\n", speedpid.kp, speedpid.ki, speedpid.kd);
+    Serial.printf("Speed PID:  kp=%2.2lf ki=%2.2lf kd=%2.2lf\r\n", speedpid.kp, speedpid.ki, speedpid.kd);
+    Serial.printf("Rudder PID: kp=%2.2lf ki=%2.2lf kd=%2.2lf\r\n", rudderpid.kp, rudderpid.ki, rudderpid.kd);
     buoy.muteEsc = false; // enable esc
+    Serial.println("***");
     Serial.println("Setup done.");
 
     /**********************************************************************************************************************************************************/
     /* Only for testing */
     /**********************************************************************************************************************************************************/
-    rudderpid.kp = 0.3;
+    rudderpid.kp = 0.2;
     rudderpid.ki = 0.02;
     rudderpid.kd = 0.1;
     pidRudderParameters(&rudderpid.kp, &rudderpid.ki, &rudderpid.kd, false);
-    // // Postion Steiger WSOP as target
+    /*
+        Postion Steiger WSOP as target
+    */
+    buoy.tglatitude = 52.29308075283747;
+    buoy.tglongitude = 4.932570409845357;
     // gpsdata.lat = 52.29308075283747;
     // gpsdata.lon = 4.932570409845357;
     // MemoryDockPos(&gpsdata.lat, &gpsdata.lon, false); // store default wsvop
-    // // home
+    // mute esc
+    // buoy.muteEsc = true;
+
+    /*
+        home posoition coordinates
+        fake fix
+        fake nr satalits
+        disable gps
+        set status to loking
+    */
     gpsdata.lat = 52.32038;
     gpsdata.lon = 4.96563;
-    // fake fix
     gpsdata.fix = true;
     gpsdata.nrsats = 10;
-    // disable gps
     gpsactive = false; // disable gps
-    // // mute esc
-    // buoy.muteEsc = true;
+    status = LOCKED;
 }
 
 /**********************************************************************************************************************************************************/
@@ -249,6 +261,10 @@ void loop()
     {
         hstamp = millis() - 1;
         buoy.mheading = CompassAverage(GetHeading());
+        if (LOCKED || DOCKED)
+        {
+            CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
+        }
         GetNewGpsData();
         adc_switch(); /*read switch status*/
         if (FRONTBUTTON_READ == PUSHED)

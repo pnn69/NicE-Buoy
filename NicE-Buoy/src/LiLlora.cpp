@@ -423,6 +423,48 @@ int polLora(void)
             sendACKNAKINF(msg, ACK);
         }
         break;
+    case PID_RUDDER_PARAMETERS:
+        if (loraIn.gsia == SET)
+        {
+            double tp;
+            double ti;
+            double td;
+            double n;
+            sscanf(messageArr, "%lf,%lf,%lf,%lf", &tp, &ti, &td, &n);
+            tp = rudderpid.kp + tp;
+            ti = rudderpid.ki + ti;
+            td = rudderpid.kd + td;
+            /*
+            sanety check
+            */
+            if (tp < 0 || tp > 30)
+            {
+                break;
+            }
+            if (ti < -30 || ti > 30)
+            {
+
+                break;
+            }
+            if (td < -10 || td > 30)
+            {
+                break;
+            }
+
+            rudderpid.kp = tp;
+            rudderpid.ki = ti;
+            rudderpid.kd = td;
+            pidRudderParameters(&rudderpid.kp, &rudderpid.ki, &rudderpid.kd, false);
+            msg = String(rudderpid.kp) + "," + String(rudderpid.ki, 1) + "," + String(rudderpid.kd), "," + String(rudderpid.i, 2);
+            sendACKNAKINF(msg, ACK);
+        }
+        else if (loraIn.gsia == GET)
+        {
+            msg = String(rudderpid.kp) + "," + String(rudderpid.ki) + "," + String(rudderpid.kd), "," + String(rudderpid.i, 2);
+            sendACKNAKINF(msg, ACK);
+        }
+        break;
+    
     case ESC_ON_OFF:
         int tmp;
         sscanf(messageArr, "%d", &tmp);

@@ -130,7 +130,7 @@ void udateDisplay(int sb, int bb, unsigned long distance, unsigned int direction
             display.printf("d%02dM", buoy.maxOfsetDist);
         }
         display.setCursor(barwide + 7, 30);
-        display.printf("Dir:%03.0lf  HDG:%3.0lf", buoy.tgdir, buoy.mheading);
+        display.printf("Dir:%03.0lf  HDG:%3.0f", buoy.tgdir, buoy.mheading);
         display.setCursor(barwide + 7, 40);
         display.printf("%4d%%", buoy.speedbb);
         display.printf(" D %1.0lf", gpsdata.cource);
