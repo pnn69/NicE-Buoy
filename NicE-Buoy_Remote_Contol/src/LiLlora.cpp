@@ -329,6 +329,9 @@ int polLora(void)
                 buoy[loraIn.sender].ackOK = true;
             }
             break;
+        case CHANGE_POS_DIR_DIST:
+
+            break;
 
         default:
             Serial.println("unknown command: " + loraIn.msgid);
@@ -354,7 +357,7 @@ bool loraMenu(int buoy_nr)
     }
     String msg = "";
     buoy[buoy_nr].ackOK = false;
-    checkAckStamp =500 + millis();
+    checkAckStamp = 500 + millis();
     switch (buoy[buoy_nr].cmnd)
     {
     case LOCKED:

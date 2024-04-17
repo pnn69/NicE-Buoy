@@ -2,6 +2,11 @@
 #include <math.h>
 #include "datastorage.h"
 #include "general.h"
+#include "gps.h"
+
+#define EARTHRADIUS 6173
+#define radian(x) (x * M_PI / 180)
+#define degre(x) (x * 180 / M_PI)
 
 pid speedpid;
 pid rudderpid;
@@ -69,6 +74,24 @@ void setparameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int *max
         computeParameters(&buoy.minOfsetDist, &buoy.maxOfsetDist, &buoy.minSpeed, &buoy.maxSpeed, false);
         Serial.printf("Stored Parameters: Minimum offset distance: %dM Maxumum offset distance: %dM, buoy minimum speed: %d%%, buoy maximum speed: %d%%\r\n", buoy.minOfsetDist, buoy.maxOfsetDist, buoy.minSpeed, buoy.maxSpeed);
     }
+}
+
+/*
+input: directon to go to and distance
+result: target latitude and longitude will be set.
+https://www.movable-type.co.uk/scripts/latlong.html
+*/
+void adjustPositionDirDist(int dir, int dist)
+{
+    /*compute in radians*/
+    double radLat = radian(gpsdata.lat);
+    double radLon = radian(gpsdata.lon);
+    double brng = radian(dir);
+    double d = dist / 1000;
+    double radLat2 = asin(sin(radLat) * cos(d / EARTHRADIUS) + cos(radLat) * sin(d / EARTHRADIUS) * cos(brng));
+    double radLon2 = radLon + atan2(sin(brng) * sin(d / EARTHRADIUS) * cos(radLat), cos(d / EARTHRADIUS) - sin(radLat) * sin(radLat2));
+    buoy.tglatitude = degre(radLat2);
+    buoy.tglongitude = degre(radLon2);
 }
 
 double smallestAngle(double heading1, double heading2)
@@ -241,7 +264,7 @@ bool CalcRudderBuoy(double magheading, float tgheading, int speed, int *bb, int 
     *bb = (int)constrain((int)(speed - Output), -20, BUOYMAXSPEED);
     *sb = (int)constrain((int)(speed + Output), -20, BUOYMAXSPEED);
     // Serial.printf("Speed in:%d Correcton Rudder:%.1lf BB=%d,SB=%d p=%.2lf, i=%.2lf, d=%.2lf\r\n", speed, Output, (int)(speed + Output), (int)(speed - Output), rudderpid.p, rudderpid.i, rudderpid.d);
-    Serial.printf("BB=%d,SB=%d    Speed in:%d  Corr=%2.2lf     p=%.2lf, i=%.2lf, d=%.2lf\r\n", (int)(speed + Output), (int)(speed - Output), speed,Output, rudderpid.p, rudderpid.i, rudderpid.d);
+    Serial.printf("BB=%d,SB=%d    Speed in:%d  Corr=%2.2lf     p=%.2lf, i=%.2lf, d=%.2lf\r\n", (int)(speed + Output), (int)(speed - Output), speed, Output, rudderpid.p, rudderpid.i, rudderpid.d);
     return true;
 }
 

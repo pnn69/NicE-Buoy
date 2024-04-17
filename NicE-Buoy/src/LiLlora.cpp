@@ -464,7 +464,23 @@ int polLora(void)
             sendACKNAKINF(msg, ACK);
         }
         break;
-    
+    case CHANGE_POS_DIR_DIST:
+        if (loraIn.gsia == SET)
+        {
+            int direction, distance;
+            sscanf(messageArr, "%d,%d", &direction, &distance);
+            if (gpsdata.fix == true)
+            {
+                adjustPositionDirDist(direction, distance);
+
+                msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
+                sendACKNAKINF(msg, ACK);
+                break;
+            }
+            sendACKNAKINF("", NAK);
+        }
+        break;
+
     case ESC_ON_OFF:
         int tmp;
         sscanf(messageArr, "%d", &tmp);

@@ -54,11 +54,12 @@ extern char buoyID;
 extern bool nwloramsg;
 extern byte status;
 
+#define RADIUSEARTH 6371 // radius earth
 #define BUZZERON 0
 #define BUZZEROFF 1
 #define BUZZTIME 100
 
-//#define BUOYMAXSPEED 80
+// #define BUOYMAXSPEED 80
 #define BUOYMAXSPEED 20
 
 #define DEBUG 1

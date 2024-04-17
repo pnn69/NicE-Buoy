@@ -213,8 +213,7 @@ void setup()
     /*
         Postion Steiger WSOP as target
     */
-    buoy.tglatitude = 52.29308075283747;
-    buoy.tglongitude = 4.932570409845357;
+    
     // gpsdata.lat = 52.29308075283747;
     // gpsdata.lon = 4.932570409845357;
     // MemoryDockPos(&gpsdata.lat, &gpsdata.lon, false); // store default wsvop

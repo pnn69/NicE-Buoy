@@ -16,6 +16,7 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "webinterface.h"
 #include "adc.h"
 #include "gps.h"
+#include "serial.h"
 #include "../../dependency/command.h"
 
 #define SHORTKEYDELAY 2
@@ -32,43 +33,9 @@ int speedbb = 0, speedsb = 0;
 unsigned int button_cnt = 0;
 unsigned int lst_button_cnt = 0;
 bool ledstatus = false;
-const byte numChars = 5;
 int maxRepeatCount[NR_BUOYS + 1];
-char receivedChars[numChars]; // an array to store the received data
 
 buoyDataType buoy[NR_BUOYS];
-
-/*
-Read out serial port and return data after <cr>
-*/
-bool serialPortDataIn(int *nr)
-{
-    static byte ndx = 0;
-    char endMarker = '\n';
-    char rc;
-
-    if (Serial.available() > 0)
-    {
-        rc = Serial.read();
-        if (rc != endMarker)
-        {
-            receivedChars[ndx] = rc;
-            ndx++;
-            if (ndx >= numChars)
-            {
-                ndx = numChars - 1;
-            }
-        }
-        else
-        {
-            receivedChars[ndx] = '\0'; // terminate the string
-            ndx = 0;
-            *nr = atoi(receivedChars); // new for this version
-            return true;
-        }
-    }
-    return false;
-}
 
 void setup()
 {
@@ -264,7 +231,7 @@ void loop()
                     buoy[1].cmnd = PID_SPEED_PARAMETERS;
                     buoy[1].gsa = SET;
                     buoy[1].ackOK = false;
-                    String out = "PID -0.1\r\n\r\nKI=" + String(buoy[1].i -0.1, 2);
+                    String out = "PID -0.1\r\n\r\nKI=" + String(buoy[1].i - 0.1, 2);
                     showDip(2, out);
                     delay(3000);
                 }
@@ -274,7 +241,7 @@ void loop()
                     buoy[1].cmnd = PID_SPEED_PARAMETERS;
                     buoy[1].gsa = SET;
                     buoy[1].ackOK = false;
-                    String out = "PID +0.1\r\n\r\nKI=" + String(buoy[1].i +0.1, 2);
+                    String out = "PID +0.1\r\n\r\nKI=" + String(buoy[1].i + 0.1, 2);
                     showDip(2, out);
                     delay(3000);
                 }
@@ -326,52 +293,55 @@ void loop()
     if (Serial.available())
     {
         char nr;
-        // if (serialPortDataIn(&nr))
-        // {
-        //     Serial.printf("New data on serial port: %d\n", nr);
-        // }
-        nr = Serial.read();
-        Serial.printf("New data on serial port: %c\n", nr);
-        switch (nr)
+        if (serialPortDataIn(&nr))
         {
-        case '1':
-            buoy[1].cmnd = GPS_DUMMY;
-            buoy[1].dataout = 1;
-            loraMenu(1);
-            buoy[1].cmnd = 0;
-            break;
-        case '2':
-            buoy[1].cmnd = GPS_DUMMY;
-            buoy[1].dataout = 0;
-            loraMenu(1);
-            buoy[1].cmnd = 0;
-            break;
-        case '+':
-            buoy[1].cmnd = GPS_DUMMY_DELTA_LAT_LON;
-            buoy[1].dataout = 1;
-            loraMenu(1);
-            buoy[1].cmnd = 0;
-            break;
-        case '-':
-            buoy[1].cmnd = GPS_DUMMY_DELTA_LAT_LON;
-            buoy[1].dataout = 0;
-            loraMenu(1);
-            buoy[1].cmnd = 0;
-            break;
-        case 'e':
-            buoy[1].cmnd = ESC_ON_OFF;
-            buoy[1].dataout = 1;
-            loraMenu(1);
-            buoy[1].cmnd = 0;
-            break;
-        case 'r':
-            buoy[1].cmnd = ESC_ON_OFF;
-            buoy[1].dataout = 0;
-            loraMenu(1);
-            buoy[1].cmnd = 0;
-            break;
+            Serial.printf("New data on serial port: %s\n", nr);
+            Serial.println(nr);
+            // if (strstr(*nr, "CHANGE_POS_DIR_DIST"))
+            // {
+            //     Serial.println("CHANGE_POS_DIR_DIST detected on rs232");
+            // }
         }
+        // Serial.printf("New data on serial port: %c\n", nr);
+        //  switch (nr)
+        //  {
+        //  case '1':
+        //      buoy[1].cmnd = GPS_DUMMY;
+        //      buoy[1].dataout = 1;
+        //      loraMenu(1);
+        //      buoy[1].cmnd = 0;
+        //      break;
+        //  case '2':
+        //      buoy[1].cmnd = GPS_DUMMY;
+        //      buoy[1].dataout = 0;
+        //      loraMenu(1);
+        //      buoy[1].cmnd = 0;
+        //      break;
+        //  case '+':
+        //      buoy[1].cmnd = GPS_DUMMY_DELTA_LAT_LON;
+        //      buoy[1].dataout = 1;
+        //      loraMenu(1);
+        //      buoy[1].cmnd = 0;
+        //      break;
+        //  case '-':
+        //      buoy[1].cmnd = GPS_DUMMY_DELTA_LAT_LON;
+        //      buoy[1].dataout = 0;
+        //      loraMenu(1);
+        //      buoy[1].cmnd = 0;
+        //      break;
+        //  case 'e':
+        //      buoy[1].cmnd = ESC_ON_OFF;
+        //      buoy[1].dataout = 1;
+        //      loraMenu(1);
+        //      buoy[1].cmnd = 0;
+        //      break;
+        //  case 'r':
+        //      buoy[1].cmnd = ESC_ON_OFF;
+        //      buoy[1].dataout = 0;
+        //      loraMenu(1);
+        //      buoy[1].cmnd = 0;
+        //      break;
+        // }
     }
-
     delay(1);
 }
