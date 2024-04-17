@@ -354,22 +354,18 @@ int polLora(void)
             */
             if (mind < 0 || mind > 20)
             {
-                Serial.printf("bad input parameter min distance: %d", mind);
                 break;
             }
             if (maxd < 2 || maxd > 20)
             {
-                Serial.printf("bad input parameter max distance: %d", maxd);
                 break;
             }
             if (minsp < 0)
             {
-                Serial.printf("bad input parameter min speed: %d", minsp);
                 break;
             }
             if (maxsp < 0 || maxsp > 80)
             {
-                Serial.printf("bad input parameter max speed: %d", maxsp);
                 break;
             }
             setparameters(&mind, &maxd, &minsp, &maxsp);
@@ -390,9 +386,6 @@ int polLora(void)
             double td;
             double n;
             sscanf(messageArr, "%lf,%lf,%lf,%lf", &tp, &ti, &td, &n);
-            tp = speedpid.kp + tp;
-            ti = speedpid.ki + ti;
-            td = speedpid.kd + td;
             /*
             sanety check
             */
@@ -431,9 +424,6 @@ int polLora(void)
             double td;
             double n;
             sscanf(messageArr, "%lf,%lf,%lf,%lf", &tp, &ti, &td, &n);
-            tp = rudderpid.kp + tp;
-            ti = rudderpid.ki + ti;
-            td = rudderpid.kd + td;
             /*
             sanety check
             */
@@ -464,15 +454,23 @@ int polLora(void)
             sendACKNAKINF(msg, ACK);
         }
         break;
-    case CHANGE_POS_DIR_DIST:
+    case CHANGE_LOCK_POS_DIR_DIST:
         if (loraIn.gsia == SET)
         {
             int direction, distance;
             sscanf(messageArr, "%d,%d", &direction, &distance);
             if (gpsdata.fix == true)
             {
-                adjustPositionDirDist(direction, distance);
-
+                direction = buoy.mheading + direction;
+                if (direction >= 360)
+                {
+                    direction -= 360;
+                }
+                else if (direction < 0)
+                {
+                    direction += 360;
+                }
+                adjustPositionDirDist(direction, distance, &buoy.tglatitude, &buoy.tglongitude);
                 msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
                 sendACKNAKINF(msg, ACK);
                 break;

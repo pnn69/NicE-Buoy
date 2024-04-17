@@ -16,7 +16,6 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "webinterface.h"
 #include "adc.h"
 #include "gps.h"
-#include "serial.h"
 #include "../../dependency/command.h"
 
 #define SHORTKEYDELAY 2
@@ -173,6 +172,7 @@ void loop()
                     buoy[1].cmnd = TARGET_POSITION;
                     buoy[1].gsa = SET;
                     buoy[1].ackOK = false;
+                    loraMenu(1);
                     String out = "LOCKED";
                     showDip(3, out);
                     delay(2000);
@@ -189,6 +189,7 @@ void loop()
                     buoy[1].cmnd = BUOY_MODE_IDLE;
                     buoy[1].gsa = SET;
                     buoy[1].ackOK = false;
+                    loraMenu(1);
                     radiobutton[1] = 6;
                     notify = true;
                     String out = "IDLE";
@@ -197,14 +198,15 @@ void loop()
                 }
                 else if (sw_pos == SW_RIGHT)
                 {
-                    String out = "REMOTE";
-                    showDip(3, out);
-                    delay(2000);
                     adc.newdata = true;
                     radiobutton[1] = 2;
                     notify = true;
                     buoy[1].cmnd = SAIL_DIR_SPEED;
                     buoy[1].status = REMOTE;
+                    loraMenu(1);
+                    String out = "REMOTE";
+                    showDip(3, out);
+                    delay(2000);
                 }
             }
             /*
@@ -219,31 +221,24 @@ void loop()
                     buoy[1].cmnd = DOC_POSITION;
                     buoy[1].gsa = SET;
                     buoy[1].ackOK = false;
+                    loraMenu(1);
                     String out = "SAILING\r\nTO DOCK";
                     showDip(3, out);
-                    delay(5000);
+                    delay(3000);
                     notify = true;
                 }
 
                 else if (sw_pos == SW_MID)
                 {
-                    buoy[1].string = "0,-0.1,0,0";
-                    buoy[1].cmnd = PID_SPEED_PARAMETERS;
-                    buoy[1].gsa = SET;
-                    buoy[1].ackOK = false;
-                    String out = "PID -0.1\r\n\r\nKI=" + String(buoy[1].i - 0.1, 2);
+                    String out = "No\r\n\r\nActon";
                     showDip(2, out);
-                    delay(3000);
+                    delay(1000);
                 }
                 else if (sw_pos == SW_RIGHT) // sail to dock positon
                 {
-                    buoy[1].string = "0,0.1,0,0";
-                    buoy[1].cmnd = PID_SPEED_PARAMETERS;
-                    buoy[1].gsa = SET;
-                    buoy[1].ackOK = false;
-                    String out = "PID +0.1\r\n\r\nKI=" + String(buoy[1].i + 0.1, 2);
+                    String out = "No\r\n\r\nActon";
                     showDip(2, out);
-                    delay(3000);
+                    delay(1000);
                 }
             }
             lst_button_cnt = 0;
@@ -292,56 +287,76 @@ void loop()
 
     if (Serial.available())
     {
-        char nr;
-        if (serialPortDataIn(&nr))
+        char bufferin[100];
+        char bufferout[4][100];
+        Serial.setTimeout(500);
+        String str = Serial.readString();
+        str.toCharArray(bufferin, str.length() + 1);
+        int i = 0;
+        char *token = strtok(bufferin, "'");
+        while (token != NULL && i < 4)
         {
-            Serial.printf("New data on serial port: %s\n", nr);
-            Serial.println(nr);
-            // if (strstr(*nr, "CHANGE_POS_DIR_DIST"))
-            // {
-            //     Serial.println("CHANGE_POS_DIR_DIST detected on rs232");
-            // }
+            strcpy(bufferout[i], token);
+            token = strtok(NULL, "'");
+            i++;
         }
-        // Serial.printf("New data on serial port: %c\n", nr);
-        //  switch (nr)
-        //  {
-        //  case '1':
-        //      buoy[1].cmnd = GPS_DUMMY;
-        //      buoy[1].dataout = 1;
-        //      loraMenu(1);
-        //      buoy[1].cmnd = 0;
-        //      break;
-        //  case '2':
-        //      buoy[1].cmnd = GPS_DUMMY;
-        //      buoy[1].dataout = 0;
-        //      loraMenu(1);
-        //      buoy[1].cmnd = 0;
-        //      break;
-        //  case '+':
-        //      buoy[1].cmnd = GPS_DUMMY_DELTA_LAT_LON;
-        //      buoy[1].dataout = 1;
-        //      loraMenu(1);
-        //      buoy[1].cmnd = 0;
-        //      break;
-        //  case '-':
-        //      buoy[1].cmnd = GPS_DUMMY_DELTA_LAT_LON;
-        //      buoy[1].dataout = 0;
-        //      loraMenu(1);
-        //      buoy[1].cmnd = 0;
-        //      break;
-        //  case 'e':
-        //      buoy[1].cmnd = ESC_ON_OFF;
-        //      buoy[1].dataout = 1;
-        //      loraMenu(1);
-        //      buoy[1].cmnd = 0;
-        //      break;
-        //  case 'r':
-        //      buoy[1].cmnd = ESC_ON_OFF;
-        //      buoy[1].dataout = 0;
-        //      loraMenu(1);
-        //      buoy[1].cmnd = 0;
-        //      break;
-        // }
+        /*
+        1'CHANGE_POS_DIR_DIST'SET'-90,10
+        1'CHANGE_POS_DIR_DIST'SET'90,10
+        1'CHANGE_POS_DIR_DIST'SET'0,10
+        1'CHANGE_POS_DIR_DIST'SET'180,10
+        */
+        if (strstr(bufferout[1], "CHANGE_POS_DIR_DIST"))
+        {
+            Serial.println("CHANGE_POS_DIR_DIST");
+            buoy[1].string = String(bufferout[3]);
+            buoy[1].cmnd = CHANGE_LOCK_POS_DIR_DIST;
+            if (strstr(bufferout[2], "SET"))
+            {
+                buoy[1].gsa = SET;
+            }
+            else
+            {
+                buoy[1].gsa = ACK;
+            }
+            buoy[1].ackOK = false;
+            loraMenu(1);
+        }
+        /*
+            1'PID_RUDDER_PARAMETERS'SET'10,1.4,5
+        */
+        if (strstr(bufferout[1], "PID_SPEED_PARAMETERS"))
+        {
+            Serial.println("PID_SPEED_PARAMETERS (default) 1'PID_RUDDER_PARAMETERS'SET'20,0.4,0");
+            buoy[1].string = String(bufferout[3]);
+            buoy[1].cmnd = PID_SPEED_PARAMETERS;
+            if (strstr(bufferout[2], "SET"))
+            {
+                buoy[1].gsa = SET;
+            }
+            else
+            {
+                buoy[1].gsa = ACK;
+            }
+            buoy[1].ackOK = false;
+            loraMenu(1);
+        }
+        if (strstr(bufferout[1], "PID_RUDDER_PARAMETERS"))
+        {
+            Serial.println("PID_RUDDER_PARAMETERS (default) 1'PID_RUDDER_PARAMETERS'SET'0.2,0.02,0.1'");
+            buoy[1].string = String(bufferout[3]);
+            buoy[1].cmnd = PID_RUDDER_PARAMETERS;
+            if (strstr(bufferout[2], "SET"))
+            {
+                buoy[1].gsa = SET;
+            }
+            else
+            {
+                buoy[1].gsa = ACK;
+            }
+            buoy[1].ackOK = false;
+            loraMenu(1);
+        }
     }
     delay(1);
 }

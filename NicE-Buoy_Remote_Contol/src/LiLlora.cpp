@@ -329,7 +329,12 @@ int polLora(void)
                 buoy[loraIn.sender].ackOK = true;
             }
             break;
-        case CHANGE_POS_DIR_DIST:
+        case CHANGE_LOCK_POS_DIR_DIST:
+            if (loraIn.gsia == ACK)
+            {
+                buoy[loraIn.sender].ackOK = true;
+            }
+            break;
 
             break;
 
@@ -463,6 +468,10 @@ bool loraMenu(int buoy_nr)
             sendMessage(msg, buoy_nr, buoy[buoy_nr].cmnd, buoy[buoy_nr].gsa);
         }
         break;
+    case CHANGE_LOCK_POS_DIR_DIST:
+        msg = buoy[1].string;
+        sendMessage(msg, buoy_nr, buoy[buoy_nr].cmnd, buoy[buoy_nr].gsa);
+        break;
     case ESC_ON_OFF:
         buoy[1].ackOK = false;
         buoy[1].gsa = SET;
@@ -479,6 +488,14 @@ bool loraMenu(int buoy_nr)
         break;
 
     case PID_SPEED_PARAMETERS:
+        msg = buoy[1].string;
+        sendMessage(msg, buoy_nr, buoy[buoy_nr].cmnd, buoy[buoy_nr].gsa);
+        break;
+    case PID_RUDDER_PARAMETERS:
+        msg = buoy[1].string;
+        sendMessage(msg, buoy_nr, buoy[buoy_nr].cmnd, buoy[buoy_nr].gsa);
+        break;
+
     case COMPUTE_PARAMETERS:
         msg = buoy[1].string;
         buoy[1].gsa = SET;

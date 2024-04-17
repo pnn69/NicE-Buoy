@@ -6,7 +6,7 @@ extern double errSum;
 void initCalculate(void);
 void setparameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int *maxSpeed);
 int CalcDocSpeed(double tgdistance);
-void adjustPositionDirDist(int dir, int dist);
+void adjustPositionDirDist(int dir, int dist, double *tglatitude, double *tglongitude);
 void CalcSpeedRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb);
 void CalcRemoteRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb);
 bool CalcRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb);

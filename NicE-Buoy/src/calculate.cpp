@@ -81,17 +81,23 @@ input: directon to go to and distance
 result: target latitude and longitude will be set.
 https://www.movable-type.co.uk/scripts/latlong.html
 */
-void adjustPositionDirDist(int dir, int dist)
+void adjustPositionDirDist(int dir, int dist, double *tglat, double *tglon)
 {
     /*compute in radians*/
+    Serial.printf("Dir:%d Dist:%d\n\r", dir, dist);
+    Serial.printf("Old lock positon: https://www.google.nl/maps/@%2.12lf,%2.12lf,16z?entry=ttu\r\n", gpsdata.lat, gpsdata.lon);
+    Serial.printf("New lock positon: https://www.openstreetmap.org/#map=19/%2.12lf/%2.12lf\r\n", *tglat, *tglon);
     double radLat = radian(gpsdata.lat);
     double radLon = radian(gpsdata.lon);
     double brng = radian(dir);
-    double d = dist / 1000;
+    // double d = (double)dist / 1000;
+    double d = dist * 1.0 / 1000;
     double radLat2 = asin(sin(radLat) * cos(d / EARTHRADIUS) + cos(radLat) * sin(d / EARTHRADIUS) * cos(brng));
     double radLon2 = radLon + atan2(sin(brng) * sin(d / EARTHRADIUS) * cos(radLat), cos(d / EARTHRADIUS) - sin(radLat) * sin(radLat2));
-    buoy.tglatitude = degre(radLat2);
-    buoy.tglongitude = degre(radLon2);
+    *tglat = degre(radLat2);
+    *tglon = degre(radLon2);
+    Serial.printf("New lock positon: https://www.google.nl/maps/@%2.12lf,%2.12lf,16z?entry=ttu\r\n", *tglat, *tglon);
+    Serial.printf("New lock positon: https://www.openstreetmap.org/#map=19/%2.12lf/%2.12lf\r\n", *tglat, *tglon);
 }
 
 double smallestAngle(double heading1, double heading2)
@@ -263,8 +269,7 @@ bool CalcRudderBuoy(double magheading, float tgheading, int speed, int *bb, int 
     /*calculate proportion thrusters*/
     *bb = (int)constrain((int)(speed - Output), -20, BUOYMAXSPEED);
     *sb = (int)constrain((int)(speed + Output), -20, BUOYMAXSPEED);
-    // Serial.printf("Speed in:%d Correcton Rudder:%.1lf BB=%d,SB=%d p=%.2lf, i=%.2lf, d=%.2lf\r\n", speed, Output, (int)(speed + Output), (int)(speed - Output), rudderpid.p, rudderpid.i, rudderpid.d);
-    Serial.printf("BB=%d,SB=%d    Speed in:%d  Corr=%2.2lf     p=%.2lf, i=%.2lf, d=%.2lf\r\n", (int)(speed + Output), (int)(speed - Output), speed, Output, rudderpid.p, rudderpid.i, rudderpid.d);
+    // Serial.printf("BB=%d,SB=%d    Speed in:%d  Corr=%2.2lf     p=%.2lf, i=%.2lf, d=%.2lf\r\n", (int)(speed + Output), (int)(speed - Output), speed, Output, rudderpid.p, rudderpid.i, rudderpid.d);
     return true;
 }
 
