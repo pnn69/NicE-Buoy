@@ -11,6 +11,7 @@
     "settings": {
         "files.associations": {
             "adafruit_ssd1306.h": "c"
-        }
+		},
+		"liveServer.settings.multiRootWorkspaceName": "NicE-Buoy"
     }
 }

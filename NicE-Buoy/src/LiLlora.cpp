@@ -457,10 +457,11 @@ int polLora(void)
     case CHANGE_LOCK_POS_DIR_DIST:
         if (loraIn.gsia == SET)
         {
-            int direction, distance;
-            sscanf(messageArr, "%d,%d", &direction, &distance);
-            if (gpsdata.fix == true)
+            if (status == LOCKED && gpsdata.fix == true)
             {
+                int direction, distance;
+                sscanf(messageArr, "%d,%d", &direction, &distance);
+                Serial.printf("Current magnetic heading=%d° adjust angle=%d° ",buoy.mheading,direction);
                 direction = buoy.mheading + direction;
                 if (direction >= 360)
                 {
@@ -470,6 +471,7 @@ int polLora(void)
                 {
                     direction += 360;
                 }
+                Serial.printf(" direction to adjustment=%d° Distance=%d Meter",direction);
                 adjustPositionDirDist(direction, distance, &buoy.tglatitude, &buoy.tglongitude);
                 msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
                 sendACKNAKINF(msg, ACK);

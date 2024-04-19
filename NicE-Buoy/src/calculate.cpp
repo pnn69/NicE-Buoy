@@ -1,20 +1,21 @@
+/*
+Calulate all stuff
+gecode calculations: Https://www.movable-type.co.uk/scripts/latlong.html
+*/
 #include <Arduino.h>
 #include <math.h>
 #include "datastorage.h"
 #include "general.h"
 #include "gps.h"
 
+/*some constans*/
 #define EARTHRADIUS 6173
 #define radian(x) (x * M_PI / 180)
 #define degre(x) (x * 180 / M_PI)
 
+/*PID structs*/
 pid speedpid;
 pid rudderpid;
-// static unsigned long speedpid.lastTime;
-// static double SpeederrSum, speedpid.LastErr;
-
-// static unsigned long AnglelastTime;
-// static double rudderpid.iintergrate, AnglelastErr;
 
 void initCalculate(void)
 {
@@ -77,27 +78,28 @@ void setparameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int *max
 }
 
 /*
-input: directon to go to and distance
-result: target latitude and longitude will be set.
-https://www.movable-type.co.uk/scripts/latlong.html
+input: directon to go to, distance and start position
+return: target latitude and longitude
 */
-void adjustPositionDirDist(int dir, int dist, double *tglat, double *tglon)
+void adjustPositionDirDist(int dir, int dist, double *lat, double *lon)
 {
     /*compute in radians*/
-    Serial.printf("Dir:%d Dist:%d\n\r", dir, dist);
-    Serial.printf("Old lock positon: https://www.google.nl/maps/@%2.12lf,%2.12lf,16z?entry=ttu\r\n", gpsdata.lat, gpsdata.lon);
-    Serial.printf("New lock positon: https://www.openstreetmap.org/#map=19/%2.12lf/%2.12lf\r\n", *tglat, *tglon);
-    double radLat = radian(gpsdata.lat);
-    double radLon = radian(gpsdata.lon);
+    double radLat = radian(*lat);
+    double radLon = radian(*lon);
     double brng = radian(dir);
-    // double d = (double)dist / 1000;
     double d = dist * 1.0 / 1000;
+    /*compute*/
     double radLat2 = asin(sin(radLat) * cos(d / EARTHRADIUS) + cos(radLat) * sin(d / EARTHRADIUS) * cos(brng));
     double radLon2 = radLon + atan2(sin(brng) * sin(d / EARTHRADIUS) * cos(radLat), cos(d / EARTHRADIUS) - sin(radLat) * sin(radLat2));
-    *tglat = degre(radLat2);
-    *tglon = degre(radLon2);
-    Serial.printf("New lock positon: https://www.google.nl/maps/@%2.12lf,%2.12lf,16z?entry=ttu\r\n", *tglat, *tglon);
-    Serial.printf("New lock positon: https://www.openstreetmap.org/#map=19/%2.12lf/%2.12lf\r\n", *tglat, *tglon);
+    /*plot old pos*/
+    Serial.printf("Old lock google: https://www.google.nl/maps/@%2.12lf,%2.12lf,16z?entry=ttu\r\n", *lat, *lon);
+    Serial.printf("Old lock openst: https://www.openstreetmap.org/#map=19/%2.12lf/%2.12lf\r\n", *lat, *lon);
+    /*convert back to degrees*/
+    *lat = degre(radLat2);
+    *lon = degre(radLon2);
+    /*plot new pos*/
+    Serial.printf("New lock google: https://www.google.nl/maps/@%2.12lf,%2.12lf,16z?entry=ttu\r\n", *lat, *lon);
+    Serial.printf("New lock openst: https://www.openstreetmap.org/#map=19/%2.12lf/%2.12lf\r\n", *lat, *lon);
 }
 
 double smallestAngle(double heading1, double heading2)
