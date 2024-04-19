@@ -406,6 +406,8 @@ int polLora(void)
             speedpid.kp = tp;
             speedpid.ki = ti;
             speedpid.kd = td;
+            speedpid.i = 0;
+            speedpid.d = 0;
             pidSpeedParameters(&speedpid.kp, &speedpid.ki, &speedpid.kd, false);
             msg = String(speedpid.kp) + "," + String(speedpid.ki, 1) + "," + String(speedpid.kd), "," + String(speedpid.i, 2);
             sendACKNAKINF(msg, ACK);
@@ -444,6 +446,8 @@ int polLora(void)
             rudderpid.kp = tp;
             rudderpid.ki = ti;
             rudderpid.kd = td;
+            rudderpid.i = 0;
+            rudderpid.d = 0;
             pidRudderParameters(&rudderpid.kp, &rudderpid.ki, &rudderpid.kd, false);
             msg = String(rudderpid.kp) + "," + String(rudderpid.ki, 1) + "," + String(rudderpid.kd), "," + String(rudderpid.i, 2);
             sendACKNAKINF(msg, ACK);
@@ -461,7 +465,7 @@ int polLora(void)
             {
                 int direction, distance;
                 sscanf(messageArr, "%d,%d", &direction, &distance);
-                Serial.printf("Current magnetic heading=%d° adjust angle=%d° ",buoy.mheading,direction);
+                Serial.printf("Current magnetic heading=%d° adjust angle=%d° ", buoy.mheading, direction);
                 direction = buoy.mheading + direction;
                 if (direction >= 360)
                 {
@@ -471,7 +475,7 @@ int polLora(void)
                 {
                     direction += 360;
                 }
-                Serial.printf(" direction to adjustment=%d° Distance=%d Meter",direction);
+                Serial.printf(" direction to adjustment=%d° Distance=%d Meter", direction);
                 adjustPositionDirDist(direction, distance, &buoy.tglatitude, &buoy.tglongitude);
                 msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
                 sendACKNAKINF(msg, ACK);
