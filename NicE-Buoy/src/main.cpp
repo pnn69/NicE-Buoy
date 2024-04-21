@@ -201,19 +201,20 @@ void setup()
     Serial.printf("Rudder PID: kp=%2.2lf ki=%2.2lf kd=%2.2lf\r\n", rudderpid.kp, rudderpid.ki, rudderpid.kd);
     buoy.muteEsc = false; // enable esc
     Serial.println("***");
+    websetup();
+    status = IDLE;
     Serial.println("Setup done.");
-
     /**********************************************************************************************************************************************************/
     /* Only for testing */
     /**********************************************************************************************************************************************************/
-    rudderpid.kp = 0.2;
-    rudderpid.ki = 0.02;
-    rudderpid.kd = 0.1;
-    pidRudderParameters(&rudderpid.kp, &rudderpid.ki, &rudderpid.kd, false);
+    // rudderpid.kp = 0.2;
+    // rudderpid.ki = 0.02;
+    // rudderpid.kd = 0.1;
+    // pidRudderParameters(&rudderpid.kp, &rudderpid.ki, &rudderpid.kd, false);
     /*
         Postion Steiger WSOP as target
     */
-    
+
     // gpsdata.lat = 52.29308075283747;
     // gpsdata.lon = 4.932570409845357;
     // MemoryDockPos(&gpsdata.lat, &gpsdata.lon, false); // store default wsvop
@@ -227,12 +228,12 @@ void setup()
         disable gps
         set status to loking
     */
-    gpsdata.lat = 52.32038;
-    gpsdata.lon = 4.96563;
-    gpsdata.fix = true;
-    gpsdata.nrsats = 10;
-    gpsactive = false; // disable gps
-    status = LOCKED;
+    // gpsdata.lat = 52.32038;
+    // gpsdata.lon = 4.96563;
+    // gpsdata.fix = true;
+    // gpsdata.nrsats = 10;
+    // gpsactive = false; // disable gps
+    // status = LOCKED;
 }
 
 /**********************************************************************************************************************************************************/
@@ -260,9 +261,9 @@ void loop()
     {
         hstamp = millis() - 1;
         buoy.mheading = CompassAverage(GetHeading());
-        if (LOCKED || DOCKED)
+        if (status == LOCKED ||status == DOCKED)
         {
-            CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
+           CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
         }
         GetNewGpsData();
         adc_switch(); /*read switch status*/
@@ -473,17 +474,6 @@ void loop()
             {
                 RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate distance and heading
                 buoy.speed = CalcDocSpeed(buoy.tgdistance);
-                if (buoy.speed > 0)
-                {                                                                                        // calculate speed
-                    CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
-                }
-                else
-                {
-
-                    buoy.speedbb = 0; // no fix kill trusters
-                    buoy.speedsb = 0;
-                    buoy.speed = 0;
-                }
             }
             else
             {
@@ -500,16 +490,6 @@ void loop()
             {
                 RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate distance and heading
                 buoy.speed = hooverPid(buoy.tgdistance);
-                if (buoy.speed > 0)
-                {
-                    CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
-                }
-                else
-                {
-                    buoy.speedbb = 0; // no fix kill trusters
-                    buoy.speedsb = 0;
-                    buoy.speed = 0;
-                }
             }
             else
             {
@@ -610,13 +590,13 @@ void loop()
                         break;
                     }
                 }
-                if (buoy.vbatt <= 22)
-                {
-                    initRudderPid();
-                    MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude, true);
-                    status = DOCKED;
-                    Serial.println("sailing home!!!!");
-                }
+                // if (buoy.vbatt <= 22)
+                // {
+                //     initRudderPid();
+                //     MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude, true);
+                //     status = DOCKED;
+                //     Serial.println("sailing home!!!!");
+                // }
             }
             break;
             // Serial.printf("Batt percentage %0.1f%% voltage: %0.2fV target distance %0.0lf target dir %0.0lf\r\n", buoy.vperc, buoy.vbatt, buoy.tgdistance, buoy.tgdir);
@@ -636,32 +616,32 @@ void loop()
     {
         escstamp = millis() - 1; // to make it correct. > used instead of >=
         Message snd_msg;
-        if (spdbb != buoy.speedbb)
-        {
-            esctrigger = millis();
-            //            distanceChanged = true;
-            if (spdbb < buoy.speedbb) // slowly go to setpoint
-            {
-                spdbb++;
-            }
-            else
-            {
-                spdbb--;
-            }
-        }
-        if (spdsb != buoy.speedsb)
-        {
-            //            distanceChanged = true;
-            esctrigger = millis();
-            if (spdsb < buoy.speedsb)
-            {
-                spdsb++;
-            }
-            else
-            {
-                spdsb--;
-            }
-        }
+        // if (spdbb != buoy.speedbb)
+        // {
+        //     esctrigger = millis();
+        //     //            distanceChanged = true;
+        //     if (spdbb < buoy.speedbb) // slowly go to setpoint
+        //     {
+        //         spdbb++;
+        //     }
+        //     else if (spdbb > buoy.speedbb)
+        //     {
+        //         spdbb--;
+        //     }
+        // }
+        // if (spdsb != buoy.speedsb)
+        // {
+        //     //            distanceChanged = true;
+        //     esctrigger = millis();
+        //     if (spdsb < buoy.speedsb)
+        //     {
+        //         spdsb++;
+        //     }
+        //     else if (spdsb > buoy.speedsb)
+        //     {
+        //         spdsb--;
+        //     }
+        // }
         if (millis() - esctrigger > ESC_TRIGGER)
         {
             if (buoy.speedsb == 0 && buoy.speedbb == 0)
@@ -670,6 +650,8 @@ void loop()
             }
             esctrigger = millis();
         }
+        spdbb = buoy.speedbb;
+        spdsb = buoy.speedsb;
         snd_msg.speedbb = spdbb;
         snd_msg.speedsb = spdsb;
         if (buoy.muteEsc == true)

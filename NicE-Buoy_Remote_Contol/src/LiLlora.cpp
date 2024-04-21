@@ -60,13 +60,17 @@ void sendMessage(String outgoing, byte dest, byte msg_id, byte gsia)
 
 int decodeMsg()
 {
+    bool ret=false;
     // read packet header bytes:
     int recipient = LoRa.read();                                  // address send to
     if (recipient != 0xFF && recipient != 0xFE && recipient != 1) // if the recipient isn't this device or broadcast,
     {
         Serial.print(recipient);
         Serial.println(" < Not for me!");
-        return 0; // skip rest of function
+        ret = false; // skip rest of function
+    }
+    else{
+        ret = true;
     }
     byte sender_l = LoRa.read();         // sender address
     byte status_l = LoRa.read();         // status
@@ -80,7 +84,7 @@ int decodeMsg()
     }
     if (incomingLength_l != incoming.length())
     {             // check length for error
-        return 0; // skip rest of function
+        return false; // skip rest of function
     }
     // Get and store the data
     loraIn.sender = sender_l;
@@ -91,7 +95,9 @@ int decodeMsg()
     loraIn.message = incoming;
     loraIn.rssi = LoRa.packetRssi();
     loraIn.snr = LoRa.packetSnr();
-    return 1;
+    Serial.printf("<%d><%d><%d><%d><",sender_l,status_l,incomingMsgId_l,gsia_l);
+    Serial.println(incoming + ">");
+    return ret;
 }
 
 int polLora(void)
@@ -133,7 +139,7 @@ int polLora(void)
     {
         gsia = "INF";
     }
-    Serial.println("Lora in Buoy:" + String(loraIn.sender) + " status:" + String(loraIn.status) + " gsia:" + gsia + " msgid:" + String(loraIn.msgid) + " <" + loraIn.message + ">");
+    //Serial.println("Lora in Buoy:" + String(loraIn.sender) + " status:" + String(loraIn.status) + " gsia:" + gsia + " msgid:" + String(loraIn.msgid) + " <" + loraIn.message + ">");
     loraIn.message.toCharArray(messarr, loraIn.message.length() + 1);
     if (NR_BUOYS > loraIn.sender)
     {

@@ -97,10 +97,12 @@ void sendLoraAck(byte msg_id, int cmnd)
 }
 /*
 decoding incomming lora messages
+<buoy><sender><status><msgID><msglength><msg>
 */
 int decodeMsg()
 {
     // read packet header bytes:
+
     int recipient_l = LoRa.read(); // recipient address
     // if the recipient isn't this device or broadcast,
     if (recipient_l != buoyID && recipient_l != 0x0)
@@ -409,12 +411,12 @@ int polLora(void)
             speedpid.i = 0;
             speedpid.d = 0;
             pidSpeedParameters(&speedpid.kp, &speedpid.ki, &speedpid.kd, false);
-            msg = String(speedpid.kp) + "," + String(speedpid.ki, 1) + "," + String(speedpid.kd), "," + String(speedpid.i, 2);
+            msg = String(speedpid.kp, 3) + "," + String(speedpid.ki, 3) + "," + String(speedpid.kd, 3), "," + String(speedpid.i, 3);
             sendACKNAKINF(msg, ACK);
         }
         else if (loraIn.gsia == GET)
         {
-            msg = String(speedpid.kp) + "," + String(speedpid.ki) + "," + String(speedpid.kd), "," + String(speedpid.i, 2);
+            msg = String(speedpid.kp, 3) + "," + String(speedpid.ki, 3) + "," + String(speedpid.kd, 3), "," + String(speedpid.i, 3);
             sendACKNAKINF(msg, ACK);
         }
         break;
@@ -449,12 +451,12 @@ int polLora(void)
             rudderpid.i = 0;
             rudderpid.d = 0;
             pidRudderParameters(&rudderpid.kp, &rudderpid.ki, &rudderpid.kd, false);
-            msg = String(rudderpid.kp) + "," + String(rudderpid.ki, 1) + "," + String(rudderpid.kd), "," + String(rudderpid.i, 2);
+            msg = String(rudderpid.kp, 3) + "," + String(rudderpid.ki, 3) + "," + String(rudderpid.kd, 3), "," + String(rudderpid.i, 3);
             sendACKNAKINF(msg, ACK);
         }
         else if (loraIn.gsia == GET)
         {
-            msg = String(rudderpid.kp) + "," + String(rudderpid.ki) + "," + String(rudderpid.kd), "," + String(rudderpid.i, 2);
+            msg = String(rudderpid.kp, 3) + "," + String(rudderpid.ki, 3) + "," + String(rudderpid.kd, 3), "," + String(rudderpid.i, 3);
             sendACKNAKINF(msg, ACK);
         }
         break;
@@ -465,7 +467,10 @@ int polLora(void)
             {
                 int direction, distance;
                 sscanf(messageArr, "%d,%d", &direction, &distance);
+<<<<<<< HEAD
+=======
                 Serial.printf("Current magnetic heading=%d° adjust angle=%d° ", buoy.mheading, direction);
+>>>>>>> 167b125284b21c2283fe62723d84cb5c59def746
                 direction = buoy.mheading + direction;
                 if (direction >= 360)
                 {
@@ -475,10 +480,15 @@ int polLora(void)
                 {
                     direction += 360;
                 }
+<<<<<<< HEAD
+
+=======
                 Serial.printf(" direction to adjustment=%d° Distance=%d Meter", direction);
+>>>>>>> 167b125284b21c2283fe62723d84cb5c59def746
                 adjustPositionDirDist(direction, distance, &buoy.tglatitude, &buoy.tglongitude);
                 msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
                 sendACKNAKINF(msg, ACK);
+                Serial.printf("Current magnetic heading=%0.0f° adjust angle=%d° Distance=%d Meter\r\n", buoy.mheading, direction, distance);
                 break;
             }
             sendACKNAKINF("", NAK);

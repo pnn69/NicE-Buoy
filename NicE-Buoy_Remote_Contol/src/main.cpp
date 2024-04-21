@@ -284,7 +284,10 @@ void loop()
                 }
             }
     }
-
+    /*
+    use ^ as delimiter
+    buoyID^cmnd^SET^msg
+    */
     if (Serial.available())
     {
         char bufferin[100];
@@ -293,15 +296,17 @@ void loop()
         String str = Serial.readString();
         str.toCharArray(bufferin, str.length() + 1);
         int i = 0;
-        char *token = strtok(bufferin, "'");
+        Serial.println("Dat in:" + String(bufferin));
+        char *token = strtok(bufferin, "^");
         while (token != NULL && i < 4)
         {
             strcpy(bufferout[i], token);
-            token = strtok(NULL, "'");
+            token = strtok(NULL, "^");
             i++;
         }
+        
         /*
-        1'CHANGE_POS_DIR_DIST'SET'-90,10
+        1_CHANGE_POS_DIR_DIST'SET'-90,10
         1'CHANGE_POS_DIR_DIST'SET'90,10
         1'CHANGE_POS_DIR_DIST'SET'0,10
         1'CHANGE_POS_DIR_DIST'SET'180,10

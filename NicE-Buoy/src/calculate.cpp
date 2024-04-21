@@ -92,14 +92,14 @@ void adjustPositionDirDist(int dir, int dist, double *lat, double *lon)
     double radLat2 = asin(sin(radLat) * cos(d / EARTHRADIUS) + cos(radLat) * sin(d / EARTHRADIUS) * cos(brng));
     double radLon2 = radLon + atan2(sin(brng) * sin(d / EARTHRADIUS) * cos(radLat), cos(d / EARTHRADIUS) - sin(radLat) * sin(radLat2));
     /*plot old pos*/
-    Serial.printf("Old lock google: https://www.google.nl/maps/@%2.12lf,%2.12lf,16z?entry=ttu\r\n", *lat, *lon);
-    Serial.printf("Old lock openst: https://www.openstreetmap.org/#map=19/%2.12lf/%2.12lf\r\n", *lat, *lon);
+    // Serial.printf("Old lock google: https://www.google.nl/maps/@%2.12lf,%2.12lf,16z?entry=ttu\r\n", *lat, *lon);
+    // Serial.printf("Old lock openst: https://www.openstreetmap.org/#map=19/%2.12lf/%2.12lf\r\n", *lat, *lon);
     /*convert back to degrees*/
     *lat = degre(radLat2);
     *lon = degre(radLon2);
     /*plot new pos*/
-    Serial.printf("New lock google: https://www.google.nl/maps/@%2.12lf,%2.12lf,16z?entry=ttu\r\n", *lat, *lon);
-    Serial.printf("New lock openst: https://www.openstreetmap.org/#map=19/%2.12lf/%2.12lf\r\n", *lat, *lon);
+    // Serial.printf("New lock google: https://www.google.nl/maps/@%2.12lf,%2.12lf,16z?entry=ttu\r\n", *lat, *lon);
+    // Serial.printf("New lock openst: https://www.openstreetmap.org/#map=19/%2.12lf/%2.12lf\r\n", *lat, *lon);
 }
 
 double smallestAngle(double heading1, double heading2)
@@ -152,8 +152,8 @@ The distance is in meters.
 */
 int CalcDocSpeed(double tgdistance)
 {
-    tgdistance = constrain(tgdistance, 0, 8);
-    return map(tgdistance, 1, 8, 0, 80); // map speed 1-10 meter -> buoyMinSpeed - maxCorrectionPeedPercentage %
+    tgdistance = constrain(tgdistance, 0, 5);
+    return map(tgdistance, 0.5, 5, 0, 80); // map speed 1-10 meter -> buoyMinSpeed - maxCorrectionPeedPercentage %
 }
 
 void initRudderPid(void)
@@ -211,7 +211,7 @@ void CalcRemoteRudderBuoy(double magheading, float tgheading, int speed, int *bb
 void rotateToTargedHeading(double mheading, float theading, int *bb, int *sb)
 {
     double correctonAngle = smallestAngle(mheading, theading);
-    int speed = map(correctonAngle, 20, 180, 5, 40);
+    int speed = map(correctonAngle, 90, 180, 10, 30);
     if (determineDirection(mheading, theading) == true)
     {
         *bb = speed;
@@ -226,52 +226,42 @@ void rotateToTargedHeading(double mheading, float theading, int *bb, int *sb)
 
 /*
 Calculate power to thrusters
-if heading < 180 BB motor 100% and SB motor less
-if heading > 180 SB motor 100% and BB motor less
+rotate to directon if angel is bigger tan 45 degrees
 */
 bool CalcRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb)
 {
     double Output = 0;
     unsigned long now = millis();
     /*Compute all the working error variables*/
-    double correctonAngle = smallestAngle(magheading, tgheading);
-    if (correctonAngle > 45)
-    {
-        int bbb, sbb;
-        rotateToTargedHeading(magheading, tgheading, &bbb, &sbb);
-        *bb = bbb;
-        *sb = sbb;
-        return false;
-    }
-    double timeChange = (double)(now - rudderpid.lastTime);
-    double error = correctonAngle / 1000;
+    double error = smallestAngle(magheading, tgheading);
     if (determineDirection(magheading, tgheading) == true)
     {
-        error *= -1;
-        correctonAngle *= -1;
+        error *= -1.0;
     }
+    double timeChange = (double)(now - rudderpid.lastTime);
     rudderpid.iintergrate += error * timeChange;
+    //rudderpid.iintergrate /= 10.0;
     double dErr = (error - rudderpid.lastErr) / timeChange;
-    if (rudderpid.ki * rudderpid.iintergrate > 90)
+    if (rudderpid.ki/100.0 * rudderpid.iintergrate > 90)
     {
-        rudderpid.iintergrate = 90 / rudderpid.ki;
+        rudderpid.iintergrate = 90 / (rudderpid.ki/100.0);
     }
-    if (rudderpid.ki * rudderpid.iintergrate < -90)
+    if (rudderpid.ki/100.0 * rudderpid.iintergrate < -90)
     {
-        rudderpid.iintergrate = -90 / rudderpid.ki;
+        rudderpid.iintergrate = -90 / (rudderpid.ki/100.0);
     }
-    rudderpid.p = rudderpid.kp * correctonAngle;
-    rudderpid.i = rudderpid.ki * rudderpid.iintergrate;
+    rudderpid.p = rudderpid.kp * error;
+    rudderpid.i = rudderpid.ki/100.0 * rudderpid.iintergrate;
     rudderpid.d = rudderpid.kd * dErr;
-    Output = rudderpid.p + rudderpid.i + rudderpid.d;
-    rudderpid.lastErr = correctonAngle;
+    Output = (rudderpid.p + rudderpid.i + rudderpid.d)/100;
+    rudderpid.lastErr = error;
     rudderpid.lastTime = now;
-    Output = constrain(Output, -50, 50);
+    Output = constrain(Output, -2, 2);
 
     /*calculate proportion thrusters*/
-    *bb = (int)constrain((int)(speed - Output), -20, BUOYMAXSPEED);
-    *sb = (int)constrain((int)(speed + Output), -20, BUOYMAXSPEED);
-    // Serial.printf("BB=%d,SB=%d    Speed in:%d  Corr=%2.2lf     p=%.2lf, i=%.2lf, d=%.2lf\r\n", (int)(speed + Output), (int)(speed - Output), speed, Output, rudderpid.p, rudderpid.i, rudderpid.d);
+    *bb = (int)constrain((int)(speed * (1 - Output)), -20, 100);
+    *sb = (int)constrain((int)(speed * (1 + Output)), -20, 100);
+    Serial.printf("BB=%d,SB=%d    Speed in:%d  Corr=%2.2lf     p=%.2lf, i=%.2lf, d=%lf\r\n",(int)(speed * (1 - Output)),(int)(speed * (1 + Output)), speed, Output, rudderpid.p, rudderpid.i, rudderpid.d);
     return true;
 }
 

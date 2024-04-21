@@ -51,7 +51,7 @@ void setup_OTA()
 
 void websetup()
 {
-
+    Serial.println("Accespoint setup!");
     // int se = 0;
     // WiFi.mode(WIFI_STA);
     // WiFi.begin(ssid, password);
@@ -79,7 +79,7 @@ void websetup()
 
     char ssidl[20];
     sprintf(ssidl, "NicE_Buoy_%d", buoyID);
-    Serial.println("No WiFi network found!");
+    //Serial.println("No WiFi network found!");
     Serial.print("Seting up AP: ");
     Serial.println(ssidl);
     WiFi.softAP(ssidl);

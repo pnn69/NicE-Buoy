@@ -59,8 +59,8 @@ extern byte status;
 #define BUZZEROFF 1
 #define BUZZTIME 100
 
-// #define BUOYMAXSPEED 80
-#define BUOYMAXSPEED 20
+#define BUOYMAXSPEED 80
+//#define BUOYMAXSPEED 20
 
 #define DEBUG 1
 #if DEBUG == 1
