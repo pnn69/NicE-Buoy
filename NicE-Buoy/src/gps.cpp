@@ -124,12 +124,12 @@ void displayGPSInfo(void)
 /*
     Collect GPS data if new data is gatherd
 */
-int GetNewGpsData()
+bool GetNewGpsData()
 {
     if (gpsactive == false) // disabled for dummy data added external
     {
         // while (Serial1.available() > 0); //flush data
-        return (0);
+        return (false);
     }
     while (Serial1.available() > 0)
     {
@@ -153,7 +153,7 @@ int GetNewGpsData()
                         gpsdata.fix = true;
                         gpsdata.nrsats = (unsigned int)gps.satellites.value();
                         gpsvalid = true;
-                        return 1;
+                        return true;
                     }
                 }
         }
@@ -163,11 +163,11 @@ int GetNewGpsData()
         gpsdata.fix = false;
         gpsvalid = false;
     }
-    return 0;
+    return false;
 }
 /*
     Calulate heading and distance given two sets of coordinates.
-    Retun pointers distance and direction.
+    Return pointers distance and direction.
     unsigend long heading in degrees 0-259
     unsigend long distance in meters
 */

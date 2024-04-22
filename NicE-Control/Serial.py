@@ -1,6 +1,7 @@
 import tkinter as tk
 import serial
 import threading
+import re
 
 # Open COM3 port
 ser = serial.Serial('COM7', 115200)  # Adjust baud rate as per your requirement
@@ -35,12 +36,20 @@ def read_serial():
             received_text.insert(tk.END, received_data + '\n')
             received_text.config(state=tk.DISABLED)
             received_text.see(tk.END)
-            
-            # Limit the displayed lines
-            lines = received_text.get("1.0", tk.END).split("\n")
-            if len(lines) > MAX_LINES:
-                received_text.delete("1.0", f"{len(lines)-MAX_LINES+1}.0")
-            
+            #input_string = "<1><23><2><2234,34.3>"
+            # Regular expression pattern to match the fragments enclosed in <>
+            pattern = r'<(.*?)>'
+            # Find all matches of the pattern in the input string
+            matches = re.findall(pattern, received_text)
+            # Initialize an empty buffer array
+            buffer_array = []
+            # Add matches to the buffer array
+            buffer_array.extend(matches)
+            received_data = ""
+            #<sender><status><msgID><ACK><MSG>
+            # 0       1       2      3    4
+            if buffer_array[2] == 29:
+                buf29.insert(tk.END, "PID_SPEED_PARAMETERS" + buffer_array[4])  # Pre-fill entry3
 
 # Create main window
 root = tk.Tk()
@@ -58,6 +67,11 @@ entry2.grid(row=1, column=1)
 entry3 = tk.Entry(root)
 entry3.grid(row=1, column=2)
 entry3.insert(tk.END, "0,100")  # Pre-fill entry3
+
+buf29 = tk.Entry(root)
+buf29.grid(row=1, column=4)
+buf29.insert(tk.END, "")  # Pre-fill entry3
+
 
 # Create radio buttons
 radio_var = tk.StringVar()

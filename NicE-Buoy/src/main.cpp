@@ -261,11 +261,27 @@ void loop()
     {
         hstamp = millis() - 1;
         buoy.mheading = CompassAverage(GetHeading());
-        if (status == LOCKED ||status == DOCKED)
+        if (GetNewGpsData() == true)
         {
-           CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
+            if ((status == LOCKED) || status == DOCKED)
+            {
+                RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate distance and heading
+            }
+            if (status == DOCKED)
+            {
+                // buoy.speed = CalcDocSpeed(buoy.tgdistance);
+                buoy.speed = hooverPid(buoy.tgdistance);
+            }
+            if (status == LOCKED)
+            {
+                buoy.speed = hooverPid(buoy.tgdistance);
+            }
         }
-        GetNewGpsData();
+        if (status == LOCKED || status == DOCKED)
+        {
+            CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
+        }
+
         adc_switch(); /*read switch status*/
         if (FRONTBUTTON_READ == PUSHED)
         {
@@ -441,7 +457,6 @@ void loop()
             break;
 
         case REMOTE:
-            CalcRemoteRudderBuoy(buoy.cdir, 0, buoy.cspeed, &buoy.speedbb, &buoy.speedsb);
             BUTTON_LIGHT_OFF;
             if (mcp.digitalRead(MAINSSWITCH_LEDRED_GPB) == 0)
             {
@@ -470,12 +485,7 @@ void loop()
                 SWITCH_GRN_ON;
                 BUTTON_LIGHT_ON;
             }
-            if (gpsdata.fix == true) // && buoy.tgdistance < 2000)
-            {
-                RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate distance and heading
-                buoy.speed = CalcDocSpeed(buoy.tgdistance);
-            }
-            else
+            if (gpsdata.fix == false) // && buoy.tgdistance < 2000)
             {
                 buoy.speedbb = 0; // no fix kill trusters
                 buoy.speedsb = 0;
@@ -486,12 +496,7 @@ void loop()
         case LOCKED:
             BUTTON_LIGHT_ON;
             SWITCH_RED_OFF;
-            if (gpsdata.fix == true)
-            {
-                RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate distance and heading
-                buoy.speed = hooverPid(buoy.tgdistance);
-            }
-            else
+            if (gpsdata.fix == false)
             {
                 buoy.speedbb = 0; // no fix kill trusters
                 buoy.speedsb = 0;

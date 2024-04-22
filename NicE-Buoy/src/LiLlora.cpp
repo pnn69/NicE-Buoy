@@ -211,7 +211,6 @@ int polLora(void)
                 sendACKNAKINF(msg, ACK);
                 MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude, true);
                 Serial.printf("\r\n\r\nDoc pos set to: %lfN %lfW\r\n\r\n", buoy.tglatitude, buoy.tglongitude);
-                delay(5000);
             }
             else
             {
@@ -270,7 +269,7 @@ int polLora(void)
             sscanf(messageArr, "%d,%d", &buoy.cdir, &buoy.cspeed);
             CalcRemoteRudderBuoy(buoy.cdir, 0, buoy.cspeed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
             msg = String(buoy.mheading, 0) + "," + String(buoy.cspeed) + "," + String(buoy.speedbb) + "," + String(buoy.speedsb);
-            sendACKNAKINF(msg, ACK);
+            sendACKNAKINF("", ACK);
         }
         else if (loraIn.gsia == GET)
         {
@@ -309,6 +308,7 @@ int polLora(void)
         if (loraIn.gsia == SET)
         {
             int tmp;
+            sendACKNAKINF("", ACK);
             sscanf(messageArr, "%d", &tmp);
             Serial.println(tmp);
             if (tmp == 1)
@@ -321,7 +321,6 @@ int polLora(void)
                 gpsactive = true;
                 Serial.println("GPS enabled");
             }
-            sendACKNAKINF("", ACK);
         }
         break;
 
@@ -465,12 +464,9 @@ int polLora(void)
         {
             if (status == LOCKED && gpsdata.fix == true)
             {
-                int direction, distance;
-                sscanf(messageArr, "%d,%d", &direction, &distance);
-<<<<<<< HEAD
-=======
-                Serial.printf("Current magnetic heading=%d° adjust angle=%d° ", buoy.mheading, direction);
->>>>>>> 167b125284b21c2283fe62723d84cb5c59def746
+                int direction;
+                double distance;
+                sscanf(messageArr, "%d,%lf", &direction, &distance);
                 direction = buoy.mheading + direction;
                 if (direction >= 360)
                 {
@@ -480,11 +476,6 @@ int polLora(void)
                 {
                     direction += 360;
                 }
-<<<<<<< HEAD
-
-=======
-                Serial.printf(" direction to adjustment=%d° Distance=%d Meter", direction);
->>>>>>> 167b125284b21c2283fe62723d84cb5c59def746
                 adjustPositionDirDist(direction, distance, &buoy.tglatitude, &buoy.tglongitude);
                 msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
                 sendACKNAKINF(msg, ACK);

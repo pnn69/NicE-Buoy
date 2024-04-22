@@ -81,7 +81,7 @@ void setparameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int *max
 input: directon to go to, distance and start position
 return: target latitude and longitude
 */
-void adjustPositionDirDist(int dir, int dist, double *lat, double *lon)
+void adjustPositionDirDist(int dir, double dist, double *lat, double *lon)
 {
     /*compute in radians*/
     double radLat = radian(*lat);
@@ -240,20 +240,20 @@ bool CalcRudderBuoy(double magheading, float tgheading, int speed, int *bb, int 
     }
     double timeChange = (double)(now - rudderpid.lastTime);
     rudderpid.iintergrate += error * timeChange;
-    //rudderpid.iintergrate /= 10.0;
+    // rudderpid.iintergrate /= 10.0;
     double dErr = (error - rudderpid.lastErr) / timeChange;
-    if (rudderpid.ki/100.0 * rudderpid.iintergrate > 90)
+    if (rudderpid.ki / 100.0 * rudderpid.iintergrate > 90)
     {
-        rudderpid.iintergrate = 90 / (rudderpid.ki/100.0);
+        rudderpid.iintergrate = 90 / (rudderpid.ki / 100.0);
     }
-    if (rudderpid.ki/100.0 * rudderpid.iintergrate < -90)
+    if (rudderpid.ki / 100.0 * rudderpid.iintergrate < -90)
     {
-        rudderpid.iintergrate = -90 / (rudderpid.ki/100.0);
+        rudderpid.iintergrate = -90 / (rudderpid.ki / 100.0);
     }
     rudderpid.p = rudderpid.kp * error;
-    rudderpid.i = rudderpid.ki/100.0 * rudderpid.iintergrate;
+    rudderpid.i = rudderpid.ki / 100.0 * rudderpid.iintergrate;
     rudderpid.d = rudderpid.kd * dErr;
-    Output = (rudderpid.p + rudderpid.i + rudderpid.d)/100;
+    Output = (rudderpid.p + rudderpid.i + rudderpid.d) / 100;
     rudderpid.lastErr = error;
     rudderpid.lastTime = now;
     Output = constrain(Output, -2, 2);
@@ -261,7 +261,7 @@ bool CalcRudderBuoy(double magheading, float tgheading, int speed, int *bb, int 
     /*calculate proportion thrusters*/
     *bb = (int)constrain((int)(speed * (1 - Output)), -20, 100);
     *sb = (int)constrain((int)(speed * (1 + Output)), -20, 100);
-    Serial.printf("BB=%d,SB=%d    Speed in:%d  Corr=%2.2lf     p=%.2lf, i=%.2lf, d=%lf\r\n",(int)(speed * (1 - Output)),(int)(speed * (1 + Output)), speed, Output, rudderpid.p, rudderpid.i, rudderpid.d);
+    Serial.printf("BB=%d,SB=%d    Speed in:%d  Corr=%2.2lf     p=%.2lf, i=%.2lf, d=%lf\r\n", (int)(speed * (1 - Output)), (int)(speed * (1 + Output)), speed, Output, rudderpid.p, rudderpid.i, rudderpid.d);
     return true;
 }
 
@@ -275,7 +275,7 @@ void initSpeedPid(void)
 
 int hooverPid(double dist)
 {
-    /*Do not use the pid loop if is out of range*/
+    /*Do not use the pid loop if distance is to big just go full power*/
     if (dist > buoy.maxOfsetDist)
     {
         return BUOYMAXSPEED;
@@ -308,8 +308,4 @@ int hooverPid(double dist)
     speedpid.lastTime = now;
     Serial.printf("Speed:%.1lf p=%.2lf, i=%.2lf, d=%.2lf\r\n ", Output, speedpid.p, speedpid.i, speedpid.d);
     return constrain(Output, 0, BUOYMAXSPEED);
-}
-
-void CalculatSailSpeed(int dir, int speed, int *bb, int *sb)
-{
 }

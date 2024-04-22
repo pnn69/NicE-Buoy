@@ -21,6 +21,6 @@ extern bool gpsactive;
 void InitGps(void);
 void displayGPSInfo(void);
 void RouteToPoint(double lat1, double lon1, double lat2, double lon2, double *distance, double *direction);
-int GetNewGpsData(void);
+bool GetNewGpsData(void);
 
 #endif /* GPS_H_ */
