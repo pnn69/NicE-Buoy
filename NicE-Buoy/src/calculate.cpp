@@ -238,6 +238,7 @@ bool CalcRudderBuoy(double magheading, float tgheading, int speed, int *bb, int 
     {
         error *= -1.0;
     }
+    
     double timeChange = (double)(now - rudderpid.lastTime);
     rudderpid.iintergrate += error * timeChange;
     // rudderpid.iintergrate /= 10.0;
@@ -259,8 +260,15 @@ bool CalcRudderBuoy(double magheading, float tgheading, int speed, int *bb, int 
     Output = constrain(Output, -2, 2);
 
     /*calculate proportion thrusters*/
-    *bb = (int)constrain((int)(speed * (1 - Output)), -20, 100);
-    *sb = (int)constrain((int)(speed * (1 + Output)), -20, 100);
+    if (error > 0)
+    {
+        *bb = (int)constrain((int)(speed * (1 - Output)), -20, 100);
+        *sb =  speed;
+    }else{
+        *bb = speed;
+        *sb = (int)constrain((int)(speed * (1 + Output)), -20, 100);    
+    }
+    
     Serial.printf("BB=%d,SB=%d    Speed in:%d  Corr=%2.2lf     p=%.2lf, i=%.2lf, d=%lf\r\n", (int)(speed * (1 - Output)), (int)(speed * (1 + Output)), speed, Output, rudderpid.p, rudderpid.i, rudderpid.d);
     return true;
 }

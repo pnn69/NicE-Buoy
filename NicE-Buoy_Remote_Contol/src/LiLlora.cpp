@@ -44,7 +44,7 @@ bool InitLora(void)
 
 void sendMessage(String outgoing, byte dest, byte msg_id, byte gsia)
 {
-    Serial.println("Lora out dest:" + String(dest) + " id:" + String(msg_id) + " gsia:" + String(gsia) + " <" + outgoing + ">");
+    Serial.println("<Lora out dest:" + String(dest) + "><id:" + String(msg_id) + "><gsia:" + String(gsia) + "><" + outgoing + ">");
     ledstatus = true;
     LoRa.beginPacket();            // start packet
     LoRa.write(dest);              // add destination address
@@ -65,8 +65,9 @@ int decodeMsg()
     int recipient = LoRa.read();                                  // address send to
     if (recipient != 0xFF && recipient != 0xFE && recipient != 1) // if the recipient isn't this device or broadcast,
     {
+        Serial.print("<");
         Serial.print(recipient);
-        Serial.println(" < Not for me!");
+        Serial.println(":Not for me!>");
         ret = false; // skip rest of function
     }
     else{
@@ -236,7 +237,7 @@ int polLora(void)
         case (TARGET_POSITION):
             if (loraIn.gsia == ACK)
             {
-                Serial.println("\r\nPosition locked!");
+                Serial.println("<Position locked!>");
                 buoy[loraIn.sender].ackOK = true;
             }
             break;
@@ -251,7 +252,7 @@ int polLora(void)
         case STORE_DOC_POSITION:
             if (loraIn.gsia == ACK)
             {
-                Serial.println("\r\nDoc position SET!");
+                Serial.println("<Doc position SET!>");
                 buoy[loraIn.sender].ackOK = true;
                 buoy[loraIn.sender].status = IDLE;
             }
@@ -260,7 +261,7 @@ int polLora(void)
         case STORE_POS_AS_DOC_POSITION:
             if (loraIn.gsia == ACK)
             {
-                Serial.println("Doc position stored!");
+                Serial.println("<Doc position stored!>");
                 buoy[loraIn.sender].ackOK = true;
                 buoy[loraIn.sender].status = IDLE;
             }
@@ -276,11 +277,11 @@ int polLora(void)
         case DOC_POSITION:
             if (loraIn.gsia == ACK)
             {
-                Serial.println("\r\nDoc position locked!");
+                Serial.println("<Doc position locked!>");
                 sscanf(messarr, "%lf,%lf",
                        &buoy[loraIn.sender].gpslatitude,
                        &buoy[loraIn.sender].gpslongitude);
-                Serial.printf("Doc positon: https://www.google.nl/maps/@%0.8lf,%0.8lf,16z?entry=ttu\r\n", buoy[loraIn.sender].gpslatitude, buoy[loraIn.sender].gpslongitude);
+                Serial.printf("<Doc positon: https://www.google.nl/maps/@%0.8lf,%0.8lf,16z?entry=ttu>\r\n", buoy[loraIn.sender].gpslatitude, buoy[loraIn.sender].gpslongitude);
                 buoy[loraIn.sender].ackOK = true;
                 buoy[loraIn.sender].status = DOCKED;
             }
@@ -345,7 +346,7 @@ int polLora(void)
             break;
 
         default:
-            Serial.println("unknown command: " + loraIn.msgid);
+            Serial.println("<unknown command:" + loraIn.msgid + '>');
             break;
         }
         notify = loraIn.sender;

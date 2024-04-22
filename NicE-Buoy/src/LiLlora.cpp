@@ -479,7 +479,7 @@ int polLora(void)
                 adjustPositionDirDist(direction, distance, &buoy.tglatitude, &buoy.tglongitude);
                 msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
                 sendACKNAKINF(msg, ACK);
-                Serial.printf("Current magnetic heading=%0.0f° adjust angle=%d° Distance=%d Meter\r\n", buoy.mheading, direction, distance);
+                Serial.printf("Current magnetic heading=%0.0f° adjust angle=%d° Distance=%0.2lf Meter\r\n", buoy.mheading, direction, distance);
                 break;
             }
             sendACKNAKINF("", NAK);

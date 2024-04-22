@@ -25,7 +25,7 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "io23017.h"
 #include "buzzer.h"
 
-#define ESC_UPDATE_DELAY 25
+#define ESC_UPDATE_DELAY 10
 #define ESC_TRIGGER 5 * 60 * 1000
 #define BUTTON_SHORT 1
 #define BUTTON_LONG 25
@@ -255,12 +255,12 @@ void loop()
         msecstamp = millis() - 1;
         digitalWrite(LED_PIN, !nwloramsg);
         nwloramsg = false;
+        buoy.mheading = CompassAverage(GetHeading());
     } /*Done 10 msec loop*/
 
     if (millis() - hstamp > 100) /*100 msec loop*/
     {
         hstamp = millis() - 1;
-        buoy.mheading = CompassAverage(GetHeading());
         if (GetNewGpsData() == true)
         {
             if ((status == LOCKED) || status == DOCKED)
@@ -621,32 +621,32 @@ void loop()
     {
         escstamp = millis() - 1; // to make it correct. > used instead of >=
         Message snd_msg;
-        // if (spdbb != buoy.speedbb)
-        // {
-        //     esctrigger = millis();
-        //     //            distanceChanged = true;
-        //     if (spdbb < buoy.speedbb) // slowly go to setpoint
-        //     {
-        //         spdbb++;
-        //     }
-        //     else if (spdbb > buoy.speedbb)
-        //     {
-        //         spdbb--;
-        //     }
-        // }
-        // if (spdsb != buoy.speedsb)
-        // {
-        //     //            distanceChanged = true;
-        //     esctrigger = millis();
-        //     if (spdsb < buoy.speedsb)
-        //     {
-        //         spdsb++;
-        //     }
-        //     else if (spdsb > buoy.speedsb)
-        //     {
-        //         spdsb--;
-        //     }
-        // }
+        if (spdbb != buoy.speedbb)
+        {
+            esctrigger = millis();
+            //            distanceChanged = true;
+            if (spdbb < buoy.speedbb) // slowly go to setpoint
+            {
+                spdbb++;
+            }
+            else if (spdbb > buoy.speedbb)
+            {
+                spdbb--;
+            }
+        }
+        if (spdsb != buoy.speedsb)
+        {
+            //            distanceChanged = true;
+            esctrigger = millis();
+            if (spdsb < buoy.speedsb)
+            {
+                spdsb++;
+            }
+            else if (spdsb > buoy.speedsb)
+            {
+                spdsb--;
+            }
+        }
         if (millis() - esctrigger > ESC_TRIGGER)
         {
             if (buoy.speedsb == 0 && buoy.speedbb == 0)
@@ -655,8 +655,8 @@ void loop()
             }
             esctrigger = millis();
         }
-        spdbb = buoy.speedbb;
-        spdsb = buoy.speedsb;
+        //spdbb = buoy.speedbb;
+        //spdsb = buoy.speedsb;
         snd_msg.speedbb = spdbb;
         snd_msg.speedsb = spdsb;
         if (buoy.muteEsc == true)

@@ -28,8 +28,8 @@ def submit():
     print(output_data)
 
 def read_serial():
-    MAX_LINES = 5  # Limit the displayed lines to 50
     while True:
+        
         if ser.in_waiting > 0:
             received_data = ser.readline().decode().strip()
             received_text.config(state=tk.NORMAL)
@@ -40,7 +40,7 @@ def read_serial():
             # Regular expression pattern to match the fragments enclosed in <>
             pattern = r'<(.*?)>'
             # Find all matches of the pattern in the input string
-            matches = re.findall(pattern, received_text)
+            matches = re.findall(pattern, received_data)
             # Initialize an empty buffer array
             buffer_array = []
             # Add matches to the buffer array
@@ -48,8 +48,14 @@ def read_serial():
             received_data = ""
             #<sender><status><msgID><ACK><MSG>
             # 0       1       2      3    4
-            if buffer_array[2] == 29:
-                buf29.insert(tk.END, "PID_SPEED_PARAMETERS" + buffer_array[4])  # Pre-fill entry3
+            if len(buffer_array) > 2:
+                if buffer_array[2] == "29":
+                    buf29.delete(0,tk.END)
+                    buf29.insert(tk.END,buffer_array[4])  # Pre-fill entry3
+                if buffer_array[2] == "18":
+                    buf23.delete(0,tk.END)
+                    buf23.insert(tk.END,buffer_array[4])  # Pre-fill entry3
+
 
 # Create main window
 root = tk.Tk()
@@ -72,6 +78,10 @@ buf29 = tk.Entry(root)
 buf29.grid(row=1, column=4)
 buf29.insert(tk.END, "")  # Pre-fill entry3
 
+buf23 = tk.Entry(root,width=50)
+buf23.grid(row=2, column=4)
+buf23.insert(tk.END, "")  # Pre-fill entry3
+
 
 # Create radio buttons
 radio_var = tk.StringVar()
@@ -92,12 +102,12 @@ output_field.grid(row=2, columnspan=3)
 
 # Create received data text widget
 received_text = tk.Text(root, height=30, width=100)  # Wider size
-received_text.grid(row=4, columnspan=3)
+received_text.grid(row=50, columnspan=3)
 received_text.config(state=tk.DISABLED)
 
 # Create submit button
 submit_button = tk.Button(root, text="Submit", command=submit)
-submit_button.grid(row=3, columnspan=3)
+submit_button.grid(row=2, columnspan=1)
 
 # Create and start thread for reading serial data
 serial_thread = threading.Thread(target=read_serial)
