@@ -261,7 +261,7 @@ void loop()
     if (millis() - hstamp > 100) /*100 msec loop*/
     {
         hstamp = millis() - 1;
-        if (GetNewGpsData() == true)
+//        if (GetNewGpsData() == true)
         {
             if ((status == LOCKED) || status == DOCKED)
             {
@@ -269,7 +269,7 @@ void loop()
             }
             if (status == DOCKED)
             {
-                buoy.speed = CalcDocSpeed(buoy.tgdistance);
+                buoy.speed = (int)CalcDocSpeed(buoy.tgdistance);
             }
             if (status == LOCKED)
             {
@@ -278,7 +278,7 @@ void loop()
         }
         if (status == LOCKED || status == DOCKED)
         {
-            CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.speed, buoy.tgdistance, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
+            CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
         }
 
         adc_switch(); /*read switch status*/
@@ -642,10 +642,13 @@ void loop()
             }
             esctrigger = millis();
         }
-        // spdbb = buoy.speedbb;
-        // spdsb = buoy.speedsb;
+        // spdbb = -BUOYMINSPEEDBB;
+        // spdsb = -BUOYMINSPEEDSB;
+        //snd_msg.speedbb = spdbb;
+        //snd_msg.speedsb = spdsb;
         snd_msg.speedbb = spdbb;
         snd_msg.speedsb = spdsb;
+
         if (buoy.muteEsc == true)
         {
             snd_msg.speedbb = 0;

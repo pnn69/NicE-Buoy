@@ -160,7 +160,7 @@ float Angle2SpeedFactor(float angle)
 calculate the speed sailing home.
 The distance is in meters.
 */
-int CalcDocSpeed(double tgdistance)
+double CalcDocSpeed(double tgdistance)
 {
     tgdistance = constrain(tgdistance, 0.5, 5);
     return map(tgdistance, 0.5, 5, BUOYMINSPEED, BUOYMAXSPEED); // map speed 0.5-5 meter -> BUOYMINSPEED <-> BUOYMAXSPEED
@@ -186,11 +186,12 @@ void CalcRemoteRudderBuoy(double magheading, float tgheading, int speed, int *bb
         tsb = speed + speed * (1 - corr);
     }
 
-    // double error = ComputeSmallestAngleDir(magheading, tgheading);
-    // tbb = (int)(speed * cos(error) * (1 - sin(error)));
-    // tsb = (int)(speed * cos(error) * (1 - sin(error) * -1));
+    double error = ComputeSmallestAngleDir(magheading, tgheading);
+    tbb = (int)(speed * cos(radian(error)) * (1 - sin(radian(error))));
+    tsb = (int)(speed * cos(radian(error)) * (1 - sin(radian(error)) * -1));
     *bb = (int)constrain(tbb, -60, 100);
     *sb = (int)constrain(tsb, -60, 100);
+    Serial.printf("Error=%lf BB=%d SB=%d\r\n\r\n", error, *bb, *sb);
     return;
 }
 
@@ -207,45 +208,45 @@ If distance between 0.5 and 1.6 meter rotate at the slowest speed.
 If the angle between the targed direction and magnetic heading is greater then +/-80 degrees easy turn back into range
 else do normal rudder calculation.
 */
+
 bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int speed, int *bb, int *sb)
 {
     /*Compute all the working error variables*/
-    unsigned long now = millis();
     double error = ComputeSmallestAngleDir(magheading, tgheading);
-    double timeChange = (double)(now - rudderpid.lastTime);
-    double dErr = (error - rudderpid.lastErr) / timeChange;
-
     /*If distance between 0.5 and 1.6 meter rotate at the slowest speed.*/
-    if (tdistance > 0.5 || tdistance < 1.8 || speed < BUOYMINSPEED)
-    {
-        if (error > 0) // turn BB slow
-        {
-            *bb = -BUOYMINSPEED;
-            *sb = BUOYMINSPEED;
-        }
-        if (error < 0) // turn SB slow
-        {
-            *bb = BUOYMINSPEED;
-            *sb = -BUOYMINSPEED;
-        }
-        return false;
-    }
+    // if (tdistance > 0.5 && tdistance < 1.8 && speed < BUOYMINSPEED)
+    // {
+    //     if (error > 10) // turn BB slow
+    //     {
+    //         *bb = -BUOYMINSPEED;
+    //         *sb = BUOYMINSPEED;
+    //     }
+    //     if (error < -10) // turn SB slow
+    //     {
+    //         *bb = BUOYMINSPEED;
+    //         *sb = -BUOYMINSPEED;
+    //     }
+    //     return false;
+    // }
 
     /*quit if out of range*/
     if (error < -80)
     {
         *bb = (int)constrain(speed / 2.9, 0, 100); // 2.9=Speed*COS(80)*(1-SIN(80))
-        *sb = 0;
+        *sb = (int)(speed * cos(radian(error)) * (1 - sin(radian(error))));
         return false;
     }
     if (error > 80)
     {
-        *bb = 0;
+        *bb = (int)(speed * cos(radian(error)) * (1 - sin(radian(error))));
         *sb = (int)constrain(speed / 2.9, 0, 100);
         return false;
     }
 
     /*calculate proportion thrusters Not used now!!!!!*/
+    unsigned long now = millis();
+    double timeChange = (double)(now - rudderpid.lastTime);
+    double dErr = (error - rudderpid.lastErr) / timeChange;
     /* This has te be sorted out*/
     double Output = 0;
     rudderpid.iintergrate += error * timeChange;
@@ -263,13 +264,15 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
     Output = rudderpid.p + rudderpid.i + rudderpid.d;
     rudderpid.lastErr = error;
     rudderpid.lastTime = now;
-    int tb = (int)constrain(speed * cos(Output) * (1 - sin(Output)), 0, 100);
-    int ts = (int)constrain(speed * cos(Output) * (1 - sin(Output) * -1), 0, 100);
+    int tb = (int)constrain(speed * cos(radian(Output)) * (1 - sin(radian(Output))), 0, 100);
+    int ts = (int)constrain(speed * cos(radian(Output)) * (1 - sin(radian(Output)) * -1), 0, 100);
     Serial.printf("BB=%d,SB=%d    Speed in:%d  Corr=%2.2lf     p=%.2lf, i=%.2lf, d=%lf\r\n", tb, ts, speed, Output, rudderpid.p, rudderpid.i, rudderpid.d);
 
     /*calculate proportion thrusters*/
-    *bb = (int)(speed * cos(error) * (1 - sin(error)));
-    *sb = (int)(speed * cos(error) * (1 - sin(error) * -1));
+    *bb = (int)(speed * cos(radian(error)) * (1 - sin(radian(error))));
+    *sb = (int)(speed * cos(radian(error)) * (1 - sin(radian(error)) * -1));
+
+    //Serial.printf("Speed=%d BB=%d SB=%d\r\n", speed, *bb, *sb);
     if (*bb > BUOYMAXSPEED)
     {
         *sb += *bb - BUOYMAXSPEED;
