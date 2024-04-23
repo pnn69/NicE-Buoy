@@ -168,14 +168,11 @@ bool GetNewGpsData()
 /*
     Calulate heading and distance given two sets of coordinates.
     Return pointers distance and direction.
-    unsigend long heading in degrees 0-259
-    unsigend long distance in meters
+    unsigend double heading in degrees 0-259
+    unsigend double distance in meters
 */
 void RouteToPoint(double lat1, double lon1, double lat2, double lon2, double *distance, double *direction)
 {
     *distance = gps.distanceBetween(lat1, lon1, lat2, lon2);
     *direction = gps.courseTo(lat1, lon1, lat2, lon2);
-    // Serial.printf("distance: %.2lf Direction: %.3lf\r\n",distance,direction);
-    //  Serial.printf("Lat1: %.8lf Lon1: %.8lf\r\n",lat1,lon1);
-    //  Serial.printf("Lat2: %.8lf Lon2: %.8lf\r\n",lat2,lon2);
 }

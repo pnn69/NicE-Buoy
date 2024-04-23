@@ -269,8 +269,7 @@ void loop()
             }
             if (status == DOCKED)
             {
-                // buoy.speed = CalcDocSpeed(buoy.tgdistance);
-                buoy.speed = hooverPid(buoy.tgdistance);
+                buoy.speed = CalcDocSpeed(buoy.tgdistance);
             }
             if (status == LOCKED)
             {
@@ -279,7 +278,7 @@ void loop()
         }
         if (status == LOCKED || status == DOCKED)
         {
-            CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
+            CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.speed, buoy.tgdistance, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
         }
 
         adc_switch(); /*read switch status*/
@@ -341,8 +340,7 @@ void loop()
             }
             else
             {
-                snd_sq.ledstatus = CRGB(0, 20, 0); // internal led GREEN color
-                SWITCH_GRN_ON;                     // externel led GREEN (switch)
+                SWITCH_GRN_ON; // externel led GREEN (switch)
             }
         }
         xQueueSend(indicatorqueSt, (void *)&snd_sq, 10); // update internal led
@@ -350,34 +348,31 @@ void loop()
         /*
         key handeling
         */
-        if (sw_button_set == BUTTON_SHORT && sw_button_cnt == 0)
+        if (sw_button_set == BUTTON_SHORT && sw_button_cnt == 0) // short button press
         {
-            if (status != IDLE)
+            if (status != IDLE) // switch to IDLE status
             {
                 status = IDLE;
                 BUTTON_LIGHT_OFF;
                 beepESC();
                 Serial.printf("Status set to >IDLE< = %d\r\n", status);
+                buoy.speed = 0;
+                buoy.speedbb = 0;
+                buoy.speedsb = 0;
             }
-            else
+            else if (gpsdata.fix == true) // Locking new position
             {
-                if (gpsdata.fix == true)
+                buoy.tglatitude = gpsdata.lat;
+                buoy.tglongitude = gpsdata.lon;
+                BUTTON_LIGHT_ON;
+                beepESC();
+                if (status != CALIBRATE_MAGNETIC_COMPASS || status != CALIBRATE_OFFSET_MAGNETIC_COMPASS)
                 {
-                    buoy.tglatitude = gpsdata.lat;
-                    buoy.tglongitude = gpsdata.lon;
-                    BUTTON_LIGHT_ON;
-                    beepESC();
-                    if (status != CALIBRATE_MAGNETIC_COMPASS || status != CALIBRATE_OFFSET_MAGNETIC_COMPASS)
-                    {
-                        initRudderPid();
-                        status = LOCKED;
-                        Serial.printf("Status set to >LOCKED< = %d\r\n", status);
-                    }
+                    initRudderPid();
+                    status = LOCKED;
+                    Serial.printf("Status set to >LOCKED< = %d\r\n", status);
                 }
             }
-            buoy.speed = 0;
-            buoy.speedbb = 0;
-            buoy.speedsb = 0;
         }
         else if (sw_button_set == BUTTON_LONG && sw_button_cnt == 0) // Button long pressed?
         {
@@ -510,11 +505,13 @@ void loop()
                 if (SWITCH_RED_READ)
                 {
                     SWITCH_RED_OFF;
+                    SWITCH_GRN_ON;
                     BUTTON_LIGHT_OFF;
                 }
                 else
                 {
                     SWITCH_RED_ON;
+                    SWITCH_GRN_OFF;
                     BUTTON_LIGHT_ON;
                 }
             }
@@ -531,17 +528,6 @@ void loop()
     }
 
     /*
-    Update dislpay
-    */
-    // udateDisplay(buoy.speedsb, buoy.speedbb, (unsigned long)buoy.tgdistance, (unsigned int)buoy.tgdir, (unsigned int)buoy.mheading, gpsvalid);
-    // if (speedChanged != spdbb + spdsb && status == REMOTE)
-    // {
-    //     speedChanged = spdbb + spdsb;
-    //     loraMenu(SBPWR_BBPWR);
-    //     delay(200);
-    // }
-
-    /*
     Send only updated changes
     */
     if (distanceChanged != buoy.tgdistance)
@@ -552,6 +538,7 @@ void loop()
             loraMenu(DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING);
         }
     }
+
     /*
      do stuff every 2,5 sec
      Send periodic status info
@@ -655,8 +642,8 @@ void loop()
             }
             esctrigger = millis();
         }
-        //spdbb = buoy.speedbb;
-        //spdsb = buoy.speedsb;
+        // spdbb = buoy.speedbb;
+        // spdsb = buoy.speedsb;
         snd_msg.speedbb = spdbb;
         snd_msg.speedsb = spdsb;
         if (buoy.muteEsc == true)

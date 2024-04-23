@@ -9,7 +9,7 @@ gecode calculations: Https://www.movable-type.co.uk/scripts/latlong.html
 #include "gps.h"
 
 /*some constans*/
-#define EARTHRADIUS 6173
+#define EARTHRADIUS 6371
 #define radian(x) (x * M_PI / 180)
 #define degre(x) (x * 180 / M_PI)
 
@@ -162,37 +162,8 @@ The distance is in meters.
 */
 int CalcDocSpeed(double tgdistance)
 {
-    tgdistance = constrain(tgdistance, 0, 5);
-    return map(tgdistance, 0.5, 5, 0, 80); // map speed 1-10 meter -> buoyMinSpeed - maxCorrectionPeedPercentage %
-}
-
-void initRudderPid(void)
-{
-    pidRudderParameters(&rudderpid.kp, &rudderpid.ki, &rudderpid.kd, true);
-    rudderpid.iintergrate = 0;
-    rudderpid.lastErr = 0;
-    rudderpid.lastTime = millis();
-}
-
-void CalcSpeedRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb)
-{
-    double correctonAngle = 0;
-    // Serial.printf("Mhead:%.0f thead:%d, Speed:%d\n\r", magheading, tgheading, speed);
-    //  Angle between calculated angel to steer and the current direction of the vessel
-    correctonAngle = smallestAngle(magheading, tgheading);
-    // Serial.printf("correctonAngle %.4f Angle2SpeedFactor %.4f \n", correctonAngle, Angle2SpeedFactor(correctonAngle));
-    if (determineDirection(magheading, tgheading))
-    {
-        *bb = speed;
-        *sb = int(speed * Angle2SpeedFactor(correctonAngle));
-        // Serial.println("Bakboord");
-    }
-    else
-    {
-        *bb = int(speed * Angle2SpeedFactor(correctonAngle));
-        *sb = speed;
-        // Serial.println("Stuurboord");
-    }
+    tgdistance = constrain(tgdistance, 0.5, 5);
+    return map(tgdistance, 0.5, 5, BUOYMINSPEED, BUOYMAXSPEED); // map speed 0.5-5 meter -> BUOYMINSPEED <-> BUOYMAXSPEED
 }
 
 /*
@@ -214,52 +185,69 @@ void CalcRemoteRudderBuoy(double magheading, float tgheading, int speed, int *bb
         tbb = speed * corr;
         tsb = speed + speed * (1 - corr);
     }
+
+    // double error = ComputeSmallestAngleDir(magheading, tgheading);
+    // tbb = (int)(speed * cos(error) * (1 - sin(error)));
+    // tsb = (int)(speed * cos(error) * (1 - sin(error) * -1));
     *bb = (int)constrain(tbb, -60, 100);
     *sb = (int)constrain(tsb, -60, 100);
     return;
 }
-void rotateToTargedHeading(double mheading, float theading, int *bb, int *sb)
-{
-    double correctonAngle = smallestAngle(mheading, theading);
-    int speed = map(correctonAngle, 90, 180, 10, 30);
-    if (determineDirection(mheading, theading) == true)
-    {
-        *bb = speed;
-        *sb = -speed;
-    }
-    else
-    {
-        *bb = -speed;
-        *sb = speed;
-    }
-}
 
+void initRudderPid(void)
+{
+    pidRudderParameters(&rudderpid.kp, &rudderpid.ki, &rudderpid.kd, true);
+    rudderpid.iintergrate = 0;
+    rudderpid.lastErr = 0;
+    rudderpid.lastTime = millis();
+}
 /*
 Calculate power to thrusters
-rotate to directon if angel is bigger tan 45 degrees
+If distance between 0.5 and 1.6 meter rotate at the slowest speed.
+If the angle between the targed direction and magnetic heading is greater then +/-80 degrees easy turn back into range
+else do normal rudder calculation.
 */
-bool CalcRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb)
+bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int speed, int *bb, int *sb)
 {
-    double Output = 0;
-    unsigned long now = millis();
     /*Compute all the working error variables*/
+    unsigned long now = millis();
     double error = ComputeSmallestAngleDir(magheading, tgheading);
     double timeChange = (double)(now - rudderpid.lastTime);
     double dErr = (error - rudderpid.lastErr) / timeChange;
+
+    /*If distance between 0.5 and 1.6 meter rotate at the slowest speed.*/
+    if (tdistance > 0.5 || tdistance < 1.8 || speed < BUOYMINSPEED)
+    {
+        if (error > 0) // turn BB slow
+        {
+            *bb = -BUOYMINSPEED;
+            *sb = BUOYMINSPEED;
+        }
+        if (error < 0) // turn SB slow
+        {
+            *bb = BUOYMINSPEED;
+            *sb = -BUOYMINSPEED;
+        }
+        return false;
+    }
+
     /*quit if out of range*/
     if (error < -80)
     {
-        *bb = (int)constrain(speed * cos(error) * (1 - sin(error) * -1), 0, 100);
+        *bb = (int)constrain(speed / 2.9, 0, 100); // 2.9=Speed*COS(80)*(1-SIN(80))
         *sb = 0;
         return false;
     }
     if (error > 80)
     {
         *bb = 0;
-        *sb = (int)constrain(speed * cos(error) * (1 - sin(error) * -1), 0, 100);
+        *sb = (int)constrain(speed / 2.9, 0, 100);
         return false;
     }
-    /*calculate proportion thrusters (Not used now)*/
+
+    /*calculate proportion thrusters Not used now!!!!!*/
+    /* This has te be sorted out*/
+    double Output = 0;
     rudderpid.iintergrate += error * timeChange;
     if (rudderpid.ki * rudderpid.iintergrate > 80)
     {
@@ -275,12 +263,25 @@ bool CalcRudderBuoy(double magheading, float tgheading, int speed, int *bb, int 
     Output = rudderpid.p + rudderpid.i + rudderpid.d;
     rudderpid.lastErr = error;
     rudderpid.lastTime = now;
-    int tb = (int)constrain(speed * cos(Output) * (1 - sin(Output)), 0, 100); 
-    int ts = (int)constrain(speed * cos(Output) * (1 - sin(Output)*-1), 0, 100); 
-    Serial.printf("BB=%d,SB=%d    Speed in:%d  Corr=%2.2lf     p=%.2lf, i=%.2lf, d=%lf\r\n",tb,ts, speed, Output, rudderpid.p , rudderpid.i , rudderpid.d);
+    int tb = (int)constrain(speed * cos(Output) * (1 - sin(Output)), 0, 100);
+    int ts = (int)constrain(speed * cos(Output) * (1 - sin(Output) * -1), 0, 100);
+    Serial.printf("BB=%d,SB=%d    Speed in:%d  Corr=%2.2lf     p=%.2lf, i=%.2lf, d=%lf\r\n", tb, ts, speed, Output, rudderpid.p, rudderpid.i, rudderpid.d);
+
     /*calculate proportion thrusters*/
-    *bb = (int)constrain(speed * cos(error) * (1 - sin(error)), 0, 100);
-    *sb = (int)constrain(speed * cos(error) * (1 - sin(error) * -1), 0, 100);
+    *bb = (int)(speed * cos(error) * (1 - sin(error)));
+    *sb = (int)(speed * cos(error) * (1 - sin(error) * -1));
+    if (*bb > BUOYMAXSPEED)
+    {
+        *sb += *bb - BUOYMAXSPEED;
+    }
+    if (*sb > BUOYMAXSPEED)
+    {
+        *bb += *sb - BUOYMAXSPEED;
+    }
+
+    /*Sanety check*/
+    *bb = constrain(*bb, -BUOYMAXSPEED, BUOYMAXSPEED);
+    *sb = constrain(*sb, -BUOYMAXSPEED, BUOYMAXSPEED);
     return true;
 }
 
@@ -288,15 +289,20 @@ void initSpeedPid(void)
 {
     pidSpeedParameters(&speedpid.kp, &speedpid.ki, &speedpid.kd, true);
     speedpid.i = 0;
+    speedpid.iintergrate = 0;
     speedpid.lastErr = 0;
-    rudderpid.lastTime = millis();
+    speedpid.lastTime = millis();
 }
+/*
+Only ust PID if the distancs is less than buoy.maxOfsetDist return BUOYMAXSPEED otherwise.
 
+*/
 int hooverPid(double dist)
 {
     /*Do not use the pid loop if distance is to big just go full power*/
     if (dist > buoy.maxOfsetDist)
     {
+        initSpeedPid();
         return BUOYMAXSPEED;
     }
     /*How long since we last calculated*/
