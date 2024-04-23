@@ -129,6 +129,16 @@ bool determineDirection(double heading1, double heading2)
     }
 }
 
+double ComputeSmallestAngleDir(double heading1, double heading2)
+{
+    double angle = fmod(heading2 - heading1 + 360, 360); // Calculate the difference and keep it within 360 degrees
+    if (angle > 180)
+    {
+        return angle - 360; // Angle is greater than 180, SB (turn right)
+    }
+    return angle; // Angle is less than or equal to 180, BB (Turn left)
+}
+
 /*
     adjust speed Cosinus does not work here. We have to do it manually
 */
@@ -233,43 +243,44 @@ bool CalcRudderBuoy(double magheading, float tgheading, int speed, int *bb, int 
     double Output = 0;
     unsigned long now = millis();
     /*Compute all the working error variables*/
-    double error = smallestAngle(magheading, tgheading);
-    if (determineDirection(magheading, tgheading) == true)
-    {
-        error *= -1.0;
-    }
-    
+    double error = ComputeSmallestAngleDir(magheading, tgheading);
     double timeChange = (double)(now - rudderpid.lastTime);
-    rudderpid.iintergrate += error * timeChange;
-    // rudderpid.iintergrate /= 10.0;
     double dErr = (error - rudderpid.lastErr) / timeChange;
-    if (rudderpid.ki / 100.0 * rudderpid.iintergrate > 90)
+    /*quit if out of range*/
+    if (error < -80)
     {
-        rudderpid.iintergrate = 90 / (rudderpid.ki / 100.0);
+        *bb = (int)constrain(speed * cos(error) * (1 - sin(error) * -1), 0, 100);
+        *sb = 0;
+        return false;
     }
-    if (rudderpid.ki / 100.0 * rudderpid.iintergrate < -90)
+    if (error > 80)
     {
-        rudderpid.iintergrate = -90 / (rudderpid.ki / 100.0);
+        *bb = 0;
+        *sb = (int)constrain(speed * cos(error) * (1 - sin(error) * -1), 0, 100);
+        return false;
+    }
+    /*calculate proportion thrusters (Not used now)*/
+    rudderpid.iintergrate += error * timeChange;
+    if (rudderpid.ki * rudderpid.iintergrate > 80)
+    {
+        rudderpid.iintergrate = 80 / (rudderpid.ki);
+    }
+    if (rudderpid.ki * rudderpid.iintergrate < -80)
+    {
+        rudderpid.iintergrate = -80 / (rudderpid.ki);
     }
     rudderpid.p = rudderpid.kp * error;
-    rudderpid.i = rudderpid.ki / 100.0 * rudderpid.iintergrate;
+    rudderpid.i = rudderpid.ki * rudderpid.iintergrate;
     rudderpid.d = rudderpid.kd * dErr;
-    Output = (rudderpid.p + rudderpid.i + rudderpid.d) / 100;
+    Output = rudderpid.p + rudderpid.i + rudderpid.d;
     rudderpid.lastErr = error;
     rudderpid.lastTime = now;
-    Output = constrain(Output, -2, 2);
-
+    int tb = (int)constrain(speed * cos(Output) * (1 - sin(Output)), 0, 100); 
+    int ts = (int)constrain(speed * cos(Output) * (1 - sin(Output)*-1), 0, 100); 
+    Serial.printf("BB=%d,SB=%d    Speed in:%d  Corr=%2.2lf     p=%.2lf, i=%.2lf, d=%lf\r\n",tb,ts, speed, Output, rudderpid.p , rudderpid.i , rudderpid.d);
     /*calculate proportion thrusters*/
-    if (error > 0)
-    {
-        *bb = (int)constrain((int)(speed * (1 - Output)), -20, 100);
-        *sb =  speed;
-    }else{
-        *bb = speed;
-        *sb = (int)constrain((int)(speed * (1 + Output)), -20, 100);    
-    }
-    
-    Serial.printf("BB=%d,SB=%d    Speed in:%d  Corr=%2.2lf     p=%.2lf, i=%.2lf, d=%lf\r\n", (int)(speed * (1 - Output)), (int)(speed * (1 + Output)), speed, Output, rudderpid.p, rudderpid.i, rudderpid.d);
+    *bb = (int)constrain(speed * cos(error) * (1 - sin(error)), 0, 100);
+    *sb = (int)constrain(speed * cos(error) * (1 - sin(error) * -1), 0, 100);
     return true;
 }
 
