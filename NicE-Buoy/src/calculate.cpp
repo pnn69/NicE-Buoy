@@ -22,6 +22,48 @@ void initCalculate(void)
     computeParameters(&buoy.minOfsetDist, &buoy.maxOfsetDist, &buoy.minSpeed, &buoy.maxSpeed, true);
 }
 
+/*Approimate roling average deafualt 100 samples*/
+double approxRollingAverage(double avg, double input)
+{
+    avg -= avg / 100;
+    avg += input / 100;
+    return avg;
+}
+
+/*
+    Compute roling average and standard deviation
+    in:buffer, buffer_length, new_data
+    out:buffer[0]=average  buffer[1]=standarddiviation
+    buffer[2]=pointer
+*/
+void rollingAverageStandardDeviation(double *input, int buflen, double nwdata)
+{
+    int ptr;
+    double avg = 0;
+    if (input[2] >= buflen)
+    {
+        input[2] = 0;
+    }
+    ptr = input[2];
+    input[2]++;
+    input[ptr + 3] = nwdata;
+    // Compute average
+    for (int ptr = 0; ptr < buflen; ptr++)
+    {
+        avg += input[ptr + 3];
+    }
+    input[0] /= buflen;
+
+    // Compute standard deviation
+    double sum_of_squared_diff = 0;
+    for (int i = 0; i < buflen; i++)
+    {
+        double diff = input[i + 2] - input[0];
+        sum_of_squared_diff += diff * diff;
+    }
+    input[1] = sqrt(sum_of_squared_diff / buflen);
+}
+
 /*
 change parematers for speed calculation
 */
@@ -272,7 +314,7 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
     *bb = (int)(speed * cos(radian(error)) * (1 - sin(radian(error))));
     *sb = (int)(speed * cos(radian(error)) * (1 - sin(radian(error)) * -1));
 
-    //Serial.printf("Speed=%d BB=%d SB=%d\r\n", speed, *bb, *sb);
+    // Serial.printf("Speed=%d BB=%d SB=%d\r\n", speed, *bb, *sb);
     if (*bb > BUOYMAXSPEED)
     {
         *sb += *bb - BUOYMAXSPEED;

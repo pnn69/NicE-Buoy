@@ -261,11 +261,12 @@ void loop()
     if (millis() - hstamp > 100) /*100 msec loop*/
     {
         hstamp = millis() - 1;
-//        if (GetNewGpsData() == true)
+        if (GetNewGpsData() == true)
         {
             if ((status == LOCKED) || status == DOCKED)
             {
                 RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate distance and heading
+                rollingAverageStandardDeviation(buoy.winddir, BUFLENWINDSPEED, buoy.tgdir);
             }
             if (status == DOCKED)
             {
@@ -644,8 +645,8 @@ void loop()
         }
         // spdbb = -BUOYMINSPEEDBB;
         // spdsb = -BUOYMINSPEEDSB;
-        //snd_msg.speedbb = spdbb;
-        //snd_msg.speedsb = spdsb;
+        // snd_msg.speedbb = spdbb;
+        // snd_msg.speedsb = spdsb;
         snd_msg.speedbb = spdbb;
         snd_msg.speedsb = spdsb;
 

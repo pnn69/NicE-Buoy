@@ -1,6 +1,7 @@
 #ifndef GGENERAL_H_
 #define GENERAL_H_
 #include "../../dependency/command.h"
+#define BUFLENWINDSPEED 100
 
 struct buoyDataType
 {
@@ -11,6 +12,7 @@ struct buoyDataType
     double tgdir, tgdistance;
     int minOfsetDist, maxOfsetDist, minSpeed, maxSpeed;
     int mdir, ddir, cdir, magneticCorrection;
+    double winddir[3 + BUFLENWINDSPEED]; // winddir[0]=avarage winddir[1]=pionter winddir[2]=standarddeviation winddir[3..BUFLENWINDSPEED + 3)]=data
     int speed = 0, speedbb = 0, speedsb = 0, cspeed = 0;
     int rssi;
     int mode;
@@ -54,7 +56,7 @@ extern char buoyID;
 extern bool nwloramsg;
 extern byte status;
 
-//#define RADIUSEARTH 6371 // radius earth
+// #define RADIUSEARTH 6371 // radius earth
 #define BUZZERON 0
 #define BUZZEROFF 1
 #define BUZZTIME 100

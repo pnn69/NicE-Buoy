@@ -4,6 +4,8 @@
 extern double errSum;
 
 void initCalculate(void);
+double approxRollingAverage(double avg, double input);
+void rollingAverageStandardDeviation(double *input,int buflen, double nwdata);
 void setparameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int *maxSpeed);
 double CalcDocSpeed(double tgdistance);
 void adjustPositionDirDist(int dir, double dist, double *tglatitude, double *tglongitude);
