@@ -50,6 +50,7 @@ typedef enum
     PID_SPEED_PARAMETERS,                          // kp=20, ki=0.4, kd=0;
     PID_RUDDER_PARAMETERS,                         // kp=.5, ki=0.02, kd=0;
     CHANGE_LOCK_POS_DIR_DIST,                      // adjust position retative to currend magnetic heading dir in degrees distance in meters
+    WIND_DIR_DEV,                                  // wind direction deviation
     ESC_ON_OFF,                                    // enable disable esc (defaut enabled)
     RESET                                          // reset esp
 } Command_t;

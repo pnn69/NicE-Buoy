@@ -39,7 +39,6 @@ double approxRollingAverage(double avg, double input)
 void rollingAverageStandardDeviation(double *input, int buflen, double nwdata)
 {
     int ptr;
-    double avg = 0;
     if (input[2] >= buflen)
     {
         input[2] = 0;
@@ -48,9 +47,10 @@ void rollingAverageStandardDeviation(double *input, int buflen, double nwdata)
     input[2]++;
     input[ptr + 3] = nwdata;
     // Compute average
+    input[0] = 0;
     for (int ptr = 0; ptr < buflen; ptr++)
     {
-        avg += input[ptr + 3];
+        input[0] += input[ptr + 3];
     }
     input[0] /= buflen;
 
@@ -58,7 +58,7 @@ void rollingAverageStandardDeviation(double *input, int buflen, double nwdata)
     double sum_of_squared_diff = 0;
     for (int i = 0; i < buflen; i++)
     {
-        double diff = input[i + 2] - input[0];
+        double diff = input[i + 3] - input[0];
         sum_of_squared_diff += diff * diff;
     }
     input[1] = sqrt(sum_of_squared_diff / buflen);
@@ -204,8 +204,8 @@ The distance is in meters.
 */
 double CalcDocSpeed(double tgdistance)
 {
-    tgdistance = constrain(tgdistance, 0.5, 5);
-    return map(tgdistance, 0.5, 5, BUOYMINSPEED, BUOYMAXSPEED); // map speed 0.5-5 meter -> BUOYMINSPEED <-> BUOYMAXSPEED
+    tgdistance = constrain(tgdistance, 0.5, 8);
+    return map(tgdistance, 0, 5, 0, 50); // map speed 0.5-5 meter -> BUOYMINSPEED <-> BUOYMAXSPEED
 }
 
 /*
@@ -246,84 +246,60 @@ void initRudderPid(void)
 }
 /*
 Calculate power to thrusters
-If distance between 0.5 and 1.6 meter rotate at the slowest speed.
-If the angle between the targed direction and magnetic heading is greater then +/-80 degrees easy turn back into range
+if distance between 0.5 and 1.5 meter rotate at the slowest speed.
 else do normal rudder calculation.
 */
-
+#define ILIM 26
 bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int speed, int *bb, int *sb)
 {
-    /*Compute all the working error variables*/
     double error = ComputeSmallestAngleDir(magheading, tgheading);
-    /*If distance between 0.5 and 1.6 meter rotate at the slowest speed.*/
-    // if (tdistance > 0.5 && tdistance < 1.8 && speed < BUOYMINSPEED)
-    // {
-    //     if (error > 10) // turn BB slow
-    //     {
-    //         *bb = -BUOYMINSPEED;
-    //         *sb = BUOYMINSPEED;
-    //     }
-    //     if (error < -10) // turn SB slow
-    //     {
-    //         *bb = BUOYMINSPEED;
-    //         *sb = -BUOYMINSPEED;
-    //     }
-    //     return false;
-    // }
-
-    /*quit if out of range*/
-    if (error < -80)
+    error = map(error, -180, 180, -89, 89);
+    if (speed <= 0)
     {
-        *bb = (int)constrain(speed / 2.9, 0, 100); // 2.9=Speed*COS(80)*(1-SIN(80))
-        *sb = (int)(speed * cos(radian(error)) * (1 - sin(radian(error))));
+        if (tdistance > 0.5 && tdistance < 1.5)
+        {
+            int spd = (int)(BUOYMINSPEED * tan(radians(error)));
+            spd = constrain(spd, -BUOYMINSPEED, BUOYMINSPEED);
+            *bb = spd;
+            *sb = spd * -1;
+
+#ifdef DEBUG
+            Serial.printf("BB=%2d,SB=%d Error:%2.2lf \r\n", *bb, *sb, error);
+#endif
+        }
+        else
+        {
+            *bb = 0;
+            *sb = 0;
+        }
         return false;
     }
-    if (error > 80)
-    {
-        *bb = (int)(speed * cos(radian(error)) * (1 - sin(radian(error))));
-        *sb = (int)constrain(speed / 2.9, 0, 100);
-        return false;
-    }
-
     /*calculate proportion thrusters Not used now!!!!!*/
     unsigned long now = millis();
     double timeChange = (double)(now - rudderpid.lastTime);
     double dErr = (error - rudderpid.lastErr) / timeChange;
     /* This has te be sorted out*/
-    double Output = 0;
+    double adj = 0;
     rudderpid.iintergrate += error * timeChange;
-    if (rudderpid.ki * rudderpid.iintergrate > 80)
+    if ((rudderpid.ki / 1000) * rudderpid.iintergrate > ILIM)
     {
-        rudderpid.iintergrate = 80 / (rudderpid.ki);
+        rudderpid.iintergrate = ILIM / ((rudderpid.ki / 1000));
     }
-    if (rudderpid.ki * rudderpid.iintergrate < -80)
+    if ((rudderpid.ki / 1000) * rudderpid.iintergrate < -ILIM)
     {
-        rudderpid.iintergrate = -80 / (rudderpid.ki);
+        rudderpid.iintergrate = -ILIM / ((rudderpid.ki / 1000));
     }
     rudderpid.p = rudderpid.kp * error;
-    rudderpid.i = rudderpid.ki * rudderpid.iintergrate;
+    rudderpid.i = (rudderpid.ki / 1000) * rudderpid.iintergrate;
     rudderpid.d = rudderpid.kd * dErr;
-    Output = rudderpid.p + rudderpid.i + rudderpid.d;
+    adj = rudderpid.p + rudderpid.i + rudderpid.d;
     rudderpid.lastErr = error;
     rudderpid.lastTime = now;
-    int tb = (int)constrain(speed * cos(radian(Output)) * (1 - sin(radian(Output))), 0, 100);
-    int ts = (int)constrain(speed * cos(radian(Output)) * (1 - sin(radian(Output)) * -1), 0, 100);
-    Serial.printf("BB=%d,SB=%d    Speed in:%d  Corr=%2.2lf     p=%.2lf, i=%.2lf, d=%lf\r\n", tb, ts, speed, Output, rudderpid.p, rudderpid.i, rudderpid.d);
-
-    /*calculate proportion thrusters*/
-    *bb = (int)(speed * cos(radian(error)) * (1 - sin(radian(error))));
-    *sb = (int)(speed * cos(radian(error)) * (1 - sin(radian(error)) * -1));
-
-    // Serial.printf("Speed=%d BB=%d SB=%d\r\n", speed, *bb, *sb);
-    if (*bb > BUOYMAXSPEED)
-    {
-        *sb += *bb - BUOYMAXSPEED;
-    }
-    if (*sb > BUOYMAXSPEED)
-    {
-        *bb += *sb - BUOYMAXSPEED;
-    }
-
+    *bb = (int)(speed * (1 - tan(radians(adj))));
+    *sb = (int)(speed * (1 + tan(radians(adj))));
+#ifdef DEBUG
+    Serial.printf("BB=%2d,SB=%d  Speed in:%2d   Error:%2.2lf   tan=%2.2f Corr=%3.2lf     p=%2.2lf, i=%2.2lf, d=%0.5lf\r\n", *bb, *sb, speed, error, tan(radians(adj)), adj, rudderpid.p, rudderpid.i, rudderpid.d);
+#endif
     /*Sanety check*/
     *bb = constrain(*bb, -BUOYMAXSPEED, BUOYMAXSPEED);
     *sb = constrain(*sb, -BUOYMAXSPEED, BUOYMAXSPEED);
@@ -376,6 +352,8 @@ int hooverPid(double dist)
     /*Remember some variables for next time*/
     speedpid.lastErr = dist;
     speedpid.lastTime = now;
+#ifdef DEBUG
     Serial.printf("Speed:%.1lf p=%.2lf, i=%.2lf, d=%.2lf\r\n ", Output, speedpid.p, speedpid.i, speedpid.d);
+#endif
     return constrain(Output, 0, BUOYMAXSPEED);
 }

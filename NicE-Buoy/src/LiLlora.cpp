@@ -462,7 +462,9 @@ int polLora(void)
     case CHANGE_LOCK_POS_DIR_DIST:
         if (loraIn.gsia == SET)
         {
+#ifndef DEBUG
             if (status == LOCKED && gpsdata.fix == true)
+#endif
             {
                 int direction;
                 double distance;
@@ -567,6 +569,13 @@ bool loraMenu(int cmnd)
     case PID_SPEED_PARAMETERS:
         loraOut.msgid = cmnd;
         loraOut.message = String(speedpid.kp) + "," + String(speedpid.ki, 4) + "," + String(speedpid.kd) + "," + String(speedpid.i);
+        loraOut.gsia = SET;
+        while (sendLora())
+            ;
+        break;
+    case WIND_DIR_DEV:
+        loraOut.msgid = cmnd;
+        loraOut.message = String(buoy.winddir[0], 0) + "," + String(buoy.winddir[0], 0);
         loraOut.gsia = SET;
         while (sendLora())
             ;

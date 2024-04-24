@@ -228,12 +228,14 @@ void setup()
         disable gps
         set status to loking
     */
-    // gpsdata.lat = 52.32038;
-    // gpsdata.lon = 4.96563;
-    // gpsdata.fix = true;
-    // gpsdata.nrsats = 10;
-    // gpsactive = false; // disable gps
-    // status = LOCKED;
+#if DEBUG
+    gpsdata.lat = 52.32038;
+    gpsdata.lon = 4.96563;
+    gpsdata.fix = true;
+    gpsdata.nrsats = 10;
+    gpsactive = false; // disable gps
+    status = LOCKED;
+#endif
 }
 
 /**********************************************************************************************************************************************************/
@@ -261,12 +263,15 @@ void loop()
     if (millis() - hstamp > 100) /*100 msec loop*/
     {
         hstamp = millis() - 1;
+#ifdef DEBUG
+#else
         if (GetNewGpsData() == true)
+#endif
         {
             if ((status == LOCKED) || status == DOCKED)
             {
                 RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate distance and heading
-                rollingAverageStandardDeviation(buoy.winddir, BUFLENWINDSPEED, buoy.tgdir);
+                rollingAverageStandardDeviation(buoy.winddir, BUFLENWINDSPEED, buoy.tgdir);                               // cacluate wind dir
             }
             if (status == DOCKED)
             {
@@ -531,12 +536,15 @@ void loop()
     /*
     Send only updated changes
     */
-    if (distanceChanged != buoy.tgdistance)
+    if (status == LOCKED || status == DOCKED)
     {
-        if (status == LOCKED || status == DOCKED)
+        if (distanceChanged != buoy.tgdistance)
         {
-            distanceChanged = buoy.tgdistance;
-            loraMenu(DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING);
+            if (gpsdata.fix == true)
+            {
+                distanceChanged = buoy.tgdistance;
+                loraMenu(DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING);
+            }
         }
     }
 
@@ -564,35 +572,26 @@ void loop()
             }
             break;
         case 4:
-            loraMenu(PID_SPEED_PARAMETERS); // bat voltage and percentage to remote
             msg_cnt = 0;
-            if (buoy.vbatt <= 22)
+            loraMenu(WIND_DIR_DEV); // Send wind info
+
+            if (buoy.vbatt <= 15)
             {
-                if (status == LOCKED || status == DOCKED)
+                Message snd_msg;
+                snd_msg.speedbb = 0;
+                snd_msg.speedsb = 0;
+                xQueueSend(escspeed, (void *)&snd_msg, 10); // update esc
+                delay(5000);
+                adc_switch(); /*read switch status*/
+                delay(100);
+                adc_switch(); /*read switch status*/
+                if (buoy.vbatt > 20)
                 {
-                    Message snd_msg;
-                    snd_msg.speedbb = 0;
-                    snd_msg.speedsb = 0;
-                    xQueueSend(escspeed, (void *)&snd_msg, 10); // update esc
-                    delay(5000);
-                    adc_switch(); /*read switch status*/
-                    delay(100);
-                    adc_switch(); /*read switch status*/
-                    if (buoy.vbatt > 22)
-                    {
-                        break;
-                    }
+                    break;
                 }
-                // if (buoy.vbatt <= 22)
-                // {
-                //     initRudderPid();
-                //     MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude, true);
-                //     status = DOCKED;
-                //     Serial.println("sailing home!!!!");
-                // }
+                status = DOCKED; // empty batt sailing home
             }
             break;
-            // Serial.printf("Batt percentage %0.1f%% voltage: %0.2fV target distance %0.0lf target dir %0.0lf\r\n", buoy.vperc, buoy.vbatt, buoy.tgdistance, buoy.tgdir);
         }
     }
 
@@ -649,12 +648,16 @@ void loop()
         // snd_msg.speedsb = spdsb;
         snd_msg.speedbb = spdbb;
         snd_msg.speedsb = spdsb;
-
+#if DEBUG
+        snd_msg.speedbb = 0;
+        snd_msg.speedsb = 0;
+#endif
         if (buoy.muteEsc == true)
         {
             snd_msg.speedbb = 0;
             snd_msg.speedsb = 0;
         }
+
         xQueueSend(escspeed, (void *)&snd_msg, 10); // update esc
         snd_sp.speedbb = spdbb;
         snd_sp.speedsb = spdsb;

@@ -66,8 +66,8 @@ extern byte status;
 // #define BUOYMINSPEEDBB 5 // minimal speed thrusters are turning
 // #define BUOYMINSPEEDSB 20 // minimal speed thrusters are turning
 
-#define DEBUG 1
-#if DEBUG == 1
+//#define DEBUG 1
+#if DEBUG
 #define debug(x) Serial.print(x)
 #define debugln(x) Serial.println(x)
 #else
