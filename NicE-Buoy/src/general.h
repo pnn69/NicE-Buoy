@@ -1,7 +1,7 @@
 #ifndef GGENERAL_H_
 #define GENERAL_H_
 #include "../../dependency/command.h"
-#define BUFLENWINDSPEED 100
+#define BUFLENWINDSPEED 10
 
 struct buoyDataType
 {

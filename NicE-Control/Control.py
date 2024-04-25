@@ -62,8 +62,8 @@ root = tk.Tk()
 root.title("GUI with Radio Buttons, Input Fields, and Output Field")
 
 # Create input fields
-entry1 = tk.Entry(root)
-entry1.insert(tk.END, "1,0.05,00")  # Pre-fill entry1
+entry1 = tk.Entry(root).insert(tk.END, "1,0.05,00")  # Pre-fill entry1
+entry1
 entry1.grid(row=1, column=0)
 
 entry2 = tk.Entry(root)

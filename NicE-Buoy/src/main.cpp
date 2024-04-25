@@ -271,7 +271,6 @@ void loop()
             if ((status == LOCKED) || status == DOCKED)
             {
                 RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate distance and heading
-                rollingAverageStandardDeviation(buoy.winddir, BUFLENWINDSPEED, buoy.tgdir);                               // cacluate wind dir
             }
             if (status == DOCKED)
             {
@@ -555,6 +554,7 @@ void loop()
     if (sec5stamp + 2500 < millis())
     {
         sec5stamp = millis() - 1;
+        rollingAverageStandardDeviation(buoy.winddir, BUFLENWINDSPEED, buoy.tgdir); // cacluate wind dir
         loraIn.recipient = 0xFE;
         msg_cnt++;
         switch (msg_cnt)
