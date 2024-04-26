@@ -199,6 +199,7 @@ void setup()
     computeParameters(&buoy.minOfsetDist, &buoy.maxOfsetDist, &buoy.minSpeed, &buoy.maxSpeed, true);
     Serial.printf("Speed PID:  kp=%2.2lf ki=%2.2lf kd=%2.2lf\r\n", speedpid.kp, speedpid.ki, speedpid.kd);
     Serial.printf("Rudder PID: kp=%2.2lf ki=%2.2lf kd=%2.2lf\r\n", rudderpid.kp, rudderpid.ki, rudderpid.kd);
+    Serial.printf("minOfsetDist=%d, maxOfsetDist=%d, minSpeed=%d, maxSpeed=%d\r\n", buoy.minOfsetDist, buoy.maxOfsetDist, buoy.minSpeed, buoy.maxSpeed);
     buoy.muteEsc = false; // enable esc
     Serial.println("***");
     websetup();
@@ -557,6 +558,14 @@ void loop()
         rollingAverageStandardDeviation(buoy.winddir, BUFLENWINDSPEED, buoy.tgdir); // cacluate wind dir
         loraIn.recipient = 0xFE;
         msg_cnt++;
+        if (status == LOCKED || status == DOCKED)
+        {
+
+            loraMenu(PID_RUDDER_PARAMETERS); // pos heading speed to remote
+            delay(500);
+            loraMenu(PID_SPEED_PARAMETERS); // pos heading speed to remote
+            delay(200);
+        }
         switch (msg_cnt)
         {
         case 1:

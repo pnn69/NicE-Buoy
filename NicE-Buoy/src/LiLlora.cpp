@@ -269,7 +269,7 @@ int polLora(void)
             sscanf(messageArr, "%d,%d", &buoy.cdir, &buoy.cspeed);
             CalcRemoteRudderBuoy(buoy.cdir, 0, buoy.cspeed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
             msg = String(buoy.mheading, 0) + "," + String(buoy.cspeed) + "," + String(buoy.speedbb) + "," + String(buoy.speedsb);
-            sendACKNAKINF("", ACK);
+            sendACKNAKINF(msg, ACK);
         }
         else if (loraIn.gsia == GET)
         {
@@ -573,9 +573,16 @@ bool loraMenu(int cmnd)
         while (sendLora())
             ;
         break;
+    case PID_RUDDER_PARAMETERS:
+        loraOut.msgid = cmnd;
+        loraOut.message = String(rudderpid.kp) + "," + String(rudderpid.ki, 4) + "," + String(rudderpid.kd) + "," + String(rudderpid.i);
+        loraOut.gsia = SET;
+        while (sendLora())
+            ;
+        break;
     case WIND_DIR_DEV:
         loraOut.msgid = cmnd;
-        loraOut.message = String(buoy.winddir[0], 0) + "," + String(buoy.winddir[0], 0);
+        loraOut.message = String(buoy.winddir[0], 0) + "," + String(buoy.winddir[1], 0);
         loraOut.gsia = SET;
         while (sendLora())
             ;
