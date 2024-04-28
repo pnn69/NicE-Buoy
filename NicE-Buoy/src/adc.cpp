@@ -106,6 +106,7 @@ void adc_switch(void)
         buoy.vbatt = adc_result * 0.013339;
         float perc = map(buoy.vbatt * 100.0, 3.6 * 600.0, 4.2 * 600.0, 0, 10000);
         buoy.vperc = (constrain(perc, 0, 10000)) / 100.0;
+        //Serial.printf("Vbat=%2.2lf",buoy.vbatt);
     }
     else
     {

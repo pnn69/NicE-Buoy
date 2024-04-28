@@ -5,7 +5,10 @@
 // Replace with your network credentials
 const char *ssid = "NicE_Engineering_UPC";
 const char *password = "1001100110";
-const char *host = "NicE-Buoy-Remote";
+const char *ssidwsop = "wsopwsop";
+const char *passwordwsop = "wsopwsop";
+
+const char *host = "NicE-Buoy";
 static bool OTA = false;
 static bool WEBok = false;
 
@@ -51,48 +54,109 @@ void setup_OTA()
 
 void websetup()
 {
-    Serial.println("Accespoint setup!");
-    // int se = 0;
-    // WiFi.mode(WIFI_STA);
-    // WiFi.begin(ssid, password);
-    // Serial.print("Connecting to WiFi ..");
-    // while (WiFi.status() != WL_CONNECTED && se < 10)
-    // {
-    //     Serial.print('.');
-    //     delay(1000);
-    //     se++;
-    //     if (se > 10)
-    //         break;
-    // }
-    // if (se >= 10)
-    // {
-    IPAddress local_IP(192, 168, 4, 1); // Your Desired Static IP Address
-    IPAddress subnet(255, 255, 255, 0);
-    IPAddress gateway(192, 168, 1, 1);
-    IPAddress primaryDNS(0, 0, 0, 0);   // Not Mandatory
-    IPAddress secondaryDNS(0, 0, 0, 0); // Not Mandatory
-    // Configures Static IP Address
-    if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))
+    String nwk = "";
+    int n = WiFi.scanNetworks();
+    if (n == 0)
     {
-        Serial.println("Configuration Failed!");
+        Serial.println("no networks found");
+    }
+    else
+    {
+        Serial.print(n);
+        Serial.println(" networks found");
+        for (int i = 0; i < n; ++i)
+        {
+            // Print SSID and RSSI for each network found
+            Serial.print(i + 1);
+            Serial.print(": ");
+            Serial.print(WiFi.SSID(i));
+            if (WiFi.SSID(i) == "NicE_Engineering_UPC")
+            {
+                nwk = WiFi.SSID(i);
+            }
+            if (WiFi.SSID(i) == "wvop")
+            {
+                nwk = WiFi.SSID(i);
+            }
+            Serial.print(" (");
+            Serial.print(WiFi.RSSI(i));
+            Serial.print(")");
+            Serial.println((WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? " " : "*");
+            delay(10);
+        }
+    }
+    Serial.println("");
+
+    if (nwk == "NicE_Engineering_UPC")
+    {
+        int se = 0;
+        WiFi.mode(WIFI_STA);
+        WiFi.begin(ssid, password);
+        Serial.print("Connecting to WiFi ..");
+        while (WiFi.status() != WL_CONNECTED && se < 10)
+        {
+            Serial.print('.');
+            delay(1000);
+            se++;
+            if (se > 10)
+                break;
+        }
+        if (se >= 10)
+        {
+            nwk == "";
+        }
     }
 
-    char ssidl[20];
-    sprintf(ssidl, "NicE_Buoy_%d", buoyID);
-    //Serial.println("No WiFi network found!");
-    Serial.print("Seting up AP: ");
-    Serial.println(ssidl);
-    WiFi.softAP(ssidl);
-    IPAddress IP = WiFi.softAPIP();
-    Serial.print("AP IP address: ");
-    Serial.println(IP);
-    // }
-    // else
-    // {
-    //     Serial.print("WiFi network found!\r\nConnected to: ");
-    //     Serial.println(ssid);
-    //     Serial.println(WiFi.localIP());
-    // }
+    if (nwk == "wsop")
+    {
+        int se = 0;
+        WiFi.mode(WIFI_STA);
+        WiFi.begin(ssidwsop, passwordwsop);
+        Serial.print("Connecting to WiFi ..");
+        while (WiFi.status() != WL_CONNECTED && se < 10)
+        {
+            Serial.print('.');
+            delay(1000);
+            se++;
+            if (se > 10)
+                break;
+        }
+        if (se >= 10)
+        {
+            nwk == "";
+        }
+    }
+    if (nwk == "")
+    {
+        Serial.println("Accespoint setup!");
+        IPAddress local_IP(192, 168, 4, 1); // Your Desired Static IP Address
+        IPAddress subnet(255, 255, 255, 0);
+        IPAddress gateway(192, 168, 1, 1);
+        IPAddress primaryDNS(0, 0, 0, 0);   // Not Mandatory
+        IPAddress secondaryDNS(0, 0, 0, 0); // Not Mandatory
+        // Configures Static IP Address
+
+        if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))
+        {
+            Serial.println("Configuration Failed!");
+        }
+
+        char ssidl[20];
+        sprintf(ssidl, "NicE_Buoy_%d", buoyID);
+        // Serial.println("No WiFi network found!");
+        Serial.print("Seting up AP: ");
+        Serial.println(ssidl);
+        WiFi.softAP(ssidl);
+        IPAddress IP = WiFi.softAPIP();
+        Serial.print("AP IP address: ");
+        Serial.println(IP);
+    }
+
+    else
+    {
+        Serial.print("WiFi network found!\r\nIP: ");
+        Serial.println(WiFi.localIP());
+    }
     setup_OTA();
     WEBok = true;
 }

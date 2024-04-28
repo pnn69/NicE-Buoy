@@ -75,11 +75,6 @@ def doc_position():
     out_box1.insert(END, out)
     ser.write(out.encode())
    
-def update_headings():
-    # Example: Update headings (replace with your logic)
-    compass.update_buoy_heading(90)
-    compass.update_target_heading(180)
-    compass.update_gps_heading(270)   
 
     #<97.00,60.02,76,-76,76,188>
 def decode_18(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
@@ -91,13 +86,10 @@ def decode_18(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
         #if tg_hdg > 360:
         #    tg_hdg = tg_hdg - 360
         tg_dst = float(values[1])
-        bb_sp = int(values[3])
-        sb_sp = int(values[4])
+        bb_sp = int(float(values[3]))
+        sb_sp = int(float(values[4]))
         buoy_hdg = int(float(values[5]))
-        print(buoy_hdg)
-        print(buoy_hdg)
-        print(buoy_hdg)
-        compass.update_bars(bb_sp,sb_sp)
+        compass.draw_barr(bb_sp,sb_sp,comp)
         compass.draw_pointer(tg_hdg,comp,tg_collor)
         compass.draw_pointer(buoy_hdg,comp,buoy_collor)
         output_str = f"{bb_sp}% , {sb_sp}%"
@@ -113,7 +105,7 @@ def decode_19(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
         sb_sp = int(values[3])
         output_str = f"{bb_sp}% , {sb_sp}%"
         speed.config(text=output_str)
-        compass.update_bars(bb_sp,sb_sp)
+        compass.draw_barr(bb_sp,sb_sp,comp)
 
 def decode_20(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
     global bb_sp,sb_sp
@@ -123,7 +115,7 @@ def decode_20(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
         sb_sp = int(values[1])
         output_str = f"{bb_sp}% , {sb_sp}%"
         speed.config(text=output_str)
-        compass.update_bars(bb_sp,sb_sp)
+        compass.draw_barr(bb_sp,sb_sp)
     
      #<52.32038000,4.96563000,10,1,0,0,3.00>
 def decode_23(data): #GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING,  // lat,lon,fix,heading,speed,m_heading
@@ -174,6 +166,13 @@ def decode_32(data):
     if len(values) == 2:
         wind_dir.config(text=values[0])
         wind_dev.config(text=values[1])
+
+def decode_34(data):
+    global buoy_hdg
+    values = data.group(5).split(',')
+    if len(values) == 1:
+        buoy_hdg = int(float(values[0]))
+        compass.draw_pointer(buoy_hdg,comp,buoy_collor)
 
 def decode_status(data):
     if data == "5":
@@ -234,6 +233,8 @@ def decode_message(message):
             decode_30(match)
         if(msg_id == "32"):
             decode_32(match)
+        if(msg_id == "34"):
+            decode_34(match)
 
 def read_serial():
     while True:
@@ -241,12 +242,13 @@ def read_serial():
             try:
                 received_data = ser.readline().decode().strip()
             except UnicodeDecodeError as e:
-                print("")
-            received_data = remove_spaces(received_data)
-            in_box1.delete(1.0, END)   
-            in_box1.insert(END, f"{received_data}")
-            decode_message(received_data)
-            print(received_data)
+                received_data = "troep"
+            if received_data != "troep":
+                received_data = remove_spaces(received_data)
+                in_box1.delete(1.0, END)   
+                in_box1.insert(END, f"{received_data}")
+                decode_message(received_data)
+                print(received_data)
 
 def start_serial_thread():
     serial_thread = threading.Thread(target=read_serial)

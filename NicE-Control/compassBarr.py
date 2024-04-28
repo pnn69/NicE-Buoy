@@ -1,28 +1,50 @@
 from tkinter import *
-from math import sin, cos, radians
 
-def update_bars(sb, bb, value=None):
-    if value is not None:
-        sb.set(value)
-        bb.set(value)
+def draw_progress_bar(canvas, value):
+    canvas.delete("progress_bar")  # Clear the canvas before redrawing
+    
+    # Define the canvas size
+    canvas_width = canvas.winfo_width()
+    canvas_height = canvas.winfo_height()
 
-def main():
-    root = Tk()
-    root.geometry("200x300")
+    # Define the dimensions of the progress bar
+    bar_width = 20
+    bar_height = 200
+    x_start = (canvas_width - bar_width) / 2
+    y_start = (canvas_height - bar_height) / 2
 
-    sb = IntVar()  # Initialize sb as IntVar for integer values
-    bb = IntVar()  # Initialize bb as IntVar for integer values
+    # Calculate the width of the filled portion based on the value
+    filled_width = (bar_width / 200) * (value)
 
-    scale_sb = Scale(root, from_=-100, to=100, variable=sb, orient=VERTICAL)
-    scale_sb.pack(side=LEFT)
+    # Draw the outline of the progress bar
+    canvas.create_rectangle(x_start, canvas_width/2, x_start + bar_width, y_start + bar_height, outline="black")
+    canvas.create_rectangle(x_start, y_start, x_start + bar_width, y_start + bar_height/2, outline="black")
 
-    scale_bb = Scale(root, from_=-100, to=100, variable=bb, orient=VERTICAL)
-    scale_bb.pack(side=RIGHT)
+    # Draw the outline of the progress bar
+    #canvas.create_rectangle(x_start, y_start, x_start + bar_width, y_start + bar_height, outline="black")
+    #canvas.create_rectangle(x_start, canvas_height/2, x_start + bar_width, y_start + bar_height/2, outline="black")
 
-    update_button = Button(root, text="Update Bars", command=lambda: update_bars(sb, bb, 50))
-    update_button.pack()
 
-    root.mainloop()
 
-if __name__ == "__main__":
-    main()
+
+    # Draw the filled portion of the progress bar
+    if value < 0:
+        canvas.create_rectangle(x_start,canvas_height/2-value, x_start  + bar_width, canvas_height/2, fill="red", tags="progress_bar")
+    else:
+        canvas.create_rectangle(x_start,canvas_height/2-value, x_start  + bar_width, canvas_height/2, fill="green", tags="progress_bar")
+
+# Example usage:
+def update_progress():
+    for value in range(-100, 101, 10):
+        canvas.after(500, draw_progress_bar, canvas, 50)
+        canvas.update()
+
+root = Tk()
+root.title("Progress Bar")
+
+canvas = Canvas(root, width=100, height=300, bg="white")
+canvas.pack()
+
+update_progress()
+
+root.mainloop()

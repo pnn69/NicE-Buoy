@@ -532,6 +532,7 @@ void loop()
             BUTTON_LIGHT_OFF;
         }
         udateDisplay(buoy.speedsb, buoy.speedbb, (unsigned long)buoy.tgdistance, (unsigned int)buoy.tgdir, (unsigned int)buoy.mheading, gpsvalid);
+        //loraMenu(MAGNETIC_HEADING); // pos heading speed to remote
         blink = !blink;
     }
 
@@ -606,7 +607,7 @@ void loop()
                 {
                     break;
                 }
-                status = DOCKED; // empty batt sailing home
+                //status = DOCKED; // empty batt sailing home
             }
             break;
         }

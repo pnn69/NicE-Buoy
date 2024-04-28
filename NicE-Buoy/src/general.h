@@ -61,12 +61,12 @@ extern byte status;
 #define BUZZEROFF 1
 #define BUZZTIME 100
 
-#define BUOYMAXSPEED 76
+#define BUOYMAXSPEED 90
 #define BUOYMINSPEED 7 // minimal speed thrusters are turning
 // #define BUOYMINSPEEDBB 5 // minimal speed thrusters are turning
 // #define BUOYMINSPEEDSB 20 // minimal speed thrusters are turning
 
-#define DEBUG 1
+//#define DEBUG 1
 #if DEBUG
 #define debug(x) Serial.print(x)
 #define debugln(x) Serial.println(x)

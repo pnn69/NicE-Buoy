@@ -598,6 +598,13 @@ bool loraMenu(int cmnd)
         while (sendLora())
             ;
         break;
+    case MAGNETIC_HEADING:
+        loraOut.msgid = cmnd;
+        loraOut.message = String(buoy.mheading,0);
+        loraOut.gsia = SET;
+        while (sendLora())
+            ;
+        break;
     }
     return 0;
 }

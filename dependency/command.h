@@ -52,6 +52,7 @@ typedef enum
     CHANGE_LOCK_POS_DIR_DIST,                      // adjust position retative to currend magnetic heading dir in degrees distance in meters
     WIND_DIR_DEV,                                  // wind direction deviation
     ESC_ON_OFF,                                    // enable disable esc (defaut enabled)
+    MAGNETIC_HEADING,                              // magnetic heading
     RESET                                          // reset esp
 } Command_t;
 

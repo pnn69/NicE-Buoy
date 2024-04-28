@@ -91,7 +91,7 @@ void loop()
                 Serial.printf("<Repeat command %d><%d times>", buoy[i].cmnd, maxRepeatCount[i]);
                 loraMenu(i);
                 maxRepeatCount[i]++;
-                checkAckStamp = 500 + millis();
+                checkAckStamp = 750 + millis();
             }
             else
             {
@@ -297,7 +297,7 @@ void loop()
         str.toCharArray(bufferin, str.length() + 1);
         int i = 0;
         //'ID'DEST'msgID'GSA'MSG'
-        Serial.println("Data in:" + String(bufferin));
+        //Serial.println("Data in:" + String(bufferin));
         char *token = strtok(bufferin, "^");
         while (token != NULL && i < 6)
         {
@@ -305,7 +305,7 @@ void loop()
             token = strtok(NULL, "^");
             i++;
         }
-        Serial.printf("Buf[0] %s\r\n", bufferout[0]);
+        //Serial.printf("Buf[0] %s\r\n", bufferout[0]);
         if (strstr(bufferout[0], "*"))
         { //"^*^1^23^1^maffe data^1"
             int nr = 1;
@@ -318,70 +318,10 @@ void loop()
             buoy[nr].string = String(bufferout[4]);
             sscanf(bufferout[5], "%d", &t);
             buoy[nr].ackOK = (bool)t;
-            Serial.printf("\n\r\n\rCommand recieved <buoynr:%d><cmnd:%d><gsa:%d><msg:", nr, buoy[nr].cmnd, buoy[nr].gsa);
+            Serial.printf("RS2332 command:<buoynr:%d><cmnd:%d><gsa:%d><msg:", nr, buoy[nr].cmnd, buoy[nr].gsa);
             Serial.print(buoy[nr].string);
-            Serial.printf("><ack:%d>\r\n", (int)buoy[nr].ackOK);
+            Serial.printf("><ACK:%d>\r\n", (int)buoy[nr].ackOK);
             loraMenu(1);
-        }
-        else
-        {
-            /*
-            1_CHANGE_POS_DIR_DIST'SET'-90,10
-            1'CHANGE_POS_DIR_DIST'SET'90,10
-            1'CHANGE_POS_DIR_DIST'SET'0,10
-            1'CHANGE_POS_DIR_DIST'SET'180,10
-            */
-            if (strstr(bufferout[1], "CHANGE_POS_DIR_DIST"))
-            {
-                Serial.println("CHANGE_POS_DIR_DIST");
-                buoy[1].string = String(bufferout[3]);
-                buoy[1].cmnd = CHANGE_LOCK_POS_DIR_DIST;
-                if (strstr(bufferout[2], "SET"))
-                {
-                    buoy[1].gsa = SET;
-                }
-                else
-                {
-                    buoy[1].gsa = ACK;
-                }
-                buoy[1].ackOK = false;
-                loraMenu(1);
-            }
-            /*
-                1'PID_RUDDER_PARAMETERS'SET'10,1.4,5
-            */
-            if (strstr(bufferout[1], "PID_SPEED_PARAMETERS"))
-            {
-                Serial.println("PID_SPEED_PARAMETERS (default) 1'PID_RUDDER_PARAMETERS'SET'20,0.4,0");
-                buoy[1].string = String(bufferout[3]);
-                buoy[1].cmnd = PID_SPEED_PARAMETERS;
-                if (strstr(bufferout[2], "SET"))
-                {
-                    buoy[1].gsa = SET;
-                }
-                else
-                {
-                    buoy[1].gsa = ACK;
-                }
-                buoy[1].ackOK = false;
-                loraMenu(1);
-            }
-            if (strstr(bufferout[1], "PID_RUDDER_PARAMETERS"))
-            {
-                Serial.println("PID_RUDDER_PARAMETERS (default) 1'PID_RUDDER_PARAMETERS'SET'0.2,0.02,0.1'");
-                buoy[1].string = String(bufferout[3]);
-                buoy[1].cmnd = PID_RUDDER_PARAMETERS;
-                if (strstr(bufferout[2], "SET"))
-                {
-                    buoy[1].gsa = SET;
-                }
-                else
-                {
-                    buoy[1].gsa = ACK;
-                }
-                buoy[1].ackOK = false;
-                loraMenu(1);
-            }
         }
     }
     delay(1);
