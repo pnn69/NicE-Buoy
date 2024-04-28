@@ -236,6 +236,7 @@ void setup()
     gpsdata.nrsats = 10;
     gpsactive = false; // disable gps
     status = LOCKED;
+    buoy.magneticCorrection = 0;
 #endif
 }
 
@@ -392,6 +393,7 @@ void loop()
             if (gpsdata.fix == true && status != CALIBRATE_OFFSET_MAGNETIC_COMPASS && status != STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS && status != STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS)
             {
                 MemoryDockPos(&gpsdata.lat, &gpsdata.lon, false);
+                buoy.magneticCorrection = 0;
                 beepESC();
             }
             status = IDLE;
@@ -555,7 +557,13 @@ void loop()
     if (sec5stamp + 2500 < millis())
     {
         sec5stamp = millis() - 1;
-        rollingAverageStandardDeviation(buoy.winddir, BUFLENWINDSPEED, buoy.tgdir); // cacluate wind dir
+        double invertdir = buoy.tgdir;
+        invertdir += 180;
+        if (invertdir > 360)
+        {
+            invertdir -= 360;
+        }
+        rollingAverageStandardDeviation(buoy.winddir, BUFLENWINDSPEED, invertdir); // cacluate wind dir
         loraIn.recipient = 0xFE;
         msg_cnt++;
         if (status == LOCKED || status == DOCKED)

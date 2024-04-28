@@ -253,7 +253,7 @@ else do normal rudder calculation.
 bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int speed, int *bb, int *sb)
 {
     double error = ComputeSmallestAngleDir(magheading, tgheading);
-    error = map(error, -180, 180, -89, 89);
+    error = map(error, -180, 180, -70, 70);
     if (speed <= 0)
     {
         if (tdistance > 0.5 && tdistance < 1.5)
@@ -264,7 +264,7 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
             *sb = spd * -1;
 
 #ifdef DEBUG
-            Serial.printf("BB=%2d,SB=%d Error:%2.2lf \r\n", *bb, *sb, error);
+            //Serial.printf("BB=%2d,SB=%d Error:%2.2lf \r\n", *bb, *sb, error);
 #endif
         }
         else
@@ -298,7 +298,7 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
     *bb = (int)(speed * (1 - tan(radians(adj))));
     *sb = (int)(speed * (1 + tan(radians(adj))));
 #ifdef DEBUG
-    Serial.printf("BB=%2d,SB=%d  Speed in:%2d   Error:%2.2lf   tan=%2.2f Corr=%3.2lf     p=%2.2lf, i=%2.2lf, d=%0.5lf\r\n", *bb, *sb, speed, error, tan(radians(adj)), adj, rudderpid.p, rudderpid.i, rudderpid.d);
+    //Serial.printf("BB=%2d,SB=%d  Speed in:%2d   Error:%2.2lf   tan=%2.2f Corr=%3.2lf     p=%2.2lf, i=%2.2lf, d=%0.5lf\r\n", *bb, *sb, speed, error, tan(radians(adj)), adj, rudderpid.p, rudderpid.i, rudderpid.d);
 #endif
     /*Sanety check*/
     *bb = constrain(*bb, -BUOYMAXSPEED, BUOYMAXSPEED);
@@ -353,7 +353,7 @@ int hooverPid(double dist)
     speedpid.lastErr = dist;
     speedpid.lastTime = now;
 #ifdef DEBUG
-    Serial.printf("Speed:%.1lf p=%.2lf, i=%.2lf, d=%.2lf\r\n ", Output, speedpid.p, speedpid.i, speedpid.d);
+    //Serial.printf("Speed:%.1lf p=%.2lf, i=%.2lf, d=%.2lf\r\n ", Output, speedpid.p, speedpid.i, speedpid.d);
 #endif
     return constrain(Output, 0, BUOYMAXSPEED);
 }

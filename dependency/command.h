@@ -14,7 +14,7 @@
     }
 
 /*
-    [Designator][Reciever][MSG_ID][lengt_msg][msg]
+    [Designator][Reciever][MSG_ID][STATUS][ACK][msg]
 */
 
 typedef enum

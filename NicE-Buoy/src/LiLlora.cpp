@@ -478,10 +478,21 @@ int polLora(void)
                 {
                     direction += 360;
                 }
-                adjustPositionDirDist(direction, distance, &buoy.tglatitude, &buoy.tglongitude);
+                double tlat = gpsdata.lat;
+                double tlon = gpsdata.lon;
+                adjustPositionDirDist(direction, distance, &tlat, &tlon);
+                buoy.tglatitude = tlat;
+                buoy.tglongitude = tlon;
                 msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
                 sendACKNAKINF(msg, ACK);
+                delay(250);
                 Serial.printf("Current magnetic heading=%0.0f° adjust angle=%d° Distance=%0.2lf Meter\r\n", buoy.mheading, direction, distance);
+                loraOut.message = String((int)buoy.tgdir) + "," + String(buoy.tgdistance, 1);
+                loraOut.destination = loraIn.recipient;
+                loraOut.msgid = DIR_DISTANSE_TO_TARGET_POSITION;
+                loraOut.gsia = SET;
+                while (sendLora())
+                    ;
                 break;
             }
             sendACKNAKINF("", NAK);
