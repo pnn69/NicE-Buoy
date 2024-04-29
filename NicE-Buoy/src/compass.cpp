@@ -206,7 +206,8 @@ float CompassAverage(float in)
         sum_x += cos(directions[i] * M_PI / 180.0);
         sum_y += sin(directions[i] * M_PI / 180.0);
     }
-
+    sum_x /= NUM_DIRECTIONS;
+    sum_y /= NUM_DIRECTIONS;
     // Calculate the average direction in degrees
     avg_dir = atan2(sum_y, sum_x) * 180.0 / M_PI;
     if (avg_dir < 0)

@@ -65,6 +65,7 @@ extern byte status;
 #define BUOYMINSPEED 7 // minimal speed thrusters are turning
 // #define BUOYMINSPEEDBB 5 // minimal speed thrusters are turning
 // #define BUOYMINSPEEDSB 20 // minimal speed thrusters are turning
+//#define WEBON 1
 
 //#define DEBUG 1
 #if DEBUG

@@ -144,12 +144,12 @@ void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, floa
     StartMem();
     if (get)
     {
-        *MaxX = (int16_t)storage.getFloat("MaxX", 576);
-        *MaxY = (int16_t)storage.getFloat("MaxY", 466);
-        *MaxZ = (int16_t)storage.getFloat("MaxZ", 754);
-        *MinX = (int16_t)storage.getFloat("MinX", -535);
-        *MinY = (int16_t)storage.getFloat("MinY", -645);
-        *MinZ = (int16_t)storage.getFloat("MinZ", -382);
+        *MaxX = storage.getFloat("MaxX", 576);
+        *MaxY = storage.getFloat("MaxY", 466);
+        *MaxZ = storage.getFloat("MaxZ", 754);
+        *MinX = storage.getFloat("MinX", -535);
+        *MinY = storage.getFloat("MinY", -645);
+        *MinZ = storage.getFloat("MinZ", -382);
     }
     else
     {

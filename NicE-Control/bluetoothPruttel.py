@@ -1,7 +1,7 @@
 import bluetooth
 import socket
 
-target_name = "HUAWEI P30 lite"
+target_name = "0 lite"
 target_name1 = "NicE_Buoy_Control"
 target_address = None
 target_address1 = None

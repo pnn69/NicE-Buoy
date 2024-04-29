@@ -86,7 +86,7 @@ def draw_barr(bb,sb,canvas):
     if sb < 0 & sb >= -100:
         canvas.create_rectangle(x_sb,canvas_height/2-sb, x_sb  + bar_width, canvas_height/2, fill="red", tags="progress_bar")
     if sb >= 0 & sb <= 100:
-        canvas.create_rectangle(x_sb,canvas_height/2-bb, x_sb  + bar_width, canvas_height/2, fill="green", tags="progress_bar")
+        canvas.create_rectangle(x_sb,canvas_height/2-sb, x_sb  + bar_width, canvas_height/2, fill="green", tags="progress_bar")
     if bb_text_cp:
         bb_text_cp.config(text=f"{bb}%")
     if sb_text_cp:

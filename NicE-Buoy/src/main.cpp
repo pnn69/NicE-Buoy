@@ -105,6 +105,22 @@ void setup()
     InitMemory();
     initMCP23017();
     InitGps();
+    /*only init memory once*/
+    // rudderpid.kp = 1;
+    // rudderpid.ki = 0.1;
+    // rudderpid.kd = 0;
+    // speedpid.kp = 20;
+    // speedpid.ki = 4;
+    // speedpid.kd = 0;
+    // pidRudderParameters(&rudderpid.kp, &rudderpid.ki, &rudderpid.kd, false);
+    // pidSpeedParameters(&speedpid.kp, &speedpid.ki, &speedpid.kd, false);
+    // float max_mag[3] = { 576,466,754};
+    // float min_mag[3] = {-535,-645,-382};
+    // CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], false); //  get callibration data
+    // gpsdata.lat = 52.29308075283747;
+    // gpsdata.lon = 4.932570409845357;
+    // MemoryDockPos(&gpsdata.lat, &gpsdata.lon, false); // store default wsvop
+    /*end init memory once*/
     initCalculate();
     initRudderPid();
     initSpeedPid();
@@ -120,7 +136,7 @@ void setup()
     {
         Serial.println("Compas OK!");
     }
-    adc_switch(); // read out switches
+    // adc_switch(); // read out switches
     xTaskCreate(IndicatorTask, "IndicatorTask", 2400, NULL, 1, NULL);
     xTaskCreate(EscTask, "EscTask", 2400, NULL, 25, NULL);
     xTaskCreate(BuzzerTask, "BuzzerTask", 1024, NULL, 5, NULL);
@@ -159,15 +175,14 @@ void setup()
         Serial.println("Error sending speed to statusque");
     }
     BUTTON_LIGHT_ON;
-    adc_switch(); // read out switches
+    // adc_switch(); // read out switches
     /*
      * Callibrate compass if key 1 is pressed or the key mountend on the fornt
      */
-    if (frontsw.switch1upact || FRONTBUTTON_READ == PUSHED)
+    if (FRONTBUTTON_READ == PUSHED)
     {
         delay(100);
-        adc_switch(); // read out switches
-        if (frontsw.switch1upact || FRONTBUTTON_READ == PUSHED)
+        if (FRONTBUTTON_READ == PUSHED)
         {
             status = CALIBRATE_MAGNETIC_COMPASS;
             beepESC();
@@ -184,7 +199,7 @@ void setup()
     snd_buz.repeat = 1;
     snd_buz.time = 100;
     snd_buz.pauze = 25;
-    xQueueSend(Buzzerque, (void *)&snd_buz, 10);
+    //xQueueSend(Buzzerque, (void *)&snd_buz, 10);
     BUTTON_LIGHT_OFF;
     SWITCH_RED_ON;
     SWITCH_GRN_OFF;
@@ -202,7 +217,9 @@ void setup()
     Serial.printf("minOfsetDist=%d, maxOfsetDist=%d, minSpeed=%d, maxSpeed=%d\r\n", buoy.minOfsetDist, buoy.maxOfsetDist, buoy.minSpeed, buoy.maxSpeed);
     buoy.muteEsc = false; // enable esc
     Serial.println("***");
+#ifdef WEBON
     websetup();
+#endif
     status = IDLE;
     Serial.println("Setup done.");
     /**********************************************************************************************************************************************************/
@@ -247,7 +264,7 @@ void setup()
 void loop()
 {
     /*update websocket*/
-    webloop();
+    //webloop();
     /*check incomming lora messages*/
     if (loraOK)
     {
@@ -288,7 +305,6 @@ void loop()
             CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
         }
 
-        adc_switch(); /*read switch status*/
         if (FRONTBUTTON_READ == PUSHED)
         {
             sw_button_cnt++;
@@ -532,7 +548,7 @@ void loop()
             BUTTON_LIGHT_OFF;
         }
         udateDisplay(buoy.speedsb, buoy.speedbb, (unsigned long)buoy.tgdistance, (unsigned int)buoy.tgdir, (unsigned int)buoy.mheading, gpsvalid);
-        //loraMenu(MAGNETIC_HEADING); // pos heading speed to remote
+        // loraMenu(MAGNETIC_HEADING); // pos heading speed to remote
         blink = !blink;
     }
 
@@ -581,6 +597,7 @@ void loop()
             loraMenu(GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING); // pos heading speed to remote
             break;
         case 2:
+            battVoltage(&buoy.vbatt, &buoy.vperc);
             loraMenu(BATTERY_VOLTAGE_PERCENTAGE); // bat voltage and percentage to remote
             break;
         case 3:
@@ -607,7 +624,7 @@ void loop()
                 {
                     break;
                 }
-                //status = DOCKED; // empty batt sailing home
+                status = DOCKED; // empty batt sailing home
             }
             break;
         }

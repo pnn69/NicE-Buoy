@@ -53,6 +53,22 @@ void rollingAverageStandardDeviation(double *input, int buflen, double nwdata)
         input[0] += input[ptr + 3];
     }
     input[0] /= buflen;
+    
+    double sum_x = 0.0, sum_y = 0.0, avg_dir;
+    for (int ptr = 0; ptr < buflen; ptr++)
+    {
+        sum_x += cos(input[ptr + 3] * M_PI / 180.0);
+        sum_y += sin(input[ptr + 3] * M_PI / 180.0);
+    }
+    sum_x = sum_x/(buflen*1.0);
+    sum_y = sum_y/(buflen*1.0);
+    // Calculate the average direction in degrees
+    avg_dir = atan2(sum_y, sum_x) * 180.0 / M_PI;
+    if (avg_dir < 0)
+    {
+        avg_dir += 360.0;
+    }
+    Serial.println("avr dir = " + String(avg_dir));
 
     // Compute standard deviation
     double sum_of_squared_diff = 0;
@@ -264,7 +280,7 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
             *sb = spd * -1;
 
 #ifdef DEBUG
-            //Serial.printf("BB=%2d,SB=%d Error:%2.2lf \r\n", *bb, *sb, error);
+            // Serial.printf("BB=%2d,SB=%d Error:%2.2lf \r\n", *bb, *sb, error);
 #endif
         }
         else
@@ -298,7 +314,7 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
     *bb = (int)(speed * (1 - tan(radians(adj))));
     *sb = (int)(speed * (1 + tan(radians(adj))));
 #ifdef DEBUG
-    //Serial.printf("BB=%2d,SB=%d  Speed in:%2d   Error:%2.2lf   tan=%2.2f Corr=%3.2lf     p=%2.2lf, i=%2.2lf, d=%0.5lf\r\n", *bb, *sb, speed, error, tan(radians(adj)), adj, rudderpid.p, rudderpid.i, rudderpid.d);
+    // Serial.printf("BB=%2d,SB=%d  Speed in:%2d   Error:%2.2lf   tan=%2.2f Corr=%3.2lf     p=%2.2lf, i=%2.2lf, d=%0.5lf\r\n", *bb, *sb, speed, error, tan(radians(adj)), adj, rudderpid.p, rudderpid.i, rudderpid.d);
 #endif
     /*Sanety check*/
     *bb = constrain(*bb, -BUOYMAXSPEED, BUOYMAXSPEED);
@@ -353,7 +369,7 @@ int hooverPid(double dist)
     speedpid.lastErr = dist;
     speedpid.lastTime = now;
 #ifdef DEBUG
-    //Serial.printf("Speed:%.1lf p=%.2lf, i=%.2lf, d=%.2lf\r\n ", Output, speedpid.p, speedpid.i, speedpid.d);
+    // Serial.printf("Speed:%.1lf p=%.2lf, i=%.2lf, d=%.2lf\r\n ", Output, speedpid.p, speedpid.i, speedpid.d);
 #endif
     return constrain(Output, 0, BUOYMAXSPEED);
 }

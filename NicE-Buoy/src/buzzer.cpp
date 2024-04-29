@@ -15,6 +15,7 @@ void BuzzerTask(void *arg)
         {
             do
             {
+                Serial.println("BEEB");
                 bstamp = millis();
                 while (bstamp + msgBuzz.time > millis())
                 {
