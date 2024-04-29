@@ -7,7 +7,6 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 */
 #include <Arduino.h>
 #include <BluetoothSerial.h>
-#include <WiFi.h>
 #include "freertos/task.h"
 #include <math.h>
 #include <Wire.h>
@@ -43,13 +42,7 @@ BluetoothSerial SerialBT;
 
 void setup()
 {
-    char ssidl[26];
-    char buf[40];
-    byte mac[6];
-    WiFi.macAddress(mac);
-    strcpy(ssidl, "NicE_Buoy_Control");
-    sprintf(buf, "%s-%02x:%02x:%02x:%02x:%02x:%02x", ssidl, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    SerialBT.begin(buf); // Bluetooth device name
+    SerialBT.begin("NicE_Buoy_Control"); // Bluetooth device name
     Serial.begin(115200);
     pinMode(LED_PIN, OUTPUT);
     pinMode(SW_P_1, INPUT_PULLUP);

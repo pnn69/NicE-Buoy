@@ -1,50 +1,42 @@
-from tkinter import *
+import plotly.graph_objects as go
 
-def draw_progress_bar(canvas, value):
-    canvas.delete("progress_bar")  # Clear the canvas before redrawing
-    
-    # Define the canvas size
-    canvas_width = canvas.winfo_width()
-    canvas_height = canvas.winfo_height()
+# Create a wind rose chart
+fig = go.Figure()
 
-    # Define the dimensions of the progress bar
-    bar_width = 20
-    bar_height = 200
-    x_start = (canvas_width - bar_width) / 2
-    y_start = (canvas_height - bar_height) / 2
+# Add wind speed categories (you can customize these values)
+fig.add_trace(go.Barpolar(
+    r=[77.5, 72.5, 70.0, 45.0, 22.5, 42.5, 40.0, 62.5],
+    name='11-14 m/s',
+    marker_color='rgb(106, 81, 163)'
+))
 
-    # Calculate the width of the filled portion based on the value
-    filled_width = (bar_width / 200) * (value)
+fig.add_trace(go.Barpolar(
+    r=[57.5, 50.0, 45.0, 35.0, 20.0, 22.5, 37.5, 55.0],
+    name='8-11 m/s',
+    marker_color='rgb(158, 154, 200)'
+))
 
-    # Draw the outline of the progress bar
-    canvas.create_rectangle(x_start, canvas_width/2, x_start + bar_width, y_start + bar_height, outline="black")
-    canvas.create_rectangle(x_start, y_start, x_start + bar_width, y_start + bar_height/2, outline="black")
+fig.add_trace(go.Barpolar(
+    r=[40.0, 30.0, 30.0, 35.0, 7.5, 7.5, 32.5, 40.0],
+    name='5-8 m/s',
+    marker_color='rgb(203, 201, 226)'
+))
 
-    # Draw the outline of the progress bar
-    #canvas.create_rectangle(x_start, y_start, x_start + bar_width, y_start + bar_height, outline="black")
-    #canvas.create_rectangle(x_start, canvas_height/2, x_start + bar_width, y_start + bar_height/2, outline="black")
+fig.add_trace(go.Barpolar(
+    r=[20.0, 7.5, 15.0, 22.5, 2.5, 2.5, 12.5, 22.5],
+    name='< 5 m/s',
+    marker_color='rgb(242, 240, 247)'
+))
 
+# Customize the layout
+fig.update_traces(text=['North', 'N-E', 'East', 'S-E', 'South', 'S-W', 'West', 'N-W'])
+fig.update_layout(
+    title='Wind Speed Distribution in Laurel, NE',
+    font_size=16,
+    legend_font_size=16,
+    polar_radialaxis_ticksuffix='%',
+    polar_angularaxis_rotation=90
+)
 
-
-
-    # Draw the filled portion of the progress bar
-    if value < 0:
-        canvas.create_rectangle(x_start,canvas_height/2-value, x_start  + bar_width, canvas_height/2, fill="red", tags="progress_bar")
-    else:
-        canvas.create_rectangle(x_start,canvas_height/2-value, x_start  + bar_width, canvas_height/2, fill="green", tags="progress_bar")
-
-# Example usage:
-def update_progress():
-    for value in range(-100, 101, 10):
-        canvas.after(500, draw_progress_bar, canvas, 50)
-        canvas.update()
-
-root = Tk()
-root.title("Progress Bar")
-
-canvas = Canvas(root, width=100, height=300, bg="white")
-canvas.pack()
-
-update_progress()
-
-root.mainloop()
+# Show the chart
+fig.show()
