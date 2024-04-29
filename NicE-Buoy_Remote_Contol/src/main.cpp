@@ -6,6 +6,8 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 433MHz is SX1278
 */
 #include <Arduino.h>
+#include <BluetoothSerial.h>
+#include <WiFi.h>
 #include "freertos/task.h"
 #include <math.h>
 #include <Wire.h>
@@ -33,11 +35,21 @@ unsigned int button_cnt = 0;
 unsigned int lst_button_cnt = 0;
 bool ledstatus = false;
 int maxRepeatCount[NR_BUOYS + 1];
-
+String str = "";
+char bufferin[100];
+char bufferout[8][100];
 buoyDataType buoy[NR_BUOYS];
+BluetoothSerial SerialBT;
 
 void setup()
 {
+    char ssidl[26];
+    char buf[40];
+    byte mac[6];
+    WiFi.macAddress(mac);
+    strcpy(ssidl, "NicE_Buoy_Control");
+    sprintf(buf, "%s-%02x:%02x:%02x:%02x:%02x:%02x", ssidl, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    SerialBT.begin(buf); // Bluetooth device name
     Serial.begin(115200);
     pinMode(LED_PIN, OUTPUT);
     pinMode(SW_P_1, INPUT_PULLUP);
@@ -290,14 +302,21 @@ void loop()
     */
     if (Serial.available())
     {
-        char bufferin[100];
-        char bufferout[8][100];
         Serial.setTimeout(500);
-        String str = Serial.readString();
+        str = Serial.readString();
         str.toCharArray(bufferin, str.length() + 1);
+    }
+    if (SerialBT.connected() && SerialBT.available())
+    {
+        SerialBT.setTimeout(500);
+        str = SerialBT.readString();
+        str.toCharArray(bufferin, str.length() + 1);
+    }
+    if (str != "")
+    {
         int i = 0;
         //'ID'DEST'msgID'GSA'MSG'
-        //Serial.println("Data in:" + String(bufferin));
+        // Serial.println("Data in:" + String(bufferin));
         char *token = strtok(bufferin, "^");
         while (token != NULL && i < 6)
         {
@@ -305,7 +324,7 @@ void loop()
             token = strtok(NULL, "^");
             i++;
         }
-        //Serial.printf("Buf[0] %s\r\n", bufferout[0]);
+        // Serial.printf("Buf[0] %s\r\n", bufferout[0]);
         if (strstr(bufferout[0], "*"))
         { //"^*^1^23^1^maffe data^1"
             int nr = 1;
@@ -323,6 +342,7 @@ void loop()
             Serial.printf("><ACK:%d>\r\n", (int)buoy[nr].ackOK);
             loraMenu(1);
         }
+        str = "";
     }
     delay(1);
 }

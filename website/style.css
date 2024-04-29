@@ -1,27 +1,15 @@
-/*
-*   https://gist.github.com/Mortimerp9/3909351
-*/
-
-.body {
-    margin: 0;
-    padding: 0;
-}
-
-.progress-bar {
-    width: 20px;
-    height: 200px;
-    background-color: lightgray;
-    transform: rotate(180deg);
-}
-
-.progress-bar-fill {
-    transition: height 0.3s ease-in-out;
-}
-
-.negative {
-    background-color: #ff6b6b;
-}
-
-.positive {
-    background-color: #6dff6b;
-}
+.bar {
+    width: 200px;
+    height: 20px;
+    margin-top: 20px;
+    background-color: #ccc;
+  }
+  
+  .red {
+    background-color: red;
+  }
+  
+  .green {
+    background-color: green;
+  }
+  

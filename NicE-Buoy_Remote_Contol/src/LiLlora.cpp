@@ -99,6 +99,11 @@ int decodeMsg()
     loraIn.snr = LoRa.packetSnr();
     Serial.printf("<%d><%d><%d><%d><", sender_l, status_l, incomingMsgId_l, gsia_l);
     Serial.println(incoming + ">");
+    if (SerialBT.connected())
+    {
+        SerialBT.printf("<%d><%d><%d><%d><", sender_l, status_l, incomingMsgId_l, gsia_l);
+        SerialBT.println(incoming + ">");
+    }
     return ret;
 }
 

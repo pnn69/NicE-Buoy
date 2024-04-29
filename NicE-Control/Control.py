@@ -29,7 +29,7 @@ tg_collor = "blue"
 blk_collor = "black"
 
 # Open COM3 port
-ser = serial.Serial('COM7', 115200)  # Adjust baud rate as per your requirement
+#ser = serial.Serial('COM7', 115200)  # Adjust baud rate as per your requirement
 
 def Adjust_position():
     pos_dir_content = adj_pos_dir.get("1.0", "end-1c")  # Get content of adj_pos_dir1

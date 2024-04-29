@@ -1,6 +1,7 @@
 #ifndef GGENERAL_H_
 #define GENERAL_H_
 #include "../../dependency/command.h"
+#include <BluetoothSerial.h>
 #define NR_BUOYS 4
 #define DEBUG true
 #include "Arduino.h"
@@ -41,5 +42,6 @@ extern bool ledstatus;
 extern buoyDataType buoy[NR_BUOYS];
 extern int notify;
 extern unsigned long checkAckStamp;
+extern BluetoothSerial SerialBT;
 
 #endif /* GENERA:_H_ */
