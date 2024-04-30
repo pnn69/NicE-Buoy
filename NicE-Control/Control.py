@@ -1,4 +1,5 @@
 from tkinter import *
+from bluetooth import *
 import math
 import webbrowser
 import serial
@@ -29,7 +30,52 @@ tg_collor = "blue"
 blk_collor = "black"
 
 # Open COM3 port
-ser = serial.Serial('COM7', 115200)  # Adjust baud rate as per your requirement
+#ser = serial.Serial('COM7', 115200)  # Adjust baud rate as per your requirement
+
+
+def read_bleutooth():
+    server_sock = BluetoothSocket(RFCOMM)
+    server_sock.bind(("", PORT_ANY))
+    server_sock.listen(1)
+    port = server_sock.getsockname()[1]
+    uuid = "94f39d29-7d6d-437d-973b-fba39e49d4ee"
+    advertise_service(server_sock, "TestServer", service_id=uuid,
+                    service_classes=[uuid, SERIAL_PORT_CLASS],
+                    profiles=[SERIAL_PORT_PROFILE])
+
+    while True:
+        print(f"Waiting for connection on RFCOMM channel {port}")
+        client_sock, client_info = server_sock.accept()
+        print("Accepted connection from", client_info)
+    
+        try:
+            while True:
+                # Receive data from the client
+                data = client_sock.recv(1024)
+                if not data:
+                    break
+                
+                # Print the received data
+                newdata = data.decode("utf-8")
+                print("Received:", newdata)
+                decode_message(newdata)
+                in_box1.delete(1.0, END)   
+                in_box1.insert(END, f"{newdata}")
+
+        except KeyboardInterrupt:
+            pass
+        finally:
+            # Close the client socket
+            client_sock.close()
+            # Close the server socket
+            server_sock.close()
+
+
+
+
+
+
+
 
 def Adjust_position():
     pos_dir_content = adj_pos_dir.get("1.0", "end-1c")  # Get content of adj_pos_dir1
@@ -37,7 +83,7 @@ def Adjust_position():
     out = "*^1^31^1^" + pos_dir_content + "," + pos_dist_content + "^1"
     out_box1.delete(1.0, END)   
     out_box1.insert(END, out)
-    ser.write(out.encode())
+    #ser.write(out.encode())
 
 def Adjust_speed_pid():
     p = adj_speed_p.get("1.0", "end-1c")  # Get content of adj_pos_dir1
@@ -46,7 +92,7 @@ def Adjust_speed_pid():
     out = "*^1^29^1^" + p + "," + i +","+ d + "^1"
     out_box1.delete(1.0, END)   
     out_box1.insert(END, out)
-    ser.write(out.encode())
+    #ser.write(out.encode())
 
 def Adjust_rudder_pid():
     p = adj_rudder_p.get("1.0", "end-1c")  # Get content of adj_pos_dir1
@@ -55,28 +101,27 @@ def Adjust_rudder_pid():
     out = "*^1^30^1^" + p + "," + i +","+ d + "^1"
     out_box1.delete(1.0, END)   
     out_box1.insert(END, out)
-    ser.write(out.encode())
+    #ser.write(out.encode())
     
 def idle():
     out = "*^1^21^1^0^1"
     out_box1.delete(1.0, END)   
     out_box1.insert(END, out)
-    ser.write(out.encode())
+    #ser.write(out.encode())
 
 def lock_position():
     out = "*^1^4^1^0^1"
     out_box1.delete(1.0, END)   
     out_box1.insert(END, out)
-    ser.write(out.encode())
+    #ser.write(out.encode())
     
 def doc_position():
     out = "*^1^10^1^0^1"
     out_box1.delete(1.0, END)   
     out_box1.insert(END, out)
-    ser.write(out.encode())
+    #ser.write(out.encode())
    
-
-    #<97.00,60.02,76,-76,76,188>
+#<97.00,60.02,76,-76,76,188>
 def decode_18(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
     global tg_hdg, tg_dst, bb_sp,sb_sp,buoy_hdg , speed, dist_txt
     values = data.group(5).split(',')
@@ -202,7 +247,7 @@ def decode_xx(data):
 
 def test():
     msg = "*^1^23^1^maffe data^1"
-    ser.write(msg.encode())
+    #ser.write(msg.encode())
     
     
 
@@ -238,30 +283,35 @@ def decode_message(message):
 
 def read_serial():
     while True:
-        if ser.in_waiting > 0:
-            try:
-                received_data = ser.readline().decode().strip()
-            except UnicodeDecodeError as e:
-                received_data = "troep"
-            if received_data != "troep":
-                received_data = remove_spaces(received_data)
-                in_box1.delete(1.0, END)   
-                in_box1.insert(END, f"{received_data}")
-                decode_message(received_data)
-                print(received_data)
+        #if #ser.in_waiting > 0:
+        #    try:
+        #        received_data = #ser.readline().decode().strip()
+        #    except UnicodeDecodeError as e:
+        #        received_data = "troep"
+        #    if received_data != "troep":
+        received_data = remove_spaces(received_data)
+        in_box1.delete(1.0, END)   
+        in_box1.insert(END, f"{received_data}")
+        decode_message(received_data)
+        print(received_data)
 
 def start_serial_thread():
     serial_thread = threading.Thread(target=read_serial)
     serial_thread.daemon = True
     serial_thread.start()
-
-
    
 def start_compass_thread():
     serial_thread = threading.Thread(target=write_compass)
     serial_thread.daemon = True
     serial_thread.start()
 
+def start_ble_thread():
+    serial_thread = threading.Thread(target=hallo)
+    serial_thread.daemon = True
+    serial_thread.start()
+
+def hallo():
+    read_bleutooth()
 
 def write_compass():
     compass.root.mainloop()
@@ -384,5 +434,6 @@ out_text.place(x=10, y=(windowh - 30))
 in_box1 = Text(frame)
 in_box1.place(x=50, y=(windowh - 30), height=20, width=(windoww - 50 - 10))
 comp = compass.create_compass(root)
-start_serial_thread()  # Start the serial reading thread
+#start_serial_thread()  # Start the serial reading thread
+start_ble_thread()
 root.mainloop()
