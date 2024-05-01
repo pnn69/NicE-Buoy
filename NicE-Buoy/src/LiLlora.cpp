@@ -463,7 +463,7 @@ int polLora(void)
         if (loraIn.gsia == SET)
         {
 #ifndef DEBUG
-            if (status == LOCKED && gpsdata.fix == true)
+            if (gpsdata.fix == true)
 #endif
             {
                 int direction;
@@ -491,6 +491,7 @@ int polLora(void)
                 loraOut.destination = loraIn.recipient;
                 loraOut.msgid = DIR_DISTANSE_TO_TARGET_POSITION;
                 loraOut.gsia = SET;
+                status = LOCKED;
                 while (sendLora())
                     ;
                 break;
