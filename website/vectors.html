@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Windrose WebSockets</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        #chart-container {
+            width: 400px;
+            height: 400px;
+        }
+    </style>
+</head>
+<body>
+    <div id="chart-container">
+        <canvas id="windrose"></canvas>
+    </div>
+    <script>
+        var ctx = document.getElementById('windrose').getContext('2d');
+        var windroseData = {
+            labels: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
+            datasets: [{
+                label: 'mhdg',
+                data: [0, 0, 0, 0, 0, 0, 0, 0],
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            }, {
+                label: 'tghdg',
+                data: [0, 0, 0, 0, 0, 0, 0, 0],
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+            }]
+        };
+        var windroseChart = new Chart(ctx, {
+            type: 'polarArea',
+            data: windroseData,
+        });
+
+        var socket = new WebSocket('ws://http://127.0.0.1:5500/vectors.html');
+
+        socket.onmessage = function(event) {
+            var data = JSON.parse(event.data);
+            if (data.mhdg) {
+                windroseData.datasets[0].data = data.mhdg;
+            }
+            if (data.tghdg) {
+                windroseData.datasets[1].data = data.tghdg;
+            }
+            windroseChart.update();
+        };
+    </script>
+</body>
+</html>

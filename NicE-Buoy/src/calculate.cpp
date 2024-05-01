@@ -30,54 +30,58 @@ double approxRollingAverage(double avg, double input)
     return avg;
 }
 
-/*
-    Compute roling average and standard deviation
-    in:buffer, buffer_length, new_data
-    out:buffer[0]=average  buffer[1]=standarddiviation
-    buffer[2]=pointer
-*/
-void rollingAverageStandardDeviation(double *input, int buflen, double nwdata)
+
+double averigeWindRose(double samples[], int n)
 {
-    int ptr;
+    double sumSin = 0, sumCos = 0;
+    for (int i = 0; i < n; ++i)
+    {
+        double angle = (samples[i + 3] * M_PI) / 180.0; // Convert to radians
+        sumSin += sin(angle);
+        sumCos += cos(angle);
+    }
+    double meanAngle = atan2(sumSin / n, sumCos / n);               // Compute mean angle
+    double meanDegrees = fmod(meanAngle * 180.0 / M_PI + 360, 360); // Convert mean angle to degrees
+    samples[0] = meanDegrees;
+    return meanDegrees;
+}
+/*
+compute deviation of a buffer pos
+Structure buf[averige][deviation][data0][datan...]
+*/
+double deviationWindRose(double samples[], int n)
+{
+    double mean = averigeWindRose(samples, n);
+    double sumSquaredCircularDiff = 0;
+    for (int i = 0; i < n; ++i)
+    {
+        double diff = samples[i + 3] - mean;
+        if (diff > 180)
+        {
+            diff -= 360;
+        }
+        else if (diff < -180)
+        {
+            diff += 360;
+        }
+        sumSquaredCircularDiff += diff * diff;
+    }
+    samples[1] = sqrt(sumSquaredCircularDiff / n);
+    return samples[1];
+}
+
+/*
+Add new data in buffer
+Structure buf[averige][deviation][data0][datan...]
+*/
+void addNewSampleInBuffer(double *input, int buflen, double nwdata)
+{
     if (input[2] >= buflen)
     {
         input[2] = 0;
     }
-    ptr = input[2];
+    input[(int)input[2] + 3] = nwdata;
     input[2]++;
-    input[ptr + 3] = nwdata;
-    // Compute average
-    input[0] = 0;
-    for (int ptr = 0; ptr < buflen; ptr++)
-    {
-        input[0] += input[ptr + 3];
-    }
-    input[0] /= buflen;
-    
-    double sum_x = 0.0, sum_y = 0.0, avg_dir;
-    for (int ptr = 0; ptr < buflen; ptr++)
-    {
-        sum_x += cos(input[ptr + 3] * M_PI / 180.0);
-        sum_y += sin(input[ptr + 3] * M_PI / 180.0);
-    }
-    sum_x = sum_x/(buflen*1.0);
-    sum_y = sum_y/(buflen*1.0);
-    // Calculate the average direction in degrees
-    avg_dir = atan2(sum_y, sum_x) * 180.0 / M_PI;
-    if (avg_dir < 0)
-    {
-        avg_dir += 360.0;
-    }
-    Serial.println("avr dir = " + String(avg_dir));
-
-    // Compute standard deviation
-    double sum_of_squared_diff = 0;
-    for (int i = 0; i < buflen; i++)
-    {
-        double diff = input[i + 3] - input[0];
-        sum_of_squared_diff += diff * diff;
-    }
-    input[1] = sqrt(sum_of_squared_diff / buflen);
 }
 
 /*

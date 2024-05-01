@@ -109,11 +109,11 @@ void adc_switch(void)
     }
 }
 
-void battVoltage(float *vbatt, float *vperc)
+void battVoltage(float *vbatt, int *vperc)
 {
     int adc_result = analogReadMilliVolts(VBATT);
     *vbatt = adc_result * 0.013339;
     float perc = map(buoy.vbatt * 100.0, 3.6 * 600.0, 4.2 * 600.0, 0, 10000);
-    *vperc = (constrain(perc, 0, 10000)) / 100.0;
+    *vperc = (int)((constrain(perc, 0, 10000)) / 100.0);
     // Serial.printf("Vbat=%2.2lf",buoy.vbatt);
 }

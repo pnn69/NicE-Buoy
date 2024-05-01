@@ -36,7 +36,7 @@ typedef enum
     DIR_DISTANSE_ANCHOR_POSITION,                  //
     CURREND_POSITION_AS_ANCHOR_POSITION,           //
     DIR_DISTANSE_TO_TARGET_POSITION,               //
-    DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING, //
+    DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING, // When locked use this
     SAIL_DIR_SPEED,                                // heading,0-100%
     SBPWR_BBPWR,                                   // -100/100sb,-100/100bb
     BUOY_MODE_IDLE,                                // ?

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Windrose</title>
+  <style>
+    /* CSS styles for windrose container */
+    #windrose-container {
+      width: 400px;
+      height: 400px;
+      position: relative;
+    }
+
+    /* CSS styles for vectors */
+    .vector {
+      position: absolute;
+      width: 2px;
+      height: 100px;
+      background-color: red;
+      transform-origin: bottom;
+    }
+  </style>
+</head>
+<body>
+  <div id="windrose-container">
+    <div class="vector" id="mhdg"></div>
+    <div class="vector" id="tghdg"></div>
+  </div>
+
+  <script>
+    // WebSocket connection
+    const ws = new WebSocket('ws://localhost:8080');
+
+    // Function to update vector position
+    function updateVector(id, angle) {
+      const vector = document.getElementById(id);
+      vector.style.transform = `rotate(${angle}deg)`;
+    }
+
+    // WebSocket event listener
+    ws.onmessage = function(event) {
+      const data = JSON.parse(event.data);
+      updateVector('mhdg', data.mhdg);
+      updateVector('tghdg', data.tghdg);
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Windrose WebSockets</title>
+    <script src="d3.v5.min.js"></script>
+</head>
+<body>
+    <svg id="windrose" width="300" height="300"></svg>
+    <script>
+        var svg = d3.select('#windrose');
+        var width = +svg.attr('width');
+        var height = +svg.attr('height');
+        var radius = Math.min(width, height) / 2;
+        var circles = [radius * 0.25, radius * 0.5, radius * 0.75, radius];
+        var directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+
+        circles.forEach(function(circle) {
+            svg.append('circle')
+                .attr('cx', width / 2)
+                .attr('cy', height / 2)
+                .attr('r', circle)
+                .attr('stroke', 'black')
+                .attr('fill', 'none');
+        });
+
+        directions.forEach(function(dir, i) {
+            svg.append('text')
+                .attr('x', width / 2 + 0.9 * radius * Math.sin(i * Math.PI / 4))
+                .attr('y', height / 2 - 0.9 * radius * Math.cos(i * Math.PI / 4))
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .text(dir);
+        });
+
+        var mhdgArrow = svg.append('line')
+            .attr('x1', width / 2)
+            .attr('y1', height / 2)
+            .attr('x2', width / 2)
+            .attr('y2', 0)
+            .attr('stroke', 'red')
+            .attr('stroke-width', 2)
+            .attr('marker-end', 'url(#arrowhead)');
+        var tghdgArrow = svg.append('line')
+            .attr('x1', width / 2)
+            .attr('y1', height / 2)
+            .attr('x2', width / 2)
+            .attr('y2', 0)
+            .attr('stroke', 'blue')
+            .attr('stroke-width', 2)
+            .attr('marker-end', 'url(#arrowhead)');
+
+        svg.append('defs').append('marker')
+            .attr('id', 'arrowhead')
+            .attr('refX', 0)
+            .attr('refY', 2)
+            .attr('markerWidth', 4)
+            .attr('markerHeight', 4)
+            .attr('orient', 'auto')
+            .append('path')
+            .attr('d', 'M0,0 V4 L4,2 Z');
+
+        mhdgArrow.attr('transform', 'rotate(' + 10 + ',' + width / 2 + ',' + height / 2 + ')');
+        tghdgArrow.attr('transform', 'rotate(' + 350 + ',' + width / 2 + ',' + height / 2 + ')');
+
+        var socket = new WebSocket('ws://http://127.0.0.1:5500/radar2.html');
+
+        socket.onmessage = function(event) {
+            var data = JSON.parse(event.data);
+            if (data.mhdg) {
+                var angle = data.mhdg[0]; // replace with your logic to calculate the angle
+                mhdgArrow.attr('transform', 'rotate(' + angle + ',' + width / 2 + ',' + height / 2 + ')');
+            }
+            if (data.tghdg) {
+                var angle = data.tghdg[0]; // replace with your logic to calculate the angle
+                tghdgArrow.attr('transform', 'rotate(' + angle + ',' + width / 2 + ',' + height / 2 + ')');
+            }
+        };
+    </script>
+</body>
+</html>

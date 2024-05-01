@@ -537,7 +537,7 @@ bool loraMenu(int cmnd)
             ;
         break;
     case BATTERY_VOLTAGE_PERCENTAGE:
-        loraOut.message = String(buoy.vbatt, 1) + "," + String(buoy.vperc, 0);
+        loraOut.message = String(buoy.vbatt, 1) + "," + String(buoy.vperc);
         loraOut.destination = loraIn.recipient;
         loraOut.msgid = cmnd;
         loraOut.gsia = SET;
@@ -560,7 +560,6 @@ bool loraMenu(int cmnd)
         while (sendLora())
             ;
         break;
-
     case SBPWR_BBPWR:
         loraOut.message = String(buoy.speedsb) + "," + String(buoy.speedbb);
         loraOut.destination = loraIn.recipient;
@@ -592,6 +591,7 @@ bool loraMenu(int cmnd)
             ;
         break;
     case WIND_DIR_DEV:
+        deviationWindRose(buoy.winddir, BUFLENMHRG);
         loraOut.msgid = cmnd;
         loraOut.message = String(buoy.winddir[0], 0) + "," + String(buoy.winddir[1], 0);
         loraOut.gsia = SET;
@@ -600,7 +600,7 @@ bool loraMenu(int cmnd)
         break;
     case MAGNETIC_HEADING:
         loraOut.msgid = cmnd;
-        loraOut.message = String(buoy.mheading,0);
+        loraOut.message = String(buoy.mheading, 0);
         loraOut.gsia = SET;
         while (sendLora())
             ;

@@ -199,7 +199,7 @@ void setup()
     snd_buz.repeat = 1;
     snd_buz.time = 100;
     snd_buz.pauze = 25;
-    //xQueueSend(Buzzerque, (void *)&snd_buz, 10);
+    // xQueueSend(Buzzerque, (void *)&snd_buz, 10);
     BUTTON_LIGHT_OFF;
     SWITCH_RED_ON;
     SWITCH_GRN_OFF;
@@ -264,7 +264,7 @@ void setup()
 void loop()
 {
     /*update websocket*/
-    //webloop();
+    // webloop();
     /*check incomming lora messages*/
     if (loraOK)
     {
@@ -549,6 +549,11 @@ void loop()
         }
         udateDisplay(buoy.speedsb, buoy.speedbb, (unsigned long)buoy.tgdistance, (unsigned int)buoy.tgdir, (unsigned int)buoy.mheading, gpsvalid);
         // loraMenu(MAGNETIC_HEADING); // pos heading speed to remote
+        /*Each second add magnetic heading for wind directon calulations*/
+        if (blink == true)
+        {
+            addNewSampleInBuffer(buoy.winddir, BUFLENMHRG, buoy.mheading);
+        }
         blink = !blink;
     }
 
@@ -580,7 +585,6 @@ void loop()
         {
             invertdir -= 360;
         }
-        rollingAverageStandardDeviation(buoy.winddir, BUFLENWINDSPEED, invertdir); // cacluate wind dir
         loraIn.recipient = 0xFE;
         msg_cnt++;
         if (status == LOCKED || status == DOCKED)

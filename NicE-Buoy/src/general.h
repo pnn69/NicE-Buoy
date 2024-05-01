@@ -1,8 +1,7 @@
 #ifndef GGENERAL_H_
 #define GENERAL_H_
 #include "../../dependency/command.h"
-#define BUFLENWINDSPEED 50
-
+#define BUFLENMHRG 60 //one sampel each sec so 60 sec for stabilisation
 struct buoyDataType
 {
     float mheading = 0;
@@ -12,7 +11,7 @@ struct buoyDataType
     double tgdir, tgdistance;
     int minOfsetDist, maxOfsetDist, minSpeed, maxSpeed;
     int mdir, ddir, cdir, magneticCorrection;
-    double winddir[3 + BUFLENWINDSPEED]; // winddir[0]=avarage winddir[1]=pionter winddir[2]=standarddeviation winddir[3..BUFLENWINDSPEED + 3)]=data
+    double winddir[3 + BUFLENMHRG]; // winddir[0]=avarage winddir[1]=pionter winddir[2]=standarddeviation winddir[3..BUFLENWINDSPEED + 3)]=data
     int speed = 0, speedbb = 0, speedsb = 0, cspeed = 0;
     int rssi;
     int mode;
@@ -22,9 +21,8 @@ struct buoyDataType
     bool ackOK;
     byte gsa;
     float vbatt;
-    float vperc;
+    int vperc;
     bool muteEsc = false;
-    float speedIntergrator = 0;
 };
 
 struct switchStatus
@@ -65,9 +63,9 @@ extern byte status;
 #define BUOYMINSPEED 7 // minimal speed thrusters are turning
 // #define BUOYMINSPEEDBB 5 // minimal speed thrusters are turning
 // #define BUOYMINSPEEDSB 20 // minimal speed thrusters are turning
-//#define WEBON 1
+// #define WEBON 1
 
-//#define DEBUG 1
+// #define DEBUG 1
 #if DEBUG
 #define debug(x) Serial.print(x)
 #define debugln(x) Serial.println(x)

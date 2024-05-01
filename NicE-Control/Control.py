@@ -178,7 +178,7 @@ def decode_23(data): #GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING,  // lat,lon,
         gps_hdg = int(values[4])
         gps_speed = int(values[5])
         buoy_hdg = int(float(values[6]))
-        if gps_speed > 5:
+        if gps_speed > 1:
             compass.draw_pointer(gps_hdg,comp,gps_collor)
         else:
             compass.draw_pointer(0,comp,blk_collor)
