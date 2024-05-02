@@ -112,5 +112,4 @@ def create_compass(root):
     Mhdg_text.place(x=10, y=10)
     Tghdg_text = Label(canvas, text="Target heading: ", bg="white", fg = "blue")
     Tghdg_text.place(x=190, y=10)
-
     return canvas  # Return the canvas object for further use

@@ -278,8 +278,8 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
     {
         if (tdistance > 0.5 && tdistance < 1.5)
         {
-            int spd = (int)(BUOYMINSPEED * tan(radians(error)));
-            spd = constrain(spd, -BUOYMINSPEED, BUOYMINSPEED);
+            int spd = (int)(buoy.minSpeed * tan(radians(error)));
+            spd = constrain(spd, -buoy.minSpeed, buoy.minSpeed);
             *bb = spd;
             *sb = spd * -1;
 
@@ -321,8 +321,8 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
     // Serial.printf("BB=%2d,SB=%d  Speed in:%2d   Error:%2.2lf   tan=%2.2f Corr=%3.2lf     p=%2.2lf, i=%2.2lf, d=%0.5lf\r\n", *bb, *sb, speed, error, tan(radians(adj)), adj, rudderpid.p, rudderpid.i, rudderpid.d);
 #endif
     /*Sanety check*/
-    *bb = constrain(*bb, -BUOYMAXSPEED, BUOYMAXSPEED);
-    *sb = constrain(*sb, -BUOYMAXSPEED, BUOYMAXSPEED);
+    *bb = constrain(*bb, -buoy.maxSpeed, buoy.maxSpeed);
+    *sb = constrain(*sb, -buoy.maxSpeed, buoy.maxSpeed);
     return true;
 }
 
@@ -344,7 +344,7 @@ int hooverPid(double dist)
     if (dist > buoy.maxOfsetDist)
     {
         initSpeedPid();
-        return BUOYMAXSPEED;
+        return buoy.maxSpeed;
     }
     /*How long since we last calculated*/
     double Output = 0;
@@ -375,5 +375,5 @@ int hooverPid(double dist)
 #ifdef DEBUG
     // Serial.printf("Speed:%.1lf p=%.2lf, i=%.2lf, d=%.2lf\r\n ", Output, speedpid.p, speedpid.i, speedpid.d);
 #endif
-    return constrain(Output, 0, BUOYMAXSPEED);
+    return constrain(Output, 0, buoy.maxSpeed);
 }

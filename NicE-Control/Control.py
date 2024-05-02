@@ -27,9 +27,18 @@ gps_collor  = "red"
 buoy_collor = "green"
 tg_collor = "blue"
 blk_collor = "black"
+pos_x_winddir = 10
+pos_y_winddir = 170
+pos_x_data_winddir = pos_x_winddir + 80
+pos_y_data_winddir = 170
+pos_x_deviation = 115
+pos_y_deviation = 170
+pos_x_data_deviation = pos_x_deviation + 90
+pos_y_data_deviation = 170
 
-# Open COM3 port
-ser = serial.Serial('COM7', 115200)  # Adjust baud rate as per your requirement
+
+# Open COM7 port
+#ser = serial.Serial('COM7', 115200)  # Adjust baud rate as per your requirement
 
 def Adjust_position():
     pos_dir_content = adj_pos_dir.get("1.0", "end-1c")  # Get content of adj_pos_dir1
@@ -37,7 +46,7 @@ def Adjust_position():
     out = "*^1^31^1^" + pos_dir_content + "," + pos_dist_content + "^1"
     out_box1.delete(1.0, END)   
     out_box1.insert(END, out)
-    ser.write(out.encode())
+    #ser.write(out.encode())
 
 def Adjust_speed_pid():
     p = adj_speed_p.get("1.0", "end-1c")  # Get content of adj_pos_dir1
@@ -46,7 +55,7 @@ def Adjust_speed_pid():
     out = "*^1^29^1^" + p + "," + i +","+ d + "^1"
     out_box1.delete(1.0, END)   
     out_box1.insert(END, out)
-    ser.write(out.encode())
+    #ser.write(out.encode())
 
 def Adjust_rudder_pid():
     p = adj_rudder_p.get("1.0", "end-1c")  # Get content of adj_pos_dir1
@@ -55,28 +64,37 @@ def Adjust_rudder_pid():
     out = "*^1^30^1^" + p + "," + i +","+ d + "^1"
     out_box1.delete(1.0, END)   
     out_box1.insert(END, out)
-    ser.write(out.encode())
+    #ser.write(out.encode())
     
+def Adjust_control_parameters():
+    Dmin = adj_Dmin.get("1.0", "end-1c")  # Get content of adj_pos_dir1
+    Dmax = adj_Dmax.get("1.0", "end-1c")  # Get content of adj_pos_dir1
+    SPmin = adj_SPmin.get("1.0", "end-1c")  # Get content of adj_pos_dir1
+    SPmax = adj_SPmax.get("1.0", "end-1c")  # Get content of adj_pos_dir1
+    out = "*^1^28^1^" + Dmin + "," + Dmax + "," + SPmin + "," + SPmax + "^1"
+    out_box1.delete(1.0, END)   
+    out_box1.insert(END, out)
+    #ser.write(out.encode())
+
 def idle():
     out = "*^1^21^1^0^1"
     out_box1.delete(1.0, END)   
     out_box1.insert(END, out)
-    ser.write(out.encode())
+    #ser.write(out.encode())
 
 def lock_position():
     out = "*^1^4^1^0^1"
     out_box1.delete(1.0, END)   
     out_box1.insert(END, out)
-    ser.write(out.encode())
+    #ser.write(out.encode())
     
 def doc_position():
     out = "*^1^10^1^0^1"
     out_box1.delete(1.0, END)   
     out_box1.insert(END, out)
-    ser.write(out.encode())
+    #ser.write(out.encode())
    
-
-    #<97.00,60.02,76,-76,76,188>
+#<97.00,60.02,76,-76,76,188>
 def decode_18(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
     global tg_hdg, tg_dst, bb_sp,sb_sp,buoy_hdg , speed, dist_txt
     values = data.group(5).split(',')
@@ -93,7 +111,6 @@ def decode_18(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
         compass.draw_pointer(tg_hdg,comp,tg_collor)
         compass.draw_pointer(buoy_hdg,comp,buoy_collor)
         output_str = f"{bb_sp}% , {sb_sp}%"
-        speed.config(text=output_str)
         output_str = f"Target distance:{tg_dst} M"
         dist_txt.config(text=output_str)
         
@@ -104,7 +121,6 @@ def decode_19(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
         bb_sp = int(values[2])
         sb_sp = int(values[3])
         output_str = f"{bb_sp}% , {sb_sp}%"
-        speed.config(text=output_str)
         compass.draw_barr(bb_sp,sb_sp,comp)
 
 def decode_20(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
@@ -122,7 +138,6 @@ def decode_23(data): #GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING,  // lat,lon,
     global latitude, longitude, gps_fix, comp
     values = data.group(5).split(',')
     if len(values) == 7:
-        gpspos.config(text=data.group(5))
         latitude = values[0]
         longitude = values[1]
         gps_sat =  int(values[2])
@@ -149,19 +164,18 @@ def decode_24(data): #BATTERY_VOLTAGE_PERCENTAGE,                    // 0.0V, %
             percentage = float(percentage_str)
             output_str = f"Voltage: {voltage} Percentage: {percentage}%"
             batt.config(text=output_str)
-            compass.draw_Vbatbarr(percentage,comp)
         except ValueError:
             print("One or both of the variables is not a float")        
 
 def decode_29(data):
     values = data.group(5).split(',')
     if len(values) == 4:
-        adj_speed_kI.config(text="P:" + values[0] + ", I:" + values[1]+ ",D:" + values[2] + ", Ki" + values[3])  # Pre-fill entry1    
+        adj_speed_kI.config(text="P:" + values[0] + ", I:" + values[1]+ ", D:" + values[2] + ", Ki=" + values[3])  # Pre-fill entry1    
 
 def decode_30(data):
     values = data.group(5).split(',')
     if len(values) == 4:
-        adj_rudder_kI.config(text="P:" + values[0] + ", I:" + values[1]+ ",D:" + values[2] + ", Ki" + values[3])  # Pre-fill entry1    
+        adj_rudder_kI.config(text="P:" + values[0] + ", I:" + values[1]+ ", D:" + values[2] + ", Ki=" + values[3])  # Pre-fill entry1    
 
 def decode_32(data):
     values = data.group(5).split(',')
@@ -311,14 +325,14 @@ adj_speed_d = Text(frame)
 adj_speed_d.configure(font=font_settings)
 adj_speed_d.insert(END, "0.1")  # Pre-fill entry1
 adj_speed_d.place(x=120 + 60, y=55, height=20, width=30)
-adj_speed_kI = Label(text="")
+adj_speed_kI = Label(text="P:0.0 , I:0.0 , D:0.0, Ki=?.??")
+adj_speed_kI.configure(font=("Arial", 9,'bold'))
 adj_speed_kI.place(x=210, y=55)
-
 adj_rudder_pid = Button(frame, text="Adjust rudder pid",command=Adjust_rudder_pid)
 adj_rudder_pid.place(x=10, y=90, height=30, width=100)
 adj_rudder_p = Text(frame)
 adj_rudder_p.configure(font=font_settings)
-adj_rudder_p.insert(END, "0.8")  # Pre-fill entry1
+adj_rudder_p.insert(END, "1")  # Pre-fill entry1
 adj_rudder_p.place(x=120, y=95, height=20, width=30)
 adj_rudder_i = Text(frame)
 adj_rudder_i.configure(font=font_settings)
@@ -328,11 +342,43 @@ adj_rudder_d = Text(frame)
 adj_rudder_d.configure(font=font_settings)
 adj_rudder_d.insert(END, "0")  # Pre-fill entry1
 adj_rudder_d.place(x=120 + 60, y=95, height=20, width=30)
-adj_rudder_kI = Label(text="0.0")
+adj_rudder_kI = Label(text="P:0.0 , I:0.0 , D:0.0, Ki=?.??")
+adj_rudder_kI.configure(font=("Arial", 9,'bold'))
 adj_rudder_kI.place(x=210, y=95)
 
-lock = Button(frame, text="IDLE", command=idle)
-lock.place( x=windoww - 100 -10,y=10, height=30, width=100)
+def center_text(event=None):
+    # Calculate the padding needed to center the text
+    text_width = len(adj_Dmin.get())  # Get the length of the text
+    entry_width = 100  # Adjust this width based on your Entry widget width
+    padding = (entry_width - text_width * 7) // 2  # Adjust multiplier as needed
+
+    # Adjust the Entry widget properties to center the text
+    adj_Dmin.config(padx=(padding, 0))  # Apply horizontal padding to center text
+
+
+adj_para = Button(frame, text="Adjust parameters",command=Adjust_control_parameters)
+adj_para.place(x=120, y=130, height=30, width=260)
+adj_Dmin = Text(frame)
+adj_Dmin.insert(END, "2")
+adj_Dmin.place(x=10, y=135, height=20, width=20)
+adj_Dmax_label = Label(text="> Dist >")
+adj_Dmax_label.place(x=35, y = 135)
+adj_Dmax = Text(frame)
+adj_Dmax.insert(END, "20")
+adj_Dmax.place(x=90, y=135, height=20, width=20)
+
+adj_SPmin = Text(frame)
+adj_SPmin.insert(END, "2")  # Pre-fill entry1
+adj_SPmin.place(x=390, y=135, height=20, width=20)
+adj_Speed_label = Label(text=">Speed>")
+adj_Speed_label.place(x=415, y=135, height=20, width=45)
+adj_SPmax = Text(frame)
+adj_SPmax.insert(END, "75")  # Pre-fill entry1
+adj_SPmax.place(x=470, y=135, height=20, width=20)
+
+
+idle = Button(frame, text="IDLE", command=idle)
+idle.place( x=windoww - 100 -10,y=10, height=30, width=100)
 
 lock = Button(frame, text="Lock position", command=lock_position)
 lock.place( x=windoww - 100 -10,y=50, height=30, width=100)
@@ -347,44 +393,28 @@ open_maps_button.pack(pady=10)
 
 #placeholders incomming data
 wind_label_dir = Label(text="Wind direction:")
-wind_label_dir.place(x=10, y=130)
+wind_label_dir.place(x=pos_x_winddir, y = pos_y_winddir)
 wind_dir = Label(text="0")
-wind_dir.place(x=90, y=130)
+wind_dir.place(x=pos_x_data_winddir, y = pos_y_data_winddir)
 wind_label_dev = Label(text="Deviation:")
-wind_label_dev.place(x=120, y=130)
+wind_label_dev.place(x=pos_x_deviation, y = pos_y_winddir)
 wind_dev = Label(text="0")
-wind_dev.place(x=175, y=130)
+wind_dev.place(x=pos_x_data_deviation, y = pos_y_winddir)
 
-speed = Label(text="Pwr bb,sb:")
-speed.place(x=10, y=150)
-speed = Label(text="0%,0%")
-speed.place(x=75, y=150)
-
-batt = Label(text="Battery:")
-batt.place(x=10, y=170)
-batt = Label(text="0.0,0%")
-batt.place(x=75, y=170)
-
-gpspos = Label(text="GPS pos:")
-gpspos.place(x=10, y=190)
-gpspos = Label(text="?")
-gpspos.place(x=75, y=190)
-
-
-
-test = Button(frame, text="TESTING", command=test)
-test.place( x=windoww/2-50,y=(windowh - 100), height=30, width=100)
 
 
 out_text = Label(text="Out:")
 out_text.place(x=10, y=(windowh - 60))
+
 out_box1 = Text(frame)
 out_box1.place(x=50, y=(windowh - 60), height=20, width=(windoww - 50 - 10))
 
-out_text = Label(text="In:")
-out_text.place(x=10, y=(windowh - 30))
+in_text = Label(text="In:")
+in_text.place(x=10, y=(windowh - 30))
+
 in_box1 = Text(frame)
 in_box1.place(x=50, y=(windowh - 30), height=20, width=(windoww - 50 - 10))
 comp = compass.create_compass(root)
-start_serial_thread()  # Start the serial reading thread
+#start_serial_thread()  # Start the serial reading thread
+#start_ble_thread()
 root.mainloop()

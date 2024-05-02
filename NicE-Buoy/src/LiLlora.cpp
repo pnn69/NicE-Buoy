@@ -357,7 +357,7 @@ int polLora(void)
             {
                 break;
             }
-            if (maxd < 2 || maxd > 20)
+            if (maxd < 2 || maxd > 100)
             {
                 break;
             }
@@ -365,7 +365,7 @@ int polLora(void)
             {
                 break;
             }
-            if (maxsp < 0 || maxsp > 80)
+            if (maxsp < 1 || maxsp > 100)
             {
                 break;
             }
@@ -394,12 +394,12 @@ int polLora(void)
             {
                 break;
             }
-            if (ti < -30 || ti > 30)
+            if (ti < 0 || ti > 30)
             {
 
                 break;
             }
-            if (td < -10 || td > 30)
+            if (td < 0 || td > 30)
             {
                 break;
             }
@@ -434,12 +434,12 @@ int polLora(void)
             {
                 break;
             }
-            if (ti < -30 || ti > 30)
+            if (ti < 0 || ti > 30)
             {
 
                 break;
             }
-            if (td < -10 || td > 30)
+            if (td < 0 || td > 30)
             {
                 break;
             }
