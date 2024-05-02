@@ -208,7 +208,7 @@ void setup()
     hstamp = millis();
     Serial.println("Paramters buoy!\r\n***");
     MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude, true);
-    Serial.printf("Doc positon: https://www.google.nl/maps/@%2.12lf,%2.12lf,16z?entry=ttu\r\n", buoy.tglatitude, buoy.tglongitude);
+    Serial.printf("Doc positon: https://www.google.nl/maps/@%2.12lf,%2.12lf\r\n", buoy.tglatitude, buoy.tglongitude);
     CompassOffsetCorrection(&buoy.magneticCorrection, true);
     Serial.printf("Magnetic correction:%d\r\n", buoy.magneticCorrection);
     computeParameters(&buoy.minOfsetDist, &buoy.maxOfsetDist, &buoy.minSpeed, &buoy.maxSpeed, true);
@@ -393,6 +393,7 @@ void loop()
                 {
                     initRudderPid();
                     status = LOCKED;
+                    rudderpid.iintergrate = 0;
                     Serial.printf("Status set to >LOCKED< = %d\r\n", status);
                 }
             }
@@ -613,7 +614,9 @@ void loop()
         case 4:
             msg_cnt = 0;
             loraMenu(WIND_DIR_DEV); // Send wind info
-
+            delay(500);
+            loraMenu(COMPUTE_PARAMETERS); // pos heading speed to remote
+            delay(200);
             if (buoy.vbatt <= 15)
             {
                 Message snd_msg;

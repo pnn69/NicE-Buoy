@@ -30,7 +30,6 @@ double approxRollingAverage(double avg, double input)
     return avg;
 }
 
-
 double averigeWindRose(double samples[], int n)
 {
     double sumSin = 0, sumCos = 0;
@@ -89,53 +88,33 @@ change parematers for speed calculation
 */
 void setparameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int *maxSpeed)
 {
-    int tbuoyMinOffsetDistance = buoy.minOfsetDist;
-    int tbuoyMaxOffsetDistance = buoy.maxOfsetDist;
-    int tbuoyMinSpeed = buoy.minSpeed;
-    int tbuoymaxSpeed = buoy.maxSpeed;
-    tbuoyMinOffsetDistance += *minOfsetDist;
-    tbuoyMaxOffsetDistance += *maxOfsetDist;
-    tbuoyMinSpeed += *minSpeed;
-    tbuoymaxSpeed += *maxSpeed;
     /*
     sanety check
     */
-    if (tbuoyMinOffsetDistance < 1)
+    if (*minOfsetDist < 0)
     {
-        tbuoyMinOffsetDistance = 1;
+        *minOfsetDist = 2;
     }
-    if (tbuoyMaxOffsetDistance > 20)
+    if (*maxOfsetDist > 100)
     {
-        tbuoyMaxOffsetDistance = 20;
+        *maxOfsetDist = 20;
     }
-    if (tbuoyMinSpeed < 0)
+    if (*minSpeed < 0)
     {
-        tbuoyMinSpeed = 0;
+        *minSpeed = 0;
     }
-    if (tbuoymaxSpeed > 80)
+    if (*maxSpeed > 100)
     {
-        tbuoymaxSpeed = 80;
+        *maxSpeed = 80;
     }
-
-    if (tbuoyMinOffsetDistance >= tbuoyMaxOffsetDistance)
+    if (*minOfsetDist <= *maxOfsetDist)
     {
-        *minOfsetDist = buoy.minOfsetDist; // Offset for taking action for position controll. Can be 0 till infinety but moste likely 1 - 5
-        *maxOfsetDist = buoy.maxOfsetDist; // Max distance go full speed from here
-        *minSpeed = buoy.minSpeed;         // Min speeed thrusters
-        *maxSpeed = buoy.maxSpeed;         // Max speed thrusters
-    }
-    else
-    {
-        *minOfsetDist = tbuoyMinOffsetDistance; // Offset for taking action for position controll. Can be 0 till infinety but moste likely 1 - 5
-        *maxOfsetDist = tbuoyMaxOffsetDistance; // Max distance go full speed from here
-        *minSpeed = tbuoyMinSpeed;              // Min speeed thrusters
-        *maxSpeed = tbuoymaxSpeed;              // Max speed thrusters
-        buoy.minOfsetDist = tbuoyMinOffsetDistance;
-        buoy.maxOfsetDist = tbuoyMaxOffsetDistance;
-        buoy.minSpeed = tbuoyMinSpeed;
-        buoy.maxSpeed = tbuoymaxSpeed;
+        buoy.minOfsetDist = *minOfsetDist;
+        buoy.maxOfsetDist = *maxOfsetDist;
+        buoy.minSpeed = *minSpeed;
+        buoy.maxSpeed = *maxSpeed;
         computeParameters(&buoy.minOfsetDist, &buoy.maxOfsetDist, &buoy.minSpeed, &buoy.maxSpeed, false);
-        Serial.printf("Stored Parameters: Minimum offset distance: %dM Maxumum offset distance: %dM, buoy minimum speed: %d%%, buoy maximum speed: %d%%\r\n", buoy.minOfsetDist, buoy.maxOfsetDist, buoy.minSpeed, buoy.maxSpeed);
+        //Serial.printf("Stored Parameters: Minimum offset distance: %dM Maxumum offset distance: %dM, buoy minimum speed: %d%%, buoy maximum speed: %d%%\r\n", buoy.minOfsetDist, buoy.maxOfsetDist, buoy.minSpeed, buoy.maxSpeed);
     }
 }
 
@@ -154,13 +133,13 @@ void adjustPositionDirDist(int dir, double dist, double *lat, double *lon)
     double radLat2 = asin(sin(radLat) * cos(d / EARTHRADIUS) + cos(radLat) * sin(d / EARTHRADIUS) * cos(brng));
     double radLon2 = radLon + atan2(sin(brng) * sin(d / EARTHRADIUS) * cos(radLat), cos(d / EARTHRADIUS) - sin(radLat) * sin(radLat2));
     /*plot old pos*/
-    // Serial.printf("Old lock google: https://www.google.nl/maps/@%2.12lf,%2.12lf,16z?entry=ttu\r\n", *lat, *lon);
+    // Serial.printf("Old lock google: https://www.google.nl/maps/@%2.12lf,%2.12lf\r\n", *lat, *lon);
     // Serial.printf("Old lock openst: https://www.openstreetmap.org/#map=19/%2.12lf/%2.12lf\r\n", *lat, *lon);
     /*convert back to degrees*/
     *lat = degre(radLat2);
     *lon = degre(radLon2);
     /*plot new pos*/
-    // Serial.printf("New lock google: https://www.google.nl/maps/@%2.12lf,%2.12lf,16z?entry=ttu\r\n", *lat, *lon);
+    // Serial.printf("New lock google: https://www.google.nl/maps/@%2.12lf,%2.12lf\r\n", *lat, *lon);
     // Serial.printf("New lock openst: https://www.openstreetmap.org/#map=19/%2.12lf/%2.12lf\r\n", *lat, *lon);
 }
 
@@ -274,7 +253,7 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
 {
     double error = ComputeSmallestAngleDir(magheading, tgheading);
     error = map(error, -180, 180, -70, 70);
-    if (speed <= 0)
+    if (speed <= 1)
     {
         if (tdistance > 0.5 && tdistance < 1.5)
         {
@@ -282,10 +261,6 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
             spd = constrain(spd, -buoy.minSpeed, buoy.minSpeed);
             *bb = spd;
             *sb = spd * -1;
-
-#ifdef DEBUG
-            // Serial.printf("BB=%2d,SB=%d Error:%2.2lf \r\n", *bb, *sb, error);
-#endif
         }
         else
         {
@@ -375,5 +350,5 @@ int hooverPid(double dist)
 #ifdef DEBUG
     // Serial.printf("Speed:%.1lf p=%.2lf, i=%.2lf, d=%.2lf\r\n ", Output, speedpid.p, speedpid.i, speedpid.d);
 #endif
-    return constrain(Output, 0, buoy.maxSpeed);
+    return (int)constrain(Output, 0, buoy.maxSpeed);
 }

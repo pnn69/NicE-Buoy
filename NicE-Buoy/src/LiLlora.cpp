@@ -162,9 +162,6 @@ int polLora(void)
     char messageArr[100];
     Serial.println("Lora msg> id:" + String(loraIn.msgid) + " gsia:" + String(loraIn.gsia) + " <" + loraIn.message + ">");
     loraIn.message.toCharArray(messageArr, loraIn.message.length() + 1);
-    // int index = loraIn.message.indexOf(",");
-    // loraIn.message = loraIn.message.substring(index + 1);
-    // loraIn.message.toCharArray(messageArr, loraIn.message.length() + 1);
     loraOut.destination = loraIn.sender;
     loraOut.sender = buoyID;
     switch (loraIn.msgid)
@@ -226,6 +223,7 @@ int polLora(void)
             MemoryDockPos(&buoy.tglatitude, &buoy.tglongitude, true);
             msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
             RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
+            rudderpid.iintergrate = 0;
             status = DOCKED;
             sendACKNAKINF(msg, ACK);
             Serial.printf("Doc positon: https://www.google.nl/maps/@%2.8lf,%2.8lf,16z?entry=ttu\r\n", buoy.tglatitude, buoy.tglongitude);
@@ -247,6 +245,7 @@ int polLora(void)
                 initRudderPid();
                 buoy.tglatitude = gpsdata.lat;
                 buoy.tglongitude = gpsdata.lon;
+                rudderpid.iintergrate = 0;
                 sendACKNAKINF("", ACK);
                 status = LOCKED;
             }
@@ -344,32 +343,20 @@ int polLora(void)
     case COMPUTE_PARAMETERS:
         if (loraIn.gsia == SET)
         {
-            int mind;
-            int maxd;
-            int minsp;
-            int maxsp;
+            int mmind;
+            int mmaxd;
+            int mminsp;
+            int mmaxsp;
 
-            sscanf(messageArr, "%d,%d,%d,%d", &mind, &maxd, &minsp, &maxsp);
+            sscanf(messageArr, "%d,%d,%d,%d", &mmind, &mmaxd, &mminsp, &mmaxsp);
             /*
             sanety check
             */
-            if (mind < 0 || mind > 20)
+            if (mmind > mmaxd)
             {
                 break;
             }
-            if (maxd < 2 || maxd > 100)
-            {
-                break;
-            }
-            if (minsp < 0)
-            {
-                break;
-            }
-            if (maxsp < 1 || maxsp > 100)
-            {
-                break;
-            }
-            setparameters(&mind, &maxd, &minsp, &maxsp);
+            setparameters(&mmind, &mmaxd, &mminsp, &mmaxsp);
             msg = String(buoy.minOfsetDist) + "," + String(buoy.maxOfsetDist) + "," + String(buoy.minSpeed) + "," + String(buoy.maxSpeed);
             sendACKNAKINF(msg, ACK);
         }
@@ -483,6 +470,7 @@ int polLora(void)
                 adjustPositionDirDist(direction, distance, &tlat, &tlon);
                 buoy.tglatitude = tlat;
                 buoy.tglongitude = tlon;
+                rudderpid.iintergrate = 0;
                 msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
                 sendACKNAKINF(msg, ACK);
                 delay(250);

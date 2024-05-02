@@ -28,17 +28,17 @@ buoy_collor = "green"
 tg_collor = "blue"
 blk_collor = "black"
 pos_x_winddir = 10
-pos_y_winddir = 170
+pos_y_winddir = 200
 pos_x_data_winddir = pos_x_winddir + 80
-pos_y_data_winddir = 170
+pos_y_data_winddir = 200
 pos_x_deviation = 115
-pos_y_deviation = 170
+pos_y_deviation = 200
 pos_x_data_deviation = pos_x_deviation + 90
-pos_y_data_deviation = 170
+pos_y_data_deviation = 200
 
 
 # Open COM7 port
-#ser = serial.Serial('COM7', 115200)  # Adjust baud rate as per your requirement
+ser = serial.Serial('COM7', 115200)  # Adjust baud rate as per your requirement
 
 def Adjust_position():
     pos_dir_content = adj_pos_dir.get("1.0", "end-1c")  # Get content of adj_pos_dir1
@@ -46,7 +46,7 @@ def Adjust_position():
     out = "*^1^31^1^" + pos_dir_content + "," + pos_dist_content + "^1"
     out_box1.delete(1.0, END)   
     out_box1.insert(END, out)
-    #ser.write(out.encode())
+    ser.write(out.encode())
 
 def Adjust_speed_pid():
     p = adj_speed_p.get("1.0", "end-1c")  # Get content of adj_pos_dir1
@@ -55,7 +55,7 @@ def Adjust_speed_pid():
     out = "*^1^29^1^" + p + "," + i +","+ d + "^1"
     out_box1.delete(1.0, END)   
     out_box1.insert(END, out)
-    #ser.write(out.encode())
+    ser.write(out.encode())
 
 def Adjust_rudder_pid():
     p = adj_rudder_p.get("1.0", "end-1c")  # Get content of adj_pos_dir1
@@ -64,7 +64,7 @@ def Adjust_rudder_pid():
     out = "*^1^30^1^" + p + "," + i +","+ d + "^1"
     out_box1.delete(1.0, END)   
     out_box1.insert(END, out)
-    #ser.write(out.encode())
+    ser.write(out.encode())
     
 def Adjust_control_parameters():
     Dmin = adj_Dmin.get("1.0", "end-1c")  # Get content of adj_pos_dir1
@@ -74,25 +74,25 @@ def Adjust_control_parameters():
     out = "*^1^28^1^" + Dmin + "," + Dmax + "," + SPmin + "," + SPmax + "^1"
     out_box1.delete(1.0, END)   
     out_box1.insert(END, out)
-    #ser.write(out.encode())
+    ser.write(out.encode())
 
 def idle():
     out = "*^1^21^1^0^1"
     out_box1.delete(1.0, END)   
     out_box1.insert(END, out)
-    #ser.write(out.encode())
+    ser.write(out.encode())
 
 def lock_position():
     out = "*^1^4^1^0^1"
     out_box1.delete(1.0, END)   
     out_box1.insert(END, out)
-    #ser.write(out.encode())
+    ser.write(out.encode())
     
 def doc_position():
     out = "*^1^10^1^0^1"
     out_box1.delete(1.0, END)   
     out_box1.insert(END, out)
-    #ser.write(out.encode())
+    ser.write(out.encode())
    
 #<97.00,60.02,76,-76,76,188>
 def decode_18(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
@@ -135,7 +135,7 @@ def decode_20(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
     
      #<52.32038000,4.96563000,10,1,0,0,3.00>
 def decode_23(data): #GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING,  // lat,lon,fix,heading,speed,m_heading
-    global latitude, longitude, gps_fix, comp
+    global latitude, longitude, gps_fix, comp , gpsfix_label
     values = data.group(5).split(',')
     if len(values) == 7:
         latitude = values[0]
@@ -143,8 +143,10 @@ def decode_23(data): #GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING,  // lat,lon,
         gps_sat =  int(values[2])
         if values[3] == "1":
             gps_fix = True
+            open_maps_button.config(bg = "#36ff00")
         else:
             gps_fix = False
+            open_maps_button.config(bg = "#ff3b00")
         gps_hdg = int(values[4])
         gps_speed = int(values[5])
         buoy_hdg = int(float(values[6]))
@@ -163,9 +165,17 @@ def decode_24(data): #BATTERY_VOLTAGE_PERCENTAGE,                    // 0.0V, %
             voltage = float(voltage_str)
             percentage = float(percentage_str)
             output_str = f"Voltage: {voltage} Percentage: {percentage}%"
-            batt.config(text=output_str)
+            compass.draw_Vbatbarr(percentage,comp)
         except ValueError:
             print("One or both of the variables is not a float")        
+
+def decode_28(data):
+    values = data.group(5).split(',')
+    if len(values) == 4:
+        r1_Dmax_label.config(text=values[0])
+        r2_Dmax_label.config(text=values[1])
+        r1_SP_label.config(text=values[2])
+        r2_SP_label.config(text=values[3]) 
 
 def decode_29(data):
     values = data.group(5).split(',')
@@ -195,6 +205,8 @@ def decode_status(data):
         status_txt.config(text=f"IDLE")
     if data == "7":
         status_txt.config(text=f"LOCKED")
+    if data == "11":
+        status_txt.config(text=f"REMOTE")
     if data == "13":
         status_txt.config(text=f"DOCKED")
     
@@ -203,7 +215,7 @@ def open_google_maps():
     # Construct the Google Maps URL with the coordinates
     #if latitude is not None and longitude is not None:
     if gps_fix == True:
-        url = f"https://www.google.com/maps?q={latitude},{longitude},20z?entry=ttu"
+        url = f"https://www.google.com/maps?q={latitude},{longitude}"
         # Open the URL in a web browser
         webbrowser.open(url)     
 
@@ -243,6 +255,8 @@ def decode_message(message):
             decode_23(match)
         if(msg_id == "24"):
             decode_24(match)
+        if(msg_id == "28"):
+            decode_28(match)
         if(msg_id == "29"):
             decode_29(match)
         if(msg_id == "30"):
@@ -315,7 +329,7 @@ adj_speed_pid = Button(frame, text="Adjust speed pid",command=Adjust_speed_pid)
 adj_speed_pid.place(x=10, y=50, height=30, width=100)
 adj_speed_p = Text(frame)
 adj_speed_p.configure(font=font_settings)
-adj_speed_p.insert(END, "10")  # Pre-fill entry1
+adj_speed_p.insert(END, "5")  # Pre-fill entry1
 adj_speed_p.place(x=120, y=55, height=20, width=30)
 adj_speed_i = Text(frame)
 adj_speed_i.configure(font=font_settings)
@@ -363,18 +377,26 @@ adj_Dmin.insert(END, "2")
 adj_Dmin.place(x=10, y=135, height=20, width=20)
 adj_Dmax_label = Label(text="> Dist >")
 adj_Dmax_label.place(x=35, y = 135)
+r1_Dmax_label = Label(text="?")
+r1_Dmax_label.place(x=10, y = 155)
 adj_Dmax = Text(frame)
 adj_Dmax.insert(END, "20")
 adj_Dmax.place(x=90, y=135, height=20, width=20)
+r2_Dmax_label = Label(text="?")
+r2_Dmax_label.place(x=90, y = 155)
 
 adj_SPmin = Text(frame)
 adj_SPmin.insert(END, "2")  # Pre-fill entry1
 adj_SPmin.place(x=390, y=135, height=20, width=20)
+r1_SP_label = Label(text="?")
+r1_SP_label.place(x=390, y = 155)
 adj_Speed_label = Label(text=">Speed>")
 adj_Speed_label.place(x=415, y=135, height=20, width=45)
 adj_SPmax = Text(frame)
 adj_SPmax.insert(END, "75")  # Pre-fill entry1
 adj_SPmax.place(x=470, y=135, height=20, width=20)
+r2_SP_label = Label(text="?")
+r2_SP_label.place(x=470, y = 155)
 
 
 idle = Button(frame, text="IDLE", command=idle)
@@ -387,7 +409,7 @@ dock = Button(frame, text="Sail to doc", command=doc_position)
 dock.place( x=windoww - 100 -10,y=90, height=30, width=100)
 
 # Create a button to open Google Maps
-open_maps_button = Button(root, text="Open Google Maps", command=open_google_maps)
+open_maps_button = Button(root, text="Open Google Maps", bg = "#ff3b00", command=open_google_maps)
 open_maps_button.pack(pady=10)
 #dock.place( x=windoww - 100 -10,y=90, height=30, width=100)
 
@@ -401,8 +423,6 @@ wind_label_dev.place(x=pos_x_deviation, y = pos_y_winddir)
 wind_dev = Label(text="0")
 wind_dev.place(x=pos_x_data_deviation, y = pos_y_winddir)
 
-
-
 out_text = Label(text="Out:")
 out_text.place(x=10, y=(windowh - 60))
 
@@ -415,6 +435,6 @@ in_text.place(x=10, y=(windowh - 30))
 in_box1 = Text(frame)
 in_box1.place(x=50, y=(windowh - 30), height=20, width=(windoww - 50 - 10))
 comp = compass.create_compass(root)
-#start_serial_thread()  # Start the serial reading thread
+start_serial_thread()  # Start the serial reading thread
 #start_ble_thread()
 root.mainloop()
