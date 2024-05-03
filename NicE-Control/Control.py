@@ -279,6 +279,7 @@ def read_serial():
                 in_box1.insert(END, f"{received_data}")
                 decode_message(received_data)
                 print(received_data)
+                compass.toggle_circle(comp)
 
 def start_serial_thread():
     serial_thread = threading.Thread(target=read_serial)
@@ -313,6 +314,15 @@ status_txt.place(x=windoww/2+30, y=10)
 dist_txt = Label(text="")
 dist_txt.place(x=windoww/2-20, y=30)
 
+def center_text(event=None):
+    # Calculate the padding needed to center the text
+    text_width = len(adj_Dmin.get())  # Get the length of the text
+    entry_width = 100  # Adjust this width based on your Entry widget width
+    padding = (entry_width - text_width * 7) // 2  # Adjust multiplier as needed
+
+    # Adjust the Entry widget properties to center the text
+    adj_Dmin.config(padx=(padding, 0))  # Apply horizontal padding to center text
+
 
 adj_pos = Button(frame, text="Adjust position", command=Adjust_position)
 adj_pos.place(x=10, y=10, height=30, width=100)
@@ -333,7 +343,7 @@ adj_speed_p.insert(END, "5")  # Pre-fill entry1
 adj_speed_p.place(x=120, y=55, height=20, width=30)
 adj_speed_i = Text(frame)
 adj_speed_i.configure(font=font_settings)
-adj_speed_i.insert(END, "0.01")  # Pre-fill entry1
+adj_speed_i.insert(END, "0.02")  # Pre-fill entry1
 adj_speed_i.place(x=120 + 30, y=55, height=20, width=30)
 adj_speed_d = Text(frame)
 adj_speed_d.configure(font=font_settings)
@@ -346,7 +356,7 @@ adj_rudder_pid = Button(frame, text="Adjust rudder pid",command=Adjust_rudder_pi
 adj_rudder_pid.place(x=10, y=90, height=30, width=100)
 adj_rudder_p = Text(frame)
 adj_rudder_p.configure(font=font_settings)
-adj_rudder_p.insert(END, "1")  # Pre-fill entry1
+adj_rudder_p.insert(END, "0.8")  # Pre-fill entry1
 adj_rudder_p.place(x=120, y=95, height=20, width=30)
 adj_rudder_i = Text(frame)
 adj_rudder_i.configure(font=font_settings)
@@ -360,28 +370,23 @@ adj_rudder_kI = Label(text="P:0.0 , I:0.0 , D:0.0, Ki=?.??")
 adj_rudder_kI.configure(font=("Arial", 9,'bold'))
 adj_rudder_kI.place(x=210, y=95)
 
-def center_text(event=None):
-    # Calculate the padding needed to center the text
-    text_width = len(adj_Dmin.get())  # Get the length of the text
-    entry_width = 100  # Adjust this width based on your Entry widget width
-    padding = (entry_width - text_width * 7) // 2  # Adjust multiplier as needed
-
-    # Adjust the Entry widget properties to center the text
-    adj_Dmin.config(padx=(padding, 0))  # Apply horizontal padding to center text
-
 
 adj_para = Button(frame, text="Adjust parameters",command=Adjust_control_parameters)
 adj_para.place(x=120, y=130, height=30, width=260)
 adj_Dmin = Text(frame)
 adj_Dmin.insert(END, "2")
 adj_Dmin.place(x=10, y=135, height=20, width=20)
+
 adj_Dmax_label = Label(text="> Dist >")
 adj_Dmax_label.place(x=35, y = 135)
+
 r1_Dmax_label = Label(text="?")
 r1_Dmax_label.place(x=10, y = 155)
+
 adj_Dmax = Text(frame)
-adj_Dmax.insert(END, "20")
+adj_Dmax.insert(END, "8")
 adj_Dmax.place(x=90, y=135, height=20, width=20)
+
 r2_Dmax_label = Label(text="?")
 r2_Dmax_label.place(x=90, y = 155)
 
@@ -422,6 +427,11 @@ wind_label_dev = Label(text="Deviation:")
 wind_label_dev.place(x=pos_x_deviation, y = pos_y_winddir)
 wind_dev = Label(text="0")
 wind_dev.place(x=pos_x_data_deviation, y = pos_y_winddir)
+
+
+
+
+
 
 out_text = Label(text="Out:")
 out_text.place(x=10, y=(windowh - 60))

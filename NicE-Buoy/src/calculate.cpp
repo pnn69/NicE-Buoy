@@ -318,7 +318,6 @@ int hooverPid(double dist)
     /*Do not use the pid loop if distance is to big just go full power*/
     if (dist > buoy.maxOfsetDist)
     {
-        initSpeedPid();
         return buoy.maxSpeed;
     }
     /*How long since we last calculated*/

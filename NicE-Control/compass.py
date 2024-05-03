@@ -15,6 +15,7 @@ sb_text_cp = None
 battperc = 0
 once = False
 def draw_compass(canvas):
+    global circle, circle_visible
     canvas.delete("all")  # Clear the canvas before redrawing
     canvas.create_oval(50, 50, 250, 250)  # Outer circle
     canvas.create_oval(100, 100, 200, 200)  # Inner circle
@@ -29,6 +30,12 @@ def draw_compass(canvas):
     canvas.create_rectangle(x_bb, 50, x_bb + bar_width, 50 + 200, outline="black")
     canvas.create_rectangle(x_sb, y_start, x_sb + bar_width, y_start + bar_height, outline="black")
     canvas.create_rectangle(50, 300, 50 + 200, 280,  outline="black")
+    x = 20  # x-coordinate of the center
+    y = 290  # y-coordinate of the center
+    radius = 5  # Radius of the circle
+    circle = canvas.create_oval(x - radius, y - radius, x + radius, y + radius, fill="", outline="black")
+    circle_visible = True
+
 
 
 
@@ -113,3 +120,14 @@ def create_compass(root):
     Tghdg_text = Label(canvas, text="Target heading: ", bg="white", fg = "blue")
     Tghdg_text.place(x=190, y=10)
     return canvas  # Return the canvas object for further use
+
+
+def toggle_circle(canvas):
+    global circle_visible
+    if circle_visible:
+        canvas.itemconfig(circle, fill="green")
+        circle_visible = False
+    else:
+        canvas.itemconfig(circle, fill="")
+        circle_visible = True
+    

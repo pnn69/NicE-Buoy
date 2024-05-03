@@ -4073,6 +4073,16 @@
 		)
 		(uuid "fe59e88c-b300-428b-88bc-0acf8b743b56")
 	)
+	(text "Not suited for the job"
+		(exclude_from_sim no)
+		(at 161.544 109.474 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "f89181c8-0934-4c30-b4df-bc761017036c")
+	)
 	(label "ACC"
 		(at 64.135 77.47 0)
 		(fields_autoplaced yes)
