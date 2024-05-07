@@ -252,53 +252,27 @@ else do normal rudder calculation.
 bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int speed, int *bb, int *sb)
 {
     double error = ComputeSmallestAngleDir(magheading, tgheading);
-    double tmperror = error;
-    error = map(error, -180, 180, -80, 80);
-    if (rudderpid.kp != 0.81) // escape for testing
+    /*Rotate to target direction first*/
+    if (tdistance > 0.5 && abs(error) > 45)
     {
-        /*Rotate to target direction first*/
-        if (tdistance > 0.5 && abs(tmperror) > 45)
+        if (error >= 0)
         {
-            if (tmperror >= 0)
-            {
-                *bb = -10;
-                *sb = 10;
-            }
-            else
-            {
-                *bb = 10;
-                *sb = -10;
-            }
-            return false;
+            *bb = -15;
+            *sb = 15;
         }
-    }
-    else
-    {
-        /*Scale error in range for tan*/
-        if (speed <= 1)
+        else
         {
-            if (tdistance > 0.5 && tdistance < 1.5)
-            {
-                int spd = (int)(buoy.minSpeed * tan(radians(error)));
-                spd = constrain(spd, -buoy.minSpeed, buoy.minSpeed);
-                *bb = spd;
-                *sb = spd * -1;
-            }
-            else
-            {
-                *bb = 0;
-                *sb = 0;
-            }
-            return false;
+            *bb = 15;
+            *sb = -15;
         }
+        return false;
     }
     /*calculate proportion thrusters*/
     /*Scale error in range for tan*/
+    error = map(error, -180, 180, -80, 80);
     unsigned long now = millis();
     double timeChange = (double)(now - rudderpid.lastTime);
     double dErr = (error - rudderpid.lastErr) / timeChange;
-    /* This has te be sorted out*/
-    double adj = 0;
     rudderpid.iintergrate += error * timeChange;
     if ((rudderpid.ki / 1000) * rudderpid.iintergrate > ILIM)
     {
@@ -311,7 +285,7 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
     rudderpid.p = rudderpid.kp * error;
     rudderpid.i = (rudderpid.ki / 1000) * rudderpid.iintergrate;
     rudderpid.d = rudderpid.kd * dErr;
-    adj = rudderpid.p + rudderpid.i + rudderpid.d;
+    double adj = rudderpid.p + rudderpid.i + rudderpid.d;
     rudderpid.lastErr = error;
     rudderpid.lastTime = now;
     *bb = (int)(speed * (1 - tan(radians(adj))));
@@ -352,14 +326,18 @@ int hooverPid(double dist)
     else
     {
         /*Do not use the pid loop if distance is to big just go full power*/
-        if (speedpid.armIntergrator == false && dist > 3)
+        if (speedpid.armIntergrator == false)
         {
-            return buoy.maxSpeed;
-        }
-        else
-        {
-            speedpid.armIntergrator = true;
-            speedpid.iintergrate = 0;
+            if (dist > 3)
+            {
+                speedpid.iintergrate = 0;
+                return buoy.maxSpeed;
+            }
+            else
+            {
+                speedpid.armIntergrator = true;
+                speedpid.iintergrate = 0;
+            }
         }
     }
     /*How long since we last calculated*/
