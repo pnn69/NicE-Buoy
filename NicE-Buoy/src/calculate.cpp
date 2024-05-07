@@ -248,28 +248,52 @@ Calculate power to thrusters
 if distance between 0.5 and 1.5 meter rotate at the slowest speed.
 else do normal rudder calculation.
 */
-#define ILIM 26
+#define ILIM 35 // Maximum interal limit (35% power)
 bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int speed, int *bb, int *sb)
 {
     double error = ComputeSmallestAngleDir(magheading, tgheading);
+    double tmperror = error;
     error = map(error, -180, 180, -80, 80);
-    if (speed <= 1)
+    if (rudderpid.kp != 0.81) // escape for testing
     {
-        if (tdistance > 0.5 && tdistance < 1.5)
+        /*Rotate to target direction first*/
+        if (tdistance > 0.5 && abs(tmperror) > 45)
         {
-            int spd = (int)(buoy.minSpeed * tan(radians(error)));
-            spd = constrain(spd, -buoy.minSpeed, buoy.minSpeed);
-            *bb = spd;
-            *sb = spd * -1;
+            if (tmperror >= 0)
+            {
+                *bb = -10;
+                *sb = 10;
+            }
+            else
+            {
+                *bb = 10;
+                *sb = -10;
+            }
+            return false;
         }
-        else
-        {
-            *bb = 0;
-            *sb = 0;
-        }
-        return false;
     }
-    /*calculate proportion thrusters Not used now!!!!!*/
+    else
+    {
+        /*Scale error in range for tan*/
+        if (speed <= 1)
+        {
+            if (tdistance > 0.5 && tdistance < 1.5)
+            {
+                int spd = (int)(buoy.minSpeed * tan(radians(error)));
+                spd = constrain(spd, -buoy.minSpeed, buoy.minSpeed);
+                *bb = spd;
+                *sb = spd * -1;
+            }
+            else
+            {
+                *bb = 0;
+                *sb = 0;
+            }
+            return false;
+        }
+    }
+    /*calculate proportion thrusters*/
+    /*Scale error in range for tan*/
     unsigned long now = millis();
     double timeChange = (double)(now - rudderpid.lastTime);
     double dErr = (error - rudderpid.lastErr) / timeChange;
@@ -292,9 +316,6 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
     rudderpid.lastTime = now;
     *bb = (int)(speed * (1 - tan(radians(adj))));
     *sb = (int)(speed * (1 + tan(radians(adj))));
-#ifdef DEBUG
-    // Serial.printf("BB=%2d,SB=%d  Speed in:%2d   Error:%2.2lf   tan=%2.2f Corr=%3.2lf     p=%2.2lf, i=%2.2lf, d=%0.5lf\r\n", *bb, *sb, speed, error, tan(radians(adj)), adj, rudderpid.p, rudderpid.i, rudderpid.d);
-#endif
     /*Sanety check*/
     *bb = constrain(*bb, -buoy.maxSpeed, buoy.maxSpeed);
     *sb = constrain(*sb, -buoy.maxSpeed, buoy.maxSpeed);
@@ -316,14 +337,30 @@ Only ust PID if the distancs is less than buoy.maxOfsetDist return BUOYMAXSPEED 
 int hooverPid(double dist)
 {
     /*Do not use the pid loop if distance is to big just go full power*/
-    if (dist > buoy.maxOfsetDist)
+    if (buoy.maxSpeed == 51) /*old config use this by setting max speed to 51*/
     {
-        return buoy.maxSpeed;
+        if (dist > buoy.maxOfsetDist)
+        {
+            return buoy.maxSpeed;
+        }
+        if (speedpid.armIntergrator == false)
+        {
+            speedpid.armIntergrator = true;
+            speedpid.iintergrate = 0;
+        }
     }
-    if (speedpid.armIntergrator == false)
+    else
     {
-        speedpid.armIntergrator = true;
-        speedpid.iintergrate = 0;
+        /*Do not use the pid loop if distance is to big just go full power*/
+        if (speedpid.armIntergrator == false && dist > 3)
+        {
+            return buoy.maxSpeed;
+        }
+        else
+        {
+            speedpid.armIntergrator = true;
+            speedpid.iintergrate = 0;
+        }
     }
     /*How long since we last calculated*/
     double Output = 0;
@@ -351,8 +388,5 @@ int hooverPid(double dist)
     /*Remember some variables for next time*/
     speedpid.lastErr = dist;
     speedpid.lastTime = now;
-#ifdef DEBUG
-    // Serial.printf("Speed:%.1lf p=%.2lf, i=%.2lf, d=%.2lf\r\n ", Output, speedpid.p, speedpid.i, speedpid.d);
-#endif
     return (int)constrain(Output, 0, buoy.maxSpeed);
 }
