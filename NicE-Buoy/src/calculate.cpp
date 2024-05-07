@@ -114,7 +114,7 @@ void setparameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int *max
         buoy.minSpeed = *minSpeed;
         buoy.maxSpeed = *maxSpeed;
         computeParameters(&buoy.minOfsetDist, &buoy.maxOfsetDist, &buoy.minSpeed, &buoy.maxSpeed, false);
-        //Serial.printf("Stored Parameters: Minimum offset distance: %dM Maxumum offset distance: %dM, buoy minimum speed: %d%%, buoy maximum speed: %d%%\r\n", buoy.minOfsetDist, buoy.maxOfsetDist, buoy.minSpeed, buoy.maxSpeed);
+        // Serial.printf("Stored Parameters: Minimum offset distance: %dM Maxumum offset distance: %dM, buoy minimum speed: %d%%, buoy maximum speed: %d%%\r\n", buoy.minOfsetDist, buoy.maxOfsetDist, buoy.minSpeed, buoy.maxSpeed);
     }
 }
 
@@ -252,7 +252,7 @@ else do normal rudder calculation.
 bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int speed, int *bb, int *sb)
 {
     double error = ComputeSmallestAngleDir(magheading, tgheading);
-    error = map(error, -180, 180, -70, 70);
+    error = map(error, -180, 180, -80, 80);
     if (speed <= 1)
     {
         if (tdistance > 0.5 && tdistance < 1.5)
@@ -319,6 +319,11 @@ int hooverPid(double dist)
     if (dist > buoy.maxOfsetDist)
     {
         return buoy.maxSpeed;
+    }
+    if (speedpid.armIntergrator == false)
+    {
+        speedpid.armIntergrator = true;
+        speedpid.iintergrate = 0;
     }
     /*How long since we last calculated*/
     double Output = 0;

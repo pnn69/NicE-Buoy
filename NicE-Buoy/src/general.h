@@ -44,6 +44,7 @@ struct pid
     double lastErr = 0;
     unsigned long lastTime = 0;
     double iintergrate = 0;
+    bool armIntergrator = false;
 };
 
 extern buoyDataType buoy;

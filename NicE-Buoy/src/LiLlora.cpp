@@ -224,6 +224,7 @@ int polLora(void)
             msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
             RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate heading and
             rudderpid.iintergrate = 0;
+            speedpid.armIntergrator = false;
             status = DOCKED;
             sendACKNAKINF(msg, ACK);
             Serial.printf("Doc positon: https://www.google.nl/maps/@%2.8lf,%2.8lf,16z?entry=ttu\r\n", buoy.tglatitude, buoy.tglongitude);
@@ -246,6 +247,7 @@ int polLora(void)
                 buoy.tglatitude = gpsdata.lat;
                 buoy.tglongitude = gpsdata.lon;
                 rudderpid.iintergrate = 0;
+                speedpid.armIntergrator = false;
                 sendACKNAKINF("", ACK);
                 status = LOCKED;
             }
@@ -480,6 +482,7 @@ int polLora(void)
                 loraOut.msgid = DIR_DISTANSE_TO_TARGET_POSITION;
                 loraOut.gsia = SET;
                 status = LOCKED;
+                speedpid.armIntergrator = false;
                 while (sendLora())
                     ;
                 break;
