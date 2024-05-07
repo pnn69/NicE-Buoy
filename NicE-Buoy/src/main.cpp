@@ -48,13 +48,14 @@ static bool blink = false;      // for blinking led
 buoyDataType buoy;              // buoy struckt
 switchStatus frontsw;           // led struckt
 bool FrontLed = false;          // status led
-int spdbb, spdsb;               // speed
+int spdbb = 0, spdsb = 0;       // speed
 unsigned int sw_button_cnt = 0; // button press counters
 unsigned int sw_button_set = 0; // button press counters
 unsigned int msg_cnt = 0;       // msg out counter
 MessageSP snd_sp;               /* Speed sb(-100%<>100%),bb(-100%<>100%) */
 MessageSq snd_sq;               /* Ledstatus CRGB */
 MessageBuzz snd_buz;            /* on(true/false),time(msec),pauze(msec),repeat(x) */
+Message snd_msg;                /* ESC que struckt */
 
 /*
 not usede any more
@@ -277,6 +278,11 @@ void loop()
         digitalWrite(LED_PIN, !nwloramsg);
         nwloramsg = false;
         buoy.mheading = CompassAverage(GetHeading());
+        if (status == DOCKED)
+        {
+            CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
+        }
+
     } /*Done 10 msec loop*/
 
     if (millis() - hstamp > 100) /*100 msec loop*/
@@ -289,21 +295,23 @@ void loop()
         {
             if ((status == LOCKED) || status == DOCKED)
             {
-                RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir); // calculate distance and heading
-            }
-            if (status == DOCKED)
-            {
-                buoy.speed = (int)CalcDocSpeed(buoy.tgdistance);
-            }
-            if (status == LOCKED)
-            {
+                RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir);
+                // calculate distance and heading
+                // }
+                // if (status == DOCKED)
+                // {
+                //     buoy.speed = (int)CalcDocSpeed(buoy.tgdistance);
+                // }
+                // if (status == LOCKED)
+                // {
                 buoy.speed = hooverPid(buoy.tgdistance);
+                CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
             }
         }
-        if (status == LOCKED || status == DOCKED)
-        {
-            CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
-        }
+        // if (status == LOCKED || status == DOCKED)
+        // {
+        // CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
+        // }
 
         if (FRONTBUTTON_READ == PUSHED)
         {
@@ -643,63 +651,45 @@ void loop()
         Serial.printf("New data on serial port: %d\n", nr);
     }
 
+    // trigger esc to prefent from beeping
+    if (millis() - esctrigger > ESC_TRIGGER)
+    {
+        if (buoy.speedsb == 0 && buoy.speedbb == 0)
+        {
+            triggerESC();
+        }
+        esctrigger = millis();
+    }
+
     /*
      * Sending speed to ESC and indicator
      */
-    if (escstamp + ESC_UPDATE_DELAY < millis()) /*ESC update loop*/
+    if (spdbb != buoy.speedbb || spdsb != buoy.speedsb)
     {
-        escstamp = millis() - 1; // to make it correct. > used instead of >=
-        Message snd_msg;
-        if (spdbb != buoy.speedbb)
+        esctrigger = millis();
+        if (spdbb < buoy.speedbb) // slowly go to setpoint
         {
-            esctrigger = millis();
-            //            distanceChanged = true;
-            if (spdbb < buoy.speedbb) // slowly go to setpoint
-            {
-                spdbb++;
-            }
-            else if (spdbb > buoy.speedbb)
-            {
-                spdbb--;
-            }
+            spdbb++;
         }
-        if (spdsb != buoy.speedsb)
+        else if (spdbb > buoy.speedbb)
         {
-            //            distanceChanged = true;
-            esctrigger = millis();
-            if (spdsb < buoy.speedsb)
-            {
-                spdsb++;
-            }
-            else if (spdsb > buoy.speedsb)
-            {
-                spdsb--;
-            }
+            spdbb--;
         }
-        if (millis() - esctrigger > ESC_TRIGGER)
+        if (spdsb < buoy.speedsb)
         {
-            if (buoy.speedsb == 0 && buoy.speedbb == 0)
-            {
-                triggerESC();
-            }
-            esctrigger = millis();
+            spdsb++;
         }
-        // spdbb = -BUOYMINSPEEDBB;
-        // spdsb = -BUOYMINSPEEDSB;
-        // snd_msg.speedbb = spdbb;
-        // snd_msg.speedsb = spdsb;
+        else if (spdsb > buoy.speedsb)
+        {
+            spdsb--;
+        }
         snd_msg.speedbb = spdbb;
         snd_msg.speedsb = spdsb;
-#if DEBUG
-        snd_msg.speedbb = 0;
-        snd_msg.speedsb = 0;
-#endif
         if (buoy.muteEsc == true)
         {
             snd_msg.speedbb = 0;
             snd_msg.speedsb = 0;
         }
-
         xQueueSend(escspeed, (void *)&snd_msg, 10); // update esc
         snd_sp.speedbb = spdbb;
         snd_sp.speedsb = spdsb;

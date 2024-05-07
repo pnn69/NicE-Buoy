@@ -215,7 +215,7 @@ def open_google_maps():
     # Construct the Google Maps URL with the coordinates
     #if latitude is not None and longitude is not None:
     if gps_fix == True:
-        url = f"https://www.google.com/maps?q={latitude},{longitude}"
+        url = f"https://www.google.com/maps/?q={latitude},{longitude}"
         # Open the URL in a web browser
         webbrowser.open(url)     
 
