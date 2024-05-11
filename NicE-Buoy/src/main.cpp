@@ -614,10 +614,7 @@ void loop()
             loraMenu(BATTERY_VOLTAGE_PERCENTAGE); // bat voltage and percentage to remote
             break;
         case 3:
-            if (status == LOCKED || status == DOCKED)
-            {
                 loraMenu(SBPWR_BBPWR);
-            }
             break;
         case 4:
             msg_cnt = 0;
@@ -683,16 +680,16 @@ void loop()
         {
             spdsb--;
         }
-        snd_msg.speedbb = spdbb;
-        snd_msg.speedsb = spdsb;
-        if (buoy.muteEsc == true)
-        {
-            snd_msg.speedbb = 0;
-            snd_msg.speedsb = 0;
-        }
-        xQueueSend(escspeed, (void *)&snd_msg, 10); // update esc
-        snd_sp.speedbb = spdbb;
-        snd_sp.speedsb = spdsb;
-        xQueueSend(indicatorqueSp, (void *)&snd_sp, 10); // send to led indicator
     }
+    snd_msg.speedbb = spdbb;
+    snd_msg.speedsb = spdsb;
+    if (buoy.muteEsc == true)
+    {
+        snd_msg.speedbb = 0;
+        snd_msg.speedsb = 0;
+    }
+    xQueueSend(escspeed, (void *)&snd_msg, 10); // update esc
+    snd_sp.speedbb = spdbb;
+    snd_sp.speedsb = spdsb;
+    xQueueSend(indicatorqueSp, (void *)&snd_sp, 10); // send to led indicator
 }

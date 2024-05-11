@@ -257,13 +257,13 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
     {
         if (error >= 0)
         {
-            *bb = -15;
-            *sb = 15;
+            *bb = -10;
+            *sb = 10;
         }
         else
         {
-            *bb = 15;
-            *sb = -15;
+            *bb = 10;
+            *sb = -10;
         }
         return false;
     }

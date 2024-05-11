@@ -485,9 +485,11 @@ int polLora(void)
                 speedpid.armIntergrator = false;
                 while (sendLora())
                     ;
-                break;
             }
-            sendACKNAKINF("", NAK);
+            else
+            {
+                sendACKNAKINF("", NAK);
+            }
         }
         break;
 

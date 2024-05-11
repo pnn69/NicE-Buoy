@@ -126,12 +126,11 @@ def decode_19(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
 def decode_20(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
     global bb_sp,sb_sp
     values = data.group(5).split(',')
-    if len(values) == 4:
+    if len(values) == 2:
         bb_sp = int(values[0])
         sb_sp = int(values[1])
         output_str = f"{bb_sp}% , {sb_sp}%"
-        speed.config(text=output_str)
-        compass.draw_barr(bb_sp,sb_sp)
+        compass.draw_barr(bb_sp,sb_sp,comp)
     
      #<52.32038000,4.96563000,10,1,0,0,3.00>
 def decode_23(data): #GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING,  // lat,lon,fix,heading,speed,m_heading
@@ -150,7 +149,9 @@ def decode_23(data): #GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING,  // lat,lon,
         gps_hdg = int(values[4])
         gps_speed = int(values[5])
         buoy_hdg = int(float(values[6]))
-        if gps_speed > 5:
+        output_str = f"{gps_speed} Km/pH"
+        gps_data.config(text=output_str)
+        if gps_speed > 1:
             compass.draw_pointer(gps_hdg,comp,gps_collor)
         else:
             compass.draw_pointer(0,comp,blk_collor)
@@ -428,6 +429,10 @@ wind_label_dev.place(x=pos_x_deviation, y = pos_y_winddir)
 wind_dev = Label(text="0")
 wind_dev.place(x=pos_x_data_deviation, y = pos_y_winddir)
 
+gps_label_dir = Label(text="GPS Speed:")
+gps_label_dir.place(x=pos_x_winddir, y =20+ pos_y_winddir)
+gps_data = Label(text="?")
+gps_data.place(x=pos_x_data_winddir-10, y =20+ pos_y_data_winddir)
 
 
 

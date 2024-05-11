@@ -39,6 +39,11 @@ void triggerESC(void)
         ;
     escbb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
     escsb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+    now = millis();
+    while (millis() < now + ESC_ARM_TIME)
+        ;
+    escbb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+    escsb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
 }
 void beepESC(void)
 {
