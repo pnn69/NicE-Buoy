@@ -54,80 +54,80 @@ void setup_OTA()
 
 void websetup()
 {
-    String nwk = "";
-    int n = WiFi.scanNetworks();
-    if (n == 0)
-    {
-        Serial.println("no networks found");
-    }
-    else
-    {
-        Serial.print(n);
-        Serial.println(" networks found");
-        for (int i = 0; i < n; ++i)
-        {
-            // Print SSID and RSSI for each network found
-            Serial.print(i + 1);
-            Serial.print(": ");
-            Serial.print(WiFi.SSID(i));
-            if (WiFi.SSID(i) == "NicE_Engineering_UPC")
-            {
-                nwk = WiFi.SSID(i);
-            }
-            if (WiFi.SSID(i) == "wvop")
-            {
-                nwk = WiFi.SSID(i);
-            }
-            Serial.print(" (");
-            Serial.print(WiFi.RSSI(i));
-            Serial.print(")");
-            Serial.println((WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? " " : "*");
-            delay(10);
-        }
-    }
-    Serial.println("");
+    // String nwk = "";
+    // int n = WiFi.scanNetworks();
+    // if (n == 0)
+    // {
+    //     Serial.println("no networks found");
+    // }
+    // else
+    // {
+    //     Serial.print(n);
+    //     Serial.println(" networks found");
+    //     for (int i = 0; i < n; ++i)
+    //     {
+    //         // Print SSID and RSSI for each network found
+    //         Serial.print(i + 1);
+    //         Serial.print(": ");
+    //         Serial.print(WiFi.SSID(i));
+    //         if (WiFi.SSID(i) == "NicE_Engineering_UPC")
+    //         {
+    //             nwk = WiFi.SSID(i);
+    //         }
+    //         if (WiFi.SSID(i) == "wvop")
+    //         {
+    //             nwk = WiFi.SSID(i);
+    //         }
+    //         Serial.print(" (");
+    //         Serial.print(WiFi.RSSI(i));
+    //         Serial.print(")");
+    //         Serial.println((WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? " " : "*");
+    //         delay(10);
+    //     }
+    // }
+    // Serial.println("");
 
-    if (nwk == "NicE_Engineering_UPC")
-    {
-        int se = 0;
-        WiFi.mode(WIFI_STA);
-        WiFi.begin(ssid, password);
-        Serial.print("Connecting to WiFi ..");
-        while (WiFi.status() != WL_CONNECTED && se < 10)
-        {
-            Serial.print('.');
-            delay(1000);
-            se++;
-            if (se > 10)
-                break;
-        }
-        if (se >= 10)
-        {
-            nwk == "";
-        }
-    }
+    // if (nwk == "NicE_Engineering_UPC")
+    // {
+    //     int se = 0;
+    //     WiFi.mode(WIFI_STA);
+    //     WiFi.begin(ssid, password);
+    //     Serial.print("Connecting to WiFi ..");
+    //     while (WiFi.status() != WL_CONNECTED && se < 10)
+    //     {
+    //         Serial.print('.');
+    //         delay(1000);
+    //         se++;
+    //         if (se > 10)
+    //             break;
+    //     }
+    //     if (se >= 10)
+    //     {
+    //         nwk == "";
+    //     }
+    // }
 
-    if (nwk == "wsop")
-    {
-        int se = 0;
-        WiFi.mode(WIFI_STA);
-        WiFi.begin(ssidwsop, passwordwsop);
-        Serial.print("Connecting to WiFi ..");
-        while (WiFi.status() != WL_CONNECTED && se < 10)
-        {
-            Serial.print('.');
-            delay(1000);
-            se++;
-            if (se > 10)
-                break;
-        }
-        if (se >= 10)
-        {
-            nwk == "";
-        }
-    }
-    if (nwk == "")
-    {
+    // if (nwk == "wsop")
+    // {
+    //     int se = 0;
+    //     WiFi.mode(WIFI_STA);
+    //     WiFi.begin(ssidwsop, passwordwsop);
+    //     Serial.print("Connecting to WiFi ..");
+    //     while (WiFi.status() != WL_CONNECTED && se < 10)
+    //     {
+    //         Serial.print('.');
+    //         delay(1000);
+    //         se++;
+    //         if (se > 10)
+    //             break;
+    //     }
+    //     if (se >= 10)
+    //     {
+    //         nwk == "";
+    //     }
+    // }
+    // if (nwk == "")
+    // {
         Serial.println("Accespoint setup!");
         IPAddress local_IP(192, 168, 4, 1); // Your Desired Static IP Address
         IPAddress subnet(255, 255, 255, 0);
@@ -150,13 +150,13 @@ void websetup()
         IPAddress IP = WiFi.softAPIP();
         Serial.print("AP IP address: ");
         Serial.println(IP);
-    }
+    // }
 
-    else
-    {
-        Serial.print("WiFi network found!\r\nIP: ");
-        Serial.println(WiFi.localIP());
-    }
+    // else
+    // {
+    //     Serial.print("WiFi network found!\r\nIP: ");
+    //     Serial.println(WiFi.localIP());
+    // }
     setup_OTA();
     WEBok = true;
 }

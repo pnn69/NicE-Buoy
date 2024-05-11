@@ -59,7 +59,7 @@ extern byte status;
 #define BUZZERON 0
 #define BUZZEROFF 1
 #define BUZZTIME 100
-
+#define WEBON 1
 // #define BUOYMINSPEEDBB 5 // minimal speed thrusters are turning
 // #define BUOYMINSPEEDSB 20 // minimal speed thrusters are turning
 // #define WEBON 1

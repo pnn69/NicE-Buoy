@@ -210,9 +210,14 @@ float CompassAverage(float in)
     sum_y /= NUM_DIRECTIONS;
     // Calculate the average direction in degrees
     avg_dir = atan2(sum_y, sum_x) * 180.0 / M_PI;
+    avg_dir += 10; //manual correction
     if (avg_dir < 0)
     {
         avg_dir += 360.0;
+    }
+    if (avg_dir > 360)
+    {
+        avg_dir -= 360;
     }
     return avg_dir;
 }
