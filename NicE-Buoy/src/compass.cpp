@@ -8,12 +8,14 @@
 #include "io23017.h"
 #include "io.h"
 #include "datastorage.h"
-
+#include "esc.h"
+#include "gps.h"
 #define NUM_DIRECTIONS 10
 #define NUM_POSITIONS 50
 
 Adafruit_LSM303AGR_Mag_Unified mag = Adafruit_LSM303AGR_Mag_Unified(12345);
 Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
+Message truster_power; /* Speed sb(-100%<>100%),bb(-100%<>100%) */
 
 template <typename T>
 struct vector
@@ -210,7 +212,7 @@ float CompassAverage(float in)
     sum_y /= NUM_DIRECTIONS;
     // Calculate the average direction in degrees
     avg_dir = atan2(sum_y, sum_x) * 180.0 / M_PI;
-    avg_dir += 10; //manual correction
+    avg_dir += 10; // manual correction
     if (avg_dir < 0)
     {
         avg_dir += 360.0;
@@ -224,4 +226,56 @@ float CompassAverage(float in)
 
 void GpsAverage(double *lat, double *lon)
 {
+}
+
+/*
+Set sailspeed at 50%
+take for 10 sconds the avarage magnetic neading and gps heading
+determ de differenanc.
+The result is the offset off the magnetic compass
+returns -1 if no solution is known yet
+*/
+#define ABUF 20
+double tbuf[2][ABUF];
+int pointer = 0;
+int stage = 0;
+unsigned long timer;
+int linMagCalib(int *corr)
+{
+    int ret = -1;
+    switch (stage)
+    {
+    case 0:
+        truster_power.speedbb = 50;
+        truster_power.speedsb = 50;
+        pointer = 0;
+        xQueueSend(escspeed, (void *)&truster_power, 10); // update esc
+        timer = millis();
+        stage++;
+        break;
+    case 1:
+        while (timer + 5000 > millis())
+            break;
+        timer = millis();
+        stage++;
+        break;
+    case 2:
+        if (timer + 20000 > millis())
+        {
+            tbuf[0][pointer] = GetHeadingRaw();
+            tbuf[1][pointer++] = gpsdata.cource;
+            if (pointer >= ABUF)
+            {
+                pointer = 0;
+            }
+            //compute ofset and return offset
+            ret = 0;
+        }
+        stage++;
+        break;
+
+    default:
+        break;
+    }
+    return ret;
 }
