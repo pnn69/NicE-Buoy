@@ -277,7 +277,8 @@ void loop()
         msecstamp = millis() - 1;
         digitalWrite(LED_PIN, !nwloramsg);
         nwloramsg = false;
-        buoy.mheading = CompassAverage(GetHeading());
+        //buoy.mheading = CompassAverage(GetHeading());
+        buoy.mheading = GetHeading();
         if (status == DOCKED)
         {
             CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
@@ -549,6 +550,21 @@ void loop()
                 }
             }
             break;
+        case LINEAR_CAL:
+            int corr;
+            if (linMagCalib(&corr) == 0)
+            {
+                status = IDLE;
+                Serial.printf("\r\n\n\nMagnetick offset now: %d degrees\r\n\n\n", corr);
+                buoy.magneticCorrection = corr;
+                CompassOffsetCorrection(&buoy.magneticCorrection, false);
+            }
+            else
+            {
+                loraMenu(GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING); // pos heading speed to remote
+                delay(250);
+            }
+            break;
 
         default:
             buoy.speed = 0;
@@ -562,6 +578,7 @@ void loop()
         if (blink == true)
         {
             addNewSampleInBuffer(buoy.winddir, BUFLENMHRG, buoy.mheading);
+            loraMenu(DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING);
         }
         blink = !blink;
     }
@@ -614,7 +631,7 @@ void loop()
             loraMenu(BATTERY_VOLTAGE_PERCENTAGE); // bat voltage and percentage to remote
             break;
         case 3:
-                loraMenu(SBPWR_BBPWR);
+            loraMenu(SBPWR_BBPWR);
             break;
         case 4:
             msg_cnt = 0;

@@ -210,6 +210,8 @@ def decode_status(data):
         status_txt.config(text=f"REMOTE")
     if data == "13":
         status_txt.config(text=f"DOCKED")
+    if data == "17":
+        status_txt.config(text=f"M CALIB")
     
 def open_google_maps():
     global latitude, longitude, gps_fix
@@ -232,7 +234,11 @@ def decode_xx(data):
 def test():
     msg = "*^1^23^1^maffe data^1"
     ser.write(msg.encode())
-    
+
+def Calibrate_compass():
+    msg = "*^1^35^1^^1"
+    ser.write(msg.encode())
+   
     
 
 def remove_spaces(string):
@@ -370,6 +376,16 @@ adj_rudder_d.place(x=120 + 60, y=95, height=20, width=30)
 adj_rudder_kI = Label(text="P:0.0 , I:0.0 , D:0.0, Ki=?.??")
 adj_rudder_kI.configure(font=("Arial", 9,'bold'))
 adj_rudder_kI.place(x=210, y=95)
+
+
+adj_para = Button(frame, text="Adjust parameters",command=Adjust_control_parameters)
+adj_para.place(x=120, y=130, height=30, width=260)
+adj_Dmin = Text(frame)
+adj_Dmin.insert(END, "2")
+adj_Dmin.place(x=10, y=135, height=20, width=20)
+
+cal_comp = Button(frame, text="Calibrate compas",command=Calibrate_compass)
+cal_comp.place(x=200, y=160, height=30, width=100)
 
 
 adj_para = Button(frame, text="Adjust parameters",command=Adjust_control_parameters)

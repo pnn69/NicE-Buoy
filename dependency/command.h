@@ -53,6 +53,7 @@ typedef enum
     WIND_DIR_DEV,                                  // wind direction deviation
     ESC_ON_OFF,                                    // enable disable esc (defaut enabled)
     MAGNETIC_HEADING,                              // magnetic heading
+    LINEAR_CALIBRATE_MAGNETIC_COMPASS,             // calibrate compas with gps as base
     RESET                                          // reset esp
 } Command_t;
 
@@ -75,6 +76,7 @@ typedef enum
     DOC,
     REMOTEING,
     CALIBRATE_MAGNETIC_COMPASS,
+    LINEAR_CAL,
     CALIBRATE_OFFSET_MAGNETIC_COMPASS,
     STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS,
     DOCK_STORING,

@@ -8,14 +8,12 @@
 #include "io23017.h"
 #include "io.h"
 #include "datastorage.h"
-#include "esc.h"
 #include "gps.h"
 #define NUM_DIRECTIONS 10
 #define NUM_POSITIONS 50
 
 Adafruit_LSM303AGR_Mag_Unified mag = Adafruit_LSM303AGR_Mag_Unified(12345);
 Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
-Message truster_power; /* Speed sb(-100%<>100%),bb(-100%<>100%) */
 
 template <typename T>
 struct vector
@@ -212,7 +210,6 @@ float CompassAverage(float in)
     sum_y /= NUM_DIRECTIONS;
     // Calculate the average direction in degrees
     avg_dir = atan2(sum_y, sum_x) * 180.0 / M_PI;
-    avg_dir += 10; // manual correction
     if (avg_dir < 0)
     {
         avg_dir += 360.0;
@@ -228,6 +225,11 @@ void GpsAverage(double *lat, double *lon)
 {
 }
 
+#define ABUF 20
+double tbuf[2][ABUF];
+int pointer = 0;
+int stage = 0;
+unsigned long timer;
 /*
 Set sailspeed at 50%
 take for 10 sconds the avarage magnetic neading and gps heading
@@ -235,21 +237,16 @@ determ de differenanc.
 The result is the offset off the magnetic compass
 returns -1 if no solution is known yet
 */
-#define ABUF 20
-double tbuf[2][ABUF];
-int pointer = 0;
-int stage = 0;
-unsigned long timer;
 int linMagCalib(int *corr)
 {
     int ret = -1;
     switch (stage)
     {
     case 0:
-        truster_power.speedbb = 50;
-        truster_power.speedsb = 50;
+        buoy.speedbb = 20;
+        buoy.speedsb = 20;
         pointer = 0;
-        xQueueSend(escspeed, (void *)&truster_power, 10); // update esc
+        buoy.magneticCorrection = 0;
         timer = millis();
         stage++;
         break;
@@ -260,21 +257,63 @@ int linMagCalib(int *corr)
         stage++;
         break;
     case 2:
-        if (timer + 20000 > millis())
+        if (timer + 1500 > millis())
         {
+            timer = millis();
             tbuf[0][pointer] = GetHeadingRaw();
             tbuf[1][pointer++] = gpsdata.cource;
             if (pointer >= ABUF)
             {
-                pointer = 0;
+                buoy.speedbb = 5;
+                buoy.speedsb = 5;
+                float msum_x = 0.0, msum_y = 0.0, mavg_dir;
+                float gsum_x = 0.0, gsum_y = 0.0, gavg_dir;
+                for (int tel = 0; tel < ABUF; tel++)
+                {
+                    msum_x += cos(tbuf[0][tel] * M_PI / 180.0);
+                    msum_y += sin(tbuf[0][tel] * M_PI / 180.0);
+                    gsum_x += cos(tbuf[1][tel] * M_PI / 180.0);
+                    gsum_y += sin(tbuf[1][tel] * M_PI / 180.0);
+                }
+                mavg_dir = atan2(msum_y, msum_x) * 180.0 / M_PI;
+                gavg_dir = atan2(gsum_y, gsum_x) * 180.0 / M_PI;
+                if (mavg_dir < 0)
+                {
+                    mavg_dir += 360.0;
+                }
+                if (mavg_dir > 360)
+                {
+                    mavg_dir -= 360;
+                }
+                if (gavg_dir < 0)
+                {
+                    gavg_dir += 360.0;
+                }
+                if (gavg_dir > 360)
+                {
+                    gavg_dir -= 360;
+                }
+                *corr = int(gavg_dir - mavg_dir);
+                if (*corr < 0)
+                {
+                    *corr += 360.0;
+                }
+                if (*corr > 360)
+                {
+                    *corr -= 360;
+                }
+                if (*corr > 180)
+                {
+                    *corr = 360 - *corr;
+                    *corr *= -1;
+                }
+                ret = 0;
+                stage = 0;
             }
-            //compute ofset and return offset
-            ret = 0;
         }
-        stage++;
         break;
-
     default:
+        stage = 0;
         break;
     }
     return ret;

@@ -507,7 +507,17 @@ int polLora(void)
         }
         sendACKNAKINF("", ACK);
         break;
-
+    case LINEAR_CALIBRATE_MAGNETIC_COMPASS:
+        //if (gpsdata.fix == true)
+        {
+            status = LINEAR_CAL;
+            sendACKNAKINF("", ACK);
+        }
+       // else
+        {
+         //   sendACKNAKINF("", NAK);
+        }
+        break;
     case RESET:
         ESP.restart();
         break;

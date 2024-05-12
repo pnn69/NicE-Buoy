@@ -9,4 +9,5 @@ float GetHeading(void);
 float GetHeadingRaw(void);
 float CompassAverage(float);
 void GpsAverage(double *lat, double *lon);
+int linMagCalib(int *corr);
 #endif /* COMPASS_H_ */
