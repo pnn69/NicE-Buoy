@@ -9,7 +9,7 @@
 #include "io.h"
 #include "datastorage.h"
 #include "gps.h"
-#define NUM_DIRECTIONS 10
+#define NUM_DIRECTIONS 30
 #define NUM_POSITIONS 50
 
 Adafruit_LSM303AGR_Mag_Unified mag = Adafruit_LSM303AGR_Mag_Unified(12345);
@@ -243,8 +243,8 @@ int linMagCalib(int *corr)
     switch (stage)
     {
     case 0:
-        buoy.speedbb = 20;
-        buoy.speedsb = 20;
+        buoy.speedbb = 30;
+        buoy.speedsb = 30;
         pointer = 0;
         buoy.magneticCorrection = 0;
         timer = millis();
@@ -260,14 +260,14 @@ int linMagCalib(int *corr)
         if (timer + 1500 > millis())
         {
             timer = millis();
-            tbuf[0][pointer] = GetHeadingRaw();
+            tbuf[0][pointer] = (double)GetHeading();
             tbuf[1][pointer++] = gpsdata.cource;
             if (pointer >= ABUF)
             {
-                buoy.speedbb = 5;
-                buoy.speedsb = 5;
-                float msum_x = 0.0, msum_y = 0.0, mavg_dir;
-                float gsum_x = 0.0, gsum_y = 0.0, gavg_dir;
+                buoy.speedbb = 0;
+                buoy.speedsb = 0;
+                double msum_x = 0.0, msum_y = 0.0, mavg_dir;
+                double gsum_x = 0.0, gsum_y = 0.0, gavg_dir;
                 for (int tel = 0; tel < ABUF; tel++)
                 {
                     msum_x += cos(tbuf[0][tel] * M_PI / 180.0);

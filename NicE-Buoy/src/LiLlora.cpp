@@ -13,6 +13,8 @@
 #include "gps.h"
 #include "../../dependency/command.h"
 
+QueueHandle_t loradataout;
+unsigned int loracmnd = 0;
 static unsigned long lasttransmission = 0;
 int counter = 0;
 
@@ -40,6 +42,7 @@ bool InitLora(void)
     loraOK = true;
     return true;
 }
+
 /*
  *Lora message: Destination,SenderAddres,Status,mg_id,gsia,Length,Message
  */
@@ -508,14 +511,14 @@ int polLora(void)
         sendACKNAKINF("", ACK);
         break;
     case LINEAR_CALIBRATE_MAGNETIC_COMPASS:
-        //if (gpsdata.fix == true)
+        // if (gpsdata.fix == true)
         {
             status = LINEAR_CAL;
             sendACKNAKINF("", ACK);
         }
-       // else
+        // else
         {
-         //   sendACKNAKINF("", NAK);
+            //   sendACKNAKINF("", NAK);
         }
         break;
     case RESET:
@@ -528,87 +531,110 @@ int polLora(void)
     return 0;
 }
 
-bool loraMenu(int cmnd)
-{
-    switch (cmnd)
-    {
-    case GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING:
-        loraOut.message = String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.nrsats) + "," + String(gpsdata.fix) + "," + String((int)gpsdata.cource) + "," + String((int)gpsdata.speed) + "," + String(buoy.mheading);
-        loraOut.destination = loraIn.recipient;
-        loraOut.msgid = cmnd;
-        loraOut.gsia = SET;
-        while (sendLora())
-            ;
-        break;
-    case BATTERY_VOLTAGE_PERCENTAGE:
-        loraOut.message = String(buoy.vbatt, 1) + "," + String(buoy.vperc);
-        loraOut.destination = loraIn.recipient;
-        loraOut.msgid = cmnd;
-        loraOut.gsia = SET;
-        while (sendLora())
-            ;
-        break;
-    case DIR_DISTANSE_TO_TARGET_POSITION:
-        loraOut.message = String((int)buoy.tgdir) + "," + String(buoy.tgdistance, 1);
-        loraOut.destination = loraIn.recipient;
-        loraOut.msgid = cmnd;
-        loraOut.gsia = SET;
-        while (sendLora())
-            ;
-        break;
-    case DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING:
-        loraOut.message = String(buoy.tgdir) + "," + String(buoy.tgdistance) + "," + buoy.speed + "," + buoy.speedbb + "," + buoy.speedsb + "," + String(buoy.mheading, 0);
-        loraOut.destination = loraIn.recipient;
-        loraOut.msgid = cmnd;
-        loraOut.gsia = SET;
-        while (sendLora())
-            ;
-        break;
-    case SBPWR_BBPWR:
-        loraOut.message = String(buoy.speedsb) + "," + String(buoy.speedbb);
-        loraOut.destination = loraIn.recipient;
-        loraOut.msgid = cmnd;
-        loraOut.gsia = SET;
-        while (sendLora())
-            ;
-        break;
-    case COMPUTE_PARAMETERS:
-        loraOut.msgid = cmnd;
-        loraOut.message = String(buoy.minOfsetDist) + "," + String(buoy.maxOfsetDist) + "," + String(buoy.minSpeed) + "," + String(buoy.maxSpeed);
-        loraOut.gsia = SET;
-        while (sendLora())
-            ;
 
-        break;
-    case PID_SPEED_PARAMETERS:
-        loraOut.msgid = cmnd;
-        loraOut.message = String(speedpid.kp) + "," + String(speedpid.ki, 4) + "," + String(speedpid.kd) + "," + String(speedpid.i);
-        loraOut.gsia = SET;
-        while (sendLora())
-            ;
-        break;
-    case PID_RUDDER_PARAMETERS:
-        loraOut.msgid = cmnd;
-        loraOut.message = String(rudderpid.kp) + "," + String(rudderpid.ki, 4) + "," + String(rudderpid.kd) + "," + String(rudderpid.i);
-        loraOut.gsia = SET;
-        while (sendLora())
-            ;
-        break;
-    case WIND_DIR_DEV:
-        deviationWindRose(buoy.winddir, BUFLENMHRG);
-        loraOut.msgid = cmnd;
-        loraOut.message = String(buoy.winddir[0], 0) + "," + String(buoy.winddir[1], 0);
-        loraOut.gsia = SET;
-        while (sendLora())
-            ;
-        break;
-    case MAGNETIC_HEADING:
-        loraOut.msgid = cmnd;
-        loraOut.message = String(buoy.mheading, 0);
-        loraOut.gsia = SET;
-        while (sendLora())
-            ;
-        break;
+void LoraTask(void *arg)
+{
+    Mlora ldata;
+    loradataout = xQueueCreate(10, sizeof(ldata));
+    while (1)
+    {
+        if (loraOK)
+        {
+            polLora();
+        }
+        if (xQueueReceive(loradataout, (void *)&ldata, 0) == pdTRUE)
+        {
+            int cmnd = ldata.data;
+            switch (cmnd)
+            {
+            case GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING:
+                loraOut.message = String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.nrsats) + "," + String(gpsdata.fix) + "," + String((int)gpsdata.cource) + "," + String((int)gpsdata.speed) + "," + String(buoy.mheading);
+                loraOut.destination = loraIn.recipient;
+                loraOut.msgid = cmnd;
+                loraOut.gsia = SET;
+                while (sendLora())
+                    delay(10);
+                ;
+                break;
+            case BATTERY_VOLTAGE_PERCENTAGE:
+                loraOut.message = String(buoy.vbatt, 1) + "," + String(buoy.vperc);
+                loraOut.destination = loraIn.recipient;
+                loraOut.msgid = cmnd;
+                loraOut.gsia = SET;
+                while (sendLora())
+                    delay(10);
+                ;
+                break;
+            case DIR_DISTANSE_TO_TARGET_POSITION:
+                loraOut.message = String((int)buoy.tgdir) + "," + String(buoy.tgdistance, 1);
+                loraOut.destination = loraIn.recipient;
+                loraOut.msgid = cmnd;
+                loraOut.gsia = SET;
+                while (sendLora())
+                    delay(10);
+                ;
+                break;
+            case DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING:
+                loraOut.message = String(buoy.tgdir) + "," + String(buoy.tgdistance) + "," + buoy.speed + "," + buoy.speedbb + "," + buoy.speedsb + "," + String(buoy.mheading, 0);
+                loraOut.destination = loraIn.recipient;
+                loraOut.msgid = cmnd;
+                loraOut.gsia = SET;
+                while (sendLora())
+                    delay(10);
+                ;
+                break;
+            case SBPWR_BBPWR:
+                loraOut.message = String(buoy.speedbb) + "," + String(buoy.speedsb);
+                loraOut.destination = loraIn.recipient;
+                loraOut.msgid = cmnd;
+                loraOut.gsia = SET;
+                while (sendLora())
+                    delay(10);
+                ;
+                break;
+            case COMPUTE_PARAMETERS:
+                loraOut.msgid = cmnd;
+                loraOut.message = String(buoy.minOfsetDist) + "," + String(buoy.maxOfsetDist) + "," + String(buoy.minSpeed) + "," + String(buoy.maxSpeed);
+                loraOut.gsia = SET;
+                while (sendLora())
+                    delay(10);
+                ;
+                break;
+            case PID_SPEED_PARAMETERS:
+                loraOut.msgid = cmnd;
+                loraOut.message = String(speedpid.kp) + "," + String(speedpid.ki, 4) + "," + String(speedpid.kd) + "," + String(speedpid.i);
+                loraOut.gsia = SET;
+                while (sendLora())
+                    delay(10);
+                ;
+                break;
+            case PID_RUDDER_PARAMETERS:
+                loraOut.msgid = cmnd;
+                loraOut.message = String(rudderpid.kp) + "," + String(rudderpid.ki, 4) + "," + String(rudderpid.kd) + "," + String(rudderpid.i);
+                loraOut.gsia = SET;
+                while (sendLora())
+                    delay(10);
+                ;
+                break;
+            case WIND_DIR_DEV:
+                deviationWindRose(buoy.winddir, BUFLENMHRG);
+                loraOut.msgid = cmnd;
+                loraOut.message = String(buoy.winddir[0], 0) + "," + String(buoy.winddir[1], 0);
+                loraOut.gsia = SET;
+                while (sendLora())
+                    delay(10);
+                ;
+                break;
+            case MAGNETIC_HEADING:
+                loraOut.msgid = cmnd;
+                loraOut.message = String(buoy.mheading, 0);
+                loraOut.gsia = SET;
+                while (sendLora())
+                    delay(10);
+                ;
+                break;
+            }
+        }
+        delay(1);
     }
-    return 0;
 }

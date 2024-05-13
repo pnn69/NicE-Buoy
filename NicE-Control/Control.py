@@ -151,10 +151,10 @@ def decode_23(data): #GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING,  // lat,lon,
         buoy_hdg = int(float(values[6]))
         output_str = f"{gps_speed} Km/pH"         
         gps_data.config(text=output_str)
-        if gps_speed > 1:
-            compass.draw_pointer(gps_hdg,comp,gps_collor)
-        else:
-            compass.draw_pointer(0,comp,blk_collor)
+#        if gps_speed > 1:
+#            compass.draw_pointer(gps_hdg,comp,gps_collor)
+#        else:
+        compass.draw_pointer(0,comp,blk_collor)
         compass.draw_pointer(buoy_hdg,comp,buoy_collor)
     
 def decode_24(data): #BATTERY_VOLTAGE_PERCENTAGE,                    // 0.0V, %

@@ -56,7 +56,7 @@ MessageSP snd_sp;               /* Speed sb(-100%<>100%),bb(-100%<>100%) */
 MessageSq snd_sq;               /* Ledstatus CRGB */
 MessageBuzz snd_buz;            /* on(true/false),time(msec),pauze(msec),repeat(x) */
 Message snd_msg;                /* ESC que struckt */
-
+Mlora ldat;
 /*
 not usede any more
 onley for testing
@@ -141,6 +141,7 @@ void setup()
     xTaskCreate(IndicatorTask, "IndicatorTask", 2400, NULL, 1, NULL);
     xTaskCreate(EscTask, "EscTask", 2400, NULL, 25, NULL);
     xTaskCreate(BuzzerTask, "BuzzerTask", 1024, NULL, 5, NULL);
+    xTaskCreate(LoraTask, "LoraTask", 4024, NULL, 10, NULL);
     // websetup();
     Serial.printf("BuoyID = %d\n\r", buoyID);
     snd_sq.ledstatus = CRGB(0, 0, 20);
@@ -264,55 +265,33 @@ void setup()
 
 void loop()
 {
-    /*update websocket*/
-    // webloop();
-    /*check incomming lora messages*/
-    if (loraOK)
+    webloop();
+    buoy.mheading = CompassAverage(GetHeading());
+    if (status == LOCKED || status == DOCKED)
     {
-        polLora();
+        CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
     }
+    if (GetNewGpsData() == true)
+    {
+        if ((status == LOCKED) || status == DOCKED)
+        {
+            RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir);
+            buoy.speed = hooverPid(buoy.tgdistance);
+            //CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
+        }
+    }
+
     /* If green led is turned on by incomming lora message. turn it off */
     if (millis() - msecstamp > 10) /*10 msec loop*/
     {
         msecstamp = millis() - 1;
         digitalWrite(LED_PIN, !nwloramsg);
         nwloramsg = false;
-        //buoy.mheading = CompassAverage(GetHeading());
-        buoy.mheading = GetHeading();
-        if (status == DOCKED)
-        {
-            CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
-        }
-
     } /*Done 10 msec loop*/
 
     if (millis() - hstamp > 100) /*100 msec loop*/
     {
         hstamp = millis() - 1;
-#ifdef DEBUG
-#else
-        if (GetNewGpsData() == true)
-#endif
-        {
-            if ((status == LOCKED) || status == DOCKED)
-            {
-                RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir);
-                // calculate distance and heading
-                // }
-                // if (status == DOCKED)
-                // {
-                //     buoy.speed = (int)CalcDocSpeed(buoy.tgdistance);
-                // }
-                // if (status == LOCKED)
-                // {
-                buoy.speed = hooverPid(buoy.tgdistance);
-                CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
-            }
-        }
-        // if (status == LOCKED || status == DOCKED)
-        // {
-        // CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
-        // }
 
         if (FRONTBUTTON_READ == PUSHED)
         {
@@ -561,8 +540,9 @@ void loop()
             }
             else
             {
-                loraMenu(GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING); // pos heading speed to remote
-                delay(250);
+                // loraMenu(GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING); // pos heading speed to remote
+                ldat.data = GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING;
+                xQueueSend(loradataout, (void *)&ldat, 10); // update lora
             }
             break;
 
@@ -578,7 +558,8 @@ void loop()
         if (blink == true)
         {
             addNewSampleInBuffer(buoy.winddir, BUFLENMHRG, buoy.mheading);
-            loraMenu(DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING);
+            ldat.data = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
+            xQueueSend(loradataout, (void *)&ldat, 10); // update lora
         }
         blink = !blink;
     }
@@ -593,7 +574,8 @@ void loop()
             if (gpsdata.fix == true)
             {
                 distanceChanged = buoy.tgdistance;
-                loraMenu(DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING);
+                ldat.data = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
+                xQueueSend(loradataout, (void *)&ldat, 10); // update lora
             }
         }
     }
@@ -615,30 +597,34 @@ void loop()
         msg_cnt++;
         if (status == LOCKED || status == DOCKED)
         {
-
-            loraMenu(PID_RUDDER_PARAMETERS); // pos heading speed to remote
-            delay(500);
-            loraMenu(PID_SPEED_PARAMETERS); // pos heading speed to remote
-            delay(200);
+            ldat.data = PID_RUDDER_PARAMETERS;
+            xQueueSend(loradataout, (void *)&ldat, 10); // update lora
+            ldat.data = PID_SPEED_PARAMETERS;
+            xQueueSend(loradataout, (void *)&ldat, 10); // update lora
         }
         switch (msg_cnt)
         {
         case 1:
-            loraMenu(GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING); // pos heading speed to remote
+            ldat.data = GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING;
+            xQueueSend(loradataout, (void *)&ldat, 10); // update lora
             break;
         case 2:
+
             battVoltage(&buoy.vbatt, &buoy.vperc);
-            loraMenu(BATTERY_VOLTAGE_PERCENTAGE); // bat voltage and percentage to remote
+            ldat.data = BATTERY_VOLTAGE_PERCENTAGE;
+            xQueueSend(loradataout, (void *)&ldat, 10); // update lora
             break;
         case 3:
-            loraMenu(SBPWR_BBPWR);
+            ldat.data = SBPWR_BBPWR;
+            xQueueSend(loradataout, (void *)&ldat, 10); // update lora
             break;
         case 4:
             msg_cnt = 0;
-            loraMenu(WIND_DIR_DEV); // Send wind info
-            delay(500);
-            loraMenu(COMPUTE_PARAMETERS); // pos heading speed to remote
-            delay(200);
+            ldat.data = WIND_DIR_DEV;
+            xQueueSend(loradataout, (void *)&ldat, 10); // update lora
+            ldat.data = COMPUTE_PARAMETERS;
+            xQueueSend(loradataout, (void *)&ldat, 10); // update lora
+
             if (buoy.vbatt <= 15)
             {
                 Message snd_msg;

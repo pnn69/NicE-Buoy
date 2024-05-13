@@ -9,6 +9,11 @@
     rssi and snr are 1 and -1 at request (No rssi known)
 
 */
+extern QueueHandle_t loradataout;
+typedef struct Mlora
+{
+    unsigned int data;
+} Mlora;
 
 struct loraDataType
 {
@@ -29,8 +34,7 @@ extern loraDataType loraOut;
 
 extern bool loraOK;
 bool InitLora(void);
+void LoraTask(void *arg);
 bool sendLora(void);
-int polLora(void);
-bool loraMenu(int cmnd);
 
 #endif /* LORA_H_ */
