@@ -54,6 +54,7 @@ typedef enum
     ESC_ON_OFF,                                    // enable disable esc (defaut enabled)
     MAGNETIC_HEADING,                              // magnetic heading
     LINEAR_CALIBRATE_MAGNETIC_COMPASS,             // calibrate compas with gps as base
+    COMPASS_OFSET,                                 // offset correcton
     RESET                                          // reset esp
 } Command_t;
 

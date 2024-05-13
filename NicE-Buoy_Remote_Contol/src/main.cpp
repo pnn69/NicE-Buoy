@@ -93,7 +93,7 @@ void loop()
         {
             if (buoy[i].ackOK == false && maxRepeatCount[i] < MAX_REPEAT)
             {
-                Serial.printf("<Repeat command %d><%d times>", buoy[i].cmnd, maxRepeatCount[i]);
+                Serial.printf("<Repeat command %d times>\r\n", maxRepeatCount[i]);
                 loraMenu(i);
                 maxRepeatCount[i]++;
                 checkAckStamp = 750 + millis();

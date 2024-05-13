@@ -33,7 +33,7 @@ pos_x_data_winddir = pos_x_winddir + 80
 pos_y_data_winddir = 200
 pos_x_deviation = 115
 pos_y_deviation = 200
-pos_x_data_deviation = pos_x_deviation + 90
+pos_x_data_deviation = pos_x_deviation + 70
 pos_y_data_deviation = 200
 
 
@@ -151,6 +151,7 @@ def decode_23(data): #GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING,  // lat,lon,
         buoy_hdg = int(float(values[6]))
         output_str = f"{gps_speed} Km/pH"         
         gps_data.config(text=output_str)
+        sat_data.config(text = f"{gps_sat}")
 #        if gps_speed > 1:
 #            compass.draw_pointer(gps_hdg,comp,gps_collor)
 #        else:
@@ -172,11 +173,12 @@ def decode_24(data): #BATTERY_VOLTAGE_PERCENTAGE,                    // 0.0V, %
 
 def decode_28(data):
     values = data.group(5).split(',')
-    if len(values) == 4:
+    if len(values) == 5:
         r1_Dmax_label.config(text=values[0])
         r2_Dmax_label.config(text=values[1])
         r1_SP_label.config(text=values[2])
         r2_SP_label.config(text=values[3]) 
+        comp_label.config(text=values[4]) 
 
 def decode_29(data):
     values = data.group(5).split(',')
@@ -238,7 +240,13 @@ def test():
 def Calibrate_compass():
     msg = "*^1^35^1^^1"
     ser.write(msg.encode())
-   
+
+def Set_compass_offset():
+    comp_content = adj_comp.get("1.0", "end-1c")  # Get content of adj_pos_dir2
+    msg = "*^1^36^1^" + comp_content  + "^1"
+    ser.write(msg.encode())
+    out_box1.delete(1.0, END)   
+    out_box1.insert(END, f"{msg}")
     
 
 def remove_spaces(string):
@@ -359,6 +367,7 @@ adj_speed_d.place(x=120 + 60, y=55, height=20, width=30)
 adj_speed_kI = Label(text="P:0.0 , I:0.0 , D:0.0, Ki=?.??")
 adj_speed_kI.configure(font=("Arial", 9,'bold'))
 adj_speed_kI.place(x=210, y=55)
+
 adj_rudder_pid = Button(frame, text="Adjust rudder pid",command=Adjust_rudder_pid)
 adj_rudder_pid.place(x=10, y=90, height=30, width=100)
 adj_rudder_p = Text(frame)
@@ -379,33 +388,30 @@ adj_rudder_kI.place(x=210, y=95)
 
 
 adj_para = Button(frame, text="Adjust parameters",command=Adjust_control_parameters)
-adj_para.place(x=120, y=130, height=30, width=260)
+adj_para.place(x=120, y=135, height=30, width=260)
 adj_Dmin = Text(frame)
 adj_Dmin.insert(END, "2")
-adj_Dmin.place(x=10, y=135, height=20, width=20)
-
-cal_comp = Button(frame, text="Calibrate compas",command=Calibrate_compass)
-cal_comp.place(x=200, y=160, height=30, width=100)
-
-
-adj_para = Button(frame, text="Adjust parameters",command=Adjust_control_parameters)
-adj_para.place(x=120, y=130, height=30, width=260)
-adj_Dmin = Text(frame)
-adj_Dmin.insert(END, "2")
-adj_Dmin.place(x=10, y=135, height=20, width=20)
-
+adj_Dmin.place(x=10, y=140, height=20, width=20)
 adj_Dmax_label = Label(text="> Dist >")
 adj_Dmax_label.place(x=35, y = 135)
-
 r1_Dmax_label = Label(text="?")
 r1_Dmax_label.place(x=10, y = 155)
-
 adj_Dmax = Text(frame)
 adj_Dmax.insert(END, "8")
 adj_Dmax.place(x=90, y=135, height=20, width=20)
-
 r2_Dmax_label = Label(text="?")
 r2_Dmax_label.place(x=90, y = 155)
+
+cal_comp = Button(frame, text="Calibrate compas",command=Calibrate_compass)
+cal_comp.place(x=120, y=170, height=30, width=110)
+set_comp = Button(frame, text="Set compas offset",command=Set_compass_offset)
+set_comp.place(x=270, y=170, height=30, width=110)
+comp_label = Label(text="?")
+comp_label.place(x=240, y = 175)
+adj_comp = Text(frame)
+adj_comp.insert(END, "----")
+adj_comp.place(x=415, y=175, height=20, width=40)
+
 
 adj_SPmin = Text(frame)
 adj_SPmin.insert(END, "2")  # Pre-fill entry1
@@ -449,6 +455,10 @@ gps_label_dir = Label(text="GPS Speed:")
 gps_label_dir.place(x=pos_x_winddir, y =20+ pos_y_winddir)
 gps_data = Label(text="?")
 gps_data.place(x=pos_x_data_winddir-10, y =20+ pos_y_data_winddir)
+sat_label_dir = Label(text="Satellites:")
+sat_label_dir.place(x=pos_x_winddir + 150, y =20+ pos_y_winddir)
+sat_data = Label(text="?")
+sat_data.place(x=pos_x_data_winddir+130, y =20+ pos_y_data_winddir)
 
 
 

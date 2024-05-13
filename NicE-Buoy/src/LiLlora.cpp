@@ -43,6 +43,19 @@ bool InitLora(void)
     return true;
 }
 
+String removeWhitespace(String str)
+{
+    String result = "";
+    for (int i = 0; i < str.length(); i++)
+    {
+        if (str.charAt(i) != ' ')
+        {
+            result += str.charAt(i);
+        }
+    }
+    return result;
+}
+
 /*
  *Lora message: Destination,SenderAddres,Status,mg_id,gsia,Length,Message
  */
@@ -52,6 +65,7 @@ bool sendLora(void)
     { // prefend fast transmissions
         return 1;
     }
+    loraOut.message = removeWhitespace(loraOut.message);
     LoRa.beginPacket();              // start packet
     LoRa.write(loraOut.destination); // add destination address
     LoRa.write(buoyID);              // add sender address
@@ -124,6 +138,7 @@ int decodeMsg()
     }
     if (incomingLength_l != incoming_l.length()) // check length for error
     {
+        Serial.println("Length error skipping message!");
         return 0; // skip rest of function
     }
     // Data valid
@@ -154,6 +169,7 @@ void sendACKNAKINF(String t, Status_t inp)
 int polLora(void)
 {
     String msg = "";
+    int tmpint=0;
     if (LoRa.parsePacket() == 0)
     {
         return 0; // if there's no packet, return
@@ -511,16 +527,30 @@ int polLora(void)
         sendACKNAKINF("", ACK);
         break;
     case LINEAR_CALIBRATE_MAGNETIC_COMPASS:
-        // if (gpsdata.fix == true)
+        if (gpsdata.fix == true)
         {
             status = LINEAR_CAL;
             sendACKNAKINF("", ACK);
         }
-        // else
+        else
         {
-            //   sendACKNAKINF("", NAK);
+            sendACKNAKINF("", NAK);
         }
         break;
+    case COMPASS_OFSET:
+        sscanf(messageArr, "%d", &tmpint);
+        if (tmpint >= -180 && tmpint <= 180)
+        {
+            buoy.magneticCorrection = tmpint;
+            CompassOffsetCorrection(&buoy.magneticCorrection, false); // store new offset
+            sendACKNAKINF("", ACK);
+        }
+        else
+        {
+            sendACKNAKINF("", NAK);
+        }
+        break;
+
     case RESET:
         ESP.restart();
         break;
@@ -530,7 +560,6 @@ int polLora(void)
     }
     return 0;
 }
-
 
 void LoraTask(void *arg)
 {
@@ -594,7 +623,7 @@ void LoraTask(void *arg)
                 break;
             case COMPUTE_PARAMETERS:
                 loraOut.msgid = cmnd;
-                loraOut.message = String(buoy.minOfsetDist) + "," + String(buoy.maxOfsetDist) + "," + String(buoy.minSpeed) + "," + String(buoy.maxSpeed);
+                loraOut.message = String(buoy.minOfsetDist) + "," + String(buoy.maxOfsetDist) + "," + String(buoy.minSpeed) + "," + String(buoy.maxSpeed) + "," + String(buoy.magneticCorrection);
                 loraOut.gsia = SET;
                 while (sendLora())
                     delay(10);

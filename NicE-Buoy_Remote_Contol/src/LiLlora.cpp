@@ -107,6 +107,19 @@ int decodeMsg()
     return ret;
 }
 
+String removeWhitespace(String str)
+{
+    String result = "";
+    for (int i = 0; i < str.length(); i++)
+    {
+        if (str.charAt(i) != ' ')
+        {
+            result += str.charAt(i);
+        }
+    }
+    return result;
+}
+
 int polLora(void)
 {
     if (loraOK == false)
@@ -147,6 +160,7 @@ int polLora(void)
         gsia = "INF";
     }
     // Serial.println("Lora in Buoy:" + String(loraIn.sender) + " status:" + String(loraIn.status) + " gsia:" + gsia + " msgid:" + String(loraIn.msgid) + " <" + loraIn.message + ">");
+    loraIn.message = removeWhitespace(loraIn.message);
     loraIn.message.toCharArray(messarr, loraIn.message.length() + 1);
     if (NR_BUOYS > loraIn.sender)
     {
@@ -370,11 +384,16 @@ int polLora(void)
                 }
             }
             break;
+        case COMPASS_OFSET:
+            if (loraIn.gsia == ACK)
+            {
+                buoy[loraIn.sender].ackOK = true;
+            }
 
             break;
 
         default:
-            Serial.println("<unknown command:" + loraIn.msgid + '>');
+            // Serial.println("<unknown command:" + loraIn.msgid + '>');
             break;
         }
         notify = loraIn.sender;
@@ -519,7 +538,6 @@ bool loraMenu(int buoy_nr)
             msg = "0";
         }
         sendMessage(msg, buoy_nr, buoy[buoy_nr].cmnd, buoy[buoy_nr].gsa);
-
         break;
 
     case PID_SPEED_PARAMETERS:
@@ -532,6 +550,18 @@ bool loraMenu(int buoy_nr)
         break;
 
     case COMPUTE_PARAMETERS:
+        msg = buoy[1].string;
+        buoy[1].gsa = SET;
+        sendMessage(msg, buoy_nr, buoy[buoy_nr].cmnd, buoy[buoy_nr].gsa);
+        break;
+
+    case LINEAR_CALIBRATE_MAGNETIC_COMPASS:
+        msg = buoy[1].string;
+        buoy[1].gsa = SET;
+        sendMessage(msg, buoy_nr, buoy[buoy_nr].cmnd, buoy[buoy_nr].gsa);
+        break;
+
+    case COMPASS_OFSET:
         msg = buoy[1].string;
         buoy[1].gsa = SET;
         sendMessage(msg, buoy_nr, buoy[buoy_nr].cmnd, buoy[buoy_nr].gsa);
