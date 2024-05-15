@@ -1,0 +1,1137 @@
+(kicad_sch
+	(version 20231120)
+	(generator "eeschema")
+	(generator_version "8.0")
+	(uuid "77bea089-a6ae-4a6f-b95b-7a9010ad7c5d")
+	(paper "A4")
+	(title_block
+		(title "NicE Buoy")
+		(date "2023-06-20")
+		(rev "1.1")
+		(company "NicE Engineering")
+	)
+	(lib_symbols
+		(symbol "Connector:TestPoint_Small"
+			(pin_numbers hide)
+			(pin_names
+				(offset 0.762) hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "TP"
+				(at 0 3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "TestPoint_Small"
+				(at 0 2.032 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 5.08 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 5.08 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "test point"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "test point tp"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "Pin* Test*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "TestPoint_Small_0_1"
+				(circle
+					(center 0 0)
+					(radius 0.508)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "TestPoint_Small_1_1"
+				(pin passive line
+					(at 0 0 90)
+					(length 0)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "Mechanical:MountingHole"
+			(pin_names
+				(offset 1.016)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "H"
+				(at 0 5.08 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "MountingHole"
+				(at 0 3.175 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Mounting Hole without connection"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "mounting hole"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "MountingHole*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "MountingHole_0_1"
+				(circle
+					(center 0 0)
+					(radius 1.27)
+					(stroke
+						(width 1.27)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+		)
+	)
+	(no_connect
+		(at 36.83 191.77)
+		(uuid "6ee6bec0-69a8-4401-a59c-138a8e8bc139")
+	)
+	(no_connect
+		(at 45.72 191.77)
+		(uuid "ea7c2203-9786-4b7e-835e-0258c334ec6c")
+	)
+	(wire
+		(pts
+			(xy 139.7 105.41) (xy 158.75 105.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0c7c3bd5-ce8e-4051-91cd-c7d6fb2a7b1e")
+	)
+	(wire
+		(pts
+			(xy 111.76 120.65) (xy 111.76 161.29)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "11934d8c-e33f-46df-902a-90d1cd0e4f6c")
+	)
+	(wire
+		(pts
+			(xy 139.7 60.96) (xy 158.75 60.96)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2a578bb3-0ef4-424b-9ab0-7ffc74e08caf")
+	)
+	(wire
+		(pts
+			(xy 109.22 120.65) (xy 109.22 161.29)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "52276f58-8b81-49e3-9247-3d02a4fe138f")
+	)
+	(bus
+		(pts
+			(xy 116.84 41.91) (xy 116.84 50.8)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5b3cb686-20bb-45a4-930a-88498799905d")
+	)
+	(wire
+		(pts
+			(xy 116.84 120.65) (xy 116.84 161.29)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a07b5ce9-92f7-46d0-a44a-143a418c0188")
+	)
+	(wire
+		(pts
+			(xy 139.7 63.5) (xy 158.75 63.5)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dcdc4780-f3d3-42b0-9f15-ae57e894e539")
+	)
+	(wire
+		(pts
+			(xy 114.3 120.65) (xy 114.3 161.29)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ed6312f2-f681-4c49-a465-50f0f04eadc6")
+	)
+	(wire
+		(pts
+			(xy 139.7 107.95) (xy 158.75 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f3511c87-2f9b-4ed7-a442-7c69ad070d3c")
+	)
+	(text "300"
+		(exclude_from_sim no)
+		(at 78.74 186.69 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "6fe3bfae-0ad9-4e45-9e43-8b56142ee6c8")
+	)
+	(text "600"
+		(exclude_from_sim no)
+		(at 180.34 71.12 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "a5e5513c-2a2a-4e43-aaca-3c30650a8d45")
+	)
+	(text "ESP32\nLORA\nGPS\nCOMPASS\nGIRO\nACCELOROMETER\nBATTERY MONITOR\nPOWERSUPPY 12V 5V 3.3V\nMODE SWITCH\nLEDSTRIP\nLipo monitoring\n"
+		(exclude_from_sim no)
+		(at 17.145 35.56 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "a8705544-687a-4eb4-8757-449e0d3ddfdd")
+	)
+	(text "900"
+		(exclude_from_sim no)
+		(at 95.25 41.91 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "caa9aa7f-5f35-47c5-9b82-8002202d2092")
+	)
+	(text "500"
+		(exclude_from_sim no)
+		(at 180.34 120.65 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "cbf325ab-16f0-45b1-9f37-60dc36df778b")
+	)
+	(symbol
+		(lib_id "Connector:TestPoint_Small")
+		(at 45.72 191.77 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "32afde3b-fe22-4465-9be1-b4d6fbbb0d1b")
+		(property "Reference" "TP2"
+			(at 46.99 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "RW2"
+			(at 46.99 193.04 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Misc:ReworkPins"
+			(at 50.8 191.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 50.8 191.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 45.72 191.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "0ba18cc6-62f3-4eb1-a83e-7499845db3d7")
+		)
+		(instances
+			(project "Robuoy"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
+					(reference "TP2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Mechanical:MountingHole")
+		(at 31.115 191.135 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(uuid "5992bf0c-4e16-4b60-8ff6-0f846f16c620")
+		(property "Reference" "H1004"
+			(at 27.94 187.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "MountingHole"
+			(at 18.415 195.58 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Mechanical:NPTH_M3"
+			(at 31.115 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 31.115 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 31.115 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(instances
+			(project "Robuoy"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
+					(reference "H1004")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Mechanical:MountingHole")
+		(at 26.67 191.135 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(uuid "8e711c6b-8ac9-4be3-b2de-4936f35c987e")
+		(property "Reference" "H1003"
+			(at 24.13 185.42 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "MountingHole"
+			(at 18.415 195.58 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Mechanical:NPTH_M3"
+			(at 26.67 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 26.67 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 26.67 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(instances
+			(project "Robuoy"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
+					(reference "H1003")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint_Small")
+		(at 36.83 191.77 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "b8b74dbc-98ad-4bf0-8998-abf5ff532d56")
+		(property "Reference" "TP1"
+			(at 38.1 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "RW1"
+			(at 38.1 193.04 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Misc:ReworkPins"
+			(at 41.91 191.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 41.91 191.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 36.83 191.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "e297b9b2-ae60-4206-b513-bb4c38c9a6b9")
+		)
+		(instances
+			(project "Robuoy"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
+					(reference "TP1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Mechanical:MountingHole")
+		(at 22.225 191.135 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(uuid "d8600412-cbd9-4999-8186-75ac632a5cca")
+		(property "Reference" "H1002"
+			(at 19.05 187.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "MountingHole"
+			(at 18.415 195.58 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Mechanical:NPTH_M3"
+			(at 22.225 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 22.225 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 22.225 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(instances
+			(project "Robuoy"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
+					(reference "H1002")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Mechanical:MountingHole")
+		(at 17.78 191.135 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(uuid "e18c7300-c020-4ac8-86cc-0120bd354987")
+		(property "Reference" "H1001"
+			(at 13.97 185.42 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "MountingHole"
+			(at 18.415 195.58 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Mechanical:NPTH_M3"
+			(at 17.78 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 17.78 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 17.78 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(instances
+			(project "Robuoy"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
+					(reference "H1001")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(sheet
+		(at 95.25 24.13)
+		(size 44.45 17.78)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "1dc26a2c-fbf5-4621-ae52-68ee3e95a03a")
+		(property "Sheetname" "Lora"
+			(at 95.25 22.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Lora.kicad_sch"
+			(at 140.2846 41.91 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+				(hide yes)
+			)
+		)
+		(pin "RADIO_[1..5]" bidirectional
+			(at 116.84 41.91 270)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "b67271b5-62a1-4d52-93df-bf61c7fb2663")
+		)
+		(instances
+			(project "Robuoy"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
+					(page "6")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 95.25 50.8)
+		(size 44.45 69.85)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "20fb3964-c9d0-4636-b697-42bcddc45d6f")
+		(property "Sheetname" "CPU"
+			(at 95.25 50.0884 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "CPU_sch.kicad_sch"
+			(at 95.25 121.2346 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+				(hide yes)
+			)
+		)
+		(pin "SDA" bidirectional
+			(at 139.7 102.87 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "addb2994-3edc-4143-a004-ae790295798f")
+		)
+		(pin "SCL" input
+			(at 139.7 100.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "ec3bfdb6-d112-43c1-8d6e-cefb846f4687")
+		)
+		(pin "GPSRX" output
+			(at 139.7 63.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "aed6b6db-1f39-4712-b9f7-1c109981da35")
+		)
+		(pin "ESC_BB" input
+			(at 139.7 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "29d690c7-0c2a-465d-bdbf-36321f777afd")
+		)
+		(pin "GPSTX" input
+			(at 139.7 60.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "c0433a33-d695-4be9-b42e-8f98db35641b")
+		)
+		(pin "ESC_SB" input
+			(at 139.7 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "79d5b77c-f0b3-4501-ad80-54c41ef6670a")
+		)
+		(pin "RADIO_[1..5]" bidirectional
+			(at 116.84 50.8 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "f29161ac-6baf-417d-b596-536e7ba8db0f")
+		)
+		(pin "Vbatt" output
+			(at 116.84 120.65 270)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "15f08dff-15c0-44b9-b430-ee928a52321c")
+		)
+		(pin "ESC_ON-OFF" input
+			(at 114.3 120.65 270)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "45aa7c38-2364-4842-a6bd-bdcd90bc1a70")
+		)
+		(pin "SW_RED" input
+			(at 111.76 120.65 270)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "f2158a7e-08a1-48a5-8218-ffa77cf987e4")
+		)
+		(pin "SW_GREEN" input
+			(at 109.22 120.65 270)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "d9560b36-4818-4305-9a41-c197c29797c5")
+		)
+		(instances
+			(project "Robuoy"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
+					(page "1")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 158.75 52.07)
+		(size 25.4 19.05)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "4c7fada6-d8ca-4665-9ffe-0c10d1b3ee88")
+		(property "Sheetname" "GPS"
+			(at 158.75 51.3584 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Gps_sch.kicad_sch"
+			(at 158.75 71.7046 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+				(hide yes)
+			)
+		)
+		(pin "RX" input
+			(at 158.75 63.5 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "1549d520-2a50-4a87-9fa8-149569dba436")
+		)
+		(pin "TX" output
+			(at 158.75 60.96 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "fe13630b-3332-4f79-a537-2004b95fbbbc")
+		)
+		(instances
+			(project "Robuoy"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
+					(page "5")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 78.74 161.29)
+		(size 69.85 25.4)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "b4716c37-6296-4cc3-83d4-c08b9373ace7")
+		(property "Sheetname" "PSU"
+			(at 78.74 160.5784 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "PSU_sch.kicad_sch"
+			(at 78.74 187.2746 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+				(hide yes)
+			)
+		)
+		(pin "ESC_ON-OFF" output
+			(at 114.3 161.29 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "c1108115-e19d-42c3-a140-d6e2413149b7")
+		)
+		(pin "Vbatt" input
+			(at 116.84 161.29 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "e26c9153-e8ca-4495-acb5-701a4183802a")
+		)
+		(pin "SW_GREEN" output
+			(at 111.76 161.29 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "5167daef-e435-4f09-8897-75ec5add3c88")
+		)
+		(pin "SW_RED" output
+			(at 109.22 161.29 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "730d378f-244a-499b-9edc-60bc69d49b56")
+		)
+		(instances
+			(project "Robuoy"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
+					(page "2")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 158.75 95.25)
+		(size 25.4 25.4)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "ca10023c-a303-42f5-abd0-839d0a1e9923")
+		(property "Sheetname" "ESC"
+			(at 158.75 94.5384 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Esc_sch.kicad_sch"
+			(at 158.75 121.2346 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+				(hide yes)
+			)
+		)
+		(pin "ESC_BB" output
+			(at 158.75 105.41 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "0006c3ad-f26c-4785-8a60-0997fc5c564d")
+		)
+		(pin "ESC_SB" output
+			(at 158.75 107.95 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "3097b0cc-5430-4957-8440-4de0c94a0ac4")
+		)
+		(instances
+			(project "Robuoy"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
+					(page "4")
+				)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "10")
+		)
+	)
+)
