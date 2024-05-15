@@ -1653,32 +1653,32 @@
 		)
 	)
 	(junction
-		(at 157.48 95.25)
+		(at 121.92 95.25)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "093fd9f0-3a8e-47eb-9e17-ee454de9a46b")
 	)
 	(junction
-		(at 133.35 90.17)
+		(at 146.05 90.17)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "3a10522b-2361-4660-abc1-fc739f26de64")
 	)
 	(junction
-		(at 133.35 97.79)
+		(at 146.05 97.79)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "d0e58eab-8e4b-44e4-baae-dd2dc6798cd3")
 	)
 	(junction
-		(at 154.94 92.71)
+		(at 124.46 92.71)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "f7269e3b-7b68-4540-bb1e-6abc9baffd4c")
 	)
 	(wire
 		(pts
-			(xy 154.94 78.74) (xy 154.94 92.71)
+			(xy 124.46 78.74) (xy 124.46 92.71)
 		)
 		(stroke
 			(width 0)
@@ -1688,7 +1688,7 @@
 	)
 	(wire
 		(pts
-			(xy 95.25 100.33) (xy 147.32 100.33)
+			(xy 184.15 100.33) (xy 132.08 100.33)
 		)
 		(stroke
 			(width 0)
@@ -1698,7 +1698,7 @@
 	)
 	(wire
 		(pts
-			(xy 95.25 95.25) (xy 157.48 95.25)
+			(xy 184.15 95.25) (xy 121.92 95.25)
 		)
 		(stroke
 			(width 0)
@@ -1708,7 +1708,7 @@
 	)
 	(wire
 		(pts
-			(xy 157.48 81.28) (xy 157.48 95.25)
+			(xy 121.92 81.28) (xy 121.92 95.25)
 		)
 		(stroke
 			(width 0)
@@ -1718,7 +1718,7 @@
 	)
 	(wire
 		(pts
-			(xy 154.94 92.71) (xy 160.02 92.71)
+			(xy 124.46 92.71) (xy 119.38 92.71)
 		)
 		(stroke
 			(width 0)
@@ -1728,7 +1728,7 @@
 	)
 	(wire
 		(pts
-			(xy 133.35 90.17) (xy 133.35 97.79)
+			(xy 146.05 90.17) (xy 146.05 97.79)
 		)
 		(stroke
 			(width 0)
@@ -1738,7 +1738,7 @@
 	)
 	(wire
 		(pts
-			(xy 167.64 105.41) (xy 167.64 106.68)
+			(xy 111.76 105.41) (xy 111.76 106.68)
 		)
 		(stroke
 			(width 0)
@@ -1748,7 +1748,7 @@
 	)
 	(wire
 		(pts
-			(xy 133.35 97.79) (xy 160.02 97.79)
+			(xy 146.05 97.79) (xy 119.38 97.79)
 		)
 		(stroke
 			(width 0)
@@ -1758,7 +1758,7 @@
 	)
 	(wire
 		(pts
-			(xy 149.86 90.17) (xy 149.86 85.09)
+			(xy 129.54 90.17) (xy 129.54 85.09)
 		)
 		(stroke
 			(width 0)
@@ -1768,7 +1768,7 @@
 	)
 	(wire
 		(pts
-			(xy 95.25 97.79) (xy 133.35 97.79)
+			(xy 184.15 97.79) (xy 146.05 97.79)
 		)
 		(stroke
 			(width 0)
@@ -1778,7 +1778,7 @@
 	)
 	(wire
 		(pts
-			(xy 133.35 90.17) (xy 133.35 85.09)
+			(xy 146.05 90.17) (xy 146.05 85.09)
 		)
 		(stroke
 			(width 0)
@@ -1788,7 +1788,7 @@
 	)
 	(wire
 		(pts
-			(xy 133.35 90.17) (xy 149.86 90.17)
+			(xy 146.05 90.17) (xy 129.54 90.17)
 		)
 		(stroke
 			(width 0)
@@ -1798,7 +1798,7 @@
 	)
 	(wire
 		(pts
-			(xy 157.48 95.25) (xy 160.02 95.25)
+			(xy 121.92 95.25) (xy 119.38 95.25)
 		)
 		(stroke
 			(width 0)
@@ -1808,7 +1808,7 @@
 	)
 	(wire
 		(pts
-			(xy 149.86 85.09) (xy 167.64 85.09)
+			(xy 129.54 85.09) (xy 111.76 85.09)
 		)
 		(stroke
 			(width 0)
@@ -1818,7 +1818,7 @@
 	)
 	(wire
 		(pts
-			(xy 123.19 81.28) (xy 128.27 81.28)
+			(xy 156.21 81.28) (xy 151.13 81.28)
 		)
 		(stroke
 			(width 0)
@@ -1828,7 +1828,7 @@
 	)
 	(wire
 		(pts
-			(xy 199.39 78.74) (xy 154.94 78.74)
+			(xy 80.01 78.74) (xy 124.46 78.74)
 		)
 		(stroke
 			(width 0)
@@ -1838,7 +1838,7 @@
 	)
 	(wire
 		(pts
-			(xy 199.39 81.28) (xy 157.48 81.28)
+			(xy 80.01 81.28) (xy 121.92 81.28)
 		)
 		(stroke
 			(width 0)
@@ -1848,7 +1848,7 @@
 	)
 	(wire
 		(pts
-			(xy 95.25 92.71) (xy 154.94 92.71)
+			(xy 184.15 92.71) (xy 124.46 92.71)
 		)
 		(stroke
 			(width 0)
@@ -1858,7 +1858,7 @@
 	)
 	(wire
 		(pts
-			(xy 167.64 85.09) (xy 167.64 87.63)
+			(xy 111.76 85.09) (xy 111.76 87.63)
 		)
 		(stroke
 			(width 0)
@@ -1868,7 +1868,7 @@
 	)
 	(wire
 		(pts
-			(xy 138.43 81.28) (xy 143.51 81.28)
+			(xy 140.97 81.28) (xy 135.89 81.28)
 		)
 		(stroke
 			(width 0)
@@ -1877,13 +1877,13 @@
 		(uuid "ff11d656-62fc-4f6b-8f62-3fce649de4dd")
 	)
 	(label "Vext"
-		(at 124.46 97.79 0)
+		(at 154.94 97.79 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left bottom)
+			(justify right bottom)
 		)
 		(uuid "c3066afe-3ff1-4c4a-a634-b38b3ec4ae5d")
 	)
@@ -1900,25 +1900,25 @@
 	)
 	(hierarchical_label "RX"
 		(shape input)
-		(at 199.39 78.74 0)
+		(at 80.01 78.74 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right)
 		)
 		(uuid "54dff481-030e-447c-aa28-688900cf989c")
 	)
 	(hierarchical_label "TX"
 		(shape output)
-		(at 199.39 81.28 0)
+		(at 80.01 81.28 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right)
 		)
 		(uuid "95384c16-ec4d-43e1-8efc-5c675efb1c02")
 	)
@@ -1990,7 +1990,8 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 147.32 100.33 0)
+		(at 132.08 100.33 0)
+		(mirror y)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1999,7 +2000,7 @@
 		(fields_autoplaced yes)
 		(uuid "1fa0397b-107c-49e2-81b1-1eb2282214ab")
 		(property "Reference" "#PWR0504"
-			(at 147.32 106.68 0)
+			(at 132.08 106.68 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2008,7 +2009,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 147.32 105.41 0)
+			(at 132.08 105.41 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2016,7 +2017,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 147.32 100.33 0)
+			(at 132.08 100.33 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2025,7 +2026,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 147.32 100.33 0)
+			(at 132.08 100.33 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2034,7 +2035,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 147.32 100.33 0)
+			(at 132.08 100.33 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2056,7 +2057,8 @@
 	)
 	(symbol
 		(lib_id "Power_Protection:USBLC6-4SC6")
-		(at 167.64 95.25 0)
+		(at 111.76 95.25 0)
+		(mirror y)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -2065,7 +2067,7 @@
 		(fields_autoplaced yes)
 		(uuid "63de0251-ef0d-44d1-b1dd-7fd45ac8e214")
 		(property "Reference" "U4"
-			(at 173.99 95.2499 0)
+			(at 105.41 95.2499 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2074,7 +2076,7 @@
 			)
 		)
 		(property "Value" "USBLC6-4SC6"
-			(at 173.99 97.7899 0)
+			(at 105.41 97.7899 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2083,7 +2085,7 @@
 			)
 		)
 		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-6"
-			(at 170.18 105.41 0)
+			(at 109.22 105.41 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2094,7 +2096,7 @@
 			)
 		)
 		(property "Datasheet" "https://www.st.com/resource/en/datasheet/usblc6-4.pdf"
-			(at 170.18 107.95 0)
+			(at 109.22 107.95 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2104,7 +2106,7 @@
 			)
 		)
 		(property "Description" "Very low capacitance ESD protection diode, 4 data-line, SOT-23-6"
-			(at 167.64 95.25 0)
+			(at 111.76 95.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2141,7 +2143,8 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 167.64 106.68 0)
+		(at 111.76 106.68 0)
+		(mirror y)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -2150,7 +2153,7 @@
 		(fields_autoplaced yes)
 		(uuid "86a2d5a4-e5ce-4f25-911c-0b89659d25ff")
 		(property "Reference" "#PWR027"
-			(at 167.64 113.03 0)
+			(at 111.76 113.03 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2159,7 +2162,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 167.64 111.76 0)
+			(at 111.76 111.76 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2167,7 +2170,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 167.64 106.68 0)
+			(at 111.76 106.68 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2176,7 +2179,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 167.64 106.68 0)
+			(at 111.76 106.68 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2185,7 +2188,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 167.64 106.68 0)
+			(at 111.76 106.68 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2291,7 +2294,8 @@
 	)
 	(symbol
 		(lib_id "Jumper:SolderJumper_3_Bridged12")
-		(at 133.35 81.28 0)
+		(at 146.05 81.28 0)
+		(mirror y)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -2299,7 +2303,7 @@
 		(dnp no)
 		(uuid "a1c12081-9f24-45e1-87d5-5f2e43474cbe")
 		(property "Reference" "JP501"
-			(at 133.35 74.93 0)
+			(at 146.05 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2307,7 +2311,7 @@
 			)
 		)
 		(property "Value" "5V/3.3V"
-			(at 133.35 77.47 0)
+			(at 146.05 77.47 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2315,7 +2319,7 @@
 			)
 		)
 		(property "Footprint" "Jumper:SolderJumper-3_P1.3mm_Bridged12_RoundedPad1.0x1.5mm"
-			(at 133.35 81.28 0)
+			(at 146.05 81.28 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2324,7 +2328,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 133.35 81.28 0)
+			(at 146.05 81.28 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2333,7 +2337,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 133.35 81.28 0)
+			(at 146.05 81.28 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2361,7 +2365,8 @@
 	)
 	(symbol
 		(lib_id "Connector:Conn_01x04_Pin")
-		(at 90.17 95.25 0)
+		(at 189.23 95.25 0)
+		(mirror y)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -2369,7 +2374,7 @@
 		(dnp no)
 		(uuid "e9aea7f7-9b1e-421a-9b1b-449dff8c7768")
 		(property "Reference" "J501"
-			(at 90.805 88.265 0)
+			(at 188.595 88.265 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2377,7 +2382,7 @@
 			)
 		)
 		(property "Value" "GPS"
-			(at 81.915 96.52 0)
+			(at 197.485 96.52 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2385,7 +2390,7 @@
 			)
 		)
 		(property "Footprint" "Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical"
-			(at 90.17 95.25 0)
+			(at 189.23 95.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2394,7 +2399,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 90.17 95.25 0)
+			(at 189.23 95.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2403,7 +2408,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 90.17 95.25 0)
+			(at 189.23 95.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2412,7 +2417,7 @@
 			)
 		)
 		(property "LCSC" "C98734"
-			(at 90.17 95.25 0)
+			(at 189.23 95.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2421,7 +2426,7 @@
 			)
 		)
 		(property "Field5" ""
-			(at 90.17 95.25 0)
+			(at 189.23 95.25 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2452,7 +2457,8 @@
 	)
 	(symbol
 		(lib_id "power:+3.3V")
-		(at 143.51 81.28 0)
+		(at 135.89 81.28 0)
+		(mirror y)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -2461,7 +2467,7 @@
 		(fields_autoplaced yes)
 		(uuid "ee336426-597c-442e-9bfb-f999770a5686")
 		(property "Reference" "#PWR0503"
-			(at 143.51 85.09 0)
+			(at 135.89 85.09 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2470,7 +2476,7 @@
 			)
 		)
 		(property "Value" "+3.3V"
-			(at 143.51 76.2 0)
+			(at 135.89 76.2 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2478,7 +2484,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 143.51 81.28 0)
+			(at 135.89 81.28 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2487,7 +2493,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 143.51 81.28 0)
+			(at 135.89 81.28 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2496,7 +2502,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 143.51 81.28 0)
+			(at 135.89 81.28 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2518,7 +2524,8 @@
 	)
 	(symbol
 		(lib_id "power:+5V")
-		(at 123.19 81.28 0)
+		(at 156.21 81.28 0)
+		(mirror y)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -2527,7 +2534,7 @@
 		(fields_autoplaced yes)
 		(uuid "f14ec4be-b6b4-472c-aebb-2ebf58db0196")
 		(property "Reference" "#PWR0501"
-			(at 123.19 85.09 0)
+			(at 156.21 85.09 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2536,7 +2543,7 @@
 			)
 		)
 		(property "Value" "+5V"
-			(at 123.19 76.2 0)
+			(at 156.21 76.2 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2544,7 +2551,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 123.19 81.28 0)
+			(at 156.21 81.28 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2553,7 +2560,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 123.19 81.28 0)
+			(at 156.21 81.28 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2562,7 +2569,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 123.19 81.28 0)
+			(at 156.21 81.28 0)
 			(effects
 				(font
 					(size 1.27 1.27)

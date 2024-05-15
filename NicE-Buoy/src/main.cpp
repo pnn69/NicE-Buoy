@@ -30,7 +30,7 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #define BUTTON_SHORT 1
 #define BUTTON_LONG 25
 #define BUTTON_SUPER_LONG BUTTON_LONG * 4
-static unsigned long secstamp, sec05stamp, msecstamp, escstamp, hstamp, sec5stamp, offeststamp, esctrigger;
+static unsigned long secstamp, sec05stamp, msecstamp, gpsstamp, hstamp, sec5stamp, offeststamp, esctrigger;
 // static double tglatitude = 52.29326976307006, tglongitude = 4.9328016467347435; // grasveld wsvop
 // static double tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
 
@@ -266,7 +266,8 @@ void setup()
 void loop()
 {
     webloop();
-    buoy.mheading = CompassAverage(GetHeading());
+    //buoy.mheading = CompassAverage(GetHeading());
+    buoy.mheading = GetHeading();
     if (status == LOCKED || status == DOCKED)
     {
         CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
@@ -277,7 +278,7 @@ void loop()
         {
             RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir);
             buoy.speed = hooverPid(buoy.tgdistance);
-            //CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
+            // CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
         }
     }
 
@@ -567,15 +568,19 @@ void loop()
     /*
     Send only updated changes
     */
-    if (status == LOCKED || status == DOCKED)
+    if (gpsstamp + 900 < millis())
     {
-        if (distanceChanged != buoy.tgdistance)
+        gpsstamp = millis();
+        if (status == LOCKED || status == DOCKED)
         {
-            if (gpsdata.fix == true)
+            if (distanceChanged != buoy.tgdistance)
             {
-                distanceChanged = buoy.tgdistance;
-                loramsg.data = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
-                xQueueSend(loradataout, (void *)&loramsg, 10); // update lora
+                if (gpsdata.fix == true)
+                {
+                    distanceChanged = buoy.tgdistance;
+                    loramsg.data = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
+                    xQueueSend(loradataout, (void *)&loramsg, 10); // update lora
+                }
             }
         }
     }

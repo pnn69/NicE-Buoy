@@ -216,6 +216,16 @@
 	)
 	(wire
 		(pts
+			(xy 139.7 100.33) (xy 158.75 100.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0e0642ee-400b-4d28-966d-8a00a41fe9df")
+	)
+	(wire
+		(pts
 			(xy 111.76 120.65) (xy 111.76 161.29)
 		)
 		(stroke
@@ -243,6 +253,16 @@
 			(type default)
 		)
 		(uuid "52276f58-8b81-49e3-9247-3d02a4fe138f")
+	)
+	(wire
+		(pts
+			(xy 139.7 102.87) (xy 158.75 102.87)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "56221adc-71a7-4837-a21a-d232c8f8e131")
 	)
 	(bus
 		(pts
@@ -1120,6 +1140,26 @@
 				(justify left)
 			)
 			(uuid "3097b0cc-5430-4957-8440-4de0c94a0ac4")
+		)
+		(pin "SCL" output
+			(at 158.75 100.33 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "80660a46-45bd-43fe-9e38-ddfc3a4adf72")
+		)
+		(pin "SDA" bidirectional
+			(at 158.75 102.87 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "2a25820d-7298-4fc3-84f7-9e9f75e47b64")
 		)
 		(instances
 			(project "Robuoy"

@@ -9,6 +9,7 @@
 #include "io.h"
 #include "datastorage.h"
 #include "gps.h"
+#include "calculate.h"
 #define NUM_DIRECTIONS 30
 #define NUM_POSITIONS 50
 
@@ -178,7 +179,7 @@ float GetHeading(void)
 float GetHeadingRaw(void)
 {
     float t = heading((vector<int>){0, 1, 0});
-    t = magCorrection + t;
+    t = buoy.magneticCorrection + t;
     if (t > 360)
     {
         t -= 360;
@@ -247,6 +248,8 @@ int linMagCalib(int *corr)
         buoy.speedsb = 30;
         pointer = 0;
         buoy.magneticCorrection = 0;
+        initRudderPid();
+
         timer = millis();
         stage++;
         break;

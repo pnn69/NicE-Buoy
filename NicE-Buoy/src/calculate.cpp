@@ -255,9 +255,8 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
     /*Rotate to target direction first*/
     if (tdistance > 0.5 && abs(error) > 45)
     {
-        float power = map(abs(error),45,180,7,90);
+        float power = map(abs(error),45,180,7,70);
         power =  sin(radians(power))*100;
-        Serial.println(power);
         power = (int)map(power,13,100,13,buoy.maxSpeed/2);
 
         if (error >= 0)
