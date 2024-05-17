@@ -168,18 +168,21 @@ bool CalibrateCompass(void)
 
 float GetHeading(void)
 {
-    float mHeding = heading((vector<int>){0, 1, 0});
+    float mHeding = heading((vector<int>){0, 1, 0}) - 180.0; // 180 correction due placement on pcb
     mHeding = mHeding + buoy.magneticCorrection;
     if (mHeding < 0)
     {
         mHeding = mHeding + 360.0;
     }
+    else if(mHeding > 360)
+    {
+        mHeding = mHeding - 360.0;
+    }
     return mHeding;
 }
 float GetHeadingRaw(void)
 {
-    float t = heading((vector<int>){0, 1, 0});
-    t = buoy.magneticCorrection + t;
+    float t = heading((vector<int>){0, 1, 0}) - 180.0;
     if (t > 360)
     {
         t -= 360;
