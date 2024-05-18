@@ -1,6 +1,7 @@
 #include <ArduinoOTA.h>
 #include <WiFi.h>
 #include "general.h"
+#include "AsyncUDP.h"
 
 // Replace with your network credentials
 const char *ssid = "NicE_Engineering_UPC";
@@ -11,6 +12,7 @@ const char *passwordwsop = "wsopwsop";
 const char *host = "NicE-Buoy";
 static bool OTA = false;
 static bool WEBok = false;
+AsyncUDP udp;
 
 /* ****************************************************************************/
 /* * Over the air setup */
@@ -128,28 +130,28 @@ void websetup()
     // }
     // if (nwk == "")
     // {
-        Serial.println("Accespoint setup!");
-        IPAddress local_IP(192, 168, 4, 1); // Your Desired Static IP Address
-        IPAddress subnet(255, 255, 255, 0);
-        IPAddress gateway(192, 168, 1, 1);
-        IPAddress primaryDNS(0, 0, 0, 0);   // Not Mandatory
-        IPAddress secondaryDNS(0, 0, 0, 0); // Not Mandatory
-        // Configures Static IP Address
+    Serial.println("Accespoint setup!");
+    IPAddress local_IP(192, 168, 4, 1); // Your Desired Static IP Address
+    IPAddress subnet(255, 255, 255, 0);
+    IPAddress gateway(192, 168, 1, 1);
+    IPAddress primaryDNS(0, 0, 0, 0);   // Not Mandatory
+    IPAddress secondaryDNS(0, 0, 0, 0); // Not Mandatory
+    // Configures Static IP Address
 
-        if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))
-        {
-            Serial.println("Configuration Failed!");
-        }
+    if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))
+    {
+        Serial.println("Configuration Failed!");
+    }
 
-        char ssidl[20];
-        sprintf(ssidl, "NicE_Buoy_%d", buoyID);
-        // Serial.println("No WiFi network found!");
-        Serial.print("Seting up AP: ");
-        Serial.println(ssidl);
-        WiFi.softAP(ssidl);
-        IPAddress IP = WiFi.softAPIP();
-        Serial.print("AP IP address: ");
-        Serial.println(IP);
+    char ssidl[20];
+    sprintf(ssidl, "NicE_Buoy_%d", buoyID);
+    // Serial.println("No WiFi network found!");
+    Serial.print("Seting up AP: ");
+    Serial.println(ssidl);
+    WiFi.softAP(ssidl);
+    IPAddress IP = WiFi.softAPIP();
+    Serial.print("AP IP address: ");
+    Serial.println(IP);
     // }
 
     // else
@@ -161,6 +163,12 @@ void websetup()
     WEBok = true;
 }
 
+void udpsend(char *dataout)
+{
+    udp.broadcastTo(dataout, 1001);
+}
+
+unsigned int udpmsgtimer = 0;
 void webloop()
 {
     if (WEBok)

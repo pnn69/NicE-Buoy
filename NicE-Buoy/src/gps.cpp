@@ -6,7 +6,8 @@
 #include "gps.h"
 #include "io.h"
 
-#define GPSBAUD 9600
+//#define GPSBAUD 9600
+#define GPSBAUD 115200
 
 bool gpsvalid = false;
 bool gpsactive = true;

@@ -294,6 +294,8 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
     rudderpid.lastTime = now;
     *bb = (int)(speed * (1 - tan(radians(adj))));
     *sb = (int)(speed * (1 + tan(radians(adj))));
+    *bb = *bb + buoy.mechanicCorrection;
+    *sb = *sb - buoy.mechanicCorrection;    
     /*Sanety check*/
     *bb = constrain(*bb, -buoy.maxSpeed, buoy.maxSpeed);
     *sb = constrain(*sb, -buoy.maxSpeed, buoy.maxSpeed);

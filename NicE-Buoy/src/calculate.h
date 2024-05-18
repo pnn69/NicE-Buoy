@@ -6,6 +6,8 @@ extern double errSum;
 void initCalculate(void);
 double averigeWindRose(double samples[], int n);
 double deviationWindRose(double samples[], int n);
+bool determineDirection(double heading1, double heading2);
+double ComputeSmallestAngleDir(double heading1, double heading2);
 void addNewSampleInBuffer(double *input, int buflen, double nwdata);
 void setparameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int *maxSpeed);
 double CalcDocSpeed(double tgdistance);

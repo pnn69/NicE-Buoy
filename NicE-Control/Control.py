@@ -1,10 +1,12 @@
 from tkinter import *
+import time
 import math
 import webbrowser
 import serial
 import threading
 import re
 import compass
+import socket
 
 
 
@@ -155,7 +157,7 @@ def decode_23(data): #GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING,  // lat,lon,
 #        if gps_speed > 1:
 #            compass.draw_pointer(gps_hdg,comp,gps_collor)
 #        else:
-        compass.draw_pointer(0,comp,blk_collor)
+        compass.draw_pointer(0,comp,gps_collor)
         compass.draw_pointer(buoy_hdg,comp,buoy_collor)
     
 def decode_24(data): #BATTERY_VOLTAGE_PERCENTAGE,                    // 0.0V, %
@@ -173,12 +175,13 @@ def decode_24(data): #BATTERY_VOLTAGE_PERCENTAGE,                    // 0.0V, %
 
 def decode_28(data):
     values = data.group(5).split(',')
-    if len(values) == 5:
+    if len(values) == 6:
         r1_Dmax_label.config(text=values[0])
         r2_Dmax_label.config(text=values[1])
         r1_SP_label.config(text=values[2])
         r2_SP_label.config(text=values[3]) 
         comp_label.config(text=values[4]) 
+        mec_label.config(text=values[5]) 
 
 def decode_29(data):
     values = data.group(5).split(',')
@@ -248,7 +251,14 @@ def Set_compass_offset():
     out_box1.delete(1.0, END)   
     out_box1.insert(END, f"{msg}")
     
-
+def Set_mecanical_offset():
+    comp_content = adj_mec.get("1.0", "end-1c") 
+    msg = "*^1^37^1^" + comp_content  + "^1"
+    print(msg)
+    ser.write(msg.encode())
+    out_box1.delete(1.0, END)   
+    out_box1.insert(END, f"{msg}")
+    
 def remove_spaces(string):
     return "".join(string.split())
 
@@ -301,7 +311,12 @@ def start_serial_thread():
     serial_thread.daemon = True
     serial_thread.start()
 
+#def start_udp_thread():
+#    while True:
+#        data = sock.recv(2048)
+#        print(data)
 
+    
    
 def start_compass_thread():
     serial_thread = threading.Thread(target=write_compass)
@@ -402,17 +417,6 @@ adj_Dmax.place(x=90, y=135, height=20, width=20)
 r2_Dmax_label = Label(text="?")
 r2_Dmax_label.place(x=90, y = 155)
 
-cal_comp = Button(frame, text="Calibrate compas",command=Calibrate_compass)
-cal_comp.place(x=120, y=170, height=30, width=110)
-set_comp = Button(frame, text="Set compas offset",command=Set_compass_offset)
-set_comp.place(x=270, y=170, height=30, width=110)
-comp_label = Label(text="?")
-comp_label.place(x=240, y = 175)
-adj_comp = Text(frame)
-adj_comp.insert(END, "----")
-adj_comp.place(x=415, y=175, height=20, width=40)
-
-
 adj_SPmin = Text(frame)
 adj_SPmin.insert(END, "2")  # Pre-fill entry1
 adj_SPmin.place(x=390, y=135, height=20, width=20)
@@ -425,6 +429,23 @@ adj_SPmax.insert(END, "75")  # Pre-fill entry1
 adj_SPmax.place(x=470, y=135, height=20, width=20)
 r2_SP_label = Label(text="?")
 r2_SP_label.place(x=470, y = 155)
+
+cal_comp = Button(frame, text="Calibrate compas",command=Calibrate_compass)
+cal_comp.place(x=10, y=170, height=30, width=110)
+set_comp = Button(frame, text="Set compas offset",command=Set_compass_offset)
+set_comp.place(x=160, y=170, height=30, width=110)
+comp_label = Label(text="?")
+comp_label.place(x=130, y = 175)
+adj_comp = Text(frame)
+adj_comp.insert(END, "----")
+adj_comp.place(x=275, y=175, height=20, width=40)
+mec_label = Label(text="?")
+mec_label.place(x=340, y = 175)
+set_mec = Button(frame, text="Set mechanic offset",command=Set_mecanical_offset)
+set_mec.place(x=355, y=170, height=30, width=110)
+adj_mec = Text(frame)
+adj_mec.insert(END, "--")
+adj_mec.place(x=470, y=175, height=20, width=20)
 
 
 idle = Button(frame, text="IDLE", command=idle)
@@ -477,5 +498,6 @@ in_box1 = Text(frame)
 in_box1.place(x=50, y=(windowh - 30), height=20, width=(windoww - 50 - 10))
 comp = compass.create_compass(root)
 start_serial_thread()  # Start the serial reading thread
+#start_udp_thread()
 #start_ble_thread()
 root.mainloop()

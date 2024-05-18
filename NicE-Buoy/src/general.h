@@ -1,7 +1,7 @@
 #ifndef GGENERAL_H_
 #define GENERAL_H_
 #include "../../dependency/command.h"
-#define BUFLENMHRG 60 //one sampel each sec so 60 sec for stabilisation
+#define BUFLENMHRG 60 // one sampel each sec so 60 sec for stabilisation
 struct buoyDataType
 {
     float mheading = 0;
@@ -10,7 +10,7 @@ struct buoyDataType
     double doclatitude, doclongitude;
     double tgdir, tgdistance;
     int minOfsetDist, maxOfsetDist, minSpeed, maxSpeed;
-    int mdir, ddir, cdir, magneticCorrection;
+    int mdir, ddir, cdir, magneticCorrection, mechanicCorrection = 0;
     double winddir[3 + BUFLENMHRG]; // winddir[0]=avarage winddir[1]=pionter winddir[2]=standarddeviation winddir[3..BUFLENWINDSPEED + 3)]=data
     int speed = 0, speedbb = 0, speedsb = 0, cspeed = 0;
     int rssi;

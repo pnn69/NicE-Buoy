@@ -98,8 +98,8 @@ bool InitCompass(void)
 {
     float min_mag[3], max_mag[3];
     CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], true); //  get callibration data
-    m_min = (vector<float>){min_mag[0], min_mag[1], min_mag[2]};
-    m_max = (vector<float>){max_mag[0], max_mag[1], max_mag[2]};
+    //m_min = (vector<float>){min_mag[0], min_mag[1], min_mag[2]};
+    //m_max = (vector<float>){max_mag[0], max_mag[1], max_mag[2]};
 
     if (!mag.begin())
     {
@@ -117,7 +117,8 @@ bool InitCompass(void)
     accel.setMode(LSM303_MODE_NORMAL);
     sensors_event_t event;
     mag.getEvent(&event);
-    CompassOffsetCorrection(&magCorrection, true);
+    CompassOffsetCorrection(&buoy.magneticCorrection, true);
+    MechanicalCorrection(&buoy.mechanicCorrection,true );
     return 0;
 }
 
@@ -168,13 +169,13 @@ bool CalibrateCompass(void)
 
 float GetHeading(void)
 {
-    float mHeding = heading((vector<int>){0, 1, 0}) - 180.0; // 180 correction due placement on pcb
+    float mHeding = heading((vector<int>){0, 1, 0}); // 180 correction due placement on pcb
     mHeding = mHeding + buoy.magneticCorrection;
     if (mHeding < 0)
     {
         mHeding = mHeding + 360.0;
     }
-    else if(mHeding > 360)
+    else if (mHeding > 360)
     {
         mHeding = mHeding - 360.0;
     }
@@ -182,7 +183,7 @@ float GetHeading(void)
 }
 float GetHeadingRaw(void)
 {
-    float t = heading((vector<int>){0, 1, 0}) - 180.0;
+    float t = heading((vector<int>){0, 1, 0});
     if (t > 360)
     {
         t -= 360;
@@ -244,6 +245,7 @@ returns -1 if no solution is known yet
 int linMagCalib(int *corr)
 {
     int ret = -1;
+    float tmp_mhdg = 0;
     switch (stage)
     {
     case 0:
@@ -251,8 +253,8 @@ int linMagCalib(int *corr)
         buoy.speedsb = 30;
         pointer = 0;
         buoy.magneticCorrection = 0;
+        buoy.mechanicCorrection = 0;
         initRudderPid();
-
         timer = millis();
         stage++;
         break;
@@ -260,9 +262,37 @@ int linMagCalib(int *corr)
         while (timer + 5000 > millis())
             break;
         timer = millis();
+        tmp_mhdg = gpsdata.cource;
         stage++;
         break;
     case 2:
+        if (timer + 1000 > millis())
+        {
+            timer = millis();
+            double error = ComputeSmallestAngleDir(tmp_mhdg, gpsdata.cource);
+            if(error < 5)
+            {
+                stage++;
+                break;
+            }
+            else
+            {
+                if (determineDirection(tmp_mhdg, gpsdata.cource))
+                {
+                    buoy.mechanicCorrection -= 1;
+                }
+                else
+                {
+                    buoy.mechanicCorrection += 1;
+                }
+                tmp_mhdg = buoy.mheading;
+                buoy.speedbb += buoy.mechanicCorrection;
+                buoy.speedsb -= buoy.mechanicCorrection;
+                break;
+            }
+        }
+        break;
+    case 3:
         if (timer + 1500 > millis())
         {
             timer = millis();

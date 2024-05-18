@@ -55,6 +55,7 @@ typedef enum
     MAGNETIC_HEADING,                              // magnetic heading
     LINEAR_CALIBRATE_MAGNETIC_COMPASS,             // calibrate compas with gps as base
     COMPASS_OFSET,                                 // offset correcton
+    MECANICAL_OFSET,                               // mecanical offset
     RESET                                          // reset esp
 } Command_t;
 

@@ -391,6 +391,13 @@ int polLora(void)
             }
 
             break;
+        case MECANICAL_OFSET:
+            if (loraIn.gsia == ACK)
+            {
+                buoy[loraIn.sender].ackOK = true;
+            }
+
+            break;
 
         default:
             // Serial.println("<unknown command:" + loraIn.msgid + '>');
@@ -562,6 +569,11 @@ bool loraMenu(int buoy_nr)
         break;
 
     case COMPASS_OFSET:
+        msg = buoy[1].string;
+        buoy[1].gsa = SET;
+        sendMessage(msg, buoy_nr, buoy[buoy_nr].cmnd, buoy[buoy_nr].gsa);
+        break;
+    case MECANICAL_OFSET:
         msg = buoy[1].string;
         buoy[1].gsa = SET;
         sendMessage(msg, buoy_nr, buoy[buoy_nr].cmnd, buoy[buoy_nr].gsa);

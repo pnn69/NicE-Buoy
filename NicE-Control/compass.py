@@ -60,6 +60,8 @@ def draw_pointer(angle, canvas, color):
             Mhdg_text.config(text=f"Magentic heading: {angle}")
     if  color == "blue":
             Tghdg_text.config(text=f"Target heading: {angle}")
+    if  color == "red":
+            Gpshdg_text.config(text=f"GPS heading: {angle}")
    
     #return pointer_id  # Return the ID of the pointer item for further use
 def draw_barr(bb,sb,canvas):
@@ -96,10 +98,10 @@ def draw_Vbatbarr(perc,canvas):
     global battperc
     battperc = perc
     canvas.create_rectangle(50, 300, 50 + 200*battperc/100, 280,  fill="green", tags="progress_bar")
-    batt_text.config(text=f"Battery: {perc}%")
+    batt_text.config(text=f"{perc}%")
 
 def create_compass(root):
-    global bb_text_cp , sb_text_cp , batt_text , Mhdg_text , Tghdg_text  # Access the global label
+    global bb_text_cp , sb_text_cp , batt_text , Mhdg_text , Tghdg_text, Gpshdg_text  # Access the global label
     # Create a Canvas widget to draw the compass
     canvas = Canvas(root, width=300, height=300, bg="white")
     canvas.pack()
@@ -113,12 +115,15 @@ def create_compass(root):
     sb_text_cp.place(x=270, y=29)
     sb_text = Label(canvas, text="SBpwr", bg="white")
     sb_text.place(x=255, y=255)
-    batt_text = Label(canvas, text="Battery", bg="white")
-    batt_text.place(x=110, y=255)
+    batt_text = Label(canvas, text="?", bg="white")
+    batt_text.place(x=255, y=280)
     Mhdg_text = Label(canvas, text="Magentic heading: ", bg="white", fg = "green")
     Mhdg_text.place(x=10, y=10)
     Tghdg_text = Label(canvas, text="Target heading: ", bg="white", fg = "blue")
     Tghdg_text.place(x=190, y=10)
+    Gpshdg_text = Label(canvas, text="Gps heading: ", bg="white", fg = "red")
+    Gpshdg_text.place(x=110, y=255)
+
     return canvas  # Return the canvas object for further use
 
 

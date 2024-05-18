@@ -176,6 +176,19 @@ void CompassOffsetCorrection(int *delta, bool get)
     }
     StopMem();
 }
+void MechanicalCorrection(int *delta, bool get)
+{
+    StartMem();
+    if (get)
+    {
+        *delta = storage.getInt("Mecanic", 0);
+    }
+    else
+    {
+        storage.putInt("Mecanic", *delta);
+    }
+    StopMem();
+}
 
 void CompassCallibrationFactorsInt(int16_t *MaxX, int16_t *MaxY, int16_t *MaxZ, int16_t *MinX, int16_t *MinY, int16_t *MinZ, bool get)
 {

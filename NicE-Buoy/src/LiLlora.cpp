@@ -11,6 +11,7 @@
 #include "general.h"
 #include "calculate.h"
 #include "gps.h"
+#include "webinterface.h"
 #include "../../dependency/command.h"
 
 QueueHandle_t loradataout;
@@ -169,7 +170,7 @@ void sendACKNAKINF(String t, Status_t inp)
 int polLora(void)
 {
     String msg = "";
-    int tmpint=0;
+    int tmpint = 0;
     if (LoRa.parsePacket() == 0)
     {
         return 0; // if there's no packet, return
@@ -550,6 +551,19 @@ int polLora(void)
             sendACKNAKINF("", NAK);
         }
         break;
+    case MECANICAL_OFSET:
+        sscanf(messageArr, "%d", &tmpint);
+        if (tmpint >= -20 && tmpint <= 20)
+        {
+            buoy.mechanicCorrection = tmpint;
+            MechanicalCorrection(&buoy.mechanicCorrection, false); // store new offset
+            sendACKNAKINF("", ACK);
+        }
+        else
+        {
+            sendACKNAKINF("", NAK);
+        }
+        break;
 
     case RESET:
         ESP.restart();
@@ -623,7 +637,7 @@ void LoraTask(void *arg)
                 break;
             case COMPUTE_PARAMETERS:
                 loraOut.msgid = cmnd;
-                loraOut.message = String(buoy.minOfsetDist) + "," + String(buoy.maxOfsetDist) + "," + String(buoy.minSpeed) + "," + String(buoy.maxSpeed) + "," + String(buoy.magneticCorrection);
+                loraOut.message = String(buoy.minOfsetDist) + "," + String(buoy.maxOfsetDist) + "," + String(buoy.minSpeed) + "," + String(buoy.maxSpeed) + "," + String(buoy.magneticCorrection) + "," + String(buoy.mechanicCorrection);
                 loraOut.gsia = SET;
                 while (sendLora())
                     delay(10);
