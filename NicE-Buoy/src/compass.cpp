@@ -10,6 +10,7 @@
 #include "datastorage.h"
 #include "gps.h"
 #include "calculate.h"
+#include "webinterface.h"
 #define NUM_DIRECTIONS 30
 #define NUM_POSITIONS 50
 
@@ -25,7 +26,6 @@ struct vector
 // Stores min and max magnetometer values from calibration
 vector<float> m_max;
 vector<float> m_min;
-static int magCorrection = 0;
 template <typename Ta, typename Tb, typename To>
 void vector_cross(const vector<Ta> *a, const vector<Tb> *b, vector<To> *out)
 {
@@ -98,8 +98,8 @@ bool InitCompass(void)
 {
     float min_mag[3], max_mag[3];
     CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], true); //  get callibration data
-    //m_min = (vector<float>){min_mag[0], min_mag[1], min_mag[2]};
-    //m_max = (vector<float>){max_mag[0], max_mag[1], max_mag[2]};
+    // m_min = (vector<float>){min_mag[0], min_mag[1], min_mag[2]};
+    // m_max = (vector<float>){max_mag[0], max_mag[1], max_mag[2]};
 
     if (!mag.begin())
     {
@@ -118,7 +118,7 @@ bool InitCompass(void)
     sensors_event_t event;
     mag.getEvent(&event);
     CompassOffsetCorrection(&buoy.magneticCorrection, true);
-    MechanicalCorrection(&buoy.mechanicCorrection,true );
+    MechanicalCorrection(&buoy.mechanicCorrection, true);
     return 0;
 }
 
@@ -197,6 +197,9 @@ float GetHeadingRaw(void)
 
 static int cbufpointer = 0;
 static float directions[NUM_DIRECTIONS];
+/*
+Average of NUM_DIRECTIONS samples
+*/
 float CompassAverage(float in)
 {
     directions[cbufpointer++] = in;
@@ -246,9 +249,12 @@ int linMagCalib(int *corr)
 {
     int ret = -1;
     float tmp_mhdg = 0;
+    char bufff[100];
+
     switch (stage)
     {
     case 0:
+        buoy.speed = 30;
         buoy.speedbb = 30;
         buoy.speedsb = 30;
         pointer = 0;
@@ -270,7 +276,7 @@ int linMagCalib(int *corr)
         {
             timer = millis();
             double error = ComputeSmallestAngleDir(tmp_mhdg, gpsdata.cource);
-            if(error < 5)
+            if (error < 5)
             {
                 stage++;
                 break;
@@ -285,9 +291,12 @@ int linMagCalib(int *corr)
                 {
                     buoy.mechanicCorrection += 1;
                 }
+                buoy.speedbb = (int)(buoy.speed * (1 - tan(radians(buoy.mechanicCorrection))));
+                buoy.speedsb = (int)(buoy.speed * (1 + tan(radians(buoy.mechanicCorrection))));
+                /*Sanety check*/
+                buoy.speedbb = constrain(buoy.speedbb, -buoy.maxSpeed, buoy.maxSpeed);
+                buoy.speedsb = constrain(buoy.speedsb, -buoy.maxSpeed, buoy.maxSpeed);
                 tmp_mhdg = buoy.mheading;
-                buoy.speedbb += buoy.mechanicCorrection;
-                buoy.speedsb -= buoy.mechanicCorrection;
                 break;
             }
         }
@@ -296,8 +305,12 @@ int linMagCalib(int *corr)
         if (timer + 1500 > millis())
         {
             timer = millis();
-            tbuf[0][pointer] = (double)GetHeading();
+            tbuf[0][pointer] = (double)GetHeadingRaw();
             tbuf[1][pointer++] = gpsdata.cource;
+            String msg = "<Calib><mag heading>" + String(tbuf[0][pointer - 1]) + "><gps heading><" + String(tbuf[1][pointer - 1]) + ">";
+            strcpy(bufff, msg.c_str());
+            udpsend(bufff);
+
             if (pointer >= ABUF)
             {
                 buoy.speedbb = 0;
@@ -329,6 +342,10 @@ int linMagCalib(int *corr)
                 {
                     gavg_dir -= 360;
                 }
+                String msg = "<Calib result><mag heading>" + String(mavg_dir) + "><gps heading><" + String(gavg_dir) + ">";
+                strcpy(bufff, msg.c_str());
+                udpsend(bufff);
+
                 *corr = int(gavg_dir - mavg_dir);
                 if (*corr < 0)
                 {
@@ -343,6 +360,14 @@ int linMagCalib(int *corr)
                     *corr = 360 - *corr;
                     *corr *= -1;
                 }
+                buoy.magneticCorrection = *corr;
+                CompassOffsetCorrection(&buoy.magneticCorrection, false);
+                pointer = buoy.mechanicCorrection;
+                MechanicalCorrection(&pointer, false);
+                msg = "<Calib stored><buoy.magneticCorrection>" + String(buoy.magneticCorrection) + "><buoy.mechanicCorrection><" + String(buoy.mechanicCorrection) + ">";
+                strcpy(bufff, msg.c_str());
+                udpsend(bufff);
+
                 ret = 0;
                 stage = 0;
             }

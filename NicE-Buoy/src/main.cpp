@@ -48,8 +48,8 @@ static bool blink = false;      // for blinking led
 buoyDataType buoy;              // buoy struckt
 switchStatus frontsw;           // led struckt
 bool FrontLed = false;          // status led
-bool gpsLed = false;          // status led
-bool copLed = false;          // status led
+bool gpsLed = false;            // status led
+bool copLed = false;            // status led
 int spdbb = 0, spdsb = 0;       // speed
 unsigned int sw_button_cnt = 0; // button press counters
 unsigned int sw_button_set = 0; // button press counters
@@ -99,7 +99,7 @@ void setup()
 {
     Serial.begin(115200);
     color_printf(COLOR_PRINT_BLUE, "\r\nSetup running!\r\n");
-    //initSSD1306();
+    // initSSD1306();
     Wire.begin();
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, false);
@@ -268,17 +268,20 @@ void setup()
 void loop()
 {
     webloop();
-    // buoy.mheading = CompassAverage(GetHeading());
-    buoy.mheading = GetHeading();
-        if(copLed == true ){
-            copLed = false;
-            snd_sq.ledstatus = CRGB(0, 0, 20);
-            xQueueSend(indicatorqueBb, (void *)&snd_sq, 10);
-            }else{
-            copLed = true;            
-            snd_sq.ledstatus = CRGB(0, 0, 0);
-            xQueueSend(indicatorqueBb, (void *)&snd_sq, 10);
-        }
+    buoy.mheading = CompassAverage(GetHeading());
+    //buoy.mheading = GetHeading();
+    if (copLed == true)
+    {
+        copLed = false;
+        snd_sq.ledstatus = CRGB(0, 0, 20);
+        xQueueSend(indicatorqueBb, (void *)&snd_sq, 10);
+    }
+    else
+    {
+        copLed = true;
+        snd_sq.ledstatus = CRGB(0, 0, 0);
+        xQueueSend(indicatorqueBb, (void *)&snd_sq, 10);
+    }
 
     if (status == LOCKED || status == DOCKED)
     {
@@ -292,12 +295,15 @@ void loop()
             buoy.speed = hooverPid(buoy.tgdistance);
             // CalcRudderBuoy(buoy.tgdir, buoy.mheading, buoy.tgdistance, buoy.speed, &buoy.speedbb, &buoy.speedsb); // calculate power to thrusters
         }
-        if(gpsLed == true ){
+        if (gpsLed == true)
+        {
             gpsLed = false;
             snd_sq.ledstatus = CRGB(0, 0, 20);
             xQueueSend(indicatorqueSb, (void *)&snd_sq, 10);
-        }else{
-            gpsLed = true;            
+        }
+        else
+        {
+            gpsLed = true;
             snd_sq.ledstatus = CRGB(0, 0, 0);
             xQueueSend(indicatorqueSb, (void *)&snd_sq, 10);
         }
@@ -315,13 +321,11 @@ void loop()
     {
         hstamp = millis() - 1;
 
-
-        String msg = "<245><" + String(status) + "><" + GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING + "><" + SET + "><" +String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.nrsats) + "," + String(gpsdata.fix) + "," + String((int)gpsdata.cource) + "," + String((int)gpsdata.speed) + "," + String(buoy.mheading) + ">";
-        const char *out = msg.c_str();
-        char bufff[100];
-        strcpy(bufff, out);
-        udpsend(bufff);
-
+        // String msg = "<245><" + String(status) + "><" + GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING + "><" + SET + "><" + String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.nrsats) + "," + String(gpsdata.fix) + "," + String((int)gpsdata.cource) + "," + String((int)gpsdata.speed) + "," + String(buoy.mheading) + ">";
+        // const char *out = msg.c_str();
+        // char bufff[100];
+        // strcpy(bufff, out);
+        // udpsend(bufff);
 
         if (FRONTBUTTON_READ == PUSHED)
         {

@@ -1,2 +1,1 @@
 python Control.py
-pause

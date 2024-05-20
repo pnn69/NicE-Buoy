@@ -553,7 +553,7 @@ int polLora(void)
         break;
     case MECANICAL_OFSET:
         sscanf(messageArr, "%d", &tmpint);
-        if (tmpint >= -20 && tmpint <= 20)
+        if (tmpint >= -30 && tmpint <= 30)
         {
             buoy.mechanicCorrection = tmpint;
             MechanicalCorrection(&buoy.mechanicCorrection, false); // store new offset

@@ -289,13 +289,12 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
     rudderpid.p = rudderpid.kp * error;
     rudderpid.i = (rudderpid.ki / 1000) * rudderpid.iintergrate;
     rudderpid.d = rudderpid.kd * dErr;
-    double adj = rudderpid.p + rudderpid.i + rudderpid.d;
+    double adj = rudderpid.p + rudderpid.i + rudderpid.d + buoy.mechanicCorrection;
     rudderpid.lastErr = error;
     rudderpid.lastTime = now;
     *bb = (int)(speed * (1 - tan(radians(adj))));
     *sb = (int)(speed * (1 + tan(radians(adj))));
-    *bb = *bb + buoy.mechanicCorrection;
-    *sb = *sb - buoy.mechanicCorrection;    
+    *bb = *bb ;
     /*Sanety check*/
     *bb = constrain(*bb, -buoy.maxSpeed, buoy.maxSpeed);
     *sb = constrain(*sb, -buoy.maxSpeed, buoy.maxSpeed);

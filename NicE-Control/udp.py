@@ -2,9 +2,9 @@ import socket
 
  
 
-localIP     = "192.168.4.2"
+localIP     = "localhost"
 
-localPort   = 1001
+localPort   = 62121
 
 bufferSize  = 1024
 
