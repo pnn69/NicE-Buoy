@@ -4921,6 +4921,18 @@
 		)
 		(uuid "fe6c6cc2-b9e6-41a1-b9db-29521ecb133e")
 	)
+	(text "Switcher vervangen door: LMR16020PDDAR\nhttps://www.ti.com/lit/ug/snvu497/snvu497.pdf?ts=1716221067757&ref_url=https%253A%252F%252Fwww.ti.com%252Ftool%252FLMR16020PEVM\nhttps://www.digikey.nl/reference-designs/en/ac-dc-and-dc-dc-conversion/dc-dc-smps-single-output/2048"
+		(exclude_from_sim no)
+		(at 28.448 175.768 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+			(href "https://www.digikey.nl/reference-designs/en/ac-dc-and-dc-dc-conversion/dc-dc-smps-single-output/2048")
+		)
+		(uuid "8412b889-1f53-48cb-a983-1fb583a47690")
+	)
 	(label "GREEN"
 		(at 80.01 24.13 0)
 		(fields_autoplaced yes)

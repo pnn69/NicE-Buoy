@@ -108,6 +108,7 @@ void setup()
     InitMemory();
     initMCP23017();
     InitGps();
+    InitCompass();
     /*only init memory once*/
     // rudderpid.kp = 1;
     // rudderpid.ki = 0.1;
@@ -117,9 +118,9 @@ void setup()
     // speedpid.kd = 0;
     // pidRudderParameters(&rudderpid.kp, &rudderpid.ki, &rudderpid.kd, false);
     // pidSpeedParameters(&speedpid.kp, &speedpid.ki, &speedpid.kd, false);
-    // float max_mag[3] = { 576,466,754};
-    // float min_mag[3] = {-535,-645,-382};
-    // CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], false); //  get callibration data
+    //float max_mag[3] = { 576,466,754};
+    //float min_mag[3] = {-535,-645,-382};
+    //CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], false); //  get callibration data
     // gpsdata.lat = 52.29308075283747;
     // gpsdata.lon = 4.932570409845357;
     // MemoryDockPos(&gpsdata.lat, &gpsdata.lon, false); // store default wsvop
@@ -226,6 +227,10 @@ void setup()
 #endif
     status = IDLE;
     Serial.println("Setup done.");
+    char bufff[30];
+    strcpy(bufff, "Setup done!");
+    udpsend(bufff);
+
     /**********************************************************************************************************************************************************/
     /* Only for testing */
     /**********************************************************************************************************************************************************/
@@ -322,9 +327,8 @@ void loop()
         hstamp = millis() - 1;
 
         // String msg = "<245><" + String(status) + "><" + GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING + "><" + SET + "><" + String(gpsdata.lat, 8) + "," + String(gpsdata.lon, 8) + "," + String(gpsdata.nrsats) + "," + String(gpsdata.fix) + "," + String((int)gpsdata.cource) + "," + String((int)gpsdata.speed) + "," + String(buoy.mheading) + ">";
-        // const char *out = msg.c_str();
         // char bufff[100];
-        // strcpy(bufff, out);
+        // strcpy(bufff, msg.c_str());
         // udpsend(bufff);
 
         if (FRONTBUTTON_READ == PUSHED)
@@ -592,8 +596,6 @@ void loop()
         if (blink == true)
         {
             addNewSampleInBuffer(buoy.winddir, BUFLENMHRG, buoy.mheading);
-            loramsg.data = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
-            xQueueSend(loradataout, (void *)&loramsg, 10); // update lora
         }
         blink = !blink;
     }
@@ -625,12 +627,22 @@ void loop()
     if (sec5stamp + 2500 < millis())
     {
         sec5stamp = millis() - 1;
-        double invertdir = buoy.tgdir;
-        invertdir += 180;
-        if (invertdir > 360)
-        {
-            invertdir -= 360;
-        }
+
+        String msg = String(buoy.tgdir) + "," + String(buoy.tgdistance) + "," + buoy.speed + "," + buoy.speedbb + "," + buoy.speedsb + "," + String(buoy.mheading, 0);
+        char bufff[100];
+        strcpy(bufff, msg.c_str());
+        udpsend(bufff);
+
+        // double invertdir = buoy.tgdir;
+        loramsg.data = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
+        xQueueSend(loradataout, (void *)&loramsg, 10); // update lora
+        loramsg.data = GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING;
+        xQueueSend(loradataout, (void *)&loramsg, 10); // update lora
+        // invertdir += 180;
+        // if (invertdir > 360)
+        // {
+        //     invertdir -= 360;
+        // }
         loraIn.recipient = 0xFE;
         msg_cnt++;
         if (status == LOCKED || status == DOCKED)
@@ -643,8 +655,8 @@ void loop()
         switch (msg_cnt)
         {
         case 1:
-            loramsg.data = GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING;
-            xQueueSend(loradataout, (void *)&loramsg, 10); // update lora
+            // loramsg.data = GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING;
+            // xQueueSend(loradataout, (void *)&loramsg, 10); // update lora
             break;
         case 2:
 

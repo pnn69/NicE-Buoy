@@ -255,9 +255,9 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
     /*Rotate to target direction first*/
     if (tdistance > 0.5 && abs(error) > 45)
     {
-        float power = map(abs(error),45,180,7,70);
-        power =  sin(radians(power))*100;
-        power = (int)map(power,13,100,13,buoy.maxSpeed/2);
+        float power = map(abs(error), 45, 180, 2, 20);
+        power = sin(radians(power)) * 100;
+        power = (int)map(power, 13, 100, 13, buoy.maxSpeed / 2);
 
         if (error >= 0)
         {
@@ -294,7 +294,7 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
     rudderpid.lastTime = now;
     *bb = (int)(speed * (1 - tan(radians(adj))));
     *sb = (int)(speed * (1 + tan(radians(adj))));
-    *bb = *bb ;
+    *bb = *bb;
     /*Sanety check*/
     *bb = constrain(*bb, -buoy.maxSpeed, buoy.maxSpeed);
     *sb = constrain(*sb, -buoy.maxSpeed, buoy.maxSpeed);
@@ -368,6 +368,11 @@ int hooverPid(double dist)
     speedpid.i = speedpid.ki * speedpid.iintergrate;
     speedpid.d = speedpid.kd * dErr;
     Output = speedpid.p + speedpid.i + speedpid.d;
+    /* Do not sail backwards*/
+    if (Output < 0)
+    {
+        Output = 0;
+    }
     /*Remember some variables for next time*/
     speedpid.lastErr = dist;
     speedpid.lastTime = now;

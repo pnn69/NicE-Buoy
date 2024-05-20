@@ -181,6 +181,11 @@ int polLora(void)
     }
     char messageArr[100];
     Serial.println("Lora msg> id:" + String(loraIn.msgid) + " gsia:" + String(loraIn.gsia) + " <" + loraIn.message + ">");
+    msg = "Lora msg> id:" + String(loraIn.msgid) + " gsia:" + String(loraIn.gsia) + " <" + loraIn.message + ">";
+    char bufff[100];
+    strcpy(bufff, msg.c_str());
+    udpsend(bufff);
+
     loraIn.message.toCharArray(messageArr, loraIn.message.length() + 1);
     loraOut.destination = loraIn.sender;
     loraOut.sender = buoyID;
@@ -394,12 +399,11 @@ int polLora(void)
             double tp;
             double ti;
             double td;
-            double n;
-            sscanf(messageArr, "%lf,%lf,%lf,%lf", &tp, &ti, &td, &n);
+            sscanf(messageArr, "%lf,%lf,%lf", &tp, &ti, &td);
             /*
             sanety check
             */
-            if (tp < 0 || tp > 30)
+            if (tp < 0 || tp > 60)
             {
                 break;
             }
@@ -434,8 +438,7 @@ int polLora(void)
             double tp;
             double ti;
             double td;
-            double n;
-            sscanf(messageArr, "%lf,%lf,%lf,%lf", &tp, &ti, &td, &n);
+            sscanf(messageArr, "%lf,%lf,%lf", &tp, &ti, &td);
             /*
             sanety check
             */
@@ -544,6 +547,7 @@ int polLora(void)
         {
             buoy.magneticCorrection = tmpint;
             CompassOffsetCorrection(&buoy.magneticCorrection, false); // store new offset
+            initRudderPid();
             sendACKNAKINF("", ACK);
         }
         else

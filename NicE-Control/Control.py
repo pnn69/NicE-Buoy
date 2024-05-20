@@ -100,65 +100,90 @@ def doc_position():
 def decode_18(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
     global tg_hdg, tg_dst, bb_sp,sb_sp,buoy_hdg , speed, dist_txt
     values = data.group(5).split(',')
+    #try:
     if len(values) == 6:
-        tg_hdg = int(float(values[0]))
+        try:
+            tg_hdg = int(float(values[0]))
+        except:
+            print("Hedg fail")
         #tg_hdg = tg_hdg + 180
         #if tg_hdg > 360:
         #    tg_hdg = tg_hdg - 360
-        tg_dst = float(values[1])
-        bb_sp = int(float(values[3]))
-        sb_sp = int(float(values[4]))
-        buoy_hdg = int(float(values[5]))
+        try: 
+            tg_dst = float(values[1])
+        except:
+            print("dits error")
+        try:    
+            bb_sp = int(float(values[3]))
+        except:
+            print("speed failed")
+        try:
+            sb_sp = int(float(values[4]))
+        except:
+            print("speed failed")
+        try:
+            buoy_hdg = int(float(values[5]))
+        except:
+            print("hdg failed")
         compass.draw_barr(bb_sp,sb_sp,comp)
         compass.draw_pointer(tg_hdg,comp,tg_collor)
         compass.draw_pointer(buoy_hdg,comp,buoy_collor)
         output_str = f"{bb_sp}% , {sb_sp}%"
         output_str = f"Target distance:{tg_dst} M"
         dist_txt.config(text=output_str)
+#except:
+        #print("wrong data 18")
         
 def decode_19(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
     global tg_hdg, tg_dst, bb_sp,sb_sp,buoy_hdg , speed
     values = data.group(5).split(',')
-    if len(values) == 4:
-        bb_sp = int(values[2])
-        sb_sp = int(values[3])
-        output_str = f"{bb_sp}% , {sb_sp}%"
-        compass.draw_barr(bb_sp,sb_sp,comp)
+    try:
+        if len(values) == 4:
+            bb_sp = int(values[2])
+            sb_sp = int(values[3])
+            output_str = f"{bb_sp}% , {sb_sp}%"
+            compass.draw_barr(bb_sp,sb_sp,comp)
+    except:
+        print("wrong data 19")
 
 def decode_20(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
     global bb_sp,sb_sp
     values = data.group(5).split(',')
-    if len(values) == 2:
-        bb_sp = int(values[0])
-        sb_sp = int(values[1])
-        output_str = f"{bb_sp}% , {sb_sp}%"
-        compass.draw_barr(bb_sp,sb_sp,comp)
-    
+    try:
+        if len(values) == 2:
+            bb_sp = int(values[0])
+            sb_sp = int(values[1])
+            output_str = f"{bb_sp}% , {sb_sp}%"
+            compass.draw_barr(bb_sp,sb_sp,comp)
+    except:
+        print("wrong data 20")
+
      #<52.32038000,4.96563000,10,1,0,0,3.00>
 def decode_23(data): #GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING,  // lat,lon,fix,heading,speed,m_heading
     global latitude, longitude, gps_fix, comp , gpsfix_label
     values = data.group(5).split(',')
     if len(values) == 7:
-        latitude = values[0]
-        longitude = values[1]
-        gps_sat =  int(values[2])
-        if values[3] == "1":
-            gps_fix = True
-            open_maps_button.config(bg = "#36ff00")
-        else:
-            gps_fix = False
-            open_maps_button.config(bg = "#ff3b00")
-        gps_hdg = int(values[4])
-        gps_speed = int(values[5])
-        buoy_hdg = int(float(values[6]))
-        output_str = f"{gps_speed} Km/pH"         
-        gps_data.config(text=output_str)
-        sat_data.config(text = f"{gps_sat}")
-#        if gps_speed > 1:
-#            compass.draw_pointer(gps_hdg,comp,gps_collor)
-#        else:
-        compass.draw_pointer(gps_speed,comp,gps_collor)
-        compass.draw_pointer(buoy_hdg,comp,buoy_collor)
+        try: 
+            latitude = values[0]
+            longitude = values[1]
+            gps_sat =  int(values[2])
+            if values[3] == "1":
+                gps_fix = True
+                open_maps_button.config(bg = "#36ff00")
+            else:
+                gps_fix = False
+                open_maps_button.config(bg = "#ff3b00")
+            gps_hdg = int(values[4])
+            gps_speed = int(values[5])
+            buoy_hdg = int(float(values[6]))
+            output_str = f"{gps_speed} Km/pH"         
+            gps_data.config(text=output_str)
+            sat_data.config(text = f"{gps_sat}")
+            
+            compass.draw_pointer(gps_hdg,comp,gps_collor)
+            compass.draw_pointer(buoy_hdg,comp,buoy_collor)
+        except:
+            print("wrong data 23")
     
 def decode_24(data): #BATTERY_VOLTAGE_PERCENTAGE,                    // 0.0V, %
     global comp
@@ -176,12 +201,15 @@ def decode_24(data): #BATTERY_VOLTAGE_PERCENTAGE,                    // 0.0V, %
 def decode_28(data):
     values = data.group(5).split(',')
     if len(values) == 6:
-        r1_Dmax_label.config(text=values[0])
-        r2_Dmax_label.config(text=values[1])
-        r1_SP_label.config(text=values[2])
-        r2_SP_label.config(text=values[3]) 
-        comp_label.config(text=values[4]) 
-        mec_label.config(text=values[5]) 
+        try:
+            r1_Dmax_label.config(text=values[0])
+            r2_Dmax_label.config(text=values[1])
+            r1_SP_label.config(text=values[2])
+            r2_SP_label.config(text=values[3]) 
+            comp_label.config(text=values[4]) 
+            mec_label.config(text=values[5]) 
+        except:
+            print("wrong data 28")
 
 def decode_29(data):
     values = data.group(5).split(',')
@@ -195,16 +223,22 @@ def decode_30(data):
 
 def decode_32(data):
     values = data.group(5).split(',')
-    if len(values) == 2:
-        wind_dir.config(text=values[0])
-        wind_dev.config(text=values[1])
+    try:
+        if len(values) == 2:
+            wind_dir.config(text=values[0])
+            wind_dev.config(text=values[1])
+    except:
+        print("wrong data")
 
 def decode_34(data):
     global buoy_hdg
     values = data.group(5).split(',')
-    if len(values) == 1:
-        buoy_hdg = int(float(values[0]))
-        compass.draw_pointer(buoy_hdg,comp,buoy_collor)
+    try:
+        if len(values) == 1:
+            buoy_hdg = int(float(values[0]))
+            compass.draw_pointer(buoy_hdg,comp,buoy_collor)
+    except:
+        print("wrong data")
 
 def decode_status(data):
     if data == "5":
@@ -302,9 +336,9 @@ def read_serial():
                 received_data = remove_spaces(received_data)
                 in_box1.delete(1.0, END)   
                 in_box1.insert(END, f"{received_data}")
-                decode_message(received_data)
                 print(received_data)
                 compass.toggle_circle(comp)
+                decode_message(received_data)
 
 def start_serial_thread():
     serial_thread = threading.Thread(target=read_serial)

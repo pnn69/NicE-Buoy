@@ -11,11 +11,14 @@
 #include "gps.h"
 #include "calculate.h"
 #include "webinterface.h"
+#include "esc.h"
 #define NUM_DIRECTIONS 30
 #define NUM_POSITIONS 50
 
 Adafruit_LSM303AGR_Mag_Unified mag = Adafruit_LSM303AGR_Mag_Unified(12345);
 Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
+
+Message comp_msg; /* ESC que struckt */
 
 template <typename T>
 struct vector
@@ -98,8 +101,8 @@ bool InitCompass(void)
 {
     float min_mag[3], max_mag[3];
     CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], true); //  get callibration data
-    // m_min = (vector<float>){min_mag[0], min_mag[1], min_mag[2]};
-    // m_max = (vector<float>){max_mag[0], max_mag[1], max_mag[2]};
+    m_min = (vector<float>){min_mag[0], min_mag[1], min_mag[2]};
+    m_max = (vector<float>){max_mag[0], max_mag[1], max_mag[2]};
 
     if (!mag.begin())
     {
@@ -238,6 +241,7 @@ double tbuf[2][ABUF];
 int pointer = 0;
 int stage = 0;
 unsigned long timer;
+String msg = "";
 /*
 Set sailspeed at 50%
 take for 10 sconds the avarage magnetic neading and gps heading
@@ -250,6 +254,7 @@ int linMagCalib(int *corr)
     int ret = -1;
     float tmp_mhdg = 0;
     char bufff[100];
+    int tel = 0;
 
     switch (stage)
     {
@@ -265,10 +270,11 @@ int linMagCalib(int *corr)
         stage++;
         break;
     case 1:
-        while (timer + 5000 > millis())
+        while (timer + 10000 > millis())
             break;
         timer = millis();
         tmp_mhdg = gpsdata.cource;
+        tel = 0;
         stage++;
         break;
     case 2:
@@ -276,27 +282,44 @@ int linMagCalib(int *corr)
         {
             timer = millis();
             double error = ComputeSmallestAngleDir(tmp_mhdg, gpsdata.cource);
-            if (error < 5)
+            msg ="Mecanical correction: " + String(buoy.mechanicCorrection) + "Error " + String(error,1 )+"Magnetic cource " + String(buoy.mheading, 0) + "Gps cource" + String(gpsdata.cource, 1);
+            strcpy(bufff, msg.c_str());
+            udpsend(bufff);
+
+            if (error < 2)
             {
-                stage++;
+                if (tel >= 100)
+                {
+                    stage++;
+                }
+                else
+                {
+                    tel++;
+                }
                 break;
             }
             else
             {
                 if (determineDirection(tmp_mhdg, gpsdata.cource))
                 {
-                    buoy.mechanicCorrection -= 1;
+                    buoy.mechanicCorrection += 1;
                 }
                 else
                 {
-                    buoy.mechanicCorrection += 1;
+                    buoy.mechanicCorrection -= 1;
                 }
                 buoy.speedbb = (int)(buoy.speed * (1 - tan(radians(buoy.mechanicCorrection))));
                 buoy.speedsb = (int)(buoy.speed * (1 + tan(radians(buoy.mechanicCorrection))));
                 /*Sanety check*/
                 buoy.speedbb = constrain(buoy.speedbb, -buoy.maxSpeed, buoy.maxSpeed);
                 buoy.speedsb = constrain(buoy.speedsb, -buoy.maxSpeed, buoy.maxSpeed);
-                tmp_mhdg = buoy.mheading;
+                comp_msg.speedbb = buoy.speedbb;
+                comp_msg.speedsb = buoy.speedsb;
+                xQueueSend(escspeed, (void *)&comp_msg, 10); // update esc
+                delay(1000);
+                GetNewGpsData();
+                tmp_mhdg = gpsdata.cource;
+                timer = millis();
                 break;
             }
         }
@@ -315,6 +338,7 @@ int linMagCalib(int *corr)
             {
                 buoy.speedbb = 0;
                 buoy.speedsb = 0;
+                status = IDLE;
                 double msum_x = 0.0, msum_y = 0.0, mavg_dir;
                 double gsum_x = 0.0, gsum_y = 0.0, gavg_dir;
                 for (int tel = 0; tel < ABUF; tel++)
@@ -362,8 +386,7 @@ int linMagCalib(int *corr)
                 }
                 buoy.magneticCorrection = *corr;
                 CompassOffsetCorrection(&buoy.magneticCorrection, false);
-                pointer = buoy.mechanicCorrection;
-                MechanicalCorrection(&pointer, false);
+                MechanicalCorrection(&buoy.mechanicCorrection, false);
                 msg = "<Calib stored><buoy.magneticCorrection>" + String(buoy.magneticCorrection) + "><buoy.mechanicCorrection><" + String(buoy.mechanicCorrection) + ">";
                 strcpy(bufff, msg.c_str());
                 udpsend(bufff);
