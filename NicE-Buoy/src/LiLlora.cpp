@@ -266,7 +266,7 @@ int polLora(void)
     case TARGET_POSITION:
         if (loraIn.gsia == SET)
         {
-            if ((gpsdata.lat != 0 || gpsdata.lon != 0) && gpsdata.fix == true)
+            if (gpsdata.fix == true)
             {
                 initRudderPid();
                 buoy.tglatitude = gpsdata.lat;
@@ -474,9 +474,7 @@ int polLora(void)
     case CHANGE_LOCK_POS_DIR_DIST:
         if (loraIn.gsia == SET)
         {
-#ifndef DEBUG
             if (gpsdata.fix == true)
-#endif
             {
                 int direction;
                 double distance;
@@ -498,12 +496,29 @@ int polLora(void)
                 rudderpid.iintergrate = 0;
                 msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
                 sendACKNAKINF(msg, ACK);
-                delay(250);
-                Serial.printf("Current magnetic heading=%0.0f° adjust angle=%d° Distance=%0.2lf Meter\r\n", buoy.mheading, direction, distance);
-                loraOut.message = String((int)buoy.tgdir) + "," + String(buoy.tgdistance, 1);
-                loraOut.destination = loraIn.recipient;
-                loraOut.msgid = DIR_DISTANSE_TO_TARGET_POSITION;
-                loraOut.gsia = SET;
+                status = LOCKED;
+                speedpid.armIntergrator = false;
+                while (sendLora())
+                    ;
+            }
+            else
+            {
+                sendACKNAKINF("", NAK);
+            }
+        }
+        break;
+    case CHANGE_LOCK_POS_DIR_DIST_ABS:
+        if (loraIn.gsia == SET)
+        {
+            if (gpsdata.fix == true)
+            {
+                int direction;
+                double distance;
+                sscanf(messageArr, "%d,%lf", &direction, &distance);
+                adjustPositionDirDist(direction, distance, &buoy.tglatitude, &buoy.tglongitude);
+                rudderpid.iintergrate = 0;
+                msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
+                sendACKNAKINF(msg, ACK);
                 status = LOCKED;
                 speedpid.armIntergrator = false;
                 while (sendLora())
@@ -561,6 +576,7 @@ int polLora(void)
         {
             buoy.mechanicCorrection = tmpint;
             MechanicalCorrection(&buoy.mechanicCorrection, false); // store new offset
+            initRudderPid();
             sendACKNAKINF("", ACK);
         }
         else

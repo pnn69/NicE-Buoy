@@ -118,9 +118,9 @@ void setup()
     // speedpid.kd = 0;
     // pidRudderParameters(&rudderpid.kp, &rudderpid.ki, &rudderpid.kd, false);
     // pidSpeedParameters(&speedpid.kp, &speedpid.ki, &speedpid.kd, false);
-    //float max_mag[3] = { 576,466,754};
-    //float min_mag[3] = {-535,-645,-382};
-    //CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], false); //  get callibration data
+    // float max_mag[3] = { 576,466,754};
+    // float min_mag[3] = {-535,-645,-382};
+    // CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], false); //  get callibration data
     // gpsdata.lat = 52.29308075283747;
     // gpsdata.lon = 4.932570409845357;
     // MemoryDockPos(&gpsdata.lat, &gpsdata.lon, false); // store default wsvop
@@ -274,7 +274,7 @@ void loop()
 {
     webloop();
     buoy.mheading = CompassAverage(GetHeading());
-    //buoy.mheading = GetHeading();
+    // buoy.mheading = GetHeading();
     if (copLed == true)
     {
         copLed = false;
@@ -628,25 +628,17 @@ void loop()
     {
         sec5stamp = millis() - 1;
 
-        String msg = String(buoy.tgdir) + "," + String(buoy.tgdistance) + "," + buoy.speed + "," + buoy.speedbb + "," + buoy.speedsb + "," + String(buoy.mheading, 0);
-        char bufff[100];
-        strcpy(bufff, msg.c_str());
-        udpsend(bufff);
-
         // double invertdir = buoy.tgdir;
-        loramsg.data = DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING;
-        xQueueSend(loradataout, (void *)&loramsg, 10); // update lora
         loramsg.data = GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING;
         xQueueSend(loradataout, (void *)&loramsg, 10); // update lora
-        // invertdir += 180;
-        // if (invertdir > 360)
-        // {
-        //     invertdir -= 360;
-        // }
         loraIn.recipient = 0xFE;
         msg_cnt++;
-        if (status == LOCKED || status == DOCKED)
+        if (status == LOCKED || status == DOCKED || status == REMOTE)
         {
+            String msg = String(buoy.tgdir) + "," + String(buoy.tgdistance) + "," + buoy.speed + "," + buoy.speedbb + "," + buoy.speedsb + "," + String(buoy.mheading, 0);
+            char bufff[100];
+            strcpy(bufff, msg.c_str());
+            udpsend(bufff);
             loramsg.data = PID_RUDDER_PARAMETERS;
             xQueueSend(loradataout, (void *)&loramsg, 10); // update lora
             loramsg.data = PID_SPEED_PARAMETERS;

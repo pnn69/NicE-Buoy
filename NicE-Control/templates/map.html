@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    
+        <script>
+            L_NO_TOUCH = false;
+            L_DISABLE_3D = false;
+        </script>
+    
+    <style>html, body {width: 100%;height: 100%;margin: 0;padding: 0;}</style>
+    <style>#map {position:absolute;top:0;bottom:0;right:0;left:0;}</style>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_847a8239a0e40ae88820e4b6a8a630cf {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+        
+</head>
+<body>
+    
+    
+            <div class="folium-map" id="map_847a8239a0e40ae88820e4b6a8a630cf" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_847a8239a0e40ae88820e4b6a8a630cf = L.map(
+                "map_847a8239a0e40ae88820e4b6a8a630cf",
+                {
+                    center: [52.290244, 4.931136],
+                    crs: L.CRS.EPSG3857,
+                    zoom: 17,
+                    zoomControl: true,
+                    preferCanvas: false,
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_7b3953fe18645e3a2e90495fff753d5c = L.tileLayer(
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                {"attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors", "detectRetina": false, "maxNativeZoom": 19, "maxZoom": 19, "minZoom": 0, "noWrap": false, "opacity": 1, "subdomains": "abc", "tms": false}
+            );
+        
+    
+            tile_layer_7b3953fe18645e3a2e90495fff753d5c.addTo(map_847a8239a0e40ae88820e4b6a8a630cf);
+        
+    
+            var marker_cbe3fa21ae5f9fe66a85eaae28d1c97e = L.marker(
+                [52.2908, 4.9365],
+                {}
+            ).addTo(map_847a8239a0e40ae88820e4b6a8a630cf);
+        
+    
+            var icon_336115df8dc8b83dffe129d58fd89703 = L.AwesomeMarkers.icon(
+                {"extraClasses": "fa-rotate-0", "icon": "cloud", "iconColor": "white", "markerColor": "blue", "prefix": "glyphicon"}
+            );
+            marker_cbe3fa21ae5f9fe66a85eaae28d1c97e.setIcon(icon_336115df8dc8b83dffe129d58fd89703);
+        
+    
+            var marker_d4935fe2f8edc9d88932f6c9ca39f196 = L.marker(
+                [52.2908, 4.9365],
+                {}
+            ).addTo(map_847a8239a0e40ae88820e4b6a8a630cf);
+        
+    
+            var div_icon_c06fa64150bd07fd421302432d55a0fc = L.divIcon({"className": "empty", "html": "\u003cdiv style=\"font-size: 12pt; color : black\"\u003eBuoy 1\u003c/div\u003e"});
+            marker_d4935fe2f8edc9d88932f6c9ca39f196.setIcon(div_icon_c06fa64150bd07fd421302432d55a0fc);
+        
+    
+            var marker_d200d4a250e2255e17647ef7991f0f20 = L.marker(
+                [52.290508, 4.929827],
+                {}
+            ).addTo(map_847a8239a0e40ae88820e4b6a8a630cf);
+        
+    
+            var icon_6a6dae2a991458d51ae1d05a79bdf4c1 = L.AwesomeMarkers.icon(
+                {"extraClasses": "fa-rotate-0", "icon": "cloud", "iconColor": "white", "markerColor": "blue", "prefix": "glyphicon"}
+            );
+            marker_d200d4a250e2255e17647ef7991f0f20.setIcon(icon_6a6dae2a991458d51ae1d05a79bdf4c1);
+        
+    
+            var marker_72fe2b66c428ae8520c07e8aab64ccf0 = L.marker(
+                [52.290508, 4.929827],
+                {}
+            ).addTo(map_847a8239a0e40ae88820e4b6a8a630cf);
+        
+    
+            var div_icon_9f2d7352c5bae1eac1625b1f52b27f91 = L.divIcon({"className": "empty", "html": "\u003cdiv style=\"font-size: 12pt; color : black\"\u003eBuoy 2\u003c/div\u003e"});
+            marker_72fe2b66c428ae8520c07e8aab64ccf0.setIcon(div_icon_9f2d7352c5bae1eac1625b1f52b27f91);
+        
+    
+            var marker_91194d1a01a0e52e1e3b60664b37e0b8 = L.marker(
+                [52.290133, 4.930286],
+                {}
+            ).addTo(map_847a8239a0e40ae88820e4b6a8a630cf);
+        
+    
+            var icon_c89b55b26e063bc24738247941e3a341 = L.AwesomeMarkers.icon(
+                {"extraClasses": "fa-rotate-0", "icon": "cloud", "iconColor": "white", "markerColor": "blue", "prefix": "glyphicon"}
+            );
+            marker_91194d1a01a0e52e1e3b60664b37e0b8.setIcon(icon_c89b55b26e063bc24738247941e3a341);
+        
+    
+            var marker_30bc38dcfe71630cd15ddef6fd3ee288 = L.marker(
+                [52.290133, 4.930286],
+                {}
+            ).addTo(map_847a8239a0e40ae88820e4b6a8a630cf);
+        
+    
+            var div_icon_1a3db7a539990f895f056ccc295a7657 = L.divIcon({"className": "empty", "html": "\u003cdiv style=\"font-size: 12pt; color : black\"\u003eBuoy 3\u003c/div\u003e"});
+            marker_30bc38dcfe71630cd15ddef6fd3ee288.setIcon(div_icon_1a3db7a539990f895f056ccc295a7657);
+        
+</script>
+</html>

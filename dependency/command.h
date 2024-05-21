@@ -56,6 +56,7 @@ typedef enum
     LINEAR_CALIBRATE_MAGNETIC_COMPASS,             // calibrate compas with gps as base
     COMPASS_OFSET,                                 // offset correcton
     MECANICAL_OFSET,                               // mecanical offset
+    CHANGE_LOCK_POS_DIR_DIST_ABS,                  // Absolute new angel to sail to
     RESET                                          // reset esp
 } Command_t;
 

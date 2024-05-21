@@ -378,3 +378,35 @@ int hooverPid(double dist)
     speedpid.lastTime = now;
     return (int)constrain(Output, 0, buoy.maxSpeed);
 }
+
+/*
+Given the position of the head marker buoy
+you can calculate the downwind buoy's by given a lengt
+use a positive with for the bb buoy and a negative wide for the sb buoy.
+useing the wind dir parameter we can compute the position of th buoys.
+*/
+int caculateRaceCource(double dist, unsigned int wide, double *lat, double *lon)
+{
+    if (wide == 0)
+    {
+        return -1;
+    }
+    double latc = *lat;
+    double lonc = *lon;
+    wide /= 2;
+    dist = sqrt(wide * wide + dist * dist);
+    double angle = atan(dist / wide) * 180 / PI;
+    angle += buoy.winddir[0];
+    if (angle > 360)
+    {
+        angle -= 360;
+    }
+    if (angle < 0)
+    {
+        angle += 360;
+    }
+    adjustPositionDirDist(angle, dist, &latc, &lonc);
+    *lat = latc;
+    *lon = lonc;
+    return 0;
+}

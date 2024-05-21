@@ -243,16 +243,16 @@ int stage = 0;
 unsigned long timer;
 String msg = "";
 /*
-Set sailspeed at 50%
+Set sailspeed at 30%
 take for 10 sconds the avarage magnetic neading and gps heading
 determ de differenanc.
 The result is the offset off the magnetic compass
 returns -1 if no solution is known yet
 */
+double tmp_mhdg = 0;
 int linMagCalib(int *corr)
 {
     int ret = -1;
-    float tmp_mhdg = 0;
     char bufff[100];
     int tel = 0;
 
@@ -267,70 +267,74 @@ int linMagCalib(int *corr)
         buoy.mechanicCorrection = 0;
         initRudderPid();
         timer = millis();
+        tel = 0;
         stage++;
         break;
     case 1:
-        while (timer + 10000 > millis())
-            break;
-        timer = millis();
-        tmp_mhdg = gpsdata.cource;
-        tel = 0;
-        stage++;
+        if (timer + 1000 > millis())
+        {
+            timer = millis();
+            tel++;
+            if (tel % 2)
+            {
+                /*take a sample every 2 sec*/
+                tmp_mhdg = gpsdata.cource;
+                break;
+            }
+            else
+            {
+                double error = ComputeSmallestAngleDir(tmp_mhdg, gpsdata.cource);
+                msg = "Mecanical correction: " + String(buoy.mechanicCorrection) + "Error " + String(error, 1) + "Magnetic cource " + String(buoy.mheading, 0) + "Gps cource" + String(gpsdata.cource, 1);
+                strcpy(bufff, msg.c_str());
+                udpsend(bufff);
+
+                if (error < 2)
+                {
+                    stage++;
+                    break;
+                }
+            }
+            /*adjust power distributon on thrusters*/
+            if (determineDirection(tmp_mhdg, gpsdata.cource))
+            {
+                buoy.mechanicCorrection += 1;
+            }
+            else
+            {
+                buoy.mechanicCorrection -= 1;
+            }
+            buoy.speedbb = (int)(buoy.speed * (1 - tan(radians(buoy.mechanicCorrection))));
+            buoy.speedsb = (int)(buoy.speed * (1 + tan(radians(buoy.mechanicCorrection))));
+            /*Sanety check*/
+            buoy.speedbb = constrain(buoy.speedbb, -buoy.maxSpeed, buoy.maxSpeed);
+            buoy.speedsb = constrain(buoy.speedsb, -buoy.maxSpeed, buoy.maxSpeed);
+            comp_msg.speedbb = buoy.speedbb;
+            comp_msg.speedsb = buoy.speedsb;
+            xQueueSend(escspeed, (void *)&comp_msg, 10); // update esc
+
+            if (tel > 100) // time out no stable cource
+            {
+                /*restore previous calibration*/
+                CompassOffsetCorrection(&buoy.magneticCorrection, true);
+                MechanicalCorrection(&buoy.mechanicCorrection, true);
+                buoy.speedbb = 0;
+                buoy.speedsb = 0;
+                comp_msg.speedbb = buoy.speedbb;
+                comp_msg.speedsb = buoy.speedsb;
+                xQueueSend(escspeed, (void *)&comp_msg, 10); // update esc
+                status = IDLE;
+                stage = 0;
+                break;
+            }
+        }
         break;
     case 2:
         if (timer + 1000 > millis())
         {
             timer = millis();
-            double error = ComputeSmallestAngleDir(tmp_mhdg, gpsdata.cource);
-            msg ="Mecanical correction: " + String(buoy.mechanicCorrection) + "Error " + String(error,1 )+"Magnetic cource " + String(buoy.mheading, 0) + "Gps cource" + String(gpsdata.cource, 1);
-            strcpy(bufff, msg.c_str());
-            udpsend(bufff);
-
-            if (error < 2)
-            {
-                if (tel >= 100)
-                {
-                    stage++;
-                }
-                else
-                {
-                    tel++;
-                }
-                break;
-            }
-            else
-            {
-                if (determineDirection(tmp_mhdg, gpsdata.cource))
-                {
-                    buoy.mechanicCorrection += 1;
-                }
-                else
-                {
-                    buoy.mechanicCorrection -= 1;
-                }
-                buoy.speedbb = (int)(buoy.speed * (1 - tan(radians(buoy.mechanicCorrection))));
-                buoy.speedsb = (int)(buoy.speed * (1 + tan(radians(buoy.mechanicCorrection))));
-                /*Sanety check*/
-                buoy.speedbb = constrain(buoy.speedbb, -buoy.maxSpeed, buoy.maxSpeed);
-                buoy.speedsb = constrain(buoy.speedsb, -buoy.maxSpeed, buoy.maxSpeed);
-                comp_msg.speedbb = buoy.speedbb;
-                comp_msg.speedsb = buoy.speedsb;
-                xQueueSend(escspeed, (void *)&comp_msg, 10); // update esc
-                delay(1000);
-                GetNewGpsData();
-                tmp_mhdg = gpsdata.cource;
-                timer = millis();
-                break;
-            }
-        }
-        break;
-    case 3:
-        if (timer + 1500 > millis())
-        {
-            timer = millis();
             tbuf[0][pointer] = (double)GetHeadingRaw();
             tbuf[1][pointer++] = gpsdata.cource;
-            String msg = "<Calib><mag heading>" + String(tbuf[0][pointer - 1]) + "><gps heading><" + String(tbuf[1][pointer - 1]) + ">";
+            String msg = "<Calib><mag heading: " + String(tbuf[0][pointer - 1]) + ">< gps heading: " + String(tbuf[1][pointer - 1]) + ">";
             strcpy(bufff, msg.c_str());
             udpsend(bufff);
 
