@@ -1,2 +1,1 @@
-
-    # Save the map to an HTML file
+adj_rudder_p.configure(font=font_settings)
