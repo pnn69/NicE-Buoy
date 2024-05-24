@@ -58,6 +58,8 @@ MessageSP snd_sp;               /* Speed sb(-100%<>100%),bb(-100%<>100%) */
 MessageSq snd_sq;               /* Ledstatus CRGB */
 MessageBuzz snd_buz;            /* on(true/false),time(msec),pauze(msec),repeat(x) */
 Message snd_msg;                /* ESC que struckt */
+String msg_main = "";
+char bufff_main[100];
 Mlora loramsg;
 /*
 not usede any more
@@ -294,7 +296,7 @@ void loop()
     }
     if (GetNewGpsData() == true)
     {
-        if ((status == LOCKED) || status == DOCKED)
+        if (status == LOCKED || status == DOCKED)
         {
             RouteToPoint(gpsdata.lat, gpsdata.lon, buoy.tglatitude, buoy.tglongitude, &buoy.tgdistance, &buoy.tgdir);
             buoy.speed = hooverPid(buoy.tgdistance);
@@ -581,6 +583,9 @@ void loop()
                 // loraMenu(GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING); // pos heading speed to remote
                 loramsg.data = GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING;
                 xQueueSend(loradataout, (void *)&loramsg, 10); // update lora
+                msg_main = String(buoy.magneticCorrection) + "," + String(buoy.mechanicCorrection);
+                strcpy(bufff_main, msg_main.c_str());
+                udpsend(bufff_main);
             }
             break;
 

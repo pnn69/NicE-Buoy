@@ -236,29 +236,33 @@ void GpsAverage(double *lat, double *lon)
 {
 }
 
-#define ABUF 20
-double tbuf[2][ABUF];
-int pointer = 0;
-int stage = 0;
-unsigned long timer;
-String msg = "";
 /*
 Set sailspeed at 30%
 take for 10 sconds the avarage magnetic neading and gps heading
 determ de differenanc.
 The result is the offset off the magnetic compass
 returns -1 if no solution is known yet
+
 */
-double tmp_mhdg = 0;
+#define ABUF 20
+static double tbuf[2][ABUF];
+static int pointer = 0;
+static unsigned long timer1;
+static String msg = "";
+static char bufff[100];
+static int stage = 0;
+static double tmp_mhdg = 0;
+static int tel = 0;
+static int ret = 0;
 int linMagCalib(int *corr)
 {
-    int ret = -1;
-    char bufff[100];
-    int tel = 0;
-
+    ret = -1;
     switch (stage)
     {
     case 0:
+        msg = String("Start calibratin compass");
+        (bufff, msg.c_str());
+        udpsend(bufff);
         buoy.speed = 30;
         buoy.speedbb = 30;
         buoy.speedsb = 30;
@@ -266,14 +270,20 @@ int linMagCalib(int *corr)
         buoy.magneticCorrection = 0;
         buoy.mechanicCorrection = 0;
         initRudderPid();
-        timer = millis();
+        timer1 = millis();
         tel = 0;
-        stage++;
+        stage = 1;
         break;
     case 1:
-        if (timer + 1000 > millis())
+        if (timer1 + 500 > millis())
         {
-            timer = millis();
+            timer1 = millis();
+            double error = ComputeSmallestAngleDir(tmp_mhdg, gpsdata.cource);
+            if (abs(error) < 2.0)
+            {
+                stage = 2;
+                break;
+            }
             tel++;
             if (tel % 2)
             {
@@ -281,27 +291,14 @@ int linMagCalib(int *corr)
                 tmp_mhdg = gpsdata.cource;
                 break;
             }
-            else
-            {
-                double error = ComputeSmallestAngleDir(tmp_mhdg, gpsdata.cource);
-                msg = "Mecanical correction: " + String(buoy.mechanicCorrection) + "Error " + String(error, 1) + "Magnetic cource " + String(buoy.mheading, 0) + "Gps cource" + String(gpsdata.cource, 1);
-                strcpy(bufff, msg.c_str());
-                udpsend(bufff);
-
-                if (error < 2)
-                {
-                    stage++;
-                    break;
-                }
-            }
             /*adjust power distributon on thrusters*/
-            if (determineDirection(tmp_mhdg, gpsdata.cource))
+            if (error < 0)
             {
-                buoy.mechanicCorrection += 1;
+                buoy.mechanicCorrection += 5;
             }
             else
             {
-                buoy.mechanicCorrection -= 1;
+                buoy.mechanicCorrection -= 5;
             }
             buoy.speedbb = (int)(buoy.speed * (1 - tan(radians(buoy.mechanicCorrection))));
             buoy.speedsb = (int)(buoy.speed * (1 + tan(radians(buoy.mechanicCorrection))));
@@ -311,6 +308,9 @@ int linMagCalib(int *corr)
             comp_msg.speedbb = buoy.speedbb;
             comp_msg.speedsb = buoy.speedsb;
             xQueueSend(escspeed, (void *)&comp_msg, 10); // update esc
+            msg = "Mecanical correction: " + String(buoy.mechanicCorrection) + "Error " + String(error, 1) + "Magnetic cource " + String(buoy.mheading, 0) + "Gps cource" + String(gpsdata.cource, 1);
+            strcpy(bufff, msg.c_str());
+            udpsend(bufff);
 
             if (tel > 100) // time out no stable cource
             {
@@ -324,14 +324,17 @@ int linMagCalib(int *corr)
                 xQueueSend(escspeed, (void *)&comp_msg, 10); // update esc
                 status = IDLE;
                 stage = 0;
+                msg = "Mecanical correction canceld!!!";
+                strcpy(bufff, msg.c_str());
+                udpsend(bufff);
                 break;
             }
         }
         break;
     case 2:
-        if (timer + 1000 > millis())
+        if (timer1 + 1000 > millis())
         {
-            timer = millis();
+            timer1 = millis();
             tbuf[0][pointer] = (double)GetHeadingRaw();
             tbuf[1][pointer++] = gpsdata.cource;
             String msg = "<Calib><mag heading: " + String(tbuf[0][pointer - 1]) + ">< gps heading: " + String(tbuf[1][pointer - 1]) + ">";
@@ -374,7 +377,7 @@ int linMagCalib(int *corr)
                 strcpy(bufff, msg.c_str());
                 udpsend(bufff);
 
-                *corr = int(gavg_dir - mavg_dir);
+                *corr = (int)(gavg_dir - mavg_dir);
                 if (*corr < 0)
                 {
                     *corr += 360.0;
