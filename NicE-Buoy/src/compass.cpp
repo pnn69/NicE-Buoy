@@ -261,7 +261,7 @@ int linMagCalib(int *corr)
     {
     case 0:
         msg = String("Start calibratin compass");
-        (bufff, msg.c_str());
+        strcpy(bufff, msg.c_str());
         udpsend(bufff);
         buoy.speed = 30;
         buoy.speedbb = 30;
@@ -273,15 +273,17 @@ int linMagCalib(int *corr)
         timer1 = millis();
         tel = 0;
         stage = 1;
+        ret = -1;
         break;
     case 1:
-        if (timer1 + 500 > millis())
+        if (timer1 + 1000 > millis())
         {
             timer1 = millis();
             double error = ComputeSmallestAngleDir(tmp_mhdg, gpsdata.cource);
-            if (abs(error) < 2.0)
+            if (abs(error) < 5.0)
             {
                 stage = 2;
+                ret = -1;
                 break;
             }
             tel++;
@@ -289,16 +291,17 @@ int linMagCalib(int *corr)
             {
                 /*take a sample every 2 sec*/
                 tmp_mhdg = gpsdata.cource;
+                ret = -1;
                 break;
             }
             /*adjust power distributon on thrusters*/
             if (error < 0)
             {
-                buoy.mechanicCorrection += 5;
+                buoy.mechanicCorrection += 1;
             }
             else
             {
-                buoy.mechanicCorrection -= 5;
+                buoy.mechanicCorrection -= 1;
             }
             buoy.speedbb = (int)(buoy.speed * (1 - tan(radians(buoy.mechanicCorrection))));
             buoy.speedsb = (int)(buoy.speed * (1 + tan(radians(buoy.mechanicCorrection))));
@@ -308,11 +311,11 @@ int linMagCalib(int *corr)
             comp_msg.speedbb = buoy.speedbb;
             comp_msg.speedsb = buoy.speedsb;
             xQueueSend(escspeed, (void *)&comp_msg, 10); // update esc
-            msg = "Mecanical correction: " + String(buoy.mechanicCorrection) + "Error " + String(error, 1) + "Magnetic cource " + String(buoy.mheading, 0) + "Gps cource" + String(gpsdata.cource, 1);
-            strcpy(bufff, msg.c_str());
-            udpsend(bufff);
+            //msg = "Mecanical correction: " + String(buoy.mechanicCorrection) + "Error " + String(error, 1) + "Magnetic cource " + String(buoy.mheading, 0) + "Gps cource" + String(gpsdata.cource, 1);
+            //strcpy(bufff, msg.c_str());
+            //udpsend(bufff);
 
-            if (tel > 100) // time out no stable cource
+            if (tel > 60) // time out no stable cource
             {
                 /*restore previous calibration*/
                 CompassOffsetCorrection(&buoy.magneticCorrection, true);
@@ -322,11 +325,11 @@ int linMagCalib(int *corr)
                 comp_msg.speedbb = buoy.speedbb;
                 comp_msg.speedsb = buoy.speedsb;
                 xQueueSend(escspeed, (void *)&comp_msg, 10); // update esc
-                status = IDLE;
                 stage = 0;
                 msg = "Mecanical correction canceld!!!";
                 strcpy(bufff, msg.c_str());
                 udpsend(bufff);
+                ret = 0;
                 break;
             }
         }
@@ -397,8 +400,7 @@ int linMagCalib(int *corr)
                 msg = "<Calib stored><buoy.magneticCorrection>" + String(buoy.magneticCorrection) + "><buoy.mechanicCorrection><" + String(buoy.mechanicCorrection) + ">";
                 strcpy(bufff, msg.c_str());
                 udpsend(bufff);
-
-                ret = 0;
+                ret = 1;
                 stage = 0;
             }
         }

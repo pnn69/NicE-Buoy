@@ -571,12 +571,19 @@ void loop()
             break;
         case LINEAR_CAL:
             int corr;
-            if (linMagCalib(&corr) == 0)
+            if (linMagCalib(&corr) >= 0)
             {
                 status = IDLE;
-                Serial.printf("\r\n\n\nMagnetick offset now: %d degrees\r\n\n\n", corr);
-                buoy.magneticCorrection = corr;
-                CompassOffsetCorrection(&buoy.magneticCorrection, false);
+                if (corr > 0)
+                {
+                    Serial.printf("\r\n\n\nMagnetick offset now: %d degrees\r\n\n\n", corr);
+                    msg_main = "\r\nMagnetick offset now: " + String(corr) + " degrees\r\n\n\n";
+                }
+                else
+                {
+                    Serial.printf("\r\n\n\nCallibrtion failure\r\n\n\n");
+                    msg_main = "\r\n\n\nCallibrtion failure\r\n\n\n";
+                }
             }
             else
             {
@@ -584,9 +591,9 @@ void loop()
                 loramsg.data = GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING;
                 xQueueSend(loradataout, (void *)&loramsg, 10); // update lora
                 msg_main = String(buoy.magneticCorrection) + "," + String(buoy.mechanicCorrection);
-                strcpy(bufff_main, msg_main.c_str());
-                udpsend(bufff_main);
             }
+            strcpy(bufff_main, msg_main.c_str());
+            udpsend(bufff_main);
             break;
 
         default:
@@ -652,6 +659,8 @@ void loop()
         switch (msg_cnt)
         {
         case 1:
+            loramsg.data = COMPUTE_PARAMETERS;
+            xQueueSend(loradataout, (void *)&loramsg, 10); // update lora
             // loramsg.data = GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING;
             // xQueueSend(loradataout, (void *)&loramsg, 10); // update lora
             break;

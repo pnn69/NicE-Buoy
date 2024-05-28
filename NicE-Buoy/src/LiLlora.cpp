@@ -496,6 +496,7 @@ int polLora(void)
                 rudderpid.iintergrate = 0;
                 msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
                 sendACKNAKINF(msg, ACK);
+                initRudderPid();
                 status = LOCKED;
                 speedpid.armIntergrator = false;
                 while (sendLora())
@@ -519,6 +520,7 @@ int polLora(void)
                 rudderpid.iintergrate = 0;
                 msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
                 sendACKNAKINF(msg, ACK);
+                initRudderPid();
                 status = LOCKED;
                 speedpid.armIntergrator = false;
                 while (sendLora())
