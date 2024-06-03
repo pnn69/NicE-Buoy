@@ -249,6 +249,7 @@ if distance between 0.5 and 1.5 meter rotate at the slowest speed.
 else do normal rudder calculation.
 */
 #define ILIM 35 // Maximum interal limit (35% power)
+float push = 0;
 bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int speed, int *bb, int *sb)
 {
     double error = ComputeSmallestAngleDir(magheading, tgheading);
@@ -258,7 +259,9 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
         float power = map(abs(error), 45, 180, 2, 20);
         power = sin(radians(power)) * 100;
         power = (int)map(power, 13, 100, 13, buoy.maxSpeed / 2);
-
+        power += push;
+        push += 0.01;
+        power = constrain(power, 0, buoy.maxSpeed);
         if (error >= 0)
         {
             *bb = -power;
@@ -269,8 +272,10 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
             *bb = power;
             *sb = -power;
         }
+        initRudderPid();
         return false;
     }
+    push = 0;
     /*calculate proportion thrusters*/
     /*Scale error in range for tan*/
     error = map(error, -180, 180, -80, 80);
