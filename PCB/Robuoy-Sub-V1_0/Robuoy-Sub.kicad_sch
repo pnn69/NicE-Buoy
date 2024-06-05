@@ -204,6 +204,36 @@
 		(at 45.72 191.77)
 		(uuid "ea7c2203-9786-4b7e-835e-0258c334ec6c")
 	)
+	(wire
+		(pts
+			(xy 115.57 120.65) (xy 115.57 161.29)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d2cecabb-5a4d-4cb4-84a7-75928da8f1c7")
+	)
+	(wire
+		(pts
+			(xy 113.03 120.65) (xy 113.03 161.29)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d3bf86d4-c626-4b5f-8bce-cf2ff197e63e")
+	)
+	(wire
+		(pts
+			(xy 118.11 120.65) (xy 118.11 161.29)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dfae3cca-a6c4-438a-8931-59cf3dfcfaec")
+	)
 	(text "300"
 		(exclude_from_sim no)
 		(at 78.74 186.69 0)
@@ -225,17 +255,6 @@
 			(justify left bottom)
 		)
 		(uuid "a8705544-687a-4eb4-8757-449e0d3ddfdd")
-	)
-	(text "500"
-		(exclude_from_sim no)
-		(at 180.34 120.65 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "cbf325ab-16f0-45b1-9f37-60dc36df778b")
 	)
 	(symbol
 		(lib_id "Connector:TestPoint_Small")
@@ -654,6 +673,36 @@
 				(hide yes)
 			)
 		)
+		(pin "PWR_ESC_BB" input
+			(at 113.03 120.65 270)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "eb59a8bb-af8b-45f9-846c-d6b1f8535ac3")
+		)
+		(pin "PWR_ESC_SB" input
+			(at 115.57 120.65 270)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "9d6388b4-1eb2-437c-a046-084f63e8ba8d")
+		)
+		(pin "Vbatt" output
+			(at 118.11 120.65 270)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "e41ddc0f-75e7-4c5e-ad80-9fc92f606093")
+		)
 		(instances
 			(project "Robuoy-Sub"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
@@ -693,89 +742,40 @@
 				(hide yes)
 			)
 		)
+		(pin "PWR_ESC_SB" output
+			(at 115.57 161.29 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "fd4b6096-889d-4757-9dd1-b4b327699ad6")
+		)
+		(pin "PWR_ESC_BB" output
+			(at 113.03 161.29 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "948a3cb2-d43e-4b91-a45b-12e4fde2048f")
+		)
+		(pin "Vbatt" input
+			(at 118.11 161.29 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "8468c967-8eaf-4e55-bbe3-a36e5d01c2d2")
+		)
 		(instances
 			(project "Robuoy-Sub"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(page "2")
-				)
-			)
-		)
-	)
-	(sheet
-		(at 158.75 95.25)
-		(size 25.4 25.4)
-		(fields_autoplaced yes)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(fill
-			(color 0 0 0 0.0000)
-		)
-		(uuid "ca10023c-a303-42f5-abd0-839d0a1e9923")
-		(property "Sheetname" "ESC"
-			(at 158.75 94.5384 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Sheetfile" "Esc_sch.kicad_sch"
-			(at 158.75 121.2346 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-				(hide yes)
-			)
-		)
-		(pin "ESC_BB" output
-			(at 158.75 102.87 180)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "3b223614-0092-4372-a31a-9669835086ed")
-		)
-		(pin "ESC_SB" output
-			(at 158.75 105.41 180)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "394d22d9-c5fe-4116-a001-cfec74174dc6")
-		)
-		(pin "SCL" output
-			(at 158.75 107.95 180)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "b6bec496-36e6-464d-bbd6-78c6daf9bbdf")
-		)
-		(pin "SDA" bidirectional
-			(at 158.75 110.49 180)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "7fea102a-7564-427c-a436-2dc27681ead7")
-		)
-		(instances
-			(project "Robuoy-Sub"
-				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
-					(page "4")
 				)
 			)
 		)
