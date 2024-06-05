@@ -206,36 +206,6 @@
 	)
 	(wire
 		(pts
-			(xy 139.7 105.41) (xy 158.75 105.41)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "0c7c3bd5-ce8e-4051-91cd-c7d6fb2a7b1e")
-	)
-	(wire
-		(pts
-			(xy 139.7 100.33) (xy 158.75 100.33)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "0e0642ee-400b-4d28-966d-8a00a41fe9df")
-	)
-	(wire
-		(pts
-			(xy 111.76 120.65) (xy 111.76 161.29)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "11934d8c-e33f-46df-902a-90d1cd0e4f6c")
-	)
-	(wire
-		(pts
 			(xy 139.7 60.96) (xy 158.75 60.96)
 		)
 		(stroke
@@ -243,26 +213,6 @@
 			(type default)
 		)
 		(uuid "2a578bb3-0ef4-424b-9ab0-7ffc74e08caf")
-	)
-	(wire
-		(pts
-			(xy 109.22 120.65) (xy 109.22 161.29)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "52276f58-8b81-49e3-9247-3d02a4fe138f")
-	)
-	(wire
-		(pts
-			(xy 139.7 102.87) (xy 158.75 102.87)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "56221adc-71a7-4837-a21a-d232c8f8e131")
 	)
 	(bus
 		(pts
@@ -276,16 +226,6 @@
 	)
 	(wire
 		(pts
-			(xy 116.84 120.65) (xy 116.84 161.29)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a07b5ce9-92f7-46d0-a44a-143a418c0188")
-	)
-	(wire
-		(pts
 			(xy 139.7 63.5) (xy 158.75 63.5)
 		)
 		(stroke
@@ -293,26 +233,6 @@
 			(type default)
 		)
 		(uuid "dcdc4780-f3d3-42b0-9f15-ae57e894e539")
-	)
-	(wire
-		(pts
-			(xy 114.3 120.65) (xy 114.3 161.29)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "ed6312f2-f681-4c49-a465-50f0f04eadc6")
-	)
-	(wire
-		(pts
-			(xy 139.7 107.95) (xy 158.75 107.95)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "f3511c87-2f9b-4ed7-a442-7c69ad070d3c")
 	)
 	(text "300"
 		(exclude_from_sim no)
@@ -834,26 +754,6 @@
 				(hide yes)
 			)
 		)
-		(pin "SDA" bidirectional
-			(at 139.7 102.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-			(uuid "addb2994-3edc-4143-a004-ae790295798f")
-		)
-		(pin "SCL" input
-			(at 139.7 100.33 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-			(uuid "ec3bfdb6-d112-43c1-8d6e-cefb846f4687")
-		)
 		(pin "GPSRX" output
 			(at 139.7 63.5 0)
 			(effects
@@ -863,16 +763,6 @@
 				(justify right)
 			)
 			(uuid "aed6b6db-1f39-4712-b9f7-1c109981da35")
-		)
-		(pin "ESC_BB" input
-			(at 139.7 105.41 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-			(uuid "29d690c7-0c2a-465d-bdbf-36321f777afd")
 		)
 		(pin "GPSTX" input
 			(at 139.7 60.96 0)
@@ -884,16 +774,6 @@
 			)
 			(uuid "c0433a33-d695-4be9-b42e-8f98db35641b")
 		)
-		(pin "ESC_SB" input
-			(at 139.7 107.95 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-			(uuid "79d5b77c-f0b3-4501-ad80-54c41ef6670a")
-		)
 		(pin "RADIO_[1..5]" bidirectional
 			(at 116.84 50.8 90)
 			(effects
@@ -903,46 +783,6 @@
 				(justify right)
 			)
 			(uuid "f29161ac-6baf-417d-b596-536e7ba8db0f")
-		)
-		(pin "Vbatt" output
-			(at 116.84 120.65 270)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "15f08dff-15c0-44b9-b430-ee928a52321c")
-		)
-		(pin "ESC_ON-OFF" input
-			(at 114.3 120.65 270)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "45aa7c38-2364-4842-a6bd-bdcd90bc1a70")
-		)
-		(pin "SW_RED" input
-			(at 111.76 120.65 270)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "f2158a7e-08a1-48a5-8218-ffa77cf987e4")
-		)
-		(pin "SW_GREEN" input
-			(at 109.22 120.65 270)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "d9560b36-4818-4305-9a41-c197c29797c5")
 		)
 		(instances
 			(project "Robuoy"
@@ -1042,46 +882,6 @@
 				(hide yes)
 			)
 		)
-		(pin "ESC_ON-OFF" output
-			(at 114.3 161.29 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-			(uuid "c1108115-e19d-42c3-a140-d6e2413149b7")
-		)
-		(pin "Vbatt" input
-			(at 116.84 161.29 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-			(uuid "e26c9153-e8ca-4495-acb5-701a4183802a")
-		)
-		(pin "SW_GREEN" output
-			(at 111.76 161.29 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-			(uuid "5167daef-e435-4f09-8897-75ec5add3c88")
-		)
-		(pin "SW_RED" output
-			(at 109.22 161.29 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-			(uuid "730d378f-244a-499b-9edc-60bc69d49b56")
-		)
 		(instances
 			(project "Robuoy"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
@@ -1120,46 +920,6 @@
 				(justify left top)
 				(hide yes)
 			)
-		)
-		(pin "ESC_BB" output
-			(at 158.75 105.41 180)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "0006c3ad-f26c-4785-8a60-0997fc5c564d")
-		)
-		(pin "ESC_SB" output
-			(at 158.75 107.95 180)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "3097b0cc-5430-4957-8440-4de0c94a0ac4")
-		)
-		(pin "SCL" output
-			(at 158.75 100.33 180)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "80660a46-45bd-43fe-9e38-ddfc3a4adf72")
-		)
-		(pin "SDA" bidirectional
-			(at 158.75 102.87 180)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "2a25820d-7298-4fc3-84f7-9e9f75e47b64")
 		)
 		(instances
 			(project "Robuoy"
