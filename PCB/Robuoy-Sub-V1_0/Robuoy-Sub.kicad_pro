@@ -467,7 +467,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "Robuoy.kicad_pro",
+    "filename": "Robuoy-Sub.kicad_pro",
     "version": 1
   },
   "net_settings": {
@@ -697,14 +697,6 @@
     [
       "ca10023c-a303-42f5-abd0-839d0a1e9923",
       "ESC"
-    ],
-    [
-      "4c7fada6-d8ca-4665-9ffe-0c10d1b3ee88",
-      "GPS"
-    ],
-    [
-      "1dc26a2c-fbf5-4621-ae52-68ee3e95a03a",
-      "Lora"
     ],
     [
       "77bea089-a6ae-4a6f-b95b-7a9010ad7c5d",

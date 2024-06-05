@@ -1350,7 +1350,7 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
 					(reference "C602")
 					(unit 1)
@@ -1416,7 +1416,7 @@
 			(uuid "af4c0c46-4eda-449c-84df-38f649c2d378")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
 					(reference "#PWR0604")
 					(unit 1)
@@ -1482,7 +1482,7 @@
 			(uuid "a9ce924d-1632-4769-bf2d-5b2e811cdb96")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
 					(reference "#PWR0601")
 					(unit 1)
@@ -1548,7 +1548,7 @@
 			(uuid "8cd98c3c-854c-406c-99a1-adaf2df7c306")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
 					(reference "#PWR0603")
 					(unit 1)
@@ -1632,7 +1632,7 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
 					(reference "C601")
 					(unit 1)
@@ -1698,7 +1698,7 @@
 			(uuid "a6299aa3-f3ae-4c71-bf2f-b8ea9638f6b4")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
 					(reference "#PWR0602")
 					(unit 1)
@@ -1764,7 +1764,7 @@
 			(uuid "6abbd2d3-2c77-4b52-b59d-38f9e6ab9838")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
 					(reference "#PWR0605")
 					(unit 1)
@@ -1842,7 +1842,7 @@
 			(uuid "6d9fb900-7093-425e-9f74-9d21a6079049")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
 					(reference "J601")
 					(unit 1)
@@ -1926,7 +1926,7 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
 					(reference "C603")
 					(unit 1)
@@ -2047,7 +2047,7 @@
 			(uuid "bbdbfec6-2667-4ed1-98af-00c933d7f70e")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
 					(reference "U601")
 					(unit 1)

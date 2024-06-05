@@ -5134,7 +5134,7 @@
 	)
 	(wire
 		(pts
-			(xy 355.6 97.79) (xy 355.6 116.84)
+			(xy 363.22 97.79) (xy 363.22 116.84)
 		)
 		(stroke
 			(width 0)
@@ -5261,16 +5261,6 @@
 			(type default)
 		)
 		(uuid "2c86bba0-bb43-4730-b12e-5d70ec8be529")
-	)
-	(wire
-		(pts
-			(xy 330.2 90.17) (xy 330.2 102.87)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "32b600f2-c847-40e0-84f1-051654d477a5")
 	)
 	(wire
 		(pts
@@ -5474,13 +5464,13 @@
 	)
 	(wire
 		(pts
-			(xy 368.3 97.79) (xy 355.6 97.79)
+			(xy 369.57 92.71) (xy 331.47 92.71)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "56098c10-4992-444c-ab73-bfedf301db46")
+		(uuid "5940a5d7-6d83-4545-be7a-3985d88e58e4")
 	)
 	(wire
 		(pts
@@ -5554,16 +5544,6 @@
 	)
 	(wire
 		(pts
-			(xy 325.12 86.36) (xy 320.04 86.36)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6a12622d-d251-4c00-9eb6-e2da9573743b")
-	)
-	(wire
-		(pts
 			(xy 154.94 257.81) (xy 162.56 257.81)
 		)
 		(stroke
@@ -5581,16 +5561,6 @@
 			(type default)
 		)
 		(uuid "6a8c9141-570c-4365-a605-1702f9cab4a3")
-	)
-	(wire
-		(pts
-			(xy 368.3 102.87) (xy 330.2 102.87)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6b270b20-7b1b-4989-97c5-249a892f5040")
 	)
 	(wire
 		(pts
@@ -5774,16 +5744,6 @@
 	)
 	(wire
 		(pts
-			(xy 340.36 86.36) (xy 335.28 86.36)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "82ce6fda-6397-4e37-a6b6-898043d3385b")
-	)
-	(wire
-		(pts
 			(xy 35.56 259.08) (xy 25.4 259.08)
 		)
 		(stroke
@@ -5864,7 +5824,7 @@
 	)
 	(wire
 		(pts
-			(xy 311.15 114.3) (xy 358.14 114.3)
+			(xy 311.15 114.3) (xy 360.68 114.3)
 		)
 		(stroke
 			(width 0)
@@ -5894,6 +5854,16 @@
 	)
 	(wire
 		(pts
+			(xy 341.63 86.36) (xy 336.55 86.36)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "94c4d82c-092d-4330-bde9-894ee47ef8b1")
+	)
+	(wire
+		(pts
 			(xy 306.07 119.38) (xy 369.57 119.38)
 		)
 		(stroke
@@ -5911,6 +5881,16 @@
 			(type default)
 		)
 		(uuid "9a0ed350-1def-48b7-ae72-c323b688c53b")
+	)
+	(wire
+		(pts
+			(xy 326.39 86.36) (xy 321.31 86.36)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9a19b079-c890-463f-bd48-681b73fd190b")
 	)
 	(wire
 		(pts
@@ -5934,7 +5914,7 @@
 	)
 	(wire
 		(pts
-			(xy 308.61 116.84) (xy 355.6 116.84)
+			(xy 308.61 116.84) (xy 363.22 116.84)
 		)
 		(stroke
 			(width 0)
@@ -5974,16 +5954,6 @@
 	)
 	(wire
 		(pts
-			(xy 368.3 100.33) (xy 358.14 100.33)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a88a283b-0af5-43a1-b015-40c8e8e2d72d")
-	)
-	(wire
-		(pts
 			(xy 217.17 99.06) (xy 198.12 99.06)
 		)
 		(stroke
@@ -6001,16 +5971,6 @@
 			(type default)
 		)
 		(uuid "a9f30aa2-62f2-4203-bae0-04dc3225f31b")
-	)
-	(wire
-		(pts
-			(xy 368.3 105.41) (xy 330.2 105.41)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "aac7d777-f07c-432e-9628-2f4ab432b154")
 	)
 	(wire
 		(pts
@@ -6051,6 +6011,16 @@
 			(type default)
 		)
 		(uuid "b10d5d58-7083-4e0c-9a77-9fec38580eec")
+	)
+	(wire
+		(pts
+			(xy 369.57 95.25) (xy 360.68 95.25)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b17ba143-3f2c-432c-acf3-764e0dca624b")
 	)
 	(wire
 		(pts
@@ -6134,7 +6104,7 @@
 	)
 	(wire
 		(pts
-			(xy 358.14 100.33) (xy 358.14 114.3)
+			(xy 360.68 95.25) (xy 360.68 114.3)
 		)
 		(stroke
 			(width 0)
@@ -6324,6 +6294,16 @@
 	)
 	(wire
 		(pts
+			(xy 369.57 97.79) (xy 363.22 97.79)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e45ebc70-98d4-4ba4-9b91-d2b94bb66719")
+	)
+	(wire
+		(pts
 			(xy 167.64 149.86) (xy 167.64 152.4)
 		)
 		(stroke
@@ -6341,6 +6321,16 @@
 			(type default)
 		)
 		(uuid "e5c6c4de-e277-47b6-b77d-a1e870158de9")
+	)
+	(wire
+		(pts
+			(xy 331.47 90.17) (xy 331.47 92.71)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e75a46db-8369-4ee3-8899-06fc97a52315")
 	)
 	(wire
 		(pts
@@ -6498,17 +6488,6 @@
 		)
 		(uuid "2db5b3fe-66f6-4684-b43d-b52c78acdca2")
 	)
-	(label "Vext"
-		(at 339.09 102.87 180)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "46abce2f-73c9-4c25-8df2-09837affea84")
-	)
 	(label "RADIO_5"
 		(at 336.55 52.07 0)
 		(fields_autoplaced yes)
@@ -6585,6 +6564,17 @@
 			(justify left bottom)
 		)
 		(uuid "ce82d6e3-0b0a-4e62-a4a7-b6ea9aaf5b79")
+	)
+	(label "Vgps"
+		(at 340.36 92.71 180)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "ea0a9867-2cb1-427c-8687-9466ebea23c2")
 	)
 	(label "RADIO_1"
 		(at 336.55 41.91 0)
@@ -7138,6 +7128,74 @@
 		(uuid "d27eafc8-ec11-40cd-869f-d4c81eaec915")
 	)
 	(symbol
+		(lib_id "power:GND")
+		(at 369.57 90.17 270)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "003b155c-90dd-4c50-94d2-5c10608927f7")
+		(property "Reference" "#PWR05"
+			(at 363.22 90.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 365.76 90.1699 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" ""
+			(at 369.57 90.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 369.57 90.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 369.57 90.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "7e660a80-5317-49e7-959e-17ce53ea6bad")
+		)
+		(instances
+			(project "Robuoy-Top"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
+					(reference "#PWR05")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:+3.3V")
 		(at 43.18 246.38 0)
 		(unit 1)
@@ -7195,7 +7253,7 @@
 			(uuid "58209760-3d0a-4357-98ec-4f16e13fc809")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR0105")
 					(unit 1)
@@ -7292,7 +7350,7 @@
 			(uuid "fe2ef3ba-06f5-4851-b7ca-08e910c9538f")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "D5")
 					(unit 1)
@@ -7301,18 +7359,33 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+3.3V")
-		(at 320.04 86.36 0)
+		(lib_id "Jumper:SolderJumper_3_Bridged12")
+		(at 331.47 86.36 0)
 		(mirror y)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "065aa52a-273d-481e-bfed-021ab8e7f9bd")
-		(property "Reference" "#PWR018"
-			(at 320.04 90.17 0)
+		(uuid "0c8d3f3c-b4f8-40a0-8fcc-d07b19b5aecc")
+		(property "Reference" "JP1"
+			(at 331.47 80.01 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "5V/3.3V"
+			(at 331.47 82.55 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Jumper:SolderJumper-3_P1.3mm_Bridged12_RoundedPad1.0x1.5mm"
+			(at 331.47 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7320,25 +7393,8 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "+3.3V"
-			(at 320.04 81.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 320.04 86.36 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 320.04 86.36 0)
+		(property "Datasheet" "~"
+			(at 331.47 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7347,7 +7403,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 320.04 86.36 0)
+			(at 331.47 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7356,12 +7412,18 @@
 			)
 		)
 		(pin "1"
-			(uuid "f8a94fd9-bb27-4059-998e-1739e5b1c991")
+			(uuid "67a7bf5f-aa6a-4621-a48a-03b720bf07c5")
+		)
+		(pin "2"
+			(uuid "4236c164-fbd2-4dc5-a9c0-13d8a669c9b6")
+		)
+		(pin "3"
+			(uuid "3f7aaea3-d8f7-4810-8236-b720c71916a3")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR018")
+					(reference "JP1")
 					(unit 1)
 				)
 			)
@@ -7443,7 +7505,7 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "C107")
 					(unit 1)
@@ -7520,7 +7582,7 @@
 			(uuid "2f8d000a-83c5-4311-a647-27df711d2230")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "R27")
 					(unit 1)
@@ -7591,7 +7653,7 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR0107")
 					(unit 1)
@@ -7657,7 +7719,7 @@
 			(uuid "8ce8a981-53d3-4886-bf60-e8481970e796")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR0126")
 					(unit 1)
@@ -7741,101 +7803,9 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "SW102")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Connector:Conn_01x04_Pin")
-		(at 373.38 100.33 0)
-		(mirror y)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "19f86d4e-8ca8-4fb1-ac6e-b4ce3db1f542")
-		(property "Reference" "J8"
-			(at 372.745 93.345 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GPS"
-			(at 381.635 101.6 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical"
-			(at 373.38 100.33 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 373.38 100.33 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 373.38 100.33 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C98734"
-			(at 373.38 100.33 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Field5" ""
-			(at 373.38 100.33 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "3b7294ff-ddd0-4a0b-bd20-52a35731c36e")
-		)
-		(pin "2"
-			(uuid "2796c3da-2c22-48f7-b547-721672db281f")
-		)
-		(pin "3"
-			(uuid "10b1ad37-2089-401f-b9ca-dc6dab60fecd")
-		)
-		(pin "4"
-			(uuid "4234e431-0b35-41b5-8e35-8e810e92c283")
-		)
-		(instances
-			(project "Robuoy"
-				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "J8")
 					(unit 1)
 				)
 			)
@@ -7917,7 +7887,7 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "C115")
 					(unit 1)
@@ -7926,33 +7896,18 @@
 		)
 	)
 	(symbol
-		(lib_id "Jumper:SolderJumper_3_Bridged12")
-		(at 330.2 86.36 0)
+		(lib_id "power:+5V")
+		(at 341.63 86.36 0)
 		(mirror y)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "33361f9f-85d2-42aa-ad67-1d7757b7152f")
-		(property "Reference" "JP1"
-			(at 330.2 80.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "5V/3.3V"
-			(at 330.2 82.55 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Jumper:SolderJumper-3_P1.3mm_Bridged12_RoundedPad1.0x1.5mm"
-			(at 330.2 86.36 0)
+		(fields_autoplaced yes)
+		(uuid "2f0cc732-7f97-4679-8971-820b162dcb50")
+		(property "Reference" "#PWR018"
+			(at 341.63 90.17 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7960,8 +7915,25 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
-			(at 330.2 86.36 0)
+		(property "Value" "+5V"
+			(at 341.63 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 341.63 86.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 341.63 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7970,7 +7942,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 330.2 86.36 0)
+			(at 341.63 86.36 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7979,18 +7951,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "9584fc50-fc60-44d4-9f37-224dfc1278c1")
-		)
-		(pin "2"
-			(uuid "eed8f8e1-8a37-465f-ae51-ac1b41a5f171")
-		)
-		(pin "3"
-			(uuid "825e8c57-5f88-42de-b8ad-649832aedfee")
+			(uuid "9bc3e813-20b6-413e-858e-7c3a5e366e7a")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "JP1")
+					(reference "#PWR018")
 					(unit 1)
 				)
 			)
@@ -8107,7 +8073,7 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "R104")
 					(unit 1)
@@ -8179,7 +8145,7 @@
 			(uuid "4d9286c8-726b-4124-bea4-986cf24e91d3")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "J6")
 					(unit 1)
@@ -8258,7 +8224,7 @@
 			(uuid "5e27ea1c-e5c2-4999-acd5-126422eadb95")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "R109")
 					(unit 1)
@@ -8325,7 +8291,7 @@
 			(uuid "28b065a6-d004-402c-9e7d-00212b10f4f2")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "R16")
 					(unit 1)
@@ -8409,7 +8375,7 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "C106")
 					(unit 1)
@@ -8480,7 +8446,7 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR0104")
 					(unit 1)
@@ -8560,7 +8526,7 @@
 			(uuid "8128a5e3-35fc-4b94-82c7-e66782d953f6")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "R26")
 					(unit 1)
@@ -8638,7 +8604,7 @@
 			(uuid "85872252-96d3-4114-b2f2-df164e78e788")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "R110")
 					(unit 1)
@@ -8705,7 +8671,7 @@
 			(uuid "ddf3eca1-4a26-4522-ba4b-ff8b7b009938")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "R15")
 					(unit 1)
@@ -8789,7 +8755,7 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "C109")
 					(unit 1)
@@ -8855,7 +8821,7 @@
 			(uuid "c34ec858-3929-4fb8-bddb-8ac2f9a61a32")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR0128")
 					(unit 1)
@@ -8922,7 +8888,7 @@
 			(uuid "d0878e07-b86f-4d88-afa8-010202a5bcd2")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "R14")
 					(unit 1)
@@ -9006,7 +8972,7 @@
 			(uuid "f7f49408-69cf-4a74-b06a-5e4b5bd6e5c1")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "D103")
 					(unit 1)
@@ -9074,7 +9040,7 @@
 			(uuid "3d0dfeeb-8015-472e-ba0e-dae9274dafba")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR012")
 					(unit 1)
@@ -9142,7 +9108,7 @@
 			(uuid "538a6157-d225-42b2-8afa-83a2d10a9771")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR013")
 					(unit 1)
@@ -9209,7 +9175,7 @@
 			(uuid "00f428ea-37da-4f5a-b06b-314c19367568")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR016")
 					(unit 1)
@@ -9277,7 +9243,7 @@
 			(uuid "b85f319f-5ea8-46be-be96-1e48094bf135")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR032")
 					(unit 1)
@@ -9468,7 +9434,7 @@
 			(uuid "db6de9bc-baa8-45c8-977e-3171579a453a")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "U103")
 					(unit 1)
@@ -9548,7 +9514,7 @@
 			(uuid "7acfafe7-537c-48cc-bbaa-68b681860bdd")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "C18")
 					(unit 1)
@@ -9614,7 +9580,7 @@
 			(uuid "8ffc4159-8c2c-45ce-ba20-104b31d19d2c")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR0114")
 					(unit 1)
@@ -9681,7 +9647,7 @@
 			(uuid "5afe2fcc-1097-4415-81c0-bdd26350eb53")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR017")
 					(unit 1)
@@ -9749,7 +9715,7 @@
 			(uuid "05329d0b-1e89-4d41-99b3-37875b0f951e")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR038")
 					(unit 1)
@@ -9833,7 +9799,7 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "C103")
 					(unit 1)
@@ -9952,7 +9918,7 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "R103")
 					(unit 1)
@@ -10036,7 +10002,7 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "SW101")
 					(unit 1)
@@ -10120,7 +10086,7 @@
 			(uuid "45998867-eeac-4a5c-8e6b-4e5ec0e859f8")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "D104")
 					(unit 1)
@@ -10186,7 +10152,7 @@
 			(uuid "bfe2de46-d971-4bb7-bbc6-854abf68666d")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR0125")
 					(unit 1)
@@ -10270,7 +10236,7 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "C111")
 					(unit 1)
@@ -10336,7 +10302,7 @@
 			(uuid "9f70cd07-50bf-4a38-bf82-0be7376b9f02")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR0113")
 					(unit 1)
@@ -10413,9 +10379,100 @@
 			(uuid "be618023-caf4-4b2c-87d4-5cb8a12435bd")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "R22")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:Conn_01x04_Pin")
+		(at 374.65 95.25 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "b9469cc3-c784-466f-b332-061259368a23")
+		(property "Reference" "J3"
+			(at 374.015 102.235 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GPS"
+			(at 382.905 93.98 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical"
+			(at 374.65 95.25 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 374.65 95.25 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 374.65 95.25 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C98734"
+			(at 374.65 95.25 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 374.65 95.25 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "f5154279-1cc0-4c70-b785-d31284cf0e39")
+		)
+		(pin "2"
+			(uuid "e5bae0f8-06f1-4e16-8150-7ce0375bd843")
+		)
+		(pin "3"
+			(uuid "5293c46c-0c1f-4e3f-9baf-38e9519696ea")
+		)
+		(pin "4"
+			(uuid "ff0e3e2e-ef99-479b-bde6-2f7a9a5d682a")
+		)
+		(instances
+			(project "Robuoy-Top"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
+					(reference "J3")
 					(unit 1)
 				)
 			)
@@ -10497,76 +10554,9 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "C112")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 330.2 105.41 0)
-		(mirror y)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "bbdaf12c-3fe3-4e1d-a73d-d95cbf7df0ad")
-		(property "Reference" "#PWR019"
-			(at 330.2 111.76 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "GND"
-			(at 330.2 110.49 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 330.2 105.41 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 330.2 105.41 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 330.2 105.41 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "d7489126-5c68-40fd-be0d-fee7a5def2d6")
-		)
-		(instances
-			(project "Robuoy"
-				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR019")
 					(unit 1)
 				)
 			)
@@ -10648,7 +10638,7 @@
 			(uuid "b5eb11fd-ec46-4fcf-a2d0-9ee17918c65b")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "Q4")
 					(unit 1)
@@ -10719,7 +10709,7 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR0108")
 					(unit 1)
@@ -10786,7 +10776,7 @@
 			(uuid "ff286830-8343-43a4-8c1c-27940a52ffb2")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR014")
 					(unit 1)
@@ -10870,76 +10860,9 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "C108")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+5V")
-		(at 340.36 86.36 0)
-		(mirror y)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "cb982d93-b29d-42a2-abea-fe61fcafaeac")
-		(property "Reference" "#PWR020"
-			(at 340.36 90.17 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "+5V"
-			(at 340.36 81.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 340.36 86.36 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 340.36 86.36 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 340.36 86.36 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "c7776c48-3283-4aff-bfdd-00f615e85c7a")
-		)
-		(instances
-			(project "Robuoy"
-				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR020")
 					(unit 1)
 				)
 			)
@@ -11021,7 +10944,7 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "C110")
 					(unit 1)
@@ -11121,7 +11044,7 @@
 			(uuid "a627944f-4128-4ec2-9512-ea2d4a5241bc")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "J7")
 					(unit 1)
@@ -11187,7 +11110,7 @@
 			(uuid "52c23fdd-143e-4ed4-acd8-0f46b5a859d9")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR0121")
 					(unit 1)
@@ -11253,7 +11176,7 @@
 			(uuid "500e6ce6-b8c3-4299-881f-96c06d669b5d")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR0115")
 					(unit 1)
@@ -11337,7 +11260,7 @@
 			(uuid "f1c5b7fe-71f0-4467-8d7c-9e8ddc6baabc")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "D105")
 					(unit 1)
@@ -11422,7 +11345,7 @@
 			(uuid "55a56d5d-a316-4f5b-b1b3-592e356be257")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "U9")
 					(unit 1)
@@ -11488,7 +11411,7 @@
 			(uuid "4ea3fab2-093b-4a8d-8807-9133c4c14292")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR0122")
 					(unit 1)
@@ -11565,9 +11488,76 @@
 			(uuid "59b34aa4-4db8-418f-9036-3313e758d5b5")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "J2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3.3V")
+		(at 321.31 86.36 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "ee40ceef-de13-4f21-9cf6-1bbaec1f2440")
+		(property "Reference" "#PWR06"
+			(at 321.31 90.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+3.3V"
+			(at 321.31 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 321.31 86.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 321.31 86.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 321.31 86.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "465d4cdf-872d-47f9-bbc8-4aac77ac09af")
+		)
+		(instances
+			(project "Robuoy-Top"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
+					(reference "#PWR06")
 					(unit 1)
 				)
 			)
@@ -11632,7 +11622,7 @@
 			(uuid "60e14fb4-0d06-46ec-86c8-133eaefde8a8")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "R13")
 					(unit 1)
@@ -11698,7 +11688,7 @@
 			(uuid "71906feb-2f9b-4f04-b2bd-f9ed98a8efad")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR0127")
 					(unit 1)
@@ -11764,7 +11754,7 @@
 			(uuid "7e718d8f-bf5e-4cc6-af8a-3fe1ea792f59")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR037")
 					(unit 1)
@@ -11830,7 +11820,7 @@
 			(uuid "f8877811-0bed-4e49-98eb-708195843dcc")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR0112")
 					(unit 1)
@@ -11897,7 +11887,7 @@
 			(uuid "cf1a596a-a364-40e5-b7fe-b14e6538ade9")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR039")
 					(unit 1)
@@ -11962,7 +11952,7 @@
 			(uuid "b72d6563-6e08-4c3a-b3f4-a1fc05e26af2")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR0116")
 					(unit 1)
@@ -12029,7 +12019,7 @@
 			(uuid "ba01817a-cc5e-44bd-9898-18dcbb670a69")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR015")
 					(unit 1)
@@ -12106,7 +12096,7 @@
 			(uuid "5e46b2ad-e734-4abf-902b-da2a3e9c644d")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "R23")
 					(unit 1)

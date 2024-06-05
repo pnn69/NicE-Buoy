@@ -204,36 +204,6 @@
 		(at 45.72 191.77)
 		(uuid "ea7c2203-9786-4b7e-835e-0258c334ec6c")
 	)
-	(wire
-		(pts
-			(xy 139.7 60.96) (xy 158.75 60.96)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "2a578bb3-0ef4-424b-9ab0-7ffc74e08caf")
-	)
-	(bus
-		(pts
-			(xy 116.84 41.91) (xy 116.84 50.8)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5b3cb686-20bb-45a4-930a-88498799905d")
-	)
-	(wire
-		(pts
-			(xy 139.7 63.5) (xy 158.75 63.5)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "dcdc4780-f3d3-42b0-9f15-ae57e894e539")
-	)
 	(text "300"
 		(exclude_from_sim no)
 		(at 78.74 186.69 0)
@@ -245,17 +215,6 @@
 		)
 		(uuid "6fe3bfae-0ad9-4e45-9e43-8b56142ee6c8")
 	)
-	(text "600"
-		(exclude_from_sim no)
-		(at 180.34 71.12 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "a5e5513c-2a2a-4e43-aaca-3c30650a8d45")
-	)
 	(text "ESP32\nLORA\nGPS\nCOMPASS\nGIRO\nACCELOROMETER\nBATTERY MONITOR\nPOWERSUPPY 12V 5V 3.3V\nMODE SWITCH\nLEDSTRIP\nLipo monitoring\n"
 		(exclude_from_sim no)
 		(at 17.145 35.56 0)
@@ -266,17 +225,6 @@
 			(justify left bottom)
 		)
 		(uuid "a8705544-687a-4eb4-8757-449e0d3ddfdd")
-	)
-	(text "900"
-		(exclude_from_sim no)
-		(at 95.25 41.91 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "caa9aa7f-5f35-47c5-9b82-8002202d2092")
 	)
 	(text "500"
 		(exclude_from_sim no)
@@ -348,7 +296,7 @@
 			(uuid "0ba18cc6-62f3-4eb1-a83e-7499845db3d7")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Sub"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(reference "TP2")
 					(unit 1)
@@ -411,7 +359,7 @@
 			)
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Sub"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(reference "H1004")
 					(unit 1)
@@ -474,7 +422,7 @@
 			)
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Sub"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(reference "H1003")
 					(unit 1)
@@ -541,7 +489,7 @@
 			(uuid "e297b9b2-ae60-4206-b513-bb4c38c9a6b9")
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Sub"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(reference "TP1")
 					(unit 1)
@@ -604,7 +552,7 @@
 			)
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Sub"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(reference "H1002")
 					(unit 1)
@@ -667,58 +615,10 @@
 			)
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Sub"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(reference "H1001")
 					(unit 1)
-				)
-			)
-		)
-	)
-	(sheet
-		(at 95.25 24.13)
-		(size 44.45 17.78)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(fill
-			(color 0 0 0 0.0000)
-		)
-		(uuid "1dc26a2c-fbf5-4621-ae52-68ee3e95a03a")
-		(property "Sheetname" "Lora"
-			(at 95.25 22.86 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Sheetfile" "Lora.kicad_sch"
-			(at 140.2846 41.91 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-				(hide yes)
-			)
-		)
-		(pin "RADIO_[1..5]" bidirectional
-			(at 116.84 41.91 270)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "b67271b5-62a1-4d52-93df-bf61c7fb2663")
-		)
-		(instances
-			(project "Robuoy"
-				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
-					(page "6")
 				)
 			)
 		)
@@ -754,99 +654,10 @@
 				(hide yes)
 			)
 		)
-		(pin "GPSRX" output
-			(at 139.7 63.5 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-			(uuid "aed6b6db-1f39-4712-b9f7-1c109981da35")
-		)
-		(pin "GPSTX" input
-			(at 139.7 60.96 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-			(uuid "c0433a33-d695-4be9-b42e-8f98db35641b")
-		)
-		(pin "RADIO_[1..5]" bidirectional
-			(at 116.84 50.8 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-			(uuid "f29161ac-6baf-417d-b596-536e7ba8db0f")
-		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Sub"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(page "1")
-				)
-			)
-		)
-	)
-	(sheet
-		(at 158.75 52.07)
-		(size 25.4 19.05)
-		(fields_autoplaced yes)
-		(stroke
-			(width 0.1524)
-			(type solid)
-		)
-		(fill
-			(color 0 0 0 0.0000)
-		)
-		(uuid "4c7fada6-d8ca-4665-9ffe-0c10d1b3ee88")
-		(property "Sheetname" "GPS"
-			(at 158.75 51.3584 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Sheetfile" "Gps_sch.kicad_sch"
-			(at 158.75 71.7046 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left top)
-				(hide yes)
-			)
-		)
-		(pin "RX" input
-			(at 158.75 63.5 180)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "1549d520-2a50-4a87-9fa8-149569dba436")
-		)
-		(pin "TX" output
-			(at 158.75 60.96 180)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-			(uuid "fe13630b-3332-4f79-a537-2004b95fbbbc")
-		)
-		(instances
-			(project "Robuoy"
-				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
-					(page "5")
 				)
 			)
 		)
@@ -883,7 +694,7 @@
 			)
 		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Sub"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(page "2")
 				)
@@ -921,8 +732,48 @@
 				(hide yes)
 			)
 		)
+		(pin "ESC_BB" output
+			(at 158.75 102.87 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "3b223614-0092-4372-a31a-9669835086ed")
+		)
+		(pin "ESC_SB" output
+			(at 158.75 105.41 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "394d22d9-c5fe-4116-a001-cfec74174dc6")
+		)
+		(pin "SCL" output
+			(at 158.75 107.95 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "b6bec496-36e6-464d-bbd6-78c6daf9bbdf")
+		)
+		(pin "SDA" bidirectional
+			(at 158.75 110.49 180)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "7fea102a-7564-427c-a436-2dc27681ead7")
+		)
 		(instances
-			(project "Robuoy"
+			(project "Robuoy-Sub"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(page "4")
 				)
