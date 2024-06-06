@@ -204,6 +204,16 @@
 		(at 45.72 191.77)
 		(uuid "ea7c2203-9786-4b7e-835e-0258c334ec6c")
 	)
+	(wire
+		(pts
+			(xy 116.84 120.65) (xy 116.84 161.29)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2dd190cd-c3a7-4fab-891e-ac597db2234d")
+	)
 	(bus
 		(pts
 			(xy 116.84 41.91) (xy 116.84 50.8)
@@ -722,6 +732,16 @@
 			)
 			(uuid "f29161ac-6baf-417d-b596-536e7ba8db0f")
 		)
+		(pin "Vbatt" output
+			(at 116.84 120.65 270)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "31777b7d-e5fe-4036-9aa1-ca6124ac758e")
+		)
 		(instances
 			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
@@ -760,6 +780,16 @@
 				(justify left top)
 				(hide yes)
 			)
+		)
+		(pin "Vbatt" input
+			(at 116.84 161.29 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "c187a3a6-16d4-45e7-a2db-69a72cf94501")
 		)
 		(instances
 			(project "Robuoy-Top"
