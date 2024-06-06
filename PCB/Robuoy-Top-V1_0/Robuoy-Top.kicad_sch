@@ -312,6 +312,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 45.72 191.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "0ba18cc6-62f3-4eb1-a83e-7499845db3d7")
 		)
@@ -370,6 +379,15 @@
 			)
 		)
 		(property "Description" ""
+			(at 31.115 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 31.115 191.135 0)
 			(effects
 				(font
@@ -441,6 +459,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 26.67 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(instances
 			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
@@ -497,6 +524,15 @@
 			)
 		)
 		(property "Description" ""
+			(at 36.83 191.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 36.83 191.77 0)
 			(effects
 				(font
@@ -571,6 +607,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 22.225 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(instances
 			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
@@ -626,6 +671,15 @@
 			)
 		)
 		(property "Description" ""
+			(at 17.78 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 17.78 191.135 0)
 			(effects
 				(font

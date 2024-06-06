@@ -5191,76 +5191,6 @@
 		(uuid "9f40dc26-a35c-4684-8114-a98fe2fae9bb")
 	)
 	(symbol
-		(lib_id "Device:C_Small")
-		(at 160.02 54.61 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "10061319-6edd-4385-b7c3-de1c481a842f")
-		(property "Reference" "C2"
-			(at 162.56 53.3462 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "10uF"
-			(at 162.56 55.8862 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" ""
-			(at 160.02 54.61 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 160.02 54.61 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Unpolarized capacitor, small symbol"
-			(at 160.02 54.61 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "fc27b644-dc27-4a09-8201-b17a9be85807")
-		)
-		(pin "2"
-			(uuid "c5bc3c13-08b2-4346-9678-5237390352d9")
-		)
-		(instances
-			(project "Robuoy-Top"
-				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/b4716c37-6296-4cc3-83d4-c08b9373ace7"
-					(reference "C2")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Regulator_Switching:TLV61046ADB")
 		(at 139.7 121.92 0)
 		(unit 1)
@@ -5306,6 +5236,15 @@
 			)
 		)
 		(property "Description" "28-V Output Voltage Boost Converter with Power Diode and Isolation Switch, SOT-23-6"
+			(at 139.7 121.92 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 139.7 121.92 0)
 			(effects
 				(font
@@ -5395,6 +5334,15 @@
 			)
 		)
 		(property "LCSC" "C16581"
+			(at 82.55 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 82.55 45.72 0)
 			(effects
 				(font
@@ -5563,6 +5511,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 63.5 160.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "2"
 			(uuid "a8922ef4-3040-4fcd-8236-8a6c497916a3")
 		)
@@ -5624,6 +5581,15 @@
 			)
 		)
 		(property "Description" "test point"
+			(at 201.93 33.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 201.93 33.02 0)
 			(effects
 				(font
@@ -5798,6 +5764,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 181.61 30.48 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "2"
 			(uuid "63193e94-e1a9-4e2c-9855-c42aafea72fd")
 		)
@@ -5871,6 +5846,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 53.34 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "2"
 			(uuid "0047b5f8-babf-40c6-b383-8e999f685b59")
 		)
@@ -5932,6 +5916,15 @@
 			)
 		)
 		(property "Description" "test point"
+			(at 156.21 121.92 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 156.21 121.92 0)
 			(effects
 				(font
@@ -6072,6 +6065,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 156.21 116.84 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "2"
 			(uuid "63fca401-038f-42ba-b543-1bf84e6f7359")
 		)
@@ -6134,6 +6136,15 @@
 			)
 		)
 		(property "Description" "Resistor, small symbol"
+			(at 156.21 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 156.21 127 0)
 			(effects
 				(font
@@ -6243,6 +6254,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 123.19 71.12 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "5"
 			(uuid "090caa64-c5a5-455c-9bd1-eb0bb56a1646")
 		)
@@ -6298,7 +6318,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "A_Device:C_0603"
 			(at 135.89 45.72 0)
 			(effects
 				(font
@@ -6317,6 +6337,24 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 135.89 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 135.89 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C14663"
 			(at 135.89 45.72 0)
 			(effects
 				(font
@@ -6453,6 +6491,15 @@
 			)
 		)
 		(property "Description" "Resistor, small symbol"
+			(at 50.8 48.26 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 50.8 48.26 0)
 			(effects
 				(font
@@ -6601,6 +6648,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 63.5 121.92 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "4"
 			(uuid "4bd49b04-272f-4fff-ae5b-babf091e6a4b")
 		)
@@ -6719,7 +6775,7 @@
 				)
 			)
 		)
-		(property "Footprint" "LED_SMD:LED_0603_1608Metric"
+		(property "Footprint" "A_Passive:LED_0805"
 			(at 256.54 90.17 90)
 			(effects
 				(font
@@ -6746,7 +6802,16 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C72043"
+		(property "LCSC" "C2297"
+			(at 256.54 90.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 256.54 90.17 0)
 			(effects
 				(font
@@ -6795,7 +6860,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "100n"
 			(at 123.19 116.8462 0)
 			(effects
 				(font
@@ -6804,7 +6869,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "A_Device:C_0603"
 			(at 120.65 115.57 0)
 			(effects
 				(font
@@ -6823,6 +6888,24 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 120.65 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 120.65 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C14663"
 			(at 120.65 115.57 0)
 			(effects
 				(font
@@ -6900,6 +6983,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 144.78 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "ef698ff0-4f99-48ed-9e2d-7f1623fde70d")
 		)
@@ -6959,6 +7051,15 @@
 			)
 		)
 		(property "Description" "Resistor, small symbol"
+			(at 129.54 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 129.54 127 0)
 			(effects
 				(font
@@ -7029,6 +7130,15 @@
 			)
 		)
 		(property "Description" "Resistor, small symbol"
+			(at 107.95 55.88 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 107.95 55.88 0)
 			(effects
 				(font
@@ -7109,6 +7219,15 @@
 		)
 		(property "LCSC" "C110528"
 			(at 49.53 66.04 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 49.53 66.04 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7251,6 +7370,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 158.75 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "9022ab18-d95b-4840-b4b6-144b8b24223a")
 		)
@@ -7318,6 +7446,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 149.86 55.88 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "2"
 			(uuid "909a4f08-d70e-4e02-8092-361f2200182e")
 		)
@@ -7328,6 +7465,94 @@
 			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/b4716c37-6296-4cc3-83d4-c08b9373ace7"
 					(reference "J1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C_Small")
+		(at 160.02 54.61 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "8520ec51-1d96-4d53-b0d2-d78486c763f3")
+		(property "Reference" "C2"
+			(at 162.56 53.3462 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "4.7uF"
+			(at 162.56 55.8862 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Device:C_1206_(1.6)"
+			(at 160.02 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 160.02 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 160.02 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 160.02 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C29823"
+			(at 160.02 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "26577878-e330-4814-8cd1-dc69282cdd8e")
+		)
+		(pin "2"
+			(uuid "73697cce-6846-4eb1-b68e-9821b359b65b")
+		)
+		(instances
+			(project "Robuoy-Top"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/b4716c37-6296-4cc3-83d4-c08b9373ace7"
+					(reference "C2")
 					(unit 1)
 				)
 			)
@@ -7378,6 +7603,15 @@
 			)
 		)
 		(property "Description" "Resistor, small symbol"
+			(at 140.97 41.91 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 140.97 41.91 0)
 			(effects
 				(font
@@ -7448,6 +7682,15 @@
 			)
 		)
 		(property "Description" "Resistor, small symbol"
+			(at 63.5 170.18 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 63.5 170.18 0)
 			(effects
 				(font
@@ -7532,6 +7775,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 246.38 102.87 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "503d01b9-161b-4fa2-8ec9-5ce15d0185ec")
 		)
@@ -7572,7 +7824,7 @@
 				)
 			)
 		)
-		(property "Value" "D_Small"
+		(property "Value" "B340A"
 			(at 187.96 19.05 0)
 			(effects
 				(font
@@ -7580,7 +7832,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Diode_SMD:D_SMA"
 			(at 187.96 22.86 90)
 			(effects
 				(font
@@ -7617,6 +7869,24 @@
 			)
 		)
 		(property "Sim.Pins" "1=K 2=A"
+			(at 187.96 22.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 187.96 22.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C85098"
 			(at 187.96 22.86 0)
 			(effects
 				(font
@@ -7797,7 +8067,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "100n"
 			(at 46.99 116.8462 0)
 			(effects
 				(font
@@ -7806,7 +8076,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "A_Device:C_0603"
 			(at 44.45 115.57 0)
 			(effects
 				(font
@@ -7825,6 +8095,24 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 44.45 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 44.45 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C14663"
 			(at 44.45 115.57 0)
 			(effects
 				(font
@@ -7867,7 +8155,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "100n"
 			(at 193.04 55.8862 0)
 			(effects
 				(font
@@ -7876,7 +8164,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "A_Device:C_0603"
 			(at 190.5 54.61 0)
 			(effects
 				(font
@@ -7895,6 +8183,24 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 190.5 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 190.5 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C14663"
 			(at 190.5 54.61 0)
 			(effects
 				(font
@@ -7979,6 +8285,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 246.38 90.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "09e743e2-2c57-4640-b88e-0ab5fd84fc9b")
 		)
@@ -8047,6 +8362,15 @@
 			)
 		)
 		(property "Description" "Resistor, small symbol"
+			(at 80.01 116.84 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 80.01 116.84 0)
 			(effects
 				(font
@@ -8124,6 +8448,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 50.8 50.8 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "2"
 			(uuid "b216fc0b-f266-4668-ba9a-ff47e3a1dff0")
 		)
@@ -8164,7 +8497,7 @@
 				)
 			)
 		)
-		(property "Footprint" "LED_SMD:LED_0603_1608Metric"
+		(property "Footprint" "A_Passive:LED_0805"
 			(at 256.54 102.87 90)
 			(effects
 				(font
@@ -8191,7 +8524,16 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C72043"
+		(property "LCSC" "C2297"
+			(at 256.54 102.87 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 256.54 102.87 0)
 			(effects
 				(font
@@ -8275,6 +8617,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 83.82 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "18caab82-7071-43f6-8030-4e663145be0a")
 		)
@@ -8282,6 +8633,94 @@
 			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/b4716c37-6296-4cc3-83d4-c08b9373ace7"
 					(reference "TP8")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C_Small")
+		(at 201.93 54.61 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "ac1493e8-de22-4005-ab9a-7dfaa67d2c69")
+		(property "Reference" "C5"
+			(at 204.47 53.3462 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "4.7uF"
+			(at 204.47 55.8862 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Device:C_1206_(1.6)"
+			(at 201.93 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 201.93 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 201.93 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 201.93 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C29823"
+			(at 201.93 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "ebc2b362-dc10-4c2f-b9e3-420c4ab258bd")
+		)
+		(pin "2"
+			(uuid "b98137ab-7061-432a-9afa-56457d791b09")
+		)
+		(instances
+			(project "Robuoy-Top"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/b4716c37-6296-4cc3-83d4-c08b9373ace7"
+					(reference "C5")
 					(unit 1)
 				)
 			)
@@ -8306,7 +8745,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "100n"
 			(at 74.93 171.4562 0)
 			(effects
 				(font
@@ -8315,7 +8754,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "A_Device:C_0603"
 			(at 72.39 170.18 0)
 			(effects
 				(font
@@ -8334,6 +8773,24 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 72.39 170.18 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 72.39 170.18 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C14663"
 			(at 72.39 170.18 0)
 			(effects
 				(font
@@ -8410,6 +8867,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 58.42 48.26 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "d45f1ada-bb6c-405c-a2ab-880c890b0e27")
 		)
@@ -8450,7 +8916,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "A_Device:LED_0603"
 			(at 58.42 50.8 90)
 			(effects
 				(font
@@ -8469,6 +8935,24 @@
 			)
 		)
 		(property "Description" "Light emitting diode, small symbol"
+			(at 58.42 50.8 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 58.42 50.8 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C2286"
 			(at 58.42 50.8 0)
 			(effects
 				(font
@@ -8520,7 +9004,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "A_Device:C_1206_(1.6)"
 			(at 91.44 121.92 0)
 			(effects
 				(font
@@ -8539,6 +9023,24 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 91.44 121.92 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 91.44 121.92 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C29823"
 			(at 91.44 121.92 0)
 			(effects
 				(font
@@ -8617,6 +9119,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 80.01 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "2"
 			(uuid "9316e41d-fee3-4603-a5c2-2ca8eacb0668")
 		)
@@ -8687,6 +9198,15 @@
 			)
 		)
 		(property "Farnell" "-"
+			(at 170.18 189.23 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 170.18 189.23 0)
 			(effects
 				(font
@@ -8839,6 +9359,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 25.4 64.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "86d38541-d4f4-462f-8d71-5404e929d922")
 		)
@@ -8922,6 +9451,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 139.7 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "2"
 			(uuid "3d72659b-535e-4c3e-9db4-efa43fc89c93")
 		)
@@ -8956,7 +9494,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "100n"
 			(at 69.85 62.2362 0)
 			(effects
 				(font
@@ -8965,7 +9503,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "A_Device:C_0603"
 			(at 67.31 60.96 0)
 			(effects
 				(font
@@ -8984,6 +9522,24 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 67.31 60.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 67.31 60.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C14663"
 			(at 67.31 60.96 0)
 			(effects
 				(font
@@ -9035,7 +9591,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "A_Device:C_1206_(1.6)"
 			(at 167.64 121.92 0)
 			(effects
 				(font
@@ -9054,6 +9610,24 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor, small symbol"
+			(at 167.64 121.92 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 167.64 121.92 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C29823"
 			(at 167.64 121.92 0)
 			(effects
 				(font
@@ -9198,6 +9772,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 80.01 121.92 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "1c5159a7-522a-45eb-b385-643a92d1517d")
 		)
@@ -9264,6 +9847,15 @@
 			)
 		)
 		(property "LCSC" "C2927799"
+			(at 123.19 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 123.19 45.72 0)
 			(effects
 				(font
@@ -9426,6 +10018,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 171.45 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "2"
 			(uuid "6ac34205-8ad1-4861-92db-fafdd5039fc1")
 		)
@@ -9503,6 +10104,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 63.5 111.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "2"
 			(uuid "8d25d4fd-19ce-4da0-8daa-2e6cd4badeab")
 		)
@@ -9513,76 +10123,6 @@
 			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/b4716c37-6296-4cc3-83d4-c08b9373ace7"
 					(reference "L1")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C_Small")
-		(at 201.93 54.61 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "fdcea0cd-c7be-4715-8429-dcaa84a24306")
-		(property "Reference" "C5"
-			(at 204.47 53.3462 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "10uF"
-			(at 204.47 55.8862 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" ""
-			(at 201.93 54.61 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 201.93 54.61 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Unpolarized capacitor, small symbol"
-			(at 201.93 54.61 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "39099d3a-cae4-42e5-b747-43d026696e15")
-		)
-		(pin "2"
-			(uuid "99611d59-47f2-42dd-9526-16ea91db0370")
-		)
-		(instances
-			(project "Robuoy-Top"
-				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/b4716c37-6296-4cc3-83d4-c08b9373ace7"
-					(reference "C5")
 					(unit 1)
 				)
 			)
@@ -9709,6 +10249,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 96.52 66.04 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "2"
 			(uuid "d1e97ea8-0cf0-4449-bca9-4a674045eaf9")
 		)
@@ -9770,6 +10319,15 @@
 			)
 		)
 		(property "Description" "test point"
+			(at 144.78 49.53 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 144.78 49.53 0)
 			(effects
 				(font

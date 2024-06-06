@@ -1160,6 +1160,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 121.285 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "b1de79d4-92cd-4cae-840a-cb8b01458d2d")
 		)
@@ -1237,6 +1246,15 @@
 			)
 		)
 		(property "LCSC" "C90039"
+			(at 143.51 96.52 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 143.51 96.52 0)
 			(effects
 				(font
@@ -1497,6 +1515,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 110.49 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "a1e2b763-09ef-4f42-a469-f1e8fe353a0e")
 		)
@@ -1705,6 +1732,15 @@
 			)
 		)
 		(property "LCSC" "C14663"
+			(at 128.905 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 128.905 180.34 0)
 			(effects
 				(font

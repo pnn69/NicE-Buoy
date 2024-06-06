@@ -8991,7 +8991,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" "Connector_JST:JST_EH_B3B-EH-A_1x03_P2.50mm_Vertical"
+		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
 			(at 264.16 252.73 0)
 			(effects
 				(font
@@ -11554,7 +11554,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C1588"
+		(property "LCSC" "C57112"
 			(at 226.06 254 0)
 			(effects
 				(font

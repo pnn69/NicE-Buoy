@@ -8414,7 +8414,7 @@
 				)
 			)
 		)
-		(property "Footprint" "LED_SMD:LED_0603_1608Metric"
+		(property "Footprint" "A_Passive:LED_0805"
 			(at 182.88 73.66 90)
 			(effects
 				(font
@@ -8441,7 +8441,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C72043"
+		(property "LCSC" "C2297"
 			(at 182.88 73.66 0)
 			(effects
 				(font
@@ -9521,7 +9521,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Connector_JST:JST_EH_B7B-EH-A_1x07_P2.50mm_Vertical"
+		(property "Footprint" "Connector_JST:JST_XH_B7B-XH-A_1x07_P2.50mm_Vertical"
 			(at 25.4 86.36 0)
 			(effects
 				(font
@@ -9549,6 +9549,15 @@
 			)
 		)
 		(property "JLCS" ""
+			(at 25.4 86.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C5341206"
 			(at 25.4 86.36 0)
 			(effects
 				(font
@@ -10027,7 +10036,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C1589"
+		(property "LCSC" "C57112"
 			(at 60.96 133.35 0)
 			(effects
 				(font
@@ -10076,7 +10085,7 @@
 				)
 			)
 		)
-		(property "Footprint" "LED_SMD:LED_0603_1608Metric"
+		(property "Footprint" "A_Passive:LED_0805"
 			(at 149.86 177.8 90)
 			(effects
 				(font
@@ -10103,7 +10112,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C72043"
+		(property "LCSC" "C2297"
 			(at 149.86 177.8 0)
 			(effects
 				(font
@@ -10775,7 +10784,7 @@
 				)
 			)
 		)
-		(property "Footprint" "LED_SMD:LED_0603_1608Metric"
+		(property "Footprint" "A_Passive:LED_0805"
 			(at 182.88 33.02 90)
 			(effects
 				(font
@@ -10802,7 +10811,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C72043"
+		(property "LCSC" "C2297"
 			(at 182.88 33.02 0)
 			(effects
 				(font
@@ -12480,7 +12489,7 @@
 				)
 			)
 		)
-		(property "Footprint" "LED_SMD:LED_0603_1608Metric"
+		(property "Footprint" "A_Passive:LED_0805"
 			(at 149.86 190.5 90)
 			(effects
 				(font
@@ -12507,7 +12516,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C72043"
+		(property "LCSC" "C2297"
 			(at 149.86 190.5 0)
 			(effects
 				(font
@@ -13180,7 +13189,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Connector_JST:JST_EH_B10B-EH-A_1x10_P2.50mm_Vertical"
+		(property "Footprint" "Connector_JST:JST_XH_B10B-XH-A_1x10_P2.50mm_Vertical"
 			(at 66.04 88.9 0)
 			(effects
 				(font
@@ -13189,7 +13198,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2312302351_HCTL-HC-XH-10A-G-K_C7434315.pdf"
 			(at 66.04 88.9 0)
 			(effects
 				(font
@@ -13207,7 +13216,7 @@
 				(hide yes)
 			)
 		)
-		(property "JLCS" ""
+		(property "LCSC" "C7434315"
 			(at 66.04 88.9 0)
 			(effects
 				(font
@@ -13465,7 +13474,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Connector_JST:JST_EH_B7B-EH-A_1x07_P2.50mm_Vertical"
+		(property "Footprint" "Connector_JST:JST_XH_B7B-XH-A_1x07_P2.50mm_Vertical"
 			(at 67.31 62.23 0)
 			(effects
 				(font
@@ -13492,7 +13501,7 @@
 				(hide yes)
 			)
 		)
-		(property "JLCS" ""
+		(property "LCSC" "C5341206"
 			(at 67.31 62.23 0)
 			(effects
 				(font
@@ -13823,7 +13832,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C1589"
+		(property "LCSC" "C57112"
 			(at 95.25 127 0)
 			(effects
 				(font
@@ -14028,7 +14037,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Connector_JST:JST_EH_B7B-EH-A_1x07_P2.50mm_Vertical"
+		(property "Footprint" "Connector_JST:JST_XH_B7B-XH-A_1x07_P2.50mm_Vertical"
 			(at 25.4 62.23 0)
 			(effects
 				(font
@@ -14055,7 +14064,7 @@
 				(hide yes)
 			)
 		)
-		(property "JLCS" ""
+		(property "LCSC" "C5341206"
 			(at 25.4 62.23 0)
 			(effects
 				(font

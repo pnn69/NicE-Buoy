@@ -7736,6 +7736,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 238.76 243.84 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "e676dff9-4161-4b02-8412-b46f12a7b17f")
 		)
@@ -7796,6 +7805,15 @@
 			)
 		)
 		(property "Description" ""
+			(at 331.47 86.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 331.47 86.36 0)
 			(effects
 				(font
@@ -7877,6 +7895,15 @@
 			)
 		)
 		(property "LCSC" "C90143"
+			(at 120.65 260.35 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 120.65 260.35 0)
 			(effects
 				(font
@@ -7968,6 +7995,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 245.11 250.19 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "ea0f21d5-1a13-4a81-b1f0-1567686dbc06")
 		)
@@ -8037,6 +8073,15 @@
 			)
 		)
 		(property "LCSC" "C580856"
+			(at 332.74 138.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 332.74 138.43 0)
 			(effects
 				(font
@@ -8269,6 +8314,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 50.8 266.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "14861c3e-bef4-4137-ab76-bff0de881a7a")
 		)
@@ -8345,6 +8399,15 @@
 			)
 		)
 		(property "LCSC" "C14663"
+			(at 162.56 260.35 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 162.56 260.35 0)
 			(effects
 				(font
@@ -8539,6 +8602,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 50.8 252.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "7a6ff53a-7ebf-4d4b-891b-6da23e3f0e84")
 		)
@@ -8606,6 +8678,15 @@
 			)
 		)
 		(property "Description" "Generic connector, single row, 01x03, script generated"
+			(at 264.16 252.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C5341202"
 			(at 264.16 252.73 0)
 			(effects
 				(font
@@ -8696,6 +8777,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 237.49 95.25 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "fc3428a3-dae4-437a-b73d-f9e867c9ff72")
 		)
@@ -8755,6 +8845,15 @@
 			)
 		)
 		(property "Description" "Resistor, small symbol"
+			(at 68.58 101.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 68.58 101.6 0)
 			(effects
 				(font
@@ -8900,6 +8999,15 @@
 			)
 		)
 		(property "LCSC" "C90143"
+			(at 110.49 260.35 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 110.49 260.35 0)
 			(effects
 				(font
@@ -9063,6 +9171,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 240.03 95.25 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "0d096298-28d5-411f-91f0-cb4e0b9ce02d")
 		)
@@ -9122,6 +9239,15 @@
 			)
 		)
 		(property "Description" "Resistor, small symbol"
+			(at 68.58 104.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 68.58 104.14 0)
 			(effects
 				(font
@@ -9200,6 +9326,15 @@
 			)
 		)
 		(property "LCSC" "C14663"
+			(at 133.35 260.35 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 133.35 260.35 0)
 			(effects
 				(font
@@ -9347,6 +9482,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 68.58 106.68 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "81d4da4d-19ca-478d-8af3-a04e939acc0c")
 		)
@@ -9418,6 +9562,15 @@
 		)
 		(property "LCSC" "C2843785"
 			(at 347.345 205.74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 344.17 212.09 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9782,6 +9935,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 179.07 110.49 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "f423d4a8-bd12-452e-b394-c623d0d50700")
 		)
@@ -9903,86 +10065,6 @@
 			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "U103")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C_Small")
-		(at 226.06 254 0)
-		(mirror x)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "91592bc8-27f6-4d6c-9ee9-25808353c50b")
-		(property "Reference" "C18"
-			(at 228.6 255.2637 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "1n"
-			(at 228.6 252.7237 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "A_Device:C_0603"
-			(at 226.06 254 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 226.06 254 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 226.06 254 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C1588"
-			(at 226.06 254 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "a88290ee-fec3-4091-a2b7-4dc44a5d71d8")
-		)
-		(pin "2"
-			(uuid "7acfafe7-537c-48cc-bbaa-68b681860bdd")
-		)
-		(instances
-			(project "Robuoy-Top"
-				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "C18")
 					(unit 1)
 				)
 			)
@@ -10278,6 +10360,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 236.22 265.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "2"
 			(uuid "4b22e3b2-26cb-400c-ae9b-4be6194db368")
 		)
@@ -10351,6 +10442,15 @@
 			)
 		)
 		(property "LCSC" "C14663"
+			(at 62.23 265.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 62.23 265.43 0)
 			(effects
 				(font
@@ -10478,6 +10578,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 35.56 252.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "dc7e0fb5-079a-4c64-bed5-49f3a6a8e234")
 		)
@@ -10554,6 +10663,15 @@
 			)
 		)
 		(property "Farnell" "-"
+			(at 35.56 266.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 35.56 266.7 0)
 			(effects
 				(font
@@ -10639,6 +10757,15 @@
 		)
 		(property "LCSC" "C2843785"
 			(at 364.49 205.74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 361.95 212.09 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10788,6 +10915,15 @@
 			)
 		)
 		(property "LCSC" "C14663"
+			(at 147.32 260.35 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 147.32 260.35 0)
 			(effects
 				(font
@@ -11012,6 +11148,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 245.11 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "d89a4ed9-6ac7-48a3-bf97-2af0f8f70cc0")
 		)
@@ -11061,7 +11206,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2307111133_HCTL-HC-XH-4A-G_C5341203.pdf"
 			(at 374.65 95.25 0)
 			(effects
 				(font
@@ -11070,7 +11215,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "x4P 4P XH 1 Tin 2.5mm 4 -25℃~+85℃ Brass 3A Straight Plugin,P=2.5mm Wire To Board Connector"
 			(at 374.65 95.25 0)
 			(effects
 				(font
@@ -11079,7 +11224,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C98734"
+		(property "LCSC" "C5341203"
 			(at 374.65 95.25 0)
 			(effects
 				(font
@@ -11173,6 +11318,15 @@
 			)
 		)
 		(property "LCSC" "C14663"
+			(at 154.94 260.35 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 154.94 260.35 0)
 			(effects
 				(font
@@ -11403,6 +11557,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 128.27 260.35 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "8805fdc4-994d-4314-b2b5-244c2deb2070")
 		)
@@ -11487,6 +11650,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 138.43 260.35 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "cf79a6a5-c5f6-4d2c-b6a5-57304f3aaa63")
 		)
@@ -11561,6 +11733,15 @@
 			)
 		)
 		(property "LCSC" "C5665"
+			(at 55.88 96.52 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 55.88 96.52 0)
 			(effects
 				(font
@@ -11737,6 +11918,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 313.69 138.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "b7b90e35-ecac-4731-9ad4-55156fa90308")
 		)
@@ -11881,6 +12071,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 379.73 212.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "5bff6045-5bb8-4721-a600-282a88e0e6a5")
 		)
@@ -11952,6 +12151,15 @@
 			)
 		)
 		(property "Description" "Very low capacitance ESD protection diode, 4 data-line, SOT-23-6"
+			(at 289.56 138.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 289.56 138.43 0)
 			(effects
 				(font
@@ -12107,6 +12315,15 @@
 				(hide yes)
 			)
 		)
+		(property "JLCS" ""
+			(at 374.65 124.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "0fe5bfcd-e188-4bf1-a868-8120e2d3d225")
 		)
@@ -12123,6 +12340,93 @@
 			(project "Robuoy-Top"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "J2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C_Small")
+		(at 226.06 254 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "e9fee72b-b045-4582-a17f-aacbbe544808")
+		(property "Reference" "C12"
+			(at 226.695 252.095 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "100n"
+			(at 226.695 255.905 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Device:C_0603"
+			(at 226.06 254 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 226.06 254 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 226.06 254 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C14663"
+			(at 226.06 254 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 226.06 254 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "74eba337-1870-47c7-8a9e-11c0f6bea4f5")
+		)
+		(pin "2"
+			(uuid "0a2c4e22-68ff-4b6c-9c0e-202ea963c358")
+		)
+		(instances
+			(project "Robuoy-Top"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
+					(reference "C12")
 					(unit 1)
 				)
 			)
@@ -12239,6 +12543,15 @@
 			)
 		)
 		(property "Description" "Resistor, small symbol"
+			(at 68.58 109.22 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
 			(at 68.58 109.22 0)
 			(effects
 				(font
