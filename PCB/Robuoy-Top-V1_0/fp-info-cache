@@ -1,4 +1,4 @@
-23834998527952869
+23853893383959126
 A_Button_Switch
 Button-Push_2pin_6.0x3.5_SMD
 Component 7.2x3.5mm, (3D model incorrect)
@@ -160,6 +160,20 @@ Switch-Slide-SPDT_3pin_4.3x8.6_P2_2SH_TH
 0
 5
 4
+A_Connector
+AMASS_XT60-F_1x02_P7.20mm_Vertical
+AMASS female XT60, through hole, vertical, https://www.tme.eu/Document/2d152ced3b7a446066e6c419d84bb460/XT60%20SPEC.pdf
+XT60 female vertical
+0
+2
+2
+A_Connector
+AMASS_XT60-M_1x02_P7.20mm_Vertical
+AMASS female XT60, through hole, vertical, https://www.tme.eu/Document/2d152ced3b7a446066e6c419d84bb460/XT60%20SPEC.pdf
+XT60 female vertical
+0
+2
+2
 A_Connector
 BarrelJack_5mm_Wurth_6941xx301002
 Inner diameter 2.05mm or 2.55mm depending on exact order number, http://katalog.we-online.de/em/datasheet/6941xx301002.pdf
@@ -574,6 +588,27 @@ SMA THT Female Jack Horizontal
 5
 2
 A_Connector
+SS-12D10L5
+Switch
+
+0
+3
+3
+A_Connector
+SS-1211-G050
+
+
+0
+5
+4
+A_Connector
+T4140012121000
+T4140012121-000-1
+Connector
+0
+12
+12
+A_Connector
 USB-A-TH
 Samtec USB A connector  USB-AM-S-F-B-TH
 USB A connector
@@ -854,6 +889,13 @@ ES3F
 2
 2
 A_Device
+FTC252012S
+
+
+0
+2
+2
+A_Device
 F_1206
 Fuse, 3216metric
 Polyfuse FUSC3518X55N
@@ -925,6 +967,13 @@ Inductor, Body 4.0x4.0mm, (3D model: Height 2.0mm)
 2
 A_Device
 L_5.0x5.0mm
+Inductor, Body 5.0x5.0mm, (3D model: Height 2.8mm)
+SRR4028-2R2Y
+0
+2
+2
+A_Device
+L_6.6x7.0mm
 Inductor, Body 5.0x5.0mm, (3D model: Height 2.8mm)
 SRR4028-2R2Y
 0
@@ -1848,6 +1897,13 @@ D2PAK DDPAK TO-263 D2PAK-5 TO-263-5 SOT-426
 10
 5
 A_Mechanical
+GX16_CutOut
+
+
+0
+0
+0
+A_Mechanical
 HF14FW
 
 
@@ -2023,6 +2079,20 @@ piezo speaker
 2
 2
 A_Misc
+Buzzer-12x6.5x5.2
+Component D7.9x6.3mm
+pixezo speaker
+0
+2
+2
+A_Misc
+Buzzer-129x6.5x5.2
+Component D7.9x6.3mm
+pixezo speaker
+0
+2
+2
+A_Misc
 Buzzer-SMD-2_9.6x9.6_P9.6
 
 
@@ -2071,6 +2141,13 @@ Heatsink_TO220_20°C.W
 0
 0
 0
+A_Misc
+ReworkPins
+
+
+0
+16
+16
 A_Module
 47153_PSU
 
