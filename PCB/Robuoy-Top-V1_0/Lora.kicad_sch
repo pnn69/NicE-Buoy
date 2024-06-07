@@ -1218,7 +1218,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "RF_Module:Ai-Thinker-Ra-01-LoRa"
+		(property "Footprint" "A_Module:Ai-Thinker-Ra-02-LoRa"
 			(at 118.11 106.68 0)
 			(effects
 				(font

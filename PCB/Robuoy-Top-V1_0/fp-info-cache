@@ -1,4 +1,4 @@
-23853893383959126
+23855611155783358
 A_Button_Switch
 Button-Push_2pin_6.0x3.5_SMD
 Component 7.2x3.5mm, (3D model incorrect)
@@ -2155,6 +2155,13 @@ A_Module
 0
 4
 4
+A_Module
+Ai-Thinker-Ra-02-LoRa
+Ai Thinker Ra-01 LoRa
+LoRa Ra-01
+0
+16
+16
 A_Module
 Display_0.9inch_128x32px
 SSD1316 (SSD1306 compatible) OLED display
