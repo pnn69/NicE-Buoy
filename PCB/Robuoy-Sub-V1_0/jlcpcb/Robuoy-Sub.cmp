@@ -1,0 +1,939 @@
+Cmp-Mod V01 Created by PcbNew   date = 2024-06-06T22:36:41+0200
+
+BeginCmp
+TimeStamp = 009fb616-51c0-4f18-960e-dc1972f9111d
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/2cf50f8b-8878-4526-83aa-1e440e0e17a6
+Reference = D206;
+ValeurCmp = ESC_SB;
+IdModule  = A_Passive:LED_0805;
+EndCmp
+
+BeginCmp
+TimeStamp = 01ed9b50-9dec-45fb-8f62-fb93b436bc0d
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/ab83cfb9-ef81-4ec5-bdfd-64690a3bb951
+Reference = J207;
+ValeurCmp = ESCSB;
+IdModule  = A_Connector:AMASS_XT60-F_1x02_P7.20mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 0461e42c-52a7-48b7-8975-82c652d7b572
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/73ff61d7-25ad-4aa5-826f-9773773926f6
+Reference = D102;
+ValeurCmp = WS2812B;
+IdModule  = LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm;
+EndCmp
+
+BeginCmp
+TimeStamp = 04ecd5f6-9b41-4051-8ebe-282f838432d3
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/8f3ad817-2389-4ac2-bfae-23f0e4fad3ad
+Reference = Q203;
+ValeurCmp = AO3400A;
+IdModule  = Package_TO_SOT_SMD:SOT-23;
+EndCmp
+
+BeginCmp
+TimeStamp = 051abea5-fd20-4033-be8a-2051f434fb48
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/cd102708-dfd8-42bd-9284-3f8bf2173bd0
+Reference = J101;
+ValeurCmp = PROG/JTAG;
+IdModule  = Connector_IDC:IDC-Header_2x05_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 065545d2-1c3b-422a-9538-4153be69f38f
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/9cf2b7aa-c901-49b2-b188-18954b458e74
+Reference = C101;
+ValeurCmp = 100n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 08947682-4396-403c-8921-71150860ba43
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/041b5737-c697-4fe4-acbe-93eee01dcc45
+Reference = C204;
+ValeurCmp = 4.7uF/10V;
+IdModule  = A_Device:C_1206_(1.6);
+EndCmp
+
+BeginCmp
+TimeStamp = 0b9dc6ec-c0ae-418d-bb1f-d2c1115fab54
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/0aba3d2d-8130-433f-a93d-ca44f482ef87
+Reference = J103;
+ValeurCmp = ESC_BB;
+IdModule  = Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 0ef62ee3-d5ef-4963-9fc0-959d4e135583
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/99104608-163f-4568-823e-76c3b7c1bc75
+Reference = R206;
+ValeurCmp = 1.8k;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 11c81126-3f73-42c4-bdb6-8cb3b485beee
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/6c941027-f1e4-47e7-9b0f-4e87f6c7fe34
+Reference = R208;
+ValeurCmp = 1.8k;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 13914a05-1bed-45da-a5a2-e686625f098e
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/0ac40790-0de8-448b-8662-273c7cf1a334
+Reference = R205;
+ValeurCmp = 10K;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 17ec0219-14a3-49b7-8e8e-3da46f819b88
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/bef7d32b-79aa-4391-a8ba-f484f378c56b
+Reference = R211;
+ValeurCmp = 15K;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 1a35581f-6518-4a54-86d0-731c0463a279
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/7badd758-bee5-42dc-bb37-182aa6c4c18b
+Reference = C212;
+ValeurCmp = 100u/16V;
+IdModule  = Capacitor_SMD:C_1210_3225Metric;
+EndCmp
+
+BeginCmp
+TimeStamp = 1a7dd621-915b-4b79-9108-9f0d3c8cd292
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/62339327-bb8b-4a7c-b60f-522912b99583
+Reference = R109;
+ValeurCmp = 2.2k;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 1b4d4fd4-a11a-49e8-8905-f2939c8091c8
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/cc06a617-b098-48ca-b46d-7109124ed4b3
+Reference = C106;
+ValeurCmp = 100n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 23364233-220d-402b-9226-b85f88bf0eb1
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/9587c965-665f-426e-9c20-48057f99d3e5
+Reference = Q204;
+ValeurCmp = AO3400A;
+IdModule  = Package_TO_SOT_SMD:SOT-23;
+EndCmp
+
+BeginCmp
+TimeStamp = 2488dcb8-9317-44eb-8b49-329e3659bd1b
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/879cbfdd-6a79-4b36-ad2f-b90c824c117b
+Reference = R201;
+ValeurCmp = 1k;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 2625de7d-7cc6-4e69-a6e2-39597b6b6d3b
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/14ef2f50-bb5d-4f2f-ada5-11aeffecde91
+Reference = D202;
+ValeurCmp = B340A;
+IdModule  = Diode_SMD:D_SMA;
+EndCmp
+
+BeginCmp
+TimeStamp = 262e0dc7-f5da-4241-b15c-e053f1bbb03a
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/ede8438c-b8d8-4712-9207-5045c1cdaf21
+Reference = C201;
+ValeurCmp = 4.7uF/10V;
+IdModule  = A_Device:C_1206_(1.6);
+EndCmp
+
+BeginCmp
+TimeStamp = 275e5380-bd56-44ec-a9ab-f059c0ab5c1e
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/18feea06-d212-4b4e-9fe0-07e41ac38897
+Reference = SW102;
+ValeurCmp = ~{RESET};
+IdModule  = Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 2af95d25-7332-4888-9f37-1686b82eb5ef
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/e73abb56-fc77-47ff-8ed9-3e9229640db3
+Reference = Q206;
+ValeurCmp = AO3400A;
+IdModule  = Package_TO_SOT_SMD:SOT-23;
+EndCmp
+
+BeginCmp
+TimeStamp = 2f6c2b01-e2ec-41ce-ab8e-e66cc97cb225
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/e2b67206-ee2d-4a8c-9369-9a21c62201e4
+Reference = TP203;
+ValeurCmp = 0.795V;
+IdModule  = A_Pads_Pins:Testpoint_0.9x1.5;
+EndCmp
+
+BeginCmp
+TimeStamp = 2fe05a11-35fd-433c-b103-8da09574e906
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/9660efb2-c585-4001-8db8-9a60cd5baf5b
+Reference = C110;
+ValeurCmp = 100n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 30aa185a-2acb-4fca-a5a5-b8f47ec76926
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/dc59482f-6200-4a33-be28-e067bd23a2d5
+Reference = D106;
+ValeurCmp = WS2812B;
+IdModule  = LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm;
+EndCmp
+
+BeginCmp
+TimeStamp = 3264a80d-75b9-4014-81a4-1259b9d22e0d
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/b8c14449-dd7f-4948-8a27-fbdbc456f476
+Reference = R111;
+ValeurCmp = 100;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 38874947-c49f-4373-b65a-adfd24d1d13a
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/2002c1d2-776a-4d45-81c4-bc0562fa8d83
+Reference = C211;
+ValeurCmp = 100u/16V;
+IdModule  = Capacitor_SMD:C_1210_3225Metric;
+EndCmp
+
+BeginCmp
+TimeStamp = 39bdf055-7b1b-4c26-866a-da0a03b2f8a4
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/19f86d4e-8ca8-4fb1-ac6e-b4ce3db1f542
+Reference = J105;
+ValeurCmp = RS232_Option;
+IdModule  = Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 3a596388-ca21-4117-b765-0279f70fa504
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/a4d6f7e5-4c05-4876-9d91-c1366d66c427
+Reference = C203;
+ValeurCmp = 4.7uF/10V;
+IdModule  = A_Device:C_1206_(1.6);
+EndCmp
+
+BeginCmp
+TimeStamp = 3ded1ef3-b56d-4fe8-968e-a36dcd7ffea1
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/8c7b537c-6939-4b0c-beb8-b20e9ff1cd92
+Reference = R207;
+ValeurCmp = 1k;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 3ea1a6b8-f61c-4227-b7ec-ed9e71de9002
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/7af4464e-da7c-4929-a2ce-083ba28ba505
+Reference = U103;
+ValeurCmp = LTC4311;
+IdModule  = Package_TO_SOT_SMD:Texas_R-PDSO-G6;
+EndCmp
+
+BeginCmp
+TimeStamp = 413716aa-ce31-4ee0-b54f-bc947cfafe0a
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/de2deeaa-36bc-4bda-9ea5-9af9e58155a8
+Reference = J202;
+ValeurCmp = LoadbalanceAccu1;
+IdModule  = Connector_JST:JST_XH_B7B-XH-A_1x07_P2.50mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 418e3a66-960d-4452-ba32-d2a0aba6ce70
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/33361f9f-85d2-42aa-ad67-1d7757b7152f
+Reference = JP101;
+ValeurCmp = 5V/3.3V;
+IdModule  = Jumper:SolderJumper-3_P1.3mm_Bridged12_RoundedPad1.0x1.5mm;
+EndCmp
+
+BeginCmp
+TimeStamp = 43b5184c-8039-4d4e-ab35-3b726e0ab05e
+Path = /b8b74dbc-98ad-4bf0-8998-abf5ff532d56
+Reference = TP301;
+ValeurCmp = RW1;
+IdModule  = A_Misc:ReworkPins;
+EndCmp
+
+BeginCmp
+TimeStamp = 445f0b51-ff5e-4be1-b6e3-6d0d63302d93
+Path = /e18c7300-c020-4ac8-86cc-0120bd354987
+Reference = H301;
+ValeurCmp = MountingHole;
+IdModule  = A_Mechanical:NPTH_M3;
+EndCmp
+
+BeginCmp
+TimeStamp = 45541066-8714-483d-8cb1-621625bb19df
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/c7f3d26e-8e1b-4051-8fcf-737290313a8d
+Reference = J206;
+ValeurCmp = LoadbalanceCharger;
+IdModule  = Connector_JST:JST_XH_B7B-XH-A_1x07_P2.50mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 461a2605-bc08-49c3-9b7f-3786b7fc502a
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/db1fbf01-17ef-4d5c-acad-7dd58e06615d
+Reference = J104;
+ValeurCmp = ESC_SB;
+IdModule  = Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 48efa764-d29a-470b-8f1a-2bc3085e0ce6
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/63ad9e22-a003-4e18-a7f1-4e2c3bc8f0d7
+Reference = D203;
+ValeurCmp = 5V;
+IdModule  = A_Passive:LED_0805;
+EndCmp
+
+BeginCmp
+TimeStamp = 4fc828b3-46a4-4811-9160-659b1c5bad85
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/e0a6c216-7c53-4911-8102-e2e11a17e9d5
+Reference = U102;
+ValeurCmp = USBLC6-4SC6;
+IdModule  = Package_TO_SOT_SMD:SOT-23-6;
+EndCmp
+
+BeginCmp
+TimeStamp = 50dff25f-0ad8-4e10-8125-1cac058e8040
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/a5b61d41-302f-45ae-9175-1805c27b8333
+Reference = D204;
+ValeurCmp = 3.3V;
+IdModule  = A_Passive:LED_0805;
+EndCmp
+
+BeginCmp
+TimeStamp = 51f31715-3463-4565-bf91-37aed3c910a3
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/74adc00d-56fb-4b4a-a667-990c3d39f56d
+Reference = R112;
+ValeurCmp = 1.8k;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 543faa3a-b18e-455d-a00d-c86d4da2eae1
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/dc5e08f9-c2e4-4e03-862a-be94c2085db6
+Reference = C205;
+ValeurCmp = 100n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 558fb1ef-2a15-49a1-aea6-b6f1ff90ef4d
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/a9a1f700-89c2-482e-aeed-d43436a2eb12
+Reference = TP204;
+ValeurCmp = 5V;
+IdModule  = A_Pads_Pins:Testpoint_0.9x1.5;
+EndCmp
+
+BeginCmp
+TimeStamp = 5783e04b-f380-4681-8bde-812e4e0e30d0
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/f1514024-4435-4426-8b5b-8aee45f4ca3e
+Reference = R106;
+ValeurCmp = 100;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 5c9a3461-fc9a-46cd-bc85-d5a7f2ce89d5
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/bb79ce53-1a32-4889-a1dd-84d8eba57f54
+Reference = C108;
+ValeurCmp = 100n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 5e4a0d49-5f1f-44b2-863f-568cb5d2b781
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/a1af0fe4-7aa7-4580-bdcf-ecc3dc19c030
+Reference = U202;
+ValeurCmp = SN74LV1T34DBV;
+IdModule  = Package_TO_SOT_SMD:SOT-23-5;
+EndCmp
+
+BeginCmp
+TimeStamp = 5f68895a-bd77-443f-a7cb-0e9b9ca4ae83
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/fcffdf29-3431-4983-bebe-5f31a654b44d
+Reference = D201;
+ValeurCmp = SM4007PL;
+IdModule  = A_Device:D_SOD-123_2.85x1.8x1.3;
+EndCmp
+
+BeginCmp
+TimeStamp = 61382980-a1b8-4891-b896-ccd160905a74
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/93bfee76-2ff1-4945-bb85-730bedc5a057
+Reference = Q205;
+ValeurCmp = AO3400A;
+IdModule  = Package_TO_SOT_SMD:SOT-23;
+EndCmp
+
+BeginCmp
+TimeStamp = 61cec3eb-6150-4a33-981a-9ada7c2f3e60
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/85c27a9b-3019-4478-a97d-76cf3d9a24f3
+Reference = D105;
+ValeurCmp = PWR_ESC_BB;
+IdModule  = LED_SMD:LED_0603_1608Metric;
+EndCmp
+
+BeginCmp
+TimeStamp = 66332a10-4ce6-4e8f-a58b-a12229cd3553
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/4bbc3c24-546b-4474-87b5-2c9a649239fc
+Reference = C111;
+ValeurCmp = 100n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 6a2e0048-314c-4e10-b298-2f63b797c591
+Path = /5992bf0c-4e16-4b60-8ff6-0f846f16c620
+Reference = H304;
+ValeurCmp = MountingHole;
+IdModule  = A_Mechanical:NPTH_M3;
+EndCmp
+
+BeginCmp
+TimeStamp = 6b5784e2-d6fa-4224-802c-27d532462333
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/0a564049-4269-45a4-b258-a94a78126125
+Reference = U203;
+ValeurCmp = SN74LV1T34DBV;
+IdModule  = Package_TO_SOT_SMD:SOT-23-5;
+EndCmp
+
+BeginCmp
+TimeStamp = 6d7b3e1e-8e5c-4de8-a44c-8968cd77874f
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/a5cff9df-ea02-4eae-9f18-b24ef766bfc9
+Reference = D103;
+ValeurCmp = WS2812B;
+IdModule  = LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm;
+EndCmp
+
+BeginCmp
+TimeStamp = 6ea8c888-b421-4e25-a4a6-9e255489873c
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/0f8fd342-7ca6-49fe-abbe-3174de71523e
+Reference = C103;
+ValeurCmp = 100u/16V;
+IdModule  = Capacitor_SMD:C_1210_3225Metric;
+EndCmp
+
+BeginCmp
+TimeStamp = 6f7ac3c6-582d-49a9-89b3-07b59a478830
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/36c1f9ec-46e2-42dc-91f1-2604e80ddf7a
+Reference = R102;
+ValeurCmp = 10K;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 76682dcd-b92a-40f8-a02a-b67bf7275fc2
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/68052cab-f509-4ae1-95a5-ef3e0042f709
+Reference = SW201;
+ValeurCmp = SS-12D11-G050/On-Off;
+IdModule  = A_Connector:SS-12D10L5;
+EndCmp
+
+BeginCmp
+TimeStamp = 767fb36a-ead1-4e2e-a73a-c7bca27685c1
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/567fff49-8b12-4c48-bb8c-2207f18b2069
+Reference = J203;
+ValeurCmp = LoadbalanceAccu2;
+IdModule  = Connector_JST:JST_XH_B7B-XH-A_1x07_P2.50mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 772b98c1-8a08-4e9e-9598-7d0333410a37
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/73e42ce6-0ad6-4b20-a469-e7599b603a23
+Reference = C113;
+ValeurCmp = 100n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 79ea90bd-00e1-4e8c-afa4-7a67052326ad
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/43b9c79a-4a1f-4f6c-b5c6-335663f802c4
+Reference = U105;
+ValeurCmp = SN74LV1T34DBV;
+IdModule  = Package_TO_SOT_SMD:SOT-23-5;
+EndCmp
+
+BeginCmp
+TimeStamp = 7c257356-443b-491e-b636-556b46729279
+Path = /8e711c6b-8ac9-4be3-b2de-4936f35c987e
+Reference = H303;
+ValeurCmp = MountingHole;
+IdModule  = A_Mechanical:NPTH_M3;
+EndCmp
+
+BeginCmp
+TimeStamp = 7eed9966-3c1e-4b79-a365-b2ba192bfb4b
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/ed68c820-ab2b-4a7a-b3f5-9a862631e613
+Reference = Q202;
+ValeurCmp = AO3400A;
+IdModule  = Package_TO_SOT_SMD:SOT-23;
+EndCmp
+
+BeginCmp
+TimeStamp = 814de125-c5bf-4a08-9acd-d402405933c4
+Path = /efd7eccd-321f-48b5-a164-82074c74555d
+Reference = H305;
+ValeurCmp = GX16_CutOut;
+IdModule  = A_Mechanical:GX16_CutOut;
+EndCmp
+
+BeginCmp
+TimeStamp = 8864480e-48ac-486e-9214-3e73d6d06667
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/59a2cb0c-6fed-4886-acfa-f9628c8d3e87
+Reference = C217;
+ValeurCmp = 100n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 89f4c2f2-22bc-4678-8ab8-cb6fbc4b16a8
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/f3bf298d-3efa-44b2-a52d-9be75f5f6dba
+Reference = L201;
+ValeurCmp = 33uH/2A;
+IdModule  = A_Device:L_6.6x7.0mm;
+EndCmp
+
+BeginCmp
+TimeStamp = 8d5fd2da-17d7-478d-ac59-fe0f1843cfef
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/21af9b24-8649-4b4a-bff9-2b88fe08164b
+Reference = C214;
+ValeurCmp = 4.7uF/10V;
+IdModule  = A_Device:C_1206_(1.6);
+EndCmp
+
+BeginCmp
+TimeStamp = 8dc7022b-5c6d-40ec-be47-7417aa673e68
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/452b5b91-1ccf-4472-989b-35b0584c5b16
+Reference = C210;
+ValeurCmp = 100n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 90507bfd-5423-4816-a6b8-ae3a96244554
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/0d0044e7-aefe-42c7-830e-241e83573ebc
+Reference = Q201;
+ValeurCmp = AO3400A;
+IdModule  = Package_TO_SOT_SMD:SOT-23;
+EndCmp
+
+BeginCmp
+TimeStamp = 9125d3d0-c729-4db3-9408-c44c1cccf8fe
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/c56abf22-12d7-4d8c-aadc-06f2d4a57d5a
+Reference = J204;
+ValeurCmp = Conn_01x10;
+IdModule  = Connector_JST:JST_XH_B10B-XH-A_1x10_P2.50mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 91a9ca57-8db6-4886-aebd-3c564adb327d
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/51927179-853c-4bb8-91e4-366b85e25e2c
+Reference = R107;
+ValeurCmp = 820;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 92c1b573-0f5f-4aab-8f8f-9b0c4536acf4
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/5bdacd2a-2765-4de3-9f53-34a346cb9ff7
+Reference = D104;
+ValeurCmp = PWR_ESC_BB;
+IdModule  = LED_SMD:LED_0603_1608Metric;
+EndCmp
+
+BeginCmp
+TimeStamp = 975d7c8d-3162-405b-b19b-ba11748cb202
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/be3fb45a-83d3-417c-b4bc-58bf99445170
+Reference = C218;
+ValeurCmp = 4.7uF/10V;
+IdModule  = A_Device:C_1206_(1.6);
+EndCmp
+
+BeginCmp
+TimeStamp = 97606776-58b8-47cf-94c4-bd4f072f057a
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/c5e5cc7e-af5d-4018-8a7a-ebaf3027fb9d
+Reference = J201;
+ValeurCmp = Accu;
+IdModule  = A_Connector:AMASS_XT60-M_1x02_P7.20mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 985ac956-36c5-483d-a925-09e525cd661b
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/a581d13d-4d68-461b-bda2-4f5fffe4e005
+Reference = C207;
+ValeurCmp = 100n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 99751b2e-5ed9-4550-900c-b6d62f62b460
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/92e83c56-6693-4f32-9a46-f3f38281006e
+Reference = J205;
+ValeurCmp = PWR_Charger;
+IdModule  = A_Connector:AMASS_XT60-F_1x02_P7.20mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = 9a127321-ca4e-4c43-83de-a54e5e63bb3d
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/4797b04c-bb5b-4c4e-b994-6733a4e0eb3d
+Reference = R204;
+ValeurCmp = 18K;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 9a400744-e114-4ec5-b193-aa92cc4d7e19
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/8d85bb81-01a4-43e8-a336-77d3ac7efd36
+Reference = U101;
+ValeurCmp = ESP32-WROOM-32E_(visible_peripherals);
+IdModule  = A_Module:ESP32-WROOM-32;
+EndCmp
+
+BeginCmp
+TimeStamp = 9b8ba038-acea-47b6-ac0d-155b7bc95516
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/478434da-1331-46db-8fd5-94803bc63e0d
+Reference = R203;
+ValeurCmp = 1k;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 9bf3cf26-2aa1-486e-9fe6-18b067845e8d
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/938e7d3c-f9bc-40bc-afef-89cc8ab0e16c
+Reference = C215;
+ValeurCmp = 100n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = 9ea30f4a-f4f6-4a9c-916f-6cda74e3e41e
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/64bdf9ef-88ab-4de6-b14c-c7f9a8449476
+Reference = R104;
+ValeurCmp = 100;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = a077d162-b108-4823-8bd7-264e481801ee
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/e2c10c2d-c1cb-4474-9287-85872c74ee6b
+Reference = J106;
+ValeurCmp = Compass;
+IdModule  = A_Connector:Header_1x04_P2.54_Male;
+EndCmp
+
+BeginCmp
+TimeStamp = a417d00a-7d7c-475b-b7c6-ac50e7f8f40d
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/edae42dd-1a43-4a59-9fa1-0fd3ca514d08
+Reference = C202;
+ValeurCmp = 4.7uF/10V;
+IdModule  = A_Device:C_1206_(1.6);
+EndCmp
+
+BeginCmp
+TimeStamp = a7b4bd65-184c-4fe1-abea-21b0e11ec1b6
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/c8288156-9b75-47e6-84fc-0e962ab57584
+Reference = TP202;
+ValeurCmp = GND;
+IdModule  = A_Pads_Pins:Testpoint_0.9x1.5;
+EndCmp
+
+BeginCmp
+TimeStamp = a9a29d8f-3efc-4add-98f8-f03a0b76d539
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/22b806d7-49bd-40b2-856f-f214f96bcf0b
+Reference = C109;
+ValeurCmp = 100n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = aa25d72b-1200-4a12-9634-b8030349432b
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/44bfdaad-b132-4cd5-91f8-31c5724c0871
+Reference = R108;
+ValeurCmp = 2.2k;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = ad0e0841-faa2-450e-8f38-ebcdbe5f35c4
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/5f2e1ce7-a584-4d0f-b46f-e321db4c2d6c
+Reference = C206;
+ValeurCmp = 10n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = b075ed1b-5ddb-4140-afab-efda67d096ef
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/bdffc43c-160a-4d74-b963-aeee39c8d500
+Reference = C209;
+ValeurCmp = 100n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = b56d378d-5e4d-4d86-8e61-0cd85aedfdb6
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/f7d92bd2-59d6-40a3-9896-aa07cc815882
+Reference = L202;
+ValeurCmp = 10uH;
+IdModule  = A_Device:FTC252012S;
+EndCmp
+
+BeginCmp
+TimeStamp = b7e21e70-853e-431c-a6d0-13b123175598
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/69855167-2ef0-4f88-b962-6d814194074a
+Reference = R202;
+ValeurCmp = 6.2k;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = b8cb262f-1392-402f-9ca8-55adb323dcc5
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/c5b183ea-33f1-49ee-9408-5571be9cf7c5
+Reference = C219;
+ValeurCmp = 100n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = ba3a5477-4ca0-4d0a-943b-ceac6111ddc4
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/01a7540e-8f56-435e-9d9f-3f9107f3230a
+Reference = D101;
+ValeurCmp = SM4007PL;
+IdModule  = A_Device:D_SOD-123_2.85x1.8x1.3;
+EndCmp
+
+BeginCmp
+TimeStamp = c2697f31-3260-48d0-b489-8ec869f21a10
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/a9c89767-4732-4627-87c0-b670f5298d33
+Reference = C107;
+ValeurCmp = 100n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = c543e2a8-2793-47ee-b75c-e6bef77551f6
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/9e5fd82e-59a0-4f8e-933c-6000bd46639d
+Reference = TP201;
+ValeurCmp = Vcell;
+IdModule  = A_Pads_Pins:Testpoint_0.9x1.5;
+EndCmp
+
+BeginCmp
+TimeStamp = c5ec5149-73c6-4b5a-87b7-2749cf547fb6
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/4c3729fe-8a16-4dec-9fb0-0c2628851937
+Reference = C102;
+ValeurCmp = 100u/16V;
+IdModule  = Capacitor_SMD:C_1210_3225Metric;
+EndCmp
+
+BeginCmp
+TimeStamp = c9f96414-f52c-4375-b280-f12467715972
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/9ac4f5ce-fad9-41aa-a8d2-b5353e174e1f
+Reference = R210;
+ValeurCmp = 82K;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = cbf9dc5c-d9fb-4d6a-a804-10b771a396a6
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/d205f28e-294a-4f6b-9992-589876908435
+Reference = C208;
+ValeurCmp = 10n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = cf7b188d-3983-494c-baff-fe5ebb26d5b2
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/7092f7d6-3a60-418a-b072-7a59825f4921
+Reference = R105;
+ValeurCmp = 100;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = cfee3fbb-d663-45a9-a6cf-b0bf988c45b5
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/ee9f8123-8f94-43aa-aef9-3a8c638469f9
+Reference = Q207;
+ValeurCmp = AO3400A;
+IdModule  = Package_TO_SOT_SMD:SOT-23;
+EndCmp
+
+BeginCmp
+TimeStamp = d091b4fb-4784-4416-adac-aa8885a97ce0
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/5241d393-ed74-4401-a431-a527124e0d01
+Reference = U201;
+ValeurCmp = TPS5430DDAR;
+IdModule  = Package_SO:HTSOP-8-1EP_3.9x4.9mm_P1.27mm_EP2.4x3.2mm_ThermalVias;
+EndCmp
+
+BeginCmp
+TimeStamp = d6a45e7c-8486-438f-bfd0-339ce0237f33
+Path = /32afde3b-fe22-4465-9be1-b4d6fbbb0d1b
+Reference = TP302;
+ValeurCmp = RW2;
+IdModule  = A_Misc:ReworkPins;
+EndCmp
+
+BeginCmp
+TimeStamp = d87c291b-e50e-4343-b7ef-0e6530187e53
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/58a01137-2c9c-4aec-ae76-9c01502dc576
+Reference = U204;
+ValeurCmp = TLV61046ADB;
+IdModule  = Package_TO_SOT_SMD:SOT-23-6;
+EndCmp
+
+BeginCmp
+TimeStamp = da9bf8e5-e412-4935-a1d9-9fb9a66bb462
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/453c08ef-1656-4e63-8d3c-b07239d09434
+Reference = R103;
+ValeurCmp = 100;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = dcbc5b0a-40ae-478c-b44b-f632541d54bd
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/10eb5df4-a75f-4617-94c5-1845d448b864
+Reference = R110;
+ValeurCmp = 100;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = ddd9fbe2-f612-476d-98c7-6a684a7840b6
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/06ff718f-9b6c-4d90-8c19-f10257555fe7
+Reference = J208;
+ValeurCmp = ESCBB;
+IdModule  = A_Connector:AMASS_XT60-F_1x02_P7.20mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = de8deafd-7cee-4ec1-bd68-a10c1b710bad
+Path = /d8600412-cbd9-4999-8186-75ac632a5cca
+Reference = H302;
+ValeurCmp = MountingHole;
+IdModule  = A_Mechanical:NPTH_M3;
+EndCmp
+
+BeginCmp
+TimeStamp = e01786b1-180a-44cb-b250-a61ef5b27cd1
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/41367f4d-c37d-490e-8294-0a86e6354e2d
+Reference = J102;
+ValeurCmp = TO PUSH BUTTON;
+IdModule  = Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = e34ac38c-d067-4b04-ada3-dc818334e419
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/05379377-318e-4f49-b568-d195fcb4301b
+Reference = C213;
+ValeurCmp = 100n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = e3ca5f2a-e1ac-4785-9c86-ee2537526171
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/6683c390-f619-4fa2-82b4-4626e6719a61
+Reference = C105;
+ValeurCmp = 100n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = e4645f49-563a-480a-a573-75ca77708ab2
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/fe63fb70-9452-4679-9f1b-e36fe29eaa58
+Reference = R209;
+ValeurCmp = 1.8k;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = eba2a12f-e577-4217-8b34-3697d64d25bd
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/591657c9-b193-4a07-a79f-6e68a921c667
+Reference = Q101;
+ValeurCmp = AO3400A;
+IdModule  = Package_TO_SOT_SMD:SOT-23;
+EndCmp
+
+BeginCmp
+TimeStamp = ef9f5ffe-69bc-4902-9b2d-1a0b8d304a3c
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/a3e2ce0c-26ad-4c36-b534-f956a0f86047
+Reference = R101;
+ValeurCmp = 10K;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = f10cfa84-9558-43ac-a1ab-967dd3cc36aa
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/c79c82aa-917b-44e0-9267-7c445ede76f3
+Reference = C104;
+ValeurCmp = 100n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = f4316f7b-8151-40b8-b9b9-2790756a79b7
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/dd1a2914-2a6e-4e8c-ba7d-f5ddf4b0975a
+Reference = R113;
+ValeurCmp = 1.8k;
+IdModule  = A_Device:R_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = f456fad7-9976-4bbc-8579-d22963ea88d4
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/a408d755-5d9c-40c5-b61a-d9607635c811
+Reference = SW101;
+ValeurCmp = ~{BOOT};
+IdModule  = Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical;
+EndCmp
+
+BeginCmp
+TimeStamp = f8921578-8fff-4fb1-96eb-d18f38b9ad13
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/28600d6b-222f-46f0-9c6e-b2a0e3d5d6e0
+Reference = C216;
+ValeurCmp = 100n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+BeginCmp
+TimeStamp = fc6360df-7492-4993-aff7-31046e22708f
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/1735f26e-4082-4705-bd9a-60a288a04d22
+Reference = Q208;
+ValeurCmp = AO3400A;
+IdModule  = Package_TO_SOT_SMD:SOT-23;
+EndCmp
+
+BeginCmp
+TimeStamp = fcd2ea79-23e3-4600-b1e8-40ace8fb4552
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/4275a0f8-3023-4a48-b52e-bb106f016de8
+Reference = U104;
+ValeurCmp = SN74LV1T34DBV;
+IdModule  = Package_TO_SOT_SMD:SOT-23-5;
+EndCmp
+
+BeginCmp
+TimeStamp = fe352c1c-1066-4d84-869a-6f8ce6f2378a
+Path = /b4716c37-6296-4cc3-83d4-c08b9373ace7/7e3fdb42-ea57-41f9-aa9e-1aaee2261442
+Reference = D205;
+ValeurCmp = ESC_BB;
+IdModule  = A_Passive:LED_0805;
+EndCmp
+
+BeginCmp
+TimeStamp = ff2e9850-f235-423a-a5e3-a4405701bc2f
+Path = /20fb3964-c9d0-4636-b697-42bcddc45d6f/91592bc8-27f6-4d6c-9ee9-25808353c50b
+Reference = C112;
+ValeurCmp = 10n;
+IdModule  = A_Device:C_0603;
+EndCmp
+
+EndListe

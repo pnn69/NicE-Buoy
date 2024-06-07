@@ -1,4 +1,4 @@
-23838433875572090
+23847022290209546
 A_Button_Switch
 Button-Push_2pin_6.0x3.5_SMD
 Component 7.2x3.5mm, (3D model incorrect)
@@ -588,6 +588,20 @@ SMA THT Female Jack Horizontal
 5
 2
 A_Connector
+SS-12D10L5
+Switch
+
+0
+3
+3
+A_Connector
+SS-1211-G050
+
+
+0
+5
+4
+A_Connector
 USB-A-TH
 Samtec USB A connector  USB-AM-S-F-B-TH
 USB A connector
@@ -868,6 +882,13 @@ ES3F
 2
 2
 A_Device
+FTC252012S
+
+
+0
+2
+2
+A_Device
 F_1206
 Fuse, 3216metric
 Polyfuse FUSC3518X55N
@@ -939,6 +960,13 @@ Inductor, Body 4.0x4.0mm, (3D model: Height 2.0mm)
 2
 A_Device
 L_5.0x5.0mm
+Inductor, Body 5.0x5.0mm, (3D model: Height 2.8mm)
+SRR4028-2R2Y
+0
+2
+2
+A_Device
+L_6.6x7.0mm
 Inductor, Body 5.0x5.0mm, (3D model: Height 2.8mm)
 SRR4028-2R2Y
 0
@@ -2085,6 +2113,13 @@ Heatsink_TO220_20°C.W
 0
 0
 0
+A_Misc
+ReworkPins
+
+
+0
+16
+16
 A_Module
 47153_PSU
 

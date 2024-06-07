@@ -1,4 +1,4 @@
-23845304595994437
+23848739987465619
 A_Button_Switch
 Button-Push_2pin_6.0x3.5_SMD
 Component 7.2x3.5mm, (3D model incorrect)
@@ -1890,6 +1890,13 @@ D2PAK DDPAK TO-263 D2PAK-5 TO-263-5 SOT-426
 10
 5
 A_Mechanical
+GX16_CutOut
+
+
+0
+0
+0
+A_Mechanical
 HF14FW
 
 
@@ -2113,6 +2120,13 @@ Heatsink_TO220_20°C.W
 0
 0
 0
+A_Misc
+ReworkPins
+
+
+0
+16
+16
 A_Module
 47153_PSU
 

@@ -8099,7 +8099,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical"
+		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
 			(at 372.11 172.72 0)
 			(effects
 				(font
@@ -8128,6 +8128,15 @@
 		)
 		(property "JLCS" ""
 			(at 372.11 172.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C161870"
+			(at 373.38 171.4499 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8299,7 +8308,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" ""
+		(property "LCSC" "C22775"
 			(at 245.11 250.19 0)
 			(effects
 				(font
@@ -8615,7 +8624,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C98734"
+		(property "LCSC" "C144395"
 			(at 373.38 100.33 0)
 			(effects
 				(font
@@ -9020,6 +9029,15 @@
 		)
 		(property "JLCS" ""
 			(at 264.16 252.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C161870"
+			(at 262.89 247.396 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9441,6 +9459,15 @@
 		)
 		(property "JLCS" ""
 			(at 68.58 101.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C22775"
+			(at 72.39 100.838 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10081,16 +10108,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C72043"
-			(at 358.14 180.34 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "JLCS" ""
+		(property "LCSC" "C2286"
 			(at 358.14 180.34 0)
 			(effects
 				(font
@@ -10329,6 +10347,15 @@
 				(hide yes)
 			)
 		)
+		(property "LCSC" "C22775"
+			(at 72.39 103.378 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "4454c380-4b60-4d47-b32a-87a43dcd4594")
 		)
@@ -10557,6 +10584,15 @@
 		)
 		(property "JLCS" ""
 			(at 68.58 106.68 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C22775"
+			(at 72.39 105.918 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10879,7 +10915,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" ""
+		(property "LCSC" "C4177"
 			(at 358.14 175.26 0)
 			(effects
 				(font
@@ -11265,16 +11301,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C72043"
-			(at 358.14 208.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "JLCS" ""
+		(property "LCSC" "C2286"
 			(at 358.14 208.28 0)
 			(effects
 				(font
@@ -12828,7 +12855,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" ""
+		(property "LCSC" "C22775"
 			(at 245.11 255.27 0)
 			(effects
 				(font
@@ -13749,7 +13776,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical"
+		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
 			(at 372.11 200.66 0)
 			(effects
 				(font
@@ -13778,6 +13805,15 @@
 		)
 		(property "JLCS" ""
 			(at 372.11 200.66 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C161870"
+			(at 373.38 199.3899 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13948,7 +13984,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" ""
+		(property "LCSC" "C4177"
 			(at 358.14 203.2 0)
 			(effects
 				(font
@@ -14041,6 +14077,15 @@
 		)
 		(property "JLCS" ""
 			(at 287.02 138.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C5197386"
+			(at 293.37 138.4299 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14203,6 +14248,15 @@
 				(hide yes)
 			)
 		)
+		(property "LCSC" "C144395"
+			(at 374.015 114.3 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "0fe5bfcd-e188-4bf1-a868-8120e2d3d225")
 		)
@@ -14345,6 +14399,15 @@
 		)
 		(property "JLCS" ""
 			(at 68.58 109.22 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C22775"
+			(at 72.39 108.458 0)
 			(effects
 				(font
 					(size 1.27 1.27)
