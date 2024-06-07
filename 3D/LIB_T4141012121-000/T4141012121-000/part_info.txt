@@ -1,0 +1,9 @@
+Manufacturer=TE Connectivity
+PartNumber=T4141012121-000
+PartCategory=Connector
+PackageCategory=Other
+PinCount=12
+Version=2.1
+Released=2019-10-03 16:12:25
+Downloaded=2024-06-07 08:31:51
+3D=Y

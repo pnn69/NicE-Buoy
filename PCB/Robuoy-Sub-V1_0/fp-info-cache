@@ -1,4 +1,4 @@
-23848739987465619
+23853893383959126
 A_Button_Switch
 Button-Push_2pin_6.0x3.5_SMD
 Component 7.2x3.5mm, (3D model incorrect)
@@ -601,6 +601,13 @@ SS-1211-G050
 0
 5
 4
+A_Connector
+T4140012121000
+T4140012121-000-1
+Connector
+0
+12
+12
 A_Connector
 USB-A-TH
 Samtec USB A connector  USB-AM-S-F-B-TH
@@ -2068,6 +2075,20 @@ A_Misc
 Buzzer-2_12x9.5_P7.6
 Component D12x9.5mm
 piezo speaker
+0
+2
+2
+A_Misc
+Buzzer-12x6.5x5.2
+Component D7.9x6.3mm
+pixezo speaker
+0
+2
+2
+A_Misc
+Buzzer-129x6.5x5.2
+Component D7.9x6.3mm
+pixezo speaker
 0
 2
 2

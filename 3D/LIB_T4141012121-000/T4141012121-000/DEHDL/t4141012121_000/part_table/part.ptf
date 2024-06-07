@@ -1,0 +1,11 @@
+FILE_TYPE = MULTI_PHYS_TABLE;
+
+PART 'T4141012121_000'
+CLASS = IO
+{========================================================================================}
+:"MANUFACTURER_NAME", "MANUFACTURER_PART_NUMBER"= "PART_NUMBER", "JEDEC_TYPE", "PACK_TYPE", "ELEMENT14_PART_NUMBER", "ELEMENT14_PRICE/STOCK", "DESCRIPTION", "DATASHEET", "HEIGHT";
+{========================================================================================}
+ "TE Connectivity", "T4141012121-000" (!) = "", "T4140012121000", "Other", "", "", "Body Features: Environmental Protection IP67 | Shell Plating Material Nickel | Shell Base Material Brass | Circular Connector Insulation Material Type Polyamide 66 GF25 | O-Ring Material Silicone | Peripheral Seal Material Silicone | Environmental Protection Type Elastomer Sealed | Configuration Features: Contacts Preloaded Yes | Keying A | Number of Positions 12 | Number of Power Positions 0 | Keying & Polarized Position Locations A | Number of Signal Positions 12 | Factory Installed Backshell No | Contact", "https://www.te.com/commerce/DocumentDelivery/DDEController?Action=srchrtrv&DocNm=1-773955-5&DocType=Data%20Sheet&DocLang=English&PartCntxt=T4141012121-000&DocFormat=pdf", "20 mm"
+END_PART
+
+END.

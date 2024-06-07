@@ -1,0 +1,9 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP T4141012121-000
+D Body Features: Environmental Protection IP67 | Shell Plating Material Nickel | Shell Base Material Brass | Circular Connector Insulation Material Type Polyamide 66 GF25 | O-Ring Material Silicone | Peripheral Seal Material Silicone | Environmental Protection Type Elastomer Sealed | Configuration Features: Contacts Preloaded Yes | Keying A | Number of Positions 12 | Number of Power Positions 0 | Keying & Polarized Position Locations A | Number of Signal Positions 12 | Factory Installed Backshell No | Contact
+K
+F https://www.te.com/commerce/DocumentDelivery/DDEController?Action=srchrtrv&DocNm=1-773955-5&DocType=Data%20Sheet&DocLang=English&PartCntxt=T4141012121-000&DocFormat=pdf
+$ENDCMP
+#
+#End Doc Library
