@@ -488,11 +488,11 @@ int polLora(void)
                 {
                     direction += 360;
                 }
-                double tlat = gpsdata.lat;
-                double tlon = gpsdata.lon;
-                adjustPositionDirDist(direction, distance, &tlat, &tlon);
-                buoy.tglatitude = tlat;
-                buoy.tglongitude = tlon;
+                //double tlat = gpsdata.lat;
+                //double tlon = gpsdata.lon;
+                adjustPositionDirDist(direction, distance, &buoy.tglatitude, &buoy.tglongitude);
+                //buoy.tglatitude = tlat;
+                //buoy.tglongitude = tlon;
                 rudderpid.iintergrate = 0;
                 msg = String(buoy.tglatitude, 8) + "," + String(buoy.tglongitude, 8);
                 sendACKNAKINF(msg, ACK);
