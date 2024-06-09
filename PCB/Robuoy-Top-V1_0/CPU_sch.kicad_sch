@@ -8369,7 +8369,7 @@
 	)
 	(global_label "BUTTON3"
 		(shape output)
-		(at 217.17 139.7 0)
+		(at 217.17 134.62 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -8379,7 +8379,7 @@
 		)
 		(uuid "5bf55d0f-b20c-4468-8189-046aed5d1c67")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 228.5614 139.7 0)
+			(at 228.5614 134.62 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8457,7 +8457,7 @@
 	)
 	(global_label "BUTTON"
 		(shape output)
-		(at 217.17 134.62 0)
+		(at 217.17 139.7 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -8467,7 +8467,7 @@
 		)
 		(uuid "7337c9e0-6c5b-4027-921c-f50ad3befbb9")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 227.3519 134.62 0)
+			(at 227.3519 139.7 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8633,7 +8633,7 @@
 	)
 	(global_label "BUTTON_LIGHT"
 		(shape input)
-		(at 217.17 124.46 0)
+		(at 217.17 127 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -8643,7 +8643,7 @@
 		)
 		(uuid "b25e3102-4ea4-4e32-8615-eb080c38f748")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 233.5205 124.46 0)
+			(at 233.5205 127 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8787,7 +8787,7 @@
 	)
 	(global_label "LEDS"
 		(shape input)
-		(at 217.17 127 0)
+		(at 217.17 124.46 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -8797,7 +8797,7 @@
 		)
 		(uuid "e6eac979-9749-4166-936e-aa66f433f848")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 224.8118 127 0)
+			(at 224.8118 124.46 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9252,7 +9252,7 @@
 		(mirror y)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(dnp no)
 		(uuid "0c8d3f3c-b4f8-40a0-8fcc-d07b19b5aecc")
@@ -10477,7 +10477,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" "Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical"
+		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
 			(at 264.16 252.73 0)
 			(effects
 				(font

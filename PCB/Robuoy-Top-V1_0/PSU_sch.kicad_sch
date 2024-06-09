@@ -7077,7 +7077,7 @@
 		(at 144.78 59.69 0)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(dnp no)
 		(uuid "6919003f-8622-49de-9bda-817fb1c2b2d9")
@@ -7090,7 +7090,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "Vaccu-"
+		(property "Value" "V-"
 			(at 145.542 59.69 0)
 			(effects
 				(font
@@ -7385,7 +7385,7 @@
 		(at 158.75 111.76 0)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(dnp no)
 		(uuid "7f7040f3-f523-442c-8a2e-d83c47c7d66f")
@@ -8650,7 +8650,7 @@
 		(at 83.82 111.76 0)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(dnp no)
 		(uuid "a9a1f700-89c2-482e-aeed-d43436a2eb12")
@@ -9239,7 +9239,7 @@
 		(at 170.18 189.23 0)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(dnp no)
 		(uuid "c8288156-9b75-47e6-84fc-0e962ab57584")
@@ -9415,7 +9415,7 @@
 				)
 			)
 		)
-		(property "Value" "Power/On_Off"
+		(property "Value" "Charge/On_Off"
 			(at 25.654 70.358 0)
 			(effects
 				(font
@@ -10378,7 +10378,7 @@
 		(at 144.78 49.53 0)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(dnp no)
 		(uuid "fedee55b-7f78-4a98-aaec-3e32e4cabfc5")
@@ -10391,7 +10391,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "Vaccu+"
+		(property "Value" "V+"
 			(at 145.542 49.53 0)
 			(effects
 				(font
