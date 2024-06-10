@@ -681,7 +681,7 @@ void loop()
             loramsg.data = COMPUTE_PARAMETERS;
             xQueueSend(loradataout, (void *)&loramsg, 10); // update lora
 
-            if (buoy.vbatt <= 15)
+            if (buoy.vbatt <= 15 && status != DOCKED)
             {
                 Message snd_msg;
                 snd_msg.speedbb = 0;
