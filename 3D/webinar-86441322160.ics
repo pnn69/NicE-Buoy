@@ -1,0 +1,62 @@
+BEGIN:VCALENDAR
+PRODID:-//zoom.us//iCalendar Event//EN
+VERSION:2.0
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+CLASS:PUBLIC
+BEGIN:VTIMEZONE
+TZID:Europe/Vienna
+LAST-MODIFIED:20240422T053450Z
+TZURL:https://www.tzurl.org/zoneinfo-outlook/Europe/Vienna
+X-LIC-LOCATION:Europe/Vienna
+BEGIN:DAYLIGHT
+TZNAME:CEST
+TZOFFSETFROM:+0100
+TZOFFSETTO:+0200
+DTSTART:19700329T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU
+END:DAYLIGHT
+BEGIN:STANDARD
+TZNAME:CET
+TZOFFSETFROM:+0200
+TZOFFSETTO:+0100
+DTSTART:19701025T030000
+RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTAMP:20240611T120716Z
+DTSTART;TZID=Europe/Vienna:20240612T110000
+DTEND;TZID=Europe/Vienna:20240612T121500
+SUMMARY:Why Do Some Products Fail EMC Tests and Others Don’t ?
+UID:20240611T120716Z-86441322160@fe80:0:0:0:c0e2:42ff:fe50:6832eth0
+TZID:Europe/Vienna
+DESCRIPTION:Join from a PC\, Mac\, iPad\, iPhone or Android device:\n    
+ Please click this URL to join. https://us06web.zoom.us/w/86441322160?tk=
+ v8RuB8a9l2SlFFKxfTVocwtScorCmVFuaFU9FJhykLU.DQYAAAAUIE3msBZFUm9IUG9pN1Ju
+ YUNpM3JzSjZFRl9BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&pwd=Gb2nmbExEPY4V
+ Vl21FLEkQSkuB5iVc.1&uuid=WN_-NUymqwfSJeovNIc_4SrSw\n    Passcode: 819861
+ \n	Description: This webinar will explore the key factors that cause EMC
+  failures and successes\, providing practical insights to improve your d
+ esigns.\n\nOr One tap mobile:\n    +13052241968\,\,86441322160#\,\,\,\,*
+ 819861# US\n    +13017158592\,\,86441322160#\,\,\,\,*819861# US (Washing
+ ton DC)\n\nOr join by phone:\n    Dial(for higher quality\, dial a numbe
+ r based on your current location):\n        US: +1 305 224 1968  or +1 3
+ 01 715 8592  or +1 309 205 3325  or +1 312 626 6799  or +1 646 558 8656 
+  or +1 646 931 3860  or +1 507 473 4847  or +1 564 217 2000  or +1 669 4
+ 44 9171  or +1 689 278 1000  or +1 719 359 4580  or +1 720 707 2699  or 
+ +1 253 205 0468  or +1 253 215 8782  or +1 346 248 7799  or +1 360 209 5
+ 623  or +1 386 347 5053 \n    Webinar ID: 864 4132 2160\n    Passcode: 8
+ 19861\n    International numbers available: https://us06web.zoom.us/u/kc
+ qATAHPek\n\n
+LOCATION:https://us06web.zoom.us/w/86441322160?tk=v8RuB8a9l2SlFFKxfTVocwt
+ ScorCmVFuaFU9FJhykLU.DQYAAAAUIE3msBZFUm9IUG9pN1JuYUNpM3JzSjZFRl9BAAAAAAA
+ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&pwd=Gb2nmbExEPY4VVl21FLEkQSkuB5iVc.1&uui
+ d=WN_-NUymqwfSJeovNIc_4SrSw
+BEGIN:VALARM
+TRIGGER:-PT10M
+ACTION:DISPLAY
+DESCRIPTION:Reminder
+END:VALARM
+END:VEVENT
+END:VCALENDAR
