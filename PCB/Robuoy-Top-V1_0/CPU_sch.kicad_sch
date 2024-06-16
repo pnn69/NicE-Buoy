@@ -8004,6 +8004,17 @@
 		)
 		(uuid "06e49995-c762-4660-a149-06cd28d4b4dd")
 	)
+	(label "RX"
+		(at 364.49 95.25 0)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "1692d365-97f8-4f7b-9763-69d5d0e1b950")
+	)
 	(label "SCL"
 		(at 364.49 121.92 0)
 		(fields_autoplaced yes)
@@ -8091,6 +8102,17 @@
 			(justify left bottom)
 		)
 		(uuid "b9db6139-a26c-4706-9618-02cafd24c011")
+	)
+	(label "TX"
+		(at 364.49 97.79 0)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "ca846e08-c697-45bd-93e2-dd2bd8dc5051")
 	)
 	(label "RADIO_4"
 		(at 336.55 49.53 0)

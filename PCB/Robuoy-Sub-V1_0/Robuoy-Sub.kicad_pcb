@@ -228,6 +228,7 @@
 	(net 93 "unconnected-(U106-DRDY_MAG-Pad11)")
 	(net 94 "unconnected-(U106-INT_MAG-Pad7)")
 	(net 95 "unconnected-(U106-INT_XL-Pad12)")
+	(net 96 "unconnected-(SW201-Pad3)")
 	(footprint "A_Passive:LED_0805"
 		(layer "F.Cu")
 		(uuid "009fb616-51c0-4f18-960e-dc1972f9111d")
@@ -18866,13 +18867,13 @@
 	(footprint "A_Connector:SS-12D10L5"
 		(layer "F.Cu")
 		(uuid "76682dcd-b92a-40f8-a02a-b67bf7275fc2")
-		(at 137.32 121.21)
+		(at 98.31 126.19)
 		(descr "Switch")
 		(property "Reference" "SW201"
 			(at 0 -5.08 0)
 			(unlocked yes)
 			(layer "F.SilkS")
-			(uuid "0ecac5f1-eb3b-40e4-9e66-976bd57f1488")
+			(uuid "040d491c-d9fe-4074-9b21-b07efaf78637")
 			(effects
 				(font
 					(size 1 1)
@@ -18880,11 +18881,11 @@
 				)
 			)
 		)
-		(property "Value" "SS-12D11-G050/On-Off"
-			(at 0 1 0)
+		(property "Value" "On/Off"
+			(at -0.5 4.7 0)
 			(unlocked yes)
-			(layer "F.Fab")
-			(uuid "f27fe323-5319-4397-aef1-31acb9e87503")
+			(layer "F.SilkS")
+			(uuid "1b83c45b-0965-4865-872f-e47101f863d3")
 			(effects
 				(font
 					(size 1 1)
@@ -18897,7 +18898,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "c6b201fa-cd0c-4b8b-a5d0-57746e988517")
+			(uuid "8ea45f02-5879-45ae-bb7d-365bda4d5026")
 			(effects
 				(font
 					(size 1 1)
@@ -18905,12 +18906,12 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2110151630_XKB-Connection-SS-12D10L5_C319012.pdf"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "bb8cf0b5-e015-4188-99cb-32074d58515f")
+			(uuid "451f7221-78d9-460c-9fa8-5847b6d7d904")
 			(effects
 				(font
 					(size 1 1)
@@ -18918,12 +18919,12 @@
 				)
 			)
 		)
-		(property "Description" "Single Pole Single Throw (SPST) switch, separate symbol"
+		(property "Description" ""
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "14b7a1f6-86e9-457b-af83-f91ef60d666f")
+			(uuid "cb3f6bad-4e63-48c1-822f-75a23cbf49e7")
 			(effects
 				(font
 					(size 1 1)
@@ -18934,8 +18935,9 @@
 		(property "LCSC" "C319012"
 			(at 0 0 0)
 			(unlocked yes)
-			(layer "F.SilkS")
-			(uuid "82506494-094a-4388-b2db-d3aaaf15ca6e")
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "7514aab8-c9d2-4039-ae9a-2a83b492b7f2")
 			(effects
 				(font
 					(size 1 1)
@@ -18943,9 +18945,7 @@
 				)
 			)
 		)
-		(path "/b4716c37-6296-4cc3-83d4-c08b9373ace7/68052cab-f509-4ae1-95a5-ef3e0042f709")
-		(sheetname "PSU")
-		(sheetfile "PSU_sch.kicad_sch")
+		(path "/b4716c37-6296-4cc3-83d4-c08b9373ace7/5d1948ff-300c-4a4a-851f-e4a7f7d48444")
 		(attr through_hole)
 		(fp_line
 			(start -7 -3.5)
@@ -18955,7 +18955,7 @@
 				(type default)
 			)
 			(layer "F.SilkS")
-			(uuid "dbc7da4d-9f51-4185-ac21-57f5887c752e")
+			(uuid "a680944b-0af6-4092-b04c-585d0e0bc689")
 		)
 		(fp_line
 			(start -7 3.5)
@@ -18965,7 +18965,7 @@
 				(type default)
 			)
 			(layer "F.SilkS")
-			(uuid "b7aa812c-6ef2-470f-bbb0-6796a068c898")
+			(uuid "1c2059bf-42b7-4275-a092-b89dd0bd47e7")
 		)
 		(fp_line
 			(start 7 -3.5)
@@ -18975,7 +18975,7 @@
 				(type default)
 			)
 			(layer "F.SilkS")
-			(uuid "4ef99012-b7b3-495d-9200-c5101e75d379")
+			(uuid "c853d958-2439-4aab-80ce-b64b39bfd520")
 		)
 		(fp_line
 			(start 7 3.5)
@@ -18985,13 +18985,13 @@
 				(type default)
 			)
 			(layer "F.SilkS")
-			(uuid "a4643512-95d2-44ae-95ec-549b94423942")
+			(uuid "641c9ce2-f9cd-4e35-9286-53b8b8e12c8b")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 0 2.5 0)
+			(at -10.2 -0.1 0)
 			(unlocked yes)
-			(layer "F.Fab")
-			(uuid "f2166e08-dc00-4f96-bfbe-7ba0e727e05d")
+			(layer "F.SilkS")
+			(uuid "be98cce2-6268-4ac3-b384-c8e26431d00c")
 			(effects
 				(font
 					(size 1 1)
@@ -19006,9 +19006,8 @@
 			(layers "*.Cu" "*.Mask")
 			(remove_unused_layers no)
 			(net 9 "Vbatt")
-			(pinfunction "A")
 			(pintype "passive")
-			(uuid "3e617a8a-243a-4375-aaf9-7941281524d0")
+			(uuid "a413d349-43ea-4ce7-b986-e5144944d9c5")
 		)
 		(pad "2" thru_hole circle
 			(at 0 0)
@@ -19017,9 +19016,8 @@
 			(layers "*.Cu" "*.Mask")
 			(remove_unused_layers no)
 			(net 8 "+VSW")
-			(pinfunction "B")
 			(pintype "passive")
-			(uuid "d5a850f1-e627-4b7a-ae36-07e7a4c5619a")
+			(uuid "fb98c08b-c29a-416d-8199-7fddaa70afe8")
 		)
 		(pad "3" thru_hole circle
 			(at 4.7 0)
@@ -19027,7 +19025,9 @@
 			(drill 1.8)
 			(layers "*.Cu" "*.Mask")
 			(remove_unused_layers no)
-			(uuid "ad2e2e7e-baa8-4c7d-a922-5b30df1a0628")
+			(net 96 "unconnected-(SW201-Pad3)")
+			(pintype "passive")
+			(uuid "806f6db8-f0fa-4e58-9bfc-343ef35f5f9f")
 		)
 		(model "${USER_3D_MODEL}/Button_Switch/SS-12D10L4.STEP"
 			(offset

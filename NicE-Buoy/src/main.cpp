@@ -710,11 +710,11 @@ void loop()
     // trigger esc to prefent from beeping
     if (millis() - esctrigger > ESC_TRIGGER)
     {
+        esctrigger = millis();
         if (buoy.speedsb == 0 && buoy.speedbb == 0)
         {
             triggerESC();
         }
-        esctrigger = millis();
     }
 
     /*
@@ -722,7 +722,6 @@ void loop()
      */
     if (spdbb != buoy.speedbb || spdsb != buoy.speedsb)
     {
-        esctrigger = millis();
         if (spdbb < buoy.speedbb) // slowly go to setpoint
         {
             spdbb++;
