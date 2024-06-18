@@ -7891,7 +7891,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" "A_Connector:Header_1x02_P2.54_Male"
+		(property "Footprint" "Connector_JST:JST_XH_B2B-XH-A_1x02_P2.50mm_Vertical"
 			(at 149.86 55.88 0)
 			(effects
 				(font
@@ -7927,7 +7927,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C492401"
+		(property "LCSC" "C5341201"
 			(at 149.86 55.88 0)
 			(effects
 				(font

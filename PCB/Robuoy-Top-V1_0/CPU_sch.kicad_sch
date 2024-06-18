@@ -6122,7 +6122,7 @@
 	)
 	(wire
 		(pts
-			(xy 363.22 97.79) (xy 363.22 116.84)
+			(xy 358.14 97.79) (xy 358.14 116.84)
 		)
 		(stroke
 			(width 0)
@@ -6332,7 +6332,7 @@
 	)
 	(wire
 		(pts
-			(xy 278.13 114.3) (xy 360.68 114.3)
+			(xy 278.13 114.3) (xy 355.6 114.3)
 		)
 		(stroke
 			(width 0)
@@ -6972,6 +6972,16 @@
 	)
 	(wire
 		(pts
+			(xy 355.6 95.25) (xy 369.57 95.25)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7c184368-b4f0-4d63-9551-f467973cc907")
+	)
+	(wire
+		(pts
 			(xy 247.65 250.19) (xy 259.08 250.19)
 		)
 		(stroke
@@ -7370,6 +7380,16 @@
 		)
 		(uuid "ac856e6a-673a-4f3f-976a-988e908c0fee")
 	)
+	(wire
+		(pts
+			(xy 358.14 97.79) (xy 369.57 97.79)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ad7bf8e9-421f-4695-b48d-03a1b6431f0d")
+	)
 	(polyline
 		(pts
 			(xy 16.51 281.94) (xy 16.51 229.87)
@@ -7399,16 +7419,6 @@
 			(type default)
 		)
 		(uuid "b10d5d58-7083-4e0c-9a77-9fec38580eec")
-	)
-	(wire
-		(pts
-			(xy 369.57 95.25) (xy 360.68 95.25)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b17ba143-3f2c-432c-acf3-764e0dca624b")
 	)
 	(wire
 		(pts
@@ -7532,7 +7542,7 @@
 	)
 	(wire
 		(pts
-			(xy 360.68 95.25) (xy 360.68 114.3)
+			(xy 355.6 95.25) (xy 355.6 114.3)
 		)
 		(stroke
 			(width 0)
@@ -7662,7 +7672,7 @@
 	)
 	(wire
 		(pts
-			(xy 275.59 116.84) (xy 363.22 116.84)
+			(xy 275.59 116.84) (xy 358.14 116.84)
 		)
 		(stroke
 			(width 0)
@@ -7789,16 +7799,6 @@
 			(type default)
 		)
 		(uuid "e36e43c1-4edc-4329-a0b9-3730680d7d79")
-	)
-	(wire
-		(pts
-			(xy 369.57 97.79) (xy 363.22 97.79)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "e45ebc70-98d4-4ba4-9b91-d2b94bb66719")
 	)
 	(wire
 		(pts
@@ -8004,8 +8004,8 @@
 		)
 		(uuid "06e49995-c762-4660-a149-06cd28d4b4dd")
 	)
-	(label "RX"
-		(at 364.49 95.25 0)
+	(label "RX_GPS"
+		(at 358.14 95.25 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -8103,8 +8103,8 @@
 		)
 		(uuid "b9db6139-a26c-4706-9618-02cafd24c011")
 	)
-	(label "TX"
-		(at 364.49 97.79 0)
+	(label "TX_GPS"
+		(at 358.14 97.79 0)
 		(fields_autoplaced yes)
 		(effects
 			(font

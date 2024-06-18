@@ -197,11 +197,11 @@
 		)
 	)
 	(no_connect
-		(at 36.83 191.77)
+		(at 62.23 193.04)
 		(uuid "6ee6bec0-69a8-4401-a59c-138a8e8bc139")
 	)
 	(no_connect
-		(at 45.72 191.77)
+		(at 71.12 193.04)
 		(uuid "ea7c2203-9786-4b7e-835e-0258c334ec6c")
 	)
 	(wire
@@ -257,17 +257,16 @@
 		(uuid "a8705544-687a-4eb4-8757-449e0d3ddfdd")
 	)
 	(symbol
-		(lib_id "Connector:TestPoint_Small")
-		(at 45.72 191.77 0)
+		(lib_id "Mechanical:MountingHole")
+		(at 36.83 190.5 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "32afde3b-fe22-4465-9be1-b4d6fbbb0d1b")
-		(property "Reference" "TP302"
-			(at 46.99 190.5 0)
+		(uuid "2cf8733e-3db1-46bd-b18c-a5cd4ef379ce")
+		(property "Reference" "H305"
+			(at 34.036 184.912 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -275,17 +274,18 @@
 				(justify left)
 			)
 		)
-		(property "Value" "RW2"
-			(at 46.99 193.04 0)
+		(property "Value" "MountingHole"
+			(at 29.21 195.072 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 				(justify left)
+				(hide yes)
 			)
 		)
-		(property "Footprint" "A_Misc:ReworkPins"
-			(at 50.8 191.77 0)
+		(property "Footprint" "A_Mechanical:NPTH_M3"
+			(at 36.83 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -294,7 +294,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 50.8 191.77 0)
+			(at 36.83 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -303,7 +303,80 @@
 			)
 		)
 		(property "Description" ""
-			(at 45.72 191.77 0)
+			(at 36.83 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 36.83 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(instances
+			(project "Robuoy-Sub"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
+					(reference "H305")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint_Small")
+		(at 71.12 193.04 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "32afde3b-fe22-4465-9be1-b4d6fbbb0d1b")
+		(property "Reference" "TP302"
+			(at 72.39 191.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "RW2"
+			(at 72.39 194.31 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Misc:ReworkPins"
+			(at 76.2 193.04 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 76.2 193.04 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 71.12 193.04 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -325,15 +398,15 @@
 	)
 	(symbol
 		(lib_id "Mechanical:MountingHole")
-		(at 31.115 191.135 0)
+		(at 52.07 190.5 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
 		(dnp no)
-		(uuid "5992bf0c-4e16-4b60-8ff6-0f846f16c620")
-		(property "Reference" "H304"
-			(at 27.94 187.96 0)
+		(uuid "40378118-9037-4fb3-87ff-9cdd875465d5")
+		(property "Reference" "H308"
+			(at 48.895 187.325 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -342,16 +415,17 @@
 			)
 		)
 		(property "Value" "MountingHole"
-			(at 18.415 195.58 0)
+			(at 39.37 194.945 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 				(justify left)
+				(hide yes)
 			)
 		)
 		(property "Footprint" "A_Mechanical:NPTH_M3"
-			(at 31.115 191.135 0)
+			(at 52.07 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -360,7 +434,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 31.115 191.135 0)
+			(at 52.07 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -369,7 +443,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 31.115 191.135 0)
+			(at 52.07 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -378,7 +452,80 @@
 			)
 		)
 		(property "JLCS" ""
-			(at 31.115 191.135 0)
+			(at 52.07 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(instances
+			(project "Robuoy-Sub"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
+					(reference "H308")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Mechanical:MountingHole")
+		(at 31.75 190.5 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(uuid "5992bf0c-4e16-4b60-8ff6-0f846f16c620")
+		(property "Reference" "H304"
+			(at 28.575 187.325 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "MountingHole"
+			(at 19.05 194.945 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "A_Mechanical:NPTH_M3"
+			(at 31.75 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 31.75 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 31.75 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 31.75 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -397,7 +544,7 @@
 	)
 	(symbol
 		(lib_id "Mechanical:MountingHole")
-		(at 26.67 191.135 0)
+		(at 26.67 190.5 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
@@ -405,7 +552,7 @@
 		(dnp no)
 		(uuid "8e711c6b-8ac9-4be3-b2de-4936f35c987e")
 		(property "Reference" "H303"
-			(at 24.13 185.42 0)
+			(at 24.13 184.785 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -414,7 +561,7 @@
 			)
 		)
 		(property "Value" "MountingHole"
-			(at 18.415 195.58 0)
+			(at 18.415 194.945 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -423,7 +570,7 @@
 			)
 		)
 		(property "Footprint" "A_Mechanical:NPTH_M3"
-			(at 26.67 191.135 0)
+			(at 26.67 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -432,7 +579,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 26.67 191.135 0)
+			(at 26.67 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -441,7 +588,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 26.67 191.135 0)
+			(at 26.67 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -450,7 +597,7 @@
 			)
 		)
 		(property "JLCS" ""
-			(at 26.67 191.135 0)
+			(at 26.67 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -468,17 +615,16 @@
 		)
 	)
 	(symbol
-		(lib_id "Connector:TestPoint_Small")
-		(at 36.83 191.77 0)
+		(lib_id "Mechanical:MountingHole")
+		(at 41.91 190.5 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "b8b74dbc-98ad-4bf0-8998-abf5ff532d56")
-		(property "Reference" "TP301"
-			(at 38.1 190.5 0)
+		(uuid "9e1d5a28-5318-4db5-a453-7a2608185937")
+		(property "Reference" "H306"
+			(at 38.735 187.325 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -486,17 +632,18 @@
 				(justify left)
 			)
 		)
-		(property "Value" "RW1"
-			(at 38.1 193.04 0)
+		(property "Value" "MountingHole"
+			(at 29.21 194.945 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 				(justify left)
+				(hide yes)
 			)
 		)
-		(property "Footprint" "A_Misc:ReworkPins"
-			(at 41.91 191.77 0)
+		(property "Footprint" "A_Mechanical:NPTH_M3"
+			(at 41.91 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -505,7 +652,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 41.91 191.77 0)
+			(at 41.91 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -514,7 +661,80 @@
 			)
 		)
 		(property "Description" ""
-			(at 36.83 191.77 0)
+			(at 41.91 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 41.91 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(instances
+			(project "Robuoy-Sub"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
+					(reference "H306")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint_Small")
+		(at 62.23 193.04 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "b8b74dbc-98ad-4bf0-8998-abf5ff532d56")
+		(property "Reference" "TP301"
+			(at 63.5 191.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "RW1"
+			(at 63.5 194.31 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Misc:ReworkPins"
+			(at 67.31 193.04 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 67.31 193.04 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 62.23 193.04 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -536,7 +756,7 @@
 	)
 	(symbol
 		(lib_id "Mechanical:MountingHole")
-		(at 22.225 191.135 0)
+		(at 21.59 190.5 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
@@ -544,7 +764,7 @@
 		(dnp no)
 		(uuid "d8600412-cbd9-4999-8186-75ac632a5cca")
 		(property "Reference" "H302"
-			(at 19.05 187.96 0)
+			(at 18.415 187.325 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -553,16 +773,17 @@
 			)
 		)
 		(property "Value" "MountingHole"
-			(at 18.415 195.58 0)
+			(at 17.78 194.945 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 				(justify left)
+				(hide yes)
 			)
 		)
 		(property "Footprint" "A_Mechanical:NPTH_M3"
-			(at 22.225 191.135 0)
+			(at 21.59 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -571,7 +792,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 22.225 191.135 0)
+			(at 21.59 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -580,7 +801,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 22.225 191.135 0)
+			(at 21.59 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -589,7 +810,7 @@
 			)
 		)
 		(property "JLCS" ""
-			(at 22.225 191.135 0)
+			(at 21.59 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -608,15 +829,15 @@
 	)
 	(symbol
 		(lib_id "Mechanical:MountingHole")
-		(at 17.78 191.135 0)
+		(at 46.99 190.5 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
 		(dnp no)
-		(uuid "e18c7300-c020-4ac8-86cc-0120bd354987")
-		(property "Reference" "H301"
-			(at 13.97 185.42 0)
+		(uuid "ddc24559-bff2-4b8a-b0f5-8428d1389b46")
+		(property "Reference" "H307"
+			(at 44.196 184.912 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -625,16 +846,17 @@
 			)
 		)
 		(property "Value" "MountingHole"
-			(at 18.415 195.58 0)
+			(at 39.37 195.072 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 				(justify left)
+				(hide yes)
 			)
 		)
 		(property "Footprint" "A_Mechanical:NPTH_M3"
-			(at 17.78 191.135 0)
+			(at 46.99 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -643,7 +865,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 17.78 191.135 0)
+			(at 46.99 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -652,7 +874,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 17.78 191.135 0)
+			(at 46.99 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -661,7 +883,80 @@
 			)
 		)
 		(property "JLCS" ""
-			(at 17.78 191.135 0)
+			(at 46.99 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(instances
+			(project "Robuoy-Sub"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
+					(reference "H307")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Mechanical:MountingHole")
+		(at 16.51 190.5 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(uuid "e18c7300-c020-4ac8-86cc-0120bd354987")
+		(property "Reference" "H301"
+			(at 12.7 184.785 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "MountingHole"
+			(at 17.145 194.945 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "A_Mechanical:NPTH_M3"
+			(at 16.51 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 16.51 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 16.51 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 16.51 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
