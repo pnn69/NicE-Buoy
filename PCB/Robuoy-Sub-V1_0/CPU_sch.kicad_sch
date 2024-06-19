@@ -9922,7 +9922,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "A_Pads_Pins:Testpad_2"
+		(property "Footprint" "A_Pads_Pins:Testpad_1"
 			(at 368.3 162.56 0)
 			(effects
 				(font
@@ -10684,7 +10684,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "A_Pads_Pins:Testpad_2"
+		(property "Footprint" "A_Pads_Pins:Testpad_1"
 			(at 303.53 97.79 0)
 			(effects
 				(font
@@ -12209,7 +12209,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "A_Pads_Pins:Testpad_2"
+		(property "Footprint" "A_Pads_Pins:Testpad_1"
 			(at 309.88 100.33 0)
 			(effects
 				(font
@@ -12843,7 +12843,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "A_Pads_Pins:Testpad_2"
+		(property "Footprint" "A_Pads_Pins:Testpad_1"
 			(at 327.66 190.5 0)
 			(effects
 				(font
@@ -13503,7 +13503,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "A_Pads_Pins:Testpad_2"
+		(property "Footprint" "A_Pads_Pins:Testpad_1"
 			(at 327.66 162.56 0)
 			(effects
 				(font
@@ -14795,7 +14795,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "A_Pads_Pins:Testpad_2"
+		(property "Footprint" "A_Pads_Pins:Testpad_1"
 			(at 326.39 236.22 0)
 			(effects
 				(font
@@ -14870,7 +14870,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "A_Pads_Pins:Testpad_2"
+		(property "Footprint" "A_Pads_Pins:Testpad_1"
 			(at 368.3 190.5 0)
 			(effects
 				(font
@@ -14945,7 +14945,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "A_Pads_Pins:Testpad_2"
+		(property "Footprint" "A_Pads_Pins:Testpad_1"
 			(at 267.97 186.69 0)
 			(effects
 				(font
@@ -16704,7 +16704,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "A_Pads_Pins:Testpad_2"
+		(property "Footprint" "A_Pads_Pins:Testpad_1"
 			(at 321.31 119.38 0)
 			(effects
 				(font
@@ -17181,7 +17181,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "A_Pads_Pins:Testpad_2"
+		(property "Footprint" "A_Pads_Pins:Testpad_1"
 			(at 311.15 121.92 0)
 			(effects
 				(font
