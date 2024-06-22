@@ -6294,12 +6294,6 @@
 		(uuid "6197f9dc-ff31-4ac8-990c-d32d5250b104")
 	)
 	(junction
-		(at 363.22 162.56)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "65db0b5d-f2ca-4365-a46a-f02281bdfc61")
-	)
-	(junction
 		(at 316.23 119.38)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -6474,12 +6468,6 @@
 		(uuid "e0a46797-fa8e-4c56-adb5-6973502dadb7")
 	)
 	(junction
-		(at 363.22 190.5)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "e226a237-911e-46be-81c1-3e4befa0de17")
-	)
-	(junction
 		(at 292.1 36.83)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -6528,20 +6516,16 @@
 		(uuid "19b9c37f-72d7-4036-a950-953eff514961")
 	)
 	(no_connect
-		(at 198.12 106.68)
-		(uuid "2f3db514-d844-427e-b111-5f47e101a8d7")
-	)
-	(no_connect
-		(at 198.12 109.22)
-		(uuid "486f6274-1c3b-49d9-8139-0968bc66a6ba")
+		(at 198.12 124.46)
+		(uuid "289ec8fe-6a39-429d-b2e5-479181aeb1a3")
 	)
 	(no_connect
 		(at 342.9 41.91)
 		(uuid "4a99a867-e4fe-4dcd-b8c5-d30f7348f98b")
 	)
 	(no_connect
-		(at 198.12 104.14)
-		(uuid "969f65b5-652f-4d53-a742-92e4417e2db8")
+		(at 198.12 134.62)
+		(uuid "647c75f8-40f1-4d94-ab3f-512c977c6ade")
 	)
 	(no_connect
 		(at 342.9 44.45)
@@ -6638,16 +6622,6 @@
 			(type default)
 		)
 		(uuid "09be8830-aac5-4086-ace2-35553b478585")
-	)
-	(wire
-		(pts
-			(xy 363.22 190.5) (xy 368.3 190.5)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "0a00f03d-0092-416d-86ea-2be03f75b9cc")
 	)
 	(wire
 		(pts
@@ -6781,13 +6755,23 @@
 	)
 	(wire
 		(pts
-			(xy 347.98 190.5) (xy 363.22 190.5)
+			(xy 347.98 190.5) (xy 368.3 190.5)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "1e31366f-d485-4fe0-bc05-a540edee6a34")
+	)
+	(wire
+		(pts
+			(xy 198.12 109.22) (xy 217.17 109.22)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1e515be0-c27a-472d-9e7e-ab4e61075244")
 	)
 	(wire
 		(pts
@@ -7068,16 +7052,6 @@
 			(type default)
 		)
 		(uuid "41426bfc-e088-47af-ad35-484c334fc556")
-	)
-	(wire
-		(pts
-			(xy 347.98 162.56) (xy 363.22 162.56)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "4145ca85-5581-4831-bda2-63c010b3395d")
 	)
 	(wire
 		(pts
@@ -7831,6 +7805,16 @@
 	)
 	(wire
 		(pts
+			(xy 198.12 104.14) (xy 217.17 104.14)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "980197bc-17a9-4127-9e8d-e028f2b02555")
+	)
+	(wire
+		(pts
 			(xy 50.8 246.38) (xy 50.8 248.92)
 		)
 		(stroke
@@ -7941,7 +7925,7 @@
 	)
 	(wire
 		(pts
-			(xy 198.12 124.46) (xy 217.17 124.46)
+			(xy 198.12 129.54) (xy 217.17 129.54)
 		)
 		(stroke
 			(width 0)
@@ -8091,7 +8075,7 @@
 	)
 	(wire
 		(pts
-			(xy 363.22 162.56) (xy 368.3 162.56)
+			(xy 347.98 162.56) (xy 368.3 162.56)
 		)
 		(stroke
 			(width 0)
@@ -8281,7 +8265,7 @@
 	)
 	(wire
 		(pts
-			(xy 198.12 129.54) (xy 217.17 129.54)
+			(xy 198.12 106.68) (xy 217.17 106.68)
 		)
 		(stroke
 			(width 0)
@@ -8820,7 +8804,7 @@
 	)
 	(global_label "BUZZER"
 		(shape input)
-		(at 217.17 91.44 0)
+		(at 217.17 129.54 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -8830,7 +8814,7 @@
 		)
 		(uuid "4ec5e4f1-c6e0-498e-aa25-a5db9236ac4e")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 227.5937 91.44 0)
+			(at 227.5937 129.54 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8842,7 +8826,7 @@
 	)
 	(global_label "ESC_BB"
 		(shape input)
-		(at 217.17 124.46 0)
+		(at 217.17 91.44 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -8852,7 +8836,7 @@
 		)
 		(uuid "53c22f04-fb07-44cd-9f57-68a385511e57")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 227.2913 124.46 0)
+			(at 227.2913 91.44 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9082,6 +9066,28 @@
 			)
 		)
 	)
+	(global_label "BUTTON"
+		(shape output)
+		(at 217.17 109.22 0)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "9841398a-db0d-484e-9fe0-e0ddb6cadcae")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 227.3519 109.22 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+	)
 	(global_label "ESC_SB"
 		(shape input)
 		(at 217.17 127 0)
@@ -9139,6 +9145,28 @@
 		(uuid "c4c3df70-986f-4c5c-b105-cf2a488a8be8")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
 			(at 88.0147 86.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+	)
+	(global_label "BUTTON_LIGHT"
+		(shape input)
+		(at 217.17 104.14 0)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "cc9d55d2-9cfe-4ebb-8597-c3b01949fc4a")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 233.5205 104.14 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9260,7 +9288,7 @@
 	)
 	(global_label "LEDS"
 		(shape input)
-		(at 217.17 129.54 0)
+		(at 217.17 106.68 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -9270,7 +9298,7 @@
 		)
 		(uuid "ed31e10f-dba9-474c-9e16-1f82dc54827f")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 224.8118 129.54 0)
+			(at 224.8118 106.68 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9865,81 +9893,6 @@
 		)
 	)
 	(symbol
-		(lib_id "Connector:TestPoint_Small")
-		(at 363.22 162.56 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(dnp no)
-		(uuid "10f7d63d-3122-4ddd-9b56-2b6eea563cc8")
-		(property "Reference" "TP109"
-			(at 356.616 163.576 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "ESC_BB-5V"
-			(at 351.536 161.798 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "A_Pads_Pins:Testpad_1"
-			(at 368.3 162.56 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 368.3 162.56 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "test point"
-			(at 363.22 162.56 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "JLCS" ""
-			(at 363.22 162.56 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "34a075ff-fe92-40ad-9003-139290f0f987")
-		)
-		(instances
-			(project "Robuoy-Sub"
-				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "TP109")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:C_Small")
 		(at 295.91 31.75 0)
 		(unit 1)
@@ -10329,9 +10282,9 @@
 		(mirror y)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "19f86d4e-8ca8-4fb1-ac6e-b4ce3db1f542")
 		(property "Reference" "J103"
 			(at 372.745 93.345 0)
@@ -11250,7 +11203,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "41367f4d-c37d-490e-8294-0a86e6354e2d")
 		(property "Reference" "J102"
 			(at 262.89 247.396 0)
@@ -14988,81 +14941,6 @@
 	)
 	(symbol
 		(lib_id "Connector:TestPoint_Small")
-		(at 363.22 190.5 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(dnp no)
-		(uuid "a22c2df7-afbc-414b-8d33-95147f400d84")
-		(property "Reference" "TP110"
-			(at 356.616 191.516 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "ESC_SB-5V"
-			(at 351.536 189.738 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "A_Pads_Pins:Testpad_1"
-			(at 368.3 190.5 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 368.3 190.5 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "test point"
-			(at 363.22 190.5 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "JLCS" ""
-			(at 363.22 190.5 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "b8c20662-c90c-4ac8-bf02-eafe0e225317")
-		)
-		(instances
-			(project "Robuoy-Sub"
-				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "TP110")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Connector:TestPoint_Small")
 		(at 262.89 186.69 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -17466,7 +17344,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(fields_autoplaced yes)
 		(uuid "e0a6c216-7c53-4911-8102-e2e11a17e9d5")
 		(property "Reference" "U102"
@@ -17634,9 +17512,9 @@
 		(mirror x)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "e2c10c2d-c1cb-4474-9287-85872c74ee6b")
 		(property "Reference" "J106"
 			(at 374.015 114.3 0)
