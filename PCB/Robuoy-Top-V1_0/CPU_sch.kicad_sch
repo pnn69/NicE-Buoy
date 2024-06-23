@@ -9534,7 +9534,7 @@
 		(exclude_from_sim no)
 		(in_bom no)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(fields_autoplaced yes)
 		(uuid "1210e766-c0a2-4ec0-bed4-14d82ef3b3a1")
 		(property "Reference" "U104"
@@ -9954,9 +9954,9 @@
 		(mirror y)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "2e5b5112-a00c-41cf-b343-a136202a8645")
 		(property "Reference" "J105"
 			(at 374.015 114.935 0)
