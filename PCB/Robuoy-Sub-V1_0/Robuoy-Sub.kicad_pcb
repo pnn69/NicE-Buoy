@@ -39639,8 +39639,8 @@
 		)
 	)
 	(gr_line
-		(start 130.028 49.868)
-		(end 129.52 50.376)
+		(start 128.35 50.138)
+		(end 127.842 50.646)
 		(stroke
 			(width 0.15)
 			(type default)
@@ -39649,8 +39649,8 @@
 		(uuid "36681d59-3c11-482a-a9bc-98eb3437b7bc")
 	)
 	(gr_line
-		(start 125.71 45.2452)
-		(end 126.218 45.7532)
+		(start 124.032 45.5152)
+		(end 124.54 46.0232)
 		(stroke
 			(width 0.15)
 			(type default)
@@ -39659,8 +39659,8 @@
 		(uuid "45e43cbb-4a76-4790-bd80-4c30fbd9d8df")
 	)
 	(gr_circle
-		(center 125.7608 49.868)
-		(end 125.7608 49.668)
+		(center 124.0828 50.138)
+		(end 124.0828 49.938)
 		(stroke
 			(width 0.5)
 			(type default)
@@ -39670,8 +39670,8 @@
 		(uuid "4c8e9f66-022b-460b-af16-f17852479dfa")
 	)
 	(gr_line
-		(start 128.504 49.868)
-		(end 130.028 49.868)
+		(start 126.826 50.138)
+		(end 128.35 50.138)
 		(stroke
 			(width 0.15)
 			(type default)
@@ -39680,8 +39680,8 @@
 		(uuid "847ca349-0c1e-47a9-82d1-88a970dff006")
 	)
 	(gr_line
-		(start 125.71 45.2452)
-		(end 125.202 45.7532)
+		(start 124.032 45.5152)
+		(end 123.524 46.0232)
 		(stroke
 			(width 0.15)
 			(type default)
@@ -39690,8 +39690,8 @@
 		(uuid "b8cdede2-af52-4085-8d44-2095998dca9f")
 	)
 	(gr_line
-		(start 130.028 49.868)
-		(end 129.52 49.36)
+		(start 128.35 50.138)
+		(end 127.842 49.63)
 		(stroke
 			(width 0.15)
 			(type default)
@@ -39700,8 +39700,8 @@
 		(uuid "c15f3bcf-8733-42a2-b69a-24664038afe3")
 	)
 	(gr_line
-		(start 125.71 46.82)
-		(end 125.71 45.296)
+		(start 124.032 47.09)
+		(end 124.032 45.566)
 		(stroke
 			(width 0.15)
 			(type default)
@@ -39814,6 +39814,19 @@
 		(layer "Edge.Cuts")
 		(uuid "f9340b22-64e4-403d-9a5b-1ac3145f1b27")
 	)
+	(gr_text "1	GND\n2	Vbatt\n3	MON_S7\n4	MON_S6\n5	MON_S5\n6	MON_S4\n7	MON_S3\n8	MON_S2\n9	MON_S1\n10	+SW\n11	Vbat\n12	GND"
+		(at 123.27 76.046 0)
+		(layer "B.SilkS")
+		(uuid "40ca0e0a-2b7a-4f79-b8ac-e39d4b891bbc")
+		(effects
+			(font
+				(size 1.5 1.5)
+				(thickness 0.3)
+				(bold yes)
+			)
+			(justify left bottom mirror)
+		)
+	)
 	(gr_text "ON"
 		(locked yes)
 		(at 157.51 119.19 90)
@@ -39823,6 +39836,19 @@
 			(font
 				(size 0.8 0.8)
 				(thickness 0.16)
+				(bold yes)
+			)
+			(justify bottom)
+		)
+	)
+	(gr_text "NicE Bobobuoy Sub V1.0\n"
+		(at 125.81 57.25 0)
+		(layer "F.SilkS")
+		(uuid "586231be-fb5b-4e6e-b042-12c0a45c092c")
+		(effects
+			(font
+				(size 1.5 1.5)
+				(thickness 0.3)
 				(bold yes)
 			)
 			(justify bottom)
@@ -39843,7 +39869,7 @@
 		)
 	)
 	(gr_text "X"
-		(at 125.71 48.09 180)
+		(at 124.032 48.36 180)
 		(layer "F.SilkS")
 		(uuid "9a01f4b0-1835-44dd-b868-7256994102fc")
 		(effects
@@ -39855,7 +39881,7 @@
 		)
 	)
 	(gr_text "Y"
-		(at 127.488 50.122 0)
+		(at 125.81 50.392 0)
 		(layer "F.SilkS")
 		(uuid "c45de245-f4ac-41ea-aa0b-316327fcc860")
 		(effects
@@ -39867,7 +39893,7 @@
 		)
 	)
 	(gr_text "Z"
-		(at 125.71 51.646 180)
+		(at 124.032 51.916 180)
 		(layer "F.SilkS")
 		(uuid "e2ae1ef4-f0f4-4da8-823e-2957629b447d")
 		(effects
@@ -39878,8 +39904,21 @@
 			)
 		)
 	)
+	(gr_text "Charging plug"
+		(at 125.81 86.968 0)
+		(layer "F.SilkS")
+		(uuid "e7470cab-5306-4878-b988-f6a33aba6167")
+		(effects
+			(font
+				(size 1.5 1.5)
+				(thickness 0.3)
+				(bold yes)
+			)
+			(justify bottom)
+		)
+	)
 	(gr_text "COMPASS"
-		(at 126.98 48.598 0)
+		(at 125.302 48.868 0)
 		(layer "F.SilkS")
 		(uuid "fdbe94bf-d946-4b12-8917-f6658b8ba97b")
 		(effects
