@@ -6318,12 +6318,6 @@
 		(uuid "6895c48e-59b7-4312-8f25-681210bf9ec6")
 	)
 	(junction
-		(at 220.98 257.81)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "68e5ffb3-0f18-4479-96b7-b0ddb17c0172")
-	)
-	(junction
 		(at 322.58 190.5)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -6352,6 +6346,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "764b9ff0-8dbf-4303-a52f-50ddeadc89da")
+	)
+	(junction
+		(at 220.98 260.35)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "78db2ae2-0a02-430f-af20-1316a3bb4d38")
 	)
 	(junction
 		(at 269.24 36.83)
@@ -6633,16 +6633,6 @@
 	)
 	(wire
 		(pts
-			(xy 210.82 257.81) (xy 220.98 257.81)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "09be8830-aac5-4086-ace2-35553b478585")
-	)
-	(wire
-		(pts
 			(xy 213.36 265.43) (xy 246.38 265.43)
 		)
 		(stroke
@@ -6670,6 +6660,16 @@
 			(type default)
 		)
 		(uuid "0d9730f6-a629-48e8-a589-3b7c0d005a05")
+	)
+	(wire
+		(pts
+			(xy 210.82 260.35) (xy 220.98 260.35)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0e9531a1-863c-4f09-830c-8abae5458737")
 	)
 	(wire
 		(pts
@@ -7353,7 +7353,7 @@
 	)
 	(wire
 		(pts
-			(xy 220.98 256.54) (xy 220.98 257.81)
+			(xy 220.98 256.54) (xy 220.98 260.35)
 		)
 		(stroke
 			(width 0)
@@ -8313,6 +8313,16 @@
 	)
 	(wire
 		(pts
+			(xy 210.82 259.08) (xy 210.82 260.35)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c77b9775-8470-478f-95fa-3b0af33d243b")
+	)
+	(wire
+		(pts
 			(xy 275.59 114.3) (xy 198.12 114.3)
 		)
 		(stroke
@@ -8590,16 +8600,6 @@
 			(type default)
 		)
 		(uuid "f114fe97-5901-423b-ade6-d7b0b342b35d")
-	)
-	(wire
-		(pts
-			(xy 210.82 256.54) (xy 210.82 257.81)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "f1347603-485b-4a6e-a149-af17d4c4da11")
 	)
 	(wire
 		(pts
@@ -11305,6 +11305,128 @@
 		)
 	)
 	(symbol
+		(lib_id "Device:R")
+		(at 210.82 255.27 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "36f61432-5b43-4b09-ae52-705e14ba6a33")
+		(property "Reference" "R113"
+			(at 212.09 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10K"
+			(at 210.82 255.27 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 209.042 255.27 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 210.82 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 210.82 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell" "2331736"
+			(at 210.82 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MF" "TE CONNECTIVITY"
+			(at 210.82 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MFN" "CRGH0603F10K"
+			(at 210.82 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Octopart" ""
+			(at 210.82 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25804"
+			(at 210.82 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 210.82 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "e43bac93-f359-4fe1-a1c8-7af7f8d64f85")
+		)
+		(pin "2"
+			(uuid "cadd9a92-dfcf-4093-b5c6-1e88229e1d1a")
+		)
+		(instances
+			(project "Robuoy-Sub"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
+					(reference "R113")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Connector:Conn_01x03_Pin")
 		(at 279.4 252.73 180)
 		(unit 1)
@@ -12051,95 +12173,6 @@
 			(project "Robuoy-Sub"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "#PWR0101")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:R_Small")
-		(at 210.82 254 0)
-		(mirror y)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "51927179-853c-4bb8-91e4-366b85e25e2c")
-		(property "Reference" "R103"
-			(at 213.36 252.7299 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Value" "820"
-			(at 213.36 255.2699 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Footprint" "A_Device:R_0603"
-			(at 210.82 254 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 210.82 254 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 210.82 254 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C21190"
-			(at 208.28 252.73 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "JLCS" ""
-			(at 210.82 254 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "42dbf267-0f75-4ccd-a3b7-7155cc5ebbc6")
-		)
-		(pin "2"
-			(uuid "8128a5e3-35fc-4b94-82c7-e66782d953f6")
-		)
-		(instances
-			(project "Robuoy-Sub"
-				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "R103")
 					(unit 1)
 				)
 			)
@@ -14747,7 +14780,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 220.98 257.81 0)
+		(at 220.98 260.35 0)
 		(mirror y)
 		(unit 1)
 		(exclude_from_sim no)
@@ -14757,7 +14790,7 @@
 		(fields_autoplaced yes)
 		(uuid "9c0ef67b-7953-4dbb-bbb1-2e76d4256f8d")
 		(property "Reference" "#PWR0112"
-			(at 220.98 264.16 0)
+			(at 220.98 266.7 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14766,7 +14799,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 220.98 262.89 0)
+			(at 220.98 265.43 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14775,7 +14808,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 220.98 257.81 0)
+			(at 220.98 260.35 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14784,7 +14817,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 220.98 257.81 0)
+			(at 220.98 260.35 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14793,7 +14826,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 220.98 257.81 0)
+			(at 220.98 260.35 0)
 			(effects
 				(font
 					(size 1.27 1.27)
