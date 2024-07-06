@@ -9839,7 +9839,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100u/16V"
+		(property "Value" "100u/10V"
 			(at 115.57 264.16 0)
 			(effects
 				(font
@@ -9875,7 +9875,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C90143"
+		(property "LCSC" "C23742"
 			(at 120.65 260.35 0)
 			(effects
 				(font
@@ -11759,7 +11759,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C21190"
+		(property "LCSC" "C4190"
 			(at 234.95 93.98 0)
 			(effects
 				(font
@@ -12032,7 +12032,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100u/16V"
+		(property "Value" "100u/10V"
 			(at 105.41 264.16 0)
 			(effects
 				(font
@@ -12068,7 +12068,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C90143"
+		(property "LCSC" "C23742"
 			(at 110.49 260.35 0)
 			(effects
 				(font
@@ -12620,7 +12620,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C21190"
+		(property "LCSC" "C4190"
 			(at 242.57 93.98 0)
 			(effects
 				(font
@@ -13146,7 +13146,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100u/16V"
+		(property "Value" "100u/10V"
 			(at 277.876 33.528 0)
 			(effects
 				(font
@@ -13182,7 +13182,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C90143"
+		(property "LCSC" "C23742"
 			(at 288.29 31.75 0)
 			(effects
 				(font

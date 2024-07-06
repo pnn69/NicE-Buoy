@@ -7827,7 +7827,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100u/16V"
+		(property "Value" "100u/10V"
 			(at 121.92 135.89 0)
 			(effects
 				(font
@@ -7863,7 +7863,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C90143"
+		(property "LCSC" "C23742"
 			(at 133.35 133.35 0)
 			(effects
 				(font
@@ -10842,7 +10842,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100u/16V"
+		(property "Value" "100u/10V"
 			(at 134.62 135.89 0)
 			(effects
 				(font
@@ -10878,7 +10878,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C90143"
+		(property "LCSC" "C23742"
 			(at 146.05 133.35 0)
 			(effects
 				(font
