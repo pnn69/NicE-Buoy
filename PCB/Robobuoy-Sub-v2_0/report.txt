@@ -1,0 +1,144 @@
+Info: Processing symbol 'C101:A_Device:C_0603'.
+Info: Processing symbol 'C102:A_Device:C_0603'.
+Info: Processing symbol 'C103:Capacitor_SMD:C_1210_3225Metric'.
+Info: Processing symbol 'C104:Capacitor_SMD:C_1210_3225Metric'.
+Info: Processing symbol 'C105:A_Device:C_0603'.
+Info: Processing symbol 'C106:A_Device:C_0603'.
+Info: Processing symbol 'C107:A_Device:C_0603'.
+Info: Processing symbol 'C108:A_Device:C_0603'.
+Info: Processing symbol 'C109:A_Device:C_0603'.
+Info: Processing symbol 'C110:A_Device:C_0603'.
+Info: Processing symbol 'C111:A_Device:C_0603'.
+Info: Processing symbol 'C112:A_Device:C_0603'.
+Info: Processing symbol 'C113:A_Device:C_0603'.
+Info: Processing symbol 'C201:A_Device:C_0603'.
+Info: Processing symbol 'C202:A_Device:C_0603'.
+Info: Processing symbol 'C203:'.
+Info: Processing symbol 'J202:A_Connector:AMASS_XT60-M_1x02_P7.20mm_Vertical'.
+Info: Processing symbol 'C204:A_Device:C_0603'.
+Info: Processing symbol 'C205:A_Device:CP_ALU_D10x10.5'.
+Info: Processing symbol 'C206:Capacitor_SMD:C_1210_3225Metric'.
+Info: Processing symbol 'C207:Capacitor_SMD:C_1210_3225Metric'.
+Info: Processing symbol 'C208:A_Device:C_0603'.
+Info: Processing symbol 'C209:'.
+Info: Processing symbol 'J203:A_Connector:AMASS_XT60-M_1x02_P7.20mm_Vertical'.
+Info: Processing symbol 'C210:'.
+Info: Processing symbol 'J204:'.
+Info: Processing symbol 'C211:'.
+Info: Processing symbol 'J208:'.
+Info: Processing symbol 'C212:A_Device:C_0603'.
+Info: Processing symbol 'C213:A_Device:C_0603'.
+Info: Processing symbol 'C214:A_Device:C_0603'.
+Info: Processing symbol 'D101:LED_SMD:LED_0603_1608Metric'.
+Info: Processing symbol 'D102:LED_SMD:LED_0603_1608Metric'.
+Info: Processing symbol 'D103:LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm'.
+Info: Processing symbol 'D104:LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm'.
+Info: Processing symbol 'D105:LED_SMD:LED_WS2812B_PLCC4_5.0x5.0mm_P3.2mm'.
+Info: Processing symbol 'D106:A_Device:D_SOD-123_2.85x1.8x1.3'.
+Info: Processing symbol 'D201:LED_SMD:LED_0603_1608Metric'.
+Info: Processing symbol 'D202:LED_SMD:LED_0603_1608Metric'.
+Info: Processing symbol 'D203:Diode_SMD:D_SMA'.
+Info: Processing symbol 'D204:A_Device:D_SOD-123_2.85x1.8x1.3'.
+Info: Processing symbol 'D205:LED_SMD:LED_0603_1608Metric'.
+Info: Processing symbol 'D206:LED_SMD:LED_0603_1608Metric'.
+Info: Processing symbol 'H301:A_Mechanical:NPTH_M3'.
+Info: Processing symbol 'H302:A_Mechanical:NPTH_M3'.
+Info: Processing symbol 'H303:A_Mechanical:NPTH_M3'.
+Info: Processing symbol 'H304:A_Mechanical:NPTH_M3'.
+Info: Processing symbol 'J101:Connector_IDC:IDC-Header_2x05_P2.54mm_Vertical'.
+Info: Processing symbol 'J102:Connector_JST:JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical'.
+Info: Processing symbol 'J103:A_Connector:Header_1x04_P2.54_Male'.
+Info: Processing symbol 'J104:'.
+Info: Processing symbol 'J205:'.
+Info: Processing symbol 'J105:'.
+Info: Processing symbol 'JP101:Jumper:SolderJumper-3_P1.3mm_Bridged12_RoundedPad1.0x1.5mm'.
+Info: Processing symbol 'J106:'.
+Info: Processing symbol 'J207:'.
+Info: Processing symbol 'J201:'.
+Info: Processing symbol 'J206:'.
+Info: Processing symbol 'L201:'.
+Info: Processing symbol 'L202:'.
+Info: Processing symbol 'Q101:Package_TO_SOT_SMD:SOT-23'.
+Info: Processing symbol 'Q201:Package_TO_SOT_SMD:SOT-23'.
+Info: Processing symbol 'Q202:Package_TO_SOT_SMD:SOT-23'.
+Info: Processing symbol 'Q203:Package_TO_SOT_SMD:SOT-23'.
+Info: Processing symbol 'Q204:Package_TO_SOT_SMD:SOT-23'.
+Info: Processing symbol 'Q205:Package_TO_SOT_SMD:SOT-23'.
+Info: Processing symbol 'Q206:Package_TO_SOT_SMD:SOT-23'.
+Info: Processing symbol 'Q207:Package_TO_SOT_SMD:SOT-23'.
+Info: Processing symbol 'Q208:Package_TO_SOT_SMD:SOT-23'.
+Info: Processing symbol 'R101:A_Device:R_0603'.
+Info: Processing symbol 'R102:A_Device:R_0603'.
+Info: Processing symbol 'R103:'.
+Info: Processing symbol 'R104:'.
+Info: Processing symbol 'R105:'.
+Info: Processing symbol 'R106:'.
+Info: Processing symbol 'R107:A_Device:R_0603'.
+Info: Processing symbol 'R108:A_Device:R_0603'.
+Info: Processing symbol 'R109:A_Device:R_0603'.
+Info: Processing symbol 'R110:A_Device:R_0603'.
+Info: Processing symbol 'R111:A_Device:R_0603'.
+Info: Processing symbol 'R112:A_Device:R_0603'.
+Info: Processing symbol 'R113:A_Device:R_0603'.
+Info: Processing symbol 'R201:A_Device:R_0603'.
+Info: Processing symbol 'R202:A_Device:R_0603'.
+Info: Processing symbol 'R203:'.
+Info: Processing symbol 'R204:'.
+Info: Processing symbol 'U204:Package_TO_SOT_SMD:SOT-23-6'.
+Info: Processing symbol 'R205:'.
+Info: Processing symbol 'R206:'.
+Info: Processing symbol 'R207:A_Device:R_0603'.
+Info: Processing symbol 'R208:A_Device:R_0603'.
+Info: Processing symbol 'R209:A_Device:R_0603'.
+Info: Processing symbol 'R210:A_Device:R_0603'.
+Info: Processing symbol 'R211:A_Device:R_0603'.
+Info: Processing symbol 'SW101:Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical'.
+Info: Processing symbol 'SW102:Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical'.
+Info: Processing symbol 'SW201:'.
+Info: Processing symbol 'TP201:'.
+Info: Processing symbol 'TP202:'.
+Info: Processing symbol 'TP203:A_Pads_Pins:Testpoint_0.6x1.0'.
+Info: Processing symbol 'TP204:A_Pads_Pins:Testpoint_0.9x1.5'.
+Info: Processing symbol 'TP301:A_Misc:ReworkPins'.
+Info: Processing symbol 'TP302:A_Misc:ReworkPins'.
+Info: Processing symbol 'U101:A_Module:ESP32-WROOM-32'.
+Info: Processing symbol 'U102:Package_TO_SOT_SMD:Texas_R-PDSO-G6'.
+Info: Processing symbol 'U103:Package_TO_SOT_SMD:SOT-23-6'.
+Info: Processing symbol 'U104:Package_TO_SOT_SMD:SOT-23-5'.
+Info: Processing symbol 'U105:Package_TO_SOT_SMD:SOT-23-5'.
+Info: Processing symbol 'U201:Package_TO_SOT_SMD:SOT-23-5'.
+Info: Processing symbol 'U202:Package_TO_SOT_SMD:SOT-23-5'.
+Info: Processing symbol 'U203:Package_SO:HTSOP-8-1EP_3.9x4.9mm_P1.27mm_EP2.4x3.2mm_ThermalVias'.
+Warning: No net found for component U102 pad 5 (no pin 5 in symbol).
+Warning: No net found for component U102 pad 2 (no pin 2 in symbol).
+Error: Cannot add R105 (no footprint assigned).
+Error: Cannot add L202 (no footprint assigned).
+Error: Cannot add R106 (no footprint assigned).
+Error: Cannot add C210 (no footprint assigned).
+Error: Cannot add C211 (no footprint assigned).
+Error: Cannot add J104 (no footprint assigned).
+Error: Cannot add SW201 (no footprint assigned).
+Error: Cannot add J106 (no footprint assigned).
+Error: Cannot add TP201 (no footprint assigned).
+Error: Cannot add J201 (no footprint assigned).
+Error: Cannot add R204 (no footprint assigned).
+Error: Cannot add J204 (no footprint assigned).
+Error: Cannot add J205 (no footprint assigned).
+Error: Cannot add J206 (no footprint assigned).
+Error: Cannot add TP301 (footprint 'A_Misc:ReworkPins' not found).
+Error: Cannot add J207 (no footprint assigned).
+Error: Cannot add TP302 (footprint 'A_Misc:ReworkPins' not found).
+Error: Cannot add J208 (no footprint assigned).
+Error: Cannot add R203 (no footprint assigned).
+Error: Cannot add J105 (no footprint assigned).
+Error: Cannot add C203 (no footprint assigned).
+Error: Cannot add R103 (no footprint assigned).
+Error: Cannot add R205 (no footprint assigned).
+Error: Cannot add L201 (no footprint assigned).
+Error: Cannot add R206 (no footprint assigned).
+Error: Cannot add R104 (no footprint assigned).
+Error: Cannot add C209 (no footprint assigned).
+Error: Cannot add TP202 (no footprint assigned).
+
+
+Info: Total warnings: 2, errors: 28.
