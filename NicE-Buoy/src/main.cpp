@@ -54,6 +54,8 @@ int spdbb = 0, spdsb = 0;       // speed
 unsigned int sw_button_cnt = 0; // button press counters
 unsigned int sw_button_set = 0; // button press counters
 unsigned int msg_cnt = 0;       // msg out counter
+unsigned int weeds_detect = 0;  // counter for weeds detection
+byte store_status = 0;          // copy of status
 MessageSP snd_sp;               /* Speed sb(-100%<>100%),bb(-100%<>100%) */
 MessageSq snd_sq;               /* Ledstatus CRGB */
 MessageBuzz snd_buz;            /* on(true/false),time(msec),pauze(msec),repeat(x) */
@@ -93,7 +95,6 @@ bool serialPortDataIn(int *nr)
     }
     return false;
 }
-
 /**********************************************************************************************************************************************************/
 /* setup */
 /**********************************************************************************************************************************************************/
@@ -271,8 +272,7 @@ void setup()
 /**********************************************************************************************************************************************************/
 /* main loop */
 /**********************************************************************************************************************************************************/
-
-void loop()
+void loop(void)
 {
     webloop();
     buoy.mheading = CompassAverage(GetHeading());
@@ -608,6 +608,69 @@ void loop()
         if (blink == true)
         {
             addNewSampleInBuffer(buoy.winddir, BUFLENMHRG, buoy.mheading);
+            weeds_detect++;
+            if (weeds_detect > 60)
+            {
+                /* clean the trusters */
+                if (weeds_detect == 61)
+                {
+                    store_status = status;
+                    status = CLEANING_THRUSTERS;
+                    snd_msg.speedbb = 0;
+                    snd_msg.speedsb = 0;
+                    xQueueSend(escspeed, (void *)&snd_msg, 10); // update esc
+                }
+                if (weeds_detect == 62)
+                {
+                    snd_msg.speedbb = -100;
+                    snd_msg.speedsb = 0;
+                    xQueueSend(escspeed, (void *)&snd_msg, 10); // update esc
+                }
+                if (weeds_detect == 63)
+                {
+                    snd_msg.speedbb = 0;
+                    snd_msg.speedsb = -100;
+                    xQueueSend(escspeed, (void *)&snd_msg, 10); // update esc
+                }
+                if (weeds_detect == 64)
+                {
+                    snd_msg.speedbb = 100;
+                    snd_msg.speedsb = 0;
+                    xQueueSend(escspeed, (void *)&snd_msg, 10); // update esc
+                }
+                if (weeds_detect == 65)
+                {
+                    snd_msg.speedbb = 0;
+                    snd_msg.speedsb = 100;
+                    xQueueSend(escspeed, (void *)&snd_msg, 10); // update esc
+                }
+                if (weeds_detect == 66)
+                {
+                    snd_msg.speedbb = -100;
+                    snd_msg.speedsb = 0;
+                    xQueueSend(escspeed, (void *)&snd_msg, 10); // update esc
+                }
+                if (weeds_detect == 67)
+                {
+                    snd_msg.speedbb = 0;
+                    snd_msg.speedsb = -100;
+                    xQueueSend(escspeed, (void *)&snd_msg, 10); // update esc
+                }
+                if (weeds_detect == 68)
+                {
+                    snd_msg.speedbb = 0;
+                    snd_msg.speedsb = 0;
+                    xQueueSend(escspeed, (void *)&snd_msg, 10); // update esc
+                    status = store_status;
+                }
+            }
+            else
+            {
+                if (abs(abs(buoy.speedbb) - abs(buoy.speedsb)) < 15)
+                {
+                    weeds_detect = 0;
+                }
+            }
         }
         blink = !blink;
     }
@@ -681,7 +744,7 @@ void loop()
             loramsg.data = COMPUTE_PARAMETERS;
             xQueueSend(loradataout, (void *)&loramsg, 10); // update lora
 
-            if (buoy.vbatt <= 15 && status != DOCKED)
+            if (buoy.vbatt <= 15 && status != LOW_BAT)
             {
                 Message snd_msg;
                 snd_msg.speedbb = 0;
@@ -695,7 +758,10 @@ void loop()
                 {
                     break;
                 }
-                status = DOCKED; // empty batt sailing home
+                status = LOW_BAT; // empty batt sailing home
+                buoy.speedbb = 0;
+                buoy.speedsb = 0;
+                buoy.speed = 0;
             }
             break;
         }
@@ -718,9 +784,9 @@ void loop()
     }
 
     /*
-     * Sending speed to ESC and indicator
+     * Sending speed to ESC and indicator unless status is CLEANING_THRUSTERS
      */
-    if (spdbb != buoy.speedbb || spdsb != buoy.speedsb)
+    if ((spdbb != buoy.speedbb || spdsb != buoy.speedsb) && status != CLEANING_THRUSTERS)
     {
         if (spdbb < buoy.speedbb) // slowly go to setpoint
         {

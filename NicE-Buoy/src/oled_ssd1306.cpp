@@ -113,6 +113,9 @@ void udateDisplay(int sb, int bb, unsigned long distance, unsigned int direction
         case STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS:
             st = "C OFFS";
             break;
+        case LOW_BAT:
+            st = "LOW BATT";
+            break;
 
         default:
             st = "";

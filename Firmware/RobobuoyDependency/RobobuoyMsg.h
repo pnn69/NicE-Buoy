@@ -1,40 +1,24 @@
-#ifndef COMMANDS_H_
-#define COMMANDS_H_
-
-#define COLOR_PRINT_BLACK "30"
-#define COLOR_PRINT_RED "31"
-#define COLOR_PRINT_GREEN "32"
-#define COLOR_PRINT_BROWN "33"
-#define COLOR_PRINT_BLUE "34"
-#define COLOR_PRINT_PURPLE "35"
-#define COLOR_PRINT_CYAN "36"
-#define color_printf(COLOR, format, ...)                               \
-    {                                                                  \
-        printf("\033[0;" COLOR "m" format "\033[0m\n", ##__VA_ARGS__); \
-    }
+#ifndef ROBOBOBUOYMSG_H_
+#define ROBOBOBUOYMSG_H_
 
 /*
     [Designator][Reciever][MSG_ID][STATUS][ACK][msg]
+    if Designator == 0xFF relay command with buoy ID
 */
+
 
 typedef enum
 {
-    POSITION = 1,                                  //
+    BUOY_ID = 1,                                       //
+    POSITION,                                  //
+    NO_POSITION,                                   //
     BATTERY_VOLTAGE,                               //
     BUOY_MODE,                                     //
     TARGET_POSITION,                               //
     GOTO_TARGET_POSITION,                          //
-    ANCHOR_POSITION,                               //
-    GOTO_ANGHOR_POSITION,                          //
-    ANCHOR_POSITION_AS_TARGET_POSITION,            //
-    NO_POSITION,                                   //
     DOC_POSITION,                                  //
     STORE_DOC_POSITION,                            //
     STORE_POS_AS_DOC_POSITION,                     //
-    CURREND_POSITION_AS_DOC_POSITION,              //
-    BUOY_ID,                                       //
-    DIR_DISTANSE_ANCHOR_POSITION,                  //
-    CURREND_POSITION_AS_ANCHOR_POSITION,           //
     DIR_DISTANSE_TO_TARGET_POSITION,               //
     DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING, // When locked use this
     SAIL_DIR_SPEED,                                // heading,0-100%
@@ -71,22 +55,20 @@ typedef enum
     LOCKING,
     LOCKED,
     LOCK_POS,
-    LOCK_ANCHOR_POS,
-    UNLOCK,
-    REMOTE,
     DOCKING,
     DOCKED,
     DOC,
+    UNLOCK,
+    REMOTE,
     REMOTEING,
     CALIBRATE_MAGNETIC_COMPASS,
-    LINEAR_CAL,
+    LINEAR_CALLIBRATING,
     CALIBRATE_OFFSET_MAGNETIC_COMPASS,
     STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS,
     DOCK_STORING,
-    MUTE_ESC,
-    CLEANING_THRUSTERS,
-    LOW_BAT
+    MUTE_ESC
 
 } Status_t;
 
-#endif /* COMMANDS_H_ */
+
+#endif /* ROBOBOBUOYMSG_H_ */

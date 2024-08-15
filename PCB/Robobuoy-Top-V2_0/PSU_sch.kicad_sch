@@ -4897,6 +4897,26 @@
 		)
 		(uuid "fcedaaa2-d8e6-4af8-8dee-f5afd2c86be3")
 	)
+	(text "Fet not working here"
+		(exclude_from_sim no)
+		(at 169.164 26.416 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "61db601a-364b-406d-b510-47ccf516b9d8")
+	)
+	(text "C to small 1000uf fixed it"
+		(exclude_from_sim no)
+		(at 192.786 122.428 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "9fa44086-9368-4ed6-b2bb-b7656326dd89")
+	)
 	(text "Ichrg = 780mA"
 		(exclude_from_sim no)
 		(at 93.726 65.278 90)

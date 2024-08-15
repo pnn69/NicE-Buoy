@@ -1,7 +1,7 @@
  Supported Target | ESP32 |
 | ---------------- | ----- |
 
-# NicE Bouy
+# Robouoy
 
 ToDo
 calculations of speed depending of angle to stear and distance
@@ -16,8 +16,6 @@ setting anchor point troug Lora
 ### Hardware Required
 
 * GPS 6900 baud
-* Compas 303L
-* 2 ESC
 * Lora 433MHz
 
 ### Build and Flash
