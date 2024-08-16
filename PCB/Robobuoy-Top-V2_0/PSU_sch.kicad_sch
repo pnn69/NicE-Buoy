@@ -4917,6 +4917,16 @@
 		)
 		(uuid "9fa44086-9368-4ed6-b2bb-b7656326dd89")
 	)
+	(text "3.3V psu not ok!"
+		(exclude_from_sim no)
+		(at 140.208 101.346 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "b2a998d5-e5cc-4dd0-b06e-d462252bd107")
+	)
 	(text "Ichrg = 780mA"
 		(exclude_from_sim no)
 		(at 93.726 65.278 90)
