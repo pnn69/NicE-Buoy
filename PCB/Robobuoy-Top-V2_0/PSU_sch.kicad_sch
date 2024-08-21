@@ -4897,7 +4897,7 @@
 		)
 		(uuid "fcedaaa2-d8e6-4af8-8dee-f5afd2c86be3")
 	)
-	(text "Fet not working here"
+	(text "Fet not working here\nSwap source and drain\n"
 		(exclude_from_sim no)
 		(at 169.164 26.416 0)
 		(effects

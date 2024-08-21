@@ -76,6 +76,6 @@ void WiFiTask(void *arg)
     }
     while (1)
     {
-        delay(1);
+        delay(100);
     }
 }

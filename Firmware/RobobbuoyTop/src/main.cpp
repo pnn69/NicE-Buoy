@@ -20,7 +20,7 @@ void setup()
     xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4024, NULL, 20, NULL, 0);
     initLedTask();
     xTaskCreatePinnedToCore(LedTask, "LedTask", 1000, NULL, 1, NULL, 1);
-    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 2000, NULL, 5, NULL, 0);
+    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, NULL, 1, NULL, 1);
     xTaskCreatePinnedToCore(GpsTask, "GpsTask", 2000, NULL, 10, NULL, 1);
     pinMode(BUZZER_PIN, OUTPUT);
     delay(1000);
