@@ -8014,7 +8014,7 @@
 	)
 	(text "RADIO_1  MOSI\nRADIO_2  MISO\nRADIO_3  SCK\nRADIO_4  ~{CS}\nRADIO_5  ~{RESET}\n"
 		(exclude_from_sim no)
-		(at 353.06 53.34 0)
+		(at 242.062 111.506 0)
 		(effects
 			(font
 				(size 1.27 1.27)

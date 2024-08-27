@@ -4907,19 +4907,9 @@
 		)
 		(uuid "61db601a-364b-406d-b510-47ccf516b9d8")
 	)
-	(text "C to small 1000uf fixed it"
+	(text "3.3V psu not ok!\nuse: RT6150A/B C147972\nL: 2.2uH C86092\n\nor\nTPS63020 C15483\nL: 1,5uH XFL4020-152ML, Coilcraft C3033018"
 		(exclude_from_sim no)
-		(at 192.786 122.428 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "9fa44086-9368-4ed6-b2bb-b7656326dd89")
-	)
-	(text "3.3V psu not ok!"
-		(exclude_from_sim no)
-		(at 140.208 101.346 0)
+		(at 139.192 96.012 0)
 		(effects
 			(font
 				(size 1.27 1.27)

@@ -18,18 +18,24 @@ CRGB leds[NUM_LEDS];
 QueueHandle_t ledStatus; // speed status bb,sb
 QueueHandle_t ledUtil;   // Accu status
 QueueHandle_t ledGps;    // Accu status
-static bool blink, blinkfast;
 static uint8_t blinkcnt = 0;
 static unsigned long blinktimer = millis();
 static LedData ledDataStatus;
 static LedData ledDataUtil;
 static LedData ledDataGps;
+static bool lastBlinkStatus, lastBlinkUtil, lastBlinkGps;
 
-void initLedTask(void)
+bool initledqueue(void)
 {
-    ledStatus = xQueueCreate(10, sizeof(CRGB));
-    ledUtil = xQueueCreate(10, sizeof(CRGB));
-    ledGps = xQueueCreate(10, sizeof(CRGB));
+    // ledStatus = xQueueCreate(10, sizeof(CRGB));
+    ledStatus = xQueueCreate(10, sizeof(LedData));
+    ledUtil = xQueueCreate(10, sizeof(LedData));
+    ledGps = xQueueCreate(10, sizeof(LedData));
+    return true;
+}
+
+void initLed(void)
+{
     FastLED.addLeds<WS2812B, LEDS_PIN, GRB>(leds, NUM_LEDS);
     FastLED.clear();
     leds[LEDSTATUS] = CRGB::Red;
@@ -41,37 +47,108 @@ void initLedTask(void)
 
 void LedTask(void *arg)
 {
+    initLed();
     Serial.println("Led task running!");
     while (1)
     {
 
-        if (xQueueReceive(ledStatus, (void *)&ledDataStatus, 0) == pdTRUE)
-        {
-            leds[LEDSTATUS] = ledDataStatus.color;
-            FastLED.show();
-        }
-        if (xQueueReceive(ledUtil, (void *)&ledDataUtil, 0) == pdTRUE)
-        {
-            leds[LEDUTIL] = ledDataUtil.color;
-            FastLED.show();
-        }
-        if (xQueueReceive(ledGps, (void *)&ledDataGps, 0) == pdTRUE)
-        {
-            leds[LEDGPS] = ledDataGps.color;
-            FastLED.show();
-        }
+        // if (xQueueReceive(ledStatus, (void *)&ledDataStatus, 0) == pdTRUE)
+        // {
+        //     leds[LEDSTATUS] = ledDataStatus.color;
+        //     FastLED.show();
+        // }
+        // if (xQueueReceive(ledUtil, (void *)&ledDataUtil, 0) == pdTRUE)
+        // {
+        //     leds[LEDUTIL] = ledDataUtil.color;
+        //     FastLED.show();
+        // }
+        // if (xQueueReceive(ledGps, (void *)&ledDataGps, 0) == pdTRUE)
+        // {
+        //     leds[LEDGPS] = ledDataGps.color;
+        //     FastLED.show();
+        // }
 
-        if (blinktimer + 100 < millis())
-        {
-            blinktimer = millis();
-            blinkcnt++;
-            blinkfast = !blinkfast;
-            if (blinkcnt >= 10)
-            {
-                blinkcnt = 0;
-                blink = !blink;
-            }
-        }
-        vTaskDelay(100);
+        // if (blinktimer + 100 < millis())
+        // {
+        //     blinktimer = millis();
+        //     blinkcnt++;
+        //     if (ledDataGps.blink == BLINK_FAST)
+        //     {
+        //         if (leds[LEDGPS] == CRGB ::Black)
+        //         {
+        //             leds[LEDGPS] = ledDataGps.color;
+        //         }
+        //         else
+        //         {
+        //             leds[LEDGPS] = CRGB ::Black;
+        //         }
+        //         FastLED.show();
+        //     }
+        //     if (ledDataStatus.blink == BLINK_FAST)
+        //     {
+        //         if (leds[LEDSTATUS] == CRGB ::Black)
+        //         {
+        //             leds[LEDSTATUS] = ledDataStatus.color;
+        //         }
+        //         else
+        //         {
+        //             leds[LEDSTATUS] = CRGB ::Black;
+        //         }
+        //         FastLED.show();
+        //     }
+        //     if (ledDataUtil.blink == BLINK_FAST)
+        //     {
+        //         if (leds[LEDUTIL] == CRGB ::Black)
+        //         {
+        //             leds[LEDUTIL] = ledDataUtil.color;
+        //         }
+        //         else
+        //         {
+        //             leds[LEDUTIL] = CRGB ::Black;
+        //         }
+        //         FastLED.show();
+        //     }
+        //     if (blinkcnt >= 10)
+        //     {
+        //         blinkcnt = 0;
+        //         if (ledDataGps.blink == BLINK_SLOW)
+        //         {
+        //             if (leds[LEDGPS] == CRGB ::Black)
+        //             {
+        //                 leds[LEDGPS] = ledDataGps.color;
+        //             }
+        //             else
+        //             {
+        //                 leds[LEDGPS] = CRGB ::Black;
+        //             }
+        //             FastLED.show();
+        //         }
+        //         if (ledDataStatus.blink == BLINK_SLOW)
+        //         {
+        //             if (leds[LEDSTATUS] == CRGB ::Black)
+        //             {
+        //                 leds[LEDSTATUS] = ledDataStatus.color;
+        //             }
+        //             else
+        //             {
+        //                 leds[LEDSTATUS] = CRGB ::Black;
+        //             }
+        //             FastLED.show();
+        //         }
+        //         if (ledDataUtil.blink == BLINK_SLOW)
+        //         {
+        //             if (leds[LEDUTIL] == CRGB ::Black)
+        //             {
+        //                 leds[LEDUTIL] = ledDataUtil.color;
+        //             }
+        //             else
+        //             {
+        //                 leds[LEDUTIL] = CRGB ::Black;
+        //             }
+        //             FastLED.show();
+        //         }
+        //     }
+        // }
+        vTaskDelay(1);
     }
 }

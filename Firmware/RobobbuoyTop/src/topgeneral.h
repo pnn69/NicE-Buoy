@@ -1,6 +1,6 @@
 #ifndef TOPGENERAL_H_
 #define TOPGENERAL_H_
 
-#define buoyId 1
+extern uint_fast8_t buoyId;
 
 #endif /* TOPGENERAL_H_ */

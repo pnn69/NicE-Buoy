@@ -9,12 +9,13 @@ struct GpsDataType
     float cource = 0; // degrees
     bool fix = false; //
     char fixtype = 0; // 0-3
-    int nrsats = 0;  //
-    int lastfix = 0;  // ms
+    int nrsats = 0;   //
+    unsigned long lastfix = 0;  // ms
 };
 
-extern GpsDataType gpsdata;
-
+//extern GpsDataType gpsdata;
+extern QueueHandle_t gpsQue;
+bool initgpsqueue(void);
 void GpsTask(void *arg);
 
 #endif /* GPS_H_ */

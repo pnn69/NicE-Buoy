@@ -10,4 +10,10 @@
 #define GPSRX 16
 #define GPSTX 17
 
+#define RADIO_SCLK_PIN 18
+#define RADIO_MISO_PIN 19
+#define RADIO_MOSI_PIN 23
+#define RADIO_CS_PIN 5
+#define RADIO_RST_PIN 2
+
 #endif /* IO_TOP_H_ */
