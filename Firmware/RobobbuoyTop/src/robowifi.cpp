@@ -1,26 +1,23 @@
 #include <WiFi.h>
+#include <WebServer.h>
 #include <ArduinoOTA.h>
 #include <AsyncUDP.h>
 #include "robowifi.h"
-#include "topgeneral.h"
 #include "leds.h"
 #include "datastorage.h"
-static LedData collorWiFi;
-static UdpData udpOutBuffer;
 static UdpData udpBuffer;
-static LedData wiFiCollorStatus;
-static bool web = false;
+static LedData gpsCollorUtil;
+static bool ap = false;
 static bool ota = false;
 static int8_t id = 0;
 static char gpsDataIn[100];
 const char *ssid = "NicE_WiFi"; // Change this to your WiFi SSID
 const char *password = "!Ni1001100110";
-//const char *ssidap = "Buoy_4";  
-char ssidap[] = "Buoy_4";  
-
+// const char *ssidap = "Buoy_4";
+char ssidap[] = "Buoy_4";
+IPAddress ipTop;
 AsyncUDP udp;
 QueueHandle_t udpOut;
-WiFiServer server(80);
 
 /*
     Scan for networks
@@ -40,10 +37,106 @@ bool scan_for_wifi_ap(void)
         {
             if (WiFi.SSID(i) == "NicE_WiFi")
             {
+                WiFi.mode(WIFI_STA);
+                Serial.print("AP NicE_WiFi foud, logging in...");
+                WiFi.begin("NicE_WiFi", password);
+                while (WiFi.status() != WL_CONNECTED)
+                {
+                    delay(50);
+                    Serial.print(".");
+                }
+                Serial.print(".\r\n");
+                Serial.print("Loggend in to SSIS: ");
+                Serial.println(ssid);
+                Serial.print("IP address: ");
+                Serial.println(WiFi.localIP());
                 return true;
             }
         }
         delay(10);
+    }
+    return false;
+}
+
+/*
+    Setup accecpoint
+*/
+bool setup_wifi_ap(char set)
+{
+    char buf[20];
+    WiFi.mode(WIFI_MODE_NULL);
+    delay(1000);
+    Serial.println("Accespoint setup");
+    IPAddress local_IP(192, 168, 4, 1); // Your Desired Static IP Address
+    IPAddress subnet(255, 255, 255, 0);
+    IPAddress gateway(192, 168, 1, 5);
+    IPAddress primaryDNS(0, 0, 0, 0);   // Not Mandatory
+    IPAddress secondaryDNS(0, 0, 0, 0); // Not Mandatory
+
+    memBuoyId(&id, true);
+    if (set == 0)
+    {
+        sprintf(buf, "BUOY_%d", id);
+    }
+    else if (set == 1)
+    {
+        sprintf(buf, "PAIR_ME_%d", id);
+    }
+    Serial.println("\r\nscan for AP");
+    int n = WiFi.scanNetworks();
+    Serial.println("scan done");
+    for (int i = 0; i < n; ++i)
+    {
+        if (WiFi.SSID(i) == "NicE_WiFi_tralal")
+        {
+            ap = false;
+            WiFi.mode(WIFI_STA);
+            Serial.print("AP NicE_WiFi foud, logging in...");
+            WiFi.begin("NicE_WiFi", "!Ni1001100110");
+            while (WiFi.status() != WL_CONNECTED)
+            {
+                delay(50);
+                Serial.print(".");
+            }
+            Serial.print(".\r\n");
+            Serial.print("Loggend in to SSIS: ");
+            Serial.println(ssid);
+            Serial.print("IP address: ");
+            Serial.println(WiFi.localIP());
+            ipTop = WiFi.localIP();
+        }
+    }
+    if (ap == false)
+    {
+        WiFi.mode(WIFI_AP);
+        WiFi.softAP("BUOY_1", "");
+        Serial.print("Accespoint setu as: BUOY_1\r\n");
+        ipTop = WiFi.softAPIP();
+        ap = true;
+    }
+    return ap;
+}
+
+/*
+    Setup Async UDP
+*/
+bool udp_setup(int poort)
+{
+    if (udp.listen(poort))
+    {
+        Serial.print("Udp port: ");
+        Serial.println(poort);
+        udp.onPacket([](AsyncUDPPacket packet)
+                     {
+                         String myString = (const char *)packet.data();
+                         if (myString.startsWith("pong"))
+                         {
+                            gpsCollorUtil.color = CRGB::Green;
+                            gpsCollorUtil.blink = false;
+                            xQueueSend(ledUtil, (void *)&gpsCollorUtil, 10);     // update util led
+                            printf("pong in\n\r");
+                         } });
+        return true;
     }
     return false;
 }
@@ -82,52 +175,11 @@ bool setup_OTA()
     Serial.println("...done!");
     Serial.print("OTA ID: ");
     Serial.println(buf);
-    server.begin();
     return true;
 }
 
 /*
-    Setup accecpoint
-*/
-bool wifi_ap(char set)
-{
-    String ssidap;
-    WiFi.mode(WIFI_MODE_NULL);
-    delay(1000);
-    WiFi.mode(WIFI_AP);
-    Serial.println("Accespoint setup");
-    IPAddress local_IP(192, 168, 4, 1); // Your Desired Static IP Address
-    IPAddress subnet(255, 255, 255, 0);
-    IPAddress gateway(192, 168, 1, 5);
-    IPAddress primaryDNS(0, 0, 0, 0);   // Not Mandatory
-    IPAddress secondaryDNS(0, 0, 0, 0); // Not Mandatory
-
-    WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS);
-    WiFi.softAPConfig(local_IP, gateway, subnet);
-    memBuoyId(&id, true);
-    if (set == 0)
-    {
-        ssidap =  "Buoy_" + String(id);
-        //strcpy(ssidap, "Buoy_1");
-    }
-    else if (set == 1)
-    {
-        ssidap = "Pair_Me_" + String(id);
-        //strcpy(ssidap, "Pair_Me_1");
-    }
-    Serial.print("Seting up AP: ");
-    Serial.println(ssidap);
-    //WiFi.softAPsetHostname(ssidap);
-    WiFi.softAP(ssidap.c_str());
-    Serial.print("Mode = ");
-    Serial.println(WiFi.getMode());
-    IPAddress IP = WiFi.softAPIP();
-    web = true;
-    return web;
-}
-
-/*
-    Start WiFi
+    init WiFi que
 */
 bool initwifiqueue(void)
 {
@@ -144,15 +196,23 @@ bool initwifiqueue(void)
     return true;
 }
 
-bool initwifi(void)
+
+/*
+    WiFi task
+*/
+void WiFiTask(void *arg)
 {
-    // if (key_1 != pressed)
+    Serial.println("\r\nscan for AP");
+    int n = WiFi.scanNetworks();
+    Serial.println("scan done");
+    for (int i = 0; i < n; ++i)
     {
-        if (scan_for_wifi_ap())
+        if (WiFi.SSID(i) == "NicE_WiFi_tralal")
         {
+            ap = false;
             WiFi.mode(WIFI_STA);
             Serial.print("AP NicE_WiFi foud, logging in...");
-            WiFi.begin(ssid, password);
+            WiFi.begin("NicE_WiFi", "!Ni1001100110");
             while (WiFi.status() != WL_CONNECTED)
             {
                 delay(50);
@@ -161,108 +221,57 @@ bool initwifi(void)
             Serial.print(".\r\n");
             Serial.print("Loggend in to SSIS: ");
             Serial.println(ssid);
-            Serial.print("IP address: ");
-            Serial.println(WiFi.localIP());
-            return true;
-        }
-        else
-        {
-            return (wifi_ap(1));
+            ipTop = WiFi.localIP();
         }
     }
-    // else
+    if (ap == false)
+    {
+        Serial.println("Setting up AP now");
+        WiFi.mode(WIFI_AP);
+        WiFi.softAP("BUOY_1", "");
+        Serial.print("AP Name SSID: ");
+        Serial.println(WiFi.softAPSSID());
+        Serial.print("AP IP Address: ");
+        Serial.println(WiFi.softAPIP());
+        Serial.print("AP Hostname: ");
+        Serial.println(WiFi.softAPgetHostname());
+        ipTop = WiFi.softAPIP();
+        ap = true;
+    }
+
+    Serial.print("IP address: ");
+    Serial.println(ipTop);
+    udp_setup(1001);
+
+    // if (udp.listen(1001))
     // {
-    //        return (wifi_ap(1));
+    //     Serial.println("Udp port: 1001");
+    //     udp.onPacket([](AsyncUDPPacket packet)
+    //                  {
+    //                      String myString = (const char *)packet.data();
+    //                      if (myString.startsWith("pong"))
+    //                      {
+    //                         gpsCollorUtil.color = CRGB::Green;
+    //                         gpsCollorUtil.blink = false;
+    //                         xQueueSend(ledUtil, (void *)&gpsCollorUtil, 10);     // update util led
+    //                         printf("pong in\n\r");
+    //                      } });
     // }
-    return false;
-}
 
-/*
-    Send udp msg
-*/
-void udpsend(char *msg, int_fast8_t port)
-{
-    udp.broadcastTo(msg, port);
-}
-
-/*
-    Setup Async UDP
-*/
-void setupudp(void)
-{
-    memBuoyId(&id, true);
-    if (udp.listen(1000))
-    // if (udp.listen(1000 + id))
-    {
-        Serial.print("UDP Listening on: ");
-        Serial.print(WiFi.localIP());
-        Serial.print(":");
-        Serial.println(1000);
-        // Serial.println(1000 + id);
-
-        udp.onPacket([](AsyncUDPPacket packet)
-                     {
-            Serial.print("UDP Packet Type: ");
-            Serial.print(packet.isBroadcast()?"Broadcast":packet.isMulticast()?"Multicast":"Unicast");
-            Serial.print(", From: ");
-            Serial.print(packet.remoteIP());
-            Serial.print(":");
-            Serial.print(packet.remotePort());
-            Serial.print(", To: ");
-            Serial.print(packet.localIP());
-            Serial.print(":");
-            Serial.print(packet.localPort());
-            Serial.print(", Length: ");
-            Serial.print(packet.length());
-            Serial.print(", Data: ");
-            Serial.write(packet.data(), packet.length());
-            Serial.println();
-            //reply to the client
-            char* tmpStr = (char*) malloc(packet.length() + 1);
-            tmpStr[packet.length()] = '\0'; // ensure null termination
-            memcpy(tmpStr, packet.data(), packet.length());
-            if(strstr(tmpStr,"pong")){
-                wiFiCollorStatus.color = CRGB ::Green;
-                wiFiCollorStatus.blink = false;
-                xQueueSend(ledStatus, (void *)&wiFiCollorStatus, 10); // update util led
-                printf("got pong!\r\n");
-            }
-            free(tmpStr); // Strign(char*) creates a copy so we can delete our one
-            packet.printf("Got %u bytes of data", packet.length()); });
-    }
-}
-
-/*
-    WiFi task
-*/
-void WiFiTask(void *arg)
-{
-    // web = 1;
-    // web = wifi_ap(1);
-    
-    web = initwifi();
-    if (web)
-    {
-        ota = setup_OTA();
-    }
-    else
-    {
-        while (1)
-        {
-            delay(10000);
-        }
-    }
-    setupudp();
-    // udp.broadcast("Anyone here?");
-    Serial.print("WiFI task running!\r\n");
+    printf("WiFI task running!\r\n");
     for (;;)
     {
+
         if (xQueueReceive(udpOut, (void *)&udpBuffer, 0) == pdTRUE)
         {
-            udp.broadcastTo(udpBuffer.msg, udpBuffer.port);
-            printf(">%s< send!\r\n", udpBuffer.msg);
+            gpsCollorUtil.color = CRGB::Red;
+            gpsCollorUtil.blink = false;
+            xQueueSend(ledUtil, (void *)&gpsCollorUtil, 10); // update util led
+            udp.broadcast(udpBuffer.msg);
+            printf("ping out\n\r");
         }
-        ArduinoOTA.handle();
+
+        // ArduinoOTA.handle();
         delay(1);
     }
 }

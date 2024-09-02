@@ -9,7 +9,7 @@ typedef struct UdpMsg
     char msg[100];
 
 } UdpData;
-bool wifi_ap(char set);
+
 bool initwifiqueue(void);
 void WiFiTask(void *arg);
 

@@ -1,21 +1,22 @@
 #include <Arduino.h>
 #include "freertos/task.h"
 #include "io_sub.h"
-#include "leds.h"
+#include "subwifi.h"
+//#include "leds.h"
 #include "../../RobobuoyDependency\RobobuoyVersion.h"
 #include "../../RobobuoyDependency\RobobuoyMsg.h"
 #include "../../RobobuoyDependency\RobobuoyDefaults.h"
 #include "../../RobobuoyDependency\RobobuoyCalc.h"
-Speeddef msg_speed;
-Accudef msg_accu;
+//Speeddef msg_speed;
+//Accudef msg_accu;
 
 void setup()
 {
     Serial.begin(115200);
     Serial.println(SUBVERSION);
     pinMode(BUZZER_PIN, OUTPUT);
-    initLedTask();
-    xTaskCreatePinnedToCore(LedTask, "LedTask", 1000, NULL, 1, NULL, 1);
+    //initLedTask();
+    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 2000, NULL, 2, NULL, 0);
  }
 
 void loop(void)

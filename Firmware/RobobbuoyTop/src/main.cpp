@@ -17,6 +17,7 @@ static UdpData mainUdpOutMsg;
 static GpsDataType gpsStatus;
 int8_t buoyId;
 unsigned long udpTimer = millis();
+int pingConter = 0;
 
 void setup()
 {
@@ -24,7 +25,6 @@ void setup()
     delay(100);
     printf("\r\nSetup running!\r\n");
     printf("Robobuoy Top Version: %0.1f\r\n",TOPVERSION);
-    //Serial.println(TOPVERSION);
     initMemory();
     /* run once
     buoyId = 4;
@@ -37,7 +37,7 @@ void setup()
     xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
     xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4024, NULL, 20, NULL, 1);
     xTaskCreatePinnedToCore(GpsTask, "GpsTask", 2000, NULL, 5, NULL, 1);
-    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, NULL, 20, NULL, 1);
+    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, NULL, 10, NULL, 1);
     memBuoyId(&buoyId, true);
     Serial.print("Buoy ID: ");
     Serial.println(buoyId);
@@ -60,16 +60,15 @@ void loop(void)
     {
         if (udpTimer < millis())
         {
-            udpTimer = millis() + 10000;
+            udpTimer = millis() + 1000;
             if (udpOut != NULL && uxQueueSpacesAvailable(udpOut) > 0)
             {
-                sprintf(mainUdpOutMsg.msg, "ping");
+                sprintf(mainUdpOutMsg.msg, "ping %d",pingConter++);
                 mainUdpOutMsg.port = 1001;
                 mainCollorStatus.color = CRGB ::Red;
                 mainCollorStatus.blink = false;
                 xQueueSend(udpOut, (void *)&mainUdpOutMsg, 10);       // update WiFi
                 xQueueSend(ledStatus, (void *)&mainCollorStatus, 10); // update util led
-                // printf("ping in buffer!\r\n");
             }
             else
             {
