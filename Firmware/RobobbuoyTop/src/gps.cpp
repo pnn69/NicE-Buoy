@@ -4,7 +4,7 @@
 #include "leds.h"
 
 // #define GPSBAUD 9600
-//  #define GPSBAUD 4800
+//   #define GPSBAUD 4800
 #define GPSBAUD 115200
 
 static bool gpsok;
@@ -12,7 +12,7 @@ TinyGPSPlus gps;
 GpsDataType gpsdata;
 QueueHandle_t gpsQue;
 static LedData collorGps;
-static uint32_t fix_age;
+static uint32_t fix_age = 10000;
 static unsigned long gpsTimeOut = 0;
 static bool newGpsData = false;
 
@@ -70,8 +70,9 @@ void GpsTask(void *arg)
     if (gpsok)
     {
         collorGps.color = CRGB::Red;
-        collorGps.blink = BLINK_SLOW;
+        collorGps.blink = BLINK_OFF;
         xQueueSend(ledGps, (void *)&collorGps, 10);
+        gpsdata.fix = false;
         Serial.println("Gps task running!");
     }
     while (1)
@@ -118,7 +119,7 @@ void GpsTask(void *arg)
                     {
                         gpsdata.fix = true;
                         collorGps.color = CRGB::Green;
-                        collorGps.blink = false;
+                        collorGps.blink = BLINK_OFF;
                         xQueueSend(ledGps, (void *)&collorGps, 10);
                     }
                 }
@@ -141,17 +142,17 @@ void GpsTask(void *arg)
             gpsdata.fix = false;
             newGpsData = true;
             collorGps.color = CRGB::Red;
-            collorGps.blink = BLINK_FAST;
+            collorGps.blink = BLINK_OFF;
             xQueueSend(ledGps, (void *)&collorGps, 10);
         }
         if (newGpsData == true)
         {
             newGpsData = false;
-            collorGps.color = CRGB::Green;
-            xQueueSend(ledGps, (void *)&collorGps, 10);
-            xQueueSend(gpsQue, (void *)&gpsdata, 10); // update util led
-            collorGps.color = CRGB::Black;
-            xQueueSend(ledGps, (void *)&collorGps, 10);
+            // collorGps.color = CRGB::Green;
+            // xQueueSend(ledGps, (void *)&collorGps, 10);
+            // xQueueSend(gpsQue, (void *)&gpsdata, 10); // update util led
+            // collorGps.color = CRGB::Black;
+            // xQueueSend(ledGps, (void *)&collorGps, 10);
         }
         delay(1);
     }

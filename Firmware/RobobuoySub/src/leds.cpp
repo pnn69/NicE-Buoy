@@ -5,32 +5,28 @@
 #include <Arduino.h>
 #include <FastLED.h>
 #include "leds.h"
-#include "io_top.h"
+#include "io_sub.h"
 
 #define NUM_LEDS 3
 #define LEDSTATUS 0
-#define LEDUTIL 1
-#define LEDGPS 2
+#define LEDBB 1
+#define LEDSB 2
 
 CRGB ledData;
 CRGB leds[NUM_LEDS];
 
-QueueHandle_t ledStatus; // speed status bb,sb
-QueueHandle_t ledUtil;   // Accu status
-QueueHandle_t ledGps;    // Accu status
+QueueHandle_t ledPwr;    // speed bb,sb
+QueueHandle_t ledStatus; // Accu status
 static uint8_t blinkcnt = 0;
 static unsigned long blinktimer = millis();
-static LedData ledDataStatus;
-static LedData ledDataUtil;
-static LedData ledDataGps;
+static LedData ledStatusData;
+static PwrData ledPwrData;
 static bool blink, blinkFast;
 
 bool initledqueue(void)
 {
-    // ledStatus = xQueueCreate(10, sizeof(CRGB));
     ledStatus = xQueueCreate(10, sizeof(LedData));
-    ledUtil = xQueueCreate(10, sizeof(LedData));
-    ledGps = xQueueCreate(10, sizeof(LedData));
+    ledPwr = xQueueCreate(10, sizeof(PwrData));
     return true;
 }
 
@@ -38,9 +34,9 @@ void initLed(void)
 {
     FastLED.addLeds<WS2812B, LEDS_PIN, GRB>(leds, NUM_LEDS);
     FastLED.clear();
-    leds[LEDSTATUS] = CRGB::Black;
-    leds[LEDUTIL] = CRGB::Black;
-    leds[LEDGPS] = CRGB::Blue;
+    leds[LEDSTATUS] = CRGB::Red;
+    leds[LEDBB] = CRGB::White;
+    leds[LEDSB] = CRGB::Blue;
     FastLED.setBrightness(100);
     FastLED.show();
 }
@@ -52,29 +48,19 @@ void LedTask(void *arg)
     while (1)
     {
 
-        if (xQueueReceive(ledStatus, (void *)&ledDataStatus, 0) == pdTRUE)
+        if (xQueueReceive(ledStatus, (void *)&ledStatusData, 0) == pdTRUE)
         {
-            leds[LEDSTATUS] = ledDataStatus.color;
-            if (ledDataStatus.blink == 0 || ledDataStatus.blink == BLINK_OFF)
+            leds[LEDSTATUS] = ledStatusData.color;
+            if (ledStatusData.blink == 0 || ledStatusData.blink == BLINK_OFF)
             {
                 FastLED.show();
             }
         }
-        if (xQueueReceive(ledUtil, (void *)&ledDataUtil, 0) == pdTRUE)
+        if (xQueueReceive(ledPwr, (void *)&ledPwrData, 0) == pdTRUE)
         {
-            leds[LEDUTIL] = ledDataUtil.color;
-            if (ledDataUtil.blink == 0 || ledDataUtil.blink == BLINK_OFF)
-            {
-                FastLED.show();
-            }
-        }
-        if (xQueueReceive(ledGps, (void *)&ledDataGps, 0) == pdTRUE)
-        {
-            leds[LEDGPS] = ledDataGps.color;
-            if (ledDataGps.blink == 0 || ledDataGps.blink == BLINK_OFF)
-            {
-                FastLED.show();
-            }
+            leds[LEDBB] = ledPwrData.bb;
+            leds[LEDSB] = ledPwrData.sb;
+            FastLED.show();
         }
         /*
             Blink stuff
@@ -84,23 +70,11 @@ void LedTask(void *arg)
             blinktimer = millis();
             blinkcnt++;
             blinkFast = !blinkFast;
-            if (ledDataGps.blink == BLINK_FAST)
+            if (ledStatusData.blink == BLINK_FAST)
             {
                 if (blinkFast == true)
                 {
-                    leds[LEDGPS] = ledDataGps.color;
-                }
-                else
-                {
-                    leds[LEDGPS] = CRGB ::Black;
-                }
-                FastLED.show();
-            }
-            if (ledDataStatus.blink == BLINK_FAST)
-            {
-                if (blinkFast == true)
-                {
-                    leds[LEDSTATUS] = ledDataStatus.color;
+                    leds[LEDSTATUS] = ledStatusData.color;
                 }
                 else
                 {
@@ -108,15 +82,27 @@ void LedTask(void *arg)
                 }
                 FastLED.show();
             }
-            if (ledDataUtil.blink == BLINK_FAST)
+            if (ledPwrData.blinkBb == BLINK_FAST)
             {
                 if (blinkFast == true)
                 {
-                    leds[LEDUTIL] = ledDataUtil.color;
+                    leds[LEDBB] = ledPwrData.bb;
                 }
                 else
                 {
-                    leds[LEDUTIL] = CRGB ::Black;
+                    leds[LEDBB] = CRGB ::Black;
+                }
+                FastLED.show();
+            }
+            if (ledPwrData.blinkSb == BLINK_FAST)
+            {
+                if (blinkFast == true)
+                {
+                    leds[LEDSB] = ledPwrData.sb;
+                }
+                else
+                {
+                    leds[LEDSB] = CRGB ::Black;
                 }
                 FastLED.show();
             }
@@ -124,39 +110,41 @@ void LedTask(void *arg)
             {
                 blinkcnt = 0;
                 blink = !blink;
-                if (ledDataGps.blink == BLINK_SLOW)
+                if (ledStatusData.blink == BLINK_SLOW)
                 {
                     if (blink == true)
                     {
-                        leds[LEDGPS] = ledDataGps.color;
+                        printf("led on\r\n");
+                        leds[LEDSTATUS] = ledStatusData.color;
                     }
                     else
                     {
-                        leds[LEDGPS] = CRGB ::Black;
-                    }
-                    FastLED.show();
-                }
-                if (ledDataStatus.blink == BLINK_SLOW)
-                {
-                    if (blink == true)
-                    {
-                        leds[LEDSTATUS] = ledDataStatus.color;
-                    }
-                    else
-                    {
+                        printf("led off\r\n");
                         leds[LEDSTATUS] = CRGB ::Black;
                     }
                     FastLED.show();
                 }
-                if (ledDataUtil.blink == BLINK_SLOW)
+                if (ledPwrData.blinkBb == BLINK_SLOW)
                 {
                     if (blink == true)
                     {
-                        leds[LEDUTIL] = ledDataUtil.color;
+                        leds[LEDBB] = ledPwrData.bb;
                     }
                     else
                     {
-                        leds[LEDUTIL] = CRGB ::Black;
+                        leds[LEDBB] = CRGB ::Black;
+                    }
+                    FastLED.show();
+                }
+                if (ledPwrData.blinkSb == BLINK_SLOW)
+                {
+                    if (blink == true)
+                    {
+                        leds[LEDSB] = ledPwrData.sb;
+                    }
+                    else
+                    {
+                        leds[LEDSB] = CRGB ::Black;
                     }
                     FastLED.show();
                 }

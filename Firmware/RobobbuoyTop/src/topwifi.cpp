@@ -1,18 +1,20 @@
 #include <WiFi.h>
-#include <AsyncUDP.h>
+#include <WebServer.h>
 #include <ArduinoOTA.h>
-#include "datastorage.h"
+#include <AsyncUDP.h>
+#include "topwifi.h"
 #include "leds.h"
-#include "subwifi.h"
-
-static int8_t buoyId;
-AsyncUDP udp;
+#include "datastorage.h"
 static UdpData udpBuffer;
+static LedData wifiCollorUtil;
+static bool ota = false;
+static int8_t id = 0;
+static char gpsDataIn[100];
+static IPAddress ipTop;
+AsyncUDP udp;
 QueueHandle_t udpOut;
-static LedData wifiLedStatus;
-static unsigned long lastPing = millis();
-
-bool ota = false;
+static unsigned long tstart, tstop;
+static unsigned long lastPong = millis();
 
 /*
     Setup OTA
@@ -23,8 +25,8 @@ bool setup_OTA()
     char buf[30];
     byte mac[6];
     WiFi.macAddress(mac);
-    memBuoyId(&buoyId, true);
-    sprintf(ssidl, "Buoy_%03d", buoyId);
+    memBuoyId(&id, true);
+    sprintf(ssidl, "Buoy_%03d", id);
     Serial.print("SETUP OTA...");
     sprintf(buf, "%s_%02x%02x%02x%02x%02x%02x", ssidl, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     ArduinoOTA.setHostname(buf);
@@ -51,6 +53,9 @@ bool setup_OTA()
     return true;
 }
 
+/*
+    Scan for networks
+*/
 bool scan_for_wifi_ap(String ssipap, String ww)
 {
     Serial.print("scan for for ap:");
@@ -89,28 +94,67 @@ bool scan_for_wifi_ap(String ssipap, String ww)
 }
 
 /*
+    Setup accecpoint
+*/
+void setup_wifi_ap(char set, IPAddress *tmp)
+{
+    WiFi.mode(WIFI_AP);
+    Serial.println("Setting up AP now");
+    char buf[20];
+    delay(1000);
+    Serial.println("Accespoint setup");
+    IPAddress local_IP(192, 168, 4, 1); // Your Desired Static IP Address
+    IPAddress subnet(255, 255, 255, 0);
+    IPAddress gateway(192, 168, 1, 5);
+    IPAddress primaryDNS(0, 0, 0, 0);   // Not Mandatory
+    IPAddress secondaryDNS(0, 0, 0, 0); // Not Mandatory
+    memBuoyId(&id, true);
+    if (set == 0)
+    {
+        sprintf(buf, "BUOY_%d", id);
+    }
+    else if (set == 1)
+    {
+        sprintf(buf, "PAIR_ME_%d", id);
+    }
+    WiFi.softAPsetHostname("BUOY_1");
+    // WiFi.softAPsetHostname(buf);
+    WiFi.softAP("BUOY_1");
+    *tmp = WiFi.softAPIP();
+}
+
+/*
     Setup Async UDP
 */
-void setupudp(void)
+bool udp_setup(int poort)
 {
-    if (udp.listen(1001))
+    if (udp.listen(poort))
     {
-        Serial.print("UDP server na IP: ");
-        Serial.print(WiFi.localIP());
-        Serial.println(" port: 1001");
+        Serial.print("Udp port: ");
+        Serial.println(poort);
         udp.onPacket([](AsyncUDPPacket packet)
                      {
                          String myString = (const char *)packet.data();
-                         if (myString.startsWith("ping"))
+                         if (myString.startsWith("pong"))
                          {
-                            packet.printf("pong"); //
-                            wifiLedStatus.color = CRGB::DarkBlue;
-                            wifiLedStatus.blink = BLINK_FAST;
-                            xQueueSend( ledStatus, (void *)&wifiLedStatus, 10);     // update util led
-                            lastPing = millis();
+                            tstart = millis()-tstart;
+                            digitalWrite(2,!digitalRead(2));
+                            wifiCollorUtil.color = CRGB::DarkBlue;
+                            wifiCollorUtil.blink = BLINK_FAST;
+                            xQueueSend(ledUtil, (void *)&wifiCollorUtil, 10);     // update util led
+                            //printf("flight time:%d msec\r\n",tstart);
+                            lastPong = millis();
+                         }else{ 
+                            printf("%s\r\n",packet.data());
                          } });
+        return true;
     }
+    return false;
 }
+
+/*
+    init WiFi que
+*/
 bool initwifiqueue(void)
 {
     udpOut = xQueueCreate(10, sizeof(UdpMsg));
@@ -126,33 +170,35 @@ bool initwifiqueue(void)
     return true;
 }
 
-
 /*
     WiFi task
 */
 void WiFiTask(void *arg)
 {
+    pinMode(2, OUTPUT);
+    unsigned long nwUpdate = millis();
+    unsigned char numClients = 0;
     String ap = "NicE_WiFi";
     String apww = "!Ni1001100110";
     unsigned long nextSamp = millis();
-    while (scan_for_wifi_ap(ap, apww) == false)
+    if (scan_for_wifi_ap(ap, apww) == false)
     {
-        Serial.println("Try again");
-        delay(1000);
-        if (ap == "NicE_WiFi")
-        {
-            ap = "BUOY_1";
-            apww = "";
-        }
+        setup_wifi_ap(0, &ipTop);
     }
+    Serial.print("IP address: ");
+    Serial.println(ipTop);
     ota = setup_OTA();
-    setupudp();
-    udp.broadcast("Anyone here?");
-    Serial.print("WiFI task running!\r\n");
+    udp_setup(1001);
+    wifiCollorUtil.color = CRGB::Black;
+    wifiCollorUtil.blink = BLINK_OFF;
+    xQueueSend(ledStatus, (void *)&wifiCollorUtil, 10); // update util led
+    printf("WiFI task running!\r\n");
     for (;;)
     {
         if (xQueueReceive(udpOut, (void *)&udpBuffer, 0) == pdTRUE)
         {
+            xQueueSend(ledUtil, (void *)&wifiCollorUtil, 10); // update util led
+            tstart = millis();
             if (udpBuffer.port == 0)
             {
                 udp.broadcast(udpBuffer.msg);
@@ -161,23 +207,26 @@ void WiFiTask(void *arg)
             {
                 udp.broadcastTo(udpBuffer.msg, udpBuffer.port);
             }
+            // printf("ping out\n\r");
         }
-
+        if (WiFi.softAPgetStationNum() != numClients)
+        {
+            numClients = WiFi.softAPgetStationNum();
+            Serial.print("Num of Connected Clients : ");
+            Serial.println(WiFi.softAPgetStationNum());
+        }
         if (ota == true)
         {
             ArduinoOTA.handle();
         }
-        if (nextSamp < millis())
+        if (lastPong + 1000 < millis())
         {
-            nextSamp = 1000 + millis();
+            lastPong += 100000;
+            wifiCollorUtil.color = CRGB::OrangeRed;
+            wifiCollorUtil.blink = 0;
+            xQueueSend(ledUtil, (void *)&wifiCollorUtil, 10); // update util led
         }
-        if (lastPing + 1000 < millis())
-        {
-            lastPing += 100000;
-            wifiLedStatus.color = CRGB::OrangeRed;
-            wifiLedStatus.blink = 0;
-            xQueueSend(ledStatus, (void *)&wifiLedStatus, 10); // update util led
-        }
-        delay(10);
+
+        delay(100);
     }
 }

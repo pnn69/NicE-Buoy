@@ -6,11 +6,10 @@
     if Designator == 0xFF relay command with buoy ID
 */
 
-
 typedef enum
 {
-    BUOY_ID = 1,                                       //
-    POSITION,                                  //
+    BUOY_ID = 1,                                   //
+    POSITION,                                      //
     NO_POSITION,                                   //
     BATTERY_VOLTAGE,                               //
     BUOY_MODE,                                     //
@@ -68,9 +67,9 @@ typedef enum
     DOCK_STORING,
     MUTE_ESC,
     BLINK_SLOW,
-    BLINK_FAST
+    BLINK_FAST,
+    BLINK_OFF
 
 } Status_t;
-
 
 #endif /* ROBOBOBUOYMSG_H_ */
