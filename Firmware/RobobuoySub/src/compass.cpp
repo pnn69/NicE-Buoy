@@ -16,8 +16,7 @@
 #include "../../RobobuoyDependency\RobobuoyDefaults.h"
 #include "../../RobobuoyDependency\RobobuoyCalc.h"
 
-
-#define NUM_DIRECTIONS 30
+#define NUM_DIRECTIONS 20
 #define NUM_POSITIONS 50
 
 Adafruit_LSM303AGR_Mag_Unified mag = Adafruit_LSM303AGR_Mag_Unified(12345);
@@ -161,9 +160,6 @@ bool CalibrateCompass(void)
         if (lokcnt++ > 250)
         {
             lokcnt = 0;
-            // mcp.digitalWrite(MAINSSWITCH_LEDGREEN_GPB, lokon);
-            lokon = !lokon;
-            // mcp.digitalWrite(MAINSSWITCH_LEDRED_GPB, lokon);
             Serial.printf("Calllibration factors Compass: MaxXYZ: {%f, %f, %f}; MinXYZ {%f, %f, %f};\r\n", max_mag[0], max_mag[1], max_mag[2], min_mag[0], min_mag[1], min_mag[2]);
         }
     }
@@ -172,10 +168,6 @@ bool CalibrateCompass(void)
     m_max = (vector<float>){max_mag[0], max_mag[1], max_mag[2]};
     Serial.printf("New callibration stored!!!\n\r");
     Serial.printf("Calllibration factors Compass: MaxXYZ: {%f, %f, %f}; MinXYZ {%f, %f, %f};\r\n", max_mag[0], max_mag[1], max_mag[2], min_mag[0], min_mag[1], min_mag[2]);
-    // make with ledindicators
-    //     mcp.digitalWrite(MAINSSWITCH_LEDGREEN_GPB, 1);
-    //     mcp.digitalWrite(MAINSSWITCH_LEDRED_GPB, 0);
-
     return 0;
 }
 
@@ -239,6 +231,31 @@ float CompassAverage(float in)
         avg_dir -= 360;
     }
     return avg_dir;
+}
+
+float GetHeadingAvg(void)
+{
+    return CompassAverage(GetHeading());
+}
+
+void calibrateMagneticNorth(void)
+{
+    for (int t = 0; t < 35; t++)
+    {
+        CompassAverage(GetHeadingRaw());
+    }
+    float h = CompassAverage(GetHeadingRaw());
+    // float h = GetHeadingRaw();
+    if (h < 180)
+    {
+        magneticCorrection = -h;
+    }
+    else
+    {
+        magneticCorrection = 360 - h;
+    }
+    CompassOffsetCorrection(&magneticCorrection, false);
+    printf("New magnetic offset stored: %d\r\n", magneticCorrection);
 }
 
 void GpsAverage(double *lat, double *lon)

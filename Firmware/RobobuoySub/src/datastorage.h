@@ -12,6 +12,7 @@ void MechanicalCorrection(int *delta, bool get);
 void computeParameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int *maxSpeed, bool get);
 void pidSpeedParameters(double *p, double *i, double *d, bool get);
 void pidRudderParameters(double *p, double *i, double *d, bool get);
+void apParameters(String *ap, String *ww, bool get);
 
 
 

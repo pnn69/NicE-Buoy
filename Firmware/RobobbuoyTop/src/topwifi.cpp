@@ -5,14 +5,20 @@
 #include "topwifi.h"
 #include "leds.h"
 #include "datastorage.h"
+#include "buzzer.h"
+#include "crc.h"
+
 static UdpData udpBuffer;
+static UdpData udpBufferRecieved;
 static LedData wifiCollorUtil;
+static Buzz wifiBuzzerData;
 static bool ota = false;
 static int8_t id = 0;
 static char gpsDataIn[100];
 static IPAddress ipTop;
 AsyncUDP udp;
 QueueHandle_t udpOut;
+QueueHandle_t udpIn;
 static unsigned long tstart, tstop;
 static unsigned long lastPong = millis();
 
@@ -25,10 +31,8 @@ bool setup_OTA()
     char buf[30];
     byte mac[6];
     WiFi.macAddress(mac);
-    memBuoyId(&id, true);
-    sprintf(ssidl, "Buoy_%03d", id);
     Serial.print("SETUP OTA...");
-    sprintf(buf, "%s_%02x%02x%02x%02x%02x%02x", ssidl, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    sprintf(buf, "Buoy_%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     ArduinoOTA.setHostname(buf);
     ArduinoOTA.onStart([]()
                        {
@@ -56,7 +60,7 @@ bool setup_OTA()
 /*
     Scan for networks
 */
-bool scan_for_wifi_ap(String ssipap, String ww)
+bool scan_for_wifi_ap(String ssipap, String ww, IPAddress *tmp)
 {
     Serial.print("scan for for ap:");
     Serial.println(ssipap);
@@ -84,8 +88,7 @@ bool scan_for_wifi_ap(String ssipap, String ww)
                 Serial.print(".\r\n");
                 Serial.print("Loggend in to SSIS: ");
                 Serial.println(ssipap);
-                Serial.print("IP address: ");
-                Serial.println(WiFi.localIP());
+                *tmp = (WiFi.localIP());
                 return true;
             }
         }
@@ -96,33 +99,40 @@ bool scan_for_wifi_ap(String ssipap, String ww)
 /*
     Setup accecpoint
 */
-void setup_wifi_ap(char set, IPAddress *tmp)
+void setup_wifi_ap(String ap, String ww, IPAddress *tmp)
 {
-    WiFi.mode(WIFI_AP);
-    Serial.println("Setting up AP now");
-    char buf[20];
-    delay(1000);
-    Serial.println("Accespoint setup");
-    IPAddress local_IP(192, 168, 4, 1); // Your Desired Static IP Address
-    IPAddress subnet(255, 255, 255, 0);
-    IPAddress gateway(192, 168, 1, 5);
-    IPAddress primaryDNS(0, 0, 0, 0);   // Not Mandatory
-    IPAddress secondaryDNS(0, 0, 0, 0); // Not Mandatory
-    memBuoyId(&id, true);
-    if (set == 0)
-    {
-        sprintf(buf, "BUOY_%d", id);
-    }
-    else if (set == 1)
-    {
-        sprintf(buf, "PAIR_ME_%d", id);
-    }
-    WiFi.softAPsetHostname("BUOY_1");
-    // WiFi.softAPsetHostname(buf);
-    WiFi.softAP("BUOY_1");
-    *tmp = WiFi.softAPIP();
-}
+    WiFi.mode(WIFI_AP); // Set Wi-Fi mode to Access Point
+    Serial.println("Setting up access point now");
 
+    // Configure static IP
+    IPAddress local_IP(192, 168, 4, 1); // Desired static IP address
+    IPAddress subnet(255, 255, 255, 0); // Subnet mask
+    IPAddress gateway(192, 168, 1, 5);  // Gateway address
+    IPAddress primaryDNS(0, 0, 0, 0);   // Primary DNS (optional)
+    IPAddress secondaryDNS(0, 0, 0, 0); // Secondary DNS (optional)
+
+    // Set the static IP address if possible
+    if (!WiFi.softAPConfig(local_IP, gateway, subnet))
+    {
+        Serial.println("Failed to configure static IP for AP");
+    }
+
+    // Start the access point with the given SSID and password
+    if (WiFi.softAP(ap.c_str(), ww.c_str()))
+    {
+        Serial.print("AP SSID: ");
+        Serial.println(ap);
+
+        // Get the AP's IP address and store it in the pointer tmp
+        *tmp = WiFi.softAPIP();
+        Serial.print("AP IP address: ");
+        Serial.println(*tmp);
+    }
+    else
+    {
+        Serial.println("Failed to start access point");
+    }
+}
 /*
     Setup Async UDP
 */
@@ -138,14 +148,24 @@ bool udp_setup(int poort)
                          if (myString.startsWith("pong"))
                          {
                             tstart = millis()-tstart;
-                            digitalWrite(2,!digitalRead(2));
                             wifiCollorUtil.color = CRGB::DarkBlue;
                             wifiCollorUtil.blink = BLINK_FAST;
                             xQueueSend(ledUtil, (void *)&wifiCollorUtil, 10);     // update util led
-                            //printf("flight time:%d msec\r\n",tstart);
+                            wifiBuzzerData.hz = 1000;
+                            wifiBuzzerData.repeat = 0;
+                            wifiBuzzerData.pause = 0;
+                            wifiBuzzerData.duration = 5;
+                            //xQueueSend(buzzer, (void *)&wifiBuzzerData, 10); // update util led
                             lastPong = millis();
                          }else{ 
-                            printf("%s\r\n",packet.data());
+                            strncpy(udpBufferRecieved.msg, myString.c_str(), sizeof(udpBufferRecieved.msg) - 1);
+                            udpBufferRecieved.msg[sizeof(udpBufferRecieved.msg) - 1] = '\0';  // Ensure null termination
+                            if(verifyCRC(String(udpBufferRecieved.msg))){
+                                xQueueSend(udpIn, (void *)&udpBufferRecieved, 10); // update util led
+                            }else{
+                                Serial.println("crc error");
+                            }
+                            //send data to main
                          } });
         return true;
     }
@@ -167,6 +187,17 @@ bool initwifiqueue(void)
     {
         printf("Queue udpOut created.\r\n");
     }
+    udpIn = xQueueCreate(10, sizeof(UdpMsg));
+    if (udpIn == NULL)
+    {
+        printf("Queue udpIn could not be created. %p\\r\n", udpIn);
+        return false;
+    }
+    else
+    {
+        printf("Queue udpOut created.\r\n");
+    }
+
     return true;
 }
 
@@ -175,15 +206,33 @@ bool initwifiqueue(void)
 */
 void WiFiTask(void *arg)
 {
-    pinMode(2, OUTPUT);
+    int wifiConfig = *((int *)arg);
     unsigned long nwUpdate = millis();
     unsigned char numClients = 0;
-    String ap = "NicE_WiFi";
-    String apww = "!Ni1001100110";
+    String ap = "";
+    String apww = "";
+    byte mac[6];
+    char macStr[20];
+    WiFi.macAddress(mac);
+    sprintf(macStr, "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     unsigned long nextSamp = millis();
-    if (scan_for_wifi_ap(ap, apww) == false)
+    if (wifiConfig == 1)
     {
-        setup_wifi_ap(0, &ipTop);
+        ap = "PAIR_ME_";
+        ap += macStr;
+        setup_wifi_ap(ap, apww, &ipTop);
+    }
+    else
+    {
+        ap = "NicE_WiFi";
+        apww = "!Ni1001100110";
+        if (scan_for_wifi_ap(ap, apww, &ipTop) == false)
+        {
+            ap = "BUOY_";
+            ap += macStr;
+            apww = "";
+            setup_wifi_ap(ap, apww, &ipTop);
+        }
     }
     Serial.print("IP address: ");
     Serial.println(ipTop);
@@ -197,7 +246,6 @@ void WiFiTask(void *arg)
     {
         if (xQueueReceive(udpOut, (void *)&udpBuffer, 0) == pdTRUE)
         {
-            xQueueSend(ledUtil, (void *)&wifiCollorUtil, 10); // update util led
             tstart = millis();
             if (udpBuffer.port == 0)
             {
@@ -207,13 +255,17 @@ void WiFiTask(void *arg)
             {
                 udp.broadcastTo(udpBuffer.msg, udpBuffer.port);
             }
-            // printf("ping out\n\r");
         }
         if (WiFi.softAPgetStationNum() != numClients)
         {
             numClients = WiFi.softAPgetStationNum();
-            Serial.print("Num of Connected Clients : ");
-            Serial.println(WiFi.softAPgetStationNum());
+            Serial.print("You found me!\r\n");
+            if (ap.indexOf("PAIR_ME_") != -1)
+            {
+                Serial.println("Rebooting in 5 seconds");
+                delay(5000);
+                esp_restart();
+            }
         }
         if (ota == true)
         {

@@ -221,3 +221,19 @@ void pidRudderParameters(double *p, double *i, double *d, bool get)
     }
     stopMem();
 }
+
+void apParameters(String *ap, String *ww, bool get)
+{
+    startMem();
+    if (get)
+    {
+        *ap = storage.getString("ap", "PAIR_ME_");
+        *ww = storage.getString("ww", "");
+    }
+    else
+    {
+        storage.putString("ap", *ap);
+        storage.putString("ww", *ww);
+    }
+    stopMem();
+}
