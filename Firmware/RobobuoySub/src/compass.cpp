@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include <RoboCalc.h>
 #include "main.h"
 // #include <Adafruit_Sensor.h>
 #include <Adafruit_LSM303AGR_Mag.h>
@@ -14,7 +15,6 @@
 #include "../../RobobuoyDependency\RobobuoyVersion.h"
 #include "../../RobobuoyDependency\RobobuoyMsg.h"
 #include "../../RobobuoyDependency\RobobuoyDefaults.h"
-#include "../../RobobuoyDependency\RobobuoyCalc.h"
 
 #define NUM_DIRECTIONS 20
 #define NUM_POSITIONS 50

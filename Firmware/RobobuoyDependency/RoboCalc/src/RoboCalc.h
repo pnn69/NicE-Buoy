@@ -1,8 +1,9 @@
-#ifndef CRC_H_
-#define CRC_H_
+#ifndef ROBOCALC_H
+#define ROBOCALC_H
 #include <Arduino.h>
 
 String addCRCToString(String input);
 bool verifyCRC(String input);
 
-#endif /* CRC_H_ */
+
+#endif

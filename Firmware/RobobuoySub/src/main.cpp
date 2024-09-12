@@ -52,6 +52,64 @@ int countKeyPressesWithTimeout()
     return -1;                     // Return -1 if 0.5 seconds haven't passed yet
 }
 
+void calibrateNorthCompas(void)
+{
+    mainBuzzerData.hz = 1000;
+    mainBuzzerData.repeat = 5;
+    mainBuzzerData.pause = 50;
+    mainBuzzerData.duration = 100;
+    xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update util led
+    mainPwrData.bb = CRGB::Orange;
+    mainPwrData.sb = CRGB::Orange;
+    mainPwrData.blinkBb = BLINK_FAST;
+    mainPwrData.blinkSb = BLINK_FAST;
+    xQueueSend(ledPwr, (void *)&mainPwrData, 10); // update util led
+    delay(1000);
+    calibrateMagneticNorth();
+    mainPwrData.bb = CRGB::Black;
+    mainPwrData.sb = CRGB::Black;
+    mainPwrData.blinkBb = BLINK_OFF;
+    mainPwrData.blinkSb = BLINK_OFF;
+    xQueueSend(ledPwr, (void *)&mainPwrData, 10); // update util led
+    mainBuzzerData.hz = 1000;
+    mainBuzzerData.repeat = 5;
+    mainBuzzerData.pause = 50;
+    mainBuzzerData.duration = 100;
+    xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update util led
+}
+
+void calibrateParametersCompas(void)
+{
+    mainLedStatus.color = CRGB::DarkBlue;
+    mainPwrData.bb = CRGB::DarkBlue;
+    mainPwrData.sb = CRGB::DarkBlue;
+    mainLedStatus.blink = BLINK_FAST;
+    mainPwrData.blinkBb = BLINK_FAST;
+    mainPwrData.blinkSb = BLINK_FAST;
+    xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
+    xQueueSend(ledPwr, (void *)&mainPwrData, 10);      // update util led
+    mainBuzzerData.hz = 1000;
+    mainBuzzerData.repeat = 10;
+    mainBuzzerData.pause = 50;
+    mainBuzzerData.duration = 100;
+    xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update util led
+    delay(1000);
+    CalibrateCompass();
+    mainBuzzerData.hz = 1000;
+    mainBuzzerData.repeat = 10;
+    mainBuzzerData.pause = 50;
+    mainBuzzerData.duration = 100;
+    xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update util led
+    mainLedStatus.color = CRGB::Black;
+    mainPwrData.bb = CRGB::Black;
+    mainPwrData.sb = CRGB::Black;
+    mainLedStatus.blink = BLINK_OFF;
+    mainPwrData.blinkBb = BLINK_OFF;
+    mainPwrData.blinkSb = BLINK_OFF;
+    xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
+    xQueueSend(ledPwr, (void *)&mainPwrData, 10);      // update util led
+}
+
 void setup()
 {
     Serial.begin(115200);
@@ -106,68 +164,14 @@ void loop(void)
         {
             Serial.print("Number of key presses: ");
             Serial.println(presses);
-            /*
-                5 button clicks Calibrate north
-            */
             if (presses == 5) // Calibrate compas
             {
-                mainBuzzerData.hz = 1000;
-                mainBuzzerData.repeat = 5;
-                mainBuzzerData.pause = 50;
-                mainBuzzerData.duration = 100;
-                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update util led
-                mainPwrData.bb = CRGB::Orange;
-                mainPwrData.sb = CRGB::Orange;
-                mainPwrData.blinkBb = BLINK_FAST;
-                mainPwrData.blinkSb = BLINK_FAST;
-                xQueueSend(ledPwr, (void *)&mainPwrData, 10); // update util led
-                delay(1000);
-                calibrateMagneticNorth();
-                mainPwrData.bb = CRGB::Black;
-                mainPwrData.sb = CRGB::Black;
-                mainPwrData.blinkBb = BLINK_OFF;
-                mainPwrData.blinkSb = BLINK_OFF;
-                xQueueSend(ledPwr, (void *)&mainPwrData, 10); // update util led
-                mainBuzzerData.hz = 1000;
-                mainBuzzerData.repeat = 5;
-                mainBuzzerData.pause = 50;
-                mainBuzzerData.duration = 100;
-                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update util led
+                calibrateNorthCompas();
                 presses = -1;
             }
-            /*
-                10 button clicks Calibrate compas
-            */
             if (presses == 10) // Calibrate compas
             {
-                mainLedStatus.color = CRGB::DarkBlue;
-                mainPwrData.bb = CRGB::DarkBlue;
-                mainPwrData.sb = CRGB::DarkBlue;
-                mainLedStatus.blink = BLINK_FAST;
-                mainPwrData.blinkBb = BLINK_FAST;
-                mainPwrData.blinkSb = BLINK_FAST;
-                xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
-                xQueueSend(ledPwr, (void *)&mainPwrData, 10);      // update util led
-                mainBuzzerData.hz = 1000;
-                mainBuzzerData.repeat = 10;
-                mainBuzzerData.pause = 50;
-                mainBuzzerData.duration = 100;
-                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update util led
-                delay(1000);
-                CalibrateCompass();
-                mainBuzzerData.hz = 1000;
-                mainBuzzerData.repeat = 10;
-                mainBuzzerData.pause = 50;
-                mainBuzzerData.duration = 100;
-                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update util led
-                mainLedStatus.color = CRGB::Black;
-                mainPwrData.bb = CRGB::Black;
-                mainPwrData.sb = CRGB::Black;
-                mainLedStatus.blink = BLINK_OFF;
-                mainPwrData.blinkBb = BLINK_OFF;
-                mainPwrData.blinkSb = BLINK_OFF;
-                xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
-                xQueueSend(ledPwr, (void *)&mainPwrData, 10);      // update util led
+                calibrateParametersCompas();
                 presses = -1;
             }
             if (presses != -1)

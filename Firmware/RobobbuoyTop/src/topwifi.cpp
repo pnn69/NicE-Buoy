@@ -2,12 +2,14 @@
 #include <WebServer.h>
 #include <ArduinoOTA.h>
 #include <AsyncUDP.h>
+#include <RoboCalc.h>
+#include "main.h"
 #include "topwifi.h"
 #include "leds.h"
 #include "datastorage.h"
 #include "buzzer.h"
-#include "crc.h"
 
+static int statik = IDLE;
 static UdpData udpBuffer;
 static UdpData udpBufferRecieved;
 static LedData wifiCollorUtil;
@@ -177,7 +179,7 @@ bool udp_setup(int poort)
 */
 bool initwifiqueue(void)
 {
-    udpOut = xQueueCreate(10, sizeof(UdpMsg));
+    udpOut = xQueueCreate(10, sizeof(UdpData));
     if (udpOut == NULL)
     {
         printf("Queue udpOut could not be created. %p\\r\n", udpOut);
@@ -187,7 +189,7 @@ bool initwifiqueue(void)
     {
         printf("Queue udpOut created.\r\n");
     }
-    udpIn = xQueueCreate(10, sizeof(UdpMsg));
+    udpIn = xQueueCreate(10, sizeof(UdpData));
     if (udpIn == NULL)
     {
         printf("Queue udpIn could not be created. %p\\r\n", udpIn);

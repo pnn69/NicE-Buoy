@@ -1,5 +1,0 @@
-#ifndef ROBOBOBUOYCALC_H_
-#define ROBOBOBUOYCALC_H_
-
-
-#endif /* ROBOBOBUOYCALC_H_ */

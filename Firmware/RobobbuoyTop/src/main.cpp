@@ -1,8 +1,5 @@
 #include <Arduino.h>
-#include "../../RobobuoyDependency\RobobuoyVersion.h"
-#include "../../RobobuoyDependency\RobobuoyMsg.h"
-#include "../../RobobuoyDependency\RobobuoyDefaults.h"
-#include "../../RobobuoyDependency\RobobuoyCalc.h"
+#include "main.h"
 #include "io_top.h"
 #include "robolora.h"
 #include "leds.h"

@@ -1,10 +1,10 @@
 #include <WiFi.h>
 #include <AsyncUDP.h>
 #include <ArduinoOTA.h>
+#include <RoboCalc.h>
 #include "datastorage.h"
 #include "leds.h"
 #include "subwifi.h"
-#include "crc.h"
 
 static int8_t buoyId;
 AsyncUDP udp;

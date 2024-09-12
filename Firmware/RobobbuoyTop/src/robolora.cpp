@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <LoRa.h>
+#include "main.h"
 #include "io_top.h"
 #include "robolora.h"
 #include "../../RobobuoyDependency\RobobuoyDefaults.h"
