@@ -5291,6 +5291,16 @@
 		)
 		(uuid "fe64e556-45d8-4a42-8c25-f89e00d568b5")
 	)
+	(text "https://www.ti.com/product/TPS63020\nWL9005S5-33\nTPS63020DSJR\nC15483\n"
+		(exclude_from_sim no)
+		(at 143.764 140.716 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "01df1068-c1de-493b-bd1c-b92bf3882899")
+	)
 	(text "Ichrg = 780mA"
 		(exclude_from_sim no)
 		(at 93.726 65.278 90)

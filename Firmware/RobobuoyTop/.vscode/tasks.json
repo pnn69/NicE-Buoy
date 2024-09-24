@@ -1,0 +1,30 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Debug RobobuoySub",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "${workspaceFolder:RobobuoySub}/bin/RobobuoySub",
+        "args": [],
+        "stopAtEntry": false,
+        "cwd": "${workspaceFolder:RobobuoySub}",
+        "MIMode": "gdb",
+        "miDebuggerPath": "/usr/bin/gdb",
+        "preLaunchTask": "build RobobuoySub"
+      },
+      {
+        "name": "Debug RobobbuoyTop",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "${workspaceFolder:RobobbuoyTop}/bin/RobobbuoyTop",
+        "args": [],
+        "stopAtEntry": false,
+        "cwd": "${workspaceFolder:RobobbuoyTop}",
+        "MIMode": "gdb",
+        "miDebuggerPath": "/usr/bin/gdb",
+        "preLaunchTask": "build RobobbuoyTop"
+      }
+    ]
+  }
+  

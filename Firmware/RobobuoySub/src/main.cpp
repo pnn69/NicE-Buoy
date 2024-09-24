@@ -188,7 +188,7 @@ void loop(void)
             nextSamp = 250 + millis();
             if (udpOut != NULL && uxQueueSpacesAvailable(udpOut) > 0)
             {
-                sprintf(mainUdpOutMsg.msg, "$HDG,%05.1f*", hdg);
+                sprintf(mainUdpOutMsg.msg, "$HDM,%05.1f*", hdg);
                 mainUdpOutMsg.port = 1001;
                 xQueueSend(udpOut, (void *)&mainUdpOutMsg, 10); // update WiFi
             }
