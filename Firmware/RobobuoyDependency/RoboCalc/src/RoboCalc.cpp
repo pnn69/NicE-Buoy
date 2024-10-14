@@ -3,17 +3,17 @@
 // Subroutine to add CRC to a string (similar to NMEA format)
 String addCRCToString(String input)
 {
-    // Find where the checksum starts (between '$' and '*')
-    int start = input.indexOf('$');
-    int end = input.indexOf('*');
+    // Find where the checksum starts (between '├' and '┤')
+    int start = input.indexOf('├');
+    int end = input.indexOf('┤');
 
-    // If there's no '$' or '*' in the string, return as is
+    // If there's no '├' or '┤' in the string, return as is
     if (start == -1 || end == -1 || end <= start)
     {
         return input; // Invalid format, return original string
     }
 
-    // Calculate the checksum (XOR of all characters between '$' and '*')
+    // Calculate the checksum (XOR of all characters between '├' and '┤')
     byte crc = 0;
     for (int i = start + 1; i < end; i++)
     {
@@ -33,24 +33,24 @@ String addCRCToString(String input)
 // Subroutine to check if the checksum in the string is valid
 bool verifyCRC(String input)
 {
-    // Find where the checksum starts (between '$' and '*')
-    int start = input.indexOf('$');
-    int end = input.indexOf('*');
+    // Find where the checksum starts (between '├' and '┤')
+    int start = input.indexOf('├');
+    int end = input.indexOf('┤');
 
-    // If the string doesn't contain '$' or '*', it's invalid
+    // If the string doesn't contain '├' or '┤', it's invalid
     if (start == -1 || end == -1 || end <= start || end + 2 >= input.length())
     {
         return false; // Invalid format
     }
 
-    // Calculate the checksum (XOR of all characters between '$' and '*')
+    // Calculate the checksum (XOR of all characters between '├' and '┤')
     byte calculatedCRC = 0;
     for (int i = start + 1; i < end; i++)
     {
         calculatedCRC ^= input[i]; // XOR operation for each character
     }
 
-    // Extract the given checksum from the string (the part after the '*')
+    // Extract the given checksum from the string (the part after the '┤')
     String givenCRC = input.substring(end + 1, end + 3);
 
     // Convert calculated CRC to a hexadecimal string

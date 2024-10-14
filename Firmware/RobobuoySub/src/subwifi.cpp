@@ -2,9 +2,11 @@
 #include <AsyncUDP.h>
 #include <ArduinoOTA.h>
 #include <RoboCalc.h>
+#include "main.h"
 #include "datastorage.h"
 #include "leds.h"
 #include "subwifi.h"
+#include "RoboCodeDecode.h"
 
 static int8_t buoyId;
 AsyncUDP udp;
@@ -111,17 +113,23 @@ void setupudp(void)
         Serial.println(" port: 1001");
         udp.onPacket([](AsyncUDPPacket packet)
                      {
-                         String myString = (const char *)packet.data();
-                         if (myString.startsWith("ping"))
+                         String stringUdp = (const char *)packet.data();
+                         if (stringUdp.startsWith("ping"))
                          {
-                            packet.printf("pong"); //
-                            wifiLedStatus.color = CRGB::DarkBlue;
-                            wifiLedStatus.blink = BLINK_FAST;
-                            xQueueSend( ledStatus, (void *)&wifiLedStatus, 10);     // update util led
-                            lastPing = millis();
-                         } });
+                             packet.printf("pong"); //
+                             wifiLedStatus.color = CRGB::DarkBlue;
+                             wifiLedStatus.blink = BLINK_FAST;
+                             xQueueSend(ledStatus, (void *)&wifiLedStatus, 10); // update util led
+                             lastPing = millis();
+                         }
+                         else
+                         {
+                            RoboDecode(stringUdp,roboData);
+                         }
+                     });
     }
 }
+
 bool initwifiqueue(void)
 {
     udpOut = xQueueCreate(10, sizeof(UdpMsg));
@@ -201,11 +209,16 @@ void WiFiTask(void *arg)
     setupudp();
     udp.broadcast("Anyone here?");
     Serial.print("WiFI task running!\r\n");
+    /*
+        WiFi main loop
+    */
     for (;;)
     {
         if (xQueueReceive(udpOut, (void *)&udpBuffer, 0) == pdTRUE)
         {
-            String out = addCRCToString(String(udpBuffer.msg));
+
+            String out = RoboCode(roboData, udpBuffer.msg);
+            addCRCToString(String(out));
             if (udpBuffer.port == 0)
             {
                 udp.broadcast(out.c_str());

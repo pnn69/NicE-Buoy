@@ -3,6 +3,7 @@
 #include <ArduinoOTA.h>
 #include <AsyncUDP.h>
 #include <RoboCalc.h>
+#include <RoboCodeDecode.h>
 #include "main.h"
 #include "topwifi.h"
 #include "leds.h"
@@ -10,6 +11,7 @@
 #include "buzzer.h"
 
 static int statik = IDLE;
+static RoboStruct msgIdOut;
 static UdpData udpBuffer;
 static UdpData udpBufferRecieved;
 static LedData wifiCollorUtil;
@@ -146,29 +148,31 @@ bool udp_setup(int poort)
         Serial.println(poort);
         udp.onPacket([](AsyncUDPPacket packet)
                      {
-                         String myString = (const char *)packet.data();
-                         if (myString.startsWith("pong"))
+                         String stringUdpIn = (const char *)packet.data();
+                         //  strncpy(udpBufferRecieved.msg, stringUdpIn.c_str(), sizeof(udpBufferRecieved.msg) - 1);
+                         //  udpBufferRecieved.msg[sizeof(udpBufferRecieved.msg) - 1] = '\0'; // Ensure null termination
+                         //  if (verifyCRC(String(udpBufferRecieved.msg)))
+                         Serial.print("New incomming UPD message: ");
+                         Serial.println(stringUdpIn);
+                         if (verifyCRC(stringUdpIn))
                          {
-                            tstart = millis()-tstart;
-                            wifiCollorUtil.color = CRGB::DarkBlue;
-                            wifiCollorUtil.blink = BLINK_FAST;
-                            xQueueSend(ledUtil, (void *)&wifiCollorUtil, 10);     // update util led
-                            wifiBuzzerData.hz = 1000;
-                            wifiBuzzerData.repeat = 0;
-                            wifiBuzzerData.pause = 0;
-                            wifiBuzzerData.duration = 5;
-                            //xQueueSend(buzzer, (void *)&wifiBuzzerData, 10); // update util led
-                            lastPong = millis();
-                         }else{ 
-                            strncpy(udpBufferRecieved.msg, myString.c_str(), sizeof(udpBufferRecieved.msg) - 1);
-                            udpBufferRecieved.msg[sizeof(udpBufferRecieved.msg) - 1] = '\0';  // Ensure null termination
-                            if(verifyCRC(String(udpBufferRecieved.msg))){
-                                xQueueSend(udpIn, (void *)&udpBufferRecieved, 10); // update util led
-                            }else{
-                                Serial.println("crc error");
-                            }
-                            //send data to main
-                         } });
+                             int msg = RoboDecode(stringUdpIn, roboData);
+                             xQueueSend(udpIn, (void *)&msg, 10); // notify main there is new data
+                             if (msg == PONG)
+                             {
+                                 tstart = millis() - tstart;
+                                 wifiCollorUtil.color = CRGB::DarkBlue;
+                                 wifiCollorUtil.blink = BLINK_FAST;
+                                 xQueueSend(ledUtil, (void *)&wifiCollorUtil, 10); // update util led
+                                 lastPong = millis();
+                             }
+                         }
+                         else
+                         {
+                             Serial.println("crc error");
+                         }
+                         // send data to main
+                     });
         return true;
     }
     return false;
@@ -179,7 +183,7 @@ bool udp_setup(int poort)
 */
 bool initwifiqueue(void)
 {
-    udpOut = xQueueCreate(10, sizeof(UdpData));
+    udpOut = xQueueCreate(10, sizeof(RoboStruct));
     if (udpOut == NULL)
     {
         printf("Queue udpOut could not be created. %p\\r\n", udpOut);
@@ -189,7 +193,7 @@ bool initwifiqueue(void)
     {
         printf("Queue udpOut created.\r\n");
     }
-    udpIn = xQueueCreate(10, sizeof(UdpData));
+    udpIn = xQueueCreate(10, sizeof(int));
     if (udpIn == NULL)
     {
         printf("Queue udpIn could not be created. %p\\r\n", udpIn);
@@ -224,7 +228,7 @@ void WiFiTask(void *arg)
         ap += macStr;
         setup_wifi_ap(ap, apww, &ipTop);
     }
-    else
+    else // try to find accespoint NicE_WiFi. If no succes make a accecpoint BUOY_[MAC]
     {
         ap = "NicE_WiFi";
         apww = "!Ni1001100110";
@@ -244,25 +248,16 @@ void WiFiTask(void *arg)
     wifiCollorUtil.blink = BLINK_OFF;
     xQueueSend(ledStatus, (void *)&wifiCollorUtil, 10); // update util led
     printf("WiFI task running!\r\n");
+    /*
+        WiFI loop
+    */
     for (;;)
     {
-        if (xQueueReceive(udpOut, (void *)&udpBuffer, 0) == pdTRUE)
-        {
-            tstart = millis();
-            if (udpBuffer.port == 0)
-            {
-                udp.broadcast(udpBuffer.msg);
-            }
-            else
-            {
-                udp.broadcastTo(udpBuffer.msg, udpBuffer.port);
-            }
-        }
         if (WiFi.softAPgetStationNum() != numClients)
         {
             numClients = WiFi.softAPgetStationNum();
             Serial.print("You found me!\r\n");
-            if (ap.indexOf("PAIR_ME_") != -1)
+            if (ap.indexOf("PAIR_ME_") != -1) // reboot if in pairing mode only
             {
                 Serial.println("Rebooting in 5 seconds");
                 delay(5000);
@@ -273,6 +268,14 @@ void WiFiTask(void *arg)
         {
             ArduinoOTA.handle();
         }
+
+        if (xQueueReceive(udpOut, (void *)&msgIdOut, 0) == pdTRUE)
+        {
+            tstart = millis();
+            String out = RoboCode(msgIdOut);
+            addCRCToString(String(out));
+            udp.broadcast(out.c_str());
+        }
         if (lastPong + 1000 < millis())
         {
             lastPong += 100000;
@@ -280,7 +283,6 @@ void WiFiTask(void *arg)
             wifiCollorUtil.blink = 0;
             xQueueSend(ledUtil, (void *)&wifiCollorUtil, 10); // update util led
         }
-
         delay(100);
     }
 }

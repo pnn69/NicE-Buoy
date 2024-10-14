@@ -8,6 +8,8 @@
 #include "datastorage.h"
 #include "buzzer.h"
 
+RoboStruct roboData;
+static RoboStruct mainData;
 static LedData mainCollorStatus;
 static LedData mainCollorUtil;
 static LedData mainCollorGps;
@@ -17,6 +19,7 @@ static Buzz mainBuzzerData;
 static GpsDataType gpsStatus;
 static int wifiConfig = 0;
 int8_t buoyId;
+static int msg;
 unsigned long udpTimer = millis();
 
 int buttonState = 0;              // Current state of the button
@@ -82,7 +85,7 @@ void setup()
         delay(100);
         if (digitalRead(BUTTON_PIN) == true)
         {
-            wifiConfig = 1;
+            wifiConfig = 1; // put in to pair mode
         }
     }
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
@@ -99,10 +102,6 @@ void loop(void)
     mainBuzzerData.pause = 0;
     mainBuzzerData.duration = 100;
     xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update util led
-
-    sprintf(mainUdpOutMsg.msg, "Hello world");
-    mainUdpOutMsg.port = 0;
-    xQueueSend(udpOut, (void *)&mainUdpOutMsg, 10); // update WiFi
     while (true)
     {
         // Call the function to check for key presses with timeout
@@ -119,9 +118,8 @@ void loop(void)
             udpTimer = millis() + 500;
             if (udpOut != NULL && uxQueueSpacesAvailable(udpOut) > 0)
             {
-                sprintf(mainUdpOutMsg.msg, "ping");
-                mainUdpOutMsg.port = 1001;
-                xQueueSend(udpOut, (void *)&mainUdpOutMsg, 20); // update WiFi
+                roboData.cmd = PING;
+                xQueueSend(udpOut, (void *)&roboData, 20); // update WiFi
             }
             else
             {
@@ -131,9 +129,14 @@ void loop(void)
         if (xQueueReceive(gpsQue, (void *)&gpsStatus, 0) == pdTRUE) // New gps data
         {
         }
-        if (xQueueReceive(udpIn, (void *)&mainUdpIn, 0) == pdTRUE)
+        if (xQueueReceive(udpIn, (void *)&msg, 0) == pdTRUE)
         {
-            Serial.println(mainUdpIn.msg);
+            Serial.println(String(msg));
+            roboData.accuV = mainData.accuV;
+            roboData.accuP = mainData.accuP;
+            roboData.dirMag = mainData.dirMag;
+            roboData.speedSb = mainData.speedSb;
+            roboData.speedBb = mainData.speedBb;
         }
     }
     delay(1);

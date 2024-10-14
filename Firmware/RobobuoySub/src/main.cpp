@@ -8,6 +8,8 @@
 #include "esc.h"
 #include "compass.h"
 #include "buzzer.h"
+
+RoboStruct roboData;
 static int8_t buoyId;
 #define HOST_NAME "RoboBuoySub"
 static UdpData mainUdpOutMsg;
@@ -141,7 +143,6 @@ void setup()
     }
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 2, NULL, 0);
 }
-float hdg = 0;
 void loop(void)
 {
     unsigned long nextSamp = millis();
@@ -154,9 +155,12 @@ void loop(void)
     mainBuzzerData.duration = 100;
     xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update util led
 
+    /*
+        Main loop
+    */
     while (true)
     {
-        hdg = GetHeadingAvg();
+        roboData.dirMag = (int)GetHeadingAvg();
         // Call the function to check for key presses with timeout
         int presses = countKeyPressesWithTimeout();
         // If the function returns a valid number of key presses, print it
@@ -164,7 +168,7 @@ void loop(void)
         {
             Serial.print("Number of key presses: ");
             Serial.println(presses);
-            if (presses == 5) // Calibrate compas
+            if (presses == 5) // Calibrate compas north
             {
                 calibrateNorthCompas();
                 presses = -1;
@@ -176,11 +180,21 @@ void loop(void)
             }
             if (presses != -1)
             {
+                mainBuzzerData.hz = 1500;
+                mainBuzzerData.repeat = 0;
+                mainBuzzerData.pause = 0;
+                mainBuzzerData.duration = 1000;
+                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
+                mainBuzzerData.hz = 1000;
+                mainBuzzerData.repeat = 0;
+                mainBuzzerData.pause = 0;
+                mainBuzzerData.duration = 1000;
+                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
                 mainBuzzerData.hz = 500;
                 mainBuzzerData.repeat = 0;
                 mainBuzzerData.pause = 0;
                 mainBuzzerData.duration = 1000;
-                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update util led
+                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
             }
         }
         if (nextSamp < millis())
@@ -188,11 +202,11 @@ void loop(void)
             nextSamp = 250 + millis();
             if (udpOut != NULL && uxQueueSpacesAvailable(udpOut) > 0)
             {
-                sprintf(mainUdpOutMsg.msg, "$HDM,%05.1f*", hdg);
+                mainUdpOutMsg.msg = SUBDIR;
                 mainUdpOutMsg.port = 1001;
                 xQueueSend(udpOut, (void *)&mainUdpOutMsg, 10); // update WiFi
             }
-            printf("Heding= %03.2f\r\n", hdg);
+            printf("Heding= %03.2f\r\n", roboData.dirMag);
         }
         vTaskDelay(1);
     }

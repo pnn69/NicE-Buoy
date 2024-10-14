@@ -6,7 +6,8 @@ typedef struct UdpMsg
 {
     unsigned char adress[4];
     unsigned int port;
-    char msg[100];
+    int msgId;
+    char msg;
 } UdpData;
 
 bool initwifiqueue(void);

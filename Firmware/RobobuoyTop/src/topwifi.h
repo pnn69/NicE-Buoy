@@ -7,6 +7,7 @@ struct UdpData
 {
     unsigned char adress[4];
     unsigned int port;
+    int msgId;
     char msg[100];
 };
 
