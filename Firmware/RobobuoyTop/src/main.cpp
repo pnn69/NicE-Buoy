@@ -129,14 +129,31 @@ void loop(void)
         if (xQueueReceive(gpsQue, (void *)&gpsStatus, 0) == pdTRUE) // New gps data
         {
         }
-        if (xQueueReceive(udpIn, (void *)&msg, 0) == pdTRUE)
+        if (xQueueReceive(udpIn, (void *)&roboData, 0) == pdTRUE)
         {
-            Serial.println(String(msg));
-            roboData.accuV = mainData.accuV;
-            roboData.accuP = mainData.accuP;
-            roboData.dirMag = mainData.dirMag;
-            roboData.speedSb = mainData.speedSb;
-            roboData.speedBb = mainData.speedBb;
+            Serial.println(String(roboData.cmd));
+            switch (roboData.cmd)
+            {
+            case SUBDATA:
+                mainData.subAccuV = roboData.subAccuV;
+                mainData.subAccuP = roboData.subAccuP;
+                mainData.dirMag = roboData.dirMag;
+                mainData.speedSb = roboData.speedSb;
+                mainData.speedBb = roboData.speedBb;
+                break;
+            case SUBACCU:
+                mainData.subAccuV = roboData.subAccuV;
+                mainData.subAccuP = roboData.subAccuP;
+                break;
+            case SUBDIR:
+                mainData.dirMag = roboData.dirMag;
+                break;
+            case SUBDIRSPEED:
+                mainData.dirMag = roboData.dirMag;
+                mainData.speedSb = roboData.speedSb;
+                mainData.speedBb = roboData.speedBb;
+                break;
+            }
         }
     }
     delay(1);

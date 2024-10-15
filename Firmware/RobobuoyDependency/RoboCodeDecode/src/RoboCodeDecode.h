@@ -11,9 +11,30 @@ struct RoboStruct
     int speedSet = 0;
     int speedBb = 0;
     int speedSb = 0;
-    float accuV = 0;
-    int accuP = 0;
+    float subAccuV = 0;
+    float topAccuV = 0;
+    int subAccuP = 0;
+    int topAccuP = 0;
     int cmd = 0;
+};
+
+struct RoboStructGps
+{
+    /* data */
+    double lat = 0;
+    double lng = 0;
+    double latB2 = 0;
+    double lngB2 = 0;
+    double latB3 = 0;
+    double lngB3 = 0;
+    bool fix = false;
+    int dir = 0;
+    float speed = 0;
+    double fixage = 0;
+    double latTg = 0;
+    double lngTg = 0;
+    int dirTg = 0;
+    double distTg = 0;
 };
 
 typedef enum

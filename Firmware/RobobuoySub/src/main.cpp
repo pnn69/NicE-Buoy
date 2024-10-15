@@ -8,6 +8,7 @@
 #include "esc.h"
 #include "compass.h"
 #include "buzzer.h"
+#include "adc.h"
 
 RoboStruct roboData;
 static int8_t buoyId;
@@ -145,6 +146,7 @@ void setup()
 }
 void loop(void)
 {
+    int msg = -1;
     unsigned long nextSamp = millis();
     float vbat = 0;
     int speedbb = 50, speedsb = 0;
@@ -170,11 +172,41 @@ void loop(void)
             Serial.println(presses);
             if (presses == 5) // Calibrate compas north
             {
+                mainBuzzerData.hz = 1500;
+                mainBuzzerData.repeat = 0;
+                mainBuzzerData.pause = 0;
+                mainBuzzerData.duration = 1000;
+                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
+                mainBuzzerData.hz = 1000;
+                mainBuzzerData.repeat = 0;
+                mainBuzzerData.pause = 0;
+                mainBuzzerData.duration = 1000;
+                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
+                mainBuzzerData.hz = 1500;
+                mainBuzzerData.repeat = 0;
+                mainBuzzerData.pause = 0;
+                mainBuzzerData.duration = 1000;
+                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
                 calibrateNorthCompas();
                 presses = -1;
             }
             if (presses == 10) // Calibrate compas
             {
+                mainBuzzerData.hz = 500;
+                mainBuzzerData.repeat = 0;
+                mainBuzzerData.pause = 0;
+                mainBuzzerData.duration = 1000;
+                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
+                mainBuzzerData.hz = 1000;
+                mainBuzzerData.repeat = 0;
+                mainBuzzerData.pause = 0;
+                mainBuzzerData.duration = 1000;
+                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
+                mainBuzzerData.hz = 1500;
+                mainBuzzerData.repeat = 0;
+                mainBuzzerData.pause = 0;
+                mainBuzzerData.duration = 1000;
+                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
                 calibrateParametersCompas();
                 presses = -1;
             }
@@ -202,9 +234,10 @@ void loop(void)
             nextSamp = 250 + millis();
             if (udpOut != NULL && uxQueueSpacesAvailable(udpOut) > 0)
             {
-                mainUdpOutMsg.msg = SUBDIR;
-                mainUdpOutMsg.port = 1001;
-                xQueueSend(udpOut, (void *)&mainUdpOutMsg, 10); // update WiFi
+                msg = SUBDIRSPEED;
+                xQueueSend(udpOut, (void *)&msg, 10); // update WiFi
+                msg = SUBACCU;
+                xQueueSend(udpOut, (void *)&msg, 10); // update WiFi
             }
             printf("Heding= %03.2f\r\n", roboData.dirMag);
         }

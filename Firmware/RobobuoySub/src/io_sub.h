@@ -9,4 +9,7 @@
 #define ESC_BB_PWR_PIN 32
 #define BUTTON_PIN 19
 #define BUZZERP_IN 27
+
+#define VBATT 35
+
 #endif /* IO_SUB_H_ */

@@ -125,14 +125,13 @@ void setupudp(void)
                          else
                          {
                             RoboDecode(stringUdp,roboData);
-                         }
-                     });
+                         } });
     }
 }
 
 bool initwifiqueue(void)
 {
-    udpOut = xQueueCreate(10, sizeof(UdpMsg));
+    udpOut = xQueueCreate(10, sizeof(int));
     if (udpOut == NULL)
     {
         printf("Queue udpOut could not be created. %p\\r\n", udpOut);
@@ -150,6 +149,7 @@ bool initwifiqueue(void)
 */
 void WiFiTask(void *arg)
 {
+    int msg = -1;
     int wifiConfig = *((int *)arg);
     String ssid = "";
     String ww = "";
@@ -214,19 +214,11 @@ void WiFiTask(void *arg)
     */
     for (;;)
     {
-        if (xQueueReceive(udpOut, (void *)&udpBuffer, 0) == pdTRUE)
+        if (xQueueReceive(udpOut, (void *)&msg, 0) == pdTRUE)
         {
-
-            String out = RoboCode(roboData, udpBuffer.msg);
-            addCRCToString(String(out));
-            if (udpBuffer.port == 0)
-            {
-                udp.broadcast(out.c_str());
-            }
-            else
-            {
-                udp.broadcastTo(out.c_str(), udpBuffer.port);
-            }
+            String out = RoboCode(roboData, msg);
+            addCRCToString(out);
+            udp.broadcast(out.c_str());
         }
 
         if (ota == true)

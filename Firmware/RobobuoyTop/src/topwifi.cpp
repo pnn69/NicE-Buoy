@@ -193,7 +193,7 @@ bool initwifiqueue(void)
     {
         printf("Queue udpOut created.\r\n");
     }
-    udpIn = xQueueCreate(10, sizeof(int));
+    udpIn = xQueueCreate(10, sizeof(RoboStruct));
     if (udpIn == NULL)
     {
         printf("Queue udpIn could not be created. %p\\r\n", udpIn);
