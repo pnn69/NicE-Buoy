@@ -12,6 +12,7 @@
 
 static int statik = IDLE;
 static RoboStruct msgIdOut;
+static RoboStruct topWifiIn;
 static UdpData udpBuffer;
 static UdpData udpBufferRecieved;
 static LedData wifiCollorUtil;
@@ -156,16 +157,8 @@ bool udp_setup(int poort)
                          Serial.println(stringUdpIn);
                          if (verifyCRC(stringUdpIn))
                          {
-                             int msg = RoboDecode(stringUdpIn, roboData);
-                             xQueueSend(udpIn, (void *)&msg, 10); // notify main there is new data
-                             if (msg == PONG)
-                             {
-                                 tstart = millis() - tstart;
-                                 wifiCollorUtil.color = CRGB::DarkBlue;
-                                 wifiCollorUtil.blink = BLINK_FAST;
-                                 xQueueSend(ledUtil, (void *)&wifiCollorUtil, 10); // update util led
-                                 lastPong = millis();
-                             }
+                             int msg = RoboDecode(stringUdpIn, topWifiIn);
+                             xQueueSend(udpIn, (void *)&topWifiIn, 10); // notify main there is new data
                          }
                          else
                          {

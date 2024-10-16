@@ -8,15 +8,17 @@
 #include "datastorage.h"
 #include "buzzer.h"
 
-RoboStruct roboData;
 static RoboStruct mainData;
+static RoboStruct subData;
 static LedData mainCollorStatus;
 static LedData mainCollorUtil;
 static LedData mainCollorGps;
-static UdpData mainUdpOutMsg;
+static UdpData mainUdpOut;
 static UdpData mainUdpIn;
 static Buzz mainBuzzerData;
-static GpsDataType gpsStatus;
+static GpsDataType mainGpsData;
+static GpsNav mainNavData;
+static int status;
 static int wifiConfig = 0;
 int8_t buoyId;
 static int msg;
@@ -56,6 +58,65 @@ int countKeyPressesWithTimeout()
     }
     lastButtonState = buttonState; // Save the last button state
     return -1;                     // Return -1 if 0.5 seconds haven't passed yet
+}
+
+void beep(bool oke)
+{
+    if (oke)
+    {
+        mainBuzzerData.hz = 500;
+        mainBuzzerData.repeat = 0;
+        mainBuzzerData.pause = 0;
+        mainBuzzerData.duration = 1000;
+        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
+        mainBuzzerData.hz = 1000;
+        mainBuzzerData.repeat = 0;
+        mainBuzzerData.pause = 0;
+        mainBuzzerData.duration = 1000;
+        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
+        mainBuzzerData.hz = 1500;
+        mainBuzzerData.repeat = 0;
+        mainBuzzerData.pause = 0;
+        mainBuzzerData.duration = 1000;
+        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
+    }
+    else
+    {
+        mainBuzzerData.hz = 1500;
+        mainBuzzerData.repeat = 0;
+        mainBuzzerData.pause = 0;
+        mainBuzzerData.duration = 1000;
+        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
+        mainBuzzerData.hz = 1000;
+        mainBuzzerData.repeat = 0;
+        mainBuzzerData.pause = 0;
+        mainBuzzerData.duration = 1000;
+        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
+        mainBuzzerData.hz = 500;
+        mainBuzzerData.repeat = 0;
+        mainBuzzerData.pause = 0;
+        mainBuzzerData.duration = 1000;
+        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
+    }
+}
+
+void handelKeyPress(int presses)
+{
+    if (presses == 1) // lock / unlock
+    {
+        if ((status != LOCKED) && (mainGpsData.fix == true))
+        {
+            status = LOCKED;
+            beep(true);
+        }
+        else
+        {
+            status = IDLE;
+            beep(false);
+            mainData.cmd = TOPIDLE;
+            xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
+        }
+    }
 }
 
 void setup()
@@ -107,51 +168,57 @@ void loop(void)
         // Call the function to check for key presses with timeout
         int presses = countKeyPressesWithTimeout();
         // If the function returns a valid number of key presses, print it
-        if (presses >= 0)
+        if (presses > 0)
         {
-            Serial.print("Number of key presses: ");
-            Serial.println(presses);
+            handelKeyPress(presses);
         }
 
         if (udpTimer < millis())
         {
             udpTimer = millis() + 500;
-            if (udpOut != NULL && uxQueueSpacesAvailable(udpOut) > 0)
+            // if (udpOut != NULL && uxQueueSpacesAvailable(udpOut) > 0)
+            // {
+            mainData.cmd = PING;
+            xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
+            // }
+            // else
+            // {
+            //     printf("ping not in buffer!\r\n");
+            // }
+        }
+        if (xQueueReceive(gpsQue, (void *)&mainGpsData, 0) == pdTRUE) // New gps data
+        {
+            if ((status == LOCKED) || status == DOCKED)
             {
-                roboData.cmd = PING;
-                xQueueSend(udpOut, (void *)&roboData, 20); // update WiFi
-            }
-            else
-            {
-                printf("ping not in buffer!\r\n");
+                RouteToPoint(mainGpsData.lat, mainGpsData.lon, mainNavData.tgLat, mainNavData.tgLon, &mainNavData.tgDist, &mainNavData.tgDir);
+                CalcRudderBuoy(mainData.dirMag, mainNavData.tgDir, mainNavData.tgDist, mainData.speedSet, &mainData.speedBb, &mainData.speedSb); // calculate power to thrusters
+                mainData.cmd = TOPDIRDIST;
+                xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
             }
         }
-        if (xQueueReceive(gpsQue, (void *)&gpsStatus, 0) == pdTRUE) // New gps data
+        if (xQueueReceive(udpIn, (void *)&subData, 0) == pdTRUE)
         {
-        }
-        if (xQueueReceive(udpIn, (void *)&roboData, 0) == pdTRUE)
-        {
-            Serial.println(String(roboData.cmd));
-            switch (roboData.cmd)
+            Serial.println(String(subData.cmd));
+            switch (subData.cmd)
             {
             case SUBDATA:
-                mainData.subAccuV = roboData.subAccuV;
-                mainData.subAccuP = roboData.subAccuP;
-                mainData.dirMag = roboData.dirMag;
-                mainData.speedSb = roboData.speedSb;
-                mainData.speedBb = roboData.speedBb;
+                mainData.subAccuV = subData.subAccuV;
+                mainData.subAccuP = subData.subAccuP;
+                mainData.dirMag = subData.dirMag;
+                mainData.speedSb = subData.speedSb;
+                mainData.speedBb = subData.speedBb;
                 break;
             case SUBACCU:
-                mainData.subAccuV = roboData.subAccuV;
-                mainData.subAccuP = roboData.subAccuP;
+                mainData.subAccuV = subData.subAccuV;
+                mainData.subAccuP = subData.subAccuP;
                 break;
             case SUBDIR:
-                mainData.dirMag = roboData.dirMag;
+                mainData.dirMag = subData.dirMag;
                 break;
             case SUBDIRSPEED:
-                mainData.dirMag = roboData.dirMag;
-                mainData.speedSb = roboData.speedSb;
-                mainData.speedBb = roboData.speedBb;
+                mainData.dirMag = subData.dirMag;
+                mainData.speedSb = subData.speedSb;
+                mainData.speedBb = subData.speedBb;
                 break;
             }
         }

@@ -11,6 +11,8 @@ struct RoboStruct
     int speedSet = 0;
     int speedBb = 0;
     int speedSb = 0;
+    int tgDir = 0;
+    int tgDist = 0;
     float subAccuV = 0;
     float topAccuV = 0;
     int subAccuP = 0;
@@ -35,6 +37,8 @@ struct RoboStructGps
     double lngTg = 0;
     int dirTg = 0;
     double distTg = 0;
+    int speedBb = 0;
+    int speedSb = 0;
 };
 
 typedef enum
@@ -42,13 +46,15 @@ typedef enum
     SUBDATA = 1, // all data send known by sub
     SUBACCU,     // accu voltage, accu percentage
     SUBDIR,      // magnetic direction
-    SUBSPEED,    // seed(given), speed BB, speed SB
+    SUBSPEED,    // speed(given), speed BB, speed SB
     SUBDIRSPEED, // magnetic heading,seed(given), speed BB, speed SB
     TOPDATA,     // all dat send known by top
     TOPDIRSPEED, // Speed and direction
+    TOPDIRDIST,  // Direction and distance
+    TOPSPBBSPSB, // speed bb Speed sb
+    TOPIDLE,
     PING,
     PONG
-
 } msg_t;
 
 int RoboDecode(String data, RoboStruct dataStore);

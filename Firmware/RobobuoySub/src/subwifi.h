@@ -2,6 +2,7 @@
 #define SUBWIFI_H_
 
 extern QueueHandle_t udpOut;
+extern QueueHandle_t udpIn;
 typedef struct UdpMsg
 {
     unsigned char adress[4];

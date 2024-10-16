@@ -8,9 +8,11 @@
 #include "subwifi.h"
 #include "RoboCodeDecode.h"
 
+RoboStruct subwifiData;
 static int8_t buoyId;
 AsyncUDP udp;
 static UdpData udpBuffer;
+QueueHandle_t udpIn;
 QueueHandle_t udpOut;
 static LedData wifiLedStatus;
 static PwrData wifiPwrData;
@@ -124,15 +126,26 @@ void setupudp(void)
                          }
                          else
                          {
-                            RoboDecode(stringUdp,roboData);
+                            RoboDecode(stringUdp,subwifiData);
+                            xQueueSend(udpIn, (void *)&subwifiData, 10); // update WiFi
                          } });
     }
 }
 
 bool initwifiqueue(void)
 {
-    udpOut = xQueueCreate(10, sizeof(int));
+    udpOut = xQueueCreate(10, sizeof(RoboStruct));
     if (udpOut == NULL)
+    {
+        printf("Queue udpOut could not be created. %p\\r\n", udpOut);
+        return false;
+    }
+    else
+    {
+        printf("Queue udpOut created.\r\n");
+    }
+    udpIn = xQueueCreate(10, sizeof(RoboStruct));
+    if (udpIn == NULL)
     {
         printf("Queue udpOut could not be created. %p\\r\n", udpOut);
         return false;
@@ -214,9 +227,9 @@ void WiFiTask(void *arg)
     */
     for (;;)
     {
-        if (xQueueReceive(udpOut, (void *)&msg, 0) == pdTRUE)
+        if (xQueueReceive(udpOut, (void *)&subwifiData, 0) == pdTRUE)
         {
-            String out = RoboCode(roboData, msg);
+            String out = RoboCode(subwifiData);
             addCRCToString(out);
             udp.broadcast(out.c_str());
         }
@@ -228,13 +241,6 @@ void WiFiTask(void *arg)
         if (nextSamp < millis())
         {
             nextSamp = 1000 + millis();
-        }
-        if (lastPing + 1000 < millis())
-        {
-            lastPing += 100000;
-            wifiLedStatus.color = CRGB::OrangeRed;
-            wifiLedStatus.blink = 0;
-            xQueueSend(ledStatus, (void *)&wifiLedStatus, 10); // update util led
         }
         delay(10);
     }

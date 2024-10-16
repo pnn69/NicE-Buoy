@@ -9,10 +9,12 @@
 #include "compass.h"
 #include "buzzer.h"
 #include "adc.h"
-
-RoboStruct roboData;
-static int8_t buoyId;
 #define HOST_NAME "RoboBuoySub"
+
+RoboStruct mainData;
+Message esc;
+static int8_t buoyId;
+static int subStatus = TOPIDLE;
 static UdpData mainUdpOutMsg;
 static LedData mainLedStatus;
 static PwrData mainPwrData;
@@ -144,12 +146,77 @@ void setup()
     }
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 2, NULL, 0);
 }
+
+void beep(bool oke)
+{
+    if (oke)
+    {
+        mainBuzzerData.hz = 500;
+        mainBuzzerData.repeat = 0;
+        mainBuzzerData.pause = 0;
+        mainBuzzerData.duration = 1000;
+        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
+        mainBuzzerData.hz = 1000;
+        mainBuzzerData.repeat = 0;
+        mainBuzzerData.pause = 0;
+        mainBuzzerData.duration = 1000;
+        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
+        mainBuzzerData.hz = 1500;
+        mainBuzzerData.repeat = 0;
+        mainBuzzerData.pause = 0;
+        mainBuzzerData.duration = 1000;
+        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
+    }
+    else
+    {
+        mainBuzzerData.hz = 1500;
+        mainBuzzerData.repeat = 0;
+        mainBuzzerData.pause = 0;
+        mainBuzzerData.duration = 1000;
+        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
+        mainBuzzerData.hz = 1000;
+        mainBuzzerData.repeat = 0;
+        mainBuzzerData.pause = 0;
+        mainBuzzerData.duration = 1000;
+        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
+        mainBuzzerData.hz = 500;
+        mainBuzzerData.repeat = 0;
+        mainBuzzerData.pause = 0;
+        mainBuzzerData.duration = 1000;
+        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
+    }
+}
+
+void handelKeyPress(int presses)
+{
+    Serial.print("Number of key presses: ");
+    Serial.println(presses);
+    if (presses == 5) // Calibrate compas north
+    {
+        beep(true);
+        calibrateNorthCompas();
+        presses = -1;
+    }
+    if (presses == 10) // Calibrate compas
+    {
+        beep(true);
+        calibrateParametersCompas();
+        presses = -1;
+    }
+    if (presses != -1)
+    {
+        beep(false);
+    }
+}
+
 void loop(void)
 {
     int msg = -1;
     unsigned long nextSamp = millis();
+    unsigned long accuSamp = millis();
     float vbat = 0;
     int speedbb = 50, speedsb = 0;
+    int presses = 0;
 
     mainBuzzerData.hz = 1000;
     mainBuzzerData.repeat = 0;
@@ -162,73 +229,39 @@ void loop(void)
     */
     while (true)
     {
-        roboData.dirMag = (int)GetHeadingAvg();
-        // Call the function to check for key presses with timeout
-        int presses = countKeyPressesWithTimeout();
-        // If the function returns a valid number of key presses, print it
+        mainData.dirMag = (int)GetHeadingAvg();
+        presses = countKeyPressesWithTimeout();
         if (presses >= 0)
         {
-            Serial.print("Number of key presses: ");
-            Serial.println(presses);
-            if (presses == 5) // Calibrate compas north
+            handelKeyPress(presses);
+        }
+        // New data recieved on udb channel
+        if (xQueueReceive(udpIn, (void *)&mainData, 0) == pdTRUE)
+        {
+            switch (mainData.cmd)
             {
-                mainBuzzerData.hz = 1500;
-                mainBuzzerData.repeat = 0;
-                mainBuzzerData.pause = 0;
-                mainBuzzerData.duration = 1000;
-                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-                mainBuzzerData.hz = 1000;
-                mainBuzzerData.repeat = 0;
-                mainBuzzerData.pause = 0;
-                mainBuzzerData.duration = 1000;
-                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-                mainBuzzerData.hz = 1500;
-                mainBuzzerData.repeat = 0;
-                mainBuzzerData.pause = 0;
-                mainBuzzerData.duration = 1000;
-                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-                calibrateNorthCompas();
-                presses = -1;
-            }
-            if (presses == 10) // Calibrate compas
-            {
-                mainBuzzerData.hz = 500;
-                mainBuzzerData.repeat = 0;
-                mainBuzzerData.pause = 0;
-                mainBuzzerData.duration = 1000;
-                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-                mainBuzzerData.hz = 1000;
-                mainBuzzerData.repeat = 0;
-                mainBuzzerData.pause = 0;
-                mainBuzzerData.duration = 1000;
-                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-                mainBuzzerData.hz = 1500;
-                mainBuzzerData.repeat = 0;
-                mainBuzzerData.pause = 0;
-                mainBuzzerData.duration = 1000;
-                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-                calibrateParametersCompas();
-                presses = -1;
-            }
-            if (presses != -1)
-            {
-                mainBuzzerData.hz = 1500;
-                mainBuzzerData.repeat = 0;
-                mainBuzzerData.pause = 0;
-                mainBuzzerData.duration = 1000;
-                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-                mainBuzzerData.hz = 1000;
-                mainBuzzerData.repeat = 0;
-                mainBuzzerData.pause = 0;
-                mainBuzzerData.duration = 1000;
-                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-                mainBuzzerData.hz = 500;
-                mainBuzzerData.repeat = 0;
-                mainBuzzerData.pause = 0;
-                mainBuzzerData.duration = 1000;
-                xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
+            case TOPSPBBSPSB:
+                esc.speedbb = mainData.speedBb;
+                esc.speedsb = mainData.speedSb;
+                xQueueSend(escspeed, (void *)&esc, 10);
+                subStatus = TOPSPBBSPSB;
+                break;
+            case TOPDIRSPEED:
+                CalcRudderBuoy(mainData.dirMag, mainData.tgDir, mainData.tgDist, mainData.speedSet, &mainData.speedBb, &mainData.speedSb); // calculate power to thrusters
+                esc.speedbb = mainData.speedBb;
+                esc.speedsb = mainData.speedSb;
+                xQueueSend(escspeed, (void *)&esc, 10);
+                subStatus = TOPDIRSPEED;
+                break;
+            case TOPIDLE:
+                esc.speedbb = 0;
+                esc.speedsb = 0;
+                xQueueSend(escspeed, (void *)&esc, 10);
+                subStatus = TOPIDLE;
+                break;
             }
         }
+
         if (nextSamp < millis())
         {
             nextSamp = 250 + millis();
@@ -236,11 +269,28 @@ void loop(void)
             {
                 msg = SUBDIRSPEED;
                 xQueueSend(udpOut, (void *)&msg, 10); // update WiFi
+            }
+            printf("Heding= %03.2f\r\n", mainData.dirMag);
+        }
+        if (accuSamp < millis())
+        {
+            accuSamp = 5000 + millis();
+            if (udpOut != NULL && uxQueueSpacesAvailable(udpOut) > 0)
+            {
                 msg = SUBACCU;
                 xQueueSend(udpOut, (void *)&msg, 10); // update WiFi
             }
-            printf("Heding= %03.2f\r\n", roboData.dirMag);
         }
-        vTaskDelay(1);
+        if (subStatus == TOPDIRSPEED)
+        {
+            CalcRudderBuoy(mainData.dirMag, mainData.tgDir, mainData.tgDist, mainData.speedSet, &mainData.speedBb, &mainData.speedSb); // calculate power to thrusters
+            if (esc.speedbb != mainData.speedBb || esc.speedsb != mainData.speedSb)
+            {
+                esc.speedbb = mainData.speedBb;
+                esc.speedsb = mainData.speedSb;
+                xQueueSend(escspeed, (void *)&esc, 10);
+            }
+        }
     }
+    vTaskDelay(1);
 }

@@ -97,20 +97,15 @@ void GpsTask(void *arg)
                 }
                 if (gps.speed.isValid())
                 {
-                    gpsdata.speed = (float)gps.speed.kmph();
+                    gpsdata.speed = gps.speed.kmph();
                 }
-                if (gps.course.isValid() && gpsdata.cource != (float)gps.course.deg())
+                if (gps.course.isValid() && gpsdata.cource != gps.course.deg())
                 {
-                    gpsdata.cource = (float)gps.course.deg();
-                    newGpsData = true;
+                    gpsdata.cource = gps.course.deg();
                 }
                 if (gpsdata.nrsats != gps.satellites.value())
                 {
                     gpsdata.nrsats = gps.satellites.value();
-                    if (gpsdata.fix == false)
-                    {
-                        newGpsData = true;
-                    }
                 }
                 fix_age = gps.location.age();
                 if (fix_age < 1000)
@@ -153,6 +148,7 @@ void GpsTask(void *arg)
             // xQueueSend(gpsQue, (void *)&gpsdata, 10); // update util led
             // collorGps.color = CRGB::Black;
             // xQueueSend(ledGps, (void *)&collorGps, 10);
+            xQueueSend(gpsQue, (void *)&gpsdata,10);
         }
         delay(1);
     }

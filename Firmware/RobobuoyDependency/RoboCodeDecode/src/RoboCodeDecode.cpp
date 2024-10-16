@@ -13,13 +13,16 @@ int RoboDecode(String data, RoboStruct dataStore)
         printf("TOPDATA Not implementend yet/r/n");
         break;
     case TOPDIRSPEED:
-        sscanf(buf, "%d,%d,%d", &msg, &dataStore.dirSet, &dataStore.speedSet);
+        sscanf(buf, "%d,%d,%d", &dataStore.cmd, &dataStore.dirSet, &dataStore.speedSet);
+        break;
+    case TOPSPBBSPSB:
+        sscanf(buf, "%d,%d,%d", &dataStore.cmd, &dataStore.speedBb, &dataStore.speedSb);
         break;
     case SUBDIRSPEED:
-        sscanf(buf, "%d,%d,%d,%d", &msg, &dataStore.dirMag, &dataStore.speedBb, dataStore.speedSb);
+        sscanf(buf, "%d,%d,%d,%d", &dataStore.cmd, &dataStore.dirMag, &dataStore.speedBb, dataStore.speedSb);
         break;
     case SUBACCU:
-        sscanf(buf, "%d,%d,%d", &msg, &dataStore.subAccuV, &dataStore.subAccuP);
+        sscanf(buf, "%d,%d,%d", &dataStore.cmd, &dataStore.subAccuV, &dataStore.subAccuP);
         break;
     default:
         printf("Unkown decode formatter/r/n");

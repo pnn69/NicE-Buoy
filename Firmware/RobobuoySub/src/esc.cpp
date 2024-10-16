@@ -89,10 +89,23 @@ void EscTask(void *arg)
     {
         if (xQueueReceive(escspeed, (void *)&rcv_msg, 0) == pdTRUE)
         {
-            spsb = rcv_msg.speedsb;
             spbb = rcv_msg.speedbb;
-            escsb.write(map(rcv_msg.speedsb, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+            spsb = rcv_msg.speedsb;
             escbb.write(map(rcv_msg.speedbb, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+            escsb.write(map(rcv_msg.speedsb, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+        }
+        if (spbb != 0)
+        {
+            bbStamp = millis();
+            digitalWrite(ESC_BB_PWR_PIN, HIGH);
+        }
+        else
+        {
+            if (bbStamp + 1000 * 60 < millis())
+            {
+                bbStamp = millis();
+                digitalWrite(ESC_BB_PWR_PIN, LOW);
+            }
         }
         /*
             if the esc is not used for more than 60 seconds turn it off
@@ -102,20 +115,13 @@ void EscTask(void *arg)
             sbStamp = millis();
             digitalWrite(ESC_SB_PWR_PIN, HIGH);
         }
-        if (spbb != 0)
+        else
         {
-            bbStamp = millis();
-            digitalWrite(ESC_BB_PWR_PIN, HIGH);
-        }
-        if (sbStamp + 1000*60 < millis())
-        {
-            sbStamp = millis();
-            digitalWrite(ESC_SB_PWR_PIN, LOW);
-        }
-        if (bbStamp + 1000*60 < millis())
-        {
-            bbStamp = millis();
-            digitalWrite(ESC_BB_PWR_PIN, LOW);
+            if (sbStamp + 1000 * 60 < millis())
+            {
+                sbStamp = millis();
+                digitalWrite(ESC_SB_PWR_PIN, LOW);
+            }
         }
         delay(1);
     }
