@@ -173,7 +173,7 @@ bool CalibrateCompass(void)
 
 float GetHeading(void)
 {
-    float mHeding = heading((vector<int>){0, 1, 0}); // 180 correction due placement on pcb
+    float mHeding = heading((vector<int>){0, 1, 0}); // Select oriontation
     mHeding = mHeding + magneticCorrection;
     if (mHeding < 0)
     {
@@ -257,16 +257,3 @@ void calibrateMagneticNorth(void)
     CompassOffsetCorrection(&magneticCorrection, false);
     printf("New magnetic offset stored: %d\r\n", magneticCorrection);
 }
-
-void GpsAverage(double *lat, double *lon)
-{
-}
-
-/*
-Set sailspeed at 30%
-take for 10 sconds the avarage magnetic neading and gps heading
-determ de differenanc.
-The result is the offset off the magnetic compass
-returns -1 if no solution is known yet
-
-*/

@@ -72,6 +72,7 @@ void EscTask(void *arg)
 {
     unsigned long sbStamp = 0;
     unsigned long bbStamp = 0;
+    unsigned long logStamp = 0;
     int spsb = 0, spbb = 0;
     pinMode(ESC_SB_PWR_PIN, OUTPUT);
     pinMode(ESC_BB_PWR_PIN, OUTPUT);
@@ -123,6 +124,12 @@ void EscTask(void *arg)
                 digitalWrite(ESC_SB_PWR_PIN, LOW);
             }
         }
+        if (logStamp + 1000 < millis())
+        {
+            logStamp = millis();
+            printf("ESC bb=%d sb=%d\r\n",spbb,spsb);
+        }
+
         delay(1);
     }
 }

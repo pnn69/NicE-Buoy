@@ -25,7 +25,6 @@ AsyncUDP udp;
 QueueHandle_t udpOut;
 QueueHandle_t udpIn;
 static unsigned long tstart, tstop;
-static unsigned long lastPong = millis();
 
 /*
     Setup OTA
@@ -150,25 +149,26 @@ bool udp_setup(int poort)
         udp.onPacket([](AsyncUDPPacket packet)
                      {
                          String stringUdpIn = (const char *)packet.data();
-                         //  strncpy(udpBufferRecieved.msg, stringUdpIn.c_str(), sizeof(udpBufferRecieved.msg) - 1);
-                         //  udpBufferRecieved.msg[sizeof(udpBufferRecieved.msg) - 1] = '\0'; // Ensure null termination
-                         //  if (verifyCRC(String(udpBufferRecieved.msg)))
-                         Serial.print("New incomming UPD message: ");
-                         Serial.println(stringUdpIn);
                          if (verifyCRC(stringUdpIn))
                          {
-                             int msg = RoboDecode(stringUdpIn, topWifiIn);
+                             int msg = RoboDecode(stringUdpIn, &topWifiIn);
                              xQueueSend(udpIn, (void *)&topWifiIn, 10); // notify main there is new data
                          }
                          else
                          {
                              Serial.println("crc error");
-                         }
-                         // send data to main
-                     });
+                         } });
         return true;
     }
     return false;
+}
+
+
+void udpSend(String data)
+{
+    addBeginAndEndToString(data);
+    addCRCToString(data);
+    udp.broadcast(data.c_str());
 }
 
 /*
@@ -266,15 +266,8 @@ void WiFiTask(void *arg)
         {
             tstart = millis();
             String out = RoboCode(msgIdOut);
-            addCRCToString(String(out));
+            addCRCToString(out);
             udp.broadcast(out.c_str());
-        }
-        if (lastPong + 1000 < millis())
-        {
-            lastPong += 100000;
-            wifiCollorUtil.color = CRGB::OrangeRed;
-            wifiCollorUtil.blink = 0;
-            xQueueSend(ledUtil, (void *)&wifiCollorUtil, 10); // update util led
         }
         delay(100);
     }

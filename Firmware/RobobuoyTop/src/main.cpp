@@ -36,6 +36,7 @@ int countKeyPressesWithTimeout()
     // Get the current time
     unsigned long currentTime = millis();
     buttonState = digitalRead(BUTTON_PIN);
+    digitalWrite(BUTTON_LIGHT_PIN, !buttonState);
     // Check if the button is pressed and it's a new press (debounce)
     if (buttonState == HIGH && lastButtonState == LOW && !debounce)
     {
@@ -60,62 +61,52 @@ int countKeyPressesWithTimeout()
     return -1;                     // Return -1 if 0.5 seconds haven't passed yet
 }
 
-void beep(bool oke)
+void handelKeyPress(void)
 {
-    if (oke)
+    int presses = countKeyPressesWithTimeout();
+    switch (presses)
     {
-        mainBuzzerData.hz = 500;
-        mainBuzzerData.repeat = 0;
-        mainBuzzerData.pause = 0;
-        mainBuzzerData.duration = 1000;
-        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-        mainBuzzerData.hz = 1000;
-        mainBuzzerData.repeat = 0;
-        mainBuzzerData.pause = 0;
-        mainBuzzerData.duration = 1000;
-        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-        mainBuzzerData.hz = 1500;
-        mainBuzzerData.repeat = 0;
-        mainBuzzerData.pause = 0;
-        mainBuzzerData.duration = 1000;
-        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-    }
-    else
-    {
-        mainBuzzerData.hz = 1500;
-        mainBuzzerData.repeat = 0;
-        mainBuzzerData.pause = 0;
-        mainBuzzerData.duration = 1000;
-        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-        mainBuzzerData.hz = 1000;
-        mainBuzzerData.repeat = 0;
-        mainBuzzerData.pause = 0;
-        mainBuzzerData.duration = 1000;
-        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-        mainBuzzerData.hz = 500;
-        mainBuzzerData.repeat = 0;
-        mainBuzzerData.pause = 0;
-        mainBuzzerData.duration = 1000;
-        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-    }
-}
-
-void handelKeyPress(int presses)
-{
-    if (presses == 1) // lock / unlock
-    {
+    case 1: // lock / unlock
         if ((status != LOCKED) && (mainGpsData.fix == true))
         {
+            mainNavData.tgLat = mainGpsData.lat;
+            mainNavData.tgLon = mainGpsData.lon;
             status = LOCKED;
-            beep(true);
+            beep(1);
         }
         else
         {
             status = IDLE;
-            beep(false);
+            beep(2);
             mainData.cmd = TOPIDLE;
             xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
         }
+        break;
+    case 3:
+        beep(1000);
+        break;
+    case 4:
+        beep(1000);
+        break;
+    case 10:
+        //Get doc position
+        memDockPos(&mainNavData.tgLat, &mainNavData.tgLon, true);
+        status = DOCKED;
+        beep(1);
+        break;
+    case 15:
+        // store currend location as doc location
+        if (mainGpsData.fix == true)
+        {
+            memDockPos(&mainGpsData.lat, &mainGpsData.lon, false);
+            beep(1);
+        }
+        else
+        {
+            beep(-1);
+        }
+    default:
+        beep(-1);
     }
 }
 
@@ -124,6 +115,7 @@ void setup()
     Serial.begin(115200);
     pinMode(BUTTON_PIN, INPUT);
     pinMode(BUZZER_PIN, OUTPUT);
+    pinMode(BUTTON_LIGHT_PIN, OUTPUT);
     delay(100);
     printf("\r\nSetup running!\r\n");
     printf("Robobuoy Top Version: %0.1f\r\n", TOPVERSION);
@@ -149,6 +141,10 @@ void setup()
             wifiConfig = 1; // put in to pair mode
         }
     }
+    else
+    {
+        wifiConfig = 0; // Setup normal accespoint
+    }
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
     // mainCollorStatus.color = CRGB ::OrangeRed;
     // mainCollorStatus.blink = BLINK_OFF;
@@ -158,40 +154,22 @@ void setup()
 
 void loop(void)
 {
-    mainBuzzerData.hz = 1000;
-    mainBuzzerData.repeat = 0;
-    mainBuzzerData.pause = 0;
-    mainBuzzerData.duration = 100;
-    xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update util led
+    int presses = -1;
+    beep(1000);
     while (true)
     {
-        // Call the function to check for key presses with timeout
-        int presses = countKeyPressesWithTimeout();
-        // If the function returns a valid number of key presses, print it
-        if (presses > 0)
-        {
-            handelKeyPress(presses);
-        }
-
+        handelKeyPress();
         if (udpTimer < millis())
         {
             udpTimer = millis() + 500;
-            // if (udpOut != NULL && uxQueueSpacesAvailable(udpOut) > 0)
-            // {
             mainData.cmd = PING;
             xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
-            // }
-            // else
-            // {
-            //     printf("ping not in buffer!\r\n");
-            // }
         }
         if (xQueueReceive(gpsQue, (void *)&mainGpsData, 0) == pdTRUE) // New gps data
         {
             if ((status == LOCKED) || status == DOCKED)
             {
                 RouteToPoint(mainGpsData.lat, mainGpsData.lon, mainNavData.tgLat, mainNavData.tgLon, &mainNavData.tgDist, &mainNavData.tgDir);
-                CalcRudderBuoy(mainData.dirMag, mainNavData.tgDir, mainNavData.tgDist, mainData.speedSet, &mainData.speedBb, &mainData.speedSb); // calculate power to thrusters
                 mainData.cmd = TOPDIRDIST;
                 xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
             }
@@ -219,6 +197,10 @@ void loop(void)
                 mainData.dirMag = subData.dirMag;
                 mainData.speedSb = subData.speedSb;
                 mainData.speedBb = subData.speedBb;
+                printf("Mag heading %d\r\n", mainData.dirMag);
+                break;
+            case PONG:
+                printf("PONG\r\n");
                 break;
             }
         }

@@ -36,63 +36,93 @@ void setSquareWaveFrequency(int frequency)
 void buzzerTask(void *arg)
 {
     unsigned long timeStamp;
-    unsigned int repeat, delay, duration;
-    unsigned int hz;
-    bool buzzOn;
-
     while (true)
     {
-        if (repeat == 0)
+        if ((xQueueReceive(buzzer, (void *)&buzzerData, 0) == pdTRUE))
         {
-            if ((xQueueReceive(buzzer, (void *)&buzzerData, 0) == pdTRUE))
+            if (buzzerData.hz == 0)
             {
-                if (buzzerData.hz > 0)
-                {
-                    setSquareWaveFrequency(buzzerData.hz);
-                    if (buzzerData.duration == 0 || buzzerData.duration > 5000)
-                    {
-                        duration = 500;
-                    }
-                    else
-                    {
-                        duration = buzzerData.duration;
-                    }
-                    timeStamp = millis() + duration;
-                    hz = buzzerData.hz;
-                    repeat = buzzerData.repeat;
-                    delay = buzzerData.pause;
-                    buzzOn = true;
-                }
-                else
-                {
-                    ledcDetachPin(BUZZER_PIN);
-                }
+                buzzerData.hz = 1000;
             }
-        }
-        if (timeStamp < millis() && (repeat > 0 || buzzOn == true))
-        {
-            if (buzzOn == true)
+            if (buzzerData.duration == 0)
             {
+                buzzerData.duration = 500;
+            }
+            buzzerData.repeat++;
+            timeStamp = millis() + buzzerData.duration;
+            while (buzzerData.repeat--)
+            {
+                setSquareWaveFrequency(buzzerData.hz);
+                timeStamp = millis() + buzzerData.duration;
+                while (timeStamp > millis())
+                    ;
                 ledcDetachPin(BUZZER_PIN);
-                timeStamp = millis() + delay;
-                buzzOn = false;
-                if (repeat != 0)
-                {
-                    repeat--;
-                }
-            }
-            else
-            {
-                setSquareWaveFrequency(hz);
-                timeStamp = millis() + duration;
-                buzzOn = true;
-            }
-            if (repeat == 0)
-            {
-                ledcDetachPin(BUZZER_PIN);
-                buzzOn = false;
+                timeStamp = millis() + buzzerData.pause;
+                while (timeStamp > millis())
+                    ;
             }
         }
     }
     vTaskDelay(1);
+}
+
+void beep(int sound)
+{
+    Buzz Data;
+    if (sound == -1)
+    {
+        Data.hz = 1500;
+        Data.repeat = 0;
+        Data.pause = 100;
+        Data.duration = 100;
+        xQueueSend(buzzer, (void *)&Data, 10); // update buzzer
+        Data.hz = 1000;
+        Data.repeat = 0;
+        Data.pause = 100;
+        Data.duration = 100;
+        xQueueSend(buzzer, (void *)&Data, 10); // update buzzer
+        Data.hz = 500;
+        Data.repeat = 0;
+        Data.pause = 0;
+        Data.duration = 100;
+    }
+    if (sound == 1)
+    {
+        Data.hz = 500;
+        Data.repeat = 0;
+        Data.pause = 100;
+        Data.duration = 1000;
+        xQueueSend(buzzer, (void *)&Data, 10); // update buzzer
+        Data.hz = 100;
+        Data.repeat = 0;
+        Data.pause = 100;
+        Data.duration = 100;
+        xQueueSend(buzzer, (void *)&Data, 10); // update buzzer
+        Data.hz = 1500;
+        Data.repeat = 0;
+        Data.pause = 0;
+        Data.duration = 100;
+    }
+    if (sound == 500)
+    {
+        Data.hz = 500;
+        Data.repeat = 0;
+        Data.pause = 0;
+        Data.duration = 100;
+    }
+    if (sound == 1000)
+    {
+        Data.hz = 1000;
+        Data.repeat = 0;
+        Data.pause = 0;
+        Data.duration = 100;
+    }
+    if (sound == 1500)
+    {
+        Data.hz = 1500;
+        Data.repeat = 0;
+        Data.pause = 0;
+        Data.duration = 100;
+    }
+    xQueueSend(buzzer, (void *)&Data, 10); // update buzzer
 }

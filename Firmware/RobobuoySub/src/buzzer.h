@@ -12,5 +12,6 @@ typedef struct buzz
 } Buzz;
 bool initbuzzerqueue(void);
 void buzzerTask(void *arg);
+void beep(int sound);
 
 #endif /* ESC_H_ */

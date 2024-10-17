@@ -7,8 +7,10 @@
 #include "leds.h"
 #include "subwifi.h"
 #include "RoboCodeDecode.h"
+#include "RoboCalc.h"
 
 RoboStruct subwifiData;
+static RoboStruct subWifiIn;
 static int8_t buoyId;
 AsyncUDP udp;
 static UdpData udpBuffer;
@@ -115,19 +117,28 @@ void setupudp(void)
         Serial.println(" port: 1001");
         udp.onPacket([](AsyncUDPPacket packet)
                      {
-                         String stringUdp = (const char *)packet.data();
-                         if (stringUdp.startsWith("ping"))
+                         String stringUdpIn = (const char *)packet.data();
+                         if (verifyCRC(stringUdpIn))
                          {
-                             packet.printf("pong"); //
-                             wifiLedStatus.color = CRGB::DarkBlue;
-                             wifiLedStatus.blink = BLINK_FAST;
-                             xQueueSend(ledStatus, (void *)&wifiLedStatus, 10); // update util led
-                             lastPing = millis();
+                             int msg = RoboDecode(stringUdpIn, &subWifiIn );
+                             if(msg == PIDRUDDERSET)
+                             {
+                                PidDecodeSub(stringUdpIn);
+                             }
+                             else if(msg == PIDRUDDER){
+                                String out = PidCodeSup();
+                                out = "$" + PIDRUDDER + out + "*";
+                                addCRCToString(out);
+                                udp.broadcast(out.c_str());
+                             }
+                             else
+                             {
+                                xQueueSend(udpIn, (void *)&subWifiIn, 10); // notify main there is new data
+                             }
                          }
                          else
                          {
-                            RoboDecode(stringUdp,subwifiData);
-                            xQueueSend(udpIn, (void *)&subwifiData, 10); // update WiFi
+                             Serial.println("crc error>" + stringUdpIn + "<");
                          } });
     }
 }
@@ -147,12 +158,12 @@ bool initwifiqueue(void)
     udpIn = xQueueCreate(10, sizeof(RoboStruct));
     if (udpIn == NULL)
     {
-        printf("Queue udpOut could not be created. %p\\r\n", udpOut);
+        printf("Queue udpIn could not be created. %p\\r\n", udpOut);
         return false;
     }
     else
     {
-        printf("Queue udpOut created.\r\n");
+        printf("Queue udpIn created.\r\n");
     }
     return true;
 }

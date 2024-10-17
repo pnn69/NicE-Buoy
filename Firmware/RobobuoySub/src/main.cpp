@@ -11,7 +11,7 @@
 #include "adc.h"
 #define HOST_NAME "RoboBuoySub"
 
-RoboStruct mainData;
+static RoboStruct mainData;
 Message esc;
 static int8_t buoyId;
 static int subStatus = TOPIDLE;
@@ -147,59 +147,19 @@ void setup()
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 2, NULL, 0);
 }
 
-void beep(bool oke)
-{
-    if (oke)
-    {
-        mainBuzzerData.hz = 500;
-        mainBuzzerData.repeat = 0;
-        mainBuzzerData.pause = 0;
-        mainBuzzerData.duration = 1000;
-        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-        mainBuzzerData.hz = 1000;
-        mainBuzzerData.repeat = 0;
-        mainBuzzerData.pause = 0;
-        mainBuzzerData.duration = 1000;
-        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-        mainBuzzerData.hz = 1500;
-        mainBuzzerData.repeat = 0;
-        mainBuzzerData.pause = 0;
-        mainBuzzerData.duration = 1000;
-        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-    }
-    else
-    {
-        mainBuzzerData.hz = 1500;
-        mainBuzzerData.repeat = 0;
-        mainBuzzerData.pause = 0;
-        mainBuzzerData.duration = 1000;
-        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-        mainBuzzerData.hz = 1000;
-        mainBuzzerData.repeat = 0;
-        mainBuzzerData.pause = 0;
-        mainBuzzerData.duration = 1000;
-        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-        mainBuzzerData.hz = 500;
-        mainBuzzerData.repeat = 0;
-        mainBuzzerData.pause = 0;
-        mainBuzzerData.duration = 1000;
-        xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update buzzer
-    }
-}
-
 void handelKeyPress(int presses)
 {
     Serial.print("Number of key presses: ");
     Serial.println(presses);
     if (presses == 5) // Calibrate compas north
     {
-        beep(true);
+        beep(1);
         calibrateNorthCompas();
         presses = -1;
     }
     if (presses == 10) // Calibrate compas
     {
-        beep(true);
+        beep(-1);
         calibrateParametersCompas();
         presses = -1;
     }
@@ -217,19 +177,17 @@ void loop(void)
     float vbat = 0;
     int speedbb = 50, speedsb = 0;
     int presses = 0;
-
-    mainBuzzerData.hz = 1000;
-    mainBuzzerData.repeat = 0;
-    mainBuzzerData.pause = 0;
-    mainBuzzerData.duration = 100;
-    xQueueSend(buzzer, (void *)&mainBuzzerData, 10); // update util led
+    beep(1000);
 
     /*
         Main loop
     */
     while (true)
     {
-        mainData.dirMag = (int)GetHeadingAvg();
+        float tmp = GetHeadingAvg();
+        printf("Magheading:%0.2f", tmp);
+        mainData.dirMag = (int)tmp;
+        // mainData.dirMag = (int)GetHeadingAvg();
         presses = countKeyPressesWithTimeout();
         if (presses >= 0)
         {
@@ -258,6 +216,12 @@ void loop(void)
                 esc.speedsb = 0;
                 xQueueSend(escspeed, (void *)&esc, 10);
                 subStatus = TOPIDLE;
+                beep(-1);
+                break;
+            case PING:
+                printf("PING\r\n");
+                mainData.cmd = PONG;
+                xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
                 break;
             }
         }
@@ -265,11 +229,8 @@ void loop(void)
         if (nextSamp < millis())
         {
             nextSamp = 250 + millis();
-            if (udpOut != NULL && uxQueueSpacesAvailable(udpOut) > 0)
-            {
-                msg = SUBDIRSPEED;
-                xQueueSend(udpOut, (void *)&msg, 10); // update WiFi
-            }
+            mainData.cmd = SUBDIRSPEED;
+            xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
             printf("Heding= %03.2f\r\n", mainData.dirMag);
         }
         if (accuSamp < millis())
@@ -277,8 +238,8 @@ void loop(void)
             accuSamp = 5000 + millis();
             if (udpOut != NULL && uxQueueSpacesAvailable(udpOut) > 0)
             {
-                msg = SUBACCU;
-                xQueueSend(udpOut, (void *)&msg, 10); // update WiFi
+                mainData.cmd = SUBACCU;
+                xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
             }
         }
         if (subStatus == TOPDIRSPEED)

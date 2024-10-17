@@ -12,6 +12,7 @@ struct UdpData
 };
 
 bool initwifiqueue(void);
+void udpSend(String data);
 void WiFiTask(void *arg);
 
 #endif /* TOPWIFI_H_ */

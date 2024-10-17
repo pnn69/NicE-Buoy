@@ -9,5 +9,4 @@ float GetHeading(void);
 float GetHeadingRaw(void);
 float CompassAverage(float);
 float GetHeadingAvg(void);
-void GpsAverage(double *lat, double *lon);
 #endif /* COMPASS_H_ */

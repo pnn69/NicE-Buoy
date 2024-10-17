@@ -18,6 +18,8 @@ struct RoboStruct
     int subAccuP = 0;
     int topAccuP = 0;
     int cmd = 0;
+    float p, i, d;
+    float kp, ki, kd;
 };
 
 struct RoboStructGps
@@ -43,21 +45,25 @@ struct RoboStructGps
 
 typedef enum
 {
-    SUBDATA = 1, // all data send known by sub
-    SUBACCU,     // accu voltage, accu percentage
-    SUBDIR,      // magnetic direction
-    SUBSPEED,    // speed(given), speed BB, speed SB
-    SUBDIRSPEED, // magnetic heading,seed(given), speed BB, speed SB
-    TOPDATA,     // all dat send known by top
-    TOPDIRSPEED, // Speed and direction
-    TOPDIRDIST,  // Direction and distance
-    TOPSPBBSPSB, // speed bb Speed sb
+    PING = 1,
+    PONG,
+    SUBDATA,      // all data send known by sub
+    SUBACCU,      // accu voltage, accu percentage
+    SUBDIR,       // magnetic direction
+    SUBSPEED,     // speed(given), speed BB, speed SB
+    SUBDIRSPEED,  // magnetic heading,seed(given), speed BB, speed SB
+    TOPDATA,      // all dat send known by top
+    TOPDIRSPEED,  // Speed and direction
+    TOPDIRDIST,   // Direction and distance
+    TOPSPBBSPSB,  // speed bb Speed sb
+    PIDRUDDER,    // PID parameters rudder + act data (p i d t) t = total
+    PIDRUDDERSET, // PID parameters rudder
+    PIDSPEED,     // PID parameters speed + act data (p i d t) t= total
+    PIDSPEEDSET,  // PID parameters speed
     TOPIDLE,
-    PING,
-    PONG
 } msg_t;
 
-int RoboDecode(String data, RoboStruct dataStore);
+int RoboDecode(String data, RoboStruct *dataStore);
 String RoboCode(RoboStruct dataOut);
 
 #endif

@@ -2,7 +2,119 @@
 #include "RoboCalc.h"
 #define _GPS_EARTH_MEAN_RADIUS 6371009 // old: 6372795
 
-static pid buoy;
+pid buoy;
+
+int PidDecodeTop(String data)
+{
+    int numbers[10]; // Array to hold the decoded numbers (adjust size as needed)
+    int count = 0;   // Keep track of the number of extracted numbers
+    int cmd = -1;
+    int startIndex = data.indexOf('$') + 1; // Start after the '$'
+    int endIndex = data.indexOf('*');       // End at the '*'
+                                            // Split the substring by commas
+    String substring = data.substring(startIndex, endIndex);
+    while (substring.length() > 0)
+    {
+        int commaIndex = substring.indexOf(',');
+
+        // If there's no more comma, this is the last number
+        if (commaIndex == -1)
+        {
+            numbers[count++] = substring.toInt(); // Convert the last part to an integer
+            break;
+        }
+        // Extract the number before the comma
+        String numStr = substring.substring(0, commaIndex);
+        numbers[count++] = numStr.toInt(); // Convert to integer
+
+        // Remove the extracted number and the comma from the substring
+        substring = substring.substring(commaIndex + 1);
+    }
+    buoy.speedP = numbers[1];
+    buoy.speedI = numbers[2];
+    buoy.speedD = numbers[3];
+    buoy.speedKp = 0;
+    buoy.speedKi = 0;
+    buoy.speedKd = 0;
+    return numbers[0];
+}
+
+int PidDecodeSub(String data)
+{
+    int numbers[10]; // Array to hold the decoded numbers (adjust size as needed)
+    int count = 0;   // Keep track of the number of extracted numbers
+    int cmd = -1;
+    int startIndex = data.indexOf('$') + 1; // Start after the '$'
+    int endIndex = data.indexOf('*');       // End at the '*'
+                                            // Split the substring by commas
+    String substring = data.substring(startIndex, endIndex);
+    while (substring.length() > 0)
+    {
+        int commaIndex = substring.indexOf(',');
+
+        // If there's no more comma, this is the last number
+        if (commaIndex == -1)
+        {
+            numbers[count++] = substring.toInt(); // Convert the last part to an integer
+            break;
+        }
+        // Extract the number before the comma
+        String numStr = substring.substring(0, commaIndex);
+        numbers[count++] = numStr.toInt(); // Convert to integer
+
+        // Remove the extracted number and the comma from the substring
+        substring = substring.substring(commaIndex + 1);
+    }
+    buoy.rudderP = numbers[1];
+    buoy.rudderI = numbers[2];
+    buoy.rudderD = numbers[3];
+    buoy.rudderKp = 0;
+    buoy.rudderKi = 0;
+    buoy.rudderKd = 0;
+    return numbers[0];
+}
+
+String PidCodeTop(void)
+{
+    String out = "," + String(buoy.speedP);
+    out += "," + String(buoy.speedI);
+    out += "," + String(buoy.speedD);
+    out += "," + String(buoy.speedKp);
+    out += "," + String(buoy.speedKi);
+    out += "," + String(buoy.speedKd);
+    return out;
+}
+String PidCodeSup(void)
+{
+    String out = "," + String(buoy.rudderP);
+    out += "," + String(buoy.rudderI);
+    out += "," + String(buoy.rudderD);
+    out += "," + String(buoy.rudderKp);
+    out += "," + String(buoy.rudderKi);
+    out += "," + String(buoy.rudderKd);
+    return out;
+}
+
+double gpsgem[21][2];
+int point = 0;
+void gpsGem(double &lat, double &lon)
+{
+    gpsgem[point][0] = lat;
+    gpsgem[point++][1] = lon;
+    if (point >= 20)
+    {
+        point = 0;
+    }
+    gpsgem[20][0] = 0;
+    gpsgem[20][1] = 0;
+    for (int i = 0; i < 20; i++)
+    {
+        gpsgem[20][0] += gpsgem[i][0];
+        gpsgem[20][1] += gpsgem[i][1];
+    }
+    lat = gpsgem[20][0] / 20;
+    lon = gpsgem[20][1] / 20;
+}
 
 double distanceBetween(double lat1, double long1, double lat2, double long2)
 {
@@ -56,20 +168,25 @@ void initRudderPid(void)
     buoy.rudderLastTime = millis();
 }
 
-// Subroutine to add CRC to a string (similar to NMEA format)
-String addCRCToString(String input)
+void addBeginAndEndToString(String &input)
 {
-    // Find where the checksum starts (between '├' and '┤')
-    int start = input.indexOf('├');
-    int end = input.indexOf('┤');
+    input = "$" + input + "*";
+}
 
-    // If there's no '├' or '┤' in the string, return as is
+// Subroutine to add CRC to a string (similar to NMEA format)
+void addCRCToString(String &input) // Use reference to modify the original string
+{
+    // Find where the checksum starts (between '$' and '*')
+    int start = input.indexOf('$');
+    int end = input.indexOf('*');
+
+    // If there's no '$' or '*' in the string, return without changes
     if (start == -1 || end == -1 || end <= start)
     {
-        return input; // Invalid format, return original string
+        return; // Invalid format, do nothing and return
     }
 
-    // Calculate the checksum (XOR of all characters between '├' and '┤')
+    // Calculate the checksum (XOR of all characters between '$' and '*')
     byte crc = 0;
     for (int i = start + 1; i < end; i++)
     {
@@ -81,9 +198,7 @@ String addCRCToString(String input)
     sprintf(crcHex, "%02X", crc); // Convert byte to uppercase hex string
 
     // Append the checksum after the asterisk in the string
-    input += crcHex;
-
-    return input;
+    input += crcHex; // Modify input directly
 }
 
 // Subroutine to check if the checksum in the string is valid
