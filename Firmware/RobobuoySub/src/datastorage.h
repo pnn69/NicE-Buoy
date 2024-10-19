@@ -13,7 +13,6 @@ void computeParameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int 
 void pidSpeedParameters(double *p, double *i, double *d, bool get);
 void pidRudderParameters(double *p, double *i, double *d, bool get);
 void apParameters(String *ap, String *ww, bool get);
-
-
+void memStuct(pid &data, bool get);
 
 #endif /* DATASTORAGE_H_ */

@@ -17,4 +17,6 @@
 #define RADIO_CS_PIN 5
 #define RADIO_RST_PIN 2
 
+#define VBATT 39
+
 #endif /* IO_TOP_H_ */

@@ -31,6 +31,7 @@ bool initledqueue(void)
     ledStatus = xQueueCreate(10, sizeof(LedData));
     ledUtil = xQueueCreate(10, sizeof(LedData));
     ledGps = xQueueCreate(10, sizeof(LedData));
+    Serial.println("Led queue created!");
     return true;
 }
 
@@ -40,7 +41,7 @@ void initLed(void)
     FastLED.clear();
     leds[LEDSTATUS] = CRGB::Black;
     leds[LEDUTIL] = CRGB::Black;
-    leds[LEDGPS] = CRGB::Blue;
+    leds[LEDGPS] = CRGB::Black;
     FastLED.setBrightness(100);
     FastLED.show();
 }

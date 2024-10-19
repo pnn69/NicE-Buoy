@@ -16,7 +16,6 @@ static RoboStruct topWifiIn;
 static UdpData udpBuffer;
 static UdpData udpBufferRecieved;
 static LedData wifiCollorUtil;
-static Buzz wifiBuzzerData;
 static bool ota = false;
 static int8_t id = 0;
 static char gpsDataIn[100];
@@ -246,6 +245,11 @@ void WiFiTask(void *arg)
     */
     for (;;)
     {
+        if (ota == true)
+        {
+            ArduinoOTA.handle();
+        }
+
         if (WiFi.softAPgetStationNum() != numClients)
         {
             numClients = WiFi.softAPgetStationNum();
@@ -257,18 +261,13 @@ void WiFiTask(void *arg)
                 esp_restart();
             }
         }
-        if (ota == true)
-        {
-            ArduinoOTA.handle();
-        }
 
         if (xQueueReceive(udpOut, (void *)&msgIdOut, 0) == pdTRUE)
         {
-            tstart = millis();
             String out = RoboCode(msgIdOut);
             addCRCToString(out);
             udp.broadcast(out.c_str());
         }
-        delay(100);
+        delay(1);
     }
 }

@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <RoboTone.h>
 #include "main.h"
 #include "io_top.h"
 #include "robolora.h"
@@ -7,6 +8,7 @@
 #include "gps.h"
 #include "datastorage.h"
 #include "buzzer.h"
+#include "adc.h"
 
 static RoboStruct mainData;
 static RoboStruct subData;
@@ -36,7 +38,6 @@ int countKeyPressesWithTimeout()
     // Get the current time
     unsigned long currentTime = millis();
     buttonState = digitalRead(BUTTON_PIN);
-    digitalWrite(BUTTON_LIGHT_PIN, !buttonState);
     // Check if the button is pressed and it's a new press (debounce)
     if (buttonState == HIGH && lastButtonState == LOW && !debounce)
     {
@@ -64,49 +65,94 @@ int countKeyPressesWithTimeout()
 void handelKeyPress(void)
 {
     int presses = countKeyPressesWithTimeout();
-    switch (presses)
+    if (presses > 0)
     {
-    case 1: // lock / unlock
-        if ((status != LOCKED) && (mainGpsData.fix == true))
+        switch (presses)
         {
-            mainNavData.tgLat = mainGpsData.lat;
-            mainNavData.tgLon = mainGpsData.lon;
-            status = LOCKED;
-            beep(1);
+        case 1: // lock / unlock
+            if ((status != LOCKED) && (mainGpsData.fix == true))
+            {
+                mainNavData.tgLat = mainGpsData.lat;
+                mainNavData.tgLon = mainGpsData.lon;
+                status = LOCKED;
+                beep(1, buzzer);
+            }
+            else
+            {
+                status = IDLE;
+                beep(2, buzzer);
+                mainData.cmd = TOPIDLE;
+                xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
+            }
+            break;
+        case 3:
+            if (mainGpsData.fix == true)
+            {
+                status = DOCKED;
+            }
+            beep(1000, buzzer);
+            break;
+        case 10:
+            // Get doc position
+            memDockPos(&mainNavData.tgLat, &mainNavData.tgLon, true);
+            status = DOCKED;
+            beep(1, buzzer);
+            break;
+        case 15:
+            // store currend location as doc location
+            if (mainGpsData.fix == true)
+            {
+                memDockPos(&mainGpsData.lat, &mainGpsData.lon, false);
+                beep(1, buzzer);
+            }
+            else
+            {
+                beep(-1, buzzer);
+            }
+        default:
+            beep(-1, buzzer);
+            break;
+        }
+    }
+}
+
+void buttonLight(unsigned long &timer, int &bl, int status, bool f)
+{
+    if (timer < millis())
+    {
+        timer = millis() + bl;
+        if (status == LOCKED || status == DOCKED)
+        {
+            digitalWrite(BUTTON_LIGHT_PIN, LOW);
+            bl = 2000;
+            mainCollorGps.color = CRGB::Green;
+            mainCollorGps.blink = BLINK_OFF;
+            xQueueSend(ledGps, (void *)&mainCollorGps, 0); // update WiFi
         }
         else
         {
-            status = IDLE;
-            beep(2);
-            mainData.cmd = TOPIDLE;
-            xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
+            digitalWrite(BUTTON_LIGHT_PIN, !digitalRead(BUTTON_LIGHT_PIN));
+            if (f == true)
+            {
+                if (bl != 1000)
+                {
+                    mainCollorGps.color = CRGB::Green;
+                    mainCollorGps.blink = BLINK_SLOW;
+                    xQueueSend(ledGps, (void *)&mainCollorGps, 0); // update WiFi
+                    bl = 1000;
+                }
+            }
+            else
+            {
+                if (bl != 100)
+                {
+                    mainCollorGps.color = CRGB::DarkRed;
+                    mainCollorGps.blink = BLINK_FAST;
+                    xQueueSend(ledGps, (void *)&mainCollorGps, 0); // update WiFi
+                    bl = 100;
+                }
+            }
         }
-        break;
-    case 3:
-        beep(1000);
-        break;
-    case 4:
-        beep(1000);
-        break;
-    case 10:
-        //Get doc position
-        memDockPos(&mainNavData.tgLat, &mainNavData.tgLon, true);
-        status = DOCKED;
-        beep(1);
-        break;
-    case 15:
-        // store currend location as doc location
-        if (mainGpsData.fix == true)
-        {
-            memDockPos(&mainGpsData.lat, &mainGpsData.lon, false);
-            beep(1);
-        }
-        else
-        {
-            beep(-1);
-        }
-    default:
-        beep(-1);
     }
 }
 
@@ -145,65 +191,88 @@ void setup()
     {
         wifiConfig = 0; // Setup normal accespoint
     }
-    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
-    // mainCollorStatus.color = CRGB ::OrangeRed;
-    // mainCollorStatus.blink = BLINK_OFF;
-    // xQueueSend(ledStatus, (void *)&mainCollorStatus, 10); // update util led
+    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 2, NULL, 0);
     Serial.println("Main task running!");
 }
 
 void loop(void)
 {
     int presses = -1;
-    beep(1000);
+    int blink = BLINK_FAST;
+    double lastLat, lastLon;
+    mainCollorGps.color = CRGB::DarkRed;
+    mainCollorGps.blink = BLINK_FAST;
+    xQueueSend(ledGps, (void *)&mainCollorGps, 0); // update GPS led
+    unsigned long buttonBlinkTimer = millis();
+    unsigned long logtimer = millis();
+    unsigned long postimer = millis();
+    beep(1000, buzzer);
+    /*
+        Main loop
+    */
     while (true)
     {
         handelKeyPress();
-        if (udpTimer < millis())
-        {
-            udpTimer = millis() + 500;
-            mainData.cmd = PING;
-            xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
-        }
+        buttonLight(buttonBlinkTimer, blink, status, mainGpsData.fix);
+        /*
+        New GPS datat
+        */
         if (xQueueReceive(gpsQue, (void *)&mainGpsData, 0) == pdTRUE) // New gps data
         {
-            if ((status == LOCKED) || status == DOCKED)
+            if (mainGpsData.fix == true && mainGpsData.firstfix == false)
             {
-                RouteToPoint(mainGpsData.lat, mainGpsData.lon, mainNavData.tgLat, mainNavData.tgLon, &mainNavData.tgDist, &mainNavData.tgDir);
-                mainData.cmd = TOPDIRDIST;
-                xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
+                //beep(2000, buzzer);
+                mainGpsData.firstfix = true;
             }
+            if ((status == LOCKED) || status == DOCKED)
+                if (postimer < millis())
+                {
+                    postimer = millis() + 250;
+                    {
+                        double a, r;
+                        RouteToPoint(mainGpsData.lat, mainGpsData.lon, mainNavData.tgLat, mainNavData.tgLon, a, r);
+                        mainData.tgDist = (int)a;
+                        mainData.tgDir = (int)r;
+                        mainData.cmd = TOPCALCRUDDER;
+                        xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
+                    }
+                }
         }
+        /*
+        New sub data
+        */
         if (xQueueReceive(udpIn, (void *)&subData, 0) == pdTRUE)
         {
-            Serial.println(String(subData.cmd));
             switch (subData.cmd)
             {
-            case SUBDATA:
-                mainData.subAccuV = subData.subAccuV;
-                mainData.subAccuP = subData.subAccuP;
-                mainData.dirMag = subData.dirMag;
-                mainData.speedSb = subData.speedSb;
-                mainData.speedBb = subData.speedBb;
-                break;
             case SUBACCU:
                 mainData.subAccuV = subData.subAccuV;
                 mainData.subAccuP = subData.subAccuP;
+                // printf("Accu %2.1f Perc %d%%\r\n", mainData.subAccuV, mainData.subAccuP);
                 break;
             case SUBDIR:
                 mainData.dirMag = subData.dirMag;
+                // printf("Mag heading %d\r\n", mainData.dirMag, mainData.speedBb, mainData.speedSb);
                 break;
             case SUBDIRSPEED:
                 mainData.dirMag = subData.dirMag;
                 mainData.speedSb = subData.speedSb;
                 mainData.speedBb = subData.speedBb;
-                printf("Mag heading %d\r\n", mainData.dirMag);
+                // printf("Mag heading %d bb:%d%% sb:%d%%\r\n", mainData.dirMag, mainData.speedBb, mainData.speedSb);
                 break;
             case PONG:
-                printf("PONG\r\n");
                 break;
+            default:
+                printf("Command %d not supported!\r\n", subData.cmd);
             }
         }
+        if (logtimer < millis())
+        {
+            logtimer = millis() + 1000;
+            // RouteToPoint(mainGpsData.lat, mainGpsData.lon, mainNavData.tgLat, mainNavData.tgLon, &mainNavData.tgDist, &mainNavData.tgDir);
+            printf("Lat: %2.8f Lon:%2.8f tgLat: %2.8f tgLon:%2.8f tgDist:%d tgDir:%d\r\n", mainGpsData.lat, mainGpsData.lon, mainNavData.tgLat, mainNavData.tgLon, mainData.tgDist, mainData.tgDir);
+            battVoltage(mainData.topAccuV, mainData.topAccuP);
+            printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %3d%%\r\n", mainData.topAccuV, mainData.topAccuP, mainData.subAccuV, mainData.subAccuP);
+        }
     }
-    delay(1);
 }

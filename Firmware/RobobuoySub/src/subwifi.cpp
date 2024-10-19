@@ -9,6 +9,7 @@
 #include "RoboCodeDecode.h"
 #include "RoboCalc.h"
 
+
 RoboStruct subwifiData;
 static RoboStruct subWifiIn;
 static int8_t buoyId;
@@ -120,13 +121,13 @@ void setupudp(void)
                          String stringUdpIn = (const char *)packet.data();
                          if (verifyCRC(stringUdpIn))
                          {
-                             int msg = RoboDecode(stringUdpIn, &subWifiIn );
+                            int msg = RoboDecode(stringUdpIn, &subWifiIn );
                              if(msg == PIDRUDDERSET)
                              {
-                                PidDecodeSub(stringUdpIn);
+                                PidDecode(stringUdpIn,rudder);
                              }
                              else if(msg == PIDRUDDER){
-                                String out = PidCodeSup();
+                                String out = PidData(rudder);
                                 out = "$" + PIDRUDDER + out + "*";
                                 addCRCToString(out);
                                 udp.broadcast(out.c_str());
@@ -179,54 +180,57 @@ void WiFiTask(void *arg)
     String ww = "";
     bool apswitch = false;
     unsigned long nextSamp = millis();
-    apParameters(&ssid, &ww, true);
-    if (wifiConfig == 1)
+    // apParameters(&ssid, &ww, true);
+    // if (wifiConfig == 1)
+    // {
+    //     wifiPwrData.bb = CRGB::DarkBlue;
+    //     wifiPwrData.sb = CRGB::DarkBlue;
+    //     wifiPwrData.blinkBb = BLINK_FAST;
+    //     wifiPwrData.blinkSb = BLINK_SLOW;
+    //     xQueueSend(ledPwr, (void *)&wifiPwrData, 10); // update util led
+    //     ssid = "PAIR_ME_";
+    //     ww = "";
+    //     while (scan_for_wifi_ap(&ssid, ww) == false)
+    //     {
+    //         Serial.println("Try again with ssid: " + String(ssid));
+    //     }
+    //     wifiPwrData.bb = CRGB::DarkBlue;
+    //     wifiPwrData.sb = CRGB::DarkBlue;
+    //     wifiPwrData.blinkBb = BLINK_OFF;
+    //     wifiPwrData.blinkSb = BLINK_SLOW;
+    //     xQueueSend(ledPwr, (void *)&wifiPwrData, 10); // update util led
+    // }
+    // else
+    // {
+    //     wifiPwrData.bb = CRGB::DarkGreen;
+    //     wifiPwrData.sb = CRGB::DarkGreen;
+    //     wifiPwrData.blinkBb = BLINK_FAST;
+    //     wifiPwrData.blinkSb = BLINK_SLOW;
+    //     xQueueSend(ledPwr, (void *)&wifiPwrData, 10); // update util led
+    //     apParameters(&ssid, &ww, true);               // get ap parameters
+
+    ssid = "NicE_WiFi";
+    ww = "!Ni1001100110";
+    while (scan_for_wifi_ap(&ssid, ww) == false)
     {
-        wifiPwrData.bb = CRGB::DarkBlue;
-        wifiPwrData.sb = CRGB::DarkBlue;
-        wifiPwrData.blinkBb = BLINK_FAST;
-        wifiPwrData.blinkSb = BLINK_SLOW;
-        xQueueSend(ledPwr, (void *)&wifiPwrData, 10); // update util led
-        ssid = "PAIR_ME_";
-        ww = "";
-        while (scan_for_wifi_ap(&ssid, ww) == false)
+        if (apswitch == false)
         {
-            Serial.println("Try again with ssid: " + String(ssid));
+            apParameters(&ssid, &ww, true); // get ap parameters
         }
-        wifiPwrData.bb = CRGB::DarkBlue;
-        wifiPwrData.sb = CRGB::DarkBlue;
-        wifiPwrData.blinkBb = BLINK_OFF;
-        wifiPwrData.blinkSb = BLINK_SLOW;
-        xQueueSend(ledPwr, (void *)&wifiPwrData, 10); // update util led
-    }
-    else
-    {
-        wifiPwrData.bb = CRGB::DarkGreen;
-        wifiPwrData.sb = CRGB::DarkGreen;
-        wifiPwrData.blinkBb = BLINK_FAST;
-        wifiPwrData.blinkSb = BLINK_SLOW;
-        xQueueSend(ledPwr, (void *)&wifiPwrData, 10); // update util led
-        apParameters(&ssid, &ww, true);               // get ap parameters
-        while (scan_for_wifi_ap(&ssid, ww) == false)
+        else
         {
-            if (apswitch == false)
-            {
-                apParameters(&ssid, &ww, true); // get ap parameters
-            }
-            else
-            {
-                ssid = "NicE_WiFi";
-                ww = "!Ni1001100110";
-            }
-            Serial.println("Try again with ssid: " + String(ssid));
-            apswitch = !apswitch;
+            ssid = "NicE_WiFi";
+            ww = "!Ni1001100110";
         }
-        wifiPwrData.bb = CRGB::DarkGreen;
-        wifiPwrData.sb = CRGB::DarkGreen;
-        wifiPwrData.blinkBb = BLINK_OFF;
-        wifiPwrData.blinkSb = BLINK_SLOW;
-        xQueueSend(ledPwr, (void *)&wifiPwrData, 10); // update util led
+        Serial.println("Try again with ssid: " + String(ssid));
+        apswitch = !apswitch;
     }
+    wifiPwrData.bb = CRGB::DarkGreen;
+    wifiPwrData.sb = CRGB::DarkGreen;
+    wifiPwrData.blinkBb = BLINK_OFF;
+    wifiPwrData.blinkSb = BLINK_SLOW;
+    xQueueSend(ledPwr, (void *)&wifiPwrData, 10); // update util led
+                                                  //    }
     Serial.print("Logged in to AP:");
     Serial.println(ssid);
     ota = setup_OTA();
@@ -253,6 +257,6 @@ void WiFiTask(void *arg)
         {
             nextSamp = 1000 + millis();
         }
-        delay(10);
+        delay(1);
     }
 }

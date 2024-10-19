@@ -6,6 +6,7 @@ struct GpsNav
     double tgLon = 0;
     double tgDist = 0;
     double tgDir = 0;
+    int cmd = 0;
 };
 
 struct GpsDataType
@@ -18,6 +19,7 @@ struct GpsDataType
     char fixtype = 0;     // 0-3
     int nrsats = 0;       //
     uint32_t lastfix = 0; // ms
+    bool firstfix = false;
 };
 
 // extern GpsDataType gpsdata;

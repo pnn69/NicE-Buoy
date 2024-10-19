@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <RoboTone.h>
+#include <RoboCalc.h>
 #include "main.h"
 #include "freertos/task.h"
 #include "io_sub.h"
@@ -11,6 +13,7 @@
 #include "adc.h"
 #define HOST_NAME "RoboBuoySub"
 
+pid subparameter;
 static RoboStruct mainData;
 Message esc;
 static int8_t buoyId;
@@ -127,6 +130,7 @@ void setup()
     initescqueue();
     initwifiqueue();
     initMemory();
+    initGpsQueue();
     InitCompass();
     // buoyId = 2;
     // memBuoyId(&buoyId, false);
@@ -134,8 +138,9 @@ void setup()
     Serial.print("Buoy ID: ");
     Serial.println(buoyId);
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 1000, NULL, 1, NULL, 1);
-    xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 2, NULL, 1);
+    xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 10, NULL, 1);
     xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
+    xTaskCreatePinnedToCore(CompassTask, "CompasaTask", 2000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
     if (digitalRead(BUTTON_PIN) == true)
     {
         delay(100);
@@ -144,28 +149,38 @@ void setup()
             wifiConfig = 1;
         }
     }
-    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 2, NULL, 0);
+    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 8, NULL, 0);
+    String setupPid = String(PIDRUDDERSET) + ",20,0.1,0";
+    speed.p  = 20; 
+    speed.i  = 0.1; 
+    speed.d  = 0; 
+    speed.minOfsetDist = 2;
+    speed.maxOfsetDist = 2000;
 }
 
-void handelKeyPress(int presses)
+void handelKeyPress(void)
 {
-    Serial.print("Number of key presses: ");
-    Serial.println(presses);
-    if (presses == 5) // Calibrate compas north
+    int presses = countKeyPressesWithTimeout();
+    if (presses > 0)
     {
-        beep(1);
-        calibrateNorthCompas();
-        presses = -1;
-    }
-    if (presses == 10) // Calibrate compas
-    {
-        beep(-1);
-        calibrateParametersCompas();
-        presses = -1;
-    }
-    if (presses != -1)
-    {
-        beep(false);
+        Serial.print("Number of key presses: ");
+        Serial.println(presses);
+        if (presses == 5) // Calibrate compas north
+        {
+            beep(1, buzzer);
+            calibrateNorthCompas();
+            presses = -1;
+        }
+        if (presses == 10) // Calibrate compas
+        {
+            beep(1, buzzer);
+            calibrateParametersCompas();
+            presses = -1;
+        }
+        if (presses != -1)
+        {
+            beep(-1, buzzer);
+        }
     }
 }
 
@@ -174,26 +189,21 @@ void loop(void)
     int msg = -1;
     unsigned long nextSamp = millis();
     unsigned long accuSamp = millis();
+    unsigned long logtimer = millis();
     float vbat = 0;
     int speedbb = 50, speedsb = 0;
     int presses = 0;
-    beep(1000);
+    int mDir;
+    beep(1000, buzzer);
 
     /*
         Main loop
     */
     while (true)
     {
-        float tmp = GetHeadingAvg();
-        printf("Magheading:%0.2f", tmp);
-        mainData.dirMag = (int)tmp;
-        // mainData.dirMag = (int)GetHeadingAvg();
-        presses = countKeyPressesWithTimeout();
-        if (presses >= 0)
-        {
-            handelKeyPress(presses);
-        }
-        // New data recieved on udb channel
+        xQueueReceive(compass, (void *)&mDir, 0);
+        handelKeyPress();
+        // New data recieved on udp channel
         if (xQueueReceive(udpIn, (void *)&mainData, 0) == pdTRUE)
         {
             switch (mainData.cmd)
@@ -204,22 +214,17 @@ void loop(void)
                 xQueueSend(escspeed, (void *)&esc, 10);
                 subStatus = TOPSPBBSPSB;
                 break;
-            case TOPDIRSPEED:
-                CalcRudderBuoy(mainData.dirMag, mainData.tgDir, mainData.tgDist, mainData.speedSet, &mainData.speedBb, &mainData.speedSb); // calculate power to thrusters
-                esc.speedbb = mainData.speedBb;
-                esc.speedsb = mainData.speedSb;
-                xQueueSend(escspeed, (void *)&esc, 10);
-                subStatus = TOPDIRSPEED;
+            case TOPCALCRUDDER:
+                subStatus = TOPCALCRUDDER;
                 break;
             case TOPIDLE:
                 esc.speedbb = 0;
                 esc.speedsb = 0;
                 xQueueSend(escspeed, (void *)&esc, 10);
                 subStatus = TOPIDLE;
-                beep(-1);
+                beep(2, buzzer);
                 break;
             case PING:
-                printf("PING\r\n");
                 mainData.cmd = PONG;
                 xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
                 break;
@@ -228,29 +233,35 @@ void loop(void)
 
         if (nextSamp < millis())
         {
-            nextSamp = 250 + millis();
+            nextSamp = 1100 + millis();
             mainData.cmd = SUBDIRSPEED;
             xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
-            printf("Heding= %03.2f\r\n", mainData.dirMag);
         }
         if (accuSamp < millis())
         {
             accuSamp = 5000 + millis();
-            if (udpOut != NULL && uxQueueSpacesAvailable(udpOut) > 0)
-            {
-                mainData.cmd = SUBACCU;
-                xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
-            }
+            mainData.cmd = SUBACCU;
+            battVoltage(mainData.subAccuV, mainData.subAccuP);
+            xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
         }
-        if (subStatus == TOPDIRSPEED)
+        if (subStatus == TOPCALCRUDDER)
         {
-            CalcRudderBuoy(mainData.dirMag, mainData.tgDir, mainData.tgDist, mainData.speedSet, &mainData.speedBb, &mainData.speedSb); // calculate power to thrusters
+            mainData.speedSet = hooverPid(mainData.tgDist, speed);
+            printf("hdg:%d dir%d dist%d speedset:%d\r\n", mainData.dirMag, mainData.tgDir, mainData.tgDist, mainData.speedSet);
+            CalcRudderBuoy(mDir, mainData.tgDir, mainData.tgDist, mainData.speedSet, &mainData.speedBb, &mainData.speedSb, rudder); // calculate power to thrusters
             if (esc.speedbb != mainData.speedBb || esc.speedsb != mainData.speedSb)
             {
                 esc.speedbb = mainData.speedBb;
                 esc.speedsb = mainData.speedSb;
                 xQueueSend(escspeed, (void *)&esc, 10);
+                printf("Speed:%d BB:%d SB:%d\r\n", mainData.speedSet, esc.speedbb, esc.speedsb);
             }
+            subStatus = 0;
+        }
+        if (logtimer < millis())
+        {
+            logtimer = millis() + 100;
+            printf("Hdg:%3d Speed:%d BB:%3d SB:%3d\r", mDir, mainData.speedSet, esc.speedbb, esc.speedsb);
         }
     }
     vTaskDelay(1);

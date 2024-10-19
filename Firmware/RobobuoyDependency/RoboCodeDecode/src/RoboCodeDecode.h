@@ -5,6 +5,10 @@
 struct RoboStruct
 {
     /* data */
+    double lat = 0;
+    double lng = 0;
+    double tgLat = 0;
+    double tgLng = 0;
     int dirSet = 0;
     int dirGps = 0;
     int dirMag = 0;
@@ -47,19 +51,21 @@ typedef enum
 {
     PING = 1,
     PONG,
-    SUBDATA,      // all data send known by sub
-    SUBACCU,      // accu voltage, accu percentage
-    SUBDIR,       // magnetic direction
-    SUBSPEED,     // speed(given), speed BB, speed SB
-    SUBDIRSPEED,  // magnetic heading,seed(given), speed BB, speed SB
-    TOPDATA,      // all dat send known by top
-    TOPDIRSPEED,  // Speed and direction
-    TOPDIRDIST,   // Direction and distance
-    TOPSPBBSPSB,  // speed bb Speed sb
-    PIDRUDDER,    // PID parameters rudder + act data (p i d t) t = total
-    PIDRUDDERSET, // PID parameters rudder
-    PIDSPEED,     // PID parameters speed + act data (p i d t) t= total
-    PIDSPEEDSET,  // PID parameters speed
+    SUBDATA,        // all data send known by sub
+    SUBACCU,        // accu voltage, accu percentage
+    SUBDIR,         // magnetic direction
+    SUBSPEED,       // speed(given), speed BB, speed SB
+    SUBDIRSPEED,    // magnetic heading,speed(given), speed BB, speed SB
+    TOPDATA,        // all dat send known by top
+    TOPDIRSPEED,    // Speed and direction
+    TOPDIRDIST,     // Direction and distance
+    TOPSPBBSPSB,    // speed bb Speed sb
+    TOPROUTTOPOINT, // route to point data
+    TOPCALCRUDDER,  // rudder data
+    PIDRUDDER,      // PID parameters rudder + act data (p i d t) t = total
+    PIDRUDDERSET,   // PID parameters rudder
+    PIDSPEED,       // PID parameters speed + act data (p i d t) t= total
+    PIDSPEEDSET,    // PID parameters speed
     TOPIDLE,
 } msg_t;
 

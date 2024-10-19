@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <RoboTone.h>
 #include "buzzer.h"
 #include "io_sub.h"
 const int squareWavePin = 2; // Pin 2 for square wave
@@ -66,63 +67,3 @@ void buzzerTask(void *arg)
     vTaskDelay(1);
 }
 
-void beep(int sound)
-{
-    Buzz Data;
-    if (sound == -1)
-    {
-        Data.hz = 1500;
-        Data.repeat = 0;
-        Data.pause = 100;
-        Data.duration = 100;
-        xQueueSend(buzzer, (void *)&Data, 10); // update buzzer
-        Data.hz = 1000;
-        Data.repeat = 0;
-        Data.pause = 100;
-        Data.duration = 100;
-        xQueueSend(buzzer, (void *)&Data, 10); // update buzzer
-        Data.hz = 500;
-        Data.repeat = 0;
-        Data.pause = 0;
-        Data.duration = 100;
-    }
-    if (sound == 1)
-    {
-        Data.hz = 500;
-        Data.repeat = 0;
-        Data.pause = 100;
-        Data.duration = 1000;
-        xQueueSend(buzzer, (void *)&Data, 10); // update buzzer
-        Data.hz = 100;
-        Data.repeat = 0;
-        Data.pause = 100;
-        Data.duration = 100;
-        xQueueSend(buzzer, (void *)&Data, 10); // update buzzer
-        Data.hz = 1500;
-        Data.repeat = 0;
-        Data.pause = 0;
-        Data.duration = 100;
-    }
-    if (sound == 500)
-    {
-        Data.hz = 500;
-        Data.repeat = 0;
-        Data.pause = 0;
-        Data.duration = 100;
-    }
-    if (sound == 1000)
-    {
-        Data.hz = 1000;
-        Data.repeat = 0;
-        Data.pause = 0;
-        Data.duration = 100;
-    }
-    if (sound == 1500)
-    {
-        Data.hz = 1500;
-        Data.repeat = 0;
-        Data.pause = 0;
-        Data.duration = 100;
-    }
-    xQueueSend(buzzer, (void *)&Data, 10); // update buzzer
-}

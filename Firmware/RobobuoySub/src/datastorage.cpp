@@ -1,6 +1,6 @@
 // https://github.com/espressif/arduino-esp32/blob/master/libraries/Preferences/src/Preferences.cpp
 #include <Preferences.h>
-
+#include <RoboCalc.h>
 Preferences storage;
 
 void initMemory(void)
@@ -17,8 +17,8 @@ void initMemory(void)
         storage.putChar("NicE_BuoyID", 100);
         Serial.printf("Storing data Bouy ID to 100\r\n");
         // tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
-        storage.putDouble("Tglat", 52.29308075283747);
-        storage.putDouble("Tglon", 4.932570409845357);
+        storage.putDouble("Doclat", 52.29308075283747);
+        storage.putDouble("Doclon", 4.932570409845357);
         Serial.printf("Storing data Target position \r\nWSVOP landing stage tglatitude = 52.29308075283747, tglongitude = 4.932570409845357 ");
         Serial.printf("Buoy Memory configured\r\n");
         delay(1000);
@@ -63,15 +63,15 @@ void memDockPos(double *lat, double *lon, bool get)
     startMem();
     if (get)
     {
-        *lat = storage.getDouble("latDock", 0);
-        *lon = storage.getDouble("lonDock", 0);
+        *lat = storage.getDouble("Docklat", 0);
+        *lon = storage.getDouble("Docklon", 0);
         // Serial.printf("Get Doc pos form memory  %.8lf %.8lf\r\n", *lat, *lon);
     }
     else
     {
         // Serial.printf("Store Doc pos in memory  %.8lf %.8lf\r\n", *lat, *lon);
-        storage.putDouble("latDock", *lat);
-        storage.putDouble("lonDock", *lon);
+        storage.putDouble("Docklat", *lat);
+        storage.putDouble("Docklon", *lon);
     }
     stopMem();
 }
@@ -95,23 +95,7 @@ void memComputeParameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, i
     }
     stopMem();
 }
-void memPidSpeedParameters(double *p, double *i, double *d, bool get)
-{
-    startMem();
-    if (get)
-    {
-        *p = storage.getDouble("Psp", 20);
-        *i = storage.getDouble("Isp", 0.4);
-        *d = storage.getDouble("Dsp", 0);
-    }
-    else
-    {
-        storage.putDouble("Psp", *p);
-        storage.putDouble("Isp", *i);
-        storage.putDouble("Dsp", *d);
-    }
-    stopMem();
-}
+
 /*
     Defaut callibration factors determed earyer
     compass.m_min = (LSM303::vector<int16_t>){-535, -645, -382};
@@ -173,10 +157,10 @@ void computeParameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int 
     startMem();
     if (get)
     {
-        *minOfsetDist = (int)storage.getInt("minOfsetDist", 1);
-        *maxOfsetDist = (int)storage.getInt("maxOfsetDist", 8);
-        *minSpeed = (int)storage.getInt("minSpeed", 0);
-        *maxSpeed = (int)storage.getInt("maxSpeed", 80);
+        *minOfsetDist = storage.getInt("minOfsetDist", 1);
+        *maxOfsetDist = storage.getInt("maxOfsetDist", 8);
+        *minSpeed = storage.getInt("minSpeed", 0);
+        *maxSpeed = storage.getInt("maxSpeed", 80);
     }
     else
     {
@@ -234,6 +218,20 @@ void apParameters(String *ap, String *ww, bool get)
     {
         storage.putString("ap", *ap);
         storage.putString("ww", *ww);
+    }
+    stopMem();
+}
+
+void memStuct(pid &data, bool get)
+{
+    startMem();
+    if (get)
+    {
+        storage.getBytes("structdata", &data, sizeof(data));
+    }
+    else
+    {
+        storage.putBytes("structdata", &data, sizeof(data));
     }
     stopMem();
 }

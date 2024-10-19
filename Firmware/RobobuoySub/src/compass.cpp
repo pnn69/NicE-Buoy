@@ -16,8 +16,8 @@
 #include "../../RobobuoyDependency\RobobuoyMsg.h"
 #include "../../RobobuoyDependency\RobobuoyDefaults.h"
 
-#define NUM_DIRECTIONS 20
-#define NUM_POSITIONS 50
+#define NUM_DIRECTIONS 50
+QueueHandle_t compass;
 
 Adafruit_LSM303AGR_Mag_Unified mag = Adafruit_LSM303AGR_Mag_Unified(12345);
 Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
@@ -157,7 +157,7 @@ bool CalibrateCompass(void)
         min_mag[2] = min(min_mag[2], event.magnetic.z);
         max_mag[2] = max(max_mag[2], event.magnetic.z);
 
-        if (lokcnt++ > 250)
+        if (lokcnt++ > 1000)
         {
             lokcnt = 0;
             Serial.printf("Calllibration factors Compass: MaxXYZ: {%f, %f, %f}; MinXYZ {%f, %f, %f};\r\n", max_mag[0], max_mag[1], max_mag[2], min_mag[0], min_mag[1], min_mag[2]);
@@ -256,4 +256,20 @@ void calibrateMagneticNorth(void)
     }
     CompassOffsetCorrection(&magneticCorrection, false);
     printf("New magnetic offset stored: %d\r\n", magneticCorrection);
+}
+
+void initGpsQueue(void)
+{
+    compass = xQueueCreate(1, sizeof(int));
+}
+
+void CompassTask(void *arg)
+{
+    int mDir = 0;
+    while (1)
+    {
+        mDir = (int)GetHeadingAvg();
+        xQueueSend(compass, (void *)&mDir, 10); // notify main there is new data
+        vTaskDelay(1);
+    }
 }

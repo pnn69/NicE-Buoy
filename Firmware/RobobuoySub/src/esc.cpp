@@ -127,7 +127,7 @@ void EscTask(void *arg)
         if (logStamp + 1000 < millis())
         {
             logStamp = millis();
-            printf("ESC bb=%d sb=%d\r\n",spbb,spsb);
+            //printf("ESC bb=%d sb=%d\r\n",spbb,spsb);
         }
 
         delay(1);
