@@ -7,9 +7,9 @@ void initGpsQueue(void);
 bool InitCompass(void);
 bool CalibrateCompass(void);
 void calibrateMagneticNorth();
-float GetHeading(void);
-float GetHeadingRaw(void);
-float CompassAverage(float);
-float GetHeadingAvg(void);
+double GetHeading(void);
+double GetHeadingRaw(void);
+double CompassAverage(float);
+double GetHeadingAvg(void);
 void CompassTask(void *arg);
 #endif /* COMPASS_H_ */

@@ -14,6 +14,72 @@
 pid speed;
 pid rudder;
 
+void addBeginAndEndToString(String &input)
+{
+    input = "$" + input + "*";
+}
+
+// Subroutine to add CRC to a string (similar to NMEA format)
+void addCRCToString(String &input) // Use reference to modify the original string
+{
+    // Find where the checksum starts (between '$' and '*')
+    int start = input.indexOf('$');
+    int end = input.indexOf('*');
+
+    // If there's no '$' or '*' in the string, return without changes
+    if (start == -1 || end == -1 || end <= start)
+    {
+        return; // Invalid format, do nothing and return
+    }
+
+    // Calculate the checksum (XOR of all characters between '$' and '*')
+    byte crc = 0;
+    for (int i = start + 1; i < end; i++)
+    {
+        crc ^= input[i]; // XOR operation for each character
+    }
+
+    // Convert checksum to hexadecimal format
+    char crcHex[3];               // Buffer to hold two hex digits + null terminator
+    sprintf(crcHex, "%02X", crc); // Convert byte to uppercase hex string
+
+    // Append the checksum after the asterisk in the string
+    input += crcHex; // Modify input directly
+}
+
+// Subroutine to check if the checksum in the string is valid
+bool verifyCRC(String input)
+{
+    Serial.println("CRC check on: " + input);
+    // Find where the checksum starts (between '├' and '┤')
+    int start = input.indexOf('$');
+    int end = input.indexOf('*');
+
+    // If the string doesn't contain '├' or '┤', it's invalid
+    if (start == -1 || end == -1 || end <= start || end + 2 >= input.length())
+    {
+        printf("crc error\r\n");
+        return false; // Invalid format
+    }
+
+    // Calculate the checksum (XOR of all characters between '├' and '┤')
+    byte calculatedCRC = 0;
+    for (int i = start + 1; i < end; i++)
+    {
+        calculatedCRC ^= input[i]; // XOR operation for each character
+    }
+
+    // Extract the given checksum from the string (the part after the '┤')
+    String givenCRC = input.substring(end + 1, end + 3);
+
+    // Convert calculated CRC to a hexadecimal string
+    char calculatedCRCHex[3];
+    sprintf(calculatedCRCHex, "%02X", calculatedCRC); // Convert byte to hex
+
+    // Compare the calculated checksum with the provided checksum
+    return givenCRC.equalsIgnoreCase(calculatedCRCHex);
+}
+
 int PidDecode(String data, pid buoy)
 {
     int numbers[10]; // Array to hold the decoded numbers (adjust size as needed)
@@ -49,14 +115,11 @@ int PidDecode(String data, pid buoy)
     return numbers[0];
 }
 
-String PidData(pid buoy)
+String PidEncode(pid buoy)
 {
     String out = String(buoy.p);
     out += "," + String(buoy.i);
     out += "," + String(buoy.d);
-    out += "," + String(buoy.kp);
-    out += "," + String(buoy.ki);
-    out += "," + String(buoy.kd);
     return out;
 }
 
@@ -132,75 +195,6 @@ void initPid(pid buoy)
     buoy.lastErr = 0;
     buoy.lastTime = millis();
 }
-
-// void addBeginAndEndToString(String &input)
-// {
-//     input = "$" + input + "*";
-// }
-
-// Subroutine to add CRC to a string (similar to NMEA format)
-void addCRCToString(String &input) // Use reference to modify the original string
-{
-    // Find where the checksum starts (between '$' and '*')
-    int start = input.indexOf('$');
-    int end = input.indexOf('*');
-
-    // If there's no '$' or '*' in the string, return without changes
-    if (start == -1 || end == -1 || end <= start)
-    {
-        return; // Invalid format, do nothing and return
-    }
-
-    // Calculate the checksum (XOR of all characters between '$' and '*')
-    byte crc = 0;
-    for (int i = start + 1; i < end; i++)
-    {
-        crc ^= input[i]; // XOR operation for each character
-    }
-
-    // Convert checksum to hexadecimal format
-    char crcHex[3];               // Buffer to hold two hex digits + null terminator
-    sprintf(crcHex, "%02X", crc); // Convert byte to uppercase hex string
-
-    // Append the checksum after the asterisk in the string
-    input += crcHex; // Modify input directly
-}
-
-// Subroutine to check if the checksum in the string is valid
-bool verifyCRC(String input)
-{
-    // Find where the checksum starts (between '├' and '┤')
-    int start = input.indexOf('$');
-    int end = input.indexOf('*');
-
-    // If the string doesn't contain '├' or '┤', it's invalid
-    if (start == -1 || end == -1 || end <= start || end + 2 >= input.length())
-    {
-        return false; // Invalid format
-    }
-
-    // Calculate the checksum (XOR of all characters between '├' and '┤')
-    byte calculatedCRC = 0;
-    for (int i = start + 1; i < end; i++)
-    {
-        calculatedCRC ^= input[i]; // XOR operation for each character
-    }
-
-    // Extract the given checksum from the string (the part after the '┤')
-    String givenCRC = input.substring(end + 1, end + 3);
-
-    // Convert calculated CRC to a hexadecimal string
-    char calculatedCRCHex[3];
-    sprintf(calculatedCRCHex, "%02X", calculatedCRC); // Convert byte to hex
-
-    // Compare the calculated checksum with the provided checksum
-    return givenCRC.equalsIgnoreCase(calculatedCRCHex);
-}
-
-// void initCalculate(void)
-// {
-//     computeParameters(&buoy.minOfsetDist, &buoy.maxOfsetDist, &buoy.minSpeed, &buoy.maxSpeed, true);
-// }
 
 /*Approimate roling average deafualt 100 samples*/
 double approxRollingAverage(double avg, double input)
@@ -300,7 +294,7 @@ void setparameters(int &minOfsetDist, int &maxOfsetDist, int &minSpeed, int &max
 input: directon to go to, distance and start position
 return: target latitude and longitude
 */
-void adjustPositionDirDist(int dir, double dist, double *lat, double *lon)
+void adjustPositionDirDist(double dir, double dist, double *lat, double *lon)
 {
     /*compute in radians*/
     double radLat = radian(*lat);
@@ -361,7 +355,7 @@ double ComputeSmallestAngleDir(double heading1, double heading2)
 /*
     adjust speed Cosinus does not work here. We have to do it manually
 */
-float Angle2SpeedFactor(float angle)
+double Angle2SpeedFactor(double angle)
 {
     // cos(correctonAngle * M_PI / 180.0); not working for mall angles
     angle = constrain(angle, 0, 180);
@@ -388,12 +382,12 @@ double CalcDocSpeed(double tgdistance)
 /*
 Compute power to trusters
 */
-void CalcRemoteRudderBuoy(double magheading, float tgheading, int speed, int *bb, int *sb)
+void CalcRemoteRudderBuoy(double magheading, double tgheading, int speed, int *bb, int *sb)
 {
     bool dir = determineDirection(magheading, tgheading);
     double correctonAngle = smallestAngle(magheading, tgheading);
-    float corr = Angle2SpeedFactor(abs(correctonAngle));
-    float tbb, tsb;
+    double corr = Angle2SpeedFactor(abs(correctonAngle));
+    double tbb, tsb;
     if (dir == 1)
     {
         tbb = speed + speed * (1 - corr);
@@ -419,15 +413,15 @@ void CalcRemoteRudderBuoy(double magheading, float tgheading, int speed, int *bb
     if distance between 0.5 and 1.5 meter rotate at the slowest speed.
     else do normal rudder calculation.
 */
-float push = 0;
+double push = 0;
 
-bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int speed, int *bb, int *sb, pid buoy)
+bool CalcRudderBuoy(double magheading, double tgheading, double tdistance, int speed, int *bb, int *sb, pid buoy)
 {
     double error = ComputeSmallestAngleDir(magheading, tgheading);
     /*Rotate to target direction first*/
     if (tdistance > 0.5 && abs(error) > 45)
     {
-        float power = map(abs(error), 45, 180, 2, 20);
+        double power = map(abs(error), 45, 180, 2, 20);
         power = sin(radians(power)) * 100;
         power = (int)map(power, 13, 100, 13, buoy.maxSpeed / 2);
         power += push;
@@ -470,10 +464,10 @@ bool CalcRudderBuoy(double magheading, float tgheading, double tdistance, int sp
     buoy.lastTime = now;
     *bb = (int)(speed * (1 - tan(radians(adj))));
     *sb = (int)(speed * (1 + tan(radians(adj))));
-    *bb = *bb;
-    /*Sanety check*/
     *bb = constrain(*bb, -buoy.maxSpeed, buoy.maxSpeed);
     *sb = constrain(*sb, -buoy.maxSpeed, buoy.maxSpeed);
+    buoy.speedbb = *bb;
+    buoy.speedsb = *sb;
     return true;
 }
 

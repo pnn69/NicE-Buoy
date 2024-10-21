@@ -86,10 +86,7 @@ void handelKeyPress(void)
             }
             break;
         case 3:
-            if (mainGpsData.fix == true)
-            {
-                status = DOCKED;
-            }
+            //compute start line
             beep(1000, buzzer);
             break;
         case 10:

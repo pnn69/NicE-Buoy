@@ -13,11 +13,11 @@
 #include "adc.h"
 #define HOST_NAME "RoboBuoySub"
 
-pid subparameter;
+// pid subparameter;
 static RoboStruct mainData;
 Message esc;
 static int8_t buoyId;
-static int subStatus = TOPIDLE;
+static int subStatus = IDLE;
 static UdpData mainUdpOutMsg;
 static LedData mainLedStatus;
 static PwrData mainPwrData;
@@ -149,13 +149,18 @@ void setup()
             wifiConfig = 1;
         }
     }
-    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 8, NULL, 0);
-    String setupPid = String(PIDRUDDERSET) + ",20,0.1,0";
-    speed.p  = 20; 
-    speed.i  = 0.1; 
-    speed.d  = 0; 
+    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
+    // String setupPid = String(PIDRUDDERSET) + ",20,0.1,0";
+    speed.p = 20;
+    speed.i = 0.1;
+    speed.d = 0;
     speed.minOfsetDist = 2;
     speed.maxOfsetDist = 2000;
+    speed.maxSpeed = 80;
+    speed.minSpeed = 0;
+    rudder.p = 0.5;
+    rudder.i = 0.02;
+    rudder.d = 0;
 }
 
 void handelKeyPress(void)
@@ -186,6 +191,8 @@ void handelKeyPress(void)
 
 void loop(void)
 {
+    String dataIn = "";
+    String dataOut = "";
     int msg = -1;
     unsigned long nextSamp = millis();
     unsigned long accuSamp = millis();
@@ -193,7 +200,7 @@ void loop(void)
     float vbat = 0;
     int speedbb = 50, speedsb = 0;
     int presses = 0;
-    int mDir;
+    double mDir;
     beep(1000, buzzer);
 
     /*
@@ -204,30 +211,59 @@ void loop(void)
         xQueueReceive(compass, (void *)&mDir, 0);
         handelKeyPress();
         // New data recieved on udp channel
-        if (xQueueReceive(udpIn, (void *)&mainData, 0) == pdTRUE)
+        if (xQueueReceive(udpIn, (void *)&dataIn, (TickType_t)10) == pdTRUE)
         {
-            switch (mainData.cmd)
+            Serial.println("Data in main1: " + dataIn);
+            if (verifyCRC(dataIn))
             {
-            case TOPSPBBSPSB:
-                esc.speedbb = mainData.speedBb;
-                esc.speedsb = mainData.speedSb;
-                xQueueSend(escspeed, (void *)&esc, 10);
-                subStatus = TOPSPBBSPSB;
-                break;
-            case TOPCALCRUDDER:
-                subStatus = TOPCALCRUDDER;
-                break;
-            case TOPIDLE:
-                esc.speedbb = 0;
-                esc.speedsb = 0;
-                xQueueSend(escspeed, (void *)&esc, 10);
-                subStatus = TOPIDLE;
-                beep(2, buzzer);
-                break;
-            case PING:
-                mainData.cmd = PONG;
-                xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
-                break;
+                Serial.println("Data in main2: " + dataIn);
+                int msg = RoboDecode(dataIn, mainData);
+                switch (mainData.cmd)
+                {
+                case TOPSPBBSPSB:
+                    esc.speedbb = mainData.speedBb;
+                    esc.speedsb = mainData.speedSb;
+                    xQueueSend(escspeed, (void *)&esc, 10);
+                    subStatus = TOPSPBBSPSB;
+                    break;
+                case TOPCALCRUDDER:
+                    subStatus = TOPCALCRUDDER;
+                    break;
+                case TOPIDLE:
+                    esc.speedbb = 0;
+                    esc.speedsb = 0;
+                    xQueueSend(escspeed, (void *)&esc, 10);
+                    subStatus = TOPIDLE;
+                    beep(2, buzzer);
+                    break;
+                case PIDRUDDERSET:
+                    rudder.p = mainData.p;
+                    rudder.i = mainData.i;
+                    rudder.d = mainData.d;
+                    rudder.kp = 0;
+                    rudder.ki = 0;
+                    rudder.kd = 0;
+                    pidRudderParameters(&rudder.p, &rudder.i, &rudder.d, false);
+                    break;
+                case PIDRUDDER:
+                    mainData.cmd = PIDRUDDER;
+                    mainData.p = rudder.p;
+                    mainData.i = rudder.i;
+                    mainData.d = rudder.d;
+                    mainData.kp = rudder.kp;
+                    mainData.ki = rudder.ki;
+                    mainData.kd = rudder.kd;
+                    dataOut = RoboCode(mainData);
+                    xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
+                    break;
+                case PING:
+                    mainData.cmd = PONG;
+                    xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
+                    break;
+                default:
+                    printf("Unkonwn command %d\n\r", mainData.cmd);
+                    break;
+                }
             }
         }
 
@@ -247,21 +283,21 @@ void loop(void)
         if (subStatus == TOPCALCRUDDER)
         {
             mainData.speedSet = hooverPid(mainData.tgDist, speed);
-            printf("hdg:%d dir%d dist%d speedset:%d\r\n", mainData.dirMag, mainData.tgDir, mainData.tgDist, mainData.speedSet);
-            CalcRudderBuoy(mDir, mainData.tgDir, mainData.tgDist, mainData.speedSet, &mainData.speedBb, &mainData.speedSb, rudder); // calculate power to thrusters
+            printf("hdg:%3f dir%3d dist%2.0f speedset:%d\r\n", mDir, mainData.tgDir, mainData.tgDist, mainData.speedSet);
+            CalcRudderBuoy(mDir, (double)mainData.tgDir, mainData.tgDist, mainData.speedSet, &mainData.speedBb, &mainData.speedSb, rudder); // calculate power to thrusters
             if (esc.speedbb != mainData.speedBb || esc.speedsb != mainData.speedSb)
             {
                 esc.speedbb = mainData.speedBb;
                 esc.speedsb = mainData.speedSb;
                 xQueueSend(escspeed, (void *)&esc, 10);
-                printf("Speed:%d BB:%d SB:%d\r\n", mainData.speedSet, esc.speedbb, esc.speedsb);
             }
+            printf("Dir:%d Speed:%d BB:%d SB:%d\r\n", mainData.tgDir, mainData.speedSet, esc.speedbb, esc.speedsb);
             subStatus = 0;
         }
         if (logtimer < millis())
         {
-            logtimer = millis() + 100;
-            printf("Hdg:%3d Speed:%d BB:%3d SB:%3d\r", mDir, mainData.speedSet, esc.speedbb, esc.speedsb);
+            logtimer = millis() + 5000;
+            printf("Hdg:%3f Speed:%d BB:%3d SB:%3d\r\n", mDir, mainData.speedSet, esc.speedbb, esc.speedsb);
         }
     }
     vTaskDelay(1);

@@ -16,14 +16,14 @@ struct RoboStruct
     int speedBb = 0;
     int speedSb = 0;
     int tgDir = 0;
-    int tgDist = 0;
+    double tgDist = 0;
     float subAccuV = 0;
     float topAccuV = 0;
     int subAccuP = 0;
     int topAccuP = 0;
     int cmd = 0;
-    float p, i, d;
-    float kp, ki, kd;
+    double p, i, d;
+    double kp, ki, kd;
 };
 
 struct RoboStructGps
@@ -69,7 +69,7 @@ typedef enum
     TOPIDLE,
 } msg_t;
 
-int RoboDecode(String data, RoboStruct *dataStore);
+int RoboDecode(String data, RoboStruct &dataStore);
 String RoboCode(RoboStruct dataOut);
 
 #endif

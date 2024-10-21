@@ -9,7 +9,6 @@
 #include "RoboCodeDecode.h"
 #include "RoboCalc.h"
 
-
 RoboStruct subwifiData;
 static RoboStruct subWifiIn;
 static int8_t buoyId;
@@ -121,21 +120,8 @@ void setupudp(void)
                          String stringUdpIn = (const char *)packet.data();
                          if (verifyCRC(stringUdpIn))
                          {
-                            int msg = RoboDecode(stringUdpIn, &subWifiIn );
-                             if(msg == PIDRUDDERSET)
-                             {
-                                PidDecode(stringUdpIn,rudder);
-                             }
-                             else if(msg == PIDRUDDER){
-                                String out = PidData(rudder);
-                                out = "$" + PIDRUDDER + out + "*";
-                                addCRCToString(out);
-                                udp.broadcast(out.c_str());
-                             }
-                             else
-                             {
-                                xQueueSend(udpIn, (void *)&subWifiIn, 10); // notify main there is new data
-                             }
+                            Serial.println("String send to main: " + stringUdpIn);
+                            xQueueSend(udpIn, (void *)&stringUdpIn, 10); // notify main there is new data
                          }
                          else
                          {
@@ -156,7 +142,7 @@ bool initwifiqueue(void)
     {
         printf("Queue udpOut created.\r\n");
     }
-    udpIn = xQueueCreate(10, sizeof(RoboStruct));
+    udpIn = xQueueCreate(10, sizeof(String));
     if (udpIn == NULL)
     {
         printf("Queue udpIn could not be created. %p\\r\n", udpOut);

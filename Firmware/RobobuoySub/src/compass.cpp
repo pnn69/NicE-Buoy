@@ -171,9 +171,9 @@ bool CalibrateCompass(void)
     return 0;
 }
 
-float GetHeading(void)
+double GetHeading(void)
 {
-    float mHeding = heading((vector<int>){0, 1, 0}); // Select oriontation
+    double mHeding = (double)heading((vector<int>){0, 1, 0}); // Select oriontation
     mHeding = mHeding + magneticCorrection;
     if (mHeding < 0)
     {
@@ -185,9 +185,9 @@ float GetHeading(void)
     }
     return mHeding;
 }
-float GetHeadingRaw(void)
+double GetHeadingRaw(void)
 {
-    float t = heading((vector<int>){0, 1, 0});
+    double t = (double)heading((vector<int>){0, 1, 0});
     if (t > 360)
     {
         t -= 360;
@@ -204,14 +204,14 @@ static float directions[NUM_DIRECTIONS];
 /*
 Average of NUM_DIRECTIONS samples
 */
-float CompassAverage(float in)
+double CompassAverage(float in)
 {
     directions[cbufpointer++] = in;
     if (cbufpointer >= NUM_DIRECTIONS)
     {
         cbufpointer = 0;
     }
-    float sum_x = 0.0, sum_y = 0.0, avg_dir;
+    double sum_x = 0.0, sum_y = 0.0, avg_dir;
     // Convert the compass directions to Cartesian coordinates
     for (int i = 0; i < NUM_DIRECTIONS; i++)
     {
@@ -233,7 +233,7 @@ float CompassAverage(float in)
     return avg_dir;
 }
 
-float GetHeadingAvg(void)
+double GetHeadingAvg(void)
 {
     return CompassAverage(GetHeading());
 }
@@ -260,15 +260,15 @@ void calibrateMagneticNorth(void)
 
 void initGpsQueue(void)
 {
-    compass = xQueueCreate(1, sizeof(int));
+    compass = xQueueCreate(1, sizeof(double));
 }
 
 void CompassTask(void *arg)
 {
-    int mDir = 0;
+    double mDir = 0;
     while (1)
     {
-        mDir = (int)GetHeadingAvg();
+        mDir = GetHeadingAvg();
         xQueueSend(compass, (void *)&mDir, 10); // notify main there is new data
         vTaskDelay(1);
     }
