@@ -14,6 +14,12 @@ static uint32_t fix_age = 10000;
 static unsigned long gpsTimeOut = 0;
 static bool newGpsData = false;
 
+void RouteToPoint(double lat1, double lon1, double lat2, double lon2, double *distance, double *direction)
+{
+    *distance = gps.distanceBetween(lat1, lon1, lat2, lon2);
+    *direction = gps.courseTo(lat1, lon1, lat2, lon2);
+}
+
 bool initgpsqueue(void)
 {
     gpsQue = xQueueCreate(1, sizeof(gpsdata));
@@ -28,9 +34,9 @@ void GpsTask(void *arg)
     {
         while (Serial1.available() > 0)
         {
-            // char c = Serial1.read();
-            // Serial.print(c);
-            // if (gps.encode(c))
+            //char c = Serial1.read();
+            //Serial.print(c);
+            //if (gps.encode(c))
             if (gps.encode(Serial1.read()))
             {
                 gpsTimeOut = millis();
@@ -62,11 +68,19 @@ void GpsTask(void *arg)
                 fix_age = gps.location.age();
                 if (fix_age < 1000)
                 {
-                    gpsdata.fix = true;
+                    if (gpsdata.fix == false)
+                    {
+                        newGpsData = true;
+                        gpsdata.fix = true;
+                    }
                 }
                 else
                 {
-                    gpsdata.fix = false;
+                    if (gpsdata.fix == true)
+                    {
+                        newGpsData = true;
+                        gpsdata.fix = false;
+                    }
                 }
             }
         }

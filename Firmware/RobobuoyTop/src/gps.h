@@ -23,6 +23,7 @@ struct GpsDataType
 };
 
 // extern GpsDataType gpsdata;
+void RouteToPoint(double lat1, double lon1, double lat2, double lon2, double *distance, double *direction);
 extern QueueHandle_t gpsQue;
 bool initgpsqueue(void);
 void GpsTask(void *arg);

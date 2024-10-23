@@ -15,10 +15,10 @@
 
 // pid subparameter;
 static RoboStruct mainData;
+static char udpInMain[MAXSTRINGLENG];
 Message esc;
 static int8_t buoyId;
 static int subStatus = IDLE;
-static UdpData mainUdpOutMsg;
 static LedData mainLedStatus;
 static PwrData mainPwrData;
 static Buzz mainBuzzerData;
@@ -130,11 +130,11 @@ void setup()
     initescqueue();
     initwifiqueue();
     initMemory();
-    initGpsQueue();
+    initcompassQueue();
     InitCompass();
     // buoyId = 2;
     // memBuoyId(&buoyId, false);
-    memBuoyId(&buoyId, true);
+    memBuoyId(&buoyId, GET);
     Serial.print("Buoy ID: ");
     Serial.println(buoyId);
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 1000, NULL, 1, NULL, 1);
@@ -150,17 +150,26 @@ void setup()
         }
     }
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
-    // String setupPid = String(PIDRUDDERSET) + ",20,0.1,0";
-    speed.p = 20;
-    speed.i = 0.1;
-    speed.d = 0;
-    speed.minOfsetDist = 2;
-    speed.maxOfsetDist = 2000;
-    speed.maxSpeed = 80;
-    speed.minSpeed = 0;
-    rudder.p = 0.5;
-    rudder.i = 0.02;
-    rudder.d = 0;
+    /*
+    Get sored settings
+    */
+    computeParameters(&speed.minOfsetDist, &speed.maxOfsetDist, &speed.minSpeed, &speed.minSpeed, GET);
+    // speed.p = 20;
+    // speed.i = 0.1;
+    // speed.d = 0;
+    // pidSpeedParameters(&speed.p, &speed.i, &speed.d, SET);
+    // rudder.p = 0.5;
+    // rudder.i = 0.02;
+    // rudder.d = 0;
+    // pidRudderParameters(&rudder.p, &rudder.i, &rudder.d, SET);
+    // speed.minOfsetDist = 2;
+    // speed.maxOfsetDist = 8;
+    // speed.minSpeed = 0;
+    // speed.maxSpeed = 80;
+    // computeParameters(&speed.minOfsetDist, &speed.maxOfsetDist, &speed.minSpeed, &speed.maxSpeed, SET);
+    pidSpeedParameters(&speed.p, &speed.i, &speed.d, GET);
+    pidRudderParameters(&rudder.p, &rudder.i, &rudder.d, GET);
+    computeParameters(&speed.minOfsetDist, &speed.maxOfsetDist, &speed.minSpeed, &speed.maxSpeed, GET);
 }
 
 void handelKeyPress(void)
@@ -211,13 +220,13 @@ void loop(void)
         xQueueReceive(compass, (void *)&mDir, 0);
         handelKeyPress();
         // New data recieved on udp channel
-        if (xQueueReceive(udpIn, (void *)&dataIn, (TickType_t)10) == pdTRUE)
+        if (xQueueReceive(udpIn, (void *)&udpInMain, 0) == pdTRUE)
         {
-            Serial.println("Data in main1: " + dataIn);
-            if (verifyCRC(dataIn))
+            String in = String(udpInMain);
+            if (verifyCRC(in))
             {
-                Serial.println("Data in main2: " + dataIn);
-                int msg = RoboDecode(dataIn, mainData);
+                int msg = RoboDecode(in, mainData);
+                mainData.dirMag = mDir;
                 switch (mainData.cmd)
                 {
                 case TOPSPBBSPSB:
@@ -243,7 +252,16 @@ void loop(void)
                     rudder.kp = 0;
                     rudder.ki = 0;
                     rudder.kd = 0;
-                    pidRudderParameters(&rudder.p, &rudder.i, &rudder.d, false);
+                    pidRudderParameters(&rudder.p, &rudder.i, &rudder.d, SET);
+                    break;
+                case PIDSPEEDSET:
+                    speed.p = mainData.p;
+                    speed.i = mainData.i;
+                    speed.d = mainData.d;
+                    speed.kp = 0;
+                    speed.ki = 0;
+                    speed.kd = 0;
+                    pidSpeedParameters(&speed.p, &speed.i, &speed.d, SET);
                     break;
                 case PIDRUDDER:
                     mainData.cmd = PIDRUDDER;
@@ -253,6 +271,17 @@ void loop(void)
                     mainData.kp = rudder.kp;
                     mainData.ki = rudder.ki;
                     mainData.kd = rudder.kd;
+                    dataOut = RoboCode(mainData);
+                    xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
+                    break;
+                case PIDSPEED:
+                    mainData.cmd = PIDSPEED;
+                    mainData.p = speed.p;
+                    mainData.i = speed.i;
+                    mainData.d = speed.d;
+                    mainData.kp = speed.kp;
+                    mainData.ki = speed.ki;
+                    mainData.kd = speed.kd;
                     dataOut = RoboCode(mainData);
                     xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
                     break;
@@ -283,15 +312,15 @@ void loop(void)
         if (subStatus == TOPCALCRUDDER)
         {
             mainData.speedSet = hooverPid(mainData.tgDist, speed);
-            printf("hdg:%3f dir%3d dist%2.0f speedset:%d\r\n", mDir, mainData.tgDir, mainData.tgDist, mainData.speedSet);
-            CalcRudderBuoy(mDir, (double)mainData.tgDir, mainData.tgDist, mainData.speedSet, &mainData.speedBb, &mainData.speedSb, rudder); // calculate power to thrusters
+            printf("hdg:%.2f dir%.2f dist%2.2f speedset:%d\r\n", mDir, mainData.tgDir, mainData.tgDist, mainData.speedSet);
+            CalcRudderBuoy(mDir, mainData.tgDir, mainData.tgDist, mainData.speedSet, &mainData.speedBb, &mainData.speedSb, rudder); // calculate power to thrusters
             if (esc.speedbb != mainData.speedBb || esc.speedsb != mainData.speedSb)
             {
                 esc.speedbb = mainData.speedBb;
                 esc.speedsb = mainData.speedSb;
                 xQueueSend(escspeed, (void *)&esc, 10);
             }
-            printf("Dir:%d Speed:%d BB:%d SB:%d\r\n", mainData.tgDir, mainData.speedSet, esc.speedbb, esc.speedsb);
+            printf("Dir:%.0f Speed:%d BB:%d SB:%d\r\n", mainData.tgDir, mainData.speedSet, mainData.speedBb, mainData.speedSb);
             subStatus = 0;
         }
         if (logtimer < millis())

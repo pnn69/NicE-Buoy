@@ -150,7 +150,7 @@ bool udp_setup(int poort)
                          String stringUdpIn = (const char *)packet.data();
                          if (verifyCRC(stringUdpIn))
                          {
-                             int msg = RoboDecode(stringUdpIn, &topWifiIn);
+                             int msg = RoboDecode(stringUdpIn, topWifiIn);
                              xQueueSend(udpIn, (void *)&topWifiIn, 10); // notify main there is new data
                          }
                          else
@@ -161,7 +161,6 @@ bool udp_setup(int poort)
     }
     return false;
 }
-
 
 void udpSend(String data)
 {
@@ -204,15 +203,23 @@ bool initwifiqueue(void)
 */
 void WiFiTask(void *arg)
 {
+    byte mac[6];
+    char macStr[20];
+    WiFi.macAddress(mac);
+    sprintf(macStr, "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    uint64_t tmp = 0;
+    for (int i = 0; i < 6; i++)
+    {
+        tmp = (tmp << 8) | mac[i];
+    }
+    topWifiIn.cmd = TOPID;
+    topWifiIn.id = tmp;
+    xQueueSend(udpIn, (void *)&topWifiIn, 10); // notify main there is new data
     int wifiConfig = *((int *)arg);
     unsigned long nwUpdate = millis();
     unsigned char numClients = 0;
     String ap = "";
     String apww = "";
-    byte mac[6];
-    char macStr[20];
-    WiFi.macAddress(mac);
-    sprintf(macStr, "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     unsigned long nextSamp = millis();
     if (wifiConfig == 1)
     {

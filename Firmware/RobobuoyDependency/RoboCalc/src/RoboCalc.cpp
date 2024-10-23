@@ -50,7 +50,6 @@ void addCRCToString(String &input) // Use reference to modify the original strin
 // Subroutine to check if the checksum in the string is valid
 bool verifyCRC(String input)
 {
-    Serial.println("CRC check on: " + input);
     // Find where the checksum starts (between '├' and '┤')
     int start = input.indexOf('$');
     int end = input.indexOf('*');
@@ -78,6 +77,45 @@ bool verifyCRC(String input)
 
     // Compare the calculated checksum with the provided checksum
     return givenCRC.equalsIgnoreCase(calculatedCRCHex);
+}
+
+double averigeWindRose(double samples[], int n)
+{
+    double sumSin = 0, sumCos = 0;
+    for (int i = 0; i < n; ++i)
+    {
+        double angle = (samples[i + 3] * M_PI) / 180.0; // Convert to radians
+        sumSin += sin(angle);
+        sumCos += cos(angle);
+    }
+    double meanAngle = atan2(sumSin / n, sumCos / n);               // Compute mean angle
+    double meanDegrees = fmod(meanAngle * 180.0 / M_PI + 360, 360); // Convert mean angle to degrees
+    samples[0] = meanDegrees;
+    return meanDegrees;
+}
+/*
+compute deviation of a buffer pos
+Structure buf[averige][deviation][data0][datan...]
+*/
+double deviationWindRose(double samples[], int n)
+{
+    double mean = averigeWindRose(samples, n);
+    double sumSquaredCircularDiff = 0;
+    for (int i = 0; i < n; ++i)
+    {
+        double diff = samples[i + 3] - mean;
+        if (diff > 180)
+        {
+            diff -= 360;
+        }
+        else if (diff < -180)
+        {
+            diff += 360;
+        }
+        sumSquaredCircularDiff += diff * diff;
+    }
+    samples[1] = sqrt(sumSquaredCircularDiff / n);
+    return samples[1];
 }
 
 int PidDecode(String data, pid buoy)
@@ -204,45 +242,6 @@ double approxRollingAverage(double avg, double input)
     return avg;
 }
 
-double averigeWindRose(double samples[], int n)
-{
-    double sumSin = 0, sumCos = 0;
-    for (int i = 0; i < n; ++i)
-    {
-        double angle = (samples[i + 3] * M_PI) / 180.0; // Convert to radians
-        sumSin += sin(angle);
-        sumCos += cos(angle);
-    }
-    double meanAngle = atan2(sumSin / n, sumCos / n);               // Compute mean angle
-    double meanDegrees = fmod(meanAngle * 180.0 / M_PI + 360, 360); // Convert mean angle to degrees
-    samples[0] = meanDegrees;
-    return meanDegrees;
-}
-/*
-compute deviation of a buffer pos
-Structure buf[averige][deviation][data0][datan...]
-*/
-double deviationWindRose(double samples[], int n)
-{
-    double mean = averigeWindRose(samples, n);
-    double sumSquaredCircularDiff = 0;
-    for (int i = 0; i < n; ++i)
-    {
-        double diff = samples[i + 3] - mean;
-        if (diff > 180)
-        {
-            diff -= 360;
-        }
-        else if (diff < -180)
-        {
-            diff += 360;
-        }
-        sumSquaredCircularDiff += diff * diff;
-    }
-    samples[1] = sqrt(sumSquaredCircularDiff / n);
-    return samples[1];
-}
-
 /*
 Add new data in buffer
 Structure buf[averige][deviation][data0][datan...]
@@ -317,12 +316,24 @@ void adjustPositionDirDist(double dir, double dist, double *lat, double *lon)
 
 double smallestAngle(double heading1, double heading2)
 {
-    double angle = fmod(heading2 - heading1 + 360, 360); // Calculate the difference and keep it within 360 degrees
-    if (angle > 180)
+    // Calculate the raw difference
+    double diff = heading2 - heading1;
+
+    // Normalize the difference to be within [-180, 180]
+    double Diff = fmod(diff, 360);
+
+    // Handle cases where the difference is negative or greater than 180
+    if (Diff < -180)
     {
-        angle = 360 - angle; // Take the smaller angle between the two
+        Diff += 360; // Correct for angles less than -180 degrees
     }
-    return angle;
+    else if (Diff > 180)
+    {
+        Diff -= 360; // Correct for angles greater than 180 degrees
+    }
+
+    // Return the smallest angle
+    return Diff;
 }
 
 /*
@@ -415,13 +426,20 @@ void CalcRemoteRudderBuoy(double magheading, double tgheading, int speed, int *b
 */
 double push = 0;
 
+/*
+Calculate power to thrusters
+if distance between 0.5 and 1.5 meter rotate at the slowest speed.
+else do normal rudder calculation.
+*/
+#define ILIM 35 // Maximum interal limit (35% power)
+float push = 0;
 bool CalcRudderBuoy(double magheading, double tgheading, double tdistance, int speed, int *bb, int *sb, pid buoy)
 {
     double error = ComputeSmallestAngleDir(magheading, tgheading);
     /*Rotate to target direction first*/
     if (tdistance > 0.5 && abs(error) > 45)
     {
-        double power = map(abs(error), 45, 180, 2, 20);
+        float power = map(abs(error), 45, 180, 2, 20);
         power = sin(radians(power)) * 100;
         power = (int)map(power, 13, 100, 13, buoy.maxSpeed / 2);
         power += push;
@@ -437,7 +455,12 @@ bool CalcRudderBuoy(double magheading, double tgheading, double tdistance, int s
             *bb = power;
             *sb = -power;
         }
-        initPid(buoy);
+        buoy.kp = 0;
+        buoy.ki = 0;
+        buoy.kd = 0;
+        buoy.iintergrate = 0;
+        buoy.lastErr = 0;
+        buoy.lastTime = millis();
         return false;
     }
     push = 0;
@@ -459,15 +482,15 @@ bool CalcRudderBuoy(double magheading, double tgheading, double tdistance, int s
     buoy.p = buoy.kp * error;
     buoy.i = (buoy.ki / 1000) * buoy.iintergrate;
     buoy.d = buoy.kd * dErr;
-    double adj = buoy.p + buoy.i + buoy.d + buoy.compassCorrection;
+    double adj = buoy.p + buoy.i + buoy.d;
     buoy.lastErr = error;
     buoy.lastTime = now;
     *bb = (int)(speed * (1 - tan(radians(adj))));
     *sb = (int)(speed * (1 + tan(radians(adj))));
+    *bb = *bb;
+    /*Sanety check*/
     *bb = constrain(*bb, -buoy.maxSpeed, buoy.maxSpeed);
     *sb = constrain(*sb, -buoy.maxSpeed, buoy.maxSpeed);
-    buoy.speedbb = *bb;
-    buoy.speedsb = *sb;
     return true;
 }
 
@@ -476,36 +499,22 @@ Only used PID if the distancs is less than buoy.maxOfsetDist return BUOYMAXSPEED
 */
 int hooverPid(double dist, pid buoy)
 {
+
     /*Do not use the pid loop if distance is to big just go full power*/
-    if (buoy.maxSpeed == 51) /*old config use this by setting max speed to 51*/
+    if (buoy.armIntergrator == false)
     {
-        if (dist > buoy.maxOfsetDist)
+        if (dist > 3)
         {
+            buoy.iintergrate = 0;
             return buoy.maxSpeed;
         }
-        if (speed.armIntergrator == false)
+        else
         {
-            speed.armIntergrator = true;
-            speed.iintergrate = 0;
+            buoy.armIntergrator = true;
+            buoy.iintergrate = 0;
         }
     }
-    else
-    {
-        /*Do not use the pid loop if distance is to big just go full power*/
-        if (buoy.armIntergrator == false)
-        {
-            if (dist > 3)
-            {
-                buoy.iintergrate = 0;
-                return buoy.maxSpeed;
-            }
-            else
-            {
-                buoy.armIntergrator = true;
-                buoy.iintergrate = 0;
-            }
-        }
-    }
+
     /*How long since we last calculated*/
     double Output = 0;
     unsigned long now = millis();
@@ -539,4 +548,147 @@ int hooverPid(double dist, pid buoy)
     buoy.lastTime = now;
     buoy.speed = (int)constrain(Output, 0, buoy.maxSpeed);
     return buoy.speed;
+}
+
+/*
+    Position calculations
+*/
+void threePointAverage(double lat1, double lon1, double lat2, double lon2, double lat3, double lon3, double latgem, double longem)
+{
+    // Calculate the average of latitude and longitude
+    latgem = (lat1 + lat2 + lat3) / 3;
+    longem = (lon1 + lon2 + lon3) / 3;
+}
+
+void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double latgem, double longem)
+{
+    // Calculate the average of latitude and longitude
+    latgem = (lat1 + lat2) / 2;
+    longem = (lon1 + lon2) / 2;
+}
+
+// Function to convert wind direction in degrees to a vector
+void windDirectionToVector(double windDegrees, double *windX, double *windY)
+{
+    // Normalize wind direction to [0, 360)
+    while (windDegrees < 0)
+    {
+        windDegrees += 360;
+    }
+    while (windDegrees >= 360)
+    {
+        windDegrees -= 360;
+    }
+    // Convert degrees to radians
+    double windRadians = windDegrees * M_PI / 180.0;
+    // Calculate the wind vector components
+    *windX = cos(windRadians);
+    *windY = sin(windRadians);
+}
+
+// Function to calculate the angle between two vectors in degrees
+double calculateAngle(double x1, double y1, double x2, double y2)
+{
+    double dotProduct = x1 * x2 + y1 * y2;
+    double magnitudeA = sqrt(x1 * x1 + y1 * y1);
+    double magnitudeB = sqrt(x2 * x2 + y2 * y2);
+    // Calculate the cosine of the angle
+    double cosAngle = dotProduct / (magnitudeA * magnitudeB);
+    // Clamp the value to the range [-1, 1] to avoid NaN from acos
+    if (cosAngle > 1.0)
+        cosAngle = 1.0;
+    if (cosAngle < -1.0)
+        cosAngle = -1.0;
+    // Return the angle in degrees
+    return acos(cosAngle) * (180.0 / M_PI);
+}
+
+// Function to check the position relative to the wind direction
+int checkWindDirection(double windDegrees, double lat, double lon, double centroidX, double centroidY)
+{
+    // Convert degrees to radians
+    double windRadians = windDegrees * M_PI / 180.0;
+    // Calculate the wind vector components
+    double windX = cos(windRadians);
+    double windY = sin(windRadians);
+
+    // Vector from centroid to point
+    double vectorPX = lat - centroidX;
+    double vectorPY = lon - centroidY;
+    // Calculate the angle between the wind vector and the vector to the point
+    double angle = calculateAngle(windX, windY, vectorPX, vectorPY);
+    if (angle <= 45.0)
+    {
+        return HEAD; // Point is within ±45 degrees of the wind direction
+    }
+    else
+    {
+        // Calculate the cross product to determine starboard or port
+        double crossProduct = windX * vectorPY - windY * vectorPX;
+
+        if (crossProduct > 0)
+        {
+            return PORT; // Left of the wind direction
+        }
+        else
+        {
+            return STARBOARD; // Right of the wind direction
+        }
+    }
+}
+
+void reCalcStartLine(double *lat1, double *lon1, double *lat2, double *lon2, double winddir)
+{
+    double latgem, longem;
+    double lat, lon;
+    double dist = distanceBetween(*lat1, *lon1, *lat2, *lon2);
+    twoPointAverage(*lat1, *lon1, *lat2, *lon2, latgem, longem);
+    dist = dist / 2;
+    int buoypos = checkWindDirection(winddir, *lat1, *lon1, latgem, longem);
+    if (buoypos == PORT)
+    {
+        double dir = winddir + 90;
+        if (dir > 360)
+        {
+            dir -= 360;
+        }
+        lat = *lat1;
+        lon = *lon1;
+        adjustPositionDirDist(dir, dist, &lat, &lon);
+        *lat1 = lat;
+        *lon1 = lon;
+        dir = winddir - 90;
+        if (dir < 0)
+        {
+            dir += 360;
+        }
+        lat = *lat2;
+        lon = *lon2;
+        adjustPositionDirDist(dir, dist, &lat, &lon);
+        *lat2 = lat;
+        *lon2 = lon;
+    }
+    else
+    {
+        double dir = winddir + 90;
+        if (dir > 360)
+        {
+            dir -= 360;
+        }
+        lat = *lat2;
+        lon = *lon2;
+        adjustPositionDirDist(dir, dist, &lat, &lon);
+        *lat2 = lat;
+        *lon2 = lon;
+        dir = winddir - 90;
+        if (dir < 0)
+        {
+            dir += 360;
+        }
+        lat = *lat1;
+        lon = *lon1;
+        adjustPositionDirDist(dir, dist, &lat, &lon);
+        *lat1 = lat;
+        *lon1 = lon;
+    }
 }

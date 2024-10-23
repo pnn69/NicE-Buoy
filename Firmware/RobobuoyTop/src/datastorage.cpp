@@ -11,16 +11,24 @@ void initMemory(void)
     // Note: Namespace name is limited to 15 chars.
     storage.begin("NicE_Buoy_Data", false);
     char id = storage.getChar("NicE_BuoyID", 0);
-    if (id == 0)
+    if (id != 10)
     {
         Serial.printf("Configuring Non-volatile memory now!\n\r");
-        storage.putChar("NicE_BuoyID", 100);
-        Serial.printf("Storing data Bouy ID to 100\r\n");
-        // tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
+        storage.putChar("NicE_BuoyID", 10);
+        Serial.printf("Storing data Target position \r\nWSVOP landing stage tglatitude = 52.29308075283747, tglongitude = 4.932570409845357 ");
         storage.putDouble("Tglat", 52.29308075283747);
         storage.putDouble("Tglon", 4.932570409845357);
-        Serial.printf("Storing data Target position \r\nWSVOP landing stage tglatitude = 52.29308075283747, tglongitude = 4.932570409845357 ");
         Serial.printf("Buoy Memory configured\r\n");
+        storage.putInt("minOfsetDist", 2);
+        storage.putInt("maxOfsetDist", 5);
+        storage.putInt("minSpeed", 0);
+        storage.putInt("maxSpeed", 80);
+        storage.putDouble("Psp", 20);
+        storage.putDouble("Isp", 0.01);
+        storage.putDouble("Dsp", 0);
+        storage.putDouble("Prd", 0.5);
+        storage.putDouble("Ird", 0.02);
+        storage.putDouble("Dsp", 0);
         delay(1000);
     }
     id = storage.getChar("NicE_BuoyID", 0);
@@ -108,6 +116,24 @@ void memPidSpeedParameters(double *p, double *i, double *d, bool get)
     {
         storage.putDouble("Psp", *p);
         storage.putDouble("Isp", *i);
+        storage.putDouble("Dsp", *d);
+    }
+    stopMem();
+}
+
+void memPidRudderParameters(double *p, double *i, double *d, bool get)
+{
+    startMem();
+    if (get)
+    {
+        *p = storage.getDouble("Prd", 20);
+        *i = storage.getDouble("Ird", 0.4);
+        *d = storage.getDouble("Drd", 0);
+    }
+    else
+    {
+        storage.putDouble("Prd", *p);
+        storage.putDouble("Ird", *i);
         storage.putDouble("Dsp", *d);
     }
     stopMem();

@@ -107,7 +107,7 @@ float heading(vector<T> from)
 bool InitCompass(void)
 {
     float min_mag[3], max_mag[3];
-    CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], true); //  get callibration data
+    CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], GET); //  get callibration data
     m_min = (vector<float>){min_mag[0], min_mag[1], min_mag[2]};
     m_max = (vector<float>){max_mag[0], max_mag[1], max_mag[2]};
 
@@ -127,8 +127,8 @@ bool InitCompass(void)
     accel.setMode(LSM303_MODE_NORMAL);
     sensors_event_t event;
     mag.getEvent(&event);
-    CompassOffsetCorrection(&magneticCorrection, true);
-    MechanicalCorrection(&mechanicCorrection, true);
+    CompassOffsetCorrection(&magneticCorrection, GET);
+    MechanicalCorrection(&mechanicCorrection, GET);
     return 0;
 }
 
@@ -163,17 +163,16 @@ bool CalibrateCompass(void)
             Serial.printf("Calllibration factors Compass: MaxXYZ: {%f, %f, %f}; MinXYZ {%f, %f, %f};\r\n", max_mag[0], max_mag[1], max_mag[2], min_mag[0], min_mag[1], min_mag[2]);
         }
     }
-    CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], false); //  store callibration data
+    CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], SET); //  store callibration data
     m_min = (vector<float>){min_mag[0], min_mag[1], min_mag[2]};
     m_max = (vector<float>){max_mag[0], max_mag[1], max_mag[2]};
-    Serial.printf("New callibration stored!!!\n\r");
-    Serial.printf("Calllibration factors Compass: MaxXYZ: {%f, %f, %f}; MinXYZ {%f, %f, %f};\r\n", max_mag[0], max_mag[1], max_mag[2], min_mag[0], min_mag[1], min_mag[2]);
+    Serial.printf("New calllibration factors Compass: MaxXYZ: {%f, %f, %f}; MinXYZ {%f, %f, %f};\r\n", max_mag[0], max_mag[1], max_mag[2], min_mag[0], min_mag[1], min_mag[2]);
     return 0;
 }
 
 double GetHeading(void)
 {
-    double mHeding = (double)heading((vector<int>){0, 1, 0}); // Select oriontation
+    float mHeding = heading((vector<int>){0, 1, 0}); // Select oriontation
     mHeding = mHeding + magneticCorrection;
     if (mHeding < 0)
     {
@@ -183,11 +182,11 @@ double GetHeading(void)
     {
         mHeding = mHeding - 360.0;
     }
-    return mHeding;
+    return (double)mHeding;
 }
 double GetHeadingRaw(void)
 {
-    double t = (double)heading((vector<int>){0, 1, 0});
+    float t = heading((vector<int>){0, 1, 0});
     if (t > 360)
     {
         t -= 360;
@@ -196,7 +195,7 @@ double GetHeadingRaw(void)
     {
         t += 360;
     }
-    return t;
+    return (double)t;
 }
 
 static int cbufpointer = 0;
@@ -244,21 +243,21 @@ void calibrateMagneticNorth(void)
     {
         CompassAverage(GetHeadingRaw());
     }
-    float h = CompassAverage(GetHeadingRaw());
+    double h = CompassAverage(GetHeadingRaw());
     // float h = GetHeadingRaw();
     if (h < 180)
     {
-        magneticCorrection = -h;
+        magneticCorrection = (int)(-h);
     }
     else
     {
-        magneticCorrection = 360 - h;
+        magneticCorrection = (int)(360 - h);
     }
-    CompassOffsetCorrection(&magneticCorrection, false);
+    CompassOffsetCorrection(&magneticCorrection, SET);
     printf("New magnetic offset stored: %d\r\n", magneticCorrection);
 }
 
-void initGpsQueue(void)
+void initcompassQueue(void)
 {
     compass = xQueueCreate(1, sizeof(double));
 }

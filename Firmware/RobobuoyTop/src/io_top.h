@@ -16,6 +16,7 @@
 #define RADIO_MOSI_PIN 23
 #define RADIO_CS_PIN 5
 #define RADIO_RST_PIN 2
+#define RADIO_DIO0_PIN 33 // Button option 3 if needed
 
 #define VBATT 39
 

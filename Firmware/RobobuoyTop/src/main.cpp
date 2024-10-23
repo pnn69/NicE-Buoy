@@ -2,14 +2,18 @@
 #include <RoboTone.h>
 #include "main.h"
 #include "io_top.h"
-#include "robolora.h"
 #include "leds.h"
 #include "topwifi.h"
 #include "gps.h"
 #include "datastorage.h"
 #include "buzzer.h"
 #include "adc.h"
+#include "loratop.h"
 
+#define BUFLENMHRG 60 // one sampel each sec so 60 sec for stabilisation
+
+static extBuoyParameters extBuoyData[2]; // max 2 other buoys
+static char loraTransmitt[MAXSTRINGLENG];
 static RoboStruct mainData;
 static RoboStruct subData;
 static LedData mainCollorStatus;
@@ -20,11 +24,12 @@ static UdpData mainUdpIn;
 static Buzz mainBuzzerData;
 static GpsDataType mainGpsData;
 static GpsNav mainNavData;
-static int status;
+static unsigned int status = IDLE;
 static int wifiConfig = 0;
 int8_t buoyId;
 static int msg;
 unsigned long udpTimer = millis();
+double winddir[3 + BUFLENMHRG]; // winddir[0]=avarage winddir[1]=pionter winddir[2]=standarddeviation winddir[3..BUFLENWINDSPEED + 3)]=data
 
 int buttonState = 0;              // Current state of the button
 int lastButtonState = 0;          // Previous state of the button
@@ -62,7 +67,7 @@ int countKeyPressesWithTimeout()
     return -1;                     // Return -1 if 0.5 seconds haven't passed yet
 }
 
-void handelKeyPress(void)
+int handelKeyPress(int stat)
 {
     int presses = countKeyPressesWithTimeout();
     if (presses > 0)
@@ -70,29 +75,29 @@ void handelKeyPress(void)
         switch (presses)
         {
         case 1: // lock / unlock
-            if ((status != LOCKED) && (mainGpsData.fix == true))
+            if ((stat != LOCKED) && (mainGpsData.fix == true))
             {
                 mainNavData.tgLat = mainGpsData.lat;
                 mainNavData.tgLon = mainGpsData.lon;
-                status = LOCKED;
+                stat = LOCKED;
                 beep(1, buzzer);
             }
             else
             {
-                status = IDLE;
+                stat = IDLE;
                 beep(2, buzzer);
                 mainData.cmd = TOPIDLE;
                 xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
             }
             break;
         case 3:
-            //compute start line
+            // compute start line
             beep(1000, buzzer);
             break;
         case 10:
             // Get doc position
             memDockPos(&mainNavData.tgLat, &mainNavData.tgLon, true);
-            status = DOCKED;
+            stat = DOCKED;
             beep(1, buzzer);
             break;
         case 15:
@@ -111,6 +116,7 @@ void handelKeyPress(void)
             break;
         }
     }
+    return stat;
 }
 
 void buttonLight(unsigned long &timer, int &bl, int status, bool f)
@@ -163,12 +169,12 @@ void setup()
     printf("\r\nSetup running!\r\n");
     printf("Robobuoy Top Version: %0.1f\r\n", TOPVERSION);
     initMemory();
-    // buoyId = 1;
-    // memBuoyId(&buoyId, false);
     initbuzzerqueue();
     initledqueue();
     initwifiqueue();
     initgpsqueue();
+    initloraqueue();
+
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 1000, NULL, 1, NULL, 1);
     xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
     xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4024, NULL, 20, NULL, 1);
@@ -189,7 +195,12 @@ void setup()
         wifiConfig = 0; // Setup normal accespoint
     }
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 2, NULL, 0);
+    xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 1);
     Serial.println("Main task running!");
+    if (extBuoyData[0].mac == 0)
+    {
+        printf("No data recieved from other buoy yet\r\n");
+    }
 }
 
 void loop(void)
@@ -207,29 +218,27 @@ void loop(void)
     /*
         Main loop
     */
+    bool firstfix = false;
     while (true)
     {
-        handelKeyPress();
+        status = handelKeyPress(status);
         buttonLight(buttonBlinkTimer, blink, status, mainGpsData.fix);
         /*
         New GPS datat
         */
         if (xQueueReceive(gpsQue, (void *)&mainGpsData, 0) == pdTRUE) // New gps data
         {
-            if (mainGpsData.fix == true && mainGpsData.firstfix == false)
+            if (mainGpsData.fix == true && firstfix == false)
             {
-                //beep(2000, buzzer);
-                mainGpsData.firstfix = true;
+                // beep(2000, buzzer);
+                firstfix = true;
             }
             if ((status == LOCKED) || status == DOCKED)
                 if (postimer < millis())
                 {
                     postimer = millis() + 250;
                     {
-                        double a, r;
-                        RouteToPoint(mainGpsData.lat, mainGpsData.lon, mainNavData.tgLat, mainNavData.tgLon, a, r);
-                        mainData.tgDist = (int)a;
-                        mainData.tgDir = (int)r;
+                        RouteToPoint(mainGpsData.lat, mainGpsData.lon, mainNavData.tgLat, mainNavData.tgLon, &mainData.tgDist, &mainData.tgDir);
                         mainData.cmd = TOPCALCRUDDER;
                         xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
                     }
@@ -259,6 +268,11 @@ void loop(void)
                 break;
             case PONG:
                 break;
+            case TOPID:
+                mainData.id = subData.id;
+                //printf("Buoy-ID:%012llx\n\r", mainData.id);
+                Serial.println("Lora-ID:" + String(mainData.id, HEX));
+                break;
             default:
                 printf("Command %d not supported!\r\n", subData.cmd);
             }
@@ -267,9 +281,24 @@ void loop(void)
         {
             logtimer = millis() + 1000;
             // RouteToPoint(mainGpsData.lat, mainGpsData.lon, mainNavData.tgLat, mainNavData.tgLon, &mainNavData.tgDist, &mainNavData.tgDir);
-            printf("Lat: %2.8f Lon:%2.8f tgLat: %2.8f tgLon:%2.8f tgDist:%d tgDir:%d\r\n", mainGpsData.lat, mainGpsData.lon, mainNavData.tgLat, mainNavData.tgLon, mainData.tgDist, mainData.tgDir);
+            printf("Lat: %2.8f Lon:%2.8f tgLat: %2.8f tgLon:%2.8f tgDist:%2f tgDir:%2f\r\n", mainGpsData.lat, mainGpsData.lon, mainNavData.tgLat, mainNavData.tgLon, mainData.tgDist, mainData.tgDir);
             battVoltage(mainData.topAccuV, mainData.topAccuP);
             printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %3d%%\r\n", mainData.topAccuV, mainData.topAccuP, mainData.subAccuV, mainData.subAccuP);
+            if (status == LOCKED)
+            {
+                addNewSampleInBuffer(winddir, BUFLENMHRG, mainData.dirMag);
+            }
+            // LORABUOYPOS     // ID,MSG,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott
+            String loraString = String(mainData.id,HEX) + "," + String(LORABUOYPOS) + "," + String(status) + "," + String(mainData.lat) + "," + String(mainData.lng) + "," + String(mainData.dirMag) + "," + String(mainData.dirMag) + "," + String(mainData.wDir) + "," + String(mainData.wStd) + "," + String(mainData.topAccuP) + "," + String(mainData.subAccuP) + "," + String(mainData.speedSet);
+            if (loraString.length() < MAXSTRINGLENG-1)
+            {
+                loraString.toCharArray(loraTransmitt,loraString.length() + 1);
+                xQueueSend(loraOut, (void *)&loraTransmitt, 10); // send out trough Lora
+            }
+            else
+            {
+                printf("Lora string to long: %d\r\n", loraString.length());
+            }
         }
     }
 }

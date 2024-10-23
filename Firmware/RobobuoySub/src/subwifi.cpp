@@ -9,11 +9,14 @@
 #include "RoboCodeDecode.h"
 #include "RoboCalc.h"
 
+
 RoboStruct subwifiData;
+//UdpMsg udpData;
+static char udpData[MAXSTRINGLENG];
 static RoboStruct subWifiIn;
 static int8_t buoyId;
 AsyncUDP udp;
-static UdpData udpBuffer;
+//static UdpData udpBuffer;
 QueueHandle_t udpIn;
 QueueHandle_t udpOut;
 static LedData wifiLedStatus;
@@ -118,15 +121,18 @@ void setupudp(void)
         udp.onPacket([](AsyncUDPPacket packet)
                      {
                          String stringUdpIn = (const char *)packet.data();
-                         if (verifyCRC(stringUdpIn))
+                         if(stringUdpIn.length() < MAXSTRINGLENG)
                          {
-                            Serial.println("String send to main: " + stringUdpIn);
-                            xQueueSend(udpIn, (void *)&stringUdpIn, 10); // notify main there is new data
-                         }
-                         else
-                         {
-                             Serial.println("crc error>" + stringUdpIn + "<");
-                         } });
+                            if (verifyCRC(stringUdpIn))
+                            {
+                                stringUdpIn.toCharArray(udpData,stringUdpIn.length() + 1);
+                                xQueueSend(udpIn, (void *)&udpData, 10); // notify main there is new data
+                            }
+                            else
+                            {
+                                Serial.println("crc error>" + stringUdpIn + "<");
+                            }
+                        } });
     }
 }
 
@@ -142,7 +148,7 @@ bool initwifiqueue(void)
     {
         printf("Queue udpOut created.\r\n");
     }
-    udpIn = xQueueCreate(10, sizeof(String));
+    udpIn = xQueueCreate(5, sizeof(char[MAXSTRINGLENG]));
     if (udpIn == NULL)
     {
         printf("Queue udpIn could not be created. %p\\r\n", udpOut);

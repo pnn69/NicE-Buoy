@@ -55,3 +55,7 @@ dkms.conf
 
 # Backup files
 .history
+
+#python helpers
+myenv/
+pysim/

@@ -1,7 +1,6 @@
 #ifndef LEDS_H_
 #define LEDS_H_
 #define BRIGHTNES 0
-#define MODE 1
 #include <FastLED.h>
 #include "../../RobobuoyDependency\RobobuoyMsg.h"
 

@@ -1,6 +1,12 @@
 #include <arduino.h>
 #include "RoboCodeDecode.h"
 
+/*
+    decode incomming data.
+    input string format $ID,x,y,z,x,x,x*
+    output parameters in to stuct type RoboStruct
+    crc does not have any value
+*/
 int RoboDecode(String data, RoboStruct &dataStore)
 {
     String numbers[10];                     // Array to hold the decoded numbers (adjust size as needed)
@@ -8,7 +14,7 @@ int RoboDecode(String data, RoboStruct &dataStore)
     int startIndex = data.indexOf('$') + 1; // Start after the '$'
     int endIndex = data.indexOf('*');       // End at the '*'
                                             // Split the substring by commas
-    Serial.println("String to decode: " + data);
+    // Serial.println("String to decode: " + data);
     String substring = data.substring(startIndex, endIndex);
     while (substring.length() > 0)
     {
@@ -29,7 +35,7 @@ int RoboDecode(String data, RoboStruct &dataStore)
         substring = substring.substring(commaIndex + 1);
     }
     dataStore.cmd = numbers[0].toInt();
-    printf("Command to decode:%d\r\n", dataStore.cmd);
+    // printf("Command to decode:%d\r\n", dataStore.cmd);
     switch (dataStore.cmd)
     {
     case TOPDATA:
@@ -47,13 +53,13 @@ int RoboDecode(String data, RoboStruct &dataStore)
         dataStore.speedSb = numbers[2].toInt();
         break;
     case TOPCALCRUDDER:
-        dataStore.tgDir = numbers[1].toInt();
-        dataStore.tgDist = numbers[2].toFloat();
+        dataStore.tgDir = numbers[1].toDouble();
+        dataStore.tgDist = numbers[2].toDouble();
         dataStore.speedSet = numbers[3].toInt();
     case TOPIDLE:
         break;
     case SUBDIRSPEED:
-        dataStore.dirMag = numbers[1].toInt();
+        dataStore.dirMag = numbers[1].toDouble();
         dataStore.speedBb = numbers[2].toInt();
         dataStore.speedSb = numbers[3].toInt();
         break;
@@ -65,12 +71,12 @@ int RoboDecode(String data, RoboStruct &dataStore)
     case PIDSPEEDSET:
     case PIDRUDDER:
     case PIDSPEED:
-        dataStore.p = numbers[1].toFloat();
-        dataStore.i = numbers[2].toFloat();
-        dataStore.d = numbers[3].toFloat();
-        dataStore.kp = numbers[4].toFloat();
-        dataStore.ki = numbers[5].toFloat();
-        dataStore.kd = numbers[6].toFloat();
+        dataStore.p = numbers[1].toDouble();
+        dataStore.i = numbers[2].toDouble();
+        dataStore.d = numbers[3].toDouble();
+        dataStore.kp = numbers[4].toDouble();
+        dataStore.ki = numbers[5].toDouble();
+        dataStore.kd = numbers[6].toDouble();
         break;
     case PING:
         break;
@@ -84,6 +90,12 @@ int RoboDecode(String data, RoboStruct &dataStore)
     return dataStore.cmd;
 }
 
+/*
+    Encode outgoing data.
+    input DATA RoboSruct and depeding on field msg
+    output string format $ID,x,y,z,x,x,x*
+    crc has to be added!
+*/
 String RoboCode(RoboStruct dataOut)
 {
     String out = "$";
@@ -91,22 +103,22 @@ String RoboCode(RoboStruct dataOut)
     switch (dataOut.cmd)
     {
     case SUBDATA:
-        out += "," + String(dataOut.dirMag);
+        out += "," + String(dataOut.dirMag, 2);
         out += "," + String(dataOut.speedSb);
         out += "," + String(dataOut.speedBb);
         out += "," + String(dataOut.subAccuV, 2);
         out += "," + String(dataOut.subAccuP);
         break;
     case SUBDIR:
-        out += "," + String(dataOut.dirMag);
+        out += "," + String(dataOut.dirMag, 2);
         break;
     case SUBDIRSPEED:
-        out += "," + String(dataOut.dirMag);
+        out += "," + String(dataOut.dirMag, 2);
         out += "," + String(dataOut.speedSb);
         out += "," + String(dataOut.speedBb);
         break;
     case SUBACCU:
-        out += "," + String((float)dataOut.subAccuV);
+        out += "," + String(dataOut.subAccuV, 2);
         out += "," + String(dataOut.subAccuP);
         break;
     case PIDRUDDER:
@@ -123,8 +135,8 @@ String RoboCode(RoboStruct dataOut)
         out = "$" + String(TOPIDLE);
         break;
     case TOPCALCRUDDER:
-        out += "," + String(dataOut.tgDir);
-        out += "," + String(dataOut.tgDist);
+        out += "," + String(dataOut.tgDir, 2);
+        out += "," + String(dataOut.tgDist, 2);
         out += "," + String(dataOut.speedSet);
         break;
     case PING:

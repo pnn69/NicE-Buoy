@@ -5,17 +5,18 @@
 struct RoboStruct
 {
     /* data */
+    double id = 0;
     double lat = 0;
     double lng = 0;
     double tgLat = 0;
     double tgLng = 0;
     int dirSet = 0;
     int dirGps = 0;
-    int dirMag = 0;
+    double dirMag = 0;
     int speedSet = 0;
     int speedBb = 0;
     int speedSb = 0;
-    int tgDir = 0;
+    double tgDir = 0;
     double tgDist = 0;
     float subAccuV = 0;
     float topAccuV = 0;
@@ -24,6 +25,7 @@ struct RoboStruct
     int cmd = 0;
     double p, i, d;
     double kp, ki, kd;
+    double wDir, wStd;
 };
 
 struct RoboStructGps
@@ -66,7 +68,10 @@ typedef enum
     PIDRUDDERSET,   // PID parameters rudder
     PIDSPEED,       // PID parameters speed + act data (p i d t) t= total
     PIDSPEEDSET,    // PID parameters speed
-    TOPIDLE,
+    TOPIDLE,        //
+    TOPID,          // mac top
+    SUBID,          // mac sub
+    LORABUOYPOS     // ID,MSG,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott
 } msg_t;
 
 int RoboDecode(String data, RoboStruct &dataStore);

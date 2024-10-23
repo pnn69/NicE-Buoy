@@ -3,13 +3,8 @@
 
 extern QueueHandle_t udpOut;
 extern QueueHandle_t udpIn;
-typedef struct UdpMsg
-{
-    unsigned char adress[4];
-    unsigned int port;
-    int msgId;
-    char msg;
-} UdpData;
+
+#define MAXSTRINGLENG 100
 
 bool initwifiqueue(void);
 void WiFiTask(void *arg);
