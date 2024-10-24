@@ -2,8 +2,6 @@
 #include <WebServer.h>
 #include <ArduinoOTA.h>
 #include <AsyncUDP.h>
-#include <RoboCalc.h>
-#include <RoboCodeDecode.h>
 #include "main.h"
 #include "topwifi.h"
 #include "leds.h"
@@ -150,7 +148,7 @@ bool udp_setup(int poort)
                          String stringUdpIn = (const char *)packet.data();
                          if (verifyCRC(stringUdpIn))
                          {
-                             int msg = RoboDecode(stringUdpIn, topWifiIn);
+                             topWifiIn = RoboDecode(stringUdpIn,topWifiIn);
                              xQueueSend(udpIn, (void *)&topWifiIn, 10); // notify main there is new data
                          }
                          else
@@ -164,8 +162,8 @@ bool udp_setup(int poort)
 
 void udpSend(String data)
 {
-    addBeginAndEndToString(data);
-    addCRCToString(data);
+    data = addBeginAndEndToString(data);
+    data = addCRCToString(data);
     udp.broadcast(data.c_str());
 }
 
@@ -175,26 +173,7 @@ void udpSend(String data)
 bool initwifiqueue(void)
 {
     udpOut = xQueueCreate(10, sizeof(RoboStruct));
-    if (udpOut == NULL)
-    {
-        printf("Queue udpOut could not be created. %p\\r\n", udpOut);
-        return false;
-    }
-    else
-    {
-        printf("Queue udpOut created.\r\n");
-    }
     udpIn = xQueueCreate(10, sizeof(RoboStruct));
-    if (udpIn == NULL)
-    {
-        printf("Queue udpIn could not be created. %p\\r\n", udpIn);
-        return false;
-    }
-    else
-    {
-        printf("Queue udpOut created.\r\n");
-    }
-
     return true;
 }
 

@@ -157,21 +157,21 @@ void setup()
     // speed.p = 20;
     // speed.i = 0.1;
     // speed.d = 0;
-    // pidSpeedParameters(&speed.p, &speed.i, &speed.d, SET);
+    // pidSpeedParameters(mainData, SET);
     // rudder.p = 0.5;
     // rudder.i = 0.02;
     // rudder.d = 0;
-    // pidRudderParameters(&rudder.p, &rudder.i, &rudder.d, SET);
+    // pidRudderParameters(mainData, SET);
     // speed.minOfsetDist = 2;
     // speed.maxOfsetDist = 8;
     // speed.minSpeed = 0;
     // speed.maxSpeed = 80;
-    // computeParameters(&speed.minOfsetDist, &speed.maxOfsetDist, &speed.minSpeed, &speed.maxSpeed, SET);
+    // computeParameters(mainData, SET);
     // rudder.minOfsetDist = 2;
     // rudder.maxOfsetDist = 8;
     // rudder.minSpeed = 0;
     // rudder.maxSpeed = 80;
-    // computeParameters(&speed.minOfsetDist, &speed.maxOfsetDist, &speed.minSpeed, &speed.maxSpeed, SET);
+    // computeParameters(mainData, SET);
     pidSpeedParameters(mainData, GET);
     pidRudderParameters(mainData, GET);
     computeParameters(mainData, GET);
@@ -230,7 +230,7 @@ void loop(void)
             String in = String(udpInMain);
             if (verifyCRC(in))
             {
-                RoboDecode(in, mainData);
+                mainData = RoboDecode(in, mainData);
                 switch (mainData.cmd)
                 {
                 case TOPSPBBSPSB:

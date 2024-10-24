@@ -6,8 +6,32 @@
 
 static bool loraOk = false;
 static char loraData[MAXSTRINGLENG];
+static lorabuf loraMsgout = {};
+static lorabuf pendingMsg[10] = {};
+static RoboStruct loraStruct;
 QueueHandle_t loraOut;
 QueueHandle_t loraIn;
+
+struct Data
+{
+    char mac[12]; // Fixed-size array for the MAC address (12 characters + null terminator)
+    int msg;      // MSG field
+    int ack;      // ACK field
+};
+
+// Function to extract the first 3 fields from a char array and return a struct
+struct Data extractFields(char *input)
+{
+    struct Data result;
+
+    // Extract the MAC address (assumed to be the first field in the array, 12 characters long)
+    sscanf(input, "%12[^,]", result.mac); // Extract the first 12 characters (MAC address without colons)
+
+    // Extract MSG and ACK (assuming they follow the MAC address)
+    sscanf(input + strlen(result.mac) + 1, "%d,%d", &result.msg, &result.ack);
+
+    return result;
+}
 
 bool InitLora(void)
 {
@@ -26,6 +50,47 @@ bool InitLora(void)
     Serial.println("Succes!");
     loraOk = true;
     return true;
+}
+
+void storeAckMsg(lorabuf ackBuffer)
+{
+    int i = 0;
+    while (i < 10)
+    {
+        if (pendingMsg[i].msg == 0)
+        {
+            memcpy(&pendingMsg[i].msg, &ackBuffer.msg, sizeof(ackBuffer.msg));
+        }
+    }
+}
+
+void removeAckMsg(int msg)
+{
+    int i = 0;
+    while (i < 10)
+    {
+        if (pendingMsg[i].msg == msg)
+        {
+            pendingMsg[i].ack = 0;
+            pendingMsg[i].msg = 0;
+        }
+    }
+}
+
+struct lorabuf chkAckMsg(void)
+{
+    struct lorabuf in;
+    in.ack = 0;
+    in.msg = 0;
+    int i = 0;
+    while (i < 10)
+    {
+        if (pendingMsg[i].msg != 0)
+        {
+            memcpy(&in, &pendingMsg[i], sizeof(lorabuf));
+        }
+    }
+    return in;
 }
 
 // poll wtih in mainloop onReceive(LoRa.parsePacket());
@@ -49,40 +114,64 @@ void onReceive(int packetSize)
     }
     incoming.toCharArray(loraData, incoming.length() + 1);
     xQueueSend(loraIn, (void *)&loraData, 0); // send out trough Lora
-    // decode string
+    struct Data extractedData = extractFields(loraData);
+    removeAckMsg(extractedData.msg);
 }
 
-void sendLora(String loraTransmitt)
+bool sendLora(String loraTransmitt)
 {
-    LoRa.beginPacket(); // start packet
-    LoRa.write(loraTransmitt.length());
-    LoRa.print(loraTransmitt);
-    LoRa.endPacket(); // finish packet and send it
+    if (LoRa.beginPacket()) // start packet
+    {
+        LoRa.write(loraTransmitt.length());
+        LoRa.print(loraTransmitt);
+        LoRa.endPacket(); // finish packet and send it
+        return true;
+    }
+    return false;
 }
 
 void initloraqueue(void)
 {
     loraOut = xQueueCreate(10, sizeof(char[MAXSTRINGLENG]));
-    loraIn = xQueueCreate(10, sizeof(char[MAXSTRINGLENG]));
+    loraIn = xQueueCreate(10, sizeof(lorabuf));
 }
 
 void LoraTask(void *arg)
 {
     unsigned long transmittReady = 0;
-    char dataOut[MAXSTRINGLENG];
+    unsigned long retransmittReady = 0;
     while (1)
     {
-        onReceive(LoRa.parsePacket());
+        onReceive(LoRa.parsePacket()); //check if there is new data availeble
         if (transmittReady < millis())
         {
-            if (LoRa.beginPacket()) // check if the transmitter is ready
+            if (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
             {
-                if (xQueueReceive(loraOut, (void *)&dataOut, 10) == pdTRUE)
+                Serial.println("Lora data recieved from main:" + String(loraMsgout.data) + "Length:" + String(strlen(loraMsgout.data)));
+                while (sendLora(String(loraMsgout.data)) != true)
                 {
-                    Serial.println("Lora data recieved from main:" + String(dataOut) + "Length:" + String(strlen(dataOut)));
-                    // sendLora(dataOut);
-                    transmittReady = millis() + 250 + random(0, 50);
+                    vTaskDelay(pdTICKS_TO_MS(100));
                 }
+                transmittReady = millis() + 250 + random(0, 50);
+                if (loraMsgout.ack == LORAGETACK)
+                {
+                    storeAckMsg(loraMsgout);            // put data in buffer (will be removed on ack)
+                    retransmittReady = millis() + 1000; // give some time for ack
+                }
+            }
+        }
+        /* retry one time*/
+        if (retransmittReady < millis())
+        {
+            loraMsgout = chkAckMsg();
+            if (loraMsgout.msg != 0)
+            {
+                while (sendLora(String(loraMsgout.data)) != true)
+                {
+                    vTaskDelay(pdTICKS_TO_MS(100));
+                }
+                retransmittReady = millis() + 1000 + random(0, 50);
+                removeAckMsg(loraMsgout.msg);
             }
         }
         vTaskDelay(1);

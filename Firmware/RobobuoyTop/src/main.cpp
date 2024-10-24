@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <RoboTone.h>
 #include "main.h"
 #include "io_top.h"
 #include "leds.h"
@@ -10,10 +9,11 @@
 #include "adc.h"
 #include "loratop.h"
 
-//#define BUFLENMHRG 60 // one sampel each sec so 60 sec for stabilisation
+// #define BUFLENMHRG 60 // one sampel each sec so 60 sec for stabilisation
 
 static extBuoyParameters extBuoyData[2]; // max 2 other buoys
 static RoboWindStruct wind;
+static lorabuf toLora;
 static char loraTransmitt[MAXSTRINGLENG];
 static RoboStruct mainData;
 static RoboStruct subData;
@@ -30,6 +30,7 @@ static int wifiConfig = 0;
 int8_t buoyId;
 static int msg;
 unsigned long udpTimer = millis();
+unsigned long loraTimer = millis();
 
 int buttonState = 0;              // Current state of the button
 int lastButtonState = 0;          // Previous state of the button
@@ -96,7 +97,7 @@ int handelKeyPress(int stat)
             break;
         case 10:
             // Get doc position
-            memDockPos(&mainNavData.tgLat, &mainNavData.tgLon, true);
+            memDockPos(mainData, true);
             stat = DOCKED;
             beep(1, buzzer);
             break;
@@ -104,7 +105,9 @@ int handelKeyPress(int stat)
             // store currend location as doc location
             if (mainGpsData.fix == true)
             {
-                memDockPos(&mainGpsData.lat, &mainGpsData.lng, false);
+                mainData.tgLat = mainGpsData.lat;
+                mainData.tgLng = mainGpsData.lng;
+                memDockPos(mainData, false);
                 beep(1, buzzer);
             }
             else
@@ -290,14 +293,33 @@ void loop(void)
             printf("Lat: %2.8f Lon:%2.8f tgLat: %2.8f tgLon:%2.8f tgDist:%2f tgDir:%2f\r\n", mainGpsData.lat, mainGpsData.lng, mainNavData.tgLat, mainNavData.tgLon, mainData.tgDist, mainData.tgDir);
             battVoltage(mainData.topAccuV, mainData.topAccuP);
             printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %3d%%\r\n", mainData.topAccuV, mainData.topAccuP, mainData.subAccuV, mainData.subAccuP);
-            // LORABUOYPOS     // ID,MSG,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott
-            mainData.wStd =  deviationWindRose(wind.winddir, BUFLENMHRG);
-            mainData.wDir = wind.winddir[0]; //averige wind dir
-            String loraString = String(mainData.id, HEX) + "," + String(LORABUOYPOS) + "," + String(status) + "," + String(mainData.lat,8) + "," + String(mainData.lng,8) + "," + String(mainData.dirMag) + "," + String(mainData.wDir) + "," + String(mainData.wStd) + "," + String(mainData.topAccuP) + "," + String(mainData.subAccuP) + "," + String(mainData.speedSet);
+            mainData.wStd = deviationWindRose(wind.winddir, BUFLENMHRG);
+            mainData.wDir = wind.winddir[0]; // averige wind dir
+            void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double *latgem, double *longem);
+        }
+        if (loraTimer < millis())
+        {
+            loraTimer = millis() + 9000 + random(1000, 2000);
+            // ID,MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
+            String loraString = String(mainData.id, HEX) +
+                                "," + String(LORABUOYPOS) +
+                                "," + String(LORAUPD) +
+                                "," + String(status) +
+                                "," + String(mainData.lat, 8) +
+                                "," + String(mainData.lng, 8) +
+                                "," + String(mainData.dirMag) +
+                                "," + String(mainData.wDir) +
+                                "," + String(mainData.wStd) +
+                                "," + String(mainData.topAccuP) +
+                                "," + String(mainData.subAccuP) +
+                                "," + String(mainData.speedBb) +
+                                "," + String(mainData.speedSb);
             if (loraString.length() < MAXSTRINGLENG - 1)
             {
-                loraString.toCharArray(loraTransmitt, loraString.length() + 1);
-                xQueueSend(loraOut, (void *)&loraTransmitt, 10); // send out trough Lora
+                loraString.toCharArray(toLora.data, loraString.length() + 1);
+                toLora.ack = LORAUPD;
+                toLora.msg = LORABUOYPOS;
+                xQueueSend(loraOut, (void *)&toLora, 10); // send out trough Lora
             }
             else
             {

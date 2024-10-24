@@ -58,40 +58,20 @@ void memBuoyId(int8_t *id, bool get)
 /*
     Dock position
 */
-void memDockPos(double *lat, double *lon, bool get)
+void memDockPos(RoboStruct buoy, bool get)
 {
     startMem();
     if (get)
     {
-        *lat = storage.getDouble("Docklat", 0);
-        *lon = storage.getDouble("Docklon", 0);
+        buoy.tgLat = storage.getDouble("Docklat", 0);
+        buoy.tgLng = storage.getDouble("Docklon", 0);
         // Serial.printf("Get Doc pos form memory  %.8lf %.8lf\r\n", *lat, *lon);
     }
     else
     {
         // Serial.printf("Store Doc pos in memory  %.8lf %.8lf\r\n", *lat, *lon);
-        storage.putDouble("Docklat", *lat);
-        storage.putDouble("Docklon", *lon);
-    }
-    stopMem();
-}
-
-void memComputeParameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int *maxSpeed, bool get)
-{
-    startMem();
-    if (get)
-    {
-        *minOfsetDist = (int)storage.getInt("minOfsetDist", 1);
-        *maxOfsetDist = (int)storage.getInt("maxOfsetDist", 8);
-        *minSpeed = (int)storage.getInt("minSpeed", 0);
-        *maxSpeed = (int)storage.getInt("maxSpeed", 80);
-    }
-    else
-    {
-        storage.putInt("minOfsetDist", *minOfsetDist);
-        storage.putInt("maxOfsetDist", *maxOfsetDist);
-        storage.putInt("minSpeed", *minSpeed);
-        storage.putInt("maxSpeed", *maxSpeed);
+        storage.putDouble("Docklat", buoy.tgLat);
+        storage.putDouble("Docklon", buoy.tgLng);
     }
     stopMem();
 }

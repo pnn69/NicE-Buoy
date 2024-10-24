@@ -1,6 +1,6 @@
 // https://github.com/espressif/arduino-esp32/blob/master/libraries/Preferences/src/Preferences.cpp
 #include <Preferences.h>
-
+#include <main.h>
 Preferences storage;
 
 void initMemory(void)
@@ -11,24 +11,16 @@ void initMemory(void)
     // Note: Namespace name is limited to 15 chars.
     storage.begin("NicE_Buoy_Data", false);
     char id = storage.getChar("NicE_BuoyID", 0);
-    if (id != 10)
+    if (id == 0)
     {
         Serial.printf("Configuring Non-volatile memory now!\n\r");
-        storage.putChar("NicE_BuoyID", 10);
+        storage.putChar("NicE_BuoyID", 100);
+        Serial.printf("Storing data Bouy ID to 100\r\n");
+        // tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
+        storage.putDouble("Doclat", 52.29308075283747);
+        storage.putDouble("Doclon", 4.932570409845357);
         Serial.printf("Storing data Target position \r\nWSVOP landing stage tglatitude = 52.29308075283747, tglongitude = 4.932570409845357 ");
-        storage.putDouble("Tglat", 52.29308075283747);
-        storage.putDouble("Tglon", 4.932570409845357);
         Serial.printf("Buoy Memory configured\r\n");
-        storage.putInt("minOfsetDist", 2);
-        storage.putInt("maxOfsetDist", 5);
-        storage.putInt("minSpeed", 0);
-        storage.putInt("maxSpeed", 80);
-        storage.putDouble("Psp", 20);
-        storage.putDouble("Isp", 0.01);
-        storage.putDouble("Dsp", 0);
-        storage.putDouble("Prd", 0.5);
-        storage.putDouble("Ird", 0.02);
-        storage.putDouble("Dsp", 0);
         delay(1000);
     }
     id = storage.getChar("NicE_BuoyID", 0);
@@ -66,75 +58,152 @@ void memBuoyId(int8_t *id, bool get)
 /*
     Dock position
 */
-void memDockPos(double *lat, double *lon, bool get)
+void memDockPos(RoboStruct buoy, bool get)
 {
     startMem();
     if (get)
     {
-        *lat = storage.getDouble("latDock", 0);
-        *lon = storage.getDouble("lonDock", 0);
+        buoy.tgLat = storage.getDouble("Docklat", 0);
+        buoy.tgLng = storage.getDouble("Docklon", 0);
         // Serial.printf("Get Doc pos form memory  %.8lf %.8lf\r\n", *lat, *lon);
     }
     else
     {
         // Serial.printf("Store Doc pos in memory  %.8lf %.8lf\r\n", *lat, *lon);
-        storage.putDouble("latDock", *lat);
-        storage.putDouble("lonDock", *lon);
+        storage.putDouble("Docklat", buoy.tgLat);
+        storage.putDouble("Docklon", buoy.tgLng);
     }
     stopMem();
 }
 
-void memComputeParameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int *maxSpeed, bool get)
+/*
+    Defaut callibration factors determed earyer
+    compass.m_min = (LSM303::vector<int16_t>){-535, -645, -382};
+    compass.m_max = (LSM303::vector<int16_t>){+576, +466, +754};
+*/
+void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, float *MinX, float *MinY, float *MinZ, bool get)
 {
     startMem();
     if (get)
     {
-        *minOfsetDist = (int)storage.getInt("minOfsetDist", 1);
-        *maxOfsetDist = (int)storage.getInt("maxOfsetDist", 8);
-        *minSpeed = (int)storage.getInt("minSpeed", 0);
-        *maxSpeed = (int)storage.getInt("maxSpeed", 80);
+        *MaxX = storage.getFloat("MaxX", 576);
+        *MaxY = storage.getFloat("MaxY", 466);
+        *MaxZ = storage.getFloat("MaxZ", 754);
+        *MinX = storage.getFloat("MinX", -535);
+        *MinY = storage.getFloat("MinY", -645);
+        *MinZ = storage.getFloat("MinZ", -382);
     }
     else
     {
-        storage.putInt("minOfsetDist", *minOfsetDist);
-        storage.putInt("maxOfsetDist", *maxOfsetDist);
-        storage.putInt("minSpeed", *minSpeed);
-        storage.putInt("maxSpeed", *maxSpeed);
-    }
-    stopMem();
-}
-void memPidSpeedParameters(double *p, double *i, double *d, bool get)
-{
-    startMem();
-    if (get)
-    {
-        *p = storage.getDouble("Psp", 20);
-        *i = storage.getDouble("Isp", 0.4);
-        *d = storage.getDouble("Dsp", 0);
-    }
-    else
-    {
-        storage.putDouble("Psp", *p);
-        storage.putDouble("Isp", *i);
-        storage.putDouble("Dsp", *d);
+        storage.putFloat("MaxX", *MaxX);
+        storage.putFloat("MaxY", *MaxY);
+        storage.putFloat("MaxZ", *MaxZ);
+        storage.putFloat("MinX", *MinX);
+        storage.putFloat("MinY", *MinY);
+        storage.putFloat("MinZ", *MinZ);
     }
     stopMem();
 }
 
-void memPidRudderParameters(double *p, double *i, double *d, bool get)
+void CompassOffsetCorrection(int *delta, bool get)
 {
     startMem();
     if (get)
     {
-        *p = storage.getDouble("Prd", 20);
-        *i = storage.getDouble("Ird", 0.4);
-        *d = storage.getDouble("Drd", 0);
+        *delta = storage.getInt("Delta", 0);
     }
     else
     {
-        storage.putDouble("Prd", *p);
-        storage.putDouble("Ird", *i);
-        storage.putDouble("Dsp", *d);
+        storage.putInt("Delta", *delta);
+    }
+    stopMem();
+}
+void MechanicalCorrection(int *delta, bool get)
+{
+    startMem();
+    if (get)
+    {
+        *delta = storage.getInt("Mecanic", 0);
+    }
+    else
+    {
+        storage.putInt("Mecanic", *delta);
+    }
+    stopMem();
+}
+
+void computeParameters(RoboStruct buoy, bool get)
+{
+    startMem();
+    if (get)
+    {
+        buoy.minOfsetDist = storage.getInt("minOfsetDist", 1);
+        buoy.maxOfsetDist = storage.getInt("maxOfsetDist", 8);
+        buoy.minSpeed = storage.getInt("minSpeed", 0);
+        buoy.maxSpeed = storage.getInt("maxSpeed", 80);
+    }
+    else
+    {
+        storage.putInt("minOfsetDist", buoy.minOfsetDist);
+        storage.putInt("maxOfsetDist", buoy.maxOfsetDist);
+        storage.putInt("minSpeed", buoy.minSpeed);
+        storage.putInt("maxSpeed", buoy.maxSpeed);
+    }
+    stopMem();
+}
+void pidSpeedParameters(RoboStruct buoy, bool get)
+{
+    startMem();
+    if (get)
+    {
+        buoy.ps = storage.getDouble("Psp", 20);
+        buoy.is = storage.getDouble("Isp", 0.4);
+        buoy.ds = storage.getDouble("Dsp", 0);
+        buoy.kps = 0;
+        buoy.kis = 0;
+        buoy.kds = 0;
+    }
+    else
+    {
+        storage.putDouble("Psp", buoy.ps);
+        storage.putDouble("Isp", buoy.is);
+        storage.putDouble("Dsp", buoy.ds);
+    }
+    stopMem();
+}
+void pidRudderParameters(RoboStruct buoy, bool get)
+{
+    startMem();
+    if (get)
+    {
+        buoy.pr = storage.getDouble("Prd", 0.5);
+        buoy.ir = storage.getDouble("Ird", 0.02);
+        buoy.dr = storage.getDouble("Drd", 0);
+        buoy.kpr = 0;
+        buoy.kir = 0;
+        buoy.kdr = 0;
+    }
+    else
+    {
+        storage.putDouble("Prd", buoy.pr);
+        storage.putDouble("Ird", buoy.ir);
+        storage.putDouble("Drd", buoy.dr);
+    }
+    stopMem();
+}
+
+void apParameters(String *ap, String *ww, bool get)
+{
+    startMem();
+    if (get)
+    {
+        *ap = storage.getString("ap", "PAIR_ME_");
+        *ww = storage.getString("ww", "");
+    }
+    else
+    {
+        storage.putString("ap", *ap);
+        storage.putString("ww", *ww);
     }
     stopMem();
 }

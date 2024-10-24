@@ -7,7 +7,7 @@
     output parameters in to stuct type RoboStruct
     crc does not have any value
 */
-void RoboDecode(String data, RoboStruct &dataStore)
+struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
 {
     dataStore.cmd = -1;
     String numbers[10];                     // Array to hold the decoded numbers (adjust size as needed)
@@ -95,6 +95,7 @@ void RoboDecode(String data, RoboStruct &dataStore)
         printf("RoboDecode: Unkown decode formatter %d\r\n", numbers[0]);
         dataStore.cmd = -1;
         break;
+        return dataStore;
     }
 }
 
@@ -180,13 +181,14 @@ String RoboCode(RoboStruct dataOut)
 #define degre(x) (x * 180 / M_PI)
 #define ILIM 35 // Maximum interal limit (35% power)
 
-void addBeginAndEndToString(String &input)
+String addBeginAndEndToString(String input)
 {
     input = "$" + input + "*";
+    return input;
 }
 
 // Subroutine to add CRC to a string (similar to NMEA format)
-void addCRCToString(String &input) // Use reference to modify the original string
+String addCRCToString(String input) // Use reference to modify the original string
 {
     // Find where the checksum starts (between '$' and '*')
     int start = input.indexOf('$');
@@ -195,7 +197,7 @@ void addCRCToString(String &input) // Use reference to modify the original strin
     // If there's no '$' or '*' in the string, return without changes
     if (start == -1 || end == -1 || end <= start)
     {
-        return; // Invalid format, do nothing and return
+        return input; // Invalid format, do nothing and return
     }
 
     // Calculate the checksum (XOR of all characters between '$' and '*')
@@ -211,6 +213,7 @@ void addCRCToString(String &input) // Use reference to modify the original strin
 
     // Append the checksum after the asterisk in the string
     input += crcHex; // Modify input directly
+    return input;
 }
 
 // Subroutine to check if the checksum in the string is valid
@@ -714,18 +717,18 @@ void hooverPid(RoboStruct buoy)
 /*
     Position calculations
 */
-void threePointAverage(double lat1, double lon1, double lat2, double lon2, double lat3, double lon3, double latgem, double longem)
+void threePointAverage(double lat1, double lon1, double lat2, double lon2, double lat3, double lon3, double *latgem, double *longem)
 {
     // Calculate the average of latitude and longitude
-    latgem = (lat1 + lat2 + lat3) / 3;
-    longem = (lon1 + lon2 + lon3) / 3;
+    *latgem = (lat1 + lat2 + lat3) / 3;
+    *longem = (lon1 + lon2 + lon3) / 3;
 }
 
-void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double latgem, double longem)
+void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double *latgem, double *longem)
 {
     // Calculate the average of latitude and longitude
-    latgem = (lat1 + lat2) / 2;
-    longem = (lon1 + lon2) / 2;
+    *latgem = (lat1 + lat2) / 2;
+    *longem = (lon1 + lon2) / 2;
 }
 
 // Function to convert wind direction in degrees to a vector
@@ -806,7 +809,7 @@ void reCalcStartLine(double *lat1, double *lon1, double *lat2, double *lon2, dou
     double latgem, longem;
     double lat, lon;
     double dist = distanceBetween(*lat1, *lon1, *lat2, *lon2);
-    twoPointAverage(*lat1, *lon1, *lat2, *lon2, latgem, longem);
+    twoPointAverage(*lat1, *lon1, *lat2, *lon2, &latgem, &longem);
     dist = dist / 2;
     int buoypos = checkWindDirection(winddir, *lat1, *lon1, latgem, longem);
     if (buoypos == PORT)

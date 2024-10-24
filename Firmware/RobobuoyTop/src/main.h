@@ -1,7 +1,7 @@
 #ifndef MAIN_H_
 #define MAIN_H_
-#include <RoboCodeDecode.h>
-#include <RoboCalc.h>
+#include <RoboCompute.h>
+#include <RoboTone.h>
 #include "../../RobobuoyDependency\RobobuoyMsg.h"
 #include "../../RobobuoyDependency\RobobuoyDefaults.h"
 #include "../../RobobuoyDependency\RobobuoyVersion.h"

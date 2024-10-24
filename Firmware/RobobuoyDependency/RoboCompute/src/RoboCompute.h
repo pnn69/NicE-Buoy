@@ -6,6 +6,37 @@
 #define PORT 2
 #define STARBOARD 3
 
+typedef enum
+{
+    PING = 1,
+    PONG,
+    SUBDATA,        // all data send known by sub
+    SUBACCU,        // accu voltage, accu percentage
+    SUBDIR,         // magnetic direction
+    SUBSPEED,       // speed(given), speed BB, speed SB
+    SUBDIRSPEED,    // magnetic heading,speed(given), speed BB, speed SB
+    TOPDATA,        // all dat send known by top
+    TOPDIRSPEED,    // Speed and direction
+    TOPDIRDIST,     // Direction and distance
+    TOPSPBBSPSB,    // speed bb Speed sb
+    TOPROUTTOPOINT, // route to point data
+    TOPCALCRUDDER,  // rudder data
+    PIDRUDDER,      // PID parameters rudder + act data (p i d t) t = total
+    PIDRUDDERSET,   // PID parameters rudder
+    PIDSPEED,       // PID parameters speed + act data (p i d t) t= total
+    PIDSPEEDSET,    // PID parameters speed
+    TOPIDLE,        //
+    TOPID,          // mac top
+    SUBID,          // mac sub
+    LORASET,        // info to store
+    LOTAGET,        // info request
+    LORAGETACK,     // ack requerd
+    LORAACK,        // ack on message
+    LORANAC,        // nak
+    LORAUPD,        // udate message
+    LORABUOYPOS     // ID,MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
+} msg_t;
+
 struct RoboStruct
 {
     /* data */
@@ -68,38 +99,15 @@ struct RoboStructGps
     int speedSb = 0;
 };
 
-typedef enum
-{
-    PING = 1,
-    PONG,
-    SUBDATA,        // all data send known by sub
-    SUBACCU,        // accu voltage, accu percentage
-    SUBDIR,         // magnetic direction
-    SUBSPEED,       // speed(given), speed BB, speed SB
-    SUBDIRSPEED,    // magnetic heading,speed(given), speed BB, speed SB
-    TOPDATA,        // all dat send known by top
-    TOPDIRSPEED,    // Speed and direction
-    TOPDIRDIST,     // Direction and distance
-    TOPSPBBSPSB,    // speed bb Speed sb
-    TOPROUTTOPOINT, // route to point data
-    TOPCALCRUDDER,  // rudder data
-    PIDRUDDER,      // PID parameters rudder + act data (p i d t) t = total
-    PIDRUDDERSET,   // PID parameters rudder
-    PIDSPEED,       // PID parameters speed + act data (p i d t) t= total
-    PIDSPEEDSET,    // PID parameters speed
-    TOPIDLE,        //
-    TOPID,          // mac top
-    SUBID,          // mac sub
-    LORABUOYPOS     // ID,MSG,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott
-} msg_t;
-
-void RoboDecode(String data, RoboStruct &dataStore);
+struct RoboStruct RoboDecode(String data, RoboStruct dataStore);
+// void RoboDecode(String data, RoboStruct &dataStore);
 String RoboCode(RoboStruct dataOut);
 
 /************************************************************************************************************************************************************************* */
 // OLD ROBOCALC
 /************************************************************************************************************************************************************************* */
-void addCRCToString(String &input); // Use reference to modify the original string
+String addBeginAndEndToString(String input);
+String addCRCToString(String input); // Use reference to modify the original string
 bool verifyCRC(String input);
 double averigeWindRose(double samples[], int n);
 double deviationWindRose(double samples[], int n);
@@ -121,8 +129,8 @@ double CalcDocSpeed(double tgdistance);
 void CalcRemoteRudderBuoy(RoboStruct buoy);
 bool CalcRudderBuoy(RoboStruct buoy);
 void hooverPid(RoboStruct buoy);
-void threePointAverage(double lat1, double lon1, double lat2, double lon2, double lat3, double lon3, double latgem, double longem);
-void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double latgem, double longem);
+void threePointAverage(double lat1, double lon1, double lat2, double lon2, double lat3, double lon3, double *latgem, double *longem);
+void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double *latgem, double *longem);
 void windDirectionToVector(double windDegrees, double *windX, double *windY);
 double calculateAngle(double x1, double y1, double x2, double y2);
 int checkWindDirection(double windDegrees, double lat, double lon, double centroidX, double centroidY);
