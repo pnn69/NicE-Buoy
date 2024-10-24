@@ -1,18 +1,184 @@
-#include <Arduino.h>
-#include <math.h>
-#include "RoboCalc.h"
+#include <arduino.h>
+#include "RoboCompute.h"
 
+/*
+    decode incomming data.
+    input string format $ID,x,y,z,x,x,x*
+    output parameters in to stuct type RoboStruct
+    crc does not have any value
+*/
+void RoboDecode(String data, RoboStruct &dataStore)
+{
+    dataStore.cmd = -1;
+    String numbers[10];                     // Array to hold the decoded numbers (adjust size as needed)
+    int count = 0;                          // Keep track of the number of extracted numbers
+    int startIndex = data.indexOf('$') + 1; // Start after the '$'
+    int endIndex = data.indexOf('*');       // End at the '*'
+                                            // Split the substring by commas
+    // Serial.println("String to decode: " + data);
+    String substring = data.substring(startIndex, endIndex);
+    while (substring.length() > 0)
+    {
+        int commaIndex = substring.indexOf(',');
+        // If there's no more comma, this is the last number
+        if (commaIndex == -1)
+        {
+            // numbers[count++] = substring.toInt(); // Convert the last part to an integer
+            numbers[count++] = substring;
+            break;
+        }
+        // Extract the number before the comma
+        // String numStr = substring.substring(0, commaIndex);
+        // numbers[count++] = numStr.toInt(); // Convert to integer
+        numbers[count++] = substring.substring(0, commaIndex);
+
+        // Remove the extracted number and the comma from the substring
+        substring = substring.substring(commaIndex + 1);
+    }
+    dataStore.cmd = numbers[0].toInt();
+    // printf("Command to decode:%d\r\n", dataStore.cmd);
+    switch (dataStore.cmd)
+    {
+    case TOPDATA:
+        printf("TOPDATA Not implementend yet/r/n");
+        break;
+    case TOPDIRSPEED:
+        dataStore.dirSet = numbers[1].toInt();
+        dataStore.speedSet = numbers[3].toInt();
+        break;
+    case TOPROUTTOPOINT:
+
+        break;
+    case TOPSPBBSPSB:
+        dataStore.speedBb = numbers[1].toInt();
+        dataStore.speedSb = numbers[2].toInt();
+        break;
+    case TOPCALCRUDDER:
+        dataStore.tgDir = numbers[1].toDouble();
+        dataStore.tgDist = numbers[2].toDouble();
+        dataStore.speedSet = numbers[3].toInt();
+    case TOPIDLE:
+        break;
+    case SUBDIRSPEED:
+        dataStore.dirMag = numbers[1].toDouble();
+        dataStore.speedBb = numbers[2].toInt();
+        dataStore.speedSb = numbers[3].toInt();
+        dataStore.speedcalcr = numbers[4].toInt();
+        break;
+    case SUBACCU:
+        dataStore.subAccuV = numbers[1].toFloat();
+        dataStore.subAccuP = numbers[2].toInt();
+        break;
+    case PIDRUDDERSET:
+    case PIDRUDDER:
+        dataStore.pr = numbers[1].toDouble();
+        dataStore.ir = numbers[2].toDouble();
+        dataStore.dr = numbers[3].toDouble();
+        dataStore.kpr = numbers[4].toDouble();
+        dataStore.kir = numbers[5].toDouble();
+        dataStore.kdr = numbers[6].toDouble();
+        break;
+    case PIDSPEEDSET:
+    case PIDSPEED:
+        dataStore.ps = numbers[1].toDouble();
+        dataStore.is = numbers[2].toDouble();
+        dataStore.ds = numbers[3].toDouble();
+        dataStore.kps = numbers[4].toDouble();
+        dataStore.kis = numbers[5].toDouble();
+        dataStore.kds = numbers[6].toDouble();
+        break;
+    case PING:
+        break;
+    case PONG:
+        break;
+    default:
+        printf("RoboDecode: Unkown decode formatter %d\r\n", numbers[0]);
+        dataStore.cmd = -1;
+        break;
+    }
+}
+
+/*
+    Encode outgoing data.
+    input DATA RoboSruct and depeding on field msg
+    output string format $ID,x,y,z,x,x,x*
+    crc has to be added!
+*/
+String RoboCode(RoboStruct dataOut)
+{
+    String out = "$";
+    out += String(dataOut.cmd);
+    switch (dataOut.cmd)
+    {
+    case SUBDATA:
+        out += "," + String(dataOut.dirMag, 2);
+        out += "," + String(dataOut.speedSb);
+        out += "," + String(dataOut.speedBb);
+        out += "," + String(dataOut.subAccuV, 2);
+        out += "," + String(dataOut.subAccuP);
+        break;
+    case SUBDIR:
+        out += "," + String(dataOut.dirMag, 2);
+        break;
+    case SUBDIRSPEED:
+        out += "," + String(dataOut.dirMag, 2);
+        out += "," + String(dataOut.speedSb);
+        out += "," + String(dataOut.speedBb);
+        out += "," + String(dataOut.speedcalcs);
+        break;
+    case SUBACCU:
+        out += "," + String(dataOut.subAccuV, 2);
+        out += "," + String(dataOut.subAccuP);
+        break;
+    case PIDSPEED:
+        out += "," + String(dataOut.ps);
+        out += "," + String(dataOut.is);
+        out += "," + String(dataOut.ds);
+        out += "," + String(dataOut.kps);
+        out += "," + String(dataOut.kis);
+        out += "," + String(dataOut.kds);
+        break;
+    case PIDRUDDER:
+    case PIDRUDDERSET:
+        out += "," + String(dataOut.pr);
+        out += "," + String(dataOut.ir);
+        out += "," + String(dataOut.dr);
+        out += "," + String(dataOut.kpr);
+        out += "," + String(dataOut.kir);
+        out += "," + String(dataOut.kdr);
+        break;
+    case TOPIDLE:
+        out = "$" + String(TOPIDLE);
+        break;
+    case TOPCALCRUDDER:
+        out += "," + String(dataOut.tgDir, 2);
+        out += "," + String(dataOut.tgDist, 2);
+        out += "," + String(dataOut.speedSet);
+        break;
+    case PING:
+        out = "$" + String(PING);
+        break;
+    case PONG:
+        out = "$" + String(PONG);
+        break;
+    default:
+        printf("Unkown code formatter %d\r\n", dataOut.cmd);
+        break;
+    }
+    out += "*";
+    return out;
+}
+
+/************************************************************************************************************************************************************************* */
+// OLD ROBOCALC
+/************************************************************************************************************************************************************************* */
+#include <math.h>
 /*some constans*/
 #define _GPS_EARTH_MEAN_RADIUS 6371009 // old: 6372795
 #define EARTHRADIUS 6371
 #define radian(x) (x * M_PI / 180)
 #define degre(x) (x * 180 / M_PI)
 #define ILIM 35 // Maximum interal limit (35% power)
-
-/*PID structs*/
-// pid buoy;
-pid speed;
-pid rudder;
 
 void addBeginAndEndToString(String &input)
 {
@@ -118,7 +284,7 @@ double deviationWindRose(double samples[], int n)
     return samples[1];
 }
 
-int PidDecode(String data, pid buoy)
+void PidDecode(String data, int pid, RoboStruct buoy)
 {
     int numbers[10]; // Array to hold the decoded numbers (adjust size as needed)
     int count = 0;   // Keep track of the number of extracted numbers
@@ -144,20 +310,41 @@ int PidDecode(String data, pid buoy)
         // Remove the extracted number and the comma from the substring
         substring = substring.substring(commaIndex + 1);
     }
-    buoy.p = numbers[1];
-    buoy.i = numbers[2];
-    buoy.i = numbers[3];
-    buoy.kp = 0;
-    buoy.ki = 0;
-    buoy.kd = 0;
-    return numbers[0];
+    if (pid == PIDSPEED)
+    {
+        buoy.ps = numbers[1];
+        buoy.is = numbers[2];
+        buoy.is = numbers[3];
+        buoy.kps = 0;
+        buoy.kis = 0;
+        buoy.kds = 0;
+    }
+    if (pid == PIDRUDDER)
+    {
+        buoy.pr = numbers[1];
+        buoy.ir = numbers[2];
+        buoy.ir = numbers[3];
+        buoy.kpr = 0;
+        buoy.kir = 0;
+        buoy.kdr = 0;
+    }
 }
 
-String PidEncode(pid buoy)
+String PidEncode(int pid, RoboStruct buoy)
 {
-    String out = String(buoy.p);
-    out += "," + String(buoy.i);
-    out += "," + String(buoy.d);
+    String out = "";
+    if (pid == PIDSPEED)
+    {
+        out = String(buoy.ps);
+        out += "," + String(buoy.is);
+        out += "," + String(buoy.ds);
+    }
+    if (pid == PIDRUDDER)
+    {
+        out = String(buoy.pr);
+        out += "," + String(buoy.ir);
+        out += "," + String(buoy.dr);
+    }
     return out;
 }
 
@@ -206,6 +393,7 @@ double distanceBetween(double lat1, double long1, double lat2, double long2)
     delta = atan2(delta, denom);
     return delta * _GPS_EARTH_MEAN_RADIUS;
 }
+
 double courseTo(double lat1, double long1, double lat2, double long2)
 {
     // returns course in degrees (North=0, West=270) from position 1 to position 2,
@@ -226,12 +414,19 @@ double courseTo(double lat1, double long1, double lat2, double long2)
     return degrees(a2);
 }
 
-void initPid(pid buoy)
+void initPid(int pid, RoboStruct buoy)
 {
-    // pidRudderParameters(&buoy.kp, &buoy.ki, &buoy.kd, true);
-    buoy.iintergrate = 0;
-    buoy.lastErr = 0;
-    buoy.lastTime = millis();
+    if (pid == PIDSPEED)
+    {
+        buoy.lastErrs = 0;
+        buoy.lastTimes = millis();
+    }
+    if (pid == PIDRUDDER)
+    {
+        buoy.iintergrate = 0;
+        buoy.lastErrr = 0;
+        buoy.lastTimer = millis();
+    }
 }
 
 /*Approimate roling average deafualt 100 samples*/
@@ -259,34 +454,31 @@ void addNewSampleInBuffer(double *input, int buflen, double nwdata)
 /*
 change parematers for speed calculation
 */
-void setparameters(int &minOfsetDist, int &maxOfsetDist, int &minSpeed, int &maxSpeed)
+void checkparameters(RoboStruct buoy)
 {
     /*
     sanety check
     */
-    if (minOfsetDist < 0)
+    if (buoy.minOfsetDist < 0)
     {
-        minOfsetDist = 2;
+        buoy.minOfsetDist = 2;
     }
-    if (maxOfsetDist > 100)
+    if (buoy.maxOfsetDist > 100)
     {
-        maxOfsetDist = 20;
+        buoy.maxOfsetDist = 20;
     }
-    if (minSpeed < 0)
+    if (buoy.minSpeed < 0)
     {
-        minSpeed = 0;
+        buoy.minSpeed = 0;
     }
-    if (maxSpeed > 80)
+    if (buoy.maxSpeed > 80)
     {
-        maxSpeed = 80;
+        buoy.maxSpeed = 80;
     }
-    if (minOfsetDist >= maxOfsetDist)
+    if (buoy.minOfsetDist >= buoy.maxOfsetDist)
     {
-        maxOfsetDist = minOfsetDist + 2;
+        buoy.maxOfsetDist = buoy.minOfsetDist + 2;
     }
-
-    // computeParameters(&buoy.minOfsetDist, &buoy.maxOfsetDist, &buoy.minSpeed, &buoy.maxSpeed, false);
-    //  Serial.printf("Stored Parameters: Minimum offset distance: %dM Maxumum offset distance: %dM, buoy minimum speed: %d%%, buoy maximum speed: %d%%\r\n", buoy.minOfsetDist, buoy.maxOfsetDist, buoy.minSpeed, buoy.maxSpeed);
 }
 
 /*
@@ -316,24 +508,12 @@ void adjustPositionDirDist(double dir, double dist, double *lat, double *lon)
 
 double smallestAngle(double heading1, double heading2)
 {
-    // Calculate the raw difference
-    double diff = heading2 - heading1;
-
-    // Normalize the difference to be within [-180, 180]
-    double Diff = fmod(diff, 360);
-
-    // Handle cases where the difference is negative or greater than 180
-    if (Diff < -180)
+    double angle = fmod(heading2 - heading1 + 360, 360); // Calculate the difference and keep it within 360 degrees
+    if (angle > 180)
     {
-        Diff += 360; // Correct for angles less than -180 degrees
+        return angle - 360; // Angle is greater than 180, SB (turn right)
     }
-    else if (Diff > 180)
-    {
-        Diff -= 360; // Correct for angles greater than 180 degrees
-    }
-
-    // Return the smallest angle
-    return Diff;
+    return angle; // Angle is less than or equal to 180, BB (Turn left)
 }
 
 /*
@@ -351,16 +531,6 @@ bool determineDirection(double heading1, double heading2)
     {
         return 0; // Angle is less than or equal to 180, BB (Turn left)
     }
-}
-
-double ComputeSmallestAngleDir(double heading1, double heading2)
-{
-    double angle = fmod(heading2 - heading1 + 360, 360); // Calculate the difference and keep it within 360 degrees
-    if (angle > 180)
-    {
-        return angle - 360; // Angle is greater than 180, SB (turn right)
-    }
-    return angle; // Angle is less than or equal to 180, BB (Turn left)
 }
 
 /*
@@ -393,29 +563,28 @@ double CalcDocSpeed(double tgdistance)
 /*
 Compute power to trusters
 */
-void CalcRemoteRudderBuoy(double magheading, double tgheading, int speed, int *bb, int *sb)
+void CalcRemoteRudderBuoy(RoboStruct buoy)
 {
-    bool dir = determineDirection(magheading, tgheading);
-    double correctonAngle = smallestAngle(magheading, tgheading);
-    double corr = Angle2SpeedFactor(abs(correctonAngle));
+    bool dir = determineDirection(buoy.dirMag, buoy.tgDir);
+    double error = smallestAngle(buoy.dirMag, buoy.tgDir);
+    double corr = Angle2SpeedFactor(abs(error));
     double tbb, tsb;
-    if (correctonAngle > 0)
+    if (error > 0)
     {
-        tbb = speed + speed * (1 - corr);
-        tsb = speed * corr;
+        tbb = buoy.speedSet + buoy.speedSet * (1 - corr);
+        tsb = buoy.speedSet * corr;
     }
     else
     {
-        tbb = speed * corr;
-        tsb = speed + speed * (1 - corr);
+        tbb = buoy.speedSet * corr;
+        tsb = buoy.speedSet + buoy.speedSet * (1 - corr);
     }
 
-    double error = ComputeSmallestAngleDir(magheading, tgheading);
-    tbb = (int)(speed * cos(radian(error)) * (1 - sin(radian(error))));
-    tsb = (int)(speed * cos(radian(error)) * (1 - sin(radian(error)) * -1));
-    *bb = (int)constrain(tbb, -60, 100);
-    *sb = (int)constrain(tsb, -60, 100);
-    Serial.printf("Error=%lf BB=%d SB=%d\r\n\r\n", error, *bb, *sb);
+    tbb = (int)(buoy.speedSet * cos(radian(error)) * (1 - sin(radian(error))));
+    tsb = (int)(buoy.speedSet * cos(radian(error)) * (1 - sin(radian(error)) * -1));
+    buoy.speedBb = (int)constrain(tbb, -60, 100);
+    buoy.speedSb = (int)constrain(tsb, -60, 100);
+    Serial.printf("Error=%lf BB=%d SB=%d\r\n\r\n", error, buoy.speedBb, buoy.speedSb);
     return;
 }
 
@@ -426,11 +595,11 @@ void CalcRemoteRudderBuoy(double magheading, double tgheading, int speed, int *b
 */
 double push = 0;
 #define ILIM 35 // Maximum interal limit (35% power)
-bool CalcRudderBuoy(double magheading, double tgheading, double tdistance, int speed, int *bb, int *sb, pid buoy)
+bool CalcRudderBuoy(RoboStruct buoy)
 {
-    double error = ComputeSmallestAngleDir(magheading, tgheading);
+    double error = smallestAngle(buoy.dirMag, buoy.tgDir);
     /*Rotate to target direction first*/
-    if (tdistance > 0.5 && abs(error) > 45)
+    if (buoy.tgDist > 0.5 && abs(error) > 45)
     {
         float power = map(abs(error), 45, 180, 2, 20);
         power = sin(radians(power)) * 100;
@@ -440,20 +609,20 @@ bool CalcRudderBuoy(double magheading, double tgheading, double tdistance, int s
         power = constrain(power, 0, buoy.maxSpeed);
         if (error >= 0)
         {
-            *bb = -power;
-            *sb = power;
+            buoy.speedBb = -power;
+            buoy.speedSb = power;
         }
         else
         {
-            *bb = power;
-            *sb = -power;
+            buoy.speedBb = power;
+            buoy.speedSb = -power;
         }
-        buoy.kp = 0;
-        buoy.ki = 0;
-        buoy.kd = 0;
+        buoy.kpr = 0;
+        buoy.kir = 0;
+        buoy.kdr = 0;
         buoy.iintergrate = 0;
-        buoy.lastErr = 0;
-        buoy.lastTime = millis();
+        buoy.lastErrr = 0;
+        buoy.lastTimer = millis();
         return false;
     }
     push = 0;
@@ -461,44 +630,45 @@ bool CalcRudderBuoy(double magheading, double tgheading, double tdistance, int s
     /*Scale error in range for tan*/
     error = map(error, -180, 180, -80, 80);
     unsigned long now = millis();
-    double timeChange = (double)(now - buoy.lastTime);
-    double dErr = (error - buoy.lastErr) / timeChange;
+    double timeChange = (double)(now - buoy.lastTimer);
+    double dErr = (error - buoy.lastErrr) / timeChange;
     buoy.iintergrate += error * timeChange;
-    if ((buoy.ki / 1000) * buoy.iintergrate > ILIM)
+    if ((buoy.kir / 1000) * buoy.iintergrate > ILIM)
     {
-        buoy.iintergrate = ILIM / ((buoy.ki / 1000));
+        buoy.iintergrate = ILIM / ((buoy.kir / 1000));
     }
-    if ((buoy.ki / 1000) * buoy.iintergrate < -ILIM)
+    if ((buoy.kir / 1000) * buoy.iintergrate < -ILIM)
     {
-        buoy.iintergrate = -ILIM / ((buoy.ki / 1000));
+        buoy.iintergrate = -ILIM / ((buoy.kir / 1000));
     }
-    buoy.p = buoy.kp * error;
-    buoy.i = (buoy.ki / 1000) * buoy.iintergrate;
-    buoy.d = buoy.kd * dErr;
-    double adj = buoy.p + buoy.i + buoy.d;
-    buoy.lastErr = error;
-    buoy.lastTime = now;
-    *bb = (int)(speed * (1 - tan(radians(adj))));
-    *sb = (int)(speed * (1 + tan(radians(adj))));
+    buoy.pr = buoy.kpr * error;
+    buoy.ir = (buoy.kir / 1000) * buoy.iintergrate;
+    buoy.dr = buoy.kdr * dErr;
+    double adj = buoy.pr + buoy.ir + buoy.dr;
+    buoy.lastErrr = error;
+    buoy.lastTimer = now;
+    buoy.speedBb = (int)(buoy.speedcalcs * (1 - tan(radians(adj))));
+    buoy.speedSb = (int)(buoy.speedcalcr * (1 + tan(radians(adj))));
     /*Sanety check*/
-    *bb = constrain(*bb, -buoy.maxSpeed, buoy.maxSpeed);
-    *sb = constrain(*sb, -buoy.maxSpeed, buoy.maxSpeed);
+    buoy.speedBb = constrain(buoy.speedBb, -buoy.maxSpeed, buoy.maxSpeed);
+    buoy.speedSb = constrain(buoy.speedSb, -buoy.maxSpeed, buoy.maxSpeed);
     return true;
 }
 
 /*
 Only used PID if the distancs is less than buoy.maxOfsetDist return BUOYMAXSPEED otherwise.
 */
-int hooverPid(double dist, pid buoy)
+void hooverPid(RoboStruct buoy)
 {
 
     /*Do not use the pid loop if distance is to big just go full power*/
     if (buoy.armIntergrator == false)
     {
-        if (dist > 3)
+        if (buoy.tgDist > 3)
         {
             buoy.iintergrate = 0;
-            return buoy.maxSpeed;
+            buoy.speedcalcs = buoy.maxSpeed;
+            return;
         }
         else
         {
@@ -510,36 +680,35 @@ int hooverPid(double dist, pid buoy)
     /*How long since we last calculated*/
     double Output = 0;
     unsigned long now = millis();
-    double timeChange = (double)(now - buoy.lastTime);
+    double timeChange = (double)(now - buoy.lastTimes);
     /*Compute all the working error variables*/
-    double error = (dist - buoy.minOfsetDist) / 1000;
+    double error = (buoy.tgDist - buoy.minOfsetDist) / 1000;
     buoy.iintergrate += (error * timeChange);
-    double dErr = (error - buoy.lastErr) / timeChange;
+    double dErr = (error - buoy.lastErrs) / timeChange;
     /* Do not sail backwards*/
     if (buoy.iintergrate < 0)
     {
         buoy.iintergrate = 0;
     }
     /*max 70% I correction*/
-    if (buoy.ki * buoy.iintergrate > 70)
+    if (buoy.kis * buoy.iintergrate > 70)
     {
-        buoy.iintergrate = 70 / buoy.ki;
+        buoy.iintergrate = 70 / buoy.kis;
     }
     /*Compute PID Output*/
-    buoy.p = buoy.kp * (dist - buoy.minOfsetDist);
-    buoy.i = buoy.ki * buoy.iintergrate;
-    buoy.d = buoy.kd * dErr;
-    Output = buoy.p + buoy.i + buoy.d;
+    buoy.ps = buoy.kps * (buoy.tgDist - buoy.minOfsetDist);
+    buoy.is = buoy.kis * buoy.iintergrate;
+    buoy.ds = buoy.kds * dErr;
+    Output = buoy.ps + buoy.is + buoy.ds;
     /* Do not sail backwards*/
     if (Output < 0)
     {
         Output = 0;
     }
     /*Remember some variables for next time*/
-    buoy.lastErr = dist;
-    buoy.lastTime = now;
-    buoy.speed = (int)constrain(Output, 0, buoy.maxSpeed);
-    return buoy.speed;
+    buoy.lastErrs = buoy.tgDist;
+    buoy.lastTimes = now;
+    buoy.speedcalcs = (int)constrain(Output, 0, buoy.maxSpeed);
 }
 
 /*
@@ -629,6 +798,9 @@ int checkWindDirection(double windDegrees, double lat, double lon, double centro
     }
 }
 
+/************************************************************************************************************************************************************************* */
+// Conversion ready until here
+/************************************************************************************************************************************************************************* */
 void reCalcStartLine(double *lat1, double *lon1, double *lat2, double *lon2, double winddir)
 {
     double latgem, longem;

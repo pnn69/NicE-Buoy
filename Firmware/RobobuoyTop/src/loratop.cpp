@@ -79,8 +79,8 @@ void LoraTask(void *arg)
             {
                 if (xQueueReceive(loraOut, (void *)&dataOut, 10) == pdTRUE)
                 {
-                    Serial.println("Lora data recieved from main:" + String(dataOut));
-                    //sendLora(dataOut);
+                    Serial.println("Lora data recieved from main:" + String(dataOut) + "Length:" + String(strlen(dataOut)));
+                    // sendLora(dataOut);
                     transmittReady = millis() + 250 + random(0, 50);
                 }
             }

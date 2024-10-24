@@ -34,9 +34,9 @@ void GpsTask(void *arg)
     {
         while (Serial1.available() > 0)
         {
-            //char c = Serial1.read();
-            //Serial.print(c);
-            //if (gps.encode(c))
+            // char c = Serial1.read();
+            // Serial.print(c);
+            // if (gps.encode(c))
             if (gps.encode(Serial1.read()))
             {
                 gpsTimeOut = millis();
@@ -47,9 +47,9 @@ void GpsTask(void *arg)
                         gpsdata.lat = gps.location.lat();
                         newGpsData = true;
                     }
-                    if (gpsdata.lon != gps.location.lng())
+                    if (gpsdata.lng != gps.location.lng())
                     {
-                        gpsdata.lon = gps.location.lng();
+                        gpsdata.lng = gps.location.lng();
                         newGpsData = true;
                     }
                 }

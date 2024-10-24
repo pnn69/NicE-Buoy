@@ -10,9 +10,10 @@
 #include "adc.h"
 #include "loratop.h"
 
-#define BUFLENMHRG 60 // one sampel each sec so 60 sec for stabilisation
+//#define BUFLENMHRG 60 // one sampel each sec so 60 sec for stabilisation
 
 static extBuoyParameters extBuoyData[2]; // max 2 other buoys
+static RoboWindStruct wind;
 static char loraTransmitt[MAXSTRINGLENG];
 static RoboStruct mainData;
 static RoboStruct subData;
@@ -29,7 +30,6 @@ static int wifiConfig = 0;
 int8_t buoyId;
 static int msg;
 unsigned long udpTimer = millis();
-double winddir[3 + BUFLENMHRG]; // winddir[0]=avarage winddir[1]=pionter winddir[2]=standarddeviation winddir[3..BUFLENWINDSPEED + 3)]=data
 
 int buttonState = 0;              // Current state of the button
 int lastButtonState = 0;          // Previous state of the button
@@ -78,7 +78,7 @@ int handelKeyPress(int stat)
             if ((stat != LOCKED) && (mainGpsData.fix == true))
             {
                 mainNavData.tgLat = mainGpsData.lat;
-                mainNavData.tgLon = mainGpsData.lon;
+                mainNavData.tgLon = mainGpsData.lng;
                 stat = LOCKED;
                 beep(1, buzzer);
             }
@@ -104,7 +104,7 @@ int handelKeyPress(int stat)
             // store currend location as doc location
             if (mainGpsData.fix == true)
             {
-                memDockPos(&mainGpsData.lat, &mainGpsData.lon, false);
+                memDockPos(&mainGpsData.lat, &mainGpsData.lng, false);
                 beep(1, buzzer);
             }
             else
@@ -230,15 +230,20 @@ void loop(void)
         {
             if (mainGpsData.fix == true && firstfix == false)
             {
-                // beep(2000, buzzer);
+                beep(2000, buzzer);
                 firstfix = true;
+            }
+            if (mainGpsData.fix == true)
+            {
+                mainData.lat = mainGpsData.lat;
+                mainData.lng = mainGpsData.lng;
             }
             if ((status == LOCKED) || status == DOCKED)
                 if (postimer < millis())
                 {
                     postimer = millis() + 250;
                     {
-                        RouteToPoint(mainGpsData.lat, mainGpsData.lon, mainNavData.tgLat, mainNavData.tgLon, &mainData.tgDist, &mainData.tgDir);
+                        RouteToPoint(mainGpsData.lat, mainGpsData.lng, mainNavData.tgLat, mainNavData.tgLon, &mainData.tgDist, &mainData.tgDir);
                         mainData.cmd = TOPCALCRUDDER;
                         xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
                     }
@@ -264,13 +269,14 @@ void loop(void)
                 mainData.dirMag = subData.dirMag;
                 mainData.speedSb = subData.speedSb;
                 mainData.speedBb = subData.speedBb;
+                addNewSampleInBuffer(wind.winddir, BUFLENMHRG, mainData.dirMag);
                 // printf("Mag heading %d bb:%d%% sb:%d%%\r\n", mainData.dirMag, mainData.speedBb, mainData.speedSb);
                 break;
             case PONG:
                 break;
             case TOPID:
                 mainData.id = subData.id;
-                //printf("Buoy-ID:%012llx\n\r", mainData.id);
+                // printf("Buoy-ID:%012llx\n\r", mainData.id);
                 Serial.println("Lora-ID:" + String(mainData.id, HEX));
                 break;
             default:
@@ -281,18 +287,16 @@ void loop(void)
         {
             logtimer = millis() + 1000;
             // RouteToPoint(mainGpsData.lat, mainGpsData.lon, mainNavData.tgLat, mainNavData.tgLon, &mainNavData.tgDist, &mainNavData.tgDir);
-            printf("Lat: %2.8f Lon:%2.8f tgLat: %2.8f tgLon:%2.8f tgDist:%2f tgDir:%2f\r\n", mainGpsData.lat, mainGpsData.lon, mainNavData.tgLat, mainNavData.tgLon, mainData.tgDist, mainData.tgDir);
+            printf("Lat: %2.8f Lon:%2.8f tgLat: %2.8f tgLon:%2.8f tgDist:%2f tgDir:%2f\r\n", mainGpsData.lat, mainGpsData.lng, mainNavData.tgLat, mainNavData.tgLon, mainData.tgDist, mainData.tgDir);
             battVoltage(mainData.topAccuV, mainData.topAccuP);
             printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %3d%%\r\n", mainData.topAccuV, mainData.topAccuP, mainData.subAccuV, mainData.subAccuP);
-            if (status == LOCKED)
-            {
-                addNewSampleInBuffer(winddir, BUFLENMHRG, mainData.dirMag);
-            }
             // LORABUOYPOS     // ID,MSG,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott
-            String loraString = String(mainData.id,HEX) + "," + String(LORABUOYPOS) + "," + String(status) + "," + String(mainData.lat) + "," + String(mainData.lng) + "," + String(mainData.dirMag) + "," + String(mainData.dirMag) + "," + String(mainData.wDir) + "," + String(mainData.wStd) + "," + String(mainData.topAccuP) + "," + String(mainData.subAccuP) + "," + String(mainData.speedSet);
-            if (loraString.length() < MAXSTRINGLENG-1)
+            mainData.wStd =  deviationWindRose(wind.winddir, BUFLENMHRG);
+            mainData.wDir = wind.winddir[0]; //averige wind dir
+            String loraString = String(mainData.id, HEX) + "," + String(LORABUOYPOS) + "," + String(status) + "," + String(mainData.lat,8) + "," + String(mainData.lng,8) + "," + String(mainData.dirMag) + "," + String(mainData.wDir) + "," + String(mainData.wStd) + "," + String(mainData.topAccuP) + "," + String(mainData.subAccuP) + "," + String(mainData.speedSet);
+            if (loraString.length() < MAXSTRINGLENG - 1)
             {
-                loraString.toCharArray(loraTransmitt,loraString.length() + 1);
+                loraString.toCharArray(loraTransmitt, loraString.length() + 1);
                 xQueueSend(loraOut, (void *)&loraTransmitt, 10); // send out trough Lora
             }
             else

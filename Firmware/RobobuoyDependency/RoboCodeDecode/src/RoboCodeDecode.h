@@ -16,6 +16,8 @@ struct RoboStruct
     int speedSet = 0;
     int speedBb = 0;
     int speedSb = 0;
+    int speedcalcs = 0; // speed
+    int speedcalcr = 0; // rudder
     double tgDir = 0;
     double tgDist = 0;
     float subAccuV = 0;
@@ -23,8 +25,10 @@ struct RoboStruct
     int subAccuP = 0;
     int topAccuP = 0;
     int cmd = 0;
-    double p, i, d;
-    double kp, ki, kd;
+    double ps, is, ds;    // speed
+    double kps, kis, kds; // rudder
+    double pr, ir, dr;
+    double kpr, kir, kdr;
     double wDir, wStd;
 };
 
@@ -74,7 +78,7 @@ typedef enum
     LORABUOYPOS     // ID,MSG,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott
 } msg_t;
 
-int RoboDecode(String data, RoboStruct &dataStore);
+void RoboDecode(String data, RoboStruct &dataStore);
 String RoboCode(RoboStruct dataOut);
 
 #endif

@@ -1,6 +1,6 @@
 // https://github.com/espressif/arduino-esp32/blob/master/libraries/Preferences/src/Preferences.cpp
 #include <Preferences.h>
-#include <RoboCalc.h>
+#include <main.h>
 Preferences storage;
 
 void initMemory(void)
@@ -152,56 +152,62 @@ void MechanicalCorrection(int *delta, bool get)
     stopMem();
 }
 
-void computeParameters(int *minOfsetDist, int *maxOfsetDist, int *minSpeed, int *maxSpeed, bool get)
+void computeParameters(RoboStruct buoy, bool get)
 {
     startMem();
     if (get)
     {
-        *minOfsetDist = storage.getInt("minOfsetDist", 1);
-        *maxOfsetDist = storage.getInt("maxOfsetDist", 8);
-        *minSpeed = storage.getInt("minSpeed", 0);
-        *maxSpeed = storage.getInt("maxSpeed", 80);
+        buoy.minOfsetDist = storage.getInt("minOfsetDist", 1);
+        buoy.maxOfsetDist = storage.getInt("maxOfsetDist", 8);
+        buoy.minSpeed = storage.getInt("minSpeed", 0);
+        buoy.maxSpeed = storage.getInt("maxSpeed", 80);
     }
     else
     {
-        storage.putInt("minOfsetDist", *minOfsetDist);
-        storage.putInt("maxOfsetDist", *maxOfsetDist);
-        storage.putInt("minSpeed", *minSpeed);
-        storage.putInt("maxSpeed", *maxSpeed);
+        storage.putInt("minOfsetDist", buoy.minOfsetDist);
+        storage.putInt("maxOfsetDist", buoy.maxOfsetDist);
+        storage.putInt("minSpeed", buoy.minSpeed);
+        storage.putInt("maxSpeed", buoy.maxSpeed);
     }
     stopMem();
 }
-void pidSpeedParameters(double *p, double *i, double *d, bool get)
+void pidSpeedParameters(RoboStruct buoy, bool get)
 {
     startMem();
     if (get)
     {
-        *p = storage.getDouble("Psp", 20);
-        *i = storage.getDouble("Isp", 0.4);
-        *d = storage.getDouble("Dsp", 0);
+        buoy.ps = storage.getDouble("Psp", 20);
+        buoy.is = storage.getDouble("Isp", 0.4);
+        buoy.ds = storage.getDouble("Dsp", 0);
+        buoy.kps = 0;
+        buoy.kis = 0;
+        buoy.kds = 0;
     }
     else
     {
-        storage.putDouble("Psp", *p);
-        storage.putDouble("Isp", *i);
-        storage.putDouble("Dsp", *d);
+        storage.putDouble("Psp", buoy.ps);
+        storage.putDouble("Isp", buoy.is);
+        storage.putDouble("Dsp", buoy.ds);
     }
     stopMem();
 }
-void pidRudderParameters(double *p, double *i, double *d, bool get)
+void pidRudderParameters(RoboStruct buoy, bool get)
 {
     startMem();
     if (get)
     {
-        *p = storage.getDouble("Prd", 0.5);
-        *i = storage.getDouble("Ird", 0.02);
-        *d = storage.getDouble("Drd", 0);
+        buoy.pr = storage.getDouble("Prd", 0.5);
+        buoy.ir = storage.getDouble("Ird", 0.02);
+        buoy.dr = storage.getDouble("Drd", 0);
+        buoy.kpr = 0;
+        buoy.kir = 0;
+        buoy.kdr = 0;
     }
     else
     {
-        storage.putDouble("Prd", *p);
-        storage.putDouble("Ird", *i);
-        storage.putDouble("Drd", *d);
+        storage.putDouble("Prd", buoy.pr);
+        storage.putDouble("Ird", buoy.ir);
+        storage.putDouble("Drd", buoy.dr);
     }
     stopMem();
 }
@@ -218,20 +224,6 @@ void apParameters(String *ap, String *ww, bool get)
     {
         storage.putString("ap", *ap);
         storage.putString("ww", *ww);
-    }
-    stopMem();
-}
-
-void memStuct(pid &data, bool get)
-{
-    startMem();
-    if (get)
-    {
-        storage.getBytes("structdata", &data, sizeof(data));
-    }
-    else
-    {
-        storage.putBytes("structdata", &data, sizeof(data));
     }
     stopMem();
 }

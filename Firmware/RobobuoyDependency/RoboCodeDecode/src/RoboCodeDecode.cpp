@@ -7,8 +7,9 @@
     output parameters in to stuct type RoboStruct
     crc does not have any value
 */
-int RoboDecode(String data, RoboStruct &dataStore)
+void RoboDecode(String data, RoboStruct &dataStore)
 {
+    dataStore.cmd = -1;
     String numbers[10];                     // Array to hold the decoded numbers (adjust size as needed)
     int count = 0;                          // Keep track of the number of extracted numbers
     int startIndex = data.indexOf('$') + 1; // Start after the '$'
@@ -62,21 +63,29 @@ int RoboDecode(String data, RoboStruct &dataStore)
         dataStore.dirMag = numbers[1].toDouble();
         dataStore.speedBb = numbers[2].toInt();
         dataStore.speedSb = numbers[3].toInt();
+        dataStore.speedcalcr = numbers[4].toInt();
         break;
     case SUBACCU:
         dataStore.subAccuV = numbers[1].toFloat();
         dataStore.subAccuP = numbers[2].toInt();
         break;
     case PIDRUDDERSET:
-    case PIDSPEEDSET:
     case PIDRUDDER:
+        dataStore.pr = numbers[1].toDouble();
+        dataStore.ir = numbers[2].toDouble();
+        dataStore.dr = numbers[3].toDouble();
+        dataStore.kpr = numbers[4].toDouble();
+        dataStore.kir = numbers[5].toDouble();
+        dataStore.kdr = numbers[6].toDouble();
+        break;
+    case PIDSPEEDSET:
     case PIDSPEED:
-        dataStore.p = numbers[1].toDouble();
-        dataStore.i = numbers[2].toDouble();
-        dataStore.d = numbers[3].toDouble();
-        dataStore.kp = numbers[4].toDouble();
-        dataStore.ki = numbers[5].toDouble();
-        dataStore.kd = numbers[6].toDouble();
+        dataStore.ps = numbers[1].toDouble();
+        dataStore.is = numbers[2].toDouble();
+        dataStore.ds = numbers[3].toDouble();
+        dataStore.kps = numbers[4].toDouble();
+        dataStore.kis = numbers[5].toDouble();
+        dataStore.kds = numbers[6].toDouble();
         break;
     case PING:
         break;
@@ -87,7 +96,6 @@ int RoboDecode(String data, RoboStruct &dataStore)
         dataStore.cmd = -1;
         break;
     }
-    return dataStore.cmd;
 }
 
 /*
@@ -116,20 +124,28 @@ String RoboCode(RoboStruct dataOut)
         out += "," + String(dataOut.dirMag, 2);
         out += "," + String(dataOut.speedSb);
         out += "," + String(dataOut.speedBb);
+        out += "," + String(dataOut.speedcalcs);
         break;
     case SUBACCU:
         out += "," + String(dataOut.subAccuV, 2);
         out += "," + String(dataOut.subAccuP);
         break;
-    case PIDRUDDER:
     case PIDSPEED:
+        out += "," + String(dataOut.ps);
+        out += "," + String(dataOut.is);
+        out += "," + String(dataOut.ds);
+        out += "," + String(dataOut.kps);
+        out += "," + String(dataOut.kis);
+        out += "," + String(dataOut.kds);
+        break;
+    case PIDRUDDER:
     case PIDRUDDERSET:
-        out += "," + String(dataOut.p);
-        out += "," + String(dataOut.i);
-        out += "," + String(dataOut.d);
-        out += "," + String(dataOut.kp);
-        out += "," + String(dataOut.ki);
-        out += "," + String(dataOut.kd);
+        out += "," + String(dataOut.pr);
+        out += "," + String(dataOut.ir);
+        out += "," + String(dataOut.dr);
+        out += "," + String(dataOut.kpr);
+        out += "," + String(dataOut.kir);
+        out += "," + String(dataOut.kdr);
         break;
     case TOPIDLE:
         out = "$" + String(TOPIDLE);

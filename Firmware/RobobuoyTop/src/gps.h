@@ -12,7 +12,7 @@ struct GpsNav
 struct GpsDataType
 {
     double lat = 0;       // corrlat = delta latitude given by ground station
-    double lon = 0;       // dlat = corrected latitude with delta offset
+    double lng = 0;       // dlat = corrected latitude with delta offset
     double speed = 0;     // kmp/h
     double cource = 0;    // degrees
     bool fix = false;     //
