@@ -49,12 +49,11 @@ struct RoboStruct
     int dirGps = 0;
     double wDir, wStd;
     double dirMag = 0;
-    int speedSet = 0;
+    double tgDir = 0;
+    int speed = 0; // speed
     int speedBb = 0;
     int speedSb = 0;
-    int speedcalcs = 0; // speed
-    int speedcalcr = 0; // rudder
-    double tgDir = 0;
+    int speedSet = 0;
     double tgDist = 0;
     float subAccuV = 0;
     float topAccuV = 0;
@@ -69,8 +68,10 @@ struct RoboStruct
     unsigned long lastTimes = 0;
     double lastErrr = 0;
     unsigned long lastTimer = 0;
-    double iintergrate = 0;
-    bool armIntergrator = false;
+    double iintergrates = 0;
+    bool armIntergrators = false;
+    double iintergrater = 0;
+    bool armIntergratorr = false;
     int minOfsetDist;
     int maxOfsetDist;
     int minSpeed;
@@ -99,7 +100,7 @@ struct RoboStructGps
     int speedSb = 0;
 };
 
-struct RoboStruct RoboDecode(String data, RoboStruct dataStore);
+struct RoboStruct RoboDecode(String data, RoboStruct);
 // void RoboDecode(String data, RoboStruct &dataStore);
 String RoboCode(RoboStruct dataOut);
 
@@ -126,9 +127,9 @@ double smallestAngle(double heading1, double heading2);
 bool determineDirection(double heading1, double heading2);
 double Angle2SpeedFactor(double angle);
 double CalcDocSpeed(double tgdistance);
-void CalcRemoteRudderBuoy(RoboStruct buoy);
-bool CalcRudderBuoy(RoboStruct buoy);
-void hooverPid(RoboStruct buoy);
+RoboStruct CalcRemoteRudderBuoy(RoboStruct buoy);
+RoboStruct CalcRudderBuoy(RoboStruct buoy);
+RoboStruct hooverPid(RoboStruct buoy);
 void threePointAverage(double lat1, double lon1, double lat2, double lon2, double lat3, double lon3, double *latgem, double *longem);
 void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double *latgem, double *longem);
 void windDirectionToVector(double windDegrees, double *windX, double *windY);

@@ -63,7 +63,7 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         dataStore.dirMag = numbers[1].toDouble();
         dataStore.speedBb = numbers[2].toInt();
         dataStore.speedSb = numbers[3].toInt();
-        dataStore.speedcalcr = numbers[4].toInt();
+        dataStore.speed = numbers[4].toInt();
         break;
     case SUBACCU:
         dataStore.subAccuV = numbers[1].toFloat();
@@ -95,8 +95,8 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         printf("RoboDecode: Unkown decode formatter %d\r\n", numbers[0]);
         dataStore.cmd = -1;
         break;
-        return dataStore;
     }
+    return dataStore;
 }
 
 /*
@@ -125,7 +125,7 @@ String RoboCode(RoboStruct dataOut)
         out += "," + String(dataOut.dirMag, 2);
         out += "," + String(dataOut.speedSb);
         out += "," + String(dataOut.speedBb);
-        out += "," + String(dataOut.speedcalcs);
+        out += "," + String(dataOut.speed);
         break;
     case SUBACCU:
         out += "," + String(dataOut.subAccuV, 2);
@@ -423,10 +423,11 @@ void initPid(int pid, RoboStruct buoy)
     {
         buoy.lastErrs = 0;
         buoy.lastTimes = millis();
+        buoy.iintergrates = 0;
     }
     if (pid == PIDRUDDER)
     {
-        buoy.iintergrate = 0;
+        buoy.iintergrater = 0;
         buoy.lastErrr = 0;
         buoy.lastTimer = millis();
     }
@@ -566,9 +567,8 @@ double CalcDocSpeed(double tgdistance)
 /*
 Compute power to trusters
 */
-void CalcRemoteRudderBuoy(RoboStruct buoy)
+RoboStruct CalcRemoteRudderBuoy(RoboStruct buoy)
 {
-    bool dir = determineDirection(buoy.dirMag, buoy.tgDir);
     double error = smallestAngle(buoy.dirMag, buoy.tgDir);
     double corr = Angle2SpeedFactor(abs(error));
     double tbb, tsb;
@@ -588,7 +588,7 @@ void CalcRemoteRudderBuoy(RoboStruct buoy)
     buoy.speedBb = (int)constrain(tbb, -60, 100);
     buoy.speedSb = (int)constrain(tsb, -60, 100);
     Serial.printf("Error=%lf BB=%d SB=%d\r\n\r\n", error, buoy.speedBb, buoy.speedSb);
-    return;
+    return buoy;
 }
 
 /*
@@ -598,7 +598,7 @@ void CalcRemoteRudderBuoy(RoboStruct buoy)
 */
 double push = 0;
 #define ILIM 35 // Maximum interal limit (35% power)
-bool CalcRudderBuoy(RoboStruct buoy)
+RoboStruct CalcRudderBuoy(RoboStruct buoy)
 {
     double error = smallestAngle(buoy.dirMag, buoy.tgDir);
     /*Rotate to target direction first*/
@@ -612,21 +612,21 @@ bool CalcRudderBuoy(RoboStruct buoy)
         power = constrain(power, 0, buoy.maxSpeed);
         if (error >= 0)
         {
-            buoy.speedBb = -power;
-            buoy.speedSb = power;
-        }
-        else
-        {
             buoy.speedBb = power;
             buoy.speedSb = -power;
         }
-        buoy.kpr = 0;
-        buoy.kir = 0;
-        buoy.kdr = 0;
-        buoy.iintergrate = 0;
+        else
+        {
+            buoy.speedBb = -power;
+            buoy.speedSb = power;
+        }
+        buoy.pr = 0;
+        buoy.ir = 0;
+        buoy.dr = 0;
+        buoy.iintergrater = 0;
         buoy.lastErrr = 0;
         buoy.lastTimer = millis();
-        return false;
+        return buoy;
     }
     push = 0;
     /*calculate proportion thrusters*/
@@ -635,72 +635,88 @@ bool CalcRudderBuoy(RoboStruct buoy)
     unsigned long now = millis();
     double timeChange = (double)(now - buoy.lastTimer);
     double dErr = (error - buoy.lastErrr) / timeChange;
-    buoy.iintergrate += error * timeChange;
-    if ((buoy.kir / 1000) * buoy.iintergrate > ILIM)
+    buoy.iintergrater += error * timeChange;
+    if ((buoy.kir / 1000) * buoy.iintergrater > ILIM)
     {
-        buoy.iintergrate = ILIM / ((buoy.kir / 1000));
+        buoy.iintergrater = ILIM / ((buoy.kir / 1000));
     }
-    if ((buoy.kir / 1000) * buoy.iintergrate < -ILIM)
+    if ((buoy.kir / 1000) * buoy.iintergrater < -ILIM)
     {
-        buoy.iintergrate = -ILIM / ((buoy.kir / 1000));
+        buoy.iintergrater = -ILIM / ((buoy.kir / 1000));
     }
     buoy.pr = buoy.kpr * error;
-    buoy.ir = (buoy.kir / 1000) * buoy.iintergrate;
+    buoy.ir = (buoy.kir / 1000) * buoy.iintergrater;
     buoy.dr = buoy.kdr * dErr;
     double adj = buoy.pr + buoy.ir + buoy.dr;
     buoy.lastErrr = error;
     buoy.lastTimer = now;
-    buoy.speedBb = (int)(buoy.speedcalcs * (1 - tan(radians(adj))));
-    buoy.speedSb = (int)(buoy.speedcalcr * (1 + tan(radians(adj))));
+    buoy.speedBb = (int)(buoy.speed * (1 + tan(radians(adj))));
+    buoy.speedSb = (int)(buoy.speed * (1 - tan(radians(adj))));
     /*Sanety check*/
     buoy.speedBb = constrain(buoy.speedBb, -buoy.maxSpeed, buoy.maxSpeed);
     buoy.speedSb = constrain(buoy.speedSb, -buoy.maxSpeed, buoy.maxSpeed);
-    return true;
+    // printf("dErr%f buoy.iintergrater:%f pr%f ir%f ", dErr, buoy.iintergrater, buoy.pr, buoy.ir);
+    return buoy;
 }
 
 /*
 Only used PID if the distancs is less than buoy.maxOfsetDist return BUOYMAXSPEED otherwise.
 */
-void hooverPid(RoboStruct buoy)
+RoboStruct hooverPid(RoboStruct buoy)
 {
-
     /*Do not use the pid loop if distance is to big just go full power*/
-    if (buoy.armIntergrator == false)
+    if (buoy.maxSpeed == 51) /*old config use this by setting max speed to 51*/
     {
-        if (buoy.tgDist > 3)
+        if (buoy.tgDist > buoy.maxOfsetDist)
         {
-            buoy.iintergrate = 0;
-            buoy.speedcalcs = buoy.maxSpeed;
-            return;
+            buoy.speed = buoy.maxSpeed;
+            return buoy;
         }
-        else
+        if (buoy.armIntergrators == false)
         {
-            buoy.armIntergrator = true;
-            buoy.iintergrate = 0;
+            buoy.armIntergrators = true;
+            buoy.iintergrates = 0;
         }
     }
-
+    else
+    {
+        /*Do not use the pid loop if distance is to big just go full power*/
+        if (buoy.armIntergrators == false)
+        {
+            if (buoy.tgDist > 3)
+            {
+                buoy.iintergrates = 0;
+                buoy.speed = buoy.maxSpeed;
+                return buoy;
+            }
+            else
+            {
+                buoy.armIntergrators = true;
+                buoy.iintergrates = 0;
+            }
+        }
+    }
     /*How long since we last calculated*/
     double Output = 0;
     unsigned long now = millis();
     double timeChange = (double)(now - buoy.lastTimes);
     /*Compute all the working error variables*/
     double error = (buoy.tgDist - buoy.minOfsetDist) / 1000;
-    buoy.iintergrate += (error * timeChange);
+    buoy.iintergrates += (error * timeChange);
     double dErr = (error - buoy.lastErrs) / timeChange;
     /* Do not sail backwards*/
-    if (buoy.iintergrate < 0)
+    if (buoy.iintergrates < 0)
     {
-        buoy.iintergrate = 0;
+        buoy.iintergrates = 0;
     }
     /*max 70% I correction*/
-    if (buoy.kis * buoy.iintergrate > 70)
+    if (buoy.kis * buoy.iintergrates > 70)
     {
-        buoy.iintergrate = 70 / buoy.kis;
+        buoy.iintergrates = 70 / buoy.kis;
     }
     /*Compute PID Output*/
     buoy.ps = buoy.kps * (buoy.tgDist - buoy.minOfsetDist);
-    buoy.is = buoy.kis * buoy.iintergrate;
+    buoy.is = buoy.kis * buoy.iintergrates;
     buoy.ds = buoy.kds * dErr;
     Output = buoy.ps + buoy.is + buoy.ds;
     /* Do not sail backwards*/
@@ -711,7 +727,10 @@ void hooverPid(RoboStruct buoy)
     /*Remember some variables for next time*/
     buoy.lastErrs = buoy.tgDist;
     buoy.lastTimes = now;
-    buoy.speedcalcs = (int)constrain(Output, 0, buoy.maxSpeed);
+    // printf("Output:%f dErr%f buoy.iintergrates:%f ps%f is%f ", Output, dErr, buoy.iintergrates, buoy.ps, buoy.is);
+    buoy.speed = (int)Output;
+    buoy.speed = (int)Output;
+    return buoy;
 }
 
 /*

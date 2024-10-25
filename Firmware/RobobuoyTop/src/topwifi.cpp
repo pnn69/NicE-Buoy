@@ -153,7 +153,7 @@ bool udp_setup(int poort)
                          }
                          else
                          {
-                             Serial.println("crc error");
+                             Serial.println("crc error: " + stringUdpIn);
                          } });
         return true;
     }
@@ -251,7 +251,7 @@ void WiFiTask(void *arg)
         if (xQueueReceive(udpOut, (void *)&msgIdOut, 0) == pdTRUE)
         {
             String out = RoboCode(msgIdOut);
-            addCRCToString(out);
+            out = addCRCToString(out);
             udp.broadcast(out.c_str());
         }
         delay(1);

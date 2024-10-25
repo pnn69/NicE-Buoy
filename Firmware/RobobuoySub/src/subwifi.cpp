@@ -7,14 +7,13 @@
 #include "leds.h"
 #include "subwifi.h"
 
-
 RoboStruct subwifiData;
-//UdpMsg udpData;
+// UdpMsg udpData;
 static char udpData[MAXSTRINGLENG];
 static RoboStruct subWifiIn;
 static int8_t buoyId;
 AsyncUDP udp;
-//static UdpData udpBuffer;
+// static UdpData udpBuffer;
 QueueHandle_t udpIn;
 QueueHandle_t udpOut;
 static LedData wifiLedStatus;
@@ -137,25 +136,8 @@ void setupudp(void)
 bool initwifiqueue(void)
 {
     udpOut = xQueueCreate(10, sizeof(RoboStruct));
-    if (udpOut == NULL)
-    {
-        printf("Queue udpOut could not be created. %p\\r\n", udpOut);
-        return false;
-    }
-    else
-    {
-        printf("Queue udpOut created.\r\n");
-    }
-    udpIn = xQueueCreate(5, sizeof(char[MAXSTRINGLENG]));
-    if (udpIn == NULL)
-    {
-        printf("Queue udpIn could not be created. %p\\r\n", udpOut);
-        return false;
-    }
-    else
-    {
-        printf("Queue udpIn created.\r\n");
-    }
+    udpIn = xQueueCreate(10, sizeof(char[MAXSTRINGLENG]));
+    
     return true;
 }
 
@@ -235,7 +217,7 @@ void WiFiTask(void *arg)
         if (xQueueReceive(udpOut, (void *)&subwifiData, 0) == pdTRUE)
         {
             String out = RoboCode(subwifiData);
-            addCRCToString(out);
+            out = addCRCToString(out);
             udp.broadcast(out.c_str());
         }
 

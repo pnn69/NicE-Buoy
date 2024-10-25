@@ -85,7 +85,7 @@ struct lorabuf chkAckMsg(void)
     int i = 0;
     while (i < 10)
     {
-        if (pendingMsg[i].msg != 0)
+        if (pendingMsg[i++].msg != 0)
         {
             memcpy(&in, &pendingMsg[i], sizeof(lorabuf));
         }
@@ -138,16 +138,17 @@ void initloraqueue(void)
 
 void LoraTask(void *arg)
 {
+    InitLora();
     unsigned long transmittReady = 0;
     unsigned long retransmittReady = 0;
     while (1)
     {
-        onReceive(LoRa.parsePacket()); //check if there is new data availeble
+        onReceive(LoRa.parsePacket()); // check if there is new data availeble
         if (transmittReady < millis())
         {
             if (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
             {
-                Serial.println("Lora data recieved from main:" + String(loraMsgout.data) + "Length:" + String(strlen(loraMsgout.data)));
+                Serial.println("Lora OUT:" + String(loraMsgout.data) + "Length:" + String(strlen(loraMsgout.data)));
                 while (sendLora(String(loraMsgout.data)) != true)
                 {
                     vTaskDelay(pdTICKS_TO_MS(100));

@@ -4,10 +4,13 @@ https://dronebotworkshop.com/esp32-servo/
  */
 #include <Arduino.h>
 #include <ESP32Servo.h>
+#include <FastLED.h>
 #include "esc.h"
 #include "io_sub.h"
+#include "leds.h"
 // cannels for esc
 
+LedPwrtruct powerIndicator;
 QueueHandle_t escspeed;
 #define ESC_ARM_TIME 10
 #define ESC_MAX 2000 // 2000
@@ -94,6 +97,36 @@ void EscTask(void *arg)
             spsb = rcv_msg.speedsb;
             escbb.write(map(rcv_msg.speedbb, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
             escsb.write(map(rcv_msg.speedsb, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+            uint8_t r, g;
+            if (rcv_msg.speedbb < 0)
+            {
+                r = map(rcv_msg.speedbb, -100, 0, 255, 0);
+                g = 0;
+            }
+            else
+            {
+                r = 0;
+                g = map(rcv_msg.speedbb, 100, 0, 255, 0);
+            }
+            powerIndicator.bb[0] = r;
+            powerIndicator.bb[1] = g;
+            powerIndicator.bb[2] = 0;
+            powerIndicator.blinkBb = BLINK_OFF;
+            if (rcv_msg.speedsb < 0)
+            {
+                r = map(rcv_msg.speedsb, -100, 0, 255, 0);
+                g = 0;
+            }
+            else
+            {
+                r = 0;
+                g = map(rcv_msg.speedsb, 100, 0, 255, 0);
+            }
+            powerIndicator.sb[0] = r;
+            powerIndicator.sb[1] = g;
+            powerIndicator.sb[2] = 0;
+            powerIndicator.blinkSb = BLINK_OFF;
+            xQueueSend(ledPwr, (void *)&powerIndicator, 0);
         }
         if (spbb != 0)
         {
@@ -127,7 +160,7 @@ void EscTask(void *arg)
         if (logStamp + 1000 < millis())
         {
             logStamp = millis();
-            //printf("ESC bb=%d sb=%d\r\n",spbb,spsb);
+            // printf("ESC bb=%d sb=%d\r\n",spbb,spsb);
         }
 
         delay(1);

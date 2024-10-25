@@ -180,7 +180,6 @@ void setup()
 
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 1000, NULL, 1, NULL, 1);
     xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
-    xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4024, NULL, 20, NULL, 1);
     xTaskCreatePinnedToCore(GpsTask, "GpsTask", 2000, NULL, configMAX_PRIORITIES - 8, NULL, 1);
     memBuoyId(&buoyId, true);
     Serial.print("Buoy ID: ");
@@ -217,7 +216,7 @@ void loop(void)
     unsigned long buttonBlinkTimer = millis();
     unsigned long logtimer = millis();
     unsigned long postimer = millis();
-    beep(1000, buzzer);
+    // beep(1000, buzzer);
     /*
         Main loop
     */
@@ -279,7 +278,6 @@ void loop(void)
                 break;
             case TOPID:
                 mainData.id = subData.id;
-                // printf("Buoy-ID:%012llx\n\r", mainData.id);
                 Serial.println("Lora-ID:" + String(mainData.id, HEX));
                 break;
             default:
@@ -289,13 +287,12 @@ void loop(void)
         if (logtimer < millis())
         {
             logtimer = millis() + 1000;
-            // RouteToPoint(mainGpsData.lat, mainGpsData.lon, mainNavData.tgLat, mainNavData.tgLon, &mainNavData.tgDist, &mainNavData.tgDir);
-            printf("Lat: %2.8f Lon:%2.8f tgLat: %2.8f tgLon:%2.8f tgDist:%2f tgDir:%2f\r\n", mainGpsData.lat, mainGpsData.lng, mainNavData.tgLat, mainNavData.tgLon, mainData.tgDist, mainData.tgDir);
+            RouteToPoint(mainGpsData.lat, mainGpsData.lng, mainNavData.tgLat, mainNavData.tgLon, &mainNavData.tgDist, &mainNavData.tgDir);
+            printf("Lat: %2.8f Lon:%2.8f tgLat: %2.8f tgLon:%2.8f tgDist:%.2f tgDir:%.2f\r\n", mainGpsData.lat, mainGpsData.lng, mainNavData.tgLat, mainNavData.tgLon, mainData.tgDist, mainData.tgDir);
             battVoltage(mainData.topAccuV, mainData.topAccuP);
             printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %3d%%\r\n", mainData.topAccuV, mainData.topAccuP, mainData.subAccuV, mainData.subAccuP);
             mainData.wStd = deviationWindRose(wind.winddir, BUFLENMHRG);
             mainData.wDir = wind.winddir[0]; // averige wind dir
-            void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double *latgem, double *longem);
         }
         if (loraTimer < millis())
         {
@@ -307,9 +304,9 @@ void loop(void)
                                 "," + String(status) +
                                 "," + String(mainData.lat, 8) +
                                 "," + String(mainData.lng, 8) +
-                                "," + String(mainData.dirMag) +
-                                "," + String(mainData.wDir) +
-                                "," + String(mainData.wStd) +
+                                "," + String(mainData.dirMag,0) +
+                                "," + String(mainData.wDir,0) +
+                                "," + String(mainData.wStd,2) +
                                 "," + String(mainData.topAccuP) +
                                 "," + String(mainData.subAccuP) +
                                 "," + String(mainData.speedBb) +

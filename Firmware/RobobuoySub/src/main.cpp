@@ -149,32 +149,41 @@ void setup()
             wifiConfig = 1;
         }
     }
-    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
+    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
     /*
     Get sored settings
     */
 
-    // speed.p = 20;
-    // speed.i = 0.1;
-    // speed.d = 0;
+    // mainData.ps = 20;
+    // mainData.is = 0.1;
+    // mainData.ds = 0;
     // pidSpeedParameters(mainData, SET);
-    // rudder.p = 0.5;
-    // rudder.i = 0.02;
-    // rudder.d = 0;
+    // mainData.pr = 0.5;
+    // mainData.ir = 0.02;
+    // mainData.dr = 0;
     // pidRudderParameters(mainData, SET);
-    // speed.minOfsetDist = 2;
-    // speed.maxOfsetDist = 8;
-    // speed.minSpeed = 0;
-    // speed.maxSpeed = 80;
+    // mainData.minOfsetDist = 2;
+    // mainData.maxOfsetDist = 8;
+    // mainData.minSpeed = 0;
+    // mainData.maxSpeed = 80;
     // computeParameters(mainData, SET);
-    // rudder.minOfsetDist = 2;
-    // rudder.maxOfsetDist = 8;
-    // rudder.minSpeed = 0;
-    // rudder.maxSpeed = 80;
+    // mainData.minOfsetDist = 2;
+    // mainData.maxOfsetDist = 8;
+    // mainData.minSpeed = 0;
+    // mainData.maxSpeed = 80;
     // computeParameters(mainData, SET);
-    pidSpeedParameters(mainData, GET);
-    pidRudderParameters(mainData, GET);
-    computeParameters(mainData, GET);
+    mainData = pidSpeedParameters(mainData, GET);
+    mainData = pidRudderParameters(mainData, GET);
+    mainData = computeParameters(mainData, GET);
+    Serial.println("Compute Parameters Speed P:" + String(mainData.kps) +
+                   " I:" + String(mainData.kis) +
+                   " Rudder p:" + String(mainData.kpr) +
+                   " I:" + String(mainData.kir) +
+                   " MAxspeed:" + String(mainData.maxSpeed) +
+                   " MINspeed:" + String(mainData.minSpeed) +
+                   " Maxoffsetdistance:" + String(mainData.maxOfsetDist) +
+                   " MINoffsetdistance:" + String(mainData.minOfsetDist));
+    Serial.println("Setup done!");
 }
 
 void handelKeyPress(void)
@@ -215,14 +224,34 @@ void loop(void)
     int speedbb = 50, speedsb = 0;
     int presses = 0;
     beep(1000, buzzer);
+    delay(500);
+    mainLedStatus.color = CRGB::Blue;
+    mainLedStatus.blink = BLINK_SLOW;
+    xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
+    mainPwrData.bb = CRGB::Black;
+    mainPwrData.sb = CRGB::Black;
+    mainPwrData.blinkBb = BLINK_OFF;
+    mainPwrData.blinkSb = BLINK_OFF;
+    xQueueSend(ledPwr, (void *)&mainPwrData, 10); // update util led
 
     /*
         Main loop
     */
     while (true)
     {
-        // xQueueReceive(compass, (void *)&mDir, 0);
-        xQueueReceive(compass, (void *)&mainData.dirMag, 0);
+        if (xQueueReceive(compass, (void *)&mainData.dirMag, 2) == pdTRUE)
+        {
+            if (subStatus == TOPCALCRUDDER)
+            {
+                mainData = CalcRudderBuoy(mainData); // calculate power to thrusters
+                if (esc.speedbb != mainData.speedBb || esc.speedsb != mainData.speedSb)
+                {
+                    esc.speedbb = mainData.speedBb;
+                    esc.speedsb = mainData.speedSb;
+                    xQueueSend(escspeed, (void *)&esc, 10);
+                }
+            }
+        }
         handelKeyPress();
         // New data recieved on udp channel
         if (xQueueReceive(udpIn, (void *)&udpInMain, 0) == pdTRUE)
@@ -240,14 +269,38 @@ void loop(void)
                     subStatus = TOPSPBBSPSB;
                     break;
                 case TOPCALCRUDDER:
-                    subStatus = TOPCALCRUDDER;
+                    if (subStatus != TOPCALCRUDDER)
+                    {
+                        subStatus = TOPCALCRUDDER;
+                        mainLedStatus.color = CRGB::Red;
+                        mainLedStatus.blink = BLINK_OFF;
+                        xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
+                        mainPwrData.bb = CRGB::Black;
+                        mainPwrData.sb = CRGB::Black;
+                        mainPwrData.blinkBb = BLINK_OFF;
+                        mainPwrData.blinkSb = BLINK_OFF;
+                        xQueueSend(ledPwr, (void *)&mainPwrData, 10); // update util led
+                    }
+                    mainData = hooverPid(mainData);
                     break;
                 case TOPIDLE:
-                    esc.speedbb = 0;
-                    esc.speedsb = 0;
-                    xQueueSend(escspeed, (void *)&esc, 10);
-                    subStatus = TOPIDLE;
-                    beep(2, buzzer);
+                    if (subStatus != TOPIDLE)
+                    {
+                        subStatus = TOPIDLE;
+                        esc.speedbb = 0;
+                        esc.speedsb = 0;
+                        xQueueSend(escspeed, (void *)&esc, 10);
+                        beep(2, buzzer);
+                        mainLedStatus.color = CRGB::Blue;
+                        mainLedStatus.blink = BLINK_SLOW;
+                        xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
+                        delay(500);
+                        mainPwrData.bb = CRGB::Black;
+                        mainPwrData.sb = CRGB::Black;
+                        mainPwrData.blinkBb = BLINK_OFF;
+                        mainPwrData.blinkSb = BLINK_OFF;
+                        xQueueSend(ledPwr, (void *)&mainPwrData, 10); // update util led
+                    }
                     break;
                 case PIDRUDDERSET:
                     pidRudderParameters(mainData, SET);
@@ -289,24 +342,20 @@ void loop(void)
             battVoltage(mainData.subAccuV, mainData.subAccuP);
             xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
         }
-        if (subStatus == TOPCALCRUDDER)
-        {
-            hooverPid(mainData);
-            printf("hdg:%.2f dir%.2f dist%2.2f speedset:%d\r\n", mainData.dirMag, mainData.tgDir, mainData.tgDist, mainData.speedSet);
-            CalcRudderBuoy(mainData); // calculate power to thrusters
-            if (esc.speedbb != mainData.speedBb || esc.speedsb != mainData.speedSb)
-            {
-                esc.speedbb = mainData.speedBb;
-                esc.speedsb = mainData.speedSb;
-                xQueueSend(escspeed, (void *)&esc, 10);
-            }
-            printf("Dir:%.0f Speed:%d BB:%d SB:%d\r\n", mainData.tgDir, mainData.speedSet, mainData.speedBb, mainData.speedSb);
-            subStatus = 0;
-        }
         if (logtimer < millis())
         {
             logtimer = millis() + 5000;
-            printf("Hdg:%.2f Speed:%d BB:%3d SB:%3d\r\n", mainData.dirMag, mainData.speedSet, esc.speedbb, esc.speedsb);
+            if (subStatus == TOPCALCRUDDER)
+            {
+                printf("hdg:%6.2f dir%6.2f dist%5.2f speed:%4d ", mainData.dirMag, mainData.tgDir, mainData.tgDist, mainData.speed);
+                // printf(" buoy.iintergrater:%f pr%f ir%f err%f", mainData.iintergrater, mainData.pr, mainData.ir,mainData.lastErrr);
+                printf("Dir:%6.1f Speed:%4d BB:%2d SB:%2d is:%5.1f ir:%5.1f\r\n", smallestAngle(mainData.dirMag, mainData.tgDir), mainData.speed, mainData.speedBb, mainData.speedSb, mainData.is, mainData.ir);
+            }
+            else
+            {
+                printf("Hdg:%5.1f\r\n", mainData.dirMag);
+                logtimer = millis() + 250;
+            }
         }
     }
     vTaskDelay(1);

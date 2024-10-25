@@ -114,12 +114,12 @@ void LedTask(void *arg)
                 {
                     if (blink == true)
                     {
-                        printf("led on\r\n");
+                        // printf("led on\r\n");
                         leds[LEDSTATUS] = ledStatusData.color;
                     }
                     else
                     {
-                        printf("led off\r\n");
+                        // printf("led off\r\n");
                         leds[LEDSTATUS] = CRGB ::Black;
                     }
                     FastLED.show();
