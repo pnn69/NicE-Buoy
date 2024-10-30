@@ -184,6 +184,7 @@ void setup()
                    " Maxoffsetdistance:" + String(mainData.maxOfsetDist) +
                    " MINoffsetdistance:" + String(mainData.minOfsetDist));
     Serial.println("Setup done!");
+    delay(1000);
 }
 
 void handelKeyPress(void)
@@ -220,6 +221,7 @@ void loop(void)
     unsigned long nextSamp = millis();
     unsigned long accuSamp = millis();
     unsigned long logtimer = millis();
+    unsigned long udptimer = millis();
     float vbat = 0;
     int speedbb = 50, speedsb = 0;
     int presses = 0;
@@ -256,6 +258,14 @@ void loop(void)
         // New data recieved on udp channel
         if (xQueueReceive(udpIn, (void *)&udpInMain, 0) == pdTRUE)
         {
+            udptimer = millis();
+            if (subStatus == UDPERROR)
+            {
+                mainLedStatus.color = CRGB::Blue;
+                mainLedStatus.blink = BLINK_SLOW;
+                xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
+                subStatus = IDLE;
+            }
             String in = String(udpInMain);
             if (verifyCRC(in))
             {
@@ -321,6 +331,11 @@ void loop(void)
                 case PING:
                     mainData.cmd = PONG;
                     xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
+                    mainPwrData.bb = CRGB::Black;
+                    mainPwrData.sb = CRGB::Black;
+                    mainPwrData.blinkBb = BLINK_OFF;
+                    mainPwrData.blinkSb = BLINK_OFF;
+                    xQueueSend(ledPwr, (void *)&mainPwrData, 10); // update util led
                     break;
                 default:
                     printf("Unkonwn command %d\n\r", mainData.cmd);
@@ -328,23 +343,34 @@ void loop(void)
                 }
             }
         }
+        if (udptimer + 2000 < millis() + random(0, 100))
+        {
+            if (subStatus != UDPERROR)
+            {
+                subStatus = UDPERROR;
+                mainLedStatus.color = CRGB::LightGoldenrodYellow;
+                mainLedStatus.blink = BLINK_FAST;
+                xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
+            }
+            udptimer = millis();
+        }
 
         if (nextSamp < millis())
         {
-            nextSamp = 500 + millis();
+            nextSamp = 450 + millis() + random(0, 100);
             mainData.cmd = SUBDIRSPEED;
             xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
         }
         if (accuSamp < millis())
         {
-            accuSamp = 5000 + millis();
+            accuSamp = 5000 + millis() + random(0, 100);
             mainData.cmd = SUBACCU;
             battVoltage(mainData.subAccuV, mainData.subAccuP);
             xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
         }
         if (logtimer < millis())
         {
-            logtimer = millis() + 5000;
+            logtimer = millis() + 1000;
             if (subStatus == TOPCALCRUDDER)
             {
                 printf("hdg:%6.2f dir%6.2f dist%5.2f speed:%4d ", mainData.dirMag, mainData.tgDir, mainData.tgDist, mainData.speed);
@@ -353,7 +379,7 @@ void loop(void)
             }
             else
             {
-                printf("Hdg:%5.1f\r\n", mainData.dirMag);
+                printf("Hdg:%5.1f Vbat:%3.1f %3d%%\r\n", mainData.dirMag, mainData.subAccuV, mainData.subAccuP);
                 logtimer = millis() + 250;
             }
         }

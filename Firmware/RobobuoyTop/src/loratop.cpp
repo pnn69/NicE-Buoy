@@ -5,31 +5,33 @@
 #include "main.h"
 
 static bool loraOk = false;
+static uint64_t my_id = 0;
 static char loraData[MAXSTRINGLENG];
 static lorabuf loraMsgout = {};
+static lorabuf loraMsgin = {};
 static lorabuf pendingMsg[10] = {};
 static RoboStruct loraStruct;
 QueueHandle_t loraOut;
 QueueHandle_t loraIn;
 
-struct Data
+//  ID,MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
+struct lorabuf decodeString(String incoming)
 {
-    char mac[12]; // Fixed-size array for the MAC address (12 characters + null terminator)
-    int msg;      // MSG field
-    int ack;      // ACK field
-};
-
-// Function to extract the first 3 fields from a char array and return a struct
-struct Data extractFields(char *input)
-{
-    struct Data result;
-
-    // Extract the MAC address (assumed to be the first field in the array, 12 characters long)
-    sscanf(input, "%12[^,]", result.mac); // Extract the first 12 characters (MAC address without colons)
-
-    // Extract MSG and ACK (assuming they follow the MAC address)
-    sscanf(input + strlen(result.mac) + 1, "%d,%d", &result.msg, &result.ack);
-
+    struct lorabuf result;
+    // Split the incoming string by commas
+    int commaIndex = incoming.indexOf(',');
+    String hexString = incoming.substring(0, commaIndex);
+    // Convert the first part (hexadecimal string) to uint64_t
+    result.id = strtoull(hexString.c_str(), NULL, 16);
+    // Get the remaining part of the string after the first comma
+    incoming = incoming.substring(commaIndex + 1);
+    incoming.toCharArray(result.data, incoming.length() + 1); // store the data as chararray
+    // Parse the next two integer values
+    commaIndex = incoming.indexOf(',');
+    result.msg = incoming.substring(0, commaIndex).toInt(); // Convert to integer
+    incoming = incoming.substring(commaIndex + 1);          // Move to next part
+    commaIndex = incoming.indexOf(',');
+    result.ack = incoming.substring(0, commaIndex).toInt(); // Convert to integer
     return result;
 }
 
@@ -40,7 +42,7 @@ bool InitLora(void)
     SPI.begin(RADIO_SCLK_PIN, RADIO_MISO_PIN, RADIO_MOSI_PIN);
     Serial.print("LoRa setup ");
     // LoRa.setPins(RADIO_CS_PIN, RADIO_RST_PIN, RADIO_DIO0_PIN);
-    LoRa.setPins(RADIO_CS_PIN, RADIO_RST_PIN); // only polling mode so no irq neede
+    LoRa.setPins(RADIO_CS_PIN, RADIO_RST_PIN); // only polling mode so no irq needed
     if (!LoRa.begin(LoRa_frequency))
     {
         Serial.println("Failed!");
@@ -60,7 +62,9 @@ void storeAckMsg(lorabuf ackBuffer)
         if (pendingMsg[i].msg == 0)
         {
             memcpy(&pendingMsg[i].msg, &ackBuffer.msg, sizeof(ackBuffer.msg));
+            return;
         }
+        i++;
     }
 }
 
@@ -74,9 +78,9 @@ void removeAckMsg(int msg)
             pendingMsg[i].ack = 0;
             pendingMsg[i].msg = 0;
         }
+        i++;
     }
 }
-
 struct lorabuf chkAckMsg(void)
 {
     struct lorabuf in;
@@ -88,9 +92,31 @@ struct lorabuf chkAckMsg(void)
         if (pendingMsg[i++].msg != 0)
         {
             memcpy(&in, &pendingMsg[i], sizeof(lorabuf));
+            if (pendingMsg[i].retry < 0)
+            {
+                pendingMsg[i].retry--;
+            }
+            else
+            {
+                pendingMsg[i].msg = 0;
+            }
+            return in;
         }
     }
     return in;
+}
+
+String removeWhitespace(String str)
+{
+    String result = "";
+    for (int i = 0; i < str.length(); i++)
+    {
+        if (str.charAt(i) != ' ')
+        {
+            result += str.charAt(i);
+        }
+    }
+    return result;
 }
 
 // poll wtih in mainloop onReceive(LoRa.parsePacket());
@@ -112,16 +138,19 @@ void onReceive(int packetSize)
         Serial.println("error: message length does not match length");
         return; // skip rest of function
     }
-    incoming.toCharArray(loraData, incoming.length() + 1);
-    xQueueSend(loraIn, (void *)&loraData, 0); // send out trough Lora
-    struct Data extractedData = extractFields(loraData);
-    removeAckMsg(extractedData.msg);
+    loraMsgin = decodeString(incoming);
+    xQueueSend(loraIn, (void *)&loraMsgin, 0);            // send out trough Lora
+    if (loraMsgin.id == buoyId && loraMsgin.ack == LORAACK) // A message form me so check if its a ACK message
+    {
+        removeAckMsg(loraMsgin.msg);
+    }
 }
 
 bool sendLora(String loraTransmitt)
 {
     if (LoRa.beginPacket()) // start packet
     {
+        loraTransmitt = removeWhitespace(loraTransmitt);
         LoRa.write(loraTransmitt.length());
         LoRa.print(loraTransmitt);
         LoRa.endPacket(); // finish packet and send it
@@ -132,8 +161,8 @@ bool sendLora(String loraTransmitt)
 
 void initloraqueue(void)
 {
-    loraOut = xQueueCreate(10, sizeof(char[MAXSTRINGLENG]));
     loraIn = xQueueCreate(10, sizeof(lorabuf));
+    loraOut = xQueueCreate(10, sizeof(lorabuf));
 }
 
 void LoraTask(void *arg)
@@ -148,14 +177,15 @@ void LoraTask(void *arg)
         {
             if (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
             {
-                Serial.println("Lora OUT:" + String(loraMsgout.data) + "Length:" + String(strlen(loraMsgout.data)));
+                // Serial.println("Lora OUT:" + String(loraMsgout.data) + "Length:" + String(strlen(loraMsgout.data)));
                 while (sendLora(String(loraMsgout.data)) != true)
                 {
-                    vTaskDelay(pdTICKS_TO_MS(100));
+                    vTaskDelay(pdTICKS_TO_MS(50));
                 }
                 transmittReady = millis() + 250 + random(0, 50);
                 if (loraMsgout.ack == LORAGETACK)
                 {
+                    loraMsgout.retry = 5;
                     storeAckMsg(loraMsgout);            // put data in buffer (will be removed on ack)
                     retransmittReady = millis() + 1000; // give some time for ack
                 }
@@ -172,7 +202,6 @@ void LoraTask(void *arg)
                     vTaskDelay(pdTICKS_TO_MS(100));
                 }
                 retransmittReady = millis() + 1000 + random(0, 50);
-                removeAckMsg(loraMsgout.msg);
             }
         }
         vTaskDelay(1);

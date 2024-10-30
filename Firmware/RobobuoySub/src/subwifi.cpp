@@ -4,7 +4,6 @@
 #include <RoboCompute.h>
 #include "main.h"
 #include "datastorage.h"
-#include "leds.h"
 #include "subwifi.h"
 
 RoboStruct subwifiData;
@@ -16,8 +15,6 @@ AsyncUDP udp;
 // static UdpData udpBuffer;
 QueueHandle_t udpIn;
 QueueHandle_t udpOut;
-static LedData wifiLedStatus;
-static PwrData wifiPwrData;
 static unsigned long lastPing = millis();
 
 bool ota = false;
@@ -197,12 +194,7 @@ void WiFiTask(void *arg)
         Serial.println("Try again with ssid: " + String(ssid));
         apswitch = !apswitch;
     }
-    wifiPwrData.bb = CRGB::DarkGreen;
-    wifiPwrData.sb = CRGB::DarkGreen;
-    wifiPwrData.blinkBb = BLINK_OFF;
-    wifiPwrData.blinkSb = BLINK_SLOW;
-    xQueueSend(ledPwr, (void *)&wifiPwrData, 10); // update util led
-                                                  //    }
+    
     Serial.print("Logged in to AP:");
     Serial.println(ssid);
     ota = setup_OTA();

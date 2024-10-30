@@ -1,10 +1,19 @@
 #ifndef ROBOCOMPUTE_H
 #define ROBOCOMPUTE_H
 #include <Arduino.h>
+#include <mat.h>
+
+/*some constans*/
+#define EARTH_MEAN_RADIUS 6372795
+#define radian(x) (x * M_PI / 180)
+#define degre(x) (x * 180 / M_PI)
+#define ILIM 35 // Maximum interal limit (35% power)
 
 #define HEAD 1
 #define PORT 2
 #define STARBOARD 3
+
+#define SAMPELS 20 // 60 samples
 
 typedef enum
 {
@@ -28,19 +37,28 @@ typedef enum
     TOPIDLE,        //
     TOPID,          // mac top
     SUBID,          // mac sub
+    UDPERROR,       // no udp communicaton
+    STOREASDOC,     // Store location as doc location
     LORASET,        // info to store
     LOTAGET,        // info request
     LORAGETACK,     // ack requerd
     LORAACK,        // ack on message
     LORANAC,        // nak
     LORAUPD,        // udate message
-    LORABUOYPOS     // ID,MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
+    LORABUOYPOS,    // ID,MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
+    LORALOCKPOS,    // ID,MSG,ACK,STATUS,LAT,LON
+    LORADOCKPOS,    // ID,MSG,ACK,STATUS,LAT,LON
+    COMPUTESTART,   //
+    COMPUTETRACK,   //
 } msg_t;
 
 struct RoboStruct
 {
     /* data */
-    double id = 0;
+    uint64_t id = 0;
+    int msg = 0;
+    int lstmsg = 0;
+    int status = 0;
     double lat = 0;
     double lng = 0;
     double tgLat = 0;
@@ -50,6 +68,7 @@ struct RoboStruct
     double wDir, wStd;
     double dirMag = 0;
     double tgDir = 0;
+    int trackPos = 0;
     int speed = 0; // speed
     int speedBb = 0;
     int speedSb = 0;
@@ -100,29 +119,32 @@ struct RoboStructGps
     int speedSb = 0;
 };
 
-struct RoboStruct RoboDecode(String data, RoboStruct);
-// void RoboDecode(String data, RoboStruct &dataStore);
-String RoboCode(RoboStruct dataOut);
+struct RoboWindStruct
+{
+    int ptr = 0;
+    double wDir = 0;
+    double wStd = 0;
+    double data[SAMPELS];
+};
 
-/************************************************************************************************************************************************************************* */
-// OLD ROBOCALC
-/************************************************************************************************************************************************************************* */
+struct RoboStruct RoboDecode(String data, RoboStruct);
+String RoboCode(RoboStruct dataOut);
 String addBeginAndEndToString(String input);
 String addCRCToString(String input); // Use reference to modify the original string
 bool verifyCRC(String input);
-double averigeWindRose(double samples[], int n);
-double deviationWindRose(double samples[], int n);
+double averigeWindRose(RoboWindStruct wData);
+RoboWindStruct deviationWindRose(RoboWindStruct wData);
 void PidDecode(String data, int pid, RoboStruct buoy);
 String PidEncode(int pid, RoboStruct buoy);
 void gpsGem(double &lat, double &lon);
 double distanceBetween(double lat1, double long1, double lat2, double long2);
-double courseTo(double lat1, double long1, double lat2, double long2);
+double computeWindAngle(double windDegrees, double lat, double lon, double centroidLat, double centroidLon);
 void initPid(int pid, RoboStruct buoy);
 double approxRollingAverage(double avg, double input);
-void addNewSampleInBuffer(double *input, int buflen, double nwdata);
+RoboWindStruct addNewSampleInBuffer(RoboWindStruct wData, double nwdata);
 void checkparameters(RoboStruct buoy);
 
-void adjustPositionDirDist(double dir, double dist, double *lat, double *lon);
+void adjustPositionDirDist(double dir, double dist, double lat, double lon, double *latOut, double *lonOut);
 double smallestAngle(double heading1, double heading2);
 bool determineDirection(double heading1, double heading2);
 double Angle2SpeedFactor(double angle);
@@ -130,11 +152,9 @@ double CalcDocSpeed(double tgdistance);
 RoboStruct CalcRemoteRudderBuoy(RoboStruct buoy);
 RoboStruct CalcRudderBuoy(RoboStruct buoy);
 RoboStruct hooverPid(RoboStruct buoy);
-void threePointAverage(double lat1, double lon1, double lat2, double lon2, double lat3, double lon3, double *latgem, double *longem);
 void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double *latgem, double *longem);
 void windDirectionToVector(double windDegrees, double *windX, double *windY);
 double calculateAngle(double x1, double y1, double x2, double y2);
-int checkWindDirection(double windDegrees, double lat, double lon, double centroidX, double centroidY);
-void reCalcStartLine(double *lat1, double *lon1, double *lat2, double *lon2, double winddir);
+void reCalcTrack(struct RoboStruct rsl[3]);
 
 #endif /* ROBOCOMPUTE */
