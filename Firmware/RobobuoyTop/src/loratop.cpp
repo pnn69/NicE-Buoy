@@ -5,7 +5,7 @@
 #include "main.h"
 
 static bool loraOk = false;
-static uint64_t my_id = 0;
+static unsigned long my_id = 0;
 static char loraData[MAXSTRINGLENG];
 static lorabuf loraMsgout = {};
 static lorabuf loraMsgin = {};
@@ -14,24 +14,36 @@ static RoboStruct loraStruct;
 QueueHandle_t loraOut;
 QueueHandle_t loraIn;
 
-//  ID,MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
-struct lorabuf decodeString(String incoming)
-{
-    struct lorabuf result;
-    // Split the incoming string by commas
-    int commaIndex = incoming.indexOf(',');
+//  IDr,IDs,MSG,ACK,<data>
+lorabuf decodeString(String incoming) {
+    lorabuf result;
+    int commaIndex;
+
+    // Parse mac
+    commaIndex = incoming.indexOf(',');
     String hexString = incoming.substring(0, commaIndex);
-    // Convert the first part (hexadecimal string) to uint64_t
-    result.id = strtoull(hexString.c_str(), NULL, 16);
-    // Get the remaining part of the string after the first comma
+    result.mac = strtoull(hexString.c_str(), NULL, 16);
     incoming = incoming.substring(commaIndex + 1);
-    incoming.toCharArray(result.data, incoming.length() + 1); // store the data as chararray
-    // Parse the next two integer values
+
+    // Parse macIn
     commaIndex = incoming.indexOf(',');
-    result.msg = incoming.substring(0, commaIndex).toInt(); // Convert to integer
-    incoming = incoming.substring(commaIndex + 1);          // Move to next part
+    hexString = incoming.substring(0, commaIndex);
+    result.macIn = strtoull(hexString.c_str(), NULL, 16);
+    incoming = incoming.substring(commaIndex + 1);
+
+    // Parse msg
     commaIndex = incoming.indexOf(',');
-    result.ack = incoming.substring(0, commaIndex).toInt(); // Convert to integer
+    result.msg = incoming.substring(0, commaIndex).toInt();
+    incoming = incoming.substring(commaIndex + 1);
+
+    // Parse ack
+    commaIndex = incoming.indexOf(',');
+    result.ack = incoming.substring(0, commaIndex).toInt();
+    incoming = incoming.substring(commaIndex + 1);
+
+    // Store remaining data as a char array
+    incoming.toCharArray(result.data, sizeof(result.data));
+
     return result;
 }
 
@@ -139,8 +151,8 @@ void onReceive(int packetSize)
         return; // skip rest of function
     }
     loraMsgin = decodeString(incoming);
-    xQueueSend(loraIn, (void *)&loraMsgin, 0);            // send out trough Lora
-    if (loraMsgin.id == buoyId && loraMsgin.ack == LORAACK) // A message form me so check if its a ACK message
+    xQueueSend(loraIn, (void *)&loraMsgin, 0);               // send out trough Lora
+    if (loraMsgin.mac == buoyId && loraMsgin.ack == LORAACK) // A message form me so check if its a ACK message
     {
         removeAckMsg(loraMsgin.msg);
     }
@@ -177,8 +189,11 @@ void LoraTask(void *arg)
         {
             if (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
             {
-                // Serial.println("Lora OUT:" + String(loraMsgout.data) + "Length:" + String(strlen(loraMsgout.data)));
-                while (sendLora(String(loraMsgout.data)) != true)
+                // IDr,IDs,MSG,ACK,<data>
+                String loraString = String(loraMsgout.mac, HEX) + "," + String(buoyId, HEX) + "," + String(loraMsgout.msg) + "," + String(loraMsgout.ack);
+                loraString += removeWhitespace(String(loraMsgout.data));
+                Serial.println("Lora OUT:" + loraString + " Length:" + String(strlen(loraMsgout.data)));
+                while (sendLora(String(loraString)) != true)
                 {
                     vTaskDelay(pdTICKS_TO_MS(50));
                 }

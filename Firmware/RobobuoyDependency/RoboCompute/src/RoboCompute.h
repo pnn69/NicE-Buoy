@@ -45,19 +45,20 @@ typedef enum
     LORAACK,        // ack on message
     LORANAC,        // nak
     LORAUPD,        // udate message
-    LORABUOYPOS,    // ID,MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
-    LORALOCKPOS,    // ID,MSG,ACK,STATUS,LAT,LON
-    LORADOCKPOS,    // ID,MSG,ACK,STATUS,LAT,LON
-    COMPUTESTART,   //
-    COMPUTETRACK,   //
+    LORABUOYPOS,    // IDs,IDr,MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
+    LORALOCKPOS,    // IDs,IDr,MSG,ACK,STATUS,LAT,LON
+    LORADOCKPOS,    // IDs,IDr,MSG,ACK,STATUS,LAT,LON
+    LORASENDDATA,
+    COMPUTESTART, //
+    COMPUTETRACK, //
 } msg_t;
 
 struct RoboStruct
 {
     /* data */
-    uint64_t id = 0;
+    unsigned long mac = 0;
     int msg = 0;
-    int lstmsg = 0;
+    int loralstmsg = 0;
     int status = 0;
     double lat = 0;
     double lng = 0;
@@ -155,6 +156,7 @@ RoboStruct hooverPid(RoboStruct buoy);
 void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double *latgem, double *longem);
 void windDirectionToVector(double windDegrees, double *windX, double *windY);
 double calculateAngle(double x1, double y1, double x2, double y2);
-void reCalcTrack(struct RoboStruct rsl[3]);
+bool recalcStarLine(struct RoboStruct rsl[3]);
+bool reCalcTrack(struct RoboStruct rsl[3]);
 
 #endif /* ROBOCOMPUTE */

@@ -8,7 +8,7 @@
 
 #define MAXSTRINGLENG 150
 
-extern uint64_t buoyId;
+extern unsigned long buoyId;
 extern RoboStruct buoyPara[3];
 
 #endif /* MAIN_H_ */

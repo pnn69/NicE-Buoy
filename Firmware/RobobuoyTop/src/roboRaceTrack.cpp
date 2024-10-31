@@ -2,9 +2,9 @@
 
 bool AddDataToBuoyBase(RoboStruct dataIn)
 {
-    // Serial.print("ID to store:" + String(dataIn.id, HEX));
+    // Serial.print("ID to store:" + String(dataIn.mac, HEX));
     // Serial.print(" Stor lat ->Lat" + String(dataIn.lat, 8));
-    if (dataIn.id == buoyId)
+    if (dataIn.mac == buoyId)
     {
         memcpy(&buoyPara[0], &dataIn, sizeof(RoboStruct));
         Serial.println("LOCK data added to buoyPara[0]");
@@ -16,7 +16,7 @@ bool AddDataToBuoyBase(RoboStruct dataIn)
     {
         for (int i = 1; i < 3; i++)
         {
-            if (dataIn.id == buoyPara[i].id || buoyPara[i].id == 0)
+            if (dataIn.mac == buoyPara[i].mac || buoyPara[i].mac == 0)
             {
                 memcpy(&buoyPara[i], &dataIn, sizeof(RoboStruct));
                 // printf("Copied dataIn to buoyPara[%d]\n", i);
@@ -32,13 +32,13 @@ bool AddDataToBuoyBase(RoboStruct dataIn)
 RoboStruct GetDataFromBuoyBase(uint64_t id)
 {
     RoboStruct out;
-    out.id = 0;
+    out.mac = 0;
     for (int i = 0; i < 3; i++)
     {
-        if (id == buoyPara[i].id)
+        if (id == buoyPara[i].mac)
         {
             memcpy(&out, &buoyPara[i], sizeof(RoboStruct));
-            // Serial.println("Data found on pos=" + String(i) + " ! ID" + String(out.id, HEX) + "Lat:" + String(out.lat));
+            // Serial.println("Data found on pos=" + String(i) + " ! ID" + String(out.mac, HEX) + "Lat:" + String(out.lat));
             return out;
         }
     }

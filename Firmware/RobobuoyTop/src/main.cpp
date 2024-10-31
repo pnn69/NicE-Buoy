@@ -28,7 +28,7 @@ static GpsDataType mainGpsData;
 static GpsNav mainNavData;
 static int status = IDLE;
 static int wifiConfig = 0;
-uint64_t buoyId;
+unsigned long buoyId;
 static int msg;
 unsigned long udpTimer = millis();
 unsigned long loraTimer = millis();
@@ -186,13 +186,13 @@ void setup()
     xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 1);
     Serial.println("Main task running!");
     // 52.32035583 Lon:4.96552433
-    buoyPara[0].id = 0Xec64c99779b8;
+    buoyPara[0].mac = 0Xec64c99779b8;
     buoyPara[0].tgLat = 52.0;
     buoyPara[0].tgLng = 4.0;
-    buoyPara[1].id = 4524;
+    buoyPara[1].mac = 4524;
     buoyPara[1].tgLat = 52.42035583;
     buoyPara[1].tgLng = 4.86552433;
-    buoyPara[2].id = 5283;
+    buoyPara[2].mac = 5283;
     buoyPara[2].tgLat = 52.62035583;
     buoyPara[2].tgLng = 4.76552433;
 }
@@ -216,9 +216,16 @@ void loop(void)
     bool firstfix = false;
     while (true)
     {
+        //***************************************************************************************************
+        //      keypress check
+        //***************************************************************************************************
         status = handelKeyPress(status);
-        if (status == LOCKING)
+        //***************************************************************************************************
+        //      status actions
+        //***************************************************************************************************
+        switch (status)
         {
+        case LOCKING:
             if (mainGpsData.fix == true)
             {
                 beep(1, buzzer);
@@ -232,29 +239,68 @@ void loop(void)
                 beep(2, buzzer);
                 status = IDLE;
             }
-        }
-        if (status == DOCKING)
-        {
+            break;
+
+        case DOCKING:
             beep(1, buzzer);
             memDockPos(mainData, true);
             status = DOCKED;
-        }
-        if (status == COMPUTESTART)
-        {
-            // recalcStarLine(double winddir, double *tgLat1, double *tgLng1, double *tgLat2, double *tgLng2)
-            // send loradata
+            break;
+
+        case COMPUTESTART:
+            if (recalcStarLine(buoyPara) == true)
+            {
+                beep(1, buzzer);
+                status = LORASENDDATA;
+            }
+            else
+            {
+                beep(-1, buzzer);
+                status = LOCKED;
+            }
+            break;
+        case COMPUTETRACK:
+            if (reCalcTrack(buoyPara) == true)
+            {
+                beep(1, buzzer);
+                status = LORASENDDATA;
+            }
+            else
+            {
+                beep(-1, buzzer);
+                status = LOCKED;
+            }
+            break;
+        case LORASENDDATA:
+            if (buoyPara[1].trackPos != -1)
+            {
+                // IDr,IDs,MSG,ACK,LAT,LON
+                String loraString = String(buoyPara[1].tgLat, 8) + "," + String(buoyPara[1].tgLng, 8);
+                loraString.toCharArray(LoraTx.data, loraString.length() + 1);
+                LoraTx.mac = buoyPara[1].mac;
+                LoraTx.msg = LORALOCKPOS;
+                LoraTx.ack = LORAGETACK;
+                xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
+            }
+            if (buoyPara[2].trackPos != -1)
+            {
+                String loraString = String(buoyPara[2].tgLat, 8) + "," + String(buoyPara[2].tgLng, 8);
+                loraString.toCharArray(LoraTx.data, loraString.length() + 1);
+                LoraTx.mac = buoyPara[2].mac;
+                LoraTx.msg = LORALOCKPOS;
+                LoraTx.ack = LORAGETACK;
+                xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
+            }
             status = LOCKED;
+            break;
+        default:
+            break;
         }
-        if (status == COMPUTETRACK)
-        {
-            reCalcTrack(buoyPara);
-            // send loradata
-            status = LOCKED;
-        }
+
         buttonLight(buttonBlinkTimer, blink, status, mainGpsData.fix);
-        /*
-        New GPS datat
-        */
+        //****************************************************************************************************
+        //      New GPS data
+        //***************************************************************************************************
         if (xQueueReceive(gpsQue, (void *)&mainGpsData, 0) == pdTRUE) // New gps data
         {
             if (mainGpsData.fix == true && firstfix == false)
@@ -279,15 +325,15 @@ void loop(void)
                     }
                 }
         }
-        /*
-        New Lora data
-        */
+        //****************************************************************************************************
+        //      New Lora data
+        //***************************************************************************************************
         if (xQueueReceive(loraIn, (void *)&loraRx, 0) == pdTRUE) // new lora data
         {
-            loraData.id = loraRx.id;
-            Serial.println("LORA data in: " + String(loraRx.id, HEX) + "," + String(loraRx.data));
+            Serial.println("LORA data in: " + String(loraRx.mac, HEX) + "," + String(loraRx.data));
             String data = addBeginAndEndToString(String(loraRx.data));
             loraData = RoboDecode(data, loraData);
+            loraData.mac = loraRx.mac; // stpre ID
             //  ID,MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
             if (loraData.msg == LORALOCKPOS)
             {
@@ -298,9 +344,9 @@ void loop(void)
             }
             buoyPara[0].wDir = mainData.wDir;
         }
-        /*
-        New data from udp
-        */
+        //****************************************************************************************************
+        //      New WEiFi data
+        //***************************************************************************************************
         if (xQueueReceive(udpIn, (void *)&subData, 0) == pdTRUE)
         {
             switch (subData.cmd)
@@ -324,15 +370,19 @@ void loop(void)
                 break;
             case TOPID:
                 Serial.print("ID=");
-                Serial.println(subData.id, HEX);
-                mainData.id = subData.id;
-                buoyId = subData.id;
-                Serial.println("Id set to:" + String((uint64_t)subData.id, HEX));
+                Serial.println(subData.mac, HEX);
+                mainData.mac = subData.mac;
+                buoyId = subData.mac;
+                Serial.println("Id set to:" + String((uint64_t)subData.mac, HEX));
                 break;
             default:
                 printf("Command %d not supported!\r\n", subData.cmd);
             }
         }
+        //****************************************************************************************************
+        //      Timer routines
+        //***************************************************************************************************
+
         if (logtimer < millis())
         {
             logtimer = millis() + 1000;
@@ -349,15 +399,15 @@ void loop(void)
         if (loraTimer < millis())
         {
             loraTimer = millis() + 9000 + random(1000, 2000);
-            String loraString = String(mainData.id, HEX);
-            if (mainData.lstmsg != LORABUOYPOS)
+            String loraString = "";
+            if (mainData.loralstmsg != LORABUOYPOS)
             {
-                mainData.lstmsg = LORABUOYPOS;
-                //  ID,MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
+                LoraTx.mac = -1;
+                LoraTx.msg = LORABUOYPOS;
+                LoraTx.ack = LORAUPD;
+                //  IDr,IDs,MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
                 loraString +=
-                    "," + String(LORABUOYPOS) +
-                    "," + String(LORAUPD) +
-                    "," + String(status) +
+                    String(status) +
                     "," + String(mainData.lat, 8) +
                     "," + String(mainData.lng, 8) +
                     "," + String(mainData.dirMag, 0) +
@@ -370,22 +420,20 @@ void loop(void)
             }
             else
             {
-                mainData.lstmsg = LORALOCKPOS;
-                //  ID,MSG,ACK,STATUS,LAT,LON
+                //  IDr,IDs,MSG,ACK,STATUS,LAT,LON
+                LoraTx.mac = -1;
+                LoraTx.msg = LORALOCKPOS;
+                LoraTx.ack = LORAUPD;
                 loraString +=
-                    "," + String(LORALOCKPOS) +
-                    "," + String(LORAUPD) +
-                    "," + String(status) +
+                    String(status) +
                     "," + String(mainData.lat, 8) +
                     "," + String(mainData.lng, 8);
             }
             if (loraString.length() < MAXSTRINGLENG - 1)
             {
-                Serial.println( "Lora msg out:" + loraString);
+                mainData.loralstmsg = LoraTx.msg;
+                Serial.println("Lora msg out:" + loraString);
                 loraString.toCharArray(LoraTx.data, loraString.length() + 1);
-                LoraTx.id = mainData.id;
-                LoraTx.ack = LORAUPD;
-                LoraTx.msg = mainData.lstmsg;
                 xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
             }
             else

@@ -186,13 +186,13 @@ void WiFiTask(void *arg)
     char macStr[20];
     WiFi.macAddress(mac);
     sprintf(macStr, "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    uint64_t tmp = 0;
-    for (int i = 0; i < 6; i++)
+    unsigned long tmp = 0;
+    for (int i = 2; i < 6; i++)
     {
         tmp = (tmp << 8) | mac[i];
     }
     topWifiIn.cmd = TOPID;
-    topWifiIn.id = tmp;
+    topWifiIn.mac = tmp;
     xQueueSend(udpIn, (void *)&topWifiIn, 10); // notify main there is new data
     int wifiConfig = *((int *)arg);
     unsigned long nwUpdate = millis();

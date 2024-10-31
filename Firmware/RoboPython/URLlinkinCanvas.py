@@ -5,16 +5,16 @@ import os
 
 # Coordinates
 
-winddir = 180.00
+winddir = 290.00
 head = (52.289071585251,4.926363927671)
 port = (52.289749207653,4.933875490798)
 starboard =( 52.291505969351,4.932830118095)
 midpoint =(    52.290109,4.931023178855)
-headn = (52.287076074973,4.931023178855)
-portn = (52.291625320125,4.932551445931)
-starboardn = (52.291625320125,4.929494911779)
+# reCalcTrack ok
+headn = (52.291146215099,4.926363848632)
+portn = (52.288711900772,4.932830133726)
+starboardn = (52.290468662470,4.933875481951)
 
-startlincp =( 52.289976694831,4.933493572819)
 m = folium.Map(location=midpoint, zoom_start=16)
 # Create a map centered around the first coordinate
 

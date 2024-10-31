@@ -97,7 +97,6 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         dataStore.subAccuP = numbers[9].toInt();
         break;
     case LORALOCKPOS: // MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
-        dataStore.status = numbers[2].toInt();
         dataStore.tgLat = numbers[3].toDouble();
         dataStore.tgLng = numbers[4].toDouble();
         break;
@@ -787,46 +786,79 @@ double computeWindAngle(double windDegrees, double lat, double lon, double centr
 /************************************************************************************************************************************************************************* */
 // Conversion ready until here
 /************************************************************************************************************************************************************************* */
-void recalcStarLine(double winddir, double *tgLat1, double *tgLng1, double *tgLat2, double *tgLng2)
+bool recalcStarLine(struct RoboStruct rsl[3])
 {
-    double lat2Pgem, lng2Pgem;
-    double nLat1, nLng1;
-    double nLat2, nLng2;
-    double d1, d2, d3;
-    twoPointAverage(*tgLat1, *tgLng1, *tgLat2, *tgLng2, &lat2Pgem, &lng2Pgem); // calculate the centerpoint.
-    nLat1 = *tgLat1;
-    nLng1 = *tgLng1;
-    nLat2 = *tgLat2;
-    nLng2 = *tgLng2;
-    d1 = (distanceBetween(nLat1, nLng1, nLat2, nLng2)) / 2; // calculate de distance
-    winddir -= 90;
-    if (winddir < 0)
+    double d0, d1, d2, dir;
+    double mid[2];
+    double angleSb = rsl[0].wDir + 90;
+    rsl[0].trackPos = -1;
+    rsl[1].trackPos = -1;
+    rsl[2].trackPos = -1;
+
+    if (angleSb > 360)
     {
-        winddir += 360;
+        angleSb -= 360;
     }
-    adjustPositionDirDist(winddir, d1, lat2Pgem, lng2Pgem, &nLat1, &nLng1); // calculate new point
-    winddir += 180;
-    if (winddir > 360)
+    double angleBb = angleSb + 180;
+    if (angleBb > 360)
     {
-        winddir -= 360;
+        angleBb -= 360;
     }
-    adjustPositionDirDist(winddir, d1, lat2Pgem, lng2Pgem, &nLat2, &nLng2); // calculate new point
-    d2 = distanceBetween(*tgLat1, *tgLng1, nLat1, nLng1);                   // calculate de distance
-    d3 = distanceBetween(*tgLat2, *tgLng2, nLat1, nLng1);                   // calculate de distance
-    if (d2 < d3)
+
+    d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng); // compute length p0 p1
+    d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng); // compute length p0 p2
+    d2 = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng); // compute length p1 p2
+    if (d0 < d1 && d0 < d2)
     {
-        *tgLat1 = nLat1;
-        *tgLng1 = nLng1;
-        *tgLat2 = nLat2;
-        *tgLng2 = nLng2;
+        if (rsl[0].tgLat == 0 || rsl[0].tgLng == 0 || rsl[1].tgLat == 0 || rsl[1].tgLng == 0) // check if data is ok
+        {
+            return false;
+        }
+        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng, &mid[0], &mid[1]); // calculate startline centerpoint
+        printf("midpoint =( %12f,%.12f)\r\n", mid[0], mid[1]);                                     // mid point of thre (for plotting the windrose and calculations)
+        dir = calculateBearing(rsl[0].tgLat, rsl[0].tgLng, mid[0], mid[1]);
+        dir = abs(smallestAngle(rsl[0].wDir, dir));
+        adjustPositionDirDist(angleBb, d0 / 2, mid[0], mid[1], &rsl[0].tgLat, &rsl[0].tgLng); // compute port
+        adjustPositionDirDist(angleSb, d0 / 2, mid[0], mid[1], &rsl[1].tgLat, &rsl[1].tgLng); // compute starboard
+        rsl[0].trackPos = PORT;
+        rsl[1].trackPos = STARBOARD;
+        return true;
     }
-    else
+
+    if (d1 < d0 && d0 < d2)
     {
-        *tgLat1 = nLat2;
-        *tgLng1 = nLng2;
-        *tgLat2 = nLat1;
-        *tgLng2 = nLng1;
+        if (rsl[0].tgLat == 0 || rsl[0].tgLng == 0 || rsl[2].tgLat == 0 || rsl[2].tgLng == 0) // check if data is ok
+        {
+            return false;
+        }
+        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &mid[0], &mid[1]); // calculate startline centerpoint
+        printf("midpoint =( %12f,%.12f)\r\n", mid[0], mid[1]);                                     // mid point of thre (for plotting the windrose and calculations)
+        dir = calculateBearing(rsl[0].tgLat, rsl[0].tgLng, mid[0], mid[1]);
+        dir = abs(smallestAngle(rsl[0].wDir, dir));
+        adjustPositionDirDist(angleBb, d1 / 2, mid[0], mid[1], &rsl[0].tgLat, &rsl[0].tgLng); // compute port
+        adjustPositionDirDist(angleSb, d1 / 2, mid[0], mid[1], &rsl[2].tgLat, &rsl[2].tgLng); // compute starboard
+        rsl[0].trackPos = PORT;
+        rsl[2].trackPos = STARBOARD;
+        return true;
     }
+
+    if (d2 < d0 && d2 < d1)
+    {
+        if (rsl[1].tgLat == 0 || rsl[1].tgLng == 0 || rsl[2].tgLat == 0 || rsl[2].tgLng == 0) // check if data is ok
+        {
+            return false;
+        }
+        twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &mid[0], &mid[1]); // calculate startline centerpoint
+        printf("midpoint =( %12f,%.12f)\r\n", mid[0], mid[1]);                                     // mid point of thre (for plotting the windrose and calculations)
+        dir = calculateBearing(rsl[2].tgLat, rsl[2].tgLng, mid[0], mid[1]);
+        dir = abs(smallestAngle(rsl[0].wDir, dir));
+        adjustPositionDirDist(angleBb, d2 / 2, mid[0], mid[1], &rsl[1].tgLat, &rsl[1].tgLng); // compute port
+        adjustPositionDirDist(angleSb, d2 / 2, mid[0], mid[1], &rsl[2].tgLat, &rsl[2].tgLng); // compute starboard
+        rsl[1].trackPos = PORT;
+        rsl[2].trackPos = STARBOARD;
+        return true;
+    }
+    return false;
 }
 
 /*
@@ -843,14 +875,47 @@ void recalcStarLine(double winddir, double *tgLat1, double *tgLng1, double *tgLa
     - New position buoy2, HEAD,PORT,STARBORD
     - New position buoy3, HEAD,PORT,STARBORD
 */
-void reCalcTrack(struct RoboStruct rsl[3])
+bool reCalcTrack(struct RoboStruct rsl[3])
 {
+    double d0, d1, d2;
     double startLineL, centerPont2Startline, centerPoint2Head;
-    double angleSb, angleBb, angle180;
+    double angleSb, angleBb, angle180, dir;
     double lat2gem, lng2gem;
     double lat3gem, lng3gem;
+    rsl[0].trackPos = -1;
+    rsl[1].trackPos = -1;
+    rsl[2].trackPos = -1;
+    for (int i = 0; i < 2; i++)
+    {
+        if (rsl[i].tgLng == 0 || rsl[i].tgLat == 0)
+        {
+            return false;
+        }
+    }
+    // mid point of three buoys (for plotting the windrose and calculations)
     threePointAverage(rsl, &lat3gem, &lng3gem);
-    printf("midpoint =( %12f,%.12f)\r\n", lat3gem, lng3gem); // mid point of thre (for plotting the windrose and calculations)
+    printf("midpoint =( %12f,%.12f)\r\n", lat3gem, lng3gem);
+
+    // determ the length of the startline
+    d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng); // compute length p0 p1
+    d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng); // compute length p0 p2
+    d2 = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng); // compute length p1 p2
+    if (d0 < d1 && d0 < d2)
+    {
+        startLineL = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng);        // compute length startline
+        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng, &lat2gem, &lng2gem); // calculate startline centerpoint
+    }
+    if (d1 < d2 && d1 < d0)
+    {
+        startLineL = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng);        // compute length startline
+        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &lat2gem, &lng2gem); // calculate startline centerpoint
+    }
+    if (d2 < d0 && d2 < d1)
+    {
+        startLineL = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng);        // compute length startline
+        twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &lat2gem, &lng2gem); // calculate startline centerpoint
+    }
+    // determ  he wind angles for the start line (+-90 degrees from the wind direction)
     angle180 = rsl[0].wDir + 180;
     if (angle180 > 360)
     {
@@ -866,91 +931,54 @@ void reCalcTrack(struct RoboStruct rsl[3])
     {
         angleBb -= 360;
     }
+    // search for the buoy clocesed to the wind direction
     double b0 = computeWindAngle(rsl[0].wDir, rsl[0].tgLat, rsl[0].tgLng, lat3gem, lng3gem);
     double b1 = computeWindAngle(rsl[0].wDir, rsl[1].tgLat, rsl[1].tgLng, lat3gem, lng3gem);
     double b2 = computeWindAngle(rsl[0].wDir, rsl[2].tgLat, rsl[2].tgLng, lat3gem, lng3gem);
     if (b0 < b1 && b0 < b2)
     {
         rsl[0].trackPos = HEAD;
-        startLineL = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng);                 // compute length startline
-        twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &lat2gem, &lng2gem);          // calculate startline centerpoint
-        centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);                           // calcultate the distance between the centerpoint and the startline
         centerPoint2Head = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, lat3gem, lng3gem);                     // calcultate the distance between the centerpoint and the startline
+        centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);                           // calcultate the distance between the centerpoint and the startline
         adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[0].tgLat, &rsl[0].tgLng); // calculate new position HEAD
         adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);          // point to new centerpoint of the startline
-        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng);       // compute port
-        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng);       // compute starboard
-        double dir = calculateBearing(lat2gem, lng2gem, rsl[1].tgLat, rsl[1].tgLng);
-        dir = rsl[0].wDir - dir;
-        if (dir < 0)
-        {
-            dir += 360;
-        }
-        if (dir < 180)
-        {
-            rsl[1].trackPos = PORT;
-            rsl[2].trackPos = STARBOARD;
-        }
-        else
-        {
-            rsl[2].trackPos = PORT;
-            rsl[1].trackPos = STARBOARD;
-        }
+        dir = calculateBearing(rsl[1].tgLat, rsl[1].tgLng, lat2gem, lng2gem);
+        dir = abs(smallestAngle(rsl[0].wDir, dir));
+        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng); // compute port
+        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng); // compute starboard
+        rsl[1].trackPos = PORT;
+        rsl[2].trackPos = STARBOARD;
+        return true;
     }
     if (b1 < b0 && b1 < b2)
     {
         rsl[1].trackPos = HEAD;
-        startLineL = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng);                 // compute length startline
-        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &lat2gem, &lng2gem);          // // calculate startline centerpointcalculate the centerpoint startline
         centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);                           // calcultate the distance between the centerpoint and the startline
         centerPoint2Head = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, lat3gem, lng3gem);                     // calcultate the distance between the centerpoint and the startline
         adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[1].tgLat, &rsl[1].tgLng); // calculate new position HEAD
         adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);          // point to new centerpoint of the startline
-        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[0].tgLat, &rsl[0].tgLng);       // compute port
-        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng);       // compute starboard
-        double dir = calculateBearing(lat2gem, lng2gem, rsl[0].tgLat, rsl[0].tgLng);
-        dir = rsl[0].wDir - dir;
-        if (dir < 0)
-        {
-            dir += 360;
-        }
-        if (dir < 180)
-        {
-            rsl[0].trackPos = PORT;
-            rsl[2].trackPos = STARBOARD;
-        }
-        else
-        {
-            rsl[2].trackPos = PORT;
-            rsl[0].trackPos = STARBOARD;
-        }
+        dir = calculateBearing(rsl[0].tgLat, rsl[0].tgLng, lat2gem, lng2gem);
+        dir = abs(smallestAngle(rsl[0].wDir, dir));
+        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[0].tgLat, &rsl[0].tgLng); // compute port
+        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng); // compute starboard
+        rsl[0].trackPos = PORT;
+        rsl[2].trackPos = STARBOARD;
+        return true;
     }
     if (b2 < b0 && b2 < b1)
     {
         rsl[2].trackPos = HEAD;
-        startLineL = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng);                 // compute length startline
-        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng, &lat2gem, &lng2gem);          // calculate startline centerpoint calculate the centerpoint startline
         centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);                           // calcultate the distance between the centerpoint and the startline
         centerPoint2Head = distanceBetween(rsl[2].tgLat, rsl[2].tgLng, lat3gem, lng3gem);                     // calcultate the distance between the centerpoint and the startline
         adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[2].tgLat, &rsl[2].tgLng); // calculate new position HEAD
         adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);          // point to new centerpoint of the startline
-        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[0].tgLat, &rsl[0].tgLng);       // compute port
-        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng);       // compute starboard
-        double dir = calculateBearing(lat2gem, lng2gem, rsl[1].tgLat, rsl[1].tgLng);
-        dir = rsl[0].wDir - dir;
-        if (dir < 0)
-        {
-            dir += 360;
-        }
-        if (dir < 180)
-        {
-            rsl[0].trackPos = PORT;
-            rsl[1].trackPos = STARBOARD;
-        }
-        else
-        {
-            rsl[1].trackPos = PORT;
-            rsl[0].trackPos = STARBOARD;
-        }
+        dir = calculateBearing(rsl[1].tgLat, rsl[1].tgLng, lat2gem, lng2gem);
+        dir = abs(smallestAngle(rsl[0].wDir, dir));
+        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[0].tgLat, &rsl[0].tgLng); // compute port
+        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng); // compute starboard
+        rsl[0].trackPos = PORT;
+        rsl[1].trackPos = STARBOARD;
+        return true;
     }
+    return false;
 }
