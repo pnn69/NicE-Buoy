@@ -39,37 +39,37 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
     // printf("Command to decode:%d\r\n", dataStore.cmd);
     switch (dataStore.cmd)
     {
-    case TOPDATA:
+    case TOPDATA: // ?
         printf("TOPDATA Not implementend yet/r/n");
         break;
-    case TOPDIRSPEED:
+    case TOPDIRSPEED: // Dir,Speed
         dataStore.dirSet = numbers[1].toInt();
         dataStore.speedSet = numbers[3].toInt();
         break;
-    case TOPROUTTOPOINT:
+    case TOPROUTTOPOINT: //?
         break;
-    case TOPSPBBSPSB:
+    case TOPSPBBSPSB: // SpeedBb,SpeedSb
         dataStore.speedBb = numbers[1].toInt();
         dataStore.speedSb = numbers[2].toInt();
         break;
-    case TOPCALCRUDDER:
+    case TOPCALCRUDDER: // tgDir,tgDist,Speed
         dataStore.tgDir = numbers[1].toDouble();
         dataStore.tgDist = numbers[2].toDouble();
         dataStore.speedSet = numbers[3].toInt();
     case TOPIDLE:
         break;
-    case SUBDIRSPEED:
+    case SUBDIRSPEED: // mDir,speedbb,speedsb,speed
         dataStore.dirMag = numbers[1].toDouble();
         dataStore.speedBb = numbers[2].toInt();
         dataStore.speedSb = numbers[3].toInt();
         dataStore.speed = numbers[4].toInt();
         break;
-    case SUBACCU:
+    case SUBACCU: // V,P
         dataStore.subAccuV = numbers[1].toFloat();
         dataStore.subAccuP = numbers[2].toInt();
         break;
-    case PIDRUDDERSET:
-    case PIDRUDDER:
+    case PIDRUDDERSET: // Prudder,Irudder,Drudder,kp,ki,kd
+    case PIDRUDDER:    // Prudder,Irudder,Drudder,kp,ki,kd
         dataStore.pr = numbers[1].toDouble();
         dataStore.ir = numbers[2].toDouble();
         dataStore.dr = numbers[3].toDouble();
@@ -77,8 +77,8 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         dataStore.kir = numbers[5].toDouble();
         dataStore.kdr = numbers[6].toDouble();
         break;
-    case PIDSPEEDSET:
-    case PIDSPEED:
+    case PIDSPEEDSET: // Pspeed,Ispeed,Dspeed,kp,ki,kd
+    case PIDSPEED:    // Pspeed,Ispeed,Dspeed,kp,ki,kd
         dataStore.ps = numbers[1].toDouble();
         dataStore.is = numbers[2].toDouble();
         dataStore.ds = numbers[3].toDouble();
@@ -86,7 +86,7 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         dataStore.kis = numbers[5].toDouble();
         dataStore.kds = numbers[6].toDouble();
         break;
-    case LORABUOYPOS: // MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
+    case LORABUOYPOS: // STATUS,LAT,LON,mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
         dataStore.status = numbers[2].toInt();
         dataStore.lat = numbers[3].toDouble();
         dataStore.lng = numbers[4].toDouble();
@@ -96,7 +96,8 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         dataStore.topAccuP = numbers[8].toInt();
         dataStore.subAccuP = numbers[9].toInt();
         break;
-    case LORALOCKPOS: // MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
+    case LORALOCKPOS: // LAT,LON
+    case LORADOCKPOS: // LAT,LON
         dataStore.tgLat = numbers[3].toDouble();
         dataStore.tgLng = numbers[4].toDouble();
         break;

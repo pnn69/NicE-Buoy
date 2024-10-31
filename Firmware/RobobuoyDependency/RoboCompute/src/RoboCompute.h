@@ -20,22 +20,22 @@ typedef enum
     PING = 1,
     PONG,
     SUBDATA,        // all data send known by sub
-    SUBACCU,        // accu voltage, accu percentage
+    SUBACCU,        // V,P accu voltage, accu percentage
     SUBDIR,         // magnetic direction
     SUBSPEED,       // speed(given), speed BB, speed SB
-    SUBDIRSPEED,    // magnetic heading,speed(given), speed BB, speed SB
-    TOPDATA,        // all dat send known by top
-    TOPDIRSPEED,    // Speed and direction
-    TOPDIRDIST,     // Direction and distance
-    TOPSPBBSPSB,    // speed bb Speed sb
-    TOPROUTTOPOINT, // route to point data
-    TOPCALCRUDDER,  // rudder data
-    PIDRUDDER,      // PID parameters rudder + act data (p i d t) t = total
-    PIDRUDDERSET,   // PID parameters rudder
-    PIDSPEED,       // PID parameters speed + act data (p i d t) t= total
-    PIDSPEEDSET,    // PID parameters speed
+    SUBDIRSPEED,    // mDir,speedbb,speedsb,speed
     TOPIDLE,        //
-    TOPID,          // mac top
+    TOPID,          // mac[unsigned long]
+    TOPDATA,        // ?
+    TOPDIRSPEED,    // Dir,Speed
+    TOPDIRDIST,     // Direction and distance
+    TOPSPBBSPSB,    // SpeedBb,SpeedSb
+    TOPROUTTOPOINT, // route to point data
+    TOPCALCRUDDER,  // tgDir,tgDist,Speed
+    PIDRUDDER,      // Prudder,Irudder,Drudder,kp,ki,kd PID parameters rudder + act data (p i d t) t = total
+    PIDRUDDERSET,   // Prudder,Irudder,Drudder,kp,ki,kd PID parameters rudder
+    PIDSPEED,       // Pspeed,Ispeed,Dspeed,kp,ki,kd PID parameters speed + act data (p i d t) t= total
+    PIDSPEEDSET,    // Pspeed,Ispeed,Dspeed,kp,ki,kd PID parameters speed
     SUBID,          // mac sub
     UDPERROR,       // no udp communicaton
     STOREASDOC,     // Store location as doc location
@@ -45,9 +45,9 @@ typedef enum
     LORAACK,        // ack on message
     LORANAC,        // nak
     LORAUPD,        // udate message
-    LORABUOYPOS,    // IDs,IDr,MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
-    LORALOCKPOS,    // IDs,IDr,MSG,ACK,STATUS,LAT,LON
-    LORADOCKPOS,    // IDs,IDr,MSG,ACK,STATUS,LAT,LON
+    LORABUOYPOS,    // STATUS,LAT,LON,mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
+    LORALOCKPOS,    // LAT,LON
+    LORADOCKPOS,    // LAT,LON
     LORASENDDATA,
     COMPUTESTART, //
     COMPUTETRACK, //

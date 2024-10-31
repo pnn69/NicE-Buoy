@@ -15,35 +15,30 @@ QueueHandle_t loraOut;
 QueueHandle_t loraIn;
 
 //  IDr,IDs,MSG,ACK,<data>
-lorabuf decodeString(String incoming) {
+lorabuf decodeString(String incoming)
+{
     lorabuf result;
     int commaIndex;
-
     // Parse mac
     commaIndex = incoming.indexOf(',');
     String hexString = incoming.substring(0, commaIndex);
-    result.mac = strtoull(hexString.c_str(), NULL, 16);
-    incoming = incoming.substring(commaIndex + 1);
-
+    result.macIDr = strtoull(hexString.c_str(), NULL, 16);
     // Parse macIn
+    incoming = incoming.substring(commaIndex + 1);
     commaIndex = incoming.indexOf(',');
     hexString = incoming.substring(0, commaIndex);
-    result.macIn = strtoull(hexString.c_str(), NULL, 16);
-    incoming = incoming.substring(commaIndex + 1);
-
+    result.macIDs = strtoull(hexString.c_str(), NULL, 16);
     // Parse msg
+    incoming = incoming.substring(commaIndex + 1);
     commaIndex = incoming.indexOf(',');
     result.msg = incoming.substring(0, commaIndex).toInt();
-    incoming = incoming.substring(commaIndex + 1);
-
+    // Store remaining data as a char array
+    incoming.toCharArray(result.data, incoming.length() + 1);
     // Parse ack
+    incoming = incoming.substring(commaIndex + 1);
     commaIndex = incoming.indexOf(',');
     result.ack = incoming.substring(0, commaIndex).toInt();
     incoming = incoming.substring(commaIndex + 1);
-
-    // Store remaining data as a char array
-    incoming.toCharArray(result.data, sizeof(result.data));
-
     return result;
 }
 
@@ -150,9 +145,11 @@ void onReceive(int packetSize)
         Serial.println("error: message length does not match length");
         return; // skip rest of function
     }
-    loraMsgin = decodeString(incoming);
-    xQueueSend(loraIn, (void *)&loraMsgin, 0);               // send out trough Lora
-    if (loraMsgin.mac == buoyId && loraMsgin.ack == LORAACK) // A message form me so check if its a ACK message
+    incoming.toCharArray(loraMsgin.data, incoming.length() + 1);
+    lorabuf in = decodeString(incoming);
+    //  IDr,IDs,MSG,ACK,<data>
+    xQueueSend(loraIn, (void *)&in, 10);          // send to main for prosessing
+    if (in.macIDr == buoyId && in.ack == LORAACK) // A message form me so check if its a ACK message
     {
         removeAckMsg(loraMsgin.msg);
     }
@@ -190,7 +187,7 @@ void LoraTask(void *arg)
             if (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
             {
                 // IDr,IDs,MSG,ACK,<data>
-                String loraString = String(loraMsgout.mac, HEX) + "," + String(buoyId, HEX) + "," + String(loraMsgout.msg) + "," + String(loraMsgout.ack);
+                String loraString = String(loraMsgout.macIDr, HEX) + "," + String(buoyId, HEX) + "," + String(loraMsgout.msg) + "," + String(loraMsgout.ack);
                 loraString += removeWhitespace(String(loraMsgout.data));
                 Serial.println("Lora OUT:" + loraString + " Length:" + String(strlen(loraMsgout.data)));
                 while (sendLora(String(loraString)) != true)

@@ -186,7 +186,7 @@ void setup()
     xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 1);
     Serial.println("Main task running!");
     // 52.32035583 Lon:4.96552433
-    buoyPara[0].mac = 0Xec64c99779b8;
+    buoyPara[0].mac = 0Xc99779b8;
     buoyPara[0].tgLat = 52.0;
     buoyPara[0].tgLng = 4.0;
     buoyPara[1].mac = 4524;
@@ -277,7 +277,8 @@ void loop(void)
                 // IDr,IDs,MSG,ACK,LAT,LON
                 String loraString = String(buoyPara[1].tgLat, 8) + "," + String(buoyPara[1].tgLng, 8);
                 loraString.toCharArray(LoraTx.data, loraString.length() + 1);
-                LoraTx.mac = buoyPara[1].mac;
+                LoraTx.macIDr = buoyPara[1].mac;
+                LoraTx.macIDs = buoyId;
                 LoraTx.msg = LORALOCKPOS;
                 LoraTx.ack = LORAGETACK;
                 xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
@@ -286,7 +287,8 @@ void loop(void)
             {
                 String loraString = String(buoyPara[2].tgLat, 8) + "," + String(buoyPara[2].tgLng, 8);
                 loraString.toCharArray(LoraTx.data, loraString.length() + 1);
-                LoraTx.mac = buoyPara[2].mac;
+                LoraTx.macIDr = buoyPara[2].mac;
+                LoraTx.macIDs = buoyId;
                 LoraTx.msg = LORALOCKPOS;
                 LoraTx.ack = LORAGETACK;
                 xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
@@ -330,11 +332,13 @@ void loop(void)
         //***************************************************************************************************
         if (xQueueReceive(loraIn, (void *)&loraRx, 0) == pdTRUE) // new lora data
         {
-            Serial.println("LORA data in: " + String(loraRx.mac, HEX) + "," + String(loraRx.data));
-            String data = addBeginAndEndToString(String(loraRx.data));
-            loraData = RoboDecode(data, loraData);
-            loraData.mac = loraRx.mac; // stpre ID
-            //  ID,MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
+            String toDecodeString = String(loraRx.data);
+            Serial.println("Lora  in:" +  String(loraRx.macIDr, HEX) + "," + String(loraRx.macIDs, HEX) + "," + toDecodeString);
+            //IDr,IDs,MSG,ACK,<data>
+            String data = addBeginAndEndToString(toDecodeString);
+            loraData = RoboDecode(toDecodeString, loraData);
+            loraData.mac = loraRx.macIDr; // stpre ID
+            // MSG,ACK,<data>
             if (loraData.msg == LORALOCKPOS)
             {
                 if (AddDataToBuoyBase(loraData) == false)
@@ -402,10 +406,11 @@ void loop(void)
             String loraString = "";
             if (mainData.loralstmsg != LORABUOYPOS)
             {
-                LoraTx.mac = -1;
+                //  IDr,IDs,MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
+                LoraTx.macIDr = -1;
+                LoraTx.macIDs = buoyId;
                 LoraTx.msg = LORABUOYPOS;
                 LoraTx.ack = LORAUPD;
-                //  IDr,IDs,MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
                 loraString +=
                     String(status) +
                     "," + String(mainData.lat, 8) +
@@ -421,7 +426,8 @@ void loop(void)
             else
             {
                 //  IDr,IDs,MSG,ACK,STATUS,LAT,LON
-                LoraTx.mac = -1;
+                LoraTx.macIDr = -1;
+                LoraTx.macIDs = buoyId;
                 LoraTx.msg = LORALOCKPOS;
                 LoraTx.ack = LORAUPD;
                 loraString +=
@@ -432,7 +438,6 @@ void loop(void)
             if (loraString.length() < MAXSTRINGLENG - 1)
             {
                 mainData.loralstmsg = LoraTx.msg;
-                Serial.println("Lora msg out:" + loraString);
                 loraString.toCharArray(LoraTx.data, loraString.length() + 1);
                 xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
             }

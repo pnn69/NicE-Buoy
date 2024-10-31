@@ -5,8 +5,11 @@
 
 struct lorabuf
 {
-    int ack = 0;
+    unsigned long mac = -1;   // Fixed-size array for the MAC address (12 characters + null terminator)
+    unsigned long macIn = -1; // Fixed-size array for the MAC address (12 characters + null terminator)
     int msg = 0;
+    int ack = 0;
+    int retry = 0;
     char data[MAXSTRINGLENG] = "";
 };
 

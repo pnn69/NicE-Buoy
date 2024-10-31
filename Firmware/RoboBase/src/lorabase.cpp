@@ -4,13 +4,6 @@
 #include "io_base.h"
 #include "main.h"
 
-struct Data
-{
-    uint64_t id; // Fixed-size array for the MAC address (12 characters + null terminator)
-    int msg;     // MSG field
-    int ack;     // ACK field
-};
-
 static bool loraOk = false;
 static char loraData[MAXSTRINGLENG];
 static lorabuf loraMsgout = {};
@@ -20,22 +13,31 @@ static RoboStruct loraStruct;
 QueueHandle_t loraOut;
 QueueHandle_t loraIn;
 
-struct Data decodeString(String incoming)
+//  IDr,IDs,MSG,ACK,<data>
+lorabuf decodeString(String incoming)
 {
-    struct Data result;
-    // Split the incoming string by commas
-    int commaIndex = incoming.indexOf(',');
+    lorabuf result;
+    int commaIndex;
+    // Parse mac
+    commaIndex = incoming.indexOf(',');
     String hexString = incoming.substring(0, commaIndex);
-    // Convert the first part (hexadecimal string) to uint64_t
-    result.id = strtoull(hexString.c_str(), NULL, 16);
-    // Get the remaining part of the string after the first comma
+    result.mac = strtoull(hexString.c_str(), NULL, 16);
+    // Parse macIn
     incoming = incoming.substring(commaIndex + 1);
-    // Parse the next two integer values
     commaIndex = incoming.indexOf(',');
-    result.msg = incoming.substring(0, commaIndex).toInt(); // Convert to integer
-    incoming = incoming.substring(commaIndex + 1);          // Move to next part
+    hexString = incoming.substring(0, commaIndex);
+    result.macIn = strtoull(hexString.c_str(), NULL, 16);
+    // Parse msg
+    incoming = incoming.substring(commaIndex + 1);
     commaIndex = incoming.indexOf(',');
-    result.ack = incoming.substring(0, commaIndex).toInt(); // Convert to integer
+    result.msg = incoming.substring(0, commaIndex).toInt();
+    // Store remaining data as a char array
+    incoming.toCharArray(result.data, incoming.length() + 1);
+    // Parse ack
+    incoming = incoming.substring(commaIndex + 1);
+    commaIndex = incoming.indexOf(',');
+    result.ack = incoming.substring(0, commaIndex).toInt();
+    incoming = incoming.substring(commaIndex + 1);
     return result;
 }
 
@@ -134,11 +136,16 @@ void onReceive(int packetSize)
     }
     incoming.toCharArray(loraMsgin.data, incoming.length() + 1);
     xQueueSend(loraIn, (void *)&loraMsgin, 10); // send out trough Lora
-    sendLora(incoming);
-    struct Data piet = decodeString(incoming);
-    removeAckMsg(piet.msg);
-}
 
+    lorabuf in = decodeString(incoming);
+    unsigned long mac = -2;
+    //  IDr,IDs,MSG,ACK,<data>
+    String loraOut = String(in.macIn, HEX);
+    loraOut += "," + String(mac, HEX) +
+               "," + in.data;
+    Serial.println("Lora data out: " + loraOut);
+    sendLora(loraOut);
+}
 
 void initloraqueue(void)
 {

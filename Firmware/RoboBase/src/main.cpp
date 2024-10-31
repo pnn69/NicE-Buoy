@@ -91,6 +91,7 @@ void loop(void)
     {
         if (xQueueReceive(loraIn, (void *)&fromLora, 10) == pdTRUE) // New lora data
         {
+            Serial.print("Data recieved: ");
             Serial.println(String(fromLora.data));
         }
         vTaskDelay(10);
