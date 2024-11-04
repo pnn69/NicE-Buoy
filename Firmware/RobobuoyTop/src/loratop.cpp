@@ -4,6 +4,7 @@
 #include "io_top.h"
 #include "main.h"
 
+static const char* TAG = "lora.cpp";
 static bool loraOk = false;
 static unsigned long my_id = 0;
 static char loraData[MAXSTRINGLENG];
@@ -14,7 +15,7 @@ static RoboStruct loraStruct;
 QueueHandle_t loraOut;
 QueueHandle_t loraIn;
 
-//  IDr,IDs,MSG,ACK,<data>
+//  IDr,IDs,ACK,MSG,<data>
 lorabuf decodeString(String incoming)
 {
     lorabuf result;
@@ -28,17 +29,19 @@ lorabuf decodeString(String incoming)
     commaIndex = incoming.indexOf(',');
     hexString = incoming.substring(0, commaIndex);
     result.macIDs = strtoull(hexString.c_str(), NULL, 16);
-    // Parse msg
-    incoming = incoming.substring(commaIndex + 1);
-    commaIndex = incoming.indexOf(',');
-    result.msg = incoming.substring(0, commaIndex).toInt();
-    // Store remaining data as a char array
-    incoming.toCharArray(result.data, incoming.length() + 1);
     // Parse ack
     incoming = incoming.substring(commaIndex + 1);
     commaIndex = incoming.indexOf(',');
     result.ack = incoming.substring(0, commaIndex).toInt();
+    // Parse msg
     incoming = incoming.substring(commaIndex + 1);
+    commaIndex = incoming.indexOf(',');
+    // Store remaining data as a char array
+    result.msg = incoming.substring(0, commaIndex).toInt();
+    incoming.toCharArray(result.data, incoming.length() + 1);
+    incoming = incoming.substring(commaIndex + 1);
+    commaIndex = incoming.indexOf(',');
+    ESP_LOGE(TAG, "Data recieved %s",result.data);
     return result;
 }
 
@@ -147,11 +150,23 @@ void onReceive(int packetSize)
     }
     incoming.toCharArray(loraMsgin.data, incoming.length() + 1);
     lorabuf in = decodeString(incoming);
-    //  IDr,IDs,MSG,ACK,<data>
-    xQueueSend(loraIn, (void *)&in, 10);          // send to main for prosessing
+    if (in.ack == LORAGETACK)
+    {
+        // send ack
+        in.macIDr = in.macIDs;
+        in.macIDs = buoyId;
+        in.ack = LORAACK;
+        xQueueSend(loraOut, (void *)&in, 10); // send ACK out
+    }
     if (in.macIDr == buoyId && in.ack == LORAACK) // A message form me so check if its a ACK message
     {
         removeAckMsg(loraMsgin.msg);
+        printf("Lora Ack recieved\r\n");
+    }
+    else
+    {
+
+        xQueueSend(loraIn, (void *)&in, 10); // send to main
     }
 }
 
@@ -163,6 +178,7 @@ bool sendLora(String loraTransmitt)
         LoRa.write(loraTransmitt.length());
         LoRa.print(loraTransmitt);
         LoRa.endPacket(); // finish packet and send it
+        Serial.println("Lora out<" + loraTransmitt + ">");
         return true;
     }
     return false;
@@ -186,10 +202,9 @@ void LoraTask(void *arg)
         {
             if (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
             {
-                // IDr,IDs,MSG,ACK,<data>
-                String loraString = String(loraMsgout.macIDr, HEX) + "," + String(buoyId, HEX) + "," + String(loraMsgout.msg) + "," + String(loraMsgout.ack);
-                loraString += removeWhitespace(String(loraMsgout.data));
-                Serial.println("Lora OUT:" + loraString + " Length:" + String(strlen(loraMsgout.data)));
+                // IDr,IDs,ACK,MSG,<data>
+                String loraString = String(loraMsgout.macIDr, HEX) + "," + String(buoyId, HEX) + "," + String(loraMsgout.ack);
+                loraString += "," + removeWhitespace(String(loraMsgout.data));
                 while (sendLora(String(loraString)) != true)
                 {
                     vTaskDelay(pdTICKS_TO_MS(50));

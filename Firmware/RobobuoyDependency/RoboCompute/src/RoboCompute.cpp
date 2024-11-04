@@ -1,20 +1,30 @@
 #include <arduino.h>
 #include "RoboCompute.h"
 
+bool startsWithDollar(const String &str)
+{
+    // Check if the string is not empty and the first character is '$'
+    return str.length() > 0 && str.charAt(0) == '$';
+}
+
 /*
     decode incomming data.
-    input string format $ID,x,y,z,x,x,x*
+    input string format $ID,<data>*
     output parameters in to stuct type RoboStruct
     crc does not have any value
 */
 struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
 {
     dataStore.cmd = -1;
-    String numbers[15];                     // Array to hold the decoded numbers (adjust size as needed)
-    int count = 0;                          // Keep track of the number of extracted numbers
-    int startIndex = data.indexOf('$') + 1; // Start after the '$'
-    int endIndex = data.indexOf('*');       // End at the '*'
-                                            // Split the substring by commas
+    String numbers[15];           // Array to hold the decoded numbers (adjust size as needed)
+    int count = 0;                // Keep track of the number of extracted numbers
+    int startIndex = 0;           // Start after the '$'
+    int endIndex = data.length(); // End at the '*'
+                                  // Split the substring by commas
+    if (startsWithDollar(data))   // strip $ and *
+    {
+        data = removeBeginAndEndToString(data);
+    }
     // Serial.println("String to decode: " + data);
     String substring = data.substring(startIndex, endIndex);
     while (substring.length() > 0)
@@ -42,7 +52,8 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
     case TOPDATA: // ?
         printf("TOPDATA Not implementend yet/r/n");
         break;
-    case TOPDIRSPEED: // Dir,Speed
+    case LORADIRSPEED: // Dir,speed
+    case TOPDIRSPEED:  // Dir,Speed
         dataStore.dirSet = numbers[1].toInt();
         dataStore.speedSet = numbers[3].toInt();
         break;
@@ -60,9 +71,9 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         break;
     case SUBDIRSPEED: // mDir,speedbb,speedsb,speed
         dataStore.dirMag = numbers[1].toDouble();
+        dataStore.speed = numbers[4].toInt();
         dataStore.speedBb = numbers[2].toInt();
         dataStore.speedSb = numbers[3].toInt();
-        dataStore.speed = numbers[4].toInt();
         break;
     case SUBACCU: // V,P
         dataStore.subAccuV = numbers[1].toFloat();
@@ -98,15 +109,19 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         break;
     case LORALOCKPOS: // LAT,LON
     case LORADOCKPOS: // LAT,LON
-        dataStore.tgLat = numbers[3].toDouble();
-        dataStore.tgLng = numbers[4].toDouble();
+        dataStore.tgLat = numbers[1].toDouble();
+        dataStore.tgLng = numbers[2].toDouble();
+        break;
+    case LORADIRDIST:
+        dataStore.tgDir = numbers[1].toDouble();
+        dataStore.tgDist = numbers[2].toDouble();
         break;
     case PING:
         break;
     case PONG:
         break;
     default:
-        printf("RoboDecode: Unkown decode formatter %d\r\n", numbers[0]);
+        Serial.println("RoboDecode: Unkown decode formatter data in " + String(data));
         dataStore.cmd = -1;
         break;
     }
@@ -116,14 +131,13 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
 /*
     Encode outgoing data.
     input DATA RoboSruct and depeding on field msg
-    output string format $ID,x,y,z,x,x,x*
+    output string format $ID,<data>*xx
     crc has to be added!
 */
-String RoboCode(RoboStruct dataOut)
+String RoboCode(RoboStruct dataOut, int cmd)
 {
-    String out = "$";
-    out += String(dataOut.cmd);
-    switch (dataOut.cmd)
+    String out = String(cmd);
+    switch (cmd)
     {
     case SUBDATA:
         out += "," + String(dataOut.dirMag, 2);
@@ -146,66 +160,96 @@ String RoboCode(RoboStruct dataOut)
         out += "," + String(dataOut.subAccuP);
         break;
     case PIDSPEED:
-        out += "," + String(dataOut.ps);
-        out += "," + String(dataOut.is);
-        out += "," + String(dataOut.ds);
-        out += "," + String(dataOut.kps);
-        out += "," + String(dataOut.kis);
-        out += "," + String(dataOut.kds);
+        out += "," + String(dataOut.ps, 3);
+        out += "," + String(dataOut.is, 3);
+        out += "," + String(dataOut.ds, 3);
+        out += "," + String(dataOut.kps, 3);
+        out += "," + String(dataOut.kis, 3);
+        out += "," + String(dataOut.kds, 3);
         break;
     case PIDRUDDER:
     case PIDRUDDERSET:
-        out += "," + String(dataOut.pr);
-        out += "," + String(dataOut.ir);
-        out += "," + String(dataOut.dr);
-        out += "," + String(dataOut.kpr);
-        out += "," + String(dataOut.kir);
-        out += "," + String(dataOut.kdr);
+        out += "," + String(dataOut.pr, 3);
+        out += "," + String(dataOut.ir, 3);
+        out += "," + String(dataOut.dr, 3);
+        out += "," + String(dataOut.kpr, 3);
+        out += "," + String(dataOut.kir, 3);
+        out += "," + String(dataOut.kdr, 3);
         break;
     case TOPIDLE:
-        out = "$" + String(TOPIDLE);
+        break;
+    case LORADIRSPEED: // Dir,speed
+    case TOPDIRSPEED:  // Dir,Speed
+        out += "," + String(dataOut.tgDir, 2);
+        out += "," + String(dataOut.speed, 2);
+        break;
+    case TOPDIRDIST:
+        out += "," + String(dataOut.tgDir, 2);
+        out += "," + String(dataOut.tgDist, 2);
         break;
     case TOPCALCRUDDER:
         out += "," + String(dataOut.tgDir, 2);
         out += "," + String(dataOut.tgDist, 2);
         out += "," + String(dataOut.speedSet);
         break;
+    case LORABUOYPOS:
+        out += "," + String(dataOut.status);
+        out += "," + String(dataOut.lat, 8);
+        out += "," + String(dataOut.lng, 8);
+        out += "," + String(dataOut.dirMag, 2);
+        out += "," + String(dataOut.wDir, 2);
+        out += "," + String(dataOut.wStd, 2);
+        out += "," + String(dataOut.topAccuP);
+        out += "," + String(dataOut.subAccuP);
+        break;
+    case LORALOCKPOS:
+        out += "," + String(dataOut.tgLat, 8);
+        out += "," + String(dataOut.tgLng, 8);
+        break;
+    case LORADIRDIST:
+        out += "," + String(dataOut.tgDir, 2);
+        out += "," + String(dataOut.tgDist, 2);
+        break;
     case PING:
-        out = "$" + String(PING);
+        out = String(PING);
         break;
     case PONG:
-        out = "$" + String(PONG);
+        out = String(PONG);
         break;
     default:
-        printf("Unkown code formatter %d\r\n", dataOut.cmd);
+        printf("Unkown code formatter %d\r\n", cmd);
         break;
     }
-    out += "*";
     return out;
 }
 
-String addBeginAndEndToString(String input)
+String removeBeginAndEndToString(String input)
 {
-    input = "$" + input + "*";
-    return input;
+    int startIdx = input.indexOf('$'); // Find the index of $
+    int endIdx = input.indexOf('*');   // Find the index of *
+
+    // Check if both $ and * are present and * comes after $
+    if (startIdx != -1 && endIdx != -1 && endIdx > startIdx)
+    {
+        // Extract the substring between $ and *
+        return input.substring(startIdx + 1, endIdx);
+    }
+    else
+    {
+        // If $ or * is not found, or * comes before $, return an empty string
+        return "";
+    }
 }
 
 // Subroutine to add CRC to a string (similar to NMEA format)
 String addCRCToString(String input) // Use reference to modify the original string
 {
     // Find where the checksum starts (between '$' and '*')
-    int start = input.indexOf('$');
-    int end = input.indexOf('*');
-
-    // If there's no '$' or '*' in the string, return without changes
-    if (start == -1 || end == -1 || end <= start)
-    {
-        return input; // Invalid format, do nothing and return
-    }
+    int end = input.length() + 1;
 
     // Calculate the checksum (XOR of all characters between '$' and '*')
     byte crc = 0;
-    for (int i = start + 1; i < end; i++)
+    for (int i = 0; i < end; i++)
     {
         crc ^= input[i]; // XOR operation for each character
     }
@@ -215,7 +259,7 @@ String addCRCToString(String input) // Use reference to modify the original stri
     sprintf(crcHex, "%02X", crc); // Convert byte to uppercase hex string
 
     // Append the checksum after the asterisk in the string
-    input += crcHex; // Modify input directly
+    input = "$" + input + "*" + crcHex; // Modify input directly
     return input;
 }
 
@@ -226,21 +270,21 @@ bool verifyCRC(String input)
     int start = input.indexOf('$');
     int end = input.indexOf('*');
 
-    // If the string doesn't contain '├' or '┤', it's invalid
+    // If the string doesn't contain '$' or '*, it's invalid
     if (start == -1 || end == -1 || end <= start || end + 2 >= input.length())
     {
         printf("crc error\r\n");
         return false; // Invalid format
     }
 
-    // Calculate the checksum (XOR of all characters between '├' and '┤')
+    // Calculate the checksum (XOR of all characters between '$' and '*')
     byte calculatedCRC = 0;
     for (int i = start + 1; i < end; i++)
     {
         calculatedCRC ^= input[i]; // XOR operation for each character
     }
 
-    // Extract the given checksum from the string (the part after the '┤')
+    // Extract the given checksum from the string (the part after the '*')
     String givenCRC = input.substring(end + 1, end + 3);
 
     // Convert calculated CRC to a hexadecimal string
@@ -813,14 +857,13 @@ bool recalcStarLine(struct RoboStruct rsl[3])
     {
         if (rsl[0].tgLat == 0 || rsl[0].tgLng == 0 || rsl[1].tgLat == 0 || rsl[1].tgLng == 0) // check if data is ok
         {
+            printf("No data to compute with\r\n");
             return false;
         }
         twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng, &mid[0], &mid[1]); // calculate startline centerpoint
-        printf("midpoint =( %12f,%.12f)\r\n", mid[0], mid[1]);                                     // mid point of thre (for plotting the windrose and calculations)
-        dir = calculateBearing(rsl[0].tgLat, rsl[0].tgLng, mid[0], mid[1]);
-        dir = abs(smallestAngle(rsl[0].wDir, dir));
-        adjustPositionDirDist(angleBb, d0 / 2, mid[0], mid[1], &rsl[0].tgLat, &rsl[0].tgLng); // compute port
-        adjustPositionDirDist(angleSb, d0 / 2, mid[0], mid[1], &rsl[1].tgLat, &rsl[1].tgLng); // compute starboard
+        printf("midpoint =(%.12f,%.12f)\r\n", mid[0], mid[1]);                                     // mid point of thre (for plotting the windrose and calculations)
+        adjustPositionDirDist(angleBb, d0 / 2, mid[0], mid[1], &rsl[0].tgLat, &rsl[0].tgLng);      // compute port
+        adjustPositionDirDist(angleSb, d0 / 2, mid[0], mid[1], &rsl[1].tgLat, &rsl[1].tgLng);      // compute starboard
         rsl[0].trackPos = PORT;
         rsl[1].trackPos = STARBOARD;
         return true;
@@ -830,14 +873,13 @@ bool recalcStarLine(struct RoboStruct rsl[3])
     {
         if (rsl[0].tgLat == 0 || rsl[0].tgLng == 0 || rsl[2].tgLat == 0 || rsl[2].tgLng == 0) // check if data is ok
         {
+            printf("No data to compute with\r\n");
             return false;
         }
         twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &mid[0], &mid[1]); // calculate startline centerpoint
-        printf("midpoint =( %12f,%.12f)\r\n", mid[0], mid[1]);                                     // mid point of thre (for plotting the windrose and calculations)
-        dir = calculateBearing(rsl[0].tgLat, rsl[0].tgLng, mid[0], mid[1]);
-        dir = abs(smallestAngle(rsl[0].wDir, dir));
-        adjustPositionDirDist(angleBb, d1 / 2, mid[0], mid[1], &rsl[0].tgLat, &rsl[0].tgLng); // compute port
-        adjustPositionDirDist(angleSb, d1 / 2, mid[0], mid[1], &rsl[2].tgLat, &rsl[2].tgLng); // compute starboard
+        printf("midpoint =(%.12f,%.12f)\r\n", mid[0], mid[1]);                                     // mid point of thre (for plotting the windrose and calculations)
+        adjustPositionDirDist(angleBb, d1 / 2, mid[0], mid[1], &rsl[0].tgLat, &rsl[0].tgLng);      // compute port
+        adjustPositionDirDist(angleSb, d1 / 2, mid[0], mid[1], &rsl[2].tgLat, &rsl[2].tgLng);      // compute starboard
         rsl[0].trackPos = PORT;
         rsl[2].trackPos = STARBOARD;
         return true;
@@ -847,14 +889,13 @@ bool recalcStarLine(struct RoboStruct rsl[3])
     {
         if (rsl[1].tgLat == 0 || rsl[1].tgLng == 0 || rsl[2].tgLat == 0 || rsl[2].tgLng == 0) // check if data is ok
         {
+            printf("No data to compute with\r\n");
             return false;
         }
         twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &mid[0], &mid[1]); // calculate startline centerpoint
-        printf("midpoint =( %12f,%.12f)\r\n", mid[0], mid[1]);                                     // mid point of thre (for plotting the windrose and calculations)
-        dir = calculateBearing(rsl[2].tgLat, rsl[2].tgLng, mid[0], mid[1]);
-        dir = abs(smallestAngle(rsl[0].wDir, dir));
-        adjustPositionDirDist(angleBb, d2 / 2, mid[0], mid[1], &rsl[1].tgLat, &rsl[1].tgLng); // compute port
-        adjustPositionDirDist(angleSb, d2 / 2, mid[0], mid[1], &rsl[2].tgLat, &rsl[2].tgLng); // compute starboard
+        printf("midpoint =(%.12f,%.12f)\r\n", mid[0], mid[1]);                                     // mid point of thre (for plotting the windrose and calculations)
+        adjustPositionDirDist(angleBb, d2 / 2, mid[0], mid[1], &rsl[1].tgLat, &rsl[1].tgLng);      // compute port
+        adjustPositionDirDist(angleSb, d2 / 2, mid[0], mid[1], &rsl[2].tgLat, &rsl[2].tgLng);      // compute starboard
         rsl[1].trackPos = PORT;
         rsl[2].trackPos = STARBOARD;
         return true;
@@ -883,6 +924,12 @@ bool reCalcTrack(struct RoboStruct rsl[3])
     double angleSb, angleBb, angle180, dir;
     double lat2gem, lng2gem;
     double lat3gem, lng3gem;
+    if (rsl[0].tgLat == 0 || rsl[0].tgLng == 0 || rsl[1].tgLat == 0 || rsl[1].tgLng == 0 || rsl[2].tgLat == 0 || rsl[2].tgLng == 0) // check if data is ok
+    {
+        printf("No data to compute with\r\n");
+        return false;
+    }
+
     rsl[0].trackPos = -1;
     rsl[1].trackPos = -1;
     rsl[2].trackPos = -1;
@@ -895,7 +942,7 @@ bool reCalcTrack(struct RoboStruct rsl[3])
     }
     // mid point of three buoys (for plotting the windrose and calculations)
     threePointAverage(rsl, &lat3gem, &lng3gem);
-    printf("midpoint =( %12f,%.12f)\r\n", lat3gem, lng3gem);
+    printf("midpoint =(%.12f,%.12f)\r\n", lat3gem, lng3gem);
 
     // determ the length of the startline
     d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng); // compute length p0 p1
@@ -938,48 +985,61 @@ bool reCalcTrack(struct RoboStruct rsl[3])
     double b2 = computeWindAngle(rsl[0].wDir, rsl[2].tgLat, rsl[2].tgLng, lat3gem, lng3gem);
     if (b0 < b1 && b0 < b2)
     {
-        rsl[0].trackPos = HEAD;
         centerPoint2Head = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, lat3gem, lng3gem);                     // calcultate the distance between the centerpoint and the startline
         centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);                           // calcultate the distance between the centerpoint and the startline
         adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[0].tgLat, &rsl[0].tgLng); // calculate new position HEAD
         adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);          // point to new centerpoint of the startline
-        dir = calculateBearing(rsl[1].tgLat, rsl[1].tgLng, lat2gem, lng2gem);
-        dir = abs(smallestAngle(rsl[0].wDir, dir));
-        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng); // compute port
-        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng); // compute starboard
+        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng);       // compute port
+        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng);       // compute starboard
+        rsl[0].trackPos = HEAD;
         rsl[1].trackPos = PORT;
         rsl[2].trackPos = STARBOARD;
         return true;
     }
     if (b1 < b0 && b1 < b2)
     {
-        rsl[1].trackPos = HEAD;
         centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);                           // calcultate the distance between the centerpoint and the startline
         centerPoint2Head = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, lat3gem, lng3gem);                     // calcultate the distance between the centerpoint and the startline
         adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[1].tgLat, &rsl[1].tgLng); // calculate new position HEAD
         adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);          // point to new centerpoint of the startline
-        dir = calculateBearing(rsl[0].tgLat, rsl[0].tgLng, lat2gem, lng2gem);
-        dir = abs(smallestAngle(rsl[0].wDir, dir));
-        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[0].tgLat, &rsl[0].tgLng); // compute port
-        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng); // compute starboard
+        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[0].tgLat, &rsl[0].tgLng);       // compute port
+        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng);       // compute starboard
         rsl[0].trackPos = PORT;
+        rsl[1].trackPos = HEAD;
         rsl[2].trackPos = STARBOARD;
         return true;
     }
     if (b2 < b0 && b2 < b1)
     {
-        rsl[2].trackPos = HEAD;
         centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);                           // calcultate the distance between the centerpoint and the startline
         centerPoint2Head = distanceBetween(rsl[2].tgLat, rsl[2].tgLng, lat3gem, lng3gem);                     // calcultate the distance between the centerpoint and the startline
         adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[2].tgLat, &rsl[2].tgLng); // calculate new position HEAD
         adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);          // point to new centerpoint of the startline
-        dir = calculateBearing(rsl[1].tgLat, rsl[1].tgLng, lat2gem, lng2gem);
-        dir = abs(smallestAngle(rsl[0].wDir, dir));
-        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[0].tgLat, &rsl[0].tgLng); // compute port
-        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng); // compute starboard
+        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[0].tgLat, &rsl[0].tgLng);       // compute port
+        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng);       // compute starboard
         rsl[0].trackPos = PORT;
         rsl[1].trackPos = STARBOARD;
+        rsl[2].trackPos = HEAD;
         return true;
     }
     return false;
+}
+
+/*
+    print positions
+*/
+void posPrint(int c)
+{
+    if (c == HEAD)
+    {
+        printf("HEAD");
+    }
+    else if (c == PORT)
+    {
+        printf("PORT");
+    }
+    else if (c == STARBOARD)
+    {
+        printf("STARBOARD");
+    }
 }

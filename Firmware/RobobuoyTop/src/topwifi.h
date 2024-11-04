@@ -11,7 +11,7 @@ struct UdpData
     char msg[MAXSTRINGLENG];
 };
 
-bool initwifiqueue(void);
+unsigned long initwifiqueue(void);
 void udpSend(String data);
 void WiFiTask(void *arg);
 

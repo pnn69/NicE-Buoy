@@ -143,8 +143,8 @@ void onReceive(int packetSize)
     String loraOut = String(in.macIn, HEX);
     loraOut += "," + String(mac, HEX) +
                "," + in.data;
-    Serial.println("Lora data out: " + loraOut);
-    sendLora(loraOut);
+    //Serial.println("Lora data out: " + loraOut);
+    //sendLora(loraOut);
 }
 
 void initloraqueue(void)

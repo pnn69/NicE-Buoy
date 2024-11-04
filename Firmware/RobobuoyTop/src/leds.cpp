@@ -4,6 +4,7 @@
 */
 #include <Arduino.h>
 #include <FastLED.h>
+#include "main.h"
 #include "leds.h"
 #include "io_top.h"
 

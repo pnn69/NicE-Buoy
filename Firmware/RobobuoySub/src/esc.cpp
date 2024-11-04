@@ -5,6 +5,7 @@ https://dronebotworkshop.com/esp32-servo/
 #include <Arduino.h>
 #include <ESP32Servo.h>
 #include <FastLED.h>
+#include "main.h"
 #include "esc.h"
 #include "io_sub.h"
 #include "leds.h"

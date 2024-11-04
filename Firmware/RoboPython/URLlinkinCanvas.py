@@ -2,18 +2,25 @@ import folium
 import math
 import webbrowser
 import os
+import ctypes
 
 # Coordinates
 
-winddir = 290.00
+
 head = (52.289071585251,4.926363927671)
 port = (52.289749207653,4.933875490798)
 starboard =( 52.291505969351,4.932830118095)
 midpoint =(    52.290109,4.931023178855)
 # reCalcTrack ok
-headn = (52.291146215099,4.926363848632)
-portn = (52.288711900772,4.932830133726)
-starboardn = (52.290468662470,4.933875481951)
+HEADn = (52.291172280022,4.928686666435)
+
+
+midpoint =(52.320316585000,4.965334416500)
+winddir = (107.31)
+PORTn = (52.320403453966,4.965378701792)
+STARBOARDn = (52.320229716034,4.965290131208)
+
+
 
 m = folium.Map(location=midpoint, zoom_start=16)
 # Create a map centered around the first coordinate
@@ -25,9 +32,9 @@ folium.Marker(port, popup='Port ',icon=folium.Icon(color="darkred")).add_to(m)
 folium.Marker(starboard, popup='Starboard ',icon=folium.Icon(color="darkgreen")).add_to(m)
 #folium.Marker(midpoint).add_to(m)
 #folium.Marker(startlincp,icon=folium.Icon(color="black")).add_to(m)
-folium.Marker(headn, popup='Headn ',icon=folium.Icon(icon ='flag' , color="lightblue")).add_to(m)
-folium.Marker(portn, popup='Portn ',icon=folium.Icon(icon ='flag' , color="lightred")).add_to(m)
-folium.Marker(starboardn, popup='Starboardn ',icon=folium.Icon(icon ='flag' , color="lightgreen")).add_to(m)
+folium.Marker(HEADn, popup='HEAD',icon=folium.Icon(icon ='flag' , color="lightblue")).add_to(m)
+folium.Marker(PORTn, popup='PORT',icon=folium.Icon(icon ='flag' , color="lightred")).add_to(m)
+folium.Marker(STARBOARDn, popup='STARBOURD',icon=folium.Icon(icon ='flag' , color="lightgreen")).add_to(m)
 
 # Invert the wind direction
 inverted_winddir = (winddir + 180) % 360  # Add 180 degrees and wrap around if necessary

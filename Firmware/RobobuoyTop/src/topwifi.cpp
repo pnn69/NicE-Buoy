@@ -1,4 +1,5 @@
 #include <WiFi.h>
+
 #include <WebServer.h>
 #include <ArduinoOTA.h>
 #include <AsyncUDP.h>
@@ -16,7 +17,7 @@ static UdpData udpBufferRecieved;
 static LedData wifiCollorUtil;
 static bool ota = false;
 static int8_t id = 0;
-static char gpsDataIn[100];
+static char udpDataIn[MAXSTRINGLENG];
 static IPAddress ipTop;
 AsyncUDP udp;
 QueueHandle_t udpOut;
@@ -145,16 +146,16 @@ bool udp_setup(int poort)
         Serial.println(poort);
         udp.onPacket([](AsyncUDPPacket packet)
                      {
-                         String stringUdpIn = (const char *)packet.data();
-                         if (verifyCRC(stringUdpIn))
-                         {
-                             topWifiIn = RoboDecode(stringUdpIn,topWifiIn);
-                             xQueueSend(udpIn, (void *)&topWifiIn, 10); // notify main there is new data
-                         }
-                         else
-                         {
-                             Serial.println("crc error: " + stringUdpIn);
-                         } });
+                        String stringUdpIn = (const char *)packet.data();
+                        if (verifyCRC(stringUdpIn))
+                        {
+                            stringUdpIn.toCharArray(udpDataIn, stringUdpIn.length() + 1);
+                            xQueueSend(udpIn, (void *)&udpDataIn, 10); // notify main there is new data
+                        }
+                        else
+                        {
+                            Serial.println("crc error: " + stringUdpIn);
+                        } });
         return true;
     }
     return false;
@@ -162,7 +163,6 @@ bool udp_setup(int poort)
 
 void udpSend(String data)
 {
-    data = addBeginAndEndToString(data);
     data = addCRCToString(data);
     udp.broadcast(data.c_str());
 }
@@ -170,11 +170,18 @@ void udpSend(String data)
 /*
     init WiFi que
 */
-bool initwifiqueue(void)
+unsigned long initwifiqueue(void)
 {
     udpOut = xQueueCreate(10, sizeof(RoboStruct));
-    udpIn = xQueueCreate(10, sizeof(RoboStruct));
-    return true;
+    udpIn = xQueueCreate(10, MAXSTRINGLENG);
+    byte mac[6];
+    WiFi.macAddress(mac);
+    unsigned long tmp = 0;
+    for (int i = 2; i < 6; i++)
+    {
+        tmp = (tmp << 8) | mac[i];
+    }
+    return tmp;
 }
 
 /*
@@ -186,14 +193,6 @@ void WiFiTask(void *arg)
     char macStr[20];
     WiFi.macAddress(mac);
     sprintf(macStr, "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    unsigned long tmp = 0;
-    for (int i = 2; i < 6; i++)
-    {
-        tmp = (tmp << 8) | mac[i];
-    }
-    topWifiIn.cmd = TOPID;
-    topWifiIn.mac = tmp;
-    xQueueSend(udpIn, (void *)&topWifiIn, 10); // notify main there is new data
     int wifiConfig = *((int *)arg);
     unsigned long nwUpdate = millis();
     unsigned char numClients = 0;
@@ -250,7 +249,7 @@ void WiFiTask(void *arg)
 
         if (xQueueReceive(udpOut, (void *)&msgIdOut, 0) == pdTRUE)
         {
-            String out = RoboCode(msgIdOut);
+            String out = RoboCode(msgIdOut, msgIdOut.cmd);
             out = addCRCToString(out);
             udp.broadcast(out.c_str());
         }

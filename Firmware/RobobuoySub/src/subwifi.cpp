@@ -148,7 +148,6 @@ void WiFiTask(void *arg)
     String ssid = "";
     String ww = "";
     bool apswitch = false;
-    unsigned long nextSamp = millis();
     // apParameters(&ssid, &ww, true);
     // if (wifiConfig == 1)
     // {
@@ -216,10 +215,6 @@ void WiFiTask(void *arg)
         if (ota == true)
         {
             ArduinoOTA.handle();
-        }
-        if (nextSamp < millis())
-        {
-            nextSamp = 1000 + millis();
         }
         delay(1);
     }

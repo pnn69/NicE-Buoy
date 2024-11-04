@@ -258,90 +258,15 @@ void loop(void)
         // New data recieved on udp channel
         if (xQueueReceive(udpIn, (void *)&udpInMain, 0) == pdTRUE)
         {
-            udptimer = millis();
-            if (subStatus == UDPERROR)
-            {
-                mainLedStatus.color = CRGB::Blue;
-                mainLedStatus.blink = BLINK_SLOW;
-                xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
-                subStatus = IDLE;
-            }
-            String in = String(udpInMain);
-            if (verifyCRC(in))
-            {
-                mainData = RoboDecode(in, mainData);
-                switch (mainData.cmd)
-                {
-                case TOPSPBBSPSB:
-                    esc.speedbb = mainData.speedBb;
-                    esc.speedsb = mainData.speedSb;
-                    xQueueSend(escspeed, (void *)&esc, 10);
-                    subStatus = TOPSPBBSPSB;
-                    break;
-                case TOPCALCRUDDER:
-                    if (subStatus != TOPCALCRUDDER)
-                    {
-                        subStatus = TOPCALCRUDDER;
-                        mainLedStatus.color = CRGB::Red;
-                        mainLedStatus.blink = BLINK_OFF;
-                        xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
-                        mainPwrData.bb = CRGB::Black;
-                        mainPwrData.sb = CRGB::Black;
-                        mainPwrData.blinkBb = BLINK_OFF;
-                        mainPwrData.blinkSb = BLINK_OFF;
-                        xQueueSend(ledPwr, (void *)&mainPwrData, 10); // update util led
-                    }
-                    mainData = hooverPid(mainData);
-                    break;
-                case TOPIDLE:
-                    if (subStatus != TOPIDLE)
-                    {
-                        subStatus = TOPIDLE;
-                        esc.speedbb = 0;
-                        esc.speedsb = 0;
-                        xQueueSend(escspeed, (void *)&esc, 10);
-                        beep(2, buzzer);
-                        mainLedStatus.color = CRGB::Blue;
-                        mainLedStatus.blink = BLINK_SLOW;
-                        xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
-                        delay(500);
-                        mainPwrData.bb = CRGB::Black;
-                        mainPwrData.sb = CRGB::Black;
-                        mainPwrData.blinkBb = BLINK_OFF;
-                        mainPwrData.blinkSb = BLINK_OFF;
-                        xQueueSend(ledPwr, (void *)&mainPwrData, 10); // update util led
-                    }
-                    break;
-                case PIDRUDDERSET:
-                    pidRudderParameters(mainData, SET);
-                    break;
-                case PIDSPEEDSET:
-                    pidSpeedParameters(mainData, SET);
-                    break;
-                case PIDRUDDER:
-                    mainData.cmd = PIDRUDDER;
-                    dataOut = RoboCode(mainData);
-                    xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
-                    break;
-                case PIDSPEED:
-                    mainData.cmd = PIDSPEED;
-                    dataOut = RoboCode(mainData);
-                    xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
-                    break;
-                case PING:
-                    mainData.cmd = PONG;
-                    xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
-                    mainPwrData.bb = CRGB::Black;
-                    mainPwrData.sb = CRGB::Black;
-                    mainPwrData.blinkBb = BLINK_OFF;
-                    mainPwrData.blinkSb = BLINK_OFF;
-                    xQueueSend(ledPwr, (void *)&mainPwrData, 10); // update util led
-                    break;
-                default:
-                    printf("Unkonwn command %d\n\r", mainData.cmd);
-                    break;
-                }
-            }
+            mainData = RoboDecode(udpInMain, mainData);
+        }
+        udptimer = millis();
+        if (subStatus == UDPERROR)
+        {
+            mainLedStatus.color = CRGB::Blue;
+            mainLedStatus.blink = BLINK_SLOW;
+            xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
+            subStatus = IDLE;
         }
         if (udptimer + 2000 < millis() + random(0, 100))
         {

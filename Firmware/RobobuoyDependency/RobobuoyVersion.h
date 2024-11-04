@@ -4,5 +4,6 @@
 #define PROJECT BOBOBUOY
 #define TOPVERSION 1.0
 #define SUBVERSION 1.0
+#define CONTROLVERSION 1.0
 
 #endif /* ROBOBOBUOYVERSION_H_ */

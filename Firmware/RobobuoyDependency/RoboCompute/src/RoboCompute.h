@@ -17,8 +17,33 @@
 
 typedef enum
 {
-    PING = 1,
+    LOTAGET = 1, // info request
+    LORASET,     // info to store
+    LORAGETACK,  // ack requerd
+    LORAACK,     // ack on message
+    LORANAC,     // nak
+    LORAINF,     // udate message
+    IDLE,
+    PING,
     PONG,
+    LOCKING,
+    LOCKED,
+    LOCK_POS,
+    DOCKING,
+    DOCKED,
+    DOC,
+    UNLOCK,
+    REMOTE,
+    REMOTEING,
+    CALIBRATE_MAGNETIC_COMPASS,
+    LINEAR_CALLIBRATING,
+    CALIBRATE_OFFSET_MAGNETIC_COMPASS,
+    STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS,
+    DOCK_STORING,
+    MUTE_ESC,
+    BLINK_SLOW,
+    BLINK_FAST,
+    BLINK_OFF,
     SUBDATA,        // all data send known by sub
     SUBACCU,        // V,P accu voltage, accu percentage
     SUBDIR,         // magnetic direction
@@ -28,6 +53,7 @@ typedef enum
     TOPID,          // mac[unsigned long]
     TOPDATA,        // ?
     TOPDIRSPEED,    // Dir,Speed
+    LORADIRSPEED,   // Dir,Speed
     TOPDIRDIST,     // Direction and distance
     TOPSPBBSPSB,    // SpeedBb,SpeedSb
     TOPROUTTOPOINT, // route to point data
@@ -39,15 +65,10 @@ typedef enum
     SUBID,          // mac sub
     UDPERROR,       // no udp communicaton
     STOREASDOC,     // Store location as doc location
-    LORASET,        // info to store
-    LOTAGET,        // info request
-    LORAGETACK,     // ack requerd
-    LORAACK,        // ack on message
-    LORANAC,        // nak
-    LORAUPD,        // udate message
     LORABUOYPOS,    // STATUS,LAT,LON,mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
     LORALOCKPOS,    // LAT,LON
     LORADOCKPOS,    // LAT,LON
+    LORADIRDIST,    // tgDir,tgDist
     LORASENDDATA,
     COMPUTESTART, //
     COMPUTETRACK, //
@@ -129,8 +150,8 @@ struct RoboWindStruct
 };
 
 struct RoboStruct RoboDecode(String data, RoboStruct);
-String RoboCode(RoboStruct dataOut);
-String addBeginAndEndToString(String input);
+String RoboCode(RoboStruct dataOut, int cmd);
+String removeBeginAndEndToString(String input);
 String addCRCToString(String input); // Use reference to modify the original string
 bool verifyCRC(String input);
 double averigeWindRose(RoboWindStruct wData);
@@ -158,5 +179,6 @@ void windDirectionToVector(double windDegrees, double *windX, double *windY);
 double calculateAngle(double x1, double y1, double x2, double y2);
 bool recalcStarLine(struct RoboStruct rsl[3]);
 bool reCalcTrack(struct RoboStruct rsl[3]);
+void posPrint(int c);
 
 #endif /* ROBOCOMPUTE */
