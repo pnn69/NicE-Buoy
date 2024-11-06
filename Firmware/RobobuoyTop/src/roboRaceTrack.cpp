@@ -1,6 +1,6 @@
 #include "main.h"
 
-bool AddDataToBuoyBase(RoboStruct dataIn)
+bool AddDataToBuoyBase(RoboStruct dataIn, RoboStruct buoyPara[3])
 {
     Serial.print("ID to store:" + String(dataIn.mac, HEX));
     Serial.print(" lat " + String(dataIn.tgLat, 8));
@@ -28,7 +28,7 @@ bool AddDataToBuoyBase(RoboStruct dataIn)
     return false;
 }
 
-RoboStruct GetDataFromBuoyBase(uint64_t id)
+RoboStruct GetDataFromBuoyBase(uint64_t id, RoboStruct buoyPara[3])
 {
     RoboStruct out;
     out.mac = 0;
@@ -42,22 +42,4 @@ RoboStruct GetDataFromBuoyBase(uint64_t id)
     }
     Serial.println("No data found! :( ");
     return out;
-}
-
-void printDirection(int value)
-{
-    switch (value)
-    {
-    case 1:
-        Serial.print("HEAD");
-        break;
-    case 2:
-        Serial.print("PORT");
-        break;
-    case 3:
-        Serial.print("STARBOARD");
-        break;
-    default:
-        Serial.print("Invalid input");
-    }
 }

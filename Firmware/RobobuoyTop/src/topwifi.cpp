@@ -249,6 +249,7 @@ void WiFiTask(void *arg)
 
         if (xQueueReceive(udpOut, (void *)&msgIdOut, 0) == pdTRUE)
         {
+
             String out = RoboCode(msgIdOut, msgIdOut.cmd);
             out = addCRCToString(out);
             udp.broadcast(out.c_str());

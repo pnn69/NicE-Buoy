@@ -7,18 +7,16 @@ import ctypes
 # Coordinates
 
 
-head = (52.289071585251,4.926363927671)
-port = (52.289749207653,4.933875490798)
-starboard =( 52.291505969351,4.932830118095)
-midpoint =(    52.290109,4.931023178855)
-# reCalcTrack ok
-HEADn = (52.291172280022,4.928686666435)
+PORT = (52.320446330000,4.965558670000)
+STARBOARD = (52.320296170000,4.965066830000)
+HEAD = (0.000000000000,0.000000000000)
+midpoint =(52.320371250000,4.965312750000)
+winddir =(77.2)
+PORTn = (52.320535099378,4.965251848686)
 
+STARBOARDn = (52.320207400622,4.965373651314)
 
-midpoint =(52.320316585000,4.965334416500)
-winddir = (107.31)
-PORTn = (52.320403453966,4.965378701792)
-STARBOARDn = (52.320229716034,4.965290131208)
+HEADn = (0.000000000000,0.000000000000)
 
 
 
@@ -27,14 +25,14 @@ m = folium.Map(location=midpoint, zoom_start=16)
 
 
 # Add the coordinates as markers with names
-folium.Marker(head, popup='Head ',icon=folium.Icon( color="darkblue")).add_to(m)
-folium.Marker(port, popup='Port ',icon=folium.Icon(color="darkred")).add_to(m)
-folium.Marker(starboard, popup='Starboard ',icon=folium.Icon(color="darkgreen")).add_to(m)
+folium.Marker(HEAD, popup='Head' + str(HEAD),icon=folium.Icon( color="darkblue")).add_to(m)
+folium.Marker(PORT, popup='Port' + str(PORT),icon=folium.Icon(color="darkred")).add_to(m)
+folium.Marker(STARBOARD, popup='Starboard\r' + str(STARBOARD),icon=folium.Icon(color="darkgreen")).add_to(m)
 #folium.Marker(midpoint).add_to(m)
 #folium.Marker(startlincp,icon=folium.Icon(color="black")).add_to(m)
-folium.Marker(HEADn, popup='HEAD',icon=folium.Icon(icon ='flag' , color="lightblue")).add_to(m)
-folium.Marker(PORTn, popup='PORT',icon=folium.Icon(icon ='flag' , color="lightred")).add_to(m)
-folium.Marker(STARBOARDn, popup='STARBOURD',icon=folium.Icon(icon ='flag' , color="lightgreen")).add_to(m)
+folium.Marker(HEADn, popup='HEAD' + str(HEADn),icon=folium.Icon(icon ='flag' , color="lightblue")).add_to(m)
+folium.Marker(PORTn, popup='PORT' + str(PORTn),icon=folium.Icon(icon ='flag' , color="lightred")).add_to(m)
+folium.Marker(STARBOARDn, popup='STARBOURD' + str(STARBOARDn),icon=folium.Icon(icon ='flag' , color="lightgreen")).add_to(m)
 
 # Invert the wind direction
 inverted_winddir = (winddir + 180) % 360  # Add 180 degrees and wrap around if necessary

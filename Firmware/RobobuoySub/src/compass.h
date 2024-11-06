@@ -3,10 +3,12 @@
 
 extern QueueHandle_t compass;
 
+void calibrateMagneticNorth(void);
 bool InitCompass(void);
 void initcompassQueue(void);
+void calibrateNorthCompas(void);
+void calibrateParametersCompas(void);
 bool CalibrateCompass(void);
-void calibrateMagneticNorth();
 double GetHeading(void);
 double GetHeadingRaw(void);
 double CompassAverage(float);

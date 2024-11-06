@@ -3,8 +3,8 @@
 
 bool startsWithDollar(const String &str)
 {
-    // Check if the string is not empty and the first character is '$'
-    return str.length() > 0 && str.charAt(0) == '$';
+    // Check if the string first character is '$'
+    return str.charAt(0) == '$';
 }
 
 /*
@@ -27,6 +27,7 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
     }
     // Serial.println("String to decode: " + data);
     String substring = data.substring(startIndex, endIndex);
+
     while (substring.length() > 0)
     {
         int commaIndex = substring.indexOf(',');
@@ -49,6 +50,21 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
     // printf("Command to decode:%d\r\n", dataStore.cmd);
     switch (dataStore.cmd)
     {
+    case IDLE:
+        dataStore.speed = 0;
+        dataStore.tgDist = 0;
+        break;
+    case LOCKING:
+        break;
+    case DOCKED: // tgDir,tgDist
+    case LOCKED: // tgDir,tgDist
+        dataStore.tgDir = numbers[1].toDouble();
+        dataStore.tgDist = numbers[2].toDouble();
+        break;
+    case REMOTE: // speed,tgdir
+        dataStore.speed = numbers[1].toInt();
+        dataStore.tgDir = numbers[2].toDouble();
+        break;
     case TOPDATA: // ?
         printf("TOPDATA Not implementend yet/r/n");
         break;
@@ -71,9 +87,14 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         break;
     case SUBDIRSPEED: // mDir,speedbb,speedsb,speed
         dataStore.dirMag = numbers[1].toDouble();
-        dataStore.speed = numbers[4].toInt();
         dataStore.speedBb = numbers[2].toInt();
         dataStore.speedSb = numbers[3].toInt();
+        dataStore.speed = numbers[4].toInt();
+        break;
+    case SUBSPEED:
+        dataStore.speedBb = numbers[1].toInt();
+        dataStore.speedSb = numbers[2].toInt();
+        dataStore.speed = numbers[3].toInt();
         break;
     case SUBACCU: // V,P
         dataStore.subAccuV = numbers[1].toFloat();
@@ -107,14 +128,17 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         dataStore.topAccuP = numbers[8].toInt();
         dataStore.subAccuP = numbers[9].toInt();
         break;
-    case LORALOCKPOS: // LAT,LON
-    case LORADOCKPOS: // LAT,LON
+    case LORALOCKPOS: // LAT,LON,wDir
+    case LORADOCKPOS: // LAT,LON,wDir
         dataStore.tgLat = numbers[1].toDouble();
         dataStore.tgLng = numbers[2].toDouble();
+        dataStore.wDir = numbers[3].toDouble();
         break;
     case LORADIRDIST:
         dataStore.tgDir = numbers[1].toDouble();
         dataStore.tgDist = numbers[2].toDouble();
+        break;
+    case IDELING:
         break;
     case PING:
         break;
@@ -139,6 +163,17 @@ String RoboCode(RoboStruct dataOut, int cmd)
     String out = String(cmd);
     switch (cmd)
     {
+    case IDLE:
+        break;
+    case DOCKED:
+    case LOCKED:
+        out += "," + String(dataOut.tgDir, 2);
+        out += "," + String(dataOut.tgDist, 2);
+        break;
+    case REMOTE:
+        out += "," + String(dataOut.speed);
+        out += "," + String(dataOut.tgDir, 2);
+        break;
     case SUBDATA:
         out += "," + String(dataOut.dirMag, 2);
         out += "," + String(dataOut.speedSb);
@@ -151,6 +186,11 @@ String RoboCode(RoboStruct dataOut, int cmd)
         break;
     case SUBDIRSPEED:
         out += "," + String(dataOut.dirMag, 2);
+        out += "," + String(dataOut.speedSb);
+        out += "," + String(dataOut.speedBb);
+        out += "," + String(dataOut.speed);
+        break;
+    case SUBSPEED:
         out += "," + String(dataOut.speedSb);
         out += "," + String(dataOut.speedBb);
         out += "," + String(dataOut.speed);
@@ -203,12 +243,18 @@ String RoboCode(RoboStruct dataOut, int cmd)
         out += "," + String(dataOut.subAccuP);
         break;
     case LORALOCKPOS:
+    case LORADOCKPOS:
         out += "," + String(dataOut.tgLat, 8);
         out += "," + String(dataOut.tgLng, 8);
+        out += "," + String(dataOut.wDir, 1);
         break;
     case LORADIRDIST:
         out += "," + String(dataOut.tgDir, 2);
         out += "," + String(dataOut.tgDist, 2);
+        break;
+    case LOCKING:
+        break;
+    case IDELING:
         break;
     case PING:
         out = String(PING);
@@ -217,7 +263,7 @@ String RoboCode(RoboStruct dataOut, int cmd)
         out = String(PONG);
         break;
     default:
-        printf("Unkown code formatter %d\r\n", cmd);
+        printf("Robocode: Unkown formatter <%d>\r\n", cmd);
         break;
     }
     return out;
@@ -835,11 +881,12 @@ bool recalcStarLine(struct RoboStruct rsl[3])
 {
     double d0, d1, d2, dir;
     double mid[2];
-    double angleSb = rsl[0].wDir + 90;
+    double angleSb = 0;
     rsl[0].trackPos = -1;
     rsl[1].trackPos = -1;
     rsl[2].trackPos = -1;
 
+    angleSb = rsl[0].wDir + 90;
     if (angleSb > 360)
     {
         angleSb -= 360;
@@ -860,12 +907,24 @@ bool recalcStarLine(struct RoboStruct rsl[3])
             printf("No data to compute with\r\n");
             return false;
         }
+        angleSb = rsl[0].wDir + 90;
+        if (angleSb > 360)
+        {
+            angleSb -= 360;
+        }
+        double angleBb = angleSb + 180;
+        if (angleBb > 360)
+        {
+            angleBb -= 360;
+        }
         twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng, &mid[0], &mid[1]); // calculate startline centerpoint
         printf("midpoint =(%.12f,%.12f)\r\n", mid[0], mid[1]);                                     // mid point of thre (for plotting the windrose and calculations)
         adjustPositionDirDist(angleBb, d0 / 2, mid[0], mid[1], &rsl[0].tgLat, &rsl[0].tgLng);      // compute port
         adjustPositionDirDist(angleSb, d0 / 2, mid[0], mid[1], &rsl[1].tgLat, &rsl[1].tgLng);      // compute starboard
+        printf("winddir =(%.1f)\r\n", rsl[0].wDir);                                                // wind direction
         rsl[0].trackPos = PORT;
         rsl[1].trackPos = STARBOARD;
+        rsl[2].trackPos = HEAD;
         return true;
     }
 
@@ -876,11 +935,23 @@ bool recalcStarLine(struct RoboStruct rsl[3])
             printf("No data to compute with\r\n");
             return false;
         }
+        angleSb = rsl[0].wDir + 90;
+        if (angleSb > 360)
+        {
+            angleSb -= 360;
+        }
+        double angleBb = angleSb + 180;
+        if (angleBb > 360)
+        {
+            angleBb -= 360;
+        }
         twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &mid[0], &mid[1]); // calculate startline centerpoint
         printf("midpoint =(%.12f,%.12f)\r\n", mid[0], mid[1]);                                     // mid point of thre (for plotting the windrose and calculations)
         adjustPositionDirDist(angleBb, d1 / 2, mid[0], mid[1], &rsl[0].tgLat, &rsl[0].tgLng);      // compute port
         adjustPositionDirDist(angleSb, d1 / 2, mid[0], mid[1], &rsl[2].tgLat, &rsl[2].tgLng);      // compute starboard
+        printf("winddir =(%.1f)\r\n", rsl[0].wDir);                                                // wind direction
         rsl[0].trackPos = PORT;
+        rsl[1].trackPos = HEAD;
         rsl[2].trackPos = STARBOARD;
         return true;
     }
@@ -892,10 +963,22 @@ bool recalcStarLine(struct RoboStruct rsl[3])
             printf("No data to compute with\r\n");
             return false;
         }
+        angleSb = rsl[1].wDir + 90;
+        if (angleSb > 360)
+        {
+            angleSb -= 360;
+        }
+        double angleBb = angleSb + 180;
+        if (angleBb > 360)
+        {
+            angleBb -= 360;
+        }
         twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &mid[0], &mid[1]); // calculate startline centerpoint
         printf("midpoint =(%.12f,%.12f)\r\n", mid[0], mid[1]);                                     // mid point of thre (for plotting the windrose and calculations)
         adjustPositionDirDist(angleBb, d2 / 2, mid[0], mid[1], &rsl[1].tgLat, &rsl[1].tgLng);      // compute port
         adjustPositionDirDist(angleSb, d2 / 2, mid[0], mid[1], &rsl[2].tgLat, &rsl[2].tgLng);      // compute starboard
+        printf("winddir =(%.1f)\r\n", rsl[1].wDir);                                                // wind direction
+        rsl[0].trackPos = HEAD;
         rsl[1].trackPos = PORT;
         rsl[2].trackPos = STARBOARD;
         return true;
@@ -1028,7 +1111,7 @@ bool reCalcTrack(struct RoboStruct rsl[3])
 /*
     print positions
 */
-void posPrint(int c)
+void trackPosPrint(int c)
 {
     if (c == HEAD)
     {
@@ -1042,4 +1125,34 @@ void posPrint(int c)
     {
         printf("STARBOARD");
     }
+    else
+    {
+        printf("NON");
+    }
+}
+
+RoboStruct calcTrackPos(RoboStruct rsl[3])
+{
+    double d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng); // compute length p0 p1
+    double d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng); // compute length p0 p2
+    double d2 = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng); // compute length p1 p2
+    if (d0 < d1 && d0 < d2)
+    {
+        rsl[0].trackPos = PORT;
+        rsl[1].trackPos = STARBOARD;
+        rsl[2].trackPos = HEAD;
+    }
+    if (d1 < d0 && d1 < d2)
+    {
+        rsl[0].trackPos = PORT;
+        rsl[1].trackPos = HEAD;
+        rsl[2].trackPos = STARBOARD;
+    }
+    if (d2 < d0 && d2 < d1)
+    {
+        rsl[0].trackPos = HEAD;
+        rsl[1].trackPos = PORT;
+        rsl[2].trackPos = STARBOARD;
+    }
+    return rsl[3];
 }

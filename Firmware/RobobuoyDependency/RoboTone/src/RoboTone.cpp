@@ -37,7 +37,7 @@ Buzz tones[20] = {
     {3000, 100, 0, 0}, // 7
     {150, 500, 0, 50}, // 8
     {100, 500, 0, 50}, // 9
-    {50, 500, 0, 50},  // 10
+    {2500, 25, 0, 0},  // 10
     {98, 100, 0, 0},   // 11
     {117, 100, 0, 0},  // 12
     {147, 100, 0, 0},  // 13
@@ -70,11 +70,21 @@ void beep(int sound, QueueHandle_t buzzer)
         }
         break;
     case 2:
+        for (int i = 6; i > 3; i--)
+        {
+            xQueueSend(buzzer, (void *)&tones[i], 10);
+        }
+        break;
+    case 3:
         for (int i = 3; i > 0; i--)
         {
             xQueueSend(buzzer, (void *)&tones[i], 10);
         }
         break;
+    case 10:
+        xQueueSend(buzzer, (void *)&tones[10], 5);
+        break;
+
     case 500:
         Data.hz = 500;
         Data.repeat = 0;

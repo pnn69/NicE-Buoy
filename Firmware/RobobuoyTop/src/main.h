@@ -8,6 +8,6 @@
 #define MAXSTRINGLENG 150
 
 extern unsigned long buoyId;
-extern RoboStruct buoyPara[3];
+extern unsigned long buoyIdAll;
 
 #endif /* MAIN_H_ */

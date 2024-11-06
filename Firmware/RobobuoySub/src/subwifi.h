@@ -6,7 +6,7 @@ extern QueueHandle_t udpIn;
 
 #define MAXSTRINGLENG 100
 
-bool initwifiqueue(void);
+unsigned long initwifiqueue(void);
 void WiFiTask(void *arg);
 
 #endif /* SUBWIFI_H_ */

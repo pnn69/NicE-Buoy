@@ -4,7 +4,7 @@
 */
 #include <Arduino.h>
 #include <FastLED.h>
-#inlcude "main.h"
+#include "main.h"
 #include "leds.h"
 #include "io_sub.h"
 

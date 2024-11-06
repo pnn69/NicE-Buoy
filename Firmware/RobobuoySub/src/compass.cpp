@@ -5,15 +5,20 @@
 #include <Adafruit_LSM303AGR_Mag.h>
 #include <Adafruit_LSM303_Accel.h>
 #include <math.h>
+#include "leds.h"
+#include "buzzer.h"
 #include "io_sub.h"
 #include "datastorage.h"
 #include "esc.h"
 
 #include "../../RobobuoyDependency\RobobuoyVersion.h"
-#include "../../RobobuoyDependency\RobobuoyMsg.h"
-#include "../../RobobuoyDependency\RobobuoyDefaults.h"
 
 #define NUM_DIRECTIONS 50
+
+static LedData compassLedStatus;
+static PwrData compassPwrData;
+static Buzz compassBuzzerData;
+
 QueueHandle_t compass;
 
 Adafruit_LSM303AGR_Mag_Unified mag = Adafruit_LSM303AGR_Mag_Unified(12345);
@@ -268,4 +273,62 @@ void CompassTask(void *arg)
         xQueueSend(compass, (void *)&mDir, 10); // notify main there is new data
         vTaskDelay(1);
     }
+}
+
+void calibrateNorthCompas(void)
+{
+    compassBuzzerData.hz = 1000;
+    compassBuzzerData.repeat = 5;
+    compassBuzzerData.pause = 50;
+    compassBuzzerData.duration = 100;
+    xQueueSend(buzzer, (void *)&compassBuzzerData, 10); // update util led
+    compassPwrData.bb = CRGB::Orange;
+    compassPwrData.sb = CRGB::Orange;
+    compassPwrData.blinkBb = BLINK_FAST;
+    compassPwrData.blinkSb = BLINK_FAST;
+    xQueueSend(ledPwr, (void *)&compassPwrData, 10); // update util led
+    delay(1000);
+    calibrateMagneticNorth();
+    compassPwrData.bb = CRGB::Black;
+    compassPwrData.sb = CRGB::Black;
+    compassPwrData.blinkBb = BLINK_OFF;
+    compassPwrData.blinkSb = BLINK_OFF;
+    xQueueSend(ledPwr, (void *)&compassPwrData, 10); // update util led
+    compassBuzzerData.hz = 1000;
+    compassBuzzerData.repeat = 5;
+    compassBuzzerData.pause = 50;
+    compassBuzzerData.duration = 100;
+    xQueueSend(buzzer, (void *)&compassBuzzerData, 10); // update util led
+}
+
+void calibrateParametersCompas(void)
+{
+    compassLedStatus.color = CRGB::DarkBlue;
+    compassPwrData.bb = CRGB::DarkBlue;
+    compassPwrData.sb = CRGB::DarkBlue;
+    compassLedStatus.blink = BLINK_FAST;
+    compassPwrData.blinkBb = BLINK_FAST;
+    compassPwrData.blinkSb = BLINK_FAST;
+    xQueueSend(ledStatus, (void *)&compassLedStatus, 10); // update util led
+    xQueueSend(ledPwr, (void *)&compassPwrData, 10);      // update util led
+    compassBuzzerData.hz = 1000;
+    compassBuzzerData.repeat = 10;
+    compassBuzzerData.pause = 50;
+    compassBuzzerData.duration = 100;
+    xQueueSend(buzzer, (void *)&compassBuzzerData, 10); // update util led
+    delay(1000);
+    CalibrateCompass();
+    compassBuzzerData.hz = 1000;
+    compassBuzzerData.repeat = 10;
+    compassBuzzerData.pause = 50;
+    compassBuzzerData.duration = 100;
+    xQueueSend(buzzer, (void *)&compassBuzzerData, 10); // update util led
+    compassLedStatus.color = CRGB::Black;
+    compassPwrData.bb = CRGB::Black;
+    compassPwrData.sb = CRGB::Black;
+    compassLedStatus.blink = BLINK_OFF;
+    compassPwrData.blinkBb = BLINK_OFF;
+    compassPwrData.blinkSb = BLINK_OFF;
+    xQueueSend(ledStatus, (void *)&compassLedStatus, 10); // update util led
+    xQueueSend(ledPwr, (void *)&compassPwrData, 10);      // update util led
 }

@@ -13,7 +13,9 @@ static RoboStruct loraStruct;
 QueueHandle_t loraOut;
 QueueHandle_t loraIn;
 
-//  IDr,IDs,MSG,ACK,<data>
+//***************************************************************************************************
+//  Recieve and decode incomming lora message
+//***************************************************************************************************
 lorabuf decodeString(String incoming)
 {
     lorabuf result;
@@ -21,26 +23,30 @@ lorabuf decodeString(String incoming)
     // Parse mac
     commaIndex = incoming.indexOf(',');
     String hexString = incoming.substring(0, commaIndex);
-    result.mac = strtoull(hexString.c_str(), NULL, 16);
+    result.macIDr = strtoull(hexString.c_str(), NULL, 16);
     // Parse macIn
     incoming = incoming.substring(commaIndex + 1);
     commaIndex = incoming.indexOf(',');
     hexString = incoming.substring(0, commaIndex);
-    result.macIn = strtoull(hexString.c_str(), NULL, 16);
-    // Parse msg
-    incoming = incoming.substring(commaIndex + 1);
-    commaIndex = incoming.indexOf(',');
-    result.msg = incoming.substring(0, commaIndex).toInt();
-    // Store remaining data as a char array
-    incoming.toCharArray(result.data, incoming.length() + 1);
+    result.macIDs = strtoull(hexString.c_str(), NULL, 16);
     // Parse ack
     incoming = incoming.substring(commaIndex + 1);
     commaIndex = incoming.indexOf(',');
     result.ack = incoming.substring(0, commaIndex).toInt();
+    // Parse msg
     incoming = incoming.substring(commaIndex + 1);
+    commaIndex = incoming.indexOf(',');
+    // Store remaining data as a char array
+    result.msg = incoming.substring(0, commaIndex).toInt();
+    incoming.toCharArray(result.data, incoming.length() + 1);
+    incoming = incoming.substring(commaIndex + 1);
+    commaIndex = incoming.indexOf(',');
     return result;
 }
 
+//***************************************************************************************************
+//  Lora init
+//***************************************************************************************************
 bool InitLora(void)
 {
 
@@ -60,6 +66,9 @@ bool InitLora(void)
     return true;
 }
 
+//***************************************************************************************************
+//  Lora data out
+//***************************************************************************************************
 bool sendLora(String loraTransmitt)
 {
     if (LoRa.beginPacket()) // start packet
@@ -67,11 +76,15 @@ bool sendLora(String loraTransmitt)
         LoRa.write(loraTransmitt.length());
         LoRa.print(loraTransmitt);
         LoRa.endPacket(); // finish packet and send it
+        Serial.println("Lora out<" + loraTransmitt + ">");
         return true;
     }
     return false;
 }
 
+//***************************************************************************************************
+//  Store to ack buffer
+//***************************************************************************************************
 void storeAckMsg(lorabuf ackBuffer)
 {
     int i = 0;
@@ -79,27 +92,41 @@ void storeAckMsg(lorabuf ackBuffer)
     {
         if (pendingMsg[i].msg == 0)
         {
-            memcpy(&pendingMsg[i].msg, &ackBuffer.msg, sizeof(ackBuffer.msg));
+            // printf("storing on pos %d\r\n",i);
+            memcpy(&pendingMsg[i], &ackBuffer, sizeof(ackBuffer));
             return;
         }
         i++;
     }
 }
 
-void removeAckMsg(int msg)
+//***************************************************************************************************
+//  Remove to ack buffer
+//***************************************************************************************************
+void removeAckMsg(lorabuf ackBuffer)
 {
     int i = 0;
     while (i < 10)
     {
-        if (pendingMsg[i].msg == msg)
+        //Serial.println("ackBuffer.macIDr: " + String(ackBuffer.macIDs,HEX) +" pendingMsg[i].macIDs: " + String(pendingMsg[i].macIDr,HEX));
+        if (pendingMsg[i].msg == ackBuffer.msg && pendingMsg[i].macIDr == ackBuffer.macIDs)
         {
             pendingMsg[i].ack = 0;
             pendingMsg[i].msg = 0;
+            pendingMsg[i].macIDs = 0;
+            pendingMsg[i].macIDr = 0;
+            pendingMsg[i].retry = 0;
+            //printf("message removed for ack on pos:%d\r\n", i);
+            return;
         }
         i++;
     }
 }
 
+//***************************************************************************************************
+//  check ack buffer
+//  remove data if more than n times has failed
+//***************************************************************************************************
 struct lorabuf chkAckMsg(void)
 {
     struct lorabuf in;
@@ -108,16 +135,28 @@ struct lorabuf chkAckMsg(void)
     int i = 0;
     while (i < 10)
     {
-        if (pendingMsg[i++].msg != 0)
+        if (pendingMsg[i].msg != 0)
         {
             memcpy(&in, &pendingMsg[i], sizeof(lorabuf));
+            pendingMsg[i].retry--;
+            if (pendingMsg[i].retry == 0)
+            {
+                pendingMsg[i].msg = 0;
+                pendingMsg[i].ack = 0;
+                pendingMsg[i].macIDs = 0;
+                pendingMsg[i].macIDr = 0;
+            }
+            //printf(" message ack on pos:%d rettrys left %d   msg:%d\r\n", i, pendingMsg[i].retry, pendingMsg[i].msg);
+            return in;
         }
+        i++;
     }
     return in;
 }
 
-// poll wtih in mainloop onReceive(LoRa.parsePacket());
-
+//***************************************************************************************************
+//  Recieve and decode incomming lora message
+//***************************************************************************************************
 void onReceive(int packetSize)
 {
     if (packetSize == 0)
@@ -134,28 +173,65 @@ void onReceive(int packetSize)
         Serial.println("error: message length does not match length");
         return; // skip rest of function
     }
-    incoming.toCharArray(loraMsgin.data, incoming.length() + 1);
-    xQueueSend(loraIn, (void *)&loraMsgin, 10); // send out trough Lora
-
+    Serial.println("Lora in <" + incoming + ">");
     lorabuf in = decodeString(incoming);
-    unsigned long mac = -2;
-    //  IDr,IDs,MSG,ACK,<data>
-    String loraOut = String(in.macIn, HEX);
-    loraOut += "," + String(mac, HEX) +
-               "," + in.data;
-    //Serial.println("Lora data out: " + loraOut);
-    //sendLora(loraOut);
+    if (in.macIDr == buoyId && in.ack == LORAACK) // A message form me so check if its a ACK message
+    {
+        removeAckMsg(in);
+        // printf("Lora Ack recieved msg:%d cleared\r\n", in.msg);
+        return;
+    }
+    if (in.macIDr == buoyId || in.macIDr == BUOYIDALL) // A message form me
+    {
+        if (in.ack == LORAGETACK)
+        {
+            // IDr,IDs,ACK,MSG
+            loraMsgout.macIDr = in.macIDs;
+            loraMsgout.macIDs = buoyId;
+            loraMsgout.ack = LORAACK;
+            String out = String(in.msg);
+            out.toCharArray(loraMsgout.data, out.length() + 1);
+            xQueueSend(loraOut, (void *)&in, 10); // send ACK out
+        }
+        xQueueSend(loraIn, (void *)&in, 10); // send to main
+    }
+    else
+    {
+        Serial.println("LoraData not for me: " + String(in.data) + " macIDr:" + String(in.macIDr, HEX) + " macIDs:" + String(in.macIDs, HEX));
+    }
 }
 
+//***************************************************************************************************
+//  Remove white space
+//***************************************************************************************************
+String removeWhitespace(String str)
+{
+    String result = "";
+    for (int i = 0; i < str.length(); i++)
+    {
+        if (str.charAt(i) != ' ')
+        {
+            result += str.charAt(i);
+        }
+    }
+    return result;
+}
+
+//***************************************************************************************************
+//  Init lora queue
+//***************************************************************************************************
 void initloraqueue(void)
 {
     loraOut = xQueueCreate(10, sizeof(char[MAXSTRINGLENG]));
     loraIn = xQueueCreate(10, sizeof(lorabuf));
+    InitLora();
 }
 
+//***************************************************************************************************
+//  Lora task
+//***************************************************************************************************
 void LoraTask(void *arg)
 {
-    InitLora();
     unsigned long transmittReady = 0;
     unsigned long retransmittReady = 0;
     while (1)
@@ -165,16 +241,19 @@ void LoraTask(void *arg)
         {
             if (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
             {
-                Serial.println("Lora OUT:" + String(loraMsgout.data) + "Length:" + String(strlen(loraMsgout.data)));
-                while (sendLora(String(loraMsgout.data)) != true)
+                // IDr,IDs,ACK,MSG,<data>
+                String loraString = String(loraMsgout.macIDr, HEX) + "," + String(buoyId, HEX) + "," + String(loraMsgout.ack);
+                loraString += "," + removeWhitespace(String(loraMsgout.data));
+                while (sendLora(loraString) != true)
                 {
-                    vTaskDelay(pdTICKS_TO_MS(100));
+                    vTaskDelay(pdTICKS_TO_MS(50));
                 }
-                transmittReady = millis() + 250 + random(0, 50);
+                transmittReady = millis() + 150 + random(0, 50);
                 if (loraMsgout.ack == LORAGETACK)
                 {
-                    storeAckMsg(loraMsgout);            // put data in buffer (will be removed on ack)
-                    retransmittReady = millis() + 1000; // give some time for ack
+                    loraMsgout.retry = 5;
+                    storeAckMsg(loraMsgout);                            // put data in buffer (will be removed on ack)
+                    retransmittReady = millis() + 900 + random(0, 150); // give some time for ack
                 }
             }
         }
@@ -184,12 +263,13 @@ void LoraTask(void *arg)
             loraMsgout = chkAckMsg();
             if (loraMsgout.msg != 0)
             {
-                while (sendLora(String(loraMsgout.data)) != true)
+                String loraString = String(loraMsgout.macIDr, HEX) + "," + String(buoyId, HEX) + "," + String(loraMsgout.ack);
+                loraString += "," + removeWhitespace(String(loraMsgout.data));
+                while (sendLora(loraString) != true)
                 {
-                    vTaskDelay(pdTICKS_TO_MS(100));
+                    vTaskDelay(pdTICKS_TO_MS(50));
                 }
-                retransmittReady = millis() + 1000 + random(0, 50);
-                removeAckMsg(loraMsgout.msg);
+                retransmittReady = millis() + 900 + random(0, 150);
             }
         }
         vTaskDelay(1);

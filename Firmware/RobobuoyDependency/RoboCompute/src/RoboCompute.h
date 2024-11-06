@@ -9,6 +9,8 @@
 #define degre(x) (x * 180 / M_PI)
 #define ILIM 35 // Maximum interal limit (35% power)
 
+#define BUOYIDALL 1
+
 #define HEAD 1
 #define PORT 2
 #define STARBOARD 3
@@ -24,6 +26,7 @@ typedef enum
     LORANAC,     // nak
     LORAINF,     // udate message
     IDLE,
+    IDELING,
     PING,
     PONG,
     LOCKING,
@@ -66,10 +69,13 @@ typedef enum
     UDPERROR,       // no udp communicaton
     STOREASDOC,     // Store location as doc location
     LORABUOYPOS,    // STATUS,LAT,LON,mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
-    LORALOCKPOS,    // LAT,LON
-    LORADOCKPOS,    // LAT,LON
+    LORALOCKPOS,    // LAT,LON,wDir
+    LORADOCKPOS,    // LAT,LON.wDir
+    LORADOCKING,    //
     LORADIRDIST,    // tgDir,tgDist
-    LORASENDDATA,
+    LORASENDTRACK,  // new track positions of buoys
+    LORASENDTXT,    // Text message
+    LORAIDELING,
     COMPUTESTART, //
     COMPUTETRACK, //
 } msg_t;
@@ -118,6 +124,8 @@ struct RoboStruct
     int minSpeed;
     int maxSpeed;
     int compassOffset;
+    unsigned long lastLoraComm = -1; // last external communicatong
+    unsigned long lastUdpComm = -1;  // last external communicatong
 };
 
 struct RoboStructGps
@@ -154,14 +162,15 @@ String RoboCode(RoboStruct dataOut, int cmd);
 String removeBeginAndEndToString(String input);
 String addCRCToString(String input); // Use reference to modify the original string
 bool verifyCRC(String input);
+
 double averigeWindRose(RoboWindStruct wData);
 RoboWindStruct deviationWindRose(RoboWindStruct wData);
+void initPid(int pid, RoboStruct buoy);
 void PidDecode(String data, int pid, RoboStruct buoy);
 String PidEncode(int pid, RoboStruct buoy);
 void gpsGem(double &lat, double &lon);
 double distanceBetween(double lat1, double long1, double lat2, double long2);
 double computeWindAngle(double windDegrees, double lat, double lon, double centroidLat, double centroidLon);
-void initPid(int pid, RoboStruct buoy);
 double approxRollingAverage(double avg, double input);
 RoboWindStruct addNewSampleInBuffer(RoboWindStruct wData, double nwdata);
 void checkparameters(RoboStruct buoy);
@@ -174,11 +183,13 @@ double CalcDocSpeed(double tgdistance);
 RoboStruct CalcRemoteRudderBuoy(RoboStruct buoy);
 RoboStruct CalcRudderBuoy(RoboStruct buoy);
 RoboStruct hooverPid(RoboStruct buoy);
+void threePointAverage(struct RoboStruct p3[3], double *latgem, double *lnggem);
 void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double *latgem, double *longem);
 void windDirectionToVector(double windDegrees, double *windX, double *windY);
 double calculateAngle(double x1, double y1, double x2, double y2);
 bool recalcStarLine(struct RoboStruct rsl[3]);
 bool reCalcTrack(struct RoboStruct rsl[3]);
-void posPrint(int c);
+void trackPosPrint(int c);
+RoboStruct calcTrackPos(RoboStruct rsl[3]);
 
 #endif /* ROBOCOMPUTE */

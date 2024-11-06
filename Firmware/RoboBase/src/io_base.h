@@ -1,10 +1,9 @@
 #ifndef IO_BASE_H_
 #define IO_BASE_H_
 
-#define BUTTON_PIN 0
+#define BUTTON_PIN 14
+#define BUTTON_PIN_pwr 12
 #define LEDS_PIN 18
-#define GPSRX 34
-#define GPSTX 33
 
 #define RADIO_SCLK_PIN 5
 #define RADIO_MISO_PIN 19

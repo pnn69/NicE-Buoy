@@ -130,12 +130,18 @@ void setupudp(void)
     }
 }
 
-bool initwifiqueue(void)
+unsigned long initwifiqueue(void)
 {
     udpOut = xQueueCreate(10, sizeof(RoboStruct));
-    udpIn = xQueueCreate(10, sizeof(char[MAXSTRINGLENG]));
-    
-    return true;
+    udpIn = xQueueCreate(10, MAXSTRINGLENG);
+    byte mac[6];
+    WiFi.macAddress(mac);
+    unsigned long tmp = 0;
+    for (int i = 2; i < 6; i++)
+    {
+        tmp = (tmp << 8) | mac[i];
+    }
+    return tmp;
 }
 
 /*
@@ -193,7 +199,7 @@ void WiFiTask(void *arg)
         Serial.println("Try again with ssid: " + String(ssid));
         apswitch = !apswitch;
     }
-    
+
     Serial.print("Logged in to AP:");
     Serial.println(ssid);
     ota = setup_OTA();
@@ -207,7 +213,7 @@ void WiFiTask(void *arg)
     {
         if (xQueueReceive(udpOut, (void *)&subwifiData, 0) == pdTRUE)
         {
-            String out = RoboCode(subwifiData);
+            String out = RoboCode(subwifiData, subwifiData.cmd);
             out = addCRCToString(out);
             udp.broadcast(out.c_str());
         }
