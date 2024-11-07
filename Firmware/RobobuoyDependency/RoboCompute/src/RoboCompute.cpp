@@ -68,6 +68,7 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
     case TOPDATA: // ?
         printf("TOPDATA Not implementend yet/r/n");
         break;
+    case UDPTGDIRSPEED:
     case LORADIRSPEED: // Dir,speed
     case TOPDIRSPEED:  // Dir,Speed
         dataStore.dirSet = numbers[1].toInt();
@@ -218,6 +219,7 @@ String RoboCode(RoboStruct dataOut, int cmd)
         break;
     case TOPIDLE:
         break;
+    case UDPTGDIRSPEED:
     case LORADIRSPEED: // Dir,speed
     case TOPDIRSPEED:  // Dir,Speed
         out += "," + String(dataOut.tgDir, 2);

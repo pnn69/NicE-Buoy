@@ -35,6 +35,7 @@ unsigned long lastPressTime = 0;  // Time of the last press
 unsigned long debounceDelay = 50; // Debounce time in milliseconds
 int pressCount = 0;               // Count the number of button presses
 bool debounce = false;            // Debouncing flag
+int presses = 0;
 
 //***************************************************************************************************
 //      keypress detection
@@ -87,31 +88,18 @@ int countKeyPressesWithTimeoutAndLongPressDetecton()
 //***************************************************************************************************
 // Setup
 //***************************************************************************************************
-void handleTimerRoutines(RoboStruct in)
+RoboStruct handleTimerRoutines(RoboStruct in)
 {
-    udptimer = millis();
-    if (subStatus == UDPERROR)
+    if (in.status != IDLE && in.lastUdpIn + 5000 < millis()) // udp timeout detection
     {
-        mainLedStatus.color = CRGB::Blue;
-        mainLedStatus.blink = BLINK_SLOW;
+        mainLedStatus.color = CRGB::LightGoldenrodYellow;
+        mainLedStatus.blink = BLINK_FAST;
         xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
-        subStatus = IDLE;
-    }
-    if (udptimer + 2000 < millis() + random(0, 100))
-    {
-        if (subStatus != UDPERROR)
-        {
-            subStatus = UDPERROR;
-            mainLedStatus.color = CRGB::LightGoldenrodYellow;
-            mainLedStatus.blink = BLINK_FAST;
-            xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
-        }
-        udptimer = millis();
+        subStatus = IDELING;
     }
 
     if (nextSamp < millis())
     {
-        
         mainData.cmd = SUBDIRSPEED;
         xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
     }
@@ -137,6 +125,7 @@ void handleTimerRoutines(RoboStruct in)
             logtimer = millis() + 250;
         }
     }
+    return in;
 }
 
 //***************************************************************************************************
@@ -211,7 +200,7 @@ void setup()
 //***************************************************************************************************
 //      key press stuff
 //***************************************************************************************************
-void handelKeyPress(void)
+int handelKeyPress(int key)
 {
     int presses = countKeyPressesWithTimeoutAndLongPressDetecton();
     if (presses > 0)
@@ -235,13 +224,21 @@ void handelKeyPress(void)
             beep(-1, buzzer);
         }
     }
+    return key;
 }
 
 //***************************************************************************************************
 //      status actions
 //***************************************************************************************************
-int handelStatus(int stat)
+RoboStruct handelStatus(RoboStruct stat)
 {
+    if (stat.status == IDELING)
+    {
+        stat.speed = 0;
+        stat.speedBb = 0;
+        stat.speedSb = 0;
+        stat.status = IDLE;
+    }
     return stat;
 }
 
@@ -255,7 +252,6 @@ void loop(void)
     int msg = -1;
     float vbat = 0;
     int speedbb = 50, speedsb = 0;
-    int presses = 0;
     beep(1000, buzzer);
     delay(500);
     mainLedStatus.color = CRGB::Blue;
@@ -275,13 +271,21 @@ void loop(void)
         //***************************************************************************************************
         //      Timer routines
         //***************************************************************************************************
-        handleTimerRoutines(mainData);
+        mainData = handleTimerRoutines(mainData);
+        //***************************************************************************************************
+        //      Check front key
+        //***************************************************************************************************
+        presses = handelKeyPress(presses);
+        //***************************************************************************************************
+        //      Status change handeling
+        //***************************************************************************************************
+        mainData = handelStatus(mainData);
         //***************************************************************************************************
         //      New compass data
         //***************************************************************************************************
         if (xQueueReceive(compass, (void *)&mainData.dirMag, 2) == pdTRUE)
         {
-            if (subStatus == TOPCALCRUDDER)
+            if (subStatus == LOCKED)
             {
                 mainData = CalcRudderBuoy(mainData); // calculate power to thrusters
                 if (esc.speedbb != mainData.speedBb || esc.speedsb != mainData.speedSb)
@@ -292,16 +296,18 @@ void loop(void)
                 }
             }
         }
-
-        //***************************************************************************************************
-        //      Check front key
-        //***************************************************************************************************
-        handelKeyPress();
         //***************************************************************************************************
         //      new udp message
         //***************************************************************************************************
         if (xQueueReceive(udpIn, (void *)&udpInMain, 0) == pdTRUE)
         {
+            mainData.lastUdpIn = millis();
+            if (mainLedStatus.color != CRGB::DarkBlue)
+            {
+                mainLedStatus.color = CRGB::DarkBlue;
+                mainLedStatus.blink = BLINK_SLOW;
+                xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
+            }
             mainData = RoboDecode(udpInMain, mainData);
             switch (mainData.cmd)
             {
@@ -309,7 +315,12 @@ void loop(void)
                 subStatus = IDELING;
                 break;
             case LOCKED:
+            case UDPTGDIRSPEED:
                 subStatus = LOCKED;
+                break;
+            case REMOTE:
+            case UDPDIRSPEED:
+                subStatus = REMOTE;
                 break;
             case PING:
                 mainData.cmd = PONG;

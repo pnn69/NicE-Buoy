@@ -309,34 +309,30 @@ int handelStatus(int status)
 //***************************************************************************************************
 //      Timer routines
 //***************************************************************************************************
-void handleTimerRoutines(RoboStruct timer)
+RoboStruct handleTimerRoutines(RoboStruct timer)
 {
-    if (updateSubtimer < millis())
+    if (timer.lastUdpOut + 250 < millis())
     {
-        updateSubtimer = 250 + millis();
-        // updateSubtimer = 10000 + millis();
-
+        String udpData = "";
         timer.cmd = PING;
-        if (timer.status == LOCKED || timer.status == DOCKED || timer.status == REMOTE) // Send course info
+        timer.lastUdpOut = millis();
+        if (status == LOCKED || status == DOCKED)
         {
-            timer.cmd = status;
+            RouteToPoint(timer.lat, timer.lng, timer.tgLat, timer.tgLng, &timer.tgDist, &timer.tgDir);
+            timer = hooverPid(timer);
+            timer.cmd = UDPTGDIRSPEED;
         }
-        if (timer.status == IDLE)
+        if (timer.status == REMOTE) // Send course info
         {
-            timer.cmd = timer.status;
-            timer.speed = 0;
-            timer.dirSet = 0;
-            timer.tgDir = 0;
-            timer.tgDist = 0;
+            timer.cmd = UDPDIRSPEED;
         }
+        timer.lastUdpOut = millis();
         xQueueSend(udpOut, (void *)&timer, 0); // Keep the watchdog in sub happy
     }
 
-    if (loraTimerOut < millis())
+    if (timer.lastLoraOut + 29000 + random(1000, 2000) < millis())
     {
-        loraTimerOut = millis() + 29000 + random(1000, 2000);
-        // loraTimerOut= millis() + 9000 + random(1000, 2000);
-        RoboStruct tmpLora;
+        timer.lastLoraOut = millis();
         LoraTx.msg = -1;
         LoraTx.macIDr = -2;
         String loraString = "";
@@ -347,7 +343,6 @@ void handleTimerRoutines(RoboStruct timer)
         case 1:
             //  IDr,IDs,MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
             LoraTx.msg = LORABUOYPOS;
-            tmpLora.cmd = LORABUOYPOS;
             loraString = RoboCode(mainData, LORABUOYPOS);
             mainData.loralstmsg = 2;
             break;
@@ -356,7 +351,6 @@ void handleTimerRoutines(RoboStruct timer)
             {
                 //  IDr,IDs,MSG,ACK,tgDir,tgDist
                 LoraTx.msg = LORADIRDIST;
-                tmpLora.cmd = LORADIRDIST;
                 loraString = RoboCode(mainData, LORADIRDIST);
             }
             mainData.loralstmsg = 3;
@@ -364,7 +358,6 @@ void handleTimerRoutines(RoboStruct timer)
         case 3:
             //  IDr,IDs,MSG,ACK,tgLat,tgLng
             LoraTx.msg = LORALOCKPOS;
-            tmpLora.cmd = LORALOCKPOS;
             loraString = RoboCode(mainData, LORALOCKPOS);
             mainData.loralstmsg = 1;
             break;
@@ -379,7 +372,7 @@ void handleTimerRoutines(RoboStruct timer)
         }
         else
         {
-            Serial.println("Lora error case:" + String(mainData.loralstmsg) + " cmd:" + String(tmpLora.cmd) + "  Data:" + loraString + "  String length:" + loraString.length());
+            Serial.println("Lora error case:" + String(mainData.loralstmsg) + " cmd:" + String(LoraTx.msg) + "  Data:" + loraString + "  String length:" + loraString.length());
         }
     }
 
@@ -396,6 +389,7 @@ void handleTimerRoutines(RoboStruct timer)
         battVoltage(mainData.topAccuV, mainData.topAccuP);
         printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %3d%%\r\n", mainData.topAccuV, mainData.topAccuP, mainData.subAccuV, mainData.subAccuP);
     }
+    return timer;
 }
 
 //***************************************************************************************************
@@ -464,7 +458,7 @@ void loop(void)
         //***************************************************************************************************
         //      Timer routines
         //***************************************************************************************************
-        handleTimerRoutines(mainData);
+        mainData = handleTimerRoutines(mainData);
         //***************************************************************************************************
         //      Check front key
         //***************************************************************************************************
@@ -491,12 +485,13 @@ void loop(void)
             {
                 mainData.lat = mainGpsData.lat;
                 mainData.lng = mainGpsData.lng;
-            }
-            if ((status == LOCKED) || status == DOCKED) // update sub onley when locked or docked
-            {
-                RouteToPoint(mainGpsData.lat, mainGpsData.lng, mainData.tgLat, mainData.tgLng, &mainData.tgDist, &mainData.tgDir);
-                mainData.cmd = TOPCALCRUDDER;
-                xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
+                if ((status == LOCKED) || status == DOCKED) // update sub onley when locked or docked
+                {
+                    RouteToPoint(mainData.lat, mainData.lng, mainData.tgLat, mainData.tgLng, &mainData.tgDist, &mainData.tgDir);
+                    mainData.cmd = TOPCALCRUDDER;
+                    xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
+                    mainData.lastUdpOut = millis();
+                }
             }
         }
         //***************************************************************************************************
@@ -506,7 +501,10 @@ void loop(void)
         {
             if (loraRx.macIDr == buoyId || loraRx.macIDr == BUOYIDALL) // yes for me
             {
-                // MSG,<data>
+                if (loraRx.macIDr == buoyId)
+                {
+                    mainData.lastLoraIn = millis(); // message was for me so update last lora tranmission.
+                }
                 String loraStringIn = String(loraRx.data);
                 loraData = RoboDecode(loraStringIn, loraData);
                 loraData.mac = loraRx.macIDs; // store ID
@@ -543,7 +541,6 @@ void loop(void)
                     loraTimerIn = 5000 + millis(); // 5 sec timeout
                     break;
                 case LORALOCKPOS:
-                    loraData.lastLoraComm = millis();
                     AddDataToBuoyBase(loraData, buoyPara);
                     break;
                 case DOCKING:
@@ -552,18 +549,11 @@ void loop(void)
                     break;
                 case LOCKING:
                     printf("Status set to LOCKING (by lora input)\r\n");
-                        status = LOCKING;
+                    status = LOCKING;
                     break;
                 default:
                     break;
                 }
-            }
-        }
-        else
-        {
-            if (loraTimerIn < millis() && status == REMOTE) // wdg remote contolled status
-            {
-                status = IDLE; // stop if there are no updates for more than 5 seconds
             }
         }
         //***************************************************************************************************
@@ -571,6 +561,7 @@ void loop(void)
         //***************************************************************************************************
         if (xQueueReceive(udpIn, (void *)&udpDataIn, 0) == pdTRUE)
         {
+            mainData.lastUdpIn = millis();
             mainData = RoboDecode(udpDataIn, mainData);
         }
     }

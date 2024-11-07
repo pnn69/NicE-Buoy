@@ -75,9 +75,11 @@ typedef enum
     LORADIRDIST,    // tgDir,tgDist
     LORASENDTRACK,  // new track positions of buoys
     LORASENDTXT,    // Text message
-    LORAIDELING,
-    COMPUTESTART, //
-    COMPUTETRACK, //
+    LORAIDELING,    //
+    COMPUTESTART,   //
+    COMPUTETRACK,   //
+    UDPTGDIRSPEED,  // compute speed dir
+    UDPDIRSPEED,    // speed dir
 } msg_t;
 
 struct RoboStruct
@@ -124,8 +126,10 @@ struct RoboStruct
     int minSpeed;
     int maxSpeed;
     int compassOffset;
-    unsigned long lastLoraComm = -1; // last external communicatong
-    unsigned long lastUdpComm = -1;  // last external communicatong
+    unsigned long lastLoraIn = 0;  // last external communicatong
+    unsigned long lastLoraOut = 0; // last external communicatong
+    unsigned long lastUdpOut = 0;  // last external communicatong
+    unsigned long lastUdpIn = 0;   // last external communicatong
 };
 
 struct RoboStructGps
