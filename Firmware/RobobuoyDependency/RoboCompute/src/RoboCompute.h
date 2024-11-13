@@ -69,9 +69,8 @@ typedef enum
     UDPERROR,       // no udp communicaton
     STOREASDOC,     // Store location as doc location
     LORABUOYPOS,    // STATUS,LAT,LON,mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
-    LORALOCKPOS,    // LAT,LON,wDir
-    LORADOCKPOS,    // LAT,LON.wDir
-    LORADOCKING,    //
+    LORALOCKPOS,    // LAT,LON,wDir,wStd
+    LORADOCKPOS,    // LAT,LON.wDir,wStd
     LORADIRDIST,    // tgDir,tgDist
     LORASENDTRACK,  // new track positions of buoys
     LORASENDTXT,    // Text message
@@ -80,6 +79,8 @@ typedef enum
     COMPUTETRACK,   //
     UDPTGDIRSPEED,  // compute speed dir
     UDPDIRSPEED,    // speed dir
+    NEWBUOYPOS,     // new computed buoy pos
+    ROBODEFAULTS,
 } msg_t;
 
 struct RoboStruct
@@ -102,25 +103,20 @@ struct RoboStruct
     int speed = 0; // speed
     int speedBb = 0;
     int speedSb = 0;
-    int speedSet = 0;
+    double speedSet = 0;
     double tgDist = 0;
     float subAccuV = 0;
     float topAccuV = 0;
     int subAccuP = 0;
     int topAccuP = 0;
     int cmd = 0;
-    double ps, is, ds;    // speed
-    double kps, kis, kds; // rudder
+    double ps, is, ds; // speed
+    double kps = 20, kis = 0.2, kds = 0;
+    unsigned long lastTimes = 0;
+    double errSums = 0;
+    double lastErrs = 0;
     double pr, ir, dr;
     double kpr, kir, kdr;
-    double lastErrs = 0;
-    unsigned long lastTimes = 0;
-    double lastErrr = 0;
-    unsigned long lastTimer = 0;
-    double iintergrates = 0;
-    bool armIntergrators = false;
-    double iintergrater = 0;
-    bool armIntergratorr = false;
     int minOfsetDist;
     int maxOfsetDist;
     int minSpeed;
@@ -191,8 +187,8 @@ void threePointAverage(struct RoboStruct p3[3], double *latgem, double *lnggem);
 void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double *latgem, double *longem);
 void windDirectionToVector(double windDegrees, double *windX, double *windY);
 double calculateAngle(double x1, double y1, double x2, double y2);
-bool recalcStarLine(struct RoboStruct rsl[3]);
-bool reCalcTrack(struct RoboStruct rsl[3]);
+RoboStruct recalcStarLine(struct RoboStruct rsl[3]);
+RoboStruct reCalcTrack(struct RoboStruct rsl[3]);
 void trackPosPrint(int c);
 RoboStruct calcTrackPos(RoboStruct rsl[3]);
 

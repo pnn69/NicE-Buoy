@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <PID_v1.h>
 #include "main.h"
 #include "io_top.h"
 #include "leds.h"
@@ -9,6 +10,7 @@
 #include "adc.h"
 #include "loratop.h"
 #include "roboRaceTrack.h"
+#include "calibrate.h"
 
 // #define BUFLENMHRG 60 // one sampel each sec so 60 sec for stabilisation
 RoboStruct buoyPara[3] = {};
@@ -26,7 +28,6 @@ static UdpData mainUdpOut;
 static UdpData mainUdpIn;
 static Buzz mainBuzzerData;
 static GpsDataType mainGpsData;
-static int status = IDLE;
 static int wifiConfig = 0;
 unsigned long buoyId;
 unsigned long buoyIdAll = BUOYIDALL;
@@ -46,6 +47,72 @@ unsigned long lastPressTime = 0; // Time of the last press
 unsigned long debounceDelay = 0; // Debounce time in milliseconds
 int pressCount = 0;              // Count the number of button presses
 bool debounce = false;           // Debouncing flag
+
+//***************************************************************************************************
+//  new pid stuff
+//***************************************************************************************************
+double Setpoint, Input, Output;
+double Kp = 20, Ki = 0.05, Kd = 0;
+PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
+
+//***************************************************************************************************
+//      Setup
+//***************************************************************************************************
+void setup()
+{
+    Serial.begin(115200);
+    Setpoint = 0;
+    myPID.SetMode(AUTOMATIC); // turn the PID on
+    myPID.SetOutputLimits(-100, 100);
+
+    pinMode(BUTTON_PIN, INPUT);
+    pinMode(BUZZER_PIN, OUTPUT);
+    pinMode(BUTTON_LIGHT_PIN, OUTPUT);
+    delay(100);
+    printf("\r\nSetup running!\r\n");
+    printf("Robobuoy Top Version: %0.1f\r\n", TOPVERSION);
+    initMemory();
+    initbuzzerqueue();
+    initledqueue();
+    buoyId = initwifiqueue();
+    initgpsqueue();
+    initloraqueue();
+    xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 1000, NULL, 1, NULL, 1);
+    xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
+    xTaskCreatePinnedToCore(GpsTask, "GpsTask", 2000, NULL, configMAX_PRIORITIES - 8, NULL, 1);
+    if (digitalRead(BUTTON_PIN) == true)
+    {
+        delay(100);
+        if (digitalRead(BUTTON_PIN) == true)
+        {
+            wifiConfig = 1; // put in to pair mode
+        }
+    }
+    else
+    {
+        wifiConfig = 0; // Setup normal accespoint
+    }
+    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 2, NULL, 0);
+    xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 1);
+    Serial.println("Main task running!");
+    // defautls(mainData);
+    mainData.status = IDLE;
+    mainData.maxSpeed = 80;
+}
+
+//***************************************************************************************************
+//  RudderPID
+//***************************************************************************************************
+RoboStruct speedPid(RoboStruct speed)
+{
+    Input = speed.tgDist - speed.minOfsetDist;
+    Setpoint = 0;
+    myPID.Compute();
+    speed.speedSet = (int)Output;
+    double Ki = myPID.GetKi();
+    printf("tgDist:%.0f speedSet:%d Ki:%.4f\r\n", speed.tgDist - speed.minOfsetDist, speed.speedSet, Ki);
+    return speed;
+}
 
 //***************************************************************************************************
 //      keypress detection
@@ -98,7 +165,7 @@ int countKeyPressesWithTimeoutAndLongPressDetecton()
 //***************************************************************************************************
 //      key press stuff
 //***************************************************************************************************
-int handelKeyPress(int stat)
+RoboStruct handelKeyPress(RoboStruct key)
 {
     int presses = countKeyPressesWithTimeoutAndLongPressDetecton();
     if (presses > 0)
@@ -106,34 +173,34 @@ int handelKeyPress(int stat)
         switch (presses)
         {
         case 1: // lock / unlock
-            if ((stat != LOCKED) && (stat != DOCKED))
+            if ((key.status != LOCKED) && (key.status != DOCKED))
             {
-                stat = LOCKING;
+                key.status = LOCKING;
             }
             else
             {
-                stat = IDELING;
+                key.status = IDELING;
             }
             break;
         case 2:
-            stat = COMPUTESTART;
+            key.status = COMPUTESTART;
             break;
         case 3:
-            stat = COMPUTETRACK;
+            key.status = COMPUTETRACK;
             break;
         case 10:
-            stat = STOREASDOC;
+            key.status = STOREASDOC;
             break;
         case 0x0100:
             // Sail to dock position
-            stat = DOCKING;
+            key.status = DOCKING;
             break;
         default:
             beep(-1, buzzer);
             break;
         }
     }
-    return stat;
+    return key;
 }
 
 //***************************************************************************************************
@@ -182,45 +249,46 @@ void buttonLight(int status, bool fix)
 //***************************************************************************************************
 //      status actions
 //***************************************************************************************************
-int handelStatus(int status)
+RoboStruct handelStatus(RoboStruct stat, GpsDataType gps)
 {
-    switch (status)
+    switch (stat.status)
     {
     case IDELING:
         beep(2, buzzer);
-        mainData.cmd = IDLE;
-        xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
-        status = IDLE;
+        stat.cmd = IDLE;
+        xQueueSend(udpOut, (void *)&stat, 0); // update WiFi
+        stat.status = IDLE;
         break;
     case LOCKING:
-        if (mainGpsData.fix == true)
+        if (gps.fix == true)
         {
             beep(1, buzzer);
-            mainData.mac = buoyId;
-            mainData.tgLat = mainData.lat;
-            mainData.tgLng = mainData.lng;
-            AddDataToBuoyBase(mainData, buoyPara); // store positon for later calculations Track positioning
+            stat.mac = buoyId;
+            stat.tgLat = gps.lat;
+            stat.tgLng = gps.lng;
+            AddDataToBuoyBase(stat, buoyPara); // store positon for later calculations Track positioning
             // IDr,IDs,ACK,MSG,LAT,LON
-            String loraString = RoboCode(mainData, LORALOCKPOS); // notify others
-            LoraTx.macIDr = -2;                                  // Send to all
-            LoraTx.macIDs = buoyId;                              // msg is comming from me
+            String loraString = RoboCode(stat, LORALOCKPOS); // notify others
+            LoraTx.macIDr = -2;                              // Send to all
+            LoraTx.macIDs = buoyId;                          // msg is comming from me
             LoraTx.msg = LORALOCKPOS;
             LoraTx.ack = LORASET;
             loraString.toCharArray(LoraTx.data, loraString.length() + 1);
             xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
-            status = LOCKED;
+            stat.status = LOCKED;
         }
         else
         {
             beep(2, buzzer);
-            status = IDLE;
+            stat.status = IDLE;
         }
         break;
 
     case DOCKING:
         beep(1, buzzer);
-        memDockPos(mainData, true);
-        status = DOCKED;
+        stat = memDockPos(stat, true);
+        printf("Retreved data for docking tgLat:%.8f tgLng:%.8f\r\n", stat.tgLat, stat.tgLng);
+        stat.status = DOCKED;
         break;
 
     case COMPUTESTART:
@@ -232,78 +300,58 @@ int handelStatus(int status)
         printf(" = (%.12f,%.12f)\r\n", buoyPara[1].tgLat, buoyPara[1].tgLng);
         trackPosPrint(buoyPara[2].trackPos);
         printf(" = (%.12f,%.12f)\r\n", buoyPara[2].tgLat, buoyPara[2].tgLng);
-        if (recalcStarLine(buoyPara) == true)
+
+        buoyPara[3] = recalcStarLine(buoyPara);
+        if ((buoyPara[0].trackPos != -1 && buoyPara[1].trackPos != -1) || (buoyPara[0].trackPos != -1 && buoyPara[2].trackPos != -1) || (buoyPara[1].trackPos != -1 && buoyPara[2].trackPos != -1))
         {
             beep(1, buzzer);
-            status = LORASENDTRACK;
+            stat.status = LORASENDTRACK;
         }
         else
         {
             beep(-1, buzzer);
-            status = LOCKED;
+            stat.status = LOCKED;
         }
         break;
     case COMPUTETRACK:
-        if (reCalcTrack(buoyPara) == true)
+        buoyPara[3] = reCalcTrack(buoyPara);
+        if (buoyPara[0].trackPos != -1 || buoyPara[1].trackPos != -1 || buoyPara[2].trackPos != -1)
         {
             beep(1, buzzer);
-            status = LORASENDTRACK;
+            stat.status = LORASENDTRACK;
         }
         else
         {
             beep(-1, buzzer);
-            status = LOCKED;
+            stat.status = LOCKED;
         }
         break;
     case LORASENDTRACK:
-        if (buoyPara[0].trackPos != -1 && buoyPara[1].trackPos != 0)
+        for (int i = 0; i < 3; i++)
         {
-            trackPosPrint(buoyPara[0].trackPos);
-            printf("n = (%.12f,%.12f)\r\n\r\n", buoyPara[0].tgLat, buoyPara[0].tgLng);
-            String loraString = RoboCode(buoyPara[0], LORALOCKPOS);
-            LoraTx.macIDr = buoyPara[0].mac;
-            LoraTx.macIDs = buoyId;
-            LoraTx.msg = LORALOCKPOS;
-            LoraTx.ack = LORAGETACK;
-            loraString.toCharArray(LoraTx.data, loraString.length() + 1);
-            xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
+            if (buoyPara[i].trackPos != -1 && buoyPara[i].trackPos != 0)
+            {
+                trackPosPrint(buoyPara[i].trackPos);
+                printf("n = (%.12f,%.12f)\r\n\r\n", buoyPara[i].tgLat, buoyPara[i].tgLng);
+                String loraString = RoboCode(buoyPara[i], LORALOCKPOS);
+                LoraTx.macIDr = buoyPara[i].mac;
+                LoraTx.macIDs = buoyId;
+                LoraTx.msg = LORALOCKPOS;
+                LoraTx.ack = LORAGETACK;
+                loraString.toCharArray(LoraTx.data, loraString.length() + 1);
+                xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
+            }
         }
-
-        if (buoyPara[1].trackPos != -1 && buoyPara[1].trackPos != 0)
-        {
-            trackPosPrint(buoyPara[1].trackPos);
-            printf("n = (%.12f,%.12f)\r\n\r\n", buoyPara[1].tgLat, buoyPara[1].tgLng);
-            // IDr,IDs,ACK,MSG,LAT,LON
-            String loraString = RoboCode(buoyPara[1], LORALOCKPOS);
-            LoraTx.macIDr = buoyPara[1].mac;
-            LoraTx.macIDs = buoyId;
-            LoraTx.msg = LORALOCKPOS;
-            LoraTx.ack = LORAGETACK;
-            loraString.toCharArray(LoraTx.data, loraString.length() + 1);
-            xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
-            mainData.tgLat = buoyPara[0].tgLat;
-            mainData.tgLng = buoyPara[0].tgLng;
-        }
-        if (buoyPara[2].trackPos != -1 && buoyPara[2].trackPos != 0)
-        {
-            trackPosPrint(buoyPara[2].trackPos);
-            printf("n = (%.12f,%.12f)\r\n\r\n", buoyPara[1].tgLat, buoyPara[1].tgLng);
-            String loraString = RoboCode(buoyPara[2], LORALOCKPOS);
-            LoraTx.macIDr = buoyPara[2].mac;
-            LoraTx.macIDs = buoyId;
-            LoraTx.msg = LORALOCKPOS;
-            LoraTx.ack = LORAGETACK;
-            loraString.toCharArray(LoraTx.data, loraString.length() + 1);
-            xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
-            mainData.tgLat = buoyPara[0].tgLat;
-            mainData.tgLng = buoyPara[0].tgLng;
-        }
-        status = LOCKED;
+        stat.status = LOCKED;
         break;
+    case CALIBRATE_OFFSET_MAGNETIC_COMPASS:
+        stat = compasOffestCallicration(stat);
+        break;
+
     default:
         break;
     }
-    return status;
+    return stat;
 }
 
 //***************************************************************************************************
@@ -313,10 +361,10 @@ RoboStruct handleTimerRoutines(RoboStruct timer)
 {
     if (timer.lastUdpOut + 250 < millis())
     {
+        timer.lastUdpOut = millis();
         String udpData = "";
         timer.cmd = PING;
-        timer.lastUdpOut = millis();
-        if (status == LOCKED || status == DOCKED)
+        if (timer.status == LOCKED || timer.status == DOCKED)
         {
             RouteToPoint(timer.lat, timer.lng, timer.tgLat, timer.tgLng, &timer.tgDist, &timer.tgDir);
             timer = hooverPid(timer);
@@ -326,8 +374,8 @@ RoboStruct handleTimerRoutines(RoboStruct timer)
         {
             timer.cmd = UDPDIRSPEED;
         }
-        timer.lastUdpOut = millis();
         xQueueSend(udpOut, (void *)&timer, 0); // Keep the watchdog in sub happy
+        timer.lastUdpOut = millis();
     }
 
     if (timer.lastLoraOut + 29000 + random(1000, 2000) < millis())
@@ -338,31 +386,31 @@ RoboStruct handleTimerRoutines(RoboStruct timer)
         String loraString = "";
         LoraTx.macIDs = buoyId;
         LoraTx.ack = LORAINF;
-        switch (mainData.loralstmsg)
+        switch (timer.loralstmsg)
         {
         case 1:
             //  IDr,IDs,MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
-            LoraTx.msg = LORABUOYPOS;
             loraString = RoboCode(mainData, LORABUOYPOS);
-            mainData.loralstmsg = 2;
+            LoraTx.msg = LORABUOYPOS;
+            timer.loralstmsg = 2;
             break;
         case 2:
-            if (status == LOCKED || status == DOCKED)
+            if (timer.status == LOCKED || timer.status == DOCKED)
             {
                 //  IDr,IDs,MSG,ACK,tgDir,tgDist
-                LoraTx.msg = LORADIRDIST;
                 loraString = RoboCode(mainData, LORADIRDIST);
+                LoraTx.msg = LORADIRDIST;
+                timer.loralstmsg = 3;
+                break;
             }
-            mainData.loralstmsg = 3;
-            break;
         case 3:
             //  IDr,IDs,MSG,ACK,tgLat,tgLng
-            LoraTx.msg = LORALOCKPOS;
             loraString = RoboCode(mainData, LORALOCKPOS);
-            mainData.loralstmsg = 1;
+            LoraTx.msg = LORALOCKPOS;
+            timer.loralstmsg = 1;
             break;
         default:
-            mainData.loralstmsg = 1;
+            timer.loralstmsg = 1;
             break;
         }
         if (loraString.length() < MAXSTRINGLENG - 1 && LoraTx.msg != -1) // send only if msg is set
@@ -372,75 +420,24 @@ RoboStruct handleTimerRoutines(RoboStruct timer)
         }
         else
         {
-            Serial.println("Lora error case:" + String(mainData.loralstmsg) + " cmd:" + String(LoraTx.msg) + "  Data:" + loraString + "  String length:" + loraString.length());
+            Serial.println("Lora error case:" + String(timer.loralstmsg) + " cmd:" + String(LoraTx.msg) + "  Data:" + loraString + "  String length:" + loraString.length());
         }
     }
 
     if (logtimer < millis())
     {
-        logtimer = millis() + 1000;
-        wind = addNewSampleInBuffer(wind, mainData.dirMag); // add sample to buffer for wind direction calculation.
+        logtimer = millis() + 5000;
+        wind = addNewSampleInBuffer(wind, timer.dirMag); // add sample to buffer for wind direction calculation.
         wind = deviationWindRose(wind);
-        mainData.wStd = wind.wStd;
-        mainData.wDir = wind.wDir; // averige wind dir
+        timer.wStd = wind.wStd;
+        timer.wDir = wind.wDir; // averige wind dir
 
-        RouteToPoint(mainData.lat, mainData.lng, mainData.tgLat, mainData.tgLng, &mainData.tgDist, &mainData.tgDir);
-        printf("Status:%d Lat: %2.8f Lon:%2.8f tgLat: %2.8f tgLon:%2.8f tgDist:%.2f tgDir:%.2f mDir:%.2f wDir:%.2f wStd:%.2f ", status, mainData.lat, mainData.lng, mainData.tgLat, mainData.tgLng, mainData.tgDist, mainData.tgDir, mainData.dirMag, mainData.wDir, mainData.wStd);
-        battVoltage(mainData.topAccuV, mainData.topAccuP);
-        printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %3d%%\r\n", mainData.topAccuV, mainData.topAccuP, mainData.subAccuV, mainData.subAccuP);
+        RouteToPoint(timer.lat, timer.lng, timer.tgLat, timer.tgLng, &timer.tgDist, &timer.tgDir);
+        printf("Status:%d Lat: %.0f Lon:%.0f tgLat: %.0f tgLon:%.0f tgDist:%.2f tgDir:%.0f mDir:%.0f wDir:%.0f wStd:%.2f ", timer.status, timer.lat, timer.lng, timer.tgLat, timer.tgLng, timer.tgDist, timer.tgDir, timer.dirMag, timer.wDir, timer.wStd);
+        battVoltage(timer.topAccuV, timer.topAccuP);
+        printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %d%% BB:%02d SB:%02d\r\n", timer.topAccuV, timer.topAccuP, timer.subAccuV, timer.subAccuP, timer.speedBb, timer.speedSb);
     }
     return timer;
-}
-
-//***************************************************************************************************
-//      Setup
-//***************************************************************************************************
-void setup()
-{
-    Serial.begin(115200);
-    pinMode(BUTTON_PIN, INPUT);
-    pinMode(BUZZER_PIN, OUTPUT);
-    pinMode(BUTTON_LIGHT_PIN, OUTPUT);
-    delay(100);
-    printf("\r\nSetup running!\r\n");
-    printf("Robobuoy Top Version: %0.1f\r\n", TOPVERSION);
-    initMemory();
-    initbuzzerqueue();
-    initledqueue();
-    buoyId = initwifiqueue();
-    initgpsqueue();
-    initloraqueue();
-    xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 1000, NULL, 1, NULL, 1);
-    xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
-    xTaskCreatePinnedToCore(GpsTask, "GpsTask", 2000, NULL, configMAX_PRIORITIES - 8, NULL, 1);
-    if (digitalRead(BUTTON_PIN) == true)
-    {
-        delay(100);
-        if (digitalRead(BUTTON_PIN) == true)
-        {
-            wifiConfig = 1; // put in to pair mode
-        }
-    }
-    else
-    {
-        wifiConfig = 0; // Setup normal accespoint
-    }
-    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 2, NULL, 0);
-    xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 1);
-    Serial.println("Main task running!");
-    // 52.32035583 Lon:4.96552433
-    buoyPara[0].mac = 0;
-    buoyPara[0].tgLat = 0;
-    buoyPara[0].tgLng = 0;
-    buoyPara[1].mac = 0;
-    buoyPara[1].tgLat = 0;
-    buoyPara[1].tgLng = 0;
-    // buoyPara[2].mac = 0;
-    // buoyPara[2].tgLat = 0;
-    // buoyPara[2].tgLng = 0;
-    buoyPara[2].mac = 80;
-    buoyPara[2].tgLat = 52.32287446097399;
-    buoyPara[2].tgLng = 4.9638194546392445;
 }
 
 //***************************************************************************************************
@@ -453,6 +450,7 @@ void loop(void)
     xQueueSend(ledGps, (void *)&mainCollorGps, 0); // update GPS led
     // beep(1000, buzzer);
     bool firstfix = false;
+
     while (true)
     {
         //***************************************************************************************************
@@ -462,15 +460,15 @@ void loop(void)
         //***************************************************************************************************
         //      Check front key
         //***************************************************************************************************
-        status = handelKeyPress(status);
+        mainData = handelKeyPress(mainData);
         //***************************************************************************************************
         //      status actions
         //***************************************************************************************************
-        status = handelStatus(status);
+        mainData = handelStatus(mainData, mainGpsData);
         //***************************************************************************************************
         //      Light button control
         //***************************************************************************************************
-        buttonLight(status, mainGpsData.fix);
+        buttonLight(mainData.status, mainGpsData.fix);
         //****************************************************************************************************
         //      New GPS data
         //***************************************************************************************************
@@ -485,10 +483,11 @@ void loop(void)
             {
                 mainData.lat = mainGpsData.lat;
                 mainData.lng = mainGpsData.lng;
-                if ((status == LOCKED) || status == DOCKED) // update sub onley when locked or docked
+                if ((mainData.status == LOCKED) || mainData.status == DOCKED) // update sub onley when locked or docked
                 {
                     RouteToPoint(mainData.lat, mainData.lng, mainData.tgLat, mainData.tgLng, &mainData.tgDist, &mainData.tgDir);
-                    mainData.cmd = TOPCALCRUDDER;
+                    mainData = hooverPid(mainData);
+                    mainData.cmd = UDPTGDIRSPEED;
                     xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
                     mainData.lastUdpOut = millis();
                 }
@@ -497,7 +496,7 @@ void loop(void)
         //***************************************************************************************************
         //      New Lora data
         //***************************************************************************************************
-        if (xQueueReceive(loraIn, (void *)&loraRx, 0) == pdTRUE) // new lora data
+        if (xQueueReceive(loraIn, (void *)&loraRx, 1) == pdTRUE) // new lora data
         {
             if (loraRx.macIDr == buoyId || loraRx.macIDr == BUOYIDALL) // yes for me
             {
@@ -510,13 +509,14 @@ void loop(void)
                 loraData.mac = loraRx.macIDs; // store ID
                 switch (loraRx.msg)
                 {
-                case IDELING:
+                case LOCKING:
                     if (mainGpsData.fix == true)
                     {
+                        printf("Status set to LOCKING (by lora input)\r\n");
                         beep(1, buzzer);
                         mainData.mac = buoyId;
-                        mainData.tgLat = mainData.lat;
-                        mainData.tgLng = mainData.lng;
+                        mainData.tgLat = loraData.lat;
+                        mainData.tgLng = loraData.lng;
                         AddDataToBuoyBase(mainData, buoyPara); // store positon for later calculations Track positioning
                         // IDr,IDs,ACK,MSG,LAT,LON
                         String loraString = RoboCode(mainData, LORALOCKPOS); // notify others
@@ -526,30 +526,51 @@ void loop(void)
                         LoraTx.ack = LORASET;
                         loraString.toCharArray(LoraTx.data, loraString.length() + 1);
                         xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
-                        status = LOCKED;
+                        mainData.status = LOCKED;
                     }
                     break;
                 case LORADIRDIST:
                     mainData.tgDir = loraData.tgDir;
                     mainData.tgDist = loraData.tgDist;
-                    status = LORADIRDIST;
+                    mainData.status = LORADIRDIST;
                     loraTimerIn = 5000 + millis(); // 5 sec timeout
                 case LORADIRSPEED:
                     mainData.tgDir = loraData.tgDir;
                     mainData.tgDist = loraData.speedSet;
-                    status = REMOTE;
+                    mainData.status = REMOTE;
                     loraTimerIn = 5000 + millis(); // 5 sec timeout
                     break;
-                case LORALOCKPOS:
+                case LORALOCKPOS: // store new data into position database
+                    mainData.tgDir = loraData.tgDir;
+                    mainData.tgDist = loraData.tgDist;
                     AddDataToBuoyBase(loraData, buoyPara);
+                    mainData.status = LOCKING;
                     break;
                 case DOCKING:
                     printf("Status set to DOCKING (by lora input)\r\n");
-                    status = DOCKING;
+                    mainData.status = DOCKING;
                     break;
-                case LOCKING:
-                    printf("Status set to LOCKING (by lora input)\r\n");
-                    status = LOCKING;
+                case IDELING:
+                    printf("Status set to IDLE (by lora input)\r\n");
+                    mainData.status = IDELING;
+                    break;
+                case PIDRUDDERSET:
+                    pidRudderParameters(loraData, false);
+                    loraData.cmd = PIDRUDDERSET;
+                    xQueueSend(udpOut, (void *)&loraData, 0); // Keep the watchdog in sub happy
+                    mainData.pr = loraData.pr;
+                    mainData.ir = loraData.ir;
+                    mainData.dr = loraData.dr;
+                    mainData.kir = 0;
+                    break;
+                case PIDSPEEDSET:
+                    pidSpeedParameters(loraData, false);
+                    loraData.cmd = PIDSPEEDSET;
+                    xQueueSend(udpOut, (void *)&loraData, 0); // Keep the watchdog in sub happy
+                    mainData.ps = loraData.ps;
+                    mainData.is = loraData.is;
+                    mainData.ds = loraData.ds;
+                    mainData.kis = 0;
                     break;
                 default:
                     break;
@@ -559,7 +580,7 @@ void loop(void)
         //***************************************************************************************************
         //      New WiFi data
         //***************************************************************************************************
-        if (xQueueReceive(udpIn, (void *)&udpDataIn, 0) == pdTRUE)
+        if (xQueueReceive(udpIn, (void *)&udpDataIn, 1) == pdTRUE)
         {
             mainData.lastUdpIn = millis();
             mainData = RoboDecode(udpDataIn, mainData);

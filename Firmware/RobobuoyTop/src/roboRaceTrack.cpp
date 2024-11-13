@@ -8,9 +8,7 @@ bool AddDataToBuoyBase(RoboStruct dataIn, RoboStruct buoyPara[3])
     if (dataIn.mac == buoyId)
     {
         memcpy(&buoyPara[0], &dataIn, sizeof(RoboStruct));
-        Serial.println("LOCK data added to buoyPara[0]");
-        Serial.println(String(dataIn.tgLat));
-        Serial.println(String(dataIn.tgLng));
+        printf("LOCK data added to buoyPara[0]\r\n");
         return true;
     }
     else
@@ -20,6 +18,7 @@ bool AddDataToBuoyBase(RoboStruct dataIn, RoboStruct buoyPara[3])
             if (dataIn.mac == buoyPara[i].mac || buoyPara[i].mac == 0)
             {
                 memcpy(&buoyPara[i], &dataIn, sizeof(RoboStruct));
+                printf("LOCK data added to buoyPara[%d]\r\n", i);
                 return true;
             }
         }

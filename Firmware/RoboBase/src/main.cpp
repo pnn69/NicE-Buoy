@@ -5,6 +5,7 @@
 #include "lorabase.h"
 #include "roboRaceTrack.h"
 #include "oled_ssd1306.h"
+#include "basewifi.h"
 
 // #define BUFLENMHRG 60 // one sampel each sec so 60 sec for stabilisation
 
@@ -135,13 +136,14 @@ int handelStatus(int status)
             trackPosPrint(buoyPara[i].trackPos);
             printf(" = (%.12f,%.12f)\r\n", buoyPara[i].tgLat, buoyPara[i].tgLng);
         }
-        if (recalcStarLine(buoyPara) == true)
+        buoyPara[3] = recalcStarLine(buoyPara);
+        if ((buoyPara[0].trackPos != -1 && buoyPara[1].trackPos != -1) || (buoyPara[0].trackPos != -1 && buoyPara[2].trackPos != -1) || (buoyPara[1].trackPos != -1 && buoyPara[2].trackPos != -1))
         {
             status = LORASENDTRACK;
         }
         else
         {
-            status = LOCKED;
+            status = IDLE;
         }
         break;
     case COMPUTETRACK:
@@ -150,13 +152,14 @@ int handelStatus(int status)
             trackPosPrint(buoyPara[i].trackPos);
             printf(" = (%.12f,%.12f)\r\n", buoyPara[i].tgLat, buoyPara[i].tgLng);
         }
-        if (reCalcTrack(buoyPara) == true)
+        buoyPara[3] = reCalcTrack(buoyPara);
+        if (buoyPara[0].trackPos == -1 || buoyPara[1].trackPos == -1 || buoyPara[2].trackPos == -1)
         {
-            status = LORASENDTRACK;
+            status = IDLE;
         }
         else
         {
-            status = LOCKED;
+            status = LORASENDTRACK;
         }
         break;
     case LORASENDTRACK:
@@ -178,15 +181,22 @@ int handelStatus(int status)
         status = LOCKED;
         break;
     case DOCKING:
-        for (int i = 1; i < 0; i++)
+        loraTx.macIDr = BUOYIDALL;
+        loraTx.macIDs = buoyId;
+        loraTx.msg = DOCKING;
+        loraTx.ack = LORAINF;
+        loraString = RoboCode(buoyPara[0], DOCKING);
+        loraString.toCharArray(loraTx.data, loraString.length() + 1);
+        xQueueSend(loraOut, (void *)&loraTx, 10); // send out trough Lora
+        for (int i = 0; i < 3; i++)
         {
             if (buoyPara[i].mac != 0)
             {
                 loraTx.macIDr = buoyPara[i].mac;
                 loraTx.macIDs = buoyId;
-                loraTx.msg = LORADOCKING;
+                loraTx.msg = DOCKING;
                 loraTx.ack = LORAGETACK;
-                loraString = RoboCode(buoyPara[i], LORADOCKING);
+                loraString = RoboCode(buoyPara[i], DOCKING);
                 loraString.toCharArray(loraTx.data, loraString.length() + 1);
                 xQueueSend(loraOut, (void *)&loraTx, 10); // send out trough Lora
             }
@@ -239,7 +249,9 @@ void setup()
     digitalWrite(BUTTON_PIN_pwr, HIGH);
     initSSD1306();
     initloraqueue();
+    initwifiqueue();
     xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 1);
+    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, NULL, configMAX_PRIORITIES - 5, NULL, 0);
     Serial.println("Main task running!");
     // buoyPara[0].wDir = 275;
     // buoyPara[0].mac = 000010;
@@ -256,6 +268,9 @@ void setup()
     // buoyPara[2].tgLng = 4.932830118095;
 }
 
+//***************************************************************************************************
+//  Main loop
+//***************************************************************************************************
 void loop(void)
 {
     int presses = -1;

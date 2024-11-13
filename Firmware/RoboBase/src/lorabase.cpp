@@ -3,6 +3,7 @@
 #include "lorabase.h"
 #include "io_base.h"
 #include "main.h"
+#include "basewifi.h"
 
 static bool loraOk = false;
 static char loraData[MAXSTRINGLENG];
@@ -10,11 +11,14 @@ static lorabuf loraMsgout = {};
 static lorabuf loraMsgin = {};
 static lorabuf pendingMsg[10] = {};
 static RoboStruct loraStruct;
+static RoboStruct udpStruct;
+
 QueueHandle_t loraOut;
 QueueHandle_t loraIn;
 
 //***************************************************************************************************
 //  Recieve and decode incomming lora message
+//  IDr,IDs,ACK,MSG,DATA
 //***************************************************************************************************
 lorabuf decodeString(String incoming)
 {
@@ -108,7 +112,7 @@ void removeAckMsg(lorabuf ackBuffer)
     int i = 0;
     while (i < 10)
     {
-        //Serial.println("ackBuffer.macIDr: " + String(ackBuffer.macIDs,HEX) +" pendingMsg[i].macIDs: " + String(pendingMsg[i].macIDr,HEX));
+        // Serial.println("ackBuffer.macIDr: " + String(ackBuffer.macIDs,HEX) +" pendingMsg[i].macIDs: " + String(pendingMsg[i].macIDr,HEX));
         if (pendingMsg[i].msg == ackBuffer.msg && pendingMsg[i].macIDr == ackBuffer.macIDs)
         {
             pendingMsg[i].ack = 0;
@@ -116,7 +120,7 @@ void removeAckMsg(lorabuf ackBuffer)
             pendingMsg[i].macIDs = 0;
             pendingMsg[i].macIDr = 0;
             pendingMsg[i].retry = 0;
-            //printf("message removed for ack on pos:%d\r\n", i);
+            // printf("message removed for ack on pos:%d\r\n", i);
             return;
         }
         i++;
@@ -146,7 +150,7 @@ struct lorabuf chkAckMsg(void)
                 pendingMsg[i].macIDs = 0;
                 pendingMsg[i].macIDr = 0;
             }
-            //printf(" message ack on pos:%d rettrys left %d   msg:%d\r\n", i, pendingMsg[i].retry, pendingMsg[i].msg);
+            // printf(" message ack on pos:%d rettrys left %d   msg:%d\r\n", i, pendingMsg[i].retry, pendingMsg[i].msg);
             return in;
         }
         i++;
@@ -159,6 +163,7 @@ struct lorabuf chkAckMsg(void)
 //***************************************************************************************************
 void onReceive(int packetSize)
 {
+
     if (packetSize == 0)
         return; // if there's no packet, return
     // read packet header bytes:
@@ -173,7 +178,7 @@ void onReceive(int packetSize)
         Serial.println("error: message length does not match length");
         return; // skip rest of function
     }
-    Serial.println("Lora in <" + incoming + ">");
+    //Serial.println("Lora in <" + incoming + ">");
     lorabuf in = decodeString(incoming);
     if (in.macIDr == buoyId && in.ack == LORAACK) // A message form me so check if its a ACK message
     {
@@ -183,6 +188,10 @@ void onReceive(int packetSize)
     }
     if (in.macIDr == buoyId || in.macIDr == BUOYIDALL) // A message form me
     {
+        printf("<%s>\r\n", incoming.c_str()); // IDr,IDs,ACK,MSG,DATA
+        // char out[MAXSTRINGLENG];
+        // incoming.toCharArray(out, incoming.length() + 1);
+        // xQueueSend(udpOut, (void *)&out, 0); // update WiFi
         if (in.ack == LORAGETACK)
         {
             // IDr,IDs,ACK,MSG

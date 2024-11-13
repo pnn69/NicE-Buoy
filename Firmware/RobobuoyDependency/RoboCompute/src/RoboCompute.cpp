@@ -72,7 +72,7 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
     case LORADIRSPEED: // Dir,speed
     case TOPDIRSPEED:  // Dir,Speed
         dataStore.dirSet = numbers[1].toInt();
-        dataStore.speedSet = numbers[3].toInt();
+        dataStore.speedSet = numbers[2].toDouble();
         break;
     case TOPROUTTOPOINT: //?
         break;
@@ -83,7 +83,7 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
     case TOPCALCRUDDER: // tgDir,tgDist,Speed
         dataStore.tgDir = numbers[1].toDouble();
         dataStore.tgDist = numbers[2].toDouble();
-        dataStore.speedSet = numbers[3].toInt();
+        dataStore.speedSet = numbers[3].toDouble();
     case TOPIDLE:
         break;
     case SUBDIRSPEED: // mDir,speedbb,speedsb,speed
@@ -120,20 +120,23 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         dataStore.kds = numbers[6].toDouble();
         break;
     case LORABUOYPOS: // STATUS,LAT,LON,mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
-        dataStore.status = numbers[2].toInt();
-        dataStore.lat = numbers[3].toDouble();
-        dataStore.lng = numbers[4].toDouble();
-        dataStore.dirMag = numbers[5].toDouble();
-        dataStore.wDir = numbers[6].toDouble();
-        dataStore.wStd = numbers[7].toDouble();
-        dataStore.topAccuP = numbers[8].toInt();
-        dataStore.subAccuP = numbers[9].toInt();
+        dataStore.status = numbers[1].toInt();
+        dataStore.lat = numbers[2].toDouble();
+        dataStore.lng = numbers[3].toDouble();
+        dataStore.dirMag = numbers[4].toDouble();
+        dataStore.wDir = numbers[5].toDouble();
+        dataStore.wStd = numbers[6].toDouble();
+        dataStore.topAccuP = numbers[7].toInt();
+        dataStore.subAccuP = numbers[8].toInt();
         break;
-    case LORALOCKPOS: // LAT,LON,wDir
-    case LORADOCKPOS: // LAT,LON,wDir
+    case DOCKING:
+        break;
+    case LORALOCKPOS: // LAT,LON,wDir,wStd
+    case LORADOCKPOS: // LAT,LON,wDir,wStd
         dataStore.tgLat = numbers[1].toDouble();
         dataStore.tgLng = numbers[2].toDouble();
         dataStore.wDir = numbers[3].toDouble();
+        dataStore.wStd = numbers[4].toDouble();
         break;
     case LORADIRDIST:
         dataStore.tgDir = numbers[1].toDouble();
@@ -223,7 +226,7 @@ String RoboCode(RoboStruct dataOut, int cmd)
     case LORADIRSPEED: // Dir,speed
     case TOPDIRSPEED:  // Dir,Speed
         out += "," + String(dataOut.tgDir, 2);
-        out += "," + String(dataOut.speed, 2);
+        out += "," + String(dataOut.speedSet, 2);
         break;
     case TOPDIRDIST:
         out += "," + String(dataOut.tgDir, 2);
@@ -232,7 +235,7 @@ String RoboCode(RoboStruct dataOut, int cmd)
     case TOPCALCRUDDER:
         out += "," + String(dataOut.tgDir, 2);
         out += "," + String(dataOut.tgDist, 2);
-        out += "," + String(dataOut.speedSet);
+        out += "," + String(dataOut.speedSet, 2);
         break;
     case LORABUOYPOS:
         out += "," + String(dataOut.status);
@@ -244,11 +247,14 @@ String RoboCode(RoboStruct dataOut, int cmd)
         out += "," + String(dataOut.topAccuP);
         out += "," + String(dataOut.subAccuP);
         break;
+    case DOCKING:
+        break;
     case LORALOCKPOS:
     case LORADOCKPOS:
         out += "," + String(dataOut.tgLat, 8);
         out += "," + String(dataOut.tgLng, 8);
         out += "," + String(dataOut.wDir, 1);
+        out += "," + String(dataOut.wStd, 1);
         break;
     case LORADIRDIST:
         out += "," + String(dataOut.tgDir, 2);
@@ -518,22 +524,6 @@ double calculateBearing(double lat1, double lon1, double lat2, double lon2)
     return fmod((bearing + 360), 360);             // Normalize to 0-360
 }
 
-void initPid(int pid, RoboStruct buoy)
-{
-    if (pid == PIDSPEED)
-    {
-        buoy.lastErrs = 0;
-        buoy.lastTimes = millis();
-        buoy.iintergrates = 0;
-    }
-    if (pid == PIDRUDDER)
-    {
-        buoy.iintergrater = 0;
-        buoy.lastErrr = 0;
-        buoy.lastTimer = millis();
-    }
-}
-
 /*Approimate roling average deafualt 100 samples*/
 double approxRollingAverage(double avg, double input)
 {
@@ -671,131 +661,39 @@ RoboStruct CalcRemoteRudderBuoy(RoboStruct buoy)
 }
 
 /*
-    Calculate power to thrusters
-    if distance between 0.5 and 1.5 meter rotate at the slowest speed.
-    else do normal rudder calculation.
-*/
-double push = 0;
-#define ILIM 35 // Maximum interal limit (35% power)
-RoboStruct CalcRudderBuoy(RoboStruct buoy)
-{
-    double error = smallestAngle(buoy.dirMag, buoy.tgDir);
-    /*Rotate to target direction first*/
-    if (buoy.tgDist > 0.5 && abs(error) > 45)
-    {
-        float power = map(abs(error), 45, 180, 2, 20);
-        power = sin(radians(power)) * 100;
-        power = (int)map(power, 13, 100, 13, buoy.maxSpeed / 2);
-        power += push;
-        push += 0.01;
-        power = constrain(power, 0, buoy.maxSpeed);
-        if (error >= 0)
-        {
-            buoy.speedBb = power;
-            buoy.speedSb = -power;
-        }
-        else
-        {
-            buoy.speedBb = -power;
-            buoy.speedSb = power;
-        }
-        buoy.pr = 0;
-        buoy.ir = 0;
-        buoy.dr = 0;
-        buoy.iintergrater = 0;
-        buoy.lastErrr = 0;
-        buoy.lastTimer = millis();
-        return buoy;
-    }
-    push = 0;
-    /*calculate proportion thrusters*/
-    /*Scale error in range for tan*/
-    error = map(error, -180, 180, -80, 80);
-    unsigned long now = millis();
-    double timeChange = (double)(now - buoy.lastTimer);
-    double dErr = (error - buoy.lastErrr) / timeChange;
-    buoy.iintergrater += error * timeChange;
-    if ((buoy.kir / 1000) * buoy.iintergrater > ILIM)
-    {
-        buoy.iintergrater = ILIM / ((buoy.kir / 1000));
-    }
-    if ((buoy.kir / 1000) * buoy.iintergrater < -ILIM)
-    {
-        buoy.iintergrater = -ILIM / ((buoy.kir / 1000));
-    }
-    buoy.pr = buoy.kpr * error;
-    buoy.ir = (buoy.kir / 1000) * buoy.iintergrater;
-    buoy.dr = buoy.kdr * dErr;
-    double adj = buoy.pr + buoy.ir + buoy.dr;
-    buoy.lastErrr = error;
-    buoy.lastTimer = now;
-    buoy.speedBb = (int)(buoy.speed * (1 + tan(radians(adj))));
-    buoy.speedSb = (int)(buoy.speed * (1 - tan(radians(adj))));
-    /*Sanety check*/
-    buoy.speedBb = constrain(buoy.speedBb, -buoy.maxSpeed, buoy.maxSpeed);
-    buoy.speedSb = constrain(buoy.speedSb, -buoy.maxSpeed, buoy.maxSpeed);
-    // printf("dErr%f buoy.iintergrater:%f pr%f ir%f ", dErr, buoy.iintergrater, buoy.pr, buoy.ir);
-    return buoy;
-}
-
-/*
 Only used PID if the distancs is less than buoy.maxOfsetDist return BUOYMAXSPEED otherwise.
 */
 RoboStruct hooverPid(RoboStruct buoy)
 {
-    /*Do not use the pid loop if distance is to big just go full power*/
-    if (buoy.maxSpeed == 51) /*old config use this by setting max speed to 51*/
-    {
-        if (buoy.tgDist > buoy.maxOfsetDist)
-        {
-            buoy.speed = buoy.maxSpeed;
-            return buoy;
-        }
-        if (buoy.armIntergrators == false)
-        {
-            buoy.armIntergrators = true;
-            buoy.iintergrates = 0;
-        }
-    }
-    else
-    {
-        /*Do not use the pid loop if distance is to big just go full power*/
-        if (buoy.armIntergrators == false)
-        {
-            if (buoy.tgDist > 3)
-            {
-                buoy.iintergrates = 0;
-                buoy.speed = buoy.maxSpeed;
-                return buoy;
-            }
-            else
-            {
-                buoy.armIntergrators = true;
-                buoy.iintergrates = 0;
-            }
-        }
-    }
+
     /*How long since we last calculated*/
     double Output = 0;
     unsigned long now = millis();
+    if (now > buoy.lastTimes + 1000) // reset afterlong time
+    {
+        buoy.lastErrs = 0;
+        buoy.lastTimes = now;
+    }
     double timeChange = (double)(now - buoy.lastTimes);
     /*Compute all the working error variables*/
-    double error = (buoy.tgDist - buoy.minOfsetDist) / 1000;
-    buoy.iintergrates += (error * timeChange);
+    // double error = (buoy.tgDist - buoy.minOfsetDist);
+    double error = (buoy.tgDist - 2);
+    buoy.errSums += (error * timeChange);
     double dErr = (error - buoy.lastErrs) / timeChange;
     /* Do not sail backwards*/
-    if (buoy.iintergrates < 0)
+    // if (buoy.iintergrates < 0)
+    if (buoy.kis * buoy.errSums < 0)
     {
-        buoy.iintergrates = 0;
+        buoy.errSums = 0;
     }
-    /*max 70% I correction*/
-    if (buoy.kis * buoy.iintergrates > 70)
+    // /*max 70% I correction*/
+    if (buoy.kis * buoy.errSums > 70)
     {
-        buoy.iintergrates = 70 / buoy.kis;
+        buoy.errSums = 70 / buoy.kis;
     }
     /*Compute PID Output*/
-    buoy.ps = buoy.kps * (buoy.tgDist - buoy.minOfsetDist);
-    buoy.is = buoy.kis * buoy.iintergrates;
+    buoy.ps = buoy.kps * error;
+    buoy.is = buoy.kis * buoy.errSums;
     buoy.ds = buoy.kds * dErr;
     Output = buoy.ps + buoy.is + buoy.ds;
     /* Do not sail backwards*/
@@ -804,11 +702,14 @@ RoboStruct hooverPid(RoboStruct buoy)
         Output = 0;
     }
     /*Remember some variables for next time*/
-    buoy.lastErrs = buoy.tgDist;
+    buoy.lastErrs = error;
     buoy.lastTimes = now;
-    // printf("Output:%f dErr%f buoy.iintergrates:%f ps%f is%f ", Output, dErr, buoy.iintergrates, buoy.ps, buoy.is);
-    buoy.speed = (int)Output;
-    buoy.speed = (int)Output;
+    if (Output > buoy.maxSpeed)
+    {
+        Output = buoy.maxSpeed;
+    }
+    buoy.speedSet = Output;
+    // printf("Output:%f error%f buoy.iintergrates:%f p:%.0f i:%.4f ", Output, error, buoy.errSums, buoy.ps, buoy.is);
     return buoy;
 }
 
@@ -879,7 +780,7 @@ double computeWindAngle(double windDegrees, double lat, double lon, double centr
 /************************************************************************************************************************************************************************* */
 // Conversion ready until here
 /************************************************************************************************************************************************************************* */
-bool recalcStarLine(struct RoboStruct rsl[3])
+RoboStruct recalcStarLine(struct RoboStruct rsl[3])
 {
     double d0, d1, d2, dir;
     double mid[2];
@@ -887,7 +788,6 @@ bool recalcStarLine(struct RoboStruct rsl[3])
     rsl[0].trackPos = -1;
     rsl[1].trackPos = -1;
     rsl[2].trackPos = -1;
-
     angleSb = rsl[0].wDir + 90;
     if (angleSb > 360)
     {
@@ -907,7 +807,7 @@ bool recalcStarLine(struct RoboStruct rsl[3])
         if (rsl[0].tgLat == 0 || rsl[0].tgLng == 0 || rsl[1].tgLat == 0 || rsl[1].tgLng == 0) // check if data is ok
         {
             printf("No data to compute with\r\n");
-            return false;
+            return rsl[3];
         }
         angleSb = rsl[0].wDir + 90;
         if (angleSb > 360)
@@ -926,8 +826,7 @@ bool recalcStarLine(struct RoboStruct rsl[3])
         printf("winddir =(%.1f)\r\n", rsl[0].wDir);                                                // wind direction
         rsl[0].trackPos = PORT;
         rsl[1].trackPos = STARBOARD;
-        rsl[2].trackPos = HEAD;
-        return true;
+        return rsl[3];
     }
 
     if (d1 < d0 && d0 < d2)
@@ -935,7 +834,7 @@ bool recalcStarLine(struct RoboStruct rsl[3])
         if (rsl[0].tgLat == 0 || rsl[0].tgLng == 0 || rsl[2].tgLat == 0 || rsl[2].tgLng == 0) // check if data is ok
         {
             printf("No data to compute with\r\n");
-            return false;
+            return rsl[3];
         }
         angleSb = rsl[0].wDir + 90;
         if (angleSb > 360)
@@ -953,9 +852,8 @@ bool recalcStarLine(struct RoboStruct rsl[3])
         adjustPositionDirDist(angleSb, d1 / 2, mid[0], mid[1], &rsl[2].tgLat, &rsl[2].tgLng);      // compute starboard
         printf("winddir =(%.1f)\r\n", rsl[0].wDir);                                                // wind direction
         rsl[0].trackPos = PORT;
-        rsl[1].trackPos = HEAD;
         rsl[2].trackPos = STARBOARD;
-        return true;
+        return rsl[3];
     }
 
     if (d2 < d0 && d2 < d1)
@@ -963,7 +861,7 @@ bool recalcStarLine(struct RoboStruct rsl[3])
         if (rsl[1].tgLat == 0 || rsl[1].tgLng == 0 || rsl[2].tgLat == 0 || rsl[2].tgLng == 0) // check if data is ok
         {
             printf("No data to compute with\r\n");
-            return false;
+            return rsl[3];
         }
         angleSb = rsl[1].wDir + 90;
         if (angleSb > 360)
@@ -980,12 +878,11 @@ bool recalcStarLine(struct RoboStruct rsl[3])
         adjustPositionDirDist(angleBb, d2 / 2, mid[0], mid[1], &rsl[1].tgLat, &rsl[1].tgLng);      // compute port
         adjustPositionDirDist(angleSb, d2 / 2, mid[0], mid[1], &rsl[2].tgLat, &rsl[2].tgLng);      // compute starboard
         printf("winddir =(%.1f)\r\n", rsl[1].wDir);                                                // wind direction
-        rsl[0].trackPos = HEAD;
         rsl[1].trackPos = PORT;
         rsl[2].trackPos = STARBOARD;
-        return true;
+        return rsl[3];
     }
-    return false;
+    return rsl[3];
 }
 
 /*
@@ -1002,19 +899,13 @@ bool recalcStarLine(struct RoboStruct rsl[3])
     - New position buoy2, HEAD,PORT,STARBORD
     - New position buoy3, HEAD,PORT,STARBORD
 */
-bool reCalcTrack(struct RoboStruct rsl[3])
+RoboStruct reCalcTrack(struct RoboStruct rsl[3])
 {
     double d0, d1, d2;
     double startLineL, centerPont2Startline, centerPoint2Head;
     double angleSb, angleBb, angle180, dir;
     double lat2gem, lng2gem;
     double lat3gem, lng3gem;
-    if (rsl[0].tgLat == 0 || rsl[0].tgLng == 0 || rsl[1].tgLat == 0 || rsl[1].tgLng == 0 || rsl[2].tgLat == 0 || rsl[2].tgLng == 0) // check if data is ok
-    {
-        printf("No data to compute with\r\n");
-        return false;
-    }
-
     rsl[0].trackPos = -1;
     rsl[1].trackPos = -1;
     rsl[2].trackPos = -1;
@@ -1022,7 +913,8 @@ bool reCalcTrack(struct RoboStruct rsl[3])
     {
         if (rsl[i].tgLng == 0 || rsl[i].tgLat == 0)
         {
-            return false;
+            printf("No data to compute with\r\n");
+            return rsl[3];
         }
     }
     // mid point of three buoys (for plotting the windrose and calculations)
@@ -1079,7 +971,7 @@ bool reCalcTrack(struct RoboStruct rsl[3])
         rsl[0].trackPos = HEAD;
         rsl[1].trackPos = PORT;
         rsl[2].trackPos = STARBOARD;
-        return true;
+        return rsl[3];
     }
     if (b1 < b0 && b1 < b2)
     {
@@ -1092,7 +984,7 @@ bool reCalcTrack(struct RoboStruct rsl[3])
         rsl[0].trackPos = PORT;
         rsl[1].trackPos = HEAD;
         rsl[2].trackPos = STARBOARD;
-        return true;
+        return rsl[3];
     }
     if (b2 < b0 && b2 < b1)
     {
@@ -1105,9 +997,9 @@ bool reCalcTrack(struct RoboStruct rsl[3])
         rsl[0].trackPos = PORT;
         rsl[1].trackPos = STARBOARD;
         rsl[2].trackPos = HEAD;
-        return true;
+        return rsl[3];
     }
-    return false;
+    return rsl[3];
 }
 
 /*

@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <RoboTone.h>
 #include <RoboCompute.h>
+#include <PID_v1.h>
 #include "main.h"
 #include "freertos/task.h"
 #include "io_sub.h"
@@ -36,6 +37,91 @@ unsigned long debounceDelay = 50; // Debounce time in milliseconds
 int pressCount = 0;               // Count the number of button presses
 bool debounce = false;            // Debouncing flag
 int presses = 0;
+
+//***************************************************************************************************
+//  new pid stuff
+//***************************************************************************************************
+double Setpoint, Input, Output;
+double Kp = 1, Ki = 0.1, Kd = 0.1;
+PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
+
+//***************************************************************************************************
+// Setup
+//***************************************************************************************************
+void setup()
+{
+    Serial.begin(115200);
+    Setpoint = 0;             // tg angle
+    myPID.SetMode(AUTOMATIC); // turn the PID on
+    myPID.SetOutputLimits(-180, 180);
+    pinMode(BUTTON_PIN, INPUT);
+    delay(10);
+    printf("\r\nSetup running!\r\n");
+    printf("Robobuoy Sub Version: %0.1f\r\n", SUBVERSION);
+    buoyId = initwifiqueue();
+    Serial.print("Buoy ID: ");
+    Serial.println(buoyId);
+    initbuzzerqueue();
+    initledqueue();
+    initescqueue();
+    initMemory();
+    initcompassQueue();
+    InitCompass();
+    xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 1000, NULL, 1, NULL, 1);
+    xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 10, NULL, 1);
+    xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
+    xTaskCreatePinnedToCore(CompassTask, "CompasaTask", 2000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
+    if (digitalRead(BUTTON_PIN) == true)
+    {
+        delay(100);
+        if (digitalRead(BUTTON_PIN) == true)
+        {
+            wifiConfig = 1;
+        }
+    }
+    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
+    /*
+    Get sored settings
+    */
+
+    // mainData.ps = 20;
+    // mainData.is = 0.1;
+    // mainData.ds = 0;
+    // pidSpeedParameters(mainData, SET);
+    mainData.pr = 1;
+    mainData.ir = 0.05;
+    mainData.dr = 0.01;
+    pidRudderParameters(mainData, SET);
+    // mainData.minOfsetDist = 2;
+    // mainData.maxOfsetDist = 8;
+    // mainData.minSpeed = 0;
+    // mainData.maxSpeed = 80;
+    // computeParameters(mainData, SET);
+    // mainData.minOfsetDist = 2;
+    // mainData.maxOfsetDist = 8;
+    // mainData.minSpeed = 0;
+    // mainData.maxSpeed = 80;
+    // computeParameters(mainData, SET);
+    mainData = pidSpeedParameters(mainData, GET);
+    mainData = pidRudderParameters(mainData, GET);
+    MechanicalCorrection(&mainData.compassOffset, GET);
+    mainData = computeParameters(mainData, GET);
+    // mainData.minOfsetDist = 1;
+    // mainData.maxOfsetDist = 8;
+    // mainData.minSpeed =  -80;
+    // mainData.maxSpeed =  80;
+    // mainData = computeParameters(mainData, SET);
+    Serial.println("Compute Parameters Kpr:" + String(mainData.kps) +
+                   " I:" + String(mainData.kis) +
+                   " Rudder p:" + String(mainData.kpr) +
+                   " I:" + String(mainData.kir) +
+                   " MAxspeed:" + String(mainData.maxSpeed) +
+                   " MINspeed:" + String(mainData.minSpeed) +
+                   " Maxoffsetdistance:" + String(mainData.maxOfsetDist) +
+                   " MINoffsetdistance:" + String(mainData.minOfsetDist));
+    myPID.SetTunings(mainData.kpr, mainData.kir, mainData.kdr, DIRECT);
+    Serial.println("Setup done!");
+}
 
 //***************************************************************************************************
 //      keypress detection
@@ -98,103 +184,52 @@ RoboStruct handleTimerRoutines(RoboStruct in)
         subStatus = IDELING;
     }
 
-    if (nextSamp < millis())
+    if (nextSamp + 100 < millis())
     {
-        mainData.cmd = SUBDIRSPEED;
-        xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
+        nextSamp = millis();
+        in.cmd = SUBDIRSPEED;
+        xQueueSend(udpOut, (void *)&in, 10); // update WiFi
     }
+
     if (accuSamp < millis())
     {
         accuSamp = 5000 + millis() + random(0, 100);
-        mainData.cmd = SUBACCU;
-        battVoltage(mainData.subAccuV, mainData.subAccuP);
+        in.cmd = SUBACCU;
+        battVoltage(in.subAccuV, in.subAccuP);
         xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
     }
+
     if (logtimer < millis())
     {
         logtimer = millis() + 1000;
         if (subStatus == TOPCALCRUDDER)
         {
-            printf("hdg:%6.2f dir%6.2f dist%5.2f speed:%4d ", mainData.dirMag, mainData.tgDir, mainData.tgDist, mainData.speed);
-            // printf(" buoy.iintergrater:%f pr%f ir%f err%f", mainData.iintergrater, mainData.pr, mainData.ir,mainData.lastErrr);
-            printf("Dir:%6.1f Speed:%4d BB:%2d SB:%2d is:%5.1f ir:%5.1f\r\n", smallestAngle(mainData.dirMag, mainData.tgDir), mainData.speed, mainData.speedBb, mainData.speedSb, mainData.is, mainData.ir);
+            printf("hdg:%6.2f dir%6.2f dist%5.2f speed:%4d ", in.dirMag, in.tgDir, in.tgDist, in.speed);
+            // printf(" buoy.iintergrater:%f pr%f ir%f err%f", in.iintergrater, in.pr, in.ir,in.lastErrr);
+            printf("Dir:%6.1f Speed:%4d BB:%2d SB:%2d is:%5.1f ir:%5.1f\r\n", smallestAngle(in.dirMag, in.tgDir), in.speed, in.speedBb, in.speedSb, in.is, in.ir);
         }
         else
         {
-            printf("Hdg:%5.1f Vbat:%3.1f %3d%%\r\n", mainData.dirMag, mainData.subAccuV, mainData.subAccuP);
-            logtimer = millis() + 250;
+            double ang = smallestAngle(in.dirSet, in.dirMag);
+
+            printf("Hdg:%5.1f tgAngle:%5.1f Speed:%d Bb:%d Sb:%d ", in.dirMag, ang, in.speed, in.speedBb, in.speedSb);
+
+            if (in.speedBb == in.speedSb)
+            {
+                printf("-\r\n");
+            }
+            if (in.speedBb < in.speedSb)
+            {
+                printf(">\r\n");
+            }
+            if (in.speedBb > in.speedSb)
+            {
+                printf("<\r\n");
+            }
+            logtimer = millis() + 500;
         }
     }
     return in;
-}
-
-//***************************************************************************************************
-// Setup
-//***************************************************************************************************
-void setup()
-{
-    Serial.begin(115200);
-    pinMode(BUTTON_PIN, INPUT);
-    delay(10);
-    printf("\r\nSetup running!\r\n");
-    printf("Robobuoy Sub Version: %0.1f\r\n", SUBVERSION);
-    buoyId = initwifiqueue();
-    Serial.print("Buoy ID: ");
-    Serial.println(buoyId);
-    initbuzzerqueue();
-    initledqueue();
-    initescqueue();
-    initMemory();
-    initcompassQueue();
-    InitCompass();
-    xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 1000, NULL, 1, NULL, 1);
-    xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 10, NULL, 1);
-    xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
-    xTaskCreatePinnedToCore(CompassTask, "CompasaTask", 2000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
-    if (digitalRead(BUTTON_PIN) == true)
-    {
-        delay(100);
-        if (digitalRead(BUTTON_PIN) == true)
-        {
-            wifiConfig = 1;
-        }
-    }
-    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
-    /*
-    Get sored settings
-    */
-
-    // mainData.ps = 20;
-    // mainData.is = 0.1;
-    // mainData.ds = 0;
-    // pidSpeedParameters(mainData, SET);
-    // mainData.pr = 0.5;
-    // mainData.ir = 0.02;
-    // mainData.dr = 0;
-    // pidRudderParameters(mainData, SET);
-    // mainData.minOfsetDist = 2;
-    // mainData.maxOfsetDist = 8;
-    // mainData.minSpeed = 0;
-    // mainData.maxSpeed = 80;
-    // computeParameters(mainData, SET);
-    // mainData.minOfsetDist = 2;
-    // mainData.maxOfsetDist = 8;
-    // mainData.minSpeed = 0;
-    // mainData.maxSpeed = 80;
-    // computeParameters(mainData, SET);
-    mainData = pidSpeedParameters(mainData, GET);
-    mainData = pidRudderParameters(mainData, GET);
-    mainData = computeParameters(mainData, GET);
-    Serial.println("Compute Parameters Speed P:" + String(mainData.kps) +
-                   " I:" + String(mainData.kis) +
-                   " Rudder p:" + String(mainData.kpr) +
-                   " I:" + String(mainData.kir) +
-                   " MAxspeed:" + String(mainData.maxSpeed) +
-                   " MINspeed:" + String(mainData.minSpeed) +
-                   " Maxoffsetdistance:" + String(mainData.maxOfsetDist) +
-                   " MINoffsetdistance:" + String(mainData.minOfsetDist));
-    Serial.println("Setup done!");
-    delay(1000);
 }
 
 //***************************************************************************************************
@@ -228,6 +263,37 @@ int handelKeyPress(int key)
 }
 
 //***************************************************************************************************
+//  RudderPID
+//***************************************************************************************************
+RoboStruct rudderPid(RoboStruct rud)
+{
+    Input = smallestAngle(rud.dirSet, rud.dirMag);
+    Setpoint = 0;
+    myPID.Compute();
+    Output -= rud.compassOffset; // mecanical offset
+    if (Output < 0)
+    {
+        Output += 360;
+    }
+    if (Output > 360)
+    {
+        Output -= 360;
+    }
+    double deltaPwr = (Output / 180) * 2;
+    double bb = rud.speed * (1 - deltaPwr);
+    double sb = rud.speed * (1 + deltaPwr);
+    rud.speedSb = constrain(sb, rud.minSpeed, rud.maxSpeed);
+    rud.speedBb = constrain(bb, rud.minSpeed, rud.maxSpeed);
+    if (esc.speedbb != rud.speedBb || esc.speedsb != rud.speedSb)
+    {
+        esc.speedbb = rud.speedBb;
+        esc.speedsb = rud.speedSb;
+        xQueueSend(escspeed, (void *)&esc, 10);
+    }
+    return rud;
+}
+
+//***************************************************************************************************
 //      status actions
 //***************************************************************************************************
 RoboStruct handelStatus(RoboStruct stat)
@@ -238,6 +304,9 @@ RoboStruct handelStatus(RoboStruct stat)
         stat.speedBb = 0;
         stat.speedSb = 0;
         stat.status = IDLE;
+        esc.speedbb = 0;
+        esc.speedsb = 0;
+        xQueueSend(escspeed, (void *)&esc, 100);
     }
     return stat;
 }
@@ -252,9 +321,10 @@ void loop(void)
     int msg = -1;
     float vbat = 0;
     int speedbb = 50, speedsb = 0;
+    unsigned long rudderTimer = 0;
     beep(1000, buzzer);
     delay(500);
-    mainLedStatus.color = CRGB::Blue;
+    mainLedStatus.color = CRGB::LightPink;
     mainLedStatus.blink = BLINK_SLOW;
     xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
     mainPwrData.bb = CRGB::Black;
@@ -262,12 +332,31 @@ void loop(void)
     mainPwrData.blinkBb = BLINK_OFF;
     mainPwrData.blinkSb = BLINK_OFF;
     xQueueSend(ledPwr, (void *)&mainPwrData, 10); // update util led
-
+    unsigned long pidtimer = millis();
     /*
         Main loop
     */
     while (true)
     {
+        //***************************************************************************************************
+        //      new PID gepruttel
+        //***************************************************************************************************
+        // if (pidtimer + 100 < millis())
+        // {
+        //     pidtimer = millis();
+        //     if (mainData.status == LOCKED || mainData.status == DOCKED)
+        //     {
+        //         Input = smallestAngle(mainData.dirSet, mainData.dirMag);
+        //         myPID.Compute();
+        //         mainData.speed = 50;
+        //         double deltaPwr = (Output / 180) * 2;
+        //         double bb = mainData.speed * (1 + deltaPwr);
+        //         double sb = mainData.speed * (1 - deltaPwr);
+        //         mainData.speedSb = constrain(sb, mainData.minSpeed, mainData.maxSpeed);
+        //         mainData.speedBb = constrain(bb, mainData.minSpeed, mainData.maxSpeed);
+        //         // printf("Correction:%3.0f Angle:%6.2f SpeedBb:%4.1d SpeedSb:%4.1d tmp:%.2f\r\n", Output, Input, mainData.speedBb, mainData.speedSb, deltaPwr);
+        //     }
+        // }
         //***************************************************************************************************
         //      Timer routines
         //***************************************************************************************************
@@ -285,20 +374,26 @@ void loop(void)
         //***************************************************************************************************
         if (xQueueReceive(compass, (void *)&mainData.dirMag, 2) == pdTRUE)
         {
-            if (subStatus == LOCKED)
+            if (mainData.status == LOCKED || mainData.status == DOCKED)
             {
-                mainData = CalcRudderBuoy(mainData); // calculate power to thrusters
-                if (esc.speedbb != mainData.speedBb || esc.speedsb != mainData.speedSb)
+                if (rudderTimer + 250 < millis())
                 {
-                    esc.speedbb = mainData.speedBb;
-                    esc.speedsb = mainData.speedSb;
-                    xQueueSend(escspeed, (void *)&esc, 10);
+                    rudderTimer = millis();
+                    mainData = rudderPid(mainData);
                 }
             }
         }
         //***************************************************************************************************
         //      new udp message
         //***************************************************************************************************
+        if (mainData.lastUdpIn + 2000 < millis())
+        {
+            mainData.lastUdpIn = millis();
+            mainLedStatus.color = CRGB::LightPink;
+            mainLedStatus.blink = BLINK_SLOW;
+            xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
+            mainData.status = IDELING;
+        }
         if (xQueueReceive(udpIn, (void *)&udpInMain, 0) == pdTRUE)
         {
             mainData.lastUdpIn = millis();
@@ -312,15 +407,28 @@ void loop(void)
             switch (mainData.cmd)
             {
             case IDLE:
-                subStatus = IDELING;
+                mainData.status = IDELING;
                 break;
             case LOCKED:
             case UDPTGDIRSPEED:
-                subStatus = LOCKED;
+                mainData.speed = (int)mainData.speedSet;
+                mainData.status = LOCKED;
                 break;
             case REMOTE:
             case UDPDIRSPEED:
                 subStatus = REMOTE;
+                break;
+            case PIDRUDDERSET:
+                pidRudderParameters(mainData, false);
+                mainData.kir = 0;
+                break;
+            case PIDSPEEDSET:
+                pidSpeedParameters(mainData, false);
+                mainData.kis = 0;
+                break;
+            case STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS:
+                mainData.compassOffset += mainData.tgDir;
+                MechanicalCorrection(&mainData.compassOffset, SET);
                 break;
             case PING:
                 mainData.cmd = PONG;

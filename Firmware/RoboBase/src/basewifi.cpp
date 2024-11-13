@@ -3,12 +3,12 @@
 #include <ArduinoOTA.h>
 #include <RoboCompute.h>
 #include "main.h"
-#include "datastorage.h"
-#include "subwifi.h"
+#include "basewifi.h"
 
 RoboStruct subwifiData;
 // UdpMsg udpData;
 static char udpData[MAXSTRINGLENG];
+static char udpDataOut[MAXSTRINGLENG];
 static RoboStruct subWifiIn;
 AsyncUDP udp;
 // static UdpData udpBuffer;
@@ -25,7 +25,7 @@ bool setup_OTA()
     byte mac[6];
     WiFi.macAddress(mac);
     Serial.print("SETUP OTA...");
-    sprintf(buf, "Sub_%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    sprintf(buf, "Base_%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     ArduinoOTA.setHostname(buf);
     ArduinoOTA.onStart([]()
                        {
@@ -53,11 +53,11 @@ bool setup_OTA()
 //***************************************************************************************************
 //      Searce for WiFi ap
 //***************************************************************************************************
-bool scan_for_wifi_ap(String *ssidap, String ww)
+bool scan_for_wifi_ap(String ssipap, String ww, IPAddress *tmp)
 {
     unsigned long timeout = millis();
     Serial.print("scan for for ap:");
-    Serial.println(*ssidap);
+    Serial.println(ssipap);
     int n = WiFi.scanNetworks();
     Serial.println("scan done");
     Serial.print(n);
@@ -70,11 +70,10 @@ bool scan_for_wifi_ap(String *ssidap, String ww)
     {
         for (int i = 0; i < n; ++i)
         {
-            String ssid = WiFi.SSID(i);
-            if (ssid.indexOf(*ssidap) != -1)
+            if (WiFi.SSID(i) == ssipap.c_str())
             {
                 Serial.print("Acces point foud, logging in...");
-                WiFi.begin(ssid.c_str(), ww.c_str());
+                WiFi.begin(ssipap.c_str(), ww.c_str());
                 while (WiFi.status() != WL_CONNECTED)
                 {
                     delay(50);
@@ -86,18 +85,8 @@ bool scan_for_wifi_ap(String *ssidap, String ww)
                 }
                 Serial.print(".\r\n");
                 Serial.print("Loggend in to SSIS: ");
-                Serial.println(*ssidap);
-                Serial.print("IP address: ");
-                Serial.println(WiFi.localIP());
-                if (ssid.indexOf("PAIR_ME_") != -1)
-                {
-                    ssid.replace("PAIR_ME_", "BUOY_");
-                    apParameters(&ssid, &ww, false); // store parameters
-                    Serial.println("Network parameters stored:" + ssid);
-                    Serial.println("Rebooting in 5 seconds");
-                    delay(5000);
-                    esp_restart();
-                }
+                Serial.println(ssipap);
+                *tmp = (WiFi.localIP());
                 return true;
             }
         }
@@ -138,7 +127,7 @@ void setupudp(void)
 //***************************************************************************************************
 unsigned long initwifiqueue(void)
 {
-    udpOut = xQueueCreate(10, sizeof(RoboStruct));
+    udpOut = xQueueCreate(10,  MAXSTRINGLENG);
     udpIn = xQueueCreate(10, MAXSTRINGLENG);
     byte mac[6];
     WiFi.macAddress(mac);
@@ -156,62 +145,20 @@ unsigned long initwifiqueue(void)
 void WiFiTask(void *arg)
 {
     int msg = -1;
-    int wifiConfig = *((int *)arg);
     String ssid = "";
     String ww = "";
     bool apswitch = false;
-    unsigned long wifiTimeOut = millis();
-    // apParameters(&ssid, &ww, true);
-    // if (wifiConfig == 1)
-    // {
-    //     wifiPwrData.bb = CRGB::DarkBlue;
-    //     wifiPwrData.sb = CRGB::DarkBlue;
-    //     wifiPwrData.blinkBb = BLINK_FAST;
-    //     wifiPwrData.blinkSb = BLINK_SLOW;
-    //     xQueueSend(ledPwr, (void *)&wifiPwrData, 10); // update util led
-    //     ssid = "PAIR_ME_";
-    //     ww = "";
-    //     while (scan_for_wifi_ap(&ssid, ww) == false)
-    //     {
-    //         Serial.println("Try again with ssid: " + String(ssid));
-    //     }
-    //     wifiPwrData.bb = CRGB::DarkBlue;
-    //     wifiPwrData.sb = CRGB::DarkBlue;
-    //     wifiPwrData.blinkBb = BLINK_OFF;
-    //     wifiPwrData.blinkSb = BLINK_SLOW;
-    //     xQueueSend(ledPwr, (void *)&wifiPwrData, 10); // update util led
-    // }
-    // else
-    // {
-    //     wifiPwrData.bb = CRGB::DarkGreen;
-    //     wifiPwrData.sb = CRGB::DarkGreen;
-    //     wifiPwrData.blinkBb = BLINK_FAST;
-    //     wifiPwrData.blinkSb = BLINK_SLOW;
-    //     xQueueSend(ledPwr, (void *)&wifiPwrData, 10); // update util led
-    //     apParameters(&ssid, &ww, true);               // get ap parameters
-
+    IPAddress ipAddr;
     ssid = "NicE_WiFi";
     ww = "!Ni1001100110";
-    while (scan_for_wifi_ap(&ssid, ww) == false)
+    if (scan_for_wifi_ap(ssid, ww, &ipAddr) == false)
     {
-        if (apswitch == false)
-        {
-            apParameters(&ssid, &ww, true); // get ap parameters
-        }
-        else
-        {
-            ssid = "NicE_WiFi";
-            ww = "!Ni1001100110";
-        }
-        Serial.println("Try again with ssid: " + String(ssid));
-        apswitch = !apswitch;
-        if (wifiTimeOut + 10 * 1000 < millis())
-        {
-            esp_restart();
-        }
+        esp_restart();
     }
     Serial.print("Logged in to AP:");
-    Serial.println(ssid);
+    Serial.print(ssid);
+    Serial.print(" Ip adress:");
+    Serial.println(ipAddr);
     setup_OTA();
     setupudp();
     Serial.print("WiFI task running!\r\n");
@@ -221,12 +168,10 @@ void WiFiTask(void *arg)
     for (;;)
     {
         ArduinoOTA.handle();
-        if (xQueueReceive(udpOut, (void *)&subwifiData, 0) == pdTRUE)
+        if (xQueueReceive(udpOut, (void *)&udpDataOut, 0) == pdTRUE)
         {
-            String out = RoboCode(subwifiData, subwifiData.cmd);
-            out = addCRCToString(out);
+            String out = addCRCToString(String(udpDataOut));
             udp.broadcast(out.c_str());
-            //udp.broadcastTo(out.c_str(),1000);
         }
         delay(1);
     }

@@ -13,7 +13,7 @@
 
 #include "../../RobobuoyDependency\RobobuoyVersion.h"
 
-#define NUM_DIRECTIONS 50
+#define NUM_DIRECTIONS 75
 
 static LedData compassLedStatus;
 static PwrData compassPwrData;

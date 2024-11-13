@@ -64,6 +64,7 @@ bool setup_OTA()
 */
 bool scan_for_wifi_ap(String ssipap, String ww, IPAddress *tmp)
 {
+    unsigned long timeout = millis();
     Serial.print("scan for for ap:");
     Serial.println(ssipap);
     int n = WiFi.scanNetworks();
@@ -86,6 +87,10 @@ bool scan_for_wifi_ap(String ssipap, String ww, IPAddress *tmp)
                 {
                     delay(50);
                     Serial.print(".");
+                    if (timeout + 60 * 1000 < millis())
+                    {
+                        esp_restart();
+                    }
                 }
                 Serial.print(".\r\n");
                 Serial.print("Loggend in to SSIS: ");
@@ -247,11 +252,12 @@ void WiFiTask(void *arg)
             }
         }
 
-        if (xQueueReceive(udpOut, (void *)&msgIdOut, 0) == pdTRUE)
+        if (xQueueReceive(udpOut, (void *)&msgIdOut, 1) == pdTRUE)
         {
 
             String out = RoboCode(msgIdOut, msgIdOut.cmd);
             out = addCRCToString(out);
+            // printf("UDP out<%s>\r\n",out.c_str());
             udp.broadcast(out.c_str());
         }
         delay(1);

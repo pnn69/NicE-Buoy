@@ -743,7 +743,7 @@
 			(uuid "e41ddc0f-75e7-4c5e-ad80-9fc92f606093")
 		)
 		(instances
-			(project "Robuoy-Sub"
+			(project "Robobuoy-Sub-v2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(page "1")
 				)
@@ -812,7 +812,7 @@
 			(uuid "8468c967-8eaf-4e55-bbe3-a36e5d01c2d2")
 		)
 		(instances
-			(project "Robuoy-Sub"
+			(project "Robobuoy-Sub-v2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(page "2")
 				)

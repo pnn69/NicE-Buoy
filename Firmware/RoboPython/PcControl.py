@@ -7,6 +7,7 @@ import threading
 import re
 import compass
 import socket
+import IDS
 
 
 
@@ -241,15 +242,15 @@ def decode_34(data):
         print("wrong data")
 
 def decode_status(data):
-    if data == "5":
+    if data == 7:
         status_txt.config(text=f"IDLE")
-    if data == "7":
+    if data == 12:
         status_txt.config(text=f"LOCKED")
-    if data == "11":
+    if data == 18:
         status_txt.config(text=f"REMOTE")
-    if data == "13":
+    if data == 15:
         status_txt.config(text=f"DOCKED")
-    if data == "17":
+    if data == 22:
         status_txt.config(text=f"M CALIB")
     
 def open_google_maps():
@@ -296,13 +297,70 @@ def Set_mecanical_offset():
 def remove_spaces(string):
     return "".join(string.split())
 
-def decode_message(message):
+def decode(cmd,data):
+    global latitude, longitude, gps_fix, comp , buoy_hdg, bb_sp,sb_sp, tg_hdg, tg_dst, bb_sp,sb_sp 
+    if cmd == 50: #<fffffffe,c99779b8,6,50,12,52.32035783,4.96514417,356.08,355.74,0.29,10,0>
+        decode_status(data[0])
+        latitude = data[1]
+        longitude = data[2]
+        buoy_hdg = data[3]
+        wind_dir.config(text=round(data[4]))
+        wind_dev.config(text=data[5])
+        voltage = data[6]
+        compass.draw_Vbatbarr(voltage,comp)
+        compass.draw_pointer(buoy_hdg,comp,buoy_collor)
+    if cmd == 51: #<fffffffe,c99779f4,6,51,52.32048950,4.96559850,5.8,0.4>
+        latitude = data[0]
+        longitude = data[1]
+        wind_dir.config(text=round(data[2]))
+        wind_dev.config(text=data[3])
+    if cmd == 53:#<fffffffe,c99779f4,6,53,16.62,5.82>
+        tg_hdg = data[0]
+        tg_dst = data[1]
+        compass.draw_pointer(tg_hdg,comp,tg_collor)
+
+def decode_V2(input_str):
+    # Remove angle brackets and split by commas
+    input_str = input_str.strip("<>")
+    fields = input_str.split(",")
+    
+    try:
+        # Try to decode the first four fields
+        field1 = int(fields[0], 16)  # Convert to integer assuming hexadecimal
+        field2 = int(fields[1], 16)  # Convert to integer assuming hexadecimal
+        field3 = int(fields[2])      # Convert to integer
+        field4 = int(fields[3])      # Convert to integer
+
+        # Convert the remaining fields to `data`
+        data = [float(f.strip()) if '.' in f.strip() else int(f.strip()) for f in fields[4:]]
+        
+        #print("IDs (Hex):", hex(field1))
+        #print("IDr (Hex):", hex(field2))
+        #print("Ack", field3)
+        #print("msg", field4)
+        #print("Data:", data)
+        #print("Nr of data fields:",  len(data))
+        decode(field4, data)
+        return field1, field2, field3, field4, data
+    
+    except ValueError as e:
+        # Print an error message and return None or some default values
+        print(f"Error decoding input: {e}")
+        return None
+
+
+def decode_message(message):#                                  <IDr><IDs><ack><MSG><DATA>
     # Regular expression pattern to match the message format: <sender><status><msgId><ack><msg>
     pattern = r'<(\d+)><(\d+)><(\d+)><(\d+)><(.+)>'
     # Match the pattern in the message
     match = re.match(pattern, message)
+    print()
+    print(pattern)
+    print(message)
+    print(match)
+    
     if match:
-        msg_id = match.group(3)
+        msg_id = match.group(4)
         decode_status(match.group(2))
         if(msg_id == "18"):
             decode_18(match)
@@ -338,7 +396,8 @@ def read_serial():
                 in_box1.insert(END, f"{received_data}")
                 print(received_data)
                 compass.toggle_circle(comp)
-                decode_message(received_data)
+                #decode_message(received_data)
+                decode_V2(received_data)
 
 def start_serial_thread():
     serial_thread = threading.Thread(target=read_serial)
@@ -534,4 +593,6 @@ comp = compass.create_compass(root)
 start_serial_thread()  # Start the serial reading thread
 #start_udp_thread()
 #start_ble_thread()
+print(IDS.MsgType.LOTAGET)
+print(IDS.MsgType.LOTAGET.value)  # Output: 1
 root.mainloop()

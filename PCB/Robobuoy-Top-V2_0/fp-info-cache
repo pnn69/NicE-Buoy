@@ -1,4 +1,4 @@
-24315921137891032
+24420699863579955
 A_Button_Switch
 Button-Push_2pin_6.0x3.5_SMD
 Component 7.2x3.5mm, (3D model incorrect)
@@ -160,6 +160,13 @@ Switch-Slide-SPDT_3pin_4.3x8.6_P2_2SH_TH
 0
 5
 4
+A_Confocal
+QFN14_1
+DSJ PACKAGEhttp://www.ti.com/lit/ds/symlink/tps63020.pdfThis package has been modified to have a custom stencil per the design guidelines of DSJ package (QFN14+1) specified by TI.It is reccomended that 24x .20mm diameter via's be used in the center ground pad
+
+0
+15
+15
 A_Connector
 AMASS_XT60-F_1x02_P7.20mm_Vertical
 AMASS female XT60, through hole, vertical, https://www.tme.eu/Document/2d152ced3b7a446066e6c419d84bb460/XT60%20SPEC.pdf
@@ -2599,6 +2606,13 @@ Resistor, 3216metric
 A_Passive
 LED_1206_ReverseMount
 Resistor, 3216metric
+
+0
+2
+2
+A_Passive
+L_2x2.5
+
 
 0
 2
@@ -5420,7 +5434,7 @@ tactile switch Omron B3F right angle through hole
 Button_Switch_THT
 SW_Slide-03_Wuerth-WS-SLTV_10x2.5x6.4_P2.54mm
 Wuerth, WS-SLTV, 450301014042, https://www.we-online.com/components/products/datasheet/450301014042.pdf
-switch single-pole double-throw SPDT würth wurth
+switch single-pole opposite-side-connection double-throw SPDT würth wurth
 0
 3
 3
@@ -11430,6 +11444,13 @@ Combo Connector microSD and microSIM
 0
 25
 18
+Connector_Card
+SD_Card_Device_16mm_SlotDepth
+SD card device PCB layout, contacts and mechanicalm, 16mm slot depth. Manufacture with PCB thickness of 1.4mm, http://www.convict.lu/pdf/ProdManualSDCardv1.9.pdf
+SD Card
+0
+9
+9
 Connector_Card
 SD_Hirose_DM1AA_SF_PEJ82
 SD, SMD, top-mount, push-push (https://www.hirose.com/product/document?clcode=CL0609-0004-8-82&productname=DM1AA-SF-PEJ(82)&series=DM1&documenttype=2DDrawing&lang=en&documentid=0000915301)
@@ -52535,6 +52556,13 @@ usb usb-c 2.0 pd
 20
 17
 Connector_USB
+USB_C_Receptacle_HRO_TYPE-C-31-M-17
+USB Type-C receptacle for USB 2.0, 6 pin, https://omo-oss-file.thefastfile.com/portal-saas/new2023011311465142457/cms/file/134891b2-9b01-4104-89d3-96207243f692.pdf
+usb usb-c 2.0 pd
+0
+10
+7
+Connector_USB
 USB_C_Receptacle_JAE_DX07S016JA1R1500
 USB TYPE C, USB 2.0, SMT, https://www.jae.com/en/connectors/series/detail/product/id=91780
 USB C Type-C Receptacle SMD USB 2.0
@@ -73992,7 +74020,7 @@ DFN NoLead
 Package_DFN_QFN
 DFN-8-1EP_2x3mm_P0.5mm_EP0.61x2.2mm
 DFN, 8 Pin (https://www.analog.com/media/en/package-pcb-resources/package/pkg_pdf/ltc-legacy-dfn/05081702_c_ddb8.pdf), generated with kicad-footprint-generator ipc_noLead_generator.py
-DFN NoLead Linear-DDB
+DFN NoLead
 0
 11
 9
@@ -77237,6 +77265,13 @@ ti vqfn-hr rnn0018a
 0
 26
 18
+Package_DFN_QFN
+Texas_RPU0010A_VQFN-HR-10_2x2mm_P0.5mm
+VQFN-HR, 10 Pin (https://www.ti.com/lit/ds/symlink/tps62912.pdf#page=39)
+VQFN-HR NO LEAD
+0
+10
+10
 Package_DFN_QFN
 Texas_RSA_VQFN-16-1EP_4x4mm_P0.65mm_EP2.7x2.7mm
 Texas RSA VQFN, 16 Pin (http://www.ti.com/lit/ds/symlink/msp430g2001.pdf#page=44), generated with kicad-footprint-generator ipc_noLead_generator.py
@@ -89782,6 +89817,13 @@ DPDT relay, Finder 40.52, 8A, 250V, body size 29x12.4mm, height 25mm, pitch 5x7.
 8
 8
 Relay_THT
+Relay_DPDT_Finder_40.62
+DPDT relay, Finder 40.62, 10A, 250V, body size 29x12.4mm, height 25mm, pitch 5x7.5mm, https://cdn.findernet.com/app/uploads/S40EN.pdf
+2-Form-C
+0
+8
+8
+Relay_THT
 Relay_DPDT_Fujitsu_FTR-F1C
 https://www.fujitsu.com/downloads/MICRO/fcai/relays/ftr-f1.pdf
 relay dpdt fujitsu tht
@@ -89984,6 +90026,13 @@ SPDT relay, Finder 40.52, 10/12A, 250V, body size 29x12.4mm, height 25mm, pitch 
 0
 5
 5
+Relay_THT
+Relay_SPDT_Finder_40.61
+SPDT relay, Finder 40.61, 16A, 250V, body size 29x12.4mm, height 25mm, pitch 5x7.5mm, https://cdn.findernet.com/app/uploads/S40EN.pdf
+2-Form-C
+0
+8
+8
 Relay_THT
 Relay_SPDT_Fujitsu_FTR-LYCA005x_FormC_Vertical
 Relay, SPDT Form C, vertical mount, 6A, 5-60V, https://www.fujitsu.com/sg/imagesgig5/ftr-ly.pdf
@@ -92175,6 +92224,13 @@ hall current
 0
 6
 6
+Sensor_Current
+LEM_LA25-NP
+LEM LA 25-NP Current Transducer (https://www.lem.com/sites/default/files/products_datasheets/la%2025-np.pdf)
+Current sensor LEM
+0
+13
+13
 Sensor_Current
 LEM_LA25-P
 LEM Current Transducer (https://www.lem.com/sites/default/files/products_datasheets/la_25-p.pdf)

@@ -140,7 +140,7 @@ RoboStruct computeParameters(RoboStruct buoy, bool get)
     {
         buoy.minOfsetDist = storage.getInt("minOfsetDist", 1);
         buoy.maxOfsetDist = storage.getInt("maxOfsetDist", 8);
-        buoy.minSpeed = storage.getInt("minSpeed", 0);
+        buoy.minSpeed = storage.getInt("minSpeed", -80);
         buoy.maxSpeed = storage.getInt("maxSpeed", 80);
     }
     else
@@ -185,6 +185,7 @@ RoboStruct pidRudderParameters(RoboStruct buoy, bool get)
         buoy.pr = 0;
         buoy.ir = 0;
         buoy.dr = 0;
+        buoy.compassOffset = storage.getInt("Mecanic", 0);
     }
     else
     {

@@ -58,7 +58,7 @@ void memBuoyId(int8_t *id, bool get)
 /*
     Dock position
 */
-void memDockPos(RoboStruct buoy, bool get)
+RoboStruct memDockPos(RoboStruct buoy, bool get)
 {
     startMem();
     if (get)
@@ -74,6 +74,7 @@ void memDockPos(RoboStruct buoy, bool get)
         storage.putDouble("Docklon", buoy.tgLng);
     }
     stopMem();
+    return buoy;
 }
 
 /*
@@ -132,7 +133,7 @@ void MechanicalCorrection(int *delta, bool get)
     stopMem();
 }
 
-void computeParameters(RoboStruct buoy, bool get)
+RoboStruct computeParameters(RoboStruct buoy, bool get)
 {
     startMem();
     if (get)
@@ -150,8 +151,9 @@ void computeParameters(RoboStruct buoy, bool get)
         storage.putInt("maxSpeed", buoy.maxSpeed);
     }
     stopMem();
+    return buoy;
 }
-void pidSpeedParameters(RoboStruct buoy, bool get)
+RoboStruct pidSpeedParameters(RoboStruct buoy, bool get)
 {
     startMem();
     if (get)
@@ -170,8 +172,10 @@ void pidSpeedParameters(RoboStruct buoy, bool get)
         storage.putDouble("Dsp", buoy.ds);
     }
     stopMem();
+    return buoy;
 }
-void pidRudderParameters(RoboStruct buoy, bool get)
+
+RoboStruct pidRudderParameters(RoboStruct buoy, bool get)
 {
     startMem();
     if (get)
@@ -190,6 +194,7 @@ void pidRudderParameters(RoboStruct buoy, bool get)
         storage.putDouble("Drd", buoy.dr);
     }
     stopMem();
+    return buoy;
 }
 
 void apParameters(String *ap, String *ww, bool get)
@@ -206,4 +211,29 @@ void apParameters(String *ap, String *ww, bool get)
         storage.putString("ww", *ww);
     }
     stopMem();
+}
+
+RoboStruct defautls(RoboStruct buoy)
+{
+    //***************************************************************************************************
+    //  Postion Steiger WSOP as target
+    //***************************************************************************************************
+    buoy.tgLat = 52.29308075283747;
+    buoy.tgLng = 4.932570409845357;
+    memDockPos(buoy, false); // store default wsvop
+                             //***************************************************************************************************
+                             //  PID rudder
+                             //***************************************************************************************************
+    buoy.pr = 0.5;
+    buoy.ir = 0.02;
+    buoy.dr = 0;
+    pidRudderParameters(buoy, false);
+    //***************************************************************************************************
+    //  PID speed
+    //***************************************************************************************************
+    buoy.ps = 20;
+    buoy.is = 0.4;
+    buoy.ds = 0;
+    pidSpeedParameters(buoy, false);
+    return buoy;
 }
