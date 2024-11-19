@@ -106,29 +106,29 @@ void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, floa
     stopMem();
 }
 
-void CompassOffsetCorrection(int *delta, bool get)
+void CompassOffsetCorrection(double *delta, bool get)
 {
     startMem();
     if (get)
     {
-        *delta = storage.getInt("Delta", 0);
+        *delta = storage.getDouble("Delta", 0);
     }
     else
     {
-        storage.putInt("Delta", *delta);
+        storage.putDouble("Delta", *delta);
     }
     stopMem();
 }
-void MechanicalCorrection(int *delta, bool get)
+void MechanicalCorrection(double *delta, bool get)
 {
     startMem();
     if (get)
     {
-        *delta = storage.getInt("Mecanic", 0);
+        *delta = storage.getDouble("Mecanic", 0);
     }
     else
     {
-        storage.putInt("Mecanic", *delta);
+        storage.putDouble("Mecanic", *delta);
     }
     stopMem();
 }

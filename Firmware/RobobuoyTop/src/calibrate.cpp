@@ -22,7 +22,7 @@ RoboStruct compasOffestCallicration(RoboStruct calibrate)
         cspeed = 50;
         calibrate.speedSet = cspeed;
         calibrate.tgDir = cdir;
-        calibrate.cmd = SUBDIRSPEED;
+        calibrate.cmd = DIRSPEED;
         calibrateTime = millis();
         xQueueSend(udpOut, (void *)&calibrate, 0); // update WiFi
         calibratStatus = 1;

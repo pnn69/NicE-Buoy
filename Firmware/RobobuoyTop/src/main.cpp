@@ -30,7 +30,6 @@ static Buzz mainBuzzerData;
 static GpsDataType mainGpsData;
 static int wifiConfig = 0;
 unsigned long buoyId;
-unsigned long buoyIdAll = BUOYIDALL;
 static int msg;
 static int presses = -1;
 static int blink = BLINK_FAST;
@@ -264,14 +263,14 @@ RoboStruct handelStatus(RoboStruct stat, GpsDataType gps)
         {
             beep(1, buzzer);
             stat.mac = buoyId;
-            stat.tgLat = gps.lat;
-            stat.tgLng = gps.lng;
+            stat.tgLat = stat.lat;
+            stat.tgLng = stat.lng;
             AddDataToBuoyBase(stat, buoyPara); // store positon for later calculations Track positioning
             // IDr,IDs,ACK,MSG,LAT,LON
-            String loraString = RoboCode(stat, LORALOCKPOS); // notify others
-            LoraTx.macIDr = -2;                              // Send to all
-            LoraTx.macIDs = buoyId;                          // msg is comming from me
-            LoraTx.msg = LORALOCKPOS;
+            String loraString = RoboCode(stat, LOCKPOS); // notify others
+            LoraTx.macIDr = BUOYIDALL;                   // Send to all
+            LoraTx.macIDs = buoyId;                      // msg is comming from me
+            LoraTx.msg = LOCKPOS;
             LoraTx.ack = LORASET;
             loraString.toCharArray(LoraTx.data, loraString.length() + 1);
             xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
@@ -305,7 +304,7 @@ RoboStruct handelStatus(RoboStruct stat, GpsDataType gps)
         if ((buoyPara[0].trackPos != -1 && buoyPara[1].trackPos != -1) || (buoyPara[0].trackPos != -1 && buoyPara[2].trackPos != -1) || (buoyPara[1].trackPos != -1 && buoyPara[2].trackPos != -1))
         {
             beep(1, buzzer);
-            stat.status = LORASENDTRACK;
+            stat.status = SENDTRACK;
         }
         else
         {
@@ -318,7 +317,7 @@ RoboStruct handelStatus(RoboStruct stat, GpsDataType gps)
         if (buoyPara[0].trackPos != -1 || buoyPara[1].trackPos != -1 || buoyPara[2].trackPos != -1)
         {
             beep(1, buzzer);
-            stat.status = LORASENDTRACK;
+            stat.status = SENDTRACK;
         }
         else
         {
@@ -326,17 +325,17 @@ RoboStruct handelStatus(RoboStruct stat, GpsDataType gps)
             stat.status = LOCKED;
         }
         break;
-    case LORASENDTRACK:
+    case SENDTRACK:
         for (int i = 0; i < 3; i++)
         {
             if (buoyPara[i].trackPos != -1 && buoyPara[i].trackPos != 0)
             {
                 trackPosPrint(buoyPara[i].trackPos);
                 printf("n = (%.12f,%.12f)\r\n\r\n", buoyPara[i].tgLat, buoyPara[i].tgLng);
-                String loraString = RoboCode(buoyPara[i], LORALOCKPOS);
+                String loraString = RoboCode(buoyPara[i], SETLOCKPOS);
                 LoraTx.macIDr = buoyPara[i].mac;
                 LoraTx.macIDs = buoyId;
-                LoraTx.msg = LORALOCKPOS;
+                LoraTx.msg = SETLOCKPOS;
                 LoraTx.ack = LORAGETACK;
                 loraString.toCharArray(LoraTx.data, loraString.length() + 1);
                 xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
@@ -359,6 +358,18 @@ RoboStruct handelStatus(RoboStruct stat, GpsDataType gps)
 //***************************************************************************************************
 RoboStruct handleTimerRoutines(RoboStruct timer)
 {
+    if ((timer.status == LOCKED || timer.status == DOCKED) && timer.LoraFastTimer + 5000 < millis())
+    {
+        timer.LoraFastTimer = millis() + random(0, 150);
+        String loraString = RoboCode(mainData, BUOYPOS);
+        loraString.toCharArray(LoraTx.data, loraString.length() + 1);
+        LoraTx.msg = BUOYPOS;
+        xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
+        loraString = RoboCode(mainData, SUBPWR);
+        loraString.toCharArray(LoraTx.data, loraString.length() + 1);
+        LoraTx.msg = BUOYPOS;
+        xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
+    }
     if (timer.lastUdpOut + 250 < millis())
     {
         timer.lastUdpOut = millis();
@@ -368,11 +379,11 @@ RoboStruct handleTimerRoutines(RoboStruct timer)
         {
             RouteToPoint(timer.lat, timer.lng, timer.tgLat, timer.tgLng, &timer.tgDist, &timer.tgDir);
             timer = hooverPid(timer);
-            timer.cmd = UDPTGDIRSPEED;
+            timer.cmd = DIRSPEED;
         }
         if (timer.status == REMOTE) // Send course info
         {
-            timer.cmd = UDPDIRSPEED;
+            timer.cmd = DIRSPEED;
         }
         xQueueSend(udpOut, (void *)&timer, 0); // Keep the watchdog in sub happy
         timer.lastUdpOut = millis();
@@ -389,26 +400,30 @@ RoboStruct handleTimerRoutines(RoboStruct timer)
         switch (timer.loralstmsg)
         {
         case 1:
-            //  IDr,IDs,MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
-            loraString = RoboCode(mainData, LORABUOYPOS);
-            LoraTx.msg = LORABUOYPOS;
+            if (timer.status != LOCKED || timer.status != DOCKED)
+            {
+                //  IDr,IDs,MSG,ACK,STATUS,LAT,LON.mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
+                loraString = RoboCode(mainData, BUOYPOS);
+                LoraTx.msg = BUOYPOS;
+            }
             timer.loralstmsg = 2;
             break;
         case 2:
             if (timer.status == LOCKED || timer.status == DOCKED)
             {
                 //  IDr,IDs,MSG,ACK,tgDir,tgDist
-                loraString = RoboCode(mainData, LORADIRDIST);
-                LoraTx.msg = LORADIRDIST;
+                loraString = RoboCode(mainData, DIRDIST);
+                LoraTx.msg = DIRDIST;
                 timer.loralstmsg = 3;
                 break;
             }
         case 3:
-            //  IDr,IDs,MSG,ACK,tgLat,tgLng
-            loraString = RoboCode(mainData, LORALOCKPOS);
-            LoraTx.msg = LORALOCKPOS;
+        {
+            loraString = RoboCode(mainData, LOCKPOS);
+            LoraTx.msg = LOCKPOS;
             timer.loralstmsg = 1;
-            break;
+        }
+        break;
         default:
             timer.loralstmsg = 1;
             break;
@@ -416,6 +431,7 @@ RoboStruct handleTimerRoutines(RoboStruct timer)
         if (loraString.length() < MAXSTRINGLENG - 1 && LoraTx.msg != -1) // send only if msg is set
         {
             loraString.toCharArray(LoraTx.data, loraString.length() + 1);
+            // printf("\r\n\r\nTo lora task: %s\r\n\r\n\r\n",LoraTx.data);
             xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
         }
         else
@@ -448,6 +464,10 @@ void loop(void)
     mainCollorGps.color = CRGB::DarkRed;
     mainCollorGps.blink = BLINK_FAST;
     xQueueSend(ledGps, (void *)&mainCollorGps, 0); // update GPS led
+    mainCollorUtil.blink = BLINK_SLOW;
+    mainCollorUtil.color = CRGB::DarkOrange;
+    xQueueSend(ledUtil, (void *)&mainCollorUtil, 0); // update GPS led
+
     // beep(1000, buzzer);
     bool firstfix = false;
 
@@ -474,10 +494,21 @@ void loop(void)
         //***************************************************************************************************
         if (xQueueReceive(gpsQue, (void *)&mainGpsData, 0) == pdTRUE) // New gps data
         {
+            mainData.gpsLat = mainGpsData.lat;
+            mainData.gpsLng = mainGpsData.lng;
+            mainData.gpsFix = mainGpsData.fix;
+            mainData.gpsSat = mainGpsData.nrsats;
             if (mainGpsData.fix == true && firstfix == false)
             {
                 beep(2000, buzzer);
                 firstfix = true;
+                mainData.lat = mainGpsData.lat;
+                mainData.lng = mainGpsData.lng;
+                String loraString = RoboCode(mainData, BUOYPOS);
+                loraString.toCharArray(LoraTx.data, loraString.length() + 1);
+                LoraTx.macIDr = BUOYIDALL;
+                LoraTx.msg = BUOYPOS;
+                xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
             }
             if (mainGpsData.fix == true)
             {
@@ -487,12 +518,13 @@ void loop(void)
                 {
                     RouteToPoint(mainData.lat, mainData.lng, mainData.tgLat, mainData.tgLng, &mainData.tgDist, &mainData.tgDir);
                     mainData = hooverPid(mainData);
-                    mainData.cmd = UDPTGDIRSPEED;
+                    mainData.cmd = DIRSPEED;
                     xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
                     mainData.lastUdpOut = millis();
                 }
             }
         }
+
         //***************************************************************************************************
         //      New Lora data
         //***************************************************************************************************
@@ -510,37 +542,40 @@ void loop(void)
                 switch (loraRx.msg)
                 {
                 case LOCKING:
-                    if (mainGpsData.fix == true)
+                    if (mainGpsData.fix == true && mainData.status != LOCKED)
                     {
                         printf("Status set to LOCKING (by lora input)\r\n");
                         beep(1, buzzer);
                         mainData.mac = buoyId;
-                        mainData.tgLat = loraData.lat;
-                        mainData.tgLng = loraData.lng;
+                        mainData.tgLat = mainData.lat;
+                        mainData.tgLng = mainData.lng;
                         AddDataToBuoyBase(mainData, buoyPara); // store positon for later calculations Track positioning
                         // IDr,IDs,ACK,MSG,LAT,LON
-                        String loraString = RoboCode(mainData, LORALOCKPOS); // notify others
-                        LoraTx.macIDr = BUOYIDALL;                           // Send to all
-                        LoraTx.macIDs = buoyId;                              // msg is comming from me
-                        LoraTx.msg = LORALOCKPOS;
+                        String loraString = RoboCode(mainData, LOCKPOS); // notify others
+                        LoraTx.macIDr = BUOYIDALL;                       // Send to all
+                        LoraTx.macIDs = buoyId;                          // msg is comming from me
+                        LoraTx.msg = LOCKPOS;
                         LoraTx.ack = LORASET;
                         loraString.toCharArray(LoraTx.data, loraString.length() + 1);
                         xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
                         mainData.status = LOCKED;
                     }
                     break;
-                case LORADIRDIST:
+                case DIRDIST:
                     mainData.tgDir = loraData.tgDir;
                     mainData.tgDist = loraData.tgDist;
-                    mainData.status = LORADIRDIST;
+                    mainData.status = DIRDIST;
                     loraTimerIn = 5000 + millis(); // 5 sec timeout
-                case LORADIRSPEED:
+                case DIRSPEED:
                     mainData.tgDir = loraData.tgDir;
                     mainData.tgDist = loraData.speedSet;
                     mainData.status = REMOTE;
                     loraTimerIn = 5000 + millis(); // 5 sec timeout
                     break;
-                case LORALOCKPOS: // store new data into position database
+                case LOCKPOS: // store new data into position database
+                    AddDataToBuoyBase(loraData, buoyPara);
+                    break;
+                case SETLOCKPOS: // store new data into position database
                     mainData.tgDir = loraData.tgDir;
                     mainData.tgDist = loraData.tgDist;
                     AddDataToBuoyBase(loraData, buoyPara);

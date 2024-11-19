@@ -4,12 +4,14 @@
 #include "io_base.h"
 #include "main.h"
 #include "basewifi.h"
+#include "leds.h"
 
 static bool loraOk = false;
 static char loraData[MAXSTRINGLENG];
 static lorabuf loraMsgout = {};
 static lorabuf loraMsgin = {};
 static lorabuf pendingMsg[10] = {};
+static LedData led;
 static RoboStruct loraStruct;
 static RoboStruct udpStruct;
 
@@ -80,7 +82,7 @@ bool sendLora(String loraTransmitt)
         LoRa.write(loraTransmitt.length());
         LoRa.print(loraTransmitt);
         LoRa.endPacket(); // finish packet and send it
-        Serial.println("Lora out<" + loraTransmitt + ">");
+        Serial.println("#Lora out<" + loraTransmitt + ">");
         return true;
     }
     return false;
@@ -96,7 +98,7 @@ void storeAckMsg(lorabuf ackBuffer)
     {
         if (pendingMsg[i].msg == 0)
         {
-            // printf("storing on pos %d\r\n",i);
+            printf("#storing on pos %d\r\n",i);
             memcpy(&pendingMsg[i], &ackBuffer, sizeof(ackBuffer));
             return;
         }
@@ -120,7 +122,7 @@ void removeAckMsg(lorabuf ackBuffer)
             pendingMsg[i].macIDs = 0;
             pendingMsg[i].macIDr = 0;
             pendingMsg[i].retry = 0;
-            // printf("message removed for ack on pos:%d\r\n", i);
+            printf("#message removed for ack on pos:%d\r\n", i);
             return;
         }
         i++;
@@ -173,12 +175,14 @@ void onReceive(int packetSize)
     {
         incoming += (char)LoRa.read();
     }
+    led.blink = 5;                           // fast blink led on reception lora message
+    xQueueSend(ledNormalLed, (void *)&led, 10); // send out trough Lora
     if (incomingLength != incoming.length())
     { // check length for error
         Serial.println("error: message length does not match length");
         return; // skip rest of function
     }
-    //Serial.println("Lora in <" + incoming + ">");
+    // Serial.println("Lora in <" + incoming + ">");
     lorabuf in = decodeString(incoming);
     if (in.macIDr == buoyId && in.ack == LORAACK) // A message form me so check if its a ACK message
     {
@@ -188,7 +192,8 @@ void onReceive(int packetSize)
     }
     if (in.macIDr == buoyId || in.macIDr == BUOYIDALL) // A message form me
     {
-        printf("<%s>\r\n", incoming.c_str()); // IDr,IDs,ACK,MSG,DATA
+        String rs232Out = addCRCToString(incoming);
+        printf("%s\r\n", rs232Out.c_str()); // IDr,IDs,ACK,MSG,DATA
         // char out[MAXSTRINGLENG];
         // incoming.toCharArray(out, incoming.length() + 1);
         // xQueueSend(udpOut, (void *)&out, 0); // update WiFi
@@ -234,6 +239,8 @@ void initloraqueue(void)
     loraOut = xQueueCreate(10, sizeof(char[MAXSTRINGLENG]));
     loraIn = xQueueCreate(10, sizeof(lorabuf));
     InitLora();
+    Serial.print("BuoyId=");
+    Serial.println(buoyId,HEX);
 }
 
 //***************************************************************************************************
@@ -274,6 +281,7 @@ void LoraTask(void *arg)
             {
                 String loraString = String(loraMsgout.macIDr, HEX) + "," + String(buoyId, HEX) + "," + String(loraMsgout.ack);
                 loraString += "," + removeWhitespace(String(loraMsgout.data));
+                printf("Resend: %s\r\n",loraString.c_str());
                 while (sendLora(loraString) != true)
                 {
                     vTaskDelay(pdTICKS_TO_MS(50));

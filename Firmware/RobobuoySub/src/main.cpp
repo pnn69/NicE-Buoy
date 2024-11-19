@@ -104,7 +104,9 @@ void setup()
     // computeParameters(mainData, SET);
     mainData = pidSpeedParameters(mainData, GET);
     mainData = pidRudderParameters(mainData, GET);
-    MechanicalCorrection(&mainData.compassOffset, GET);
+    // mainData.compassOffset = 0;
+    // CompassOffsetCorrection(&mainData.compassOffset, SET);
+    CompassOffsetCorrection(&mainData.compassOffset, GET);
     mainData = computeParameters(mainData, GET);
     // mainData.minOfsetDist = 1;
     // mainData.maxOfsetDist = 8;
@@ -187,7 +189,7 @@ RoboStruct handleTimerRoutines(RoboStruct in)
     if (nextSamp + 100 < millis())
     {
         nextSamp = millis();
-        in.cmd = SUBDIRSPEED;
+        in.cmd = DIRSPEED;
         xQueueSend(udpOut, (void *)&in, 10); // update WiFi
     }
 
@@ -202,7 +204,7 @@ RoboStruct handleTimerRoutines(RoboStruct in)
     if (logtimer < millis())
     {
         logtimer = millis() + 1000;
-        if (subStatus == TOPCALCRUDDER)
+        if (subStatus == CALCRUDDER)
         {
             printf("hdg:%6.2f dir%6.2f dist%5.2f speed:%4d ", in.dirMag, in.tgDir, in.tgDist, in.speed);
             // printf(" buoy.iintergrater:%f pr%f ir%f err%f", in.iintergrater, in.pr, in.ir,in.lastErrr);
@@ -212,7 +214,7 @@ RoboStruct handleTimerRoutines(RoboStruct in)
         {
             double ang = smallestAngle(in.dirSet, in.dirMag);
 
-            printf("Hdg:%5.1f tgAngle:%5.1f Speed:%d Bb:%d Sb:%d ", in.dirMag, ang, in.speed, in.speedBb, in.speedSb);
+            printf("Hdg:%5.2f tgAngle:%5.1f Speed:%d Bb:%d Sb:%d ", in.dirMag, ang, in.speed, in.speedBb, in.speedSb);
 
             if (in.speedBb == in.speedSb)
             {
@@ -270,15 +272,15 @@ RoboStruct rudderPid(RoboStruct rud)
     Input = smallestAngle(rud.dirSet, rud.dirMag);
     Setpoint = 0;
     myPID.Compute();
-    Output -= rud.compassOffset; // mecanical offset
-    if (Output < 0)
-    {
-        Output += 360;
-    }
-    if (Output > 360)
-    {
-        Output -= 360;
-    }
+    // Output += rud.compassOffset; // mecanical offset
+    // if (Output < 0)
+    // {
+    //     Output += 360;
+    // }
+    // if (Output > 360)
+    // {
+    //     Output -= 360;
+    // }
     double deltaPwr = (Output / 180) * 2;
     double bb = rud.speed * (1 - deltaPwr);
     double sb = rud.speed * (1 + deltaPwr);
@@ -409,15 +411,11 @@ void loop(void)
             case IDLE:
                 mainData.status = IDELING;
                 break;
-            case LOCKED:
-            case UDPTGDIRSPEED:
+            case DIRSPEED:
                 mainData.speed = (int)mainData.speedSet;
-                mainData.status = LOCKED;
+                mainData.status = REMOTE;
                 break;
             case REMOTE:
-            case UDPDIRSPEED:
-                subStatus = REMOTE;
-                break;
             case PIDRUDDERSET:
                 pidRudderParameters(mainData, false);
                 mainData.kir = 0;
@@ -432,6 +430,7 @@ void loop(void)
                 break;
             case PING:
                 mainData.cmd = PONG;
+                xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
                 break;
             }
         }

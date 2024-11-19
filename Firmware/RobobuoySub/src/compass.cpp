@@ -18,6 +18,7 @@
 static LedData compassLedStatus;
 static PwrData compassPwrData;
 static Buzz compassBuzzerData;
+static double mDir = 0;
 
 QueueHandle_t compass;
 
@@ -26,8 +27,8 @@ Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
 
 Message comp_msg; /* ESC que struckt */
 
-static int magneticCorrection = 0;
-static int mechanicCorrection = 0;
+static double magneticCorrection = 0;
+static double mechanicCorrection = 0;
 
 template <typename T>
 struct vector
@@ -72,6 +73,10 @@ void vector_normalize(vector<float> *a)
  * and horizontal north is returned.
  */
 template <typename T>
+
+//***************************************************************************************************
+//  Average of NUM_DIRECTIONS samples
+//***************************************************************************************************
 float heading(vector<T> from)
 {
     sensors_event_t event;
@@ -106,6 +111,9 @@ float heading(vector<T> from)
 
 // MaxX:63.750000 MaxY:91.199997 MaxZ:-5.700000 MinX:-12.900000 MinY:-101.550003 MinZ:-101.550003
 // MaxX:68.699997 MaxY:74.250000 MaxZ:-6.750000 MinX:-29.250000 MinY:-13.200000 MinZ:-100.650002
+//***************************************************************************************************
+//  Init compass
+//***************************************************************************************************
 bool InitCompass(void)
 {
     float min_mag[3], max_mag[3];
@@ -134,6 +142,9 @@ bool InitCompass(void)
     return 0;
 }
 
+//***************************************************************************************************
+//
+//***************************************************************************************************
 bool CalibrateCompass(void)
 {
     static unsigned long calstamp;
@@ -172,24 +183,31 @@ bool CalibrateCompass(void)
     return 0;
 }
 
+//***************************************************************************************************
+//
+//***************************************************************************************************
 double GetHeading(void)
 {
-    float mHeding = heading((vector<int>){0, 1, 0}); // Select oriontation
+    double mHeding = heading((vector<int>){0, 1, 0}); // Select oriontation
     mHeding = mHeding + magneticCorrection;
     if (mHeding < 0)
     {
         mHeding = mHeding + 360.0;
     }
-    else if (mHeding > 360)
+    else if (mHeding >= 360.0)
     {
         mHeding = mHeding - 360.0;
     }
-    return (double)mHeding;
+    return mHeding;
 }
+
+//***************************************************************************************************
+//
+//***************************************************************************************************
 double GetHeadingRaw(void)
 {
-    float t = heading((vector<int>){0, 1, 0});
-    if (t > 360)
+    double t = heading((vector<int>){0, 1, 0});
+    if (t >= 360.0)
     {
         t -= 360;
     }
@@ -202,10 +220,11 @@ double GetHeadingRaw(void)
 
 static int cbufpointer = 0;
 static float directions[NUM_DIRECTIONS];
-/*
-Average of NUM_DIRECTIONS samples
-*/
-double CompassAverage(float in)
+
+//***************************************************************************************************
+//
+//***************************************************************************************************
+double CompassAverage(double in)
 {
     directions[cbufpointer++] = in;
     if (cbufpointer >= NUM_DIRECTIONS)
@@ -227,36 +246,34 @@ double CompassAverage(float in)
     {
         avg_dir += 360.0;
     }
-    if (avg_dir > 360)
+    if (avg_dir >= 360.0)
     {
         avg_dir -= 360;
     }
     return avg_dir;
 }
 
+//***************************************************************************************************
+//
+//***************************************************************************************************
 double GetHeadingAvg(void)
 {
     return CompassAverage(GetHeading());
 }
 
+//***************************************************************************************************
+//
+//***************************************************************************************************
 void calibrateMagneticNorth(void)
 {
-    for (int t = 0; t < 35; t++)
+    double h = mDir - magneticCorrection;
+    if (h < 0)
     {
-        CompassAverage(GetHeadingRaw());
+        h += 360;
     }
-    double h = CompassAverage(GetHeadingRaw());
-    // float h = GetHeadingRaw();
-    if (h < 180)
-    {
-        magneticCorrection = (int)(-h);
-    }
-    else
-    {
-        magneticCorrection = (int)(360 - h);
-    }
+    magneticCorrection = smallestAngle(h, 0);
     CompassOffsetCorrection(&magneticCorrection, SET);
-    printf("New magnetic offset stored: %d\r\n", magneticCorrection);
+    printf("\r\n\r\nNew magnetic offset stored: %.2f\r\n\r\n", magneticCorrection);
 }
 
 void initcompassQueue(void)
@@ -264,13 +281,15 @@ void initcompassQueue(void)
     compass = xQueueCreate(1, sizeof(double));
 }
 
+//***************************************************************************************************
+//  Compass task
+//***************************************************************************************************
 void CompassTask(void *arg)
 {
-    double mDir = 0;
     while (1)
     {
         mDir = GetHeadingAvg();
-        xQueueSend(compass, (void *)&mDir, 10); // notify main there is new data
+        xQueueSend(compass, (void *)&mDir, 0); // notify main there is new data
         vTaskDelay(1);
     }
 }

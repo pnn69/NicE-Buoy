@@ -22,7 +22,8 @@ static IPAddress ipTop;
 AsyncUDP udp;
 QueueHandle_t udpOut;
 QueueHandle_t udpIn;
-static unsigned long tstart, tstop;
+// static unsigned long tstart, tstop;
+static unsigned long lastUpdMsg = 0;
 
 /*
     Setup OTA
@@ -156,6 +157,13 @@ bool udp_setup(int poort)
                         {
                             stringUdpIn.toCharArray(udpDataIn, stringUdpIn.length() + 1);
                             xQueueSend(udpIn, (void *)&udpDataIn, 10); // notify main there is new data
+                            if (lastUpdMsg != CRGB::DarkBlue)
+                            {
+                                wifiCollorUtil.blink = BLINK_SLOW;
+                                wifiCollorUtil.color = CRGB::DarkBlue;
+                                xQueueSend(ledUtil, (void *)&wifiCollorUtil, 0); // update GPS led
+                            }
+                            lastUpdMsg = millis();
                         }
                         else
                         {
@@ -259,6 +267,13 @@ void WiFiTask(void *arg)
             out = addCRCToString(out);
             // printf("UDP out<%s>\r\n",out.c_str());
             udp.broadcast(out.c_str());
+        }
+        if (lastUpdMsg + 1 * 1000 < millis() && wifiCollorUtil.color != CRGB::DarkOrange)
+        {
+            wifiCollorUtil.color = CRGB::DarkOrange;
+            wifiCollorUtil.blink = BLINK_SLOW;
+            xQueueSend(ledUtil, (void *)&wifiCollorUtil, 0); // update GPS led
+            lastUpdMsg = millis();
         }
         delay(1);
     }

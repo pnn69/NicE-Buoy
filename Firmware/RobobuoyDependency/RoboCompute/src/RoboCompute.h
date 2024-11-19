@@ -14,72 +14,74 @@
 #define HEAD 1
 #define PORT 2
 #define STARBOARD 3
+#define ROBOBASE -2
 
 #define SAMPELS 20 // 60 samples
 
 typedef enum
 {
-    LOTAGET = 1, // info request
-    LORASET,     // info to store
-    LORAGETACK,  // ack requerd
-    LORAACK,     // ack on message
-    LORANAC,     // nak
-    LORAINF,     // udate message
-    IDLE,
-    IDELING,
-    PING,
-    PONG,
-    LOCKING,
-    LOCKED,
-    LOCK_POS,
-    DOCKING,
-    DOCKED,
-    DOC,
-    UNLOCK,
-    REMOTE,
-    REMOTEING,
-    CALIBRATE_MAGNETIC_COMPASS,
-    LINEAR_CALLIBRATING,
-    CALIBRATE_OFFSET_MAGNETIC_COMPASS,
-    STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS,
-    DOCK_STORING,
-    MUTE_ESC,
-    BLINK_SLOW,
-    BLINK_FAST,
-    BLINK_OFF,
-    SUBDATA,        // all data send known by sub
-    SUBACCU,        // V,P accu voltage, accu percentage
-    SUBDIR,         // magnetic direction
-    SUBSPEED,       // speed(given), speed BB, speed SB
-    SUBDIRSPEED,    // mDir,speedbb,speedsb,speed
-    TOPIDLE,        //
-    TOPID,          // mac[unsigned long]
-    TOPDATA,        // ?
-    TOPDIRSPEED,    // Dir,Speed
-    LORADIRSPEED,   // Dir,Speed
-    TOPDIRDIST,     // Direction and distance
-    TOPSPBBSPSB,    // SpeedBb,SpeedSb
-    TOPROUTTOPOINT, // route to point data
-    TOPCALCRUDDER,  // tgDir,tgDist,Speed
-    PIDRUDDER,      // Prudder,Irudder,Drudder,kp,ki,kd PID parameters rudder + act data (p i d t) t = total
-    PIDRUDDERSET,   // Prudder,Irudder,Drudder,kp,ki,kd PID parameters rudder
-    PIDSPEED,       // Pspeed,Ispeed,Dspeed,kp,ki,kd PID parameters speed + act data (p i d t) t= total
-    PIDSPEEDSET,    // Pspeed,Ispeed,Dspeed,kp,ki,kd PID parameters speed
-    SUBID,          // mac sub
-    UDPERROR,       // no udp communicaton
-    STOREASDOC,     // Store location as doc location
-    LORABUOYPOS,    // STATUS,LAT,LON,mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
-    LORALOCKPOS,    // LAT,LON,wDir,wStd
-    LORADOCKPOS,    // LAT,LON.wDir,wStd
-    LORADIRDIST,    // tgDir,tgDist
-    LORASENDTRACK,  // new track positions of buoys
-    LORASENDTXT,    // Text message
-    LORAIDELING,    //
-    COMPUTESTART,   //
-    COMPUTETRACK,   //
-    UDPTGDIRSPEED,  // compute speed dir
-    UDPDIRSPEED,    // speed dir
-    NEWBUOYPOS,     // new computed buoy pos
+    LOTAGET = 1,                             // info request
+    LORASET,                                 // info to store
+    LORAGETACK,                              // ack requerd
+    LORAACK,                                 // ack on message
+    LORANAC,                                 // nak
+    LORAINF,                                 // udate message
+    IDLE,                                    //
+    IDELING,                                 //
+    PING,                                    //
+    PONG,                                    //
+    ERROR,                                   // no udp communicaton
+    LOCKING,                                 //
+    LOCKED,                                  //
+    LOCK_POS,                                //
+    DOCKING,                                 //
+    DOCKED,                                  //
+    DOC,                                     //
+    STOREASDOC,                              // Store location as doc location
+    BUOYPOS,                                 // 19 STATUS,LAT,LON,mDir,wDir,wStd,BattPecTop,BattPercBott,gpsFix,gpsSat
+    SETLOCKPOS,                              // tgLat,tgLng
+    LOCKPOS,                                 // 21 tgLat,tgLng,tgDir,tgDist
+    SETDOCKPOS,                              // tgLat,tgLng
+    DOCKPOS,                                 // tgLat,tgLng,tgDir,tgDist
+    UNLOCK,                                  //
+    REMOTE,                                  // dir,speed
+    REMOTEING,                               //
+    CALIBRATE_MAGNETIC_COMPASS,              //
+    LINEAR_CALLIBRATING,                     //
+    CALIBRATE_OFFSET_MAGNETIC_COMPASS,       //
+    STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS, //
+    DOCK_STORING,                            //
+    MUTE_ESC,                                //
+    BLINK_SLOW,                              //
+    BLINK_FAST,                              //
+    BLINK_OFF,                               //
+    SUBDATA,                                 // all data send known by sub
+    SUBACCU,                                 // V,P accu voltage, accu percentage
+    MDIR,                                    // magnetic direction
+    GDIR,                                    // gps dir
+    TDIR,                                    // taget dir
+    SPEED,                                   // speed
+    SUBSPEED,                                // speed BB, speed SB , speed
+    DIRSPEED,                                // mDir,speedbb,speedsb,speed
+    DIRDIST,                                 // Direction and distance
+    TOPID,                                   // mac[unsigned long]
+    SUBID,                                   // mac[unsigned long]
+    REMOTEID,                                // mac[unsigned long]
+    TOPDATA,                                 // ?
+    SPBBSPSB,                                // SpeedBb,SpeedSb
+    ROUTTOPOINT,                             // route to point data
+    CALCRUDDER,                              // tgDir,tgDist,Speed
+    PIDRUDDER,                               // Prudder,Irudder,Drudder,kp,ki,kd PID parameters rudder + act data (p i d t) t = total
+    PIDRUDDERSET,                            // Prudder,Irudder,Drudder,kp,ki,kd PID parameters rudder
+    PIDSPEED,                                // Pspeed,Ispeed,Dspeed,kp,ki,kd PID parameters speed + act data (p i d t) t= total
+    PIDSPEEDSET,                             // Pspeed,Ispeed,Dspeed,kp,ki,kd PID parameters speed
+    SUBPWR,                                  // speedSet,speed,spBb,spSb,subVbatt
+    TOPPWR,                                  // speed,tgDir,topVbatt
+    SENDTRACK,                               // new track positions of buoys
+    COMPUTESTART,                            //
+    COMPUTETRACK,                            //
+    NEWBUOYPOS,                              // lat,lng
+    TXT,                                     // Text message
     ROBODEFAULTS,
 } msg_t;
 
@@ -94,9 +96,14 @@ struct RoboStruct
     double lng = 0;
     double tgLat = 0;
     double tgLng = 0;
-    int dirSet = 0;
+    double gpsLat = 0;
+    double gpsLng = 0;
     int dirGps = 0;
-    double wDir, wStd;
+    int dirSet = 0;
+    bool gpsFix = false;
+    int gpsSat = 0;
+    double wDir = 0;
+    double wStd = 0;
     double dirMag = 0;
     double tgDir = 0;
     int trackPos = 0;
@@ -121,11 +128,12 @@ struct RoboStruct
     int maxOfsetDist;
     int minSpeed;
     int maxSpeed;
-    int compassOffset;
-    unsigned long lastLoraIn = 0;  // last external communicatong
-    unsigned long lastLoraOut = 0; // last external communicatong
-    unsigned long lastUdpOut = 0;  // last external communicatong
-    unsigned long lastUdpIn = 0;   // last external communicatong
+    double compassOffset;
+    unsigned long lastLoraIn = 0;    // last external communicatong
+    unsigned long lastLoraOut = 0;   // last external communicatong
+    unsigned long LoraFastTimer = 0; // last external communicatong
+    unsigned long lastUdpOut = 0;    // last external communicatong
+    unsigned long lastUdpIn = 0;     // last external communicatong
 };
 
 struct RoboStructGps

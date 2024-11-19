@@ -131,15 +131,20 @@ void EscTask(void *arg)
         }
         if (spbb != 0)
         {
+            if (digitalRead(ESC_BB_PWR_PIN) == 0)
+            {
+                escbb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+                digitalWrite(ESC_BB_PWR_PIN, HIGH);
+                delay(1000);
+            }
             bbStamp = millis();
-            digitalWrite(ESC_BB_PWR_PIN, HIGH);
         }
         else
         {
             if (bbStamp + 1000 * 60 < millis())
             {
                 bbStamp = millis();
-                digitalWrite(ESC_BB_PWR_PIN, LOW);
+                digitalWrite(ESC_BB_PWR_PIN, LOW); // Poweroff esc
             }
         }
         /*
@@ -147,15 +152,20 @@ void EscTask(void *arg)
         */
         if (spsb != 0)
         {
+            if (digitalRead(ESC_SB_PWR_PIN) == 0)
+            {
+                escsb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+                digitalWrite(ESC_SB_PWR_PIN, HIGH);
+                delay(1000);
+            }
             sbStamp = millis();
-            digitalWrite(ESC_SB_PWR_PIN, HIGH);
         }
         else
         {
             if (sbStamp + 1000 * 60 < millis())
             {
                 sbStamp = millis();
-                digitalWrite(ESC_SB_PWR_PIN, LOW);
+                digitalWrite(ESC_SB_PWR_PIN, LOW); // Poweroff esc
             }
         }
         if (logStamp + 1000 < millis())

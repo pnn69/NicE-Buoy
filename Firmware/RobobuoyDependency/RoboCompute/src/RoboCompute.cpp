@@ -47,7 +47,8 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         substring = substring.substring(commaIndex + 1);
     }
     dataStore.cmd = numbers[0].toInt();
-    // printf("Command to decode:%d\r\n", dataStore.cmd);
+    // dataStore.status = numbers[1].toInt();
+    //  printf("Command to decode:%d\r\n", dataStore.cmd);
     switch (dataStore.cmd)
     {
     case IDLE:
@@ -58,89 +59,97 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         break;
     case DOCKED: // tgDir,tgDist
     case LOCKED: // tgDir,tgDist
-        dataStore.tgDir = numbers[1].toDouble();
-        dataStore.tgDist = numbers[2].toDouble();
+        dataStore.tgDir = numbers[2].toDouble();
+        dataStore.tgDist = numbers[3].toDouble();
         break;
     case REMOTE: // speed,tgdir
-        dataStore.speed = numbers[1].toInt();
-        dataStore.tgDir = numbers[2].toDouble();
+        dataStore.speed = numbers[2].toInt();
+        dataStore.tgDir = numbers[3].toDouble();
         break;
     case TOPDATA: // ?
         printf("TOPDATA Not implementend yet/r/n");
         break;
-    case UDPTGDIRSPEED:
-    case LORADIRSPEED: // Dir,speed
-    case TOPDIRSPEED:  // Dir,Speed
-        dataStore.dirSet = numbers[1].toInt();
-        dataStore.speedSet = numbers[2].toDouble();
+    case DIRSPEED:
+        dataStore.dirMag = numbers[2].toDouble();
+        dataStore.speedBb = numbers[3].toInt();
+        dataStore.speedSb = numbers[4].toInt();
+        dataStore.speed = numbers[5].toInt();
         break;
-    case TOPROUTTOPOINT: //?
+    case ROUTTOPOINT: //?
         break;
-    case TOPSPBBSPSB: // SpeedBb,SpeedSb
-        dataStore.speedBb = numbers[1].toInt();
-        dataStore.speedSb = numbers[2].toInt();
+    case SPBBSPSB: // SpeedBb,SpeedSb
+        dataStore.speedBb = numbers[2].toInt();
+        dataStore.speedSb = numbers[3].toInt();
         break;
-    case TOPCALCRUDDER: // tgDir,tgDist,Speed
-        dataStore.tgDir = numbers[1].toDouble();
-        dataStore.tgDist = numbers[2].toDouble();
-        dataStore.speedSet = numbers[3].toDouble();
-    case TOPIDLE:
-        break;
-    case SUBDIRSPEED: // mDir,speedbb,speedsb,speed
-        dataStore.dirMag = numbers[1].toDouble();
+    case CALCRUDDER: // tgDir,tgDist,Speed
+        dataStore.tgDir = numbers[2].toDouble();
+        dataStore.tgDist = numbers[3].toDouble();
+        dataStore.speedSet = numbers[4].toDouble();
+    case SPEED:
+        dataStore.speed = numbers[2].toInt();
+    case SUBSPEED:
         dataStore.speedBb = numbers[2].toInt();
         dataStore.speedSb = numbers[3].toInt();
         dataStore.speed = numbers[4].toInt();
         break;
-    case SUBSPEED:
-        dataStore.speedBb = numbers[1].toInt();
-        dataStore.speedSb = numbers[2].toInt();
-        dataStore.speed = numbers[3].toInt();
-        break;
     case SUBACCU: // V,P
-        dataStore.subAccuV = numbers[1].toFloat();
-        dataStore.subAccuP = numbers[2].toInt();
+        dataStore.subAccuV = numbers[2].toFloat();
+        dataStore.subAccuP = numbers[3].toInt();
         break;
     case PIDRUDDERSET: // Prudder,Irudder,Drudder,kp,ki,kd
     case PIDRUDDER:    // Prudder,Irudder,Drudder,kp,ki,kd
-        dataStore.pr = numbers[1].toDouble();
-        dataStore.ir = numbers[2].toDouble();
-        dataStore.dr = numbers[3].toDouble();
-        dataStore.kpr = numbers[4].toDouble();
-        dataStore.kir = numbers[5].toDouble();
-        dataStore.kdr = numbers[6].toDouble();
+        dataStore.pr = numbers[2].toDouble();
+        dataStore.ir = numbers[3].toDouble();
+        dataStore.dr = numbers[4].toDouble();
+        dataStore.kpr = numbers[5].toDouble();
+        dataStore.kir = numbers[6].toDouble();
+        dataStore.kdr = numbers[7].toDouble();
         break;
     case PIDSPEEDSET: // Pspeed,Ispeed,Dspeed,kp,ki,kd
     case PIDSPEED:    // Pspeed,Ispeed,Dspeed,kp,ki,kd
-        dataStore.ps = numbers[1].toDouble();
-        dataStore.is = numbers[2].toDouble();
-        dataStore.ds = numbers[3].toDouble();
-        dataStore.kps = numbers[4].toDouble();
-        dataStore.kis = numbers[5].toDouble();
-        dataStore.kds = numbers[6].toDouble();
+        dataStore.ps = numbers[2].toDouble();
+        dataStore.is = numbers[3].toDouble();
+        dataStore.ds = numbers[4].toDouble();
+        dataStore.kps = numbers[5].toDouble();
+        dataStore.kis = numbers[6].toDouble();
+        dataStore.kds = numbers[7].toDouble();
         break;
-    case LORABUOYPOS: // STATUS,LAT,LON,mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
-        dataStore.status = numbers[1].toInt();
-        dataStore.lat = numbers[2].toDouble();
-        dataStore.lng = numbers[3].toDouble();
-        dataStore.dirMag = numbers[4].toDouble();
-        dataStore.wDir = numbers[5].toDouble();
-        dataStore.wStd = numbers[6].toDouble();
-        dataStore.topAccuP = numbers[7].toInt();
-        dataStore.subAccuP = numbers[8].toInt();
+    case SUBPWR:
+        dataStore.speedSet = numbers[2].toInt();
+        dataStore.speed = numbers[3].toInt();
+        dataStore.speedBb = numbers[4].toInt();
+        dataStore.speedSb = numbers[5].toInt();
+        dataStore.subAccuV = numbers[6].toDouble();
+        break;
+    case BUOYPOS: // STATUS,LAT,LON,mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
+        dataStore.status = numbers[2].toInt();
+        dataStore.lat = numbers[3].toDouble();
+        dataStore.lng = numbers[4].toDouble();
+        dataStore.dirMag = numbers[5].toDouble();
+        dataStore.wDir = numbers[6].toDouble();
+        dataStore.wStd = numbers[7].toDouble();
+        dataStore.topAccuP = numbers[8].toInt();
+        dataStore.subAccuP = numbers[9].toInt();
+        dataStore.gpsFix = (bool)numbers[10].toInt();
+        dataStore.gpsSat = numbers[11].toInt();
         break;
     case DOCKING:
         break;
-    case LORALOCKPOS: // LAT,LON,wDir,wStd
-    case LORADOCKPOS: // LAT,LON,wDir,wStd
-        dataStore.tgLat = numbers[1].toDouble();
-        dataStore.tgLng = numbers[2].toDouble();
-        dataStore.wDir = numbers[3].toDouble();
-        dataStore.wStd = numbers[4].toDouble();
+    case LOCKPOS: // LAT,LON,wDir,wStd
+    case DOCKPOS: // LAT,LON,wDir,wStd
+        dataStore.tgLat = numbers[2].toDouble();
+        dataStore.tgLng = numbers[3].toDouble();
+        dataStore.tgDir = numbers[4].toDouble();
+        dataStore.tgDist = numbers[5].toDouble();
         break;
-    case LORADIRDIST:
-        dataStore.tgDir = numbers[1].toDouble();
-        dataStore.tgDist = numbers[2].toDouble();
+    case SETLOCKPOS: // LAT,LON,wDir,wStd
+    case SETDOCKPOS:
+        dataStore.tgLat = numbers[2].toDouble();
+        dataStore.tgLng = numbers[3].toDouble();
+        break;
+    case DIRDIST:
+        dataStore.tgDir = numbers[2].toDouble();
+        dataStore.tgDist = numbers[3].toDouble();
         break;
     case IDELING:
         break;
@@ -165,6 +174,7 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
 String RoboCode(RoboStruct dataOut, int cmd)
 {
     String out = String(cmd);
+    out += "," + String(dataOut.status);
     switch (cmd)
     {
     case IDLE:
@@ -185,10 +195,16 @@ String RoboCode(RoboStruct dataOut, int cmd)
         out += "," + String(dataOut.subAccuV, 2);
         out += "," + String(dataOut.subAccuP);
         break;
-    case SUBDIR:
+    case MDIR:
         out += "," + String(dataOut.dirMag, 2);
         break;
-    case SUBDIRSPEED:
+    case GDIR:
+        out += "," + String(dataOut.dirGps, 2);
+        break;
+    case TDIR:
+        out += "," + String(dataOut.tgDir, 2);
+        break;
+    case DIRSPEED:
         out += "," + String(dataOut.dirMag, 2);
         out += "," + String(dataOut.speedSb);
         out += "," + String(dataOut.speedBb);
@@ -220,24 +236,16 @@ String RoboCode(RoboStruct dataOut, int cmd)
         out += "," + String(dataOut.kir, 3);
         out += "," + String(dataOut.kdr, 3);
         break;
-    case TOPIDLE:
-        break;
-    case UDPTGDIRSPEED:
-    case LORADIRSPEED: // Dir,speed
-    case TOPDIRSPEED:  // Dir,Speed
-        out += "," + String(dataOut.tgDir, 2);
-        out += "," + String(dataOut.speedSet, 2);
-        break;
-    case TOPDIRDIST:
+    case DIRDIST:
         out += "," + String(dataOut.tgDir, 2);
         out += "," + String(dataOut.tgDist, 2);
         break;
-    case TOPCALCRUDDER:
+    case CALCRUDDER:
         out += "," + String(dataOut.tgDir, 2);
         out += "," + String(dataOut.tgDist, 2);
         out += "," + String(dataOut.speedSet, 2);
         break;
-    case LORABUOYPOS:
+    case BUOYPOS:
         out += "," + String(dataOut.status);
         out += "," + String(dataOut.lat, 8);
         out += "," + String(dataOut.lng, 8);
@@ -246,18 +254,28 @@ String RoboCode(RoboStruct dataOut, int cmd)
         out += "," + String(dataOut.wStd, 2);
         out += "," + String(dataOut.topAccuP);
         out += "," + String(dataOut.subAccuP);
+        out += "," + String(dataOut.gpsFix);
+        out += "," + String(dataOut.gpsSat);
+        break;
+    case SUBPWR:
+        out += "," + String(dataOut.speedSet);
+        out += "," + String(dataOut.speed);
+        out += "," + String(dataOut.speedBb);
+        out += "," + String(dataOut.speedSb);
+        out += "," + String(dataOut.subAccuV, 2);
         break;
     case DOCKING:
         break;
-    case LORALOCKPOS:
-    case LORADOCKPOS:
+    case SETLOCKPOS:
+    case SETDOCKPOS:
         out += "," + String(dataOut.tgLat, 8);
         out += "," + String(dataOut.tgLng, 8);
-        out += "," + String(dataOut.wDir, 1);
-        out += "," + String(dataOut.wStd, 1);
         break;
-    case LORADIRDIST:
-        out += "," + String(dataOut.tgDir, 2);
+    case LOCKPOS:
+    case DOCKPOS:
+        out += "," + String(dataOut.tgLat, 8);
+        out += "," + String(dataOut.tgLng, 8);
+        out += "," + String(dataOut.tgDir, 0);
         out += "," + String(dataOut.tgDist, 2);
         break;
     case LOCKING:
@@ -405,7 +423,7 @@ RoboWindStruct deviationWindRose(RoboWindStruct wData)
 
 void PidDecode(String data, int pid, RoboStruct buoy)
 {
-    int numbers[10]; // Array to hold the decoded numbers (adjust size as needed)
+    int numbers[15]; // Array to hold the decoded numbers (adjust size as needed)
     int count = 0;   // Keep track of the number of extracted numbers
     int cmd = -1;
     int startIndex = data.indexOf('$') + 1; // Start after the '$'
@@ -431,18 +449,18 @@ void PidDecode(String data, int pid, RoboStruct buoy)
     }
     if (pid == PIDSPEED)
     {
-        buoy.ps = numbers[1];
-        buoy.is = numbers[2];
+        buoy.ps = numbers[2];
         buoy.is = numbers[3];
+        buoy.is = numbers[4];
         buoy.kps = 0;
         buoy.kis = 0;
         buoy.kds = 0;
     }
     if (pid == PIDRUDDER)
     {
-        buoy.pr = numbers[1];
-        buoy.ir = numbers[2];
+        buoy.pr = numbers[2];
         buoy.ir = numbers[3];
+        buoy.ir = numbers[4];
         buoy.kpr = 0;
         buoy.kir = 0;
         buoy.kdr = 0;
@@ -1027,26 +1045,58 @@ void trackPosPrint(int c)
 
 RoboStruct calcTrackPos(RoboStruct rsl[3])
 {
+    double dir = 0;
     double d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng); // compute length p0 p1
     double d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng); // compute length p0 p2
     double d2 = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng); // compute length p1 p2
     if (d0 < d1 && d0 < d2)
     {
-        rsl[0].trackPos = PORT;
-        rsl[1].trackPos = STARBOARD;
-        rsl[2].trackPos = HEAD;
+        dir = calculateBearing(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng);
+        if (smallestAngle(rsl[0].wDir, dir) >= 0)
+        {
+            rsl[0].trackPos = PORT;
+            rsl[1].trackPos = STARBOARD;
+            rsl[2].trackPos = HEAD;
+        }
+        else
+        {
+            rsl[1].trackPos = PORT;
+            rsl[0].trackPos = STARBOARD;
+            rsl[2].trackPos = HEAD;
+        }
     }
     if (d1 < d0 && d1 < d2)
     {
-        rsl[0].trackPos = PORT;
-        rsl[1].trackPos = HEAD;
-        rsl[2].trackPos = STARBOARD;
+        dir = calculateBearing(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+        if (smallestAngle(rsl[0].wDir, dir) >= 0)
+        {
+            rsl[0].trackPos = PORT;
+            rsl[1].trackPos = HEAD;
+            rsl[2].trackPos = STARBOARD;
+        }
+        else
+        {
+            rsl[2].trackPos = PORT;
+            rsl[1].trackPos = HEAD;
+            rsl[0].trackPos = STARBOARD;
+        }
     }
     if (d2 < d0 && d2 < d1)
     {
-        rsl[0].trackPos = HEAD;
-        rsl[1].trackPos = PORT;
-        rsl[2].trackPos = STARBOARD;
+        dir = calculateBearing(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+        if (smallestAngle(rsl[0].wDir, dir) >= 0)
+        {
+            rsl[0].trackPos = HEAD;
+            rsl[1].trackPos = PORT;
+            rsl[2].trackPos = STARBOARD;
+        }
+        else
+        {
+            rsl[0].trackPos = HEAD;
+            rsl[2].trackPos = PORT;
+            rsl[2].trackPos = STARBOARD;
+        }
     }
+    printf("#dir= %.0f\r\n", dir);
     return rsl[3];
 }

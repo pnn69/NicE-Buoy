@@ -8,317 +8,138 @@ import re
 import compass
 import socket
 import IDS
+from dataclasses import dataclass
 
+        #print("IDs (Hex):", hex(field1))
+        #print("IDr (Hex):", hex(field2))
+        #print("Ack", field3)
 
-
+@dataclass
+class Robostruct:
+    IDs: int = 0
+    IDr: int = 0
+    ack: int = 0
+    mac: int = 0
+    msg: int = 0
+    status: int = 0
+    lat: float = 0.0
+    lng: float = 0.0
+    tgLat: float = 0.0
+    tgLng: float = 0.0
+    dirSet: int = 0
+    dirGps: int = 0
+    wDir: float = 0.0
+    wStd: float = 0.0
+    dirMag: int = 0
+    tgDir: int = 0
+    trackPos: int = 0
+    speed: int = 0
+    speedBb: int = 0
+    speedSb: int = 0
+    speedSet: int = 0
+    tgDist: float = 0.0
+    subAccuV: float = 0.0
+    topAccuV: float = 0.0
+    subAccuP: int = 0
+    topAccuP: int = 0
+    cmd: int = 0
+    minOfsetDist: int = 0
+    maxOfsetDist: int = 0
+    minSpeed: int = 0
+    maxSpeed: int = 0
+    compassOffset: int = 0
+    lastLoraIn: int = 0
+    lastLoraOut: int = 0
+    lastUdpOut: int = 0
+    lastUdpIn: int = 0
+    gpsFix: bool = FALSE
+    gpsSat: int = 0
+    
+   
 font_settings = ("Arial", 8)  # Change the font name and size as needed
 
 windowh = 350
 windoww = 500
-latitude = None
-longitude = None
-gps_fix = False
-gps_sat = None
-gps_speed = None
-gps_hdg = None
-buoy_hdg = None
-tg_hdg = None
-tg_dst = None
-bb_sp = None
-sb_sp = None
-gps_collor  = "red"
-buoy_collor = "green"
-tg_collor = "blue"
-blk_collor = "black"
-pos_x_winddir = 10
-pos_y_winddir = 200
-pos_x_data_winddir = pos_x_winddir + 80
-pos_y_data_winddir = 200
-pos_x_deviation = 115
-pos_y_deviation = 200
-pos_x_data_deviation = pos_x_deviation + 70
-pos_y_data_deviation = 200
 
 
 # Open COM7 port
 ser = serial.Serial('COM60', 115200)  # Adjust baud rate as per your requirement
 
-def Adjust_position():
-    pos_dir_content = adj_pos_dir.get("1.0", "end-1c")  # Get content of adj_pos_dir1
-    pos_dist_content = adj_pos_dst.get("1.0", "end-1c")  # Get content of adj_pos_dir2
-    out = "*^1^31^1^" + pos_dir_content + "," + pos_dist_content + "^1"
-    out_box1.delete(1.0, END)   
-    out_box1.insert(END, out)
-    ser.write(out.encode())
-
-def Adjust_speed_pid():
-    p = adj_speed_p.get("1.0", "end-1c")  # Get content of adj_pos_dir1
-    i = adj_speed_i.get("1.0", "end-1c")  # Get content of adj_pos_dir1
-    d = adj_speed_d.get("1.0", "end-1c")  # Get content of adj_pos_dir1
-    out = "*^1^29^1^" + p + "," + i +","+ d + "^1"
-    out_box1.delete(1.0, END)   
-    out_box1.insert(END, out)
-    ser.write(out.encode())
-
-def Adjust_rudder_pid():
-    p = adj_rudder_p.get("1.0", "end-1c")  # Get content of adj_pos_dir1
-    i = adj_rudder_i.get("1.0", "end-1c")  # Get content of adj_pos_dir1
-    d = adj_rudder_d.get("1.0", "end-1c")  # Get content of adj_pos_dir1
-    out = "*^1^30^1^" + p + "," + i +","+ d + "^1"
-    out_box1.delete(1.0, END)   
-    out_box1.insert(END, out)
-    ser.write(out.encode())
-    
-def Adjust_control_parameters():
-    Dmin = adj_Dmin.get("1.0", "end-1c")  # Get content of adj_pos_dir1
-    Dmax = adj_Dmax.get("1.0", "end-1c")  # Get content of adj_pos_dir1
-    SPmin = adj_SPmin.get("1.0", "end-1c")  # Get content of adj_pos_dir1
-    SPmax = adj_SPmax.get("1.0", "end-1c")  # Get content of adj_pos_dir1
-    out = "*^1^28^1^" + Dmin + "," + Dmax + "," + SPmin + "," + SPmax + "^1"
-    out_box1.delete(1.0, END)   
-    out_box1.insert(END, out)
-    ser.write(out.encode())
-
-def idle():
-    out = "*^1^21^1^0^1"
-    out_box1.delete(1.0, END)   
-    out_box1.insert(END, out)
-    ser.write(out.encode())
-
-def lock_position():
-    out = "*^1^4^1^0^1"
-    out_box1.delete(1.0, END)   
-    out_box1.insert(END, out)
-    ser.write(out.encode())
-    
-def doc_position():
-    out = "*^1^10^1^0^1"
-    out_box1.delete(1.0, END)   
-    out_box1.insert(END, out)
-    ser.write(out.encode())
    
-#<97.00,60.02,76,-76,76,188>
-def decode_18(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
-    global tg_hdg, tg_dst, bb_sp,sb_sp,buoy_hdg , speed, dist_txt
-    values = data.group(5).split(',')
-    #try:
-    if len(values) == 6:
-        try:
-            tg_hdg = int(float(values[0]))
-        except:
-            print("Hedg fail")
-        #tg_hdg = tg_hdg + 180
-        #if tg_hdg > 360:
-        #    tg_hdg = tg_hdg - 360
-        try: 
-            tg_dst = float(values[1])
-        except:
-            print("dits error")
-        try:    
-            bb_sp = int(float(values[3]))
-        except:
-            print("speed failed")
-        try:
-            sb_sp = int(float(values[4]))
-        except:
-            print("speed failed")
-        try:
-            buoy_hdg = int(float(values[5]))
-        except:
-            print("hdg failed")
-        compass.draw_barr(bb_sp,sb_sp,comp)
-        compass.draw_pointer(tg_hdg,comp,tg_collor)
-        compass.draw_pointer(buoy_hdg,comp,buoy_collor)
-        output_str = f"{bb_sp}% , {sb_sp}%"
-        output_str = f"Target distance:{tg_dst} M"
-        dist_txt.config(text=output_str)
-#except:
-        #print("wrong data 18")
+#***************************************************************************************************
+#  Store data in struct
+#***************************************************************************************************
+def decode(robostruct,data):
+    if robostruct.msg == 50 and len(data) >= 10: #50,7,52.32046850,4.96557650,252.27,306.53,53.47,100,0,1,8
+        robostruct.lat = data[2]
+        robostruct.lng = data[3]
+        robostruct.mDir = round(data[4])
+        robostruct.wDir = round(data[5])
+        robostruct.wStd = data[6]
+        robostruct.topAccuP = data[7]
+        robostruct.subAccuP = data[8]
+        robostruct.gpsFix = data[9]
+        robostruct.gpsSat = data[10]    
+        return
         
-def decode_19(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
-    global tg_hdg, tg_dst, bb_sp,sb_sp,buoy_hdg , speed
-    values = data.group(5).split(',')
-    try:
-        if len(values) == 4:
-            bb_sp = int(values[2])
-            sb_sp = int(values[3])
-            output_str = f"{bb_sp}% , {sb_sp}%"
-            compass.draw_barr(bb_sp,sb_sp,comp)
-    except:
-        print("wrong data 19")
+    if robostruct.msg == 52 and len(data) >= 2: #51,52.32048950,4.96559850
+        robostruct.tgLat = data[1]
+        robostruct.tgLng = data[2]
+        #robostruct.tgDir = data[3]
+        #robostruct.tgDist = data[4]
+        return
 
-def decode_20(data):#DIR_DISTANSE_SPEED_BBSPPEED_SBSPEED_M_HEADING
-    global bb_sp,sb_sp
-    values = data.group(5).split(',')
-    try:
-        if len(values) == 2:
-            bb_sp = int(values[0])
-            sb_sp = int(values[1])
-            output_str = f"{bb_sp}% , {sb_sp}%"
-            compass.draw_barr(bb_sp,sb_sp,comp)
-    except:
-        print("wrong data 20")
+    #if robostruct.msg == 52 and len(data) >= 2: #51,52.32048950,4.96559850
+    #    robostruct.tgLat = data[1]
+    #    robostruct.tgLng = data[2]
+    #    return
 
-     #<52.32038000,4.96563000,10,1,0,0,3.00>
-def decode_23(data): #GPS_LAT_LON_NRSAT_FIX_HEADING_SPEED_MHEADING,  // lat,lon,fix,heading,speed,m_heading
-    global latitude, longitude, gps_fix, comp , gpsfix_label
-    values = data.group(5).split(',')
-    if len(values) == 7:
-        try: 
-            latitude = values[0]
-            longitude = values[1]
-            gps_sat =  int(values[2])
-            if values[3] == "1":
-                gps_fix = True
-                open_maps_button.config(bg = "#36ff00")
-            else:
-                gps_fix = False
-                open_maps_button.config(bg = "#ff3b00")
-            gps_hdg = int(values[4])
-            gps_speed = int(values[5])
-            buoy_hdg = int(float(values[6]))
-            output_str = f"{gps_speed} Km/pH"         
-            gps_data.config(text=output_str)
-            sat_data.config(text = f"{gps_sat}")
-            
-            compass.draw_pointer(gps_hdg,comp,gps_collor)
-            compass.draw_pointer(buoy_hdg,comp,buoy_collor)
-        except:
-            print("wrong data 23")
+    if robostruct.msg == 55 and len(data) >= 2: #51,52.32048950,4.96559850,5.8,0.4
+        robostruct.tgLat = data[1]
+        robostruct.tgLng = data[2]
+        return
     
-def decode_24(data): #BATTERY_VOLTAGE_PERCENTAGE,                    // 0.0V, %
-    global comp
-    values = data.group(5).split(',')
-    if len(values) == 2:
-        voltage_str, percentage_str = data.group(5).split(',')
-        try:
-            voltage = float(voltage_str)
-            percentage = float(percentage_str)
-            output_str = f"Voltage: {voltage} Percentage: {percentage}%"
-            compass.draw_Vbatbarr(percentage,comp)
-        except ValueError:
-            print("One or both of the variables is not a float")        
+    if robostruct.msg == 53:#<fffffffe,c99779f4,6,53,16.62,5.82>
+        return
+    #54,80.00,80,80,-80,0.00
+    if robostruct.msg == 56 and len(data) >= 6: 
+        robostruct.speedSet = data[1]
+        robostruct.speed = data[2]
+        robostruct.speedBb = data[3]
+        robostruct.speedSb = data[4]
+        robostruct.subAccuV = data[5]
+        return
 
-def decode_28(data):
-    values = data.group(5).split(',')
-    if len(values) == 6:
-        try:
-            r1_Dmax_label.config(text=values[0])
-            r2_Dmax_label.config(text=values[1])
-            r1_SP_label.config(text=values[2])
-            r2_SP_label.config(text=values[3]) 
-            comp_label.config(text=values[4]) 
-            mec_label.config(text=values[5]) 
-        except:
-            print("wrong data 28")
+    print("Unknown data ")
 
-def decode_29(data):
-    values = data.group(5).split(',')
-    if len(values) == 4:
-        adj_speed_kI.config(text="P:" + values[0] + ", I:" + values[1]+ ", D:" + values[2] + ", Ki=" + values[3])  # Pre-fill entry1    
-
-def decode_30(data):
-    values = data.group(5).split(',')
-    if len(values) == 4:
-        adj_rudder_kI.config(text="P:" + values[0] + ", I:" + values[1]+ ", D:" + values[2] + ", Ki=" + values[3])  # Pre-fill entry1    
-
-def decode_32(data):
-    values = data.group(5).split(',')
+#***************************************************************************************************
+#  Checkum validation
+#***************************************************************************************************
+def validate_and_extract_data(input_string):
+    #print(f"String in: {input_string}")
+    if '*' not in input_string:
+        return -1
+    data, checksum_str = input_string.split('*')
+    # Remove the initial '$' from data if present
+    if data.startswith('$'):
+        data = data[1:]
     try:
-        if len(values) == 2:
-            wind_dir.config(text=values[0])
-            wind_dev.config(text=values[1])
-    except:
-        print("wrong data")
+        checksum = int(checksum_str, 16)  # Interpret checksum as hexadecimal
+    except ValueError:
+        return -1  # Invalid checksum format
+    calculated_checksum = 0
+    for char in data:
+        calculated_checksum ^= ord(char)
+    #print(f"Calculated checksum (hex): {hex(calculated_checksum)}")
+    #print(f"Provided checksum (hex): {hex(checksum)}")
+    if calculated_checksum == checksum:
+        return data  # Checksum matches, return data
+    else:
+        return -1  # Checksum does not match
 
-def decode_34(data):
-    global buoy_hdg
-    values = data.group(5).split(',')
-    try:
-        if len(values) == 1:
-            buoy_hdg = int(float(values[0]))
-            compass.draw_pointer(buoy_hdg,comp,buoy_collor)
-    except:
-        print("wrong data")
-
-def decode_status(data):
-    if data == 7:
-        status_txt.config(text=f"IDLE")
-    if data == 12:
-        status_txt.config(text=f"LOCKED")
-    if data == 18:
-        status_txt.config(text=f"REMOTE")
-    if data == 15:
-        status_txt.config(text=f"DOCKED")
-    if data == 22:
-        status_txt.config(text=f"M CALIB")
-    
-def open_google_maps():
-    global latitude, longitude, gps_fix
-    # Construct the Google Maps URL with the coordinates
-    #if latitude is not None and longitude is not None:
-    if gps_fix == True:
-        url = f"https://www.google.com/maps/?q={latitude},{longitude}"
-        # Open the URL in a web browser
-        webbrowser.open(url)     
-
-def decode_xx(data):
-    values = data.group(5).split(',')
-    print(len(values));
-    #if len(values) == 2:
-     #   printf(len)
-
-    in_box1.delete(1.0, END)   
-    in_box1.insert(END, f"{data}")
-
-def test():
-    msg = "*^1^23^1^maffe data^1"
-    ser.write(msg.encode())
-
-def Calibrate_compass():
-    msg = "*^1^35^1^^1"
-    ser.write(msg.encode())
-
-def Set_compass_offset():
-    comp_content = adj_comp.get("1.0", "end-1c")  # Get content of adj_pos_dir2
-    msg = "*^1^36^1^" + comp_content  + "^1"
-    ser.write(msg.encode())
-    out_box1.delete(1.0, END)   
-    out_box1.insert(END, f"{msg}")
-    
-def Set_mecanical_offset():
-    comp_content = adj_mec.get("1.0", "end-1c") 
-    msg = "*^1^37^1^" + comp_content  + "^1"
-    print(msg)
-    ser.write(msg.encode())
-    out_box1.delete(1.0, END)   
-    out_box1.insert(END, f"{msg}")
-    
-def remove_spaces(string):
-    return "".join(string.split())
-
-def decode(cmd,data):
-    global latitude, longitude, gps_fix, comp , buoy_hdg, bb_sp,sb_sp, tg_hdg, tg_dst, bb_sp,sb_sp 
-    if cmd == 50: #<fffffffe,c99779b8,6,50,12,52.32035783,4.96514417,356.08,355.74,0.29,10,0>
-        decode_status(data[0])
-        latitude = data[1]
-        longitude = data[2]
-        buoy_hdg = data[3]
-        wind_dir.config(text=round(data[4]))
-        wind_dev.config(text=data[5])
-        voltage = data[6]
-        compass.draw_Vbatbarr(voltage,comp)
-        compass.draw_pointer(buoy_hdg,comp,buoy_collor)
-    if cmd == 51: #<fffffffe,c99779f4,6,51,52.32048950,4.96559850,5.8,0.4>
-        latitude = data[0]
-        longitude = data[1]
-        wind_dir.config(text=round(data[2]))
-        wind_dev.config(text=data[3])
-    if cmd == 53:#<fffffffe,c99779f4,6,53,16.62,5.82>
-        tg_hdg = data[0]
-        tg_dst = data[1]
-        compass.draw_pointer(tg_hdg,comp,tg_collor)
-
+#***************************************************************************************************
+#  Decoder version 2
+#***************************************************************************************************
 def decode_V2(input_str):
     # Remove angle brackets and split by commas
     input_str = input_str.strip("<>")
@@ -326,22 +147,36 @@ def decode_V2(input_str):
     
     try:
         # Try to decode the first four fields
-        field1 = int(fields[0], 16)  # Convert to integer assuming hexadecimal
-        field2 = int(fields[1], 16)  # Convert to integer assuming hexadecimal
-        field3 = int(fields[2])      # Convert to integer
-        field4 = int(fields[3])      # Convert to integer
+        field1 = int(fields[1], 16)  # IDs
+        field2 = int(fields[2])      # Ack
+        field3 = int(fields[3])      # msg
 
         # Convert the remaining fields to `data`
-        data = [float(f.strip()) if '.' in f.strip() else int(f.strip()) for f in fields[4:]]
-        
-        #print("IDs (Hex):", hex(field1))
+        data = [float(f.strip()) if '.' in f.strip() else int(f.strip()) for f in fields[3:]]
         #print("IDr (Hex):", hex(field2))
         #print("Ack", field3)
         #print("msg", field4)
         #print("Data:", data)
         #print("Nr of data fields:",  len(data))
-        decode(field4, data)
-        return field1, field2, field3, field4, data
+
+        if robostructs[0].mac == 0 or robostructs[0].mac == field1:
+            robostructs[0].mac = field1
+            robostructs[0].ack = field2
+            robostructs[0].msg = field3
+            decode(robostructs[0], data)
+            return
+        if robostructs[1].mac == 0 or robostructs[1].mac == field1:
+            robostructs[1].mac = field1
+            robostructs[1].ack = field2
+            robostructs[1].msg = field3
+            decode(robostructs[1], data)
+            return
+        if robostructs[2].mac == 0 or robostructs[2].mac == field1:
+            robostructs[2].mac = field1
+            robostructs[2].ack = field2
+            robostructs[2].msg = field3
+            decode(robostructs[2], data)
+        return
     
     except ValueError as e:
         # Print an error message and return None or some default values
@@ -349,55 +184,20 @@ def decode_V2(input_str):
         return None
 
 
-def decode_message(message):#                                  <IDr><IDs><ack><MSG><DATA>
-    # Regular expression pattern to match the message format: <sender><status><msgId><ack><msg>
-    pattern = r'<(\d+)><(\d+)><(\d+)><(\d+)><(.+)>'
-    # Match the pattern in the message
-    match = re.match(pattern, message)
-    print()
-    print(pattern)
-    print(message)
-    print(match)
-    
-    if match:
-        msg_id = match.group(4)
-        decode_status(match.group(2))
-        if(msg_id == "18"):
-            decode_18(match)
-        if(msg_id == "19"):
-            decode_19(match)
-        if(msg_id == "20"):
-            decode_20(match)
-        if(msg_id == "23"):
-            decode_23(match)
-        if(msg_id == "24"):
-            decode_24(match)
-        if(msg_id == "28"):
-            decode_28(match)
-        if(msg_id == "29"):
-            decode_29(match)
-        if(msg_id == "30"):
-            decode_30(match)
-        if(msg_id == "32"):
-            decode_32(match)
-        if(msg_id == "34"):
-            decode_34(match)
-
 def read_serial():
     while True:
         if ser.in_waiting > 0:
             try:
-                received_data = ser.readline().decode().strip()
+                data_in = ser.readline().decode().strip()
             except UnicodeDecodeError as e:
-                received_data = "troep"
-            if received_data != "troep":
-                received_data = remove_spaces(received_data)
-                in_box1.delete(1.0, END)   
-                in_box1.insert(END, f"{received_data}")
-                print(received_data)
-                compass.toggle_circle(comp)
-                #decode_message(received_data)
-                decode_V2(received_data)
+                data_in = "troep"
+            if data_in != "troep":
+                received_data = validate_and_extract_data(data_in)
+                if received_data != -1:
+                    print(received_data)
+                    decode_V2(received_data)
+                else:
+                    print(data_in, ' # No valid data: ') 
 
 def start_serial_thread():
     serial_thread = threading.Thread(target=read_serial)
@@ -437,162 +237,12 @@ status_txt.place(x=windoww/2+30, y=10)
 dist_txt = Label(text="")
 dist_txt.place(x=windoww/2-20, y=30)
 
-def center_text(event=None):
-    # Calculate the padding needed to center the text
-    text_width = len(adj_Dmin.get())  # Get the length of the text
-    entry_width = 100  # Adjust this width based on your Entry widget width
-    padding = (entry_width - text_width * 7) // 2  # Adjust multiplier as needed
-
-    # Adjust the Entry widget properties to center the text
-    adj_Dmin.config(padx=(padding, 0))  # Apply horizontal padding to center text
-
-
-adj_pos = Button(frame, text="Adjust position", command=Adjust_position)
-adj_pos.place(x=10, y=10, height=30, width=100)
-adj_pos_dir = Text(frame)
-adj_pos_dir.configure(font=font_settings)
-adj_pos_dir.insert(END, "-90")  # Pre-fill entry1
-adj_pos_dir.place(x=120, y=15, height=20, width=30)
-adj_pos_dst = Text(frame)
-adj_pos_dst.configure(font=font_settings)
-adj_pos_dst.insert(END, "30")  # Pre-fill entry2
-adj_pos_dst.place(x=120 + 30, y=15, height=20, width=30)
-
-adj_speed_pid = Button(frame, text="Adjust speed pid",command=Adjust_speed_pid)
-adj_speed_pid.place(x=10, y=50, height=30, width=100)
-adj_speed_p = Text(frame)
-adj_speed_p.configure(font=font_settings)
-adj_speed_p.insert(END, "5")  # Pre-fill entry1
-adj_speed_p.place(x=120, y=55, height=20, width=30)
-adj_speed_i = Text(frame)
-adj_speed_i.configure(font=font_settings)
-adj_speed_i.insert(END, "0.02")  # Pre-fill entry1
-adj_speed_i.place(x=120 + 30, y=55, height=20, width=30)
-adj_speed_d = Text(frame)
-adj_speed_d.configure(font=font_settings)
-adj_speed_d.insert(END, "0.1")  # Pre-fill entry1
-adj_speed_d.place(x=120 + 60, y=55, height=20, width=30)
-adj_speed_kI = Label(text="P:0.0 , I:0.0 , D:0.0, Ki=?.??")
-adj_speed_kI.configure(font=("Arial", 9,'bold'))
-adj_speed_kI.place(x=210, y=55)
-
-adj_rudder_pid = Button(frame, text="Adjust rudder pid",command=Adjust_rudder_pid)
-adj_rudder_pid.place(x=10, y=90, height=30, width=100)
-adj_rudder_p = Text(frame)
-adj_rudder_p.configure(font=font_settings)
-adj_rudder_p.insert(END, "0.8")  # Pre-fill entry1
-adj_rudder_p.place(x=120, y=95, height=20, width=30)
-adj_rudder_i = Text(frame)
-adj_rudder_i.configure(font=font_settings)
-adj_rudder_i.insert(END, "0.1")  # Pre-fill entry1
-adj_rudder_i.place(x=120 + 30, y=95, height=20, width=30)
-adj_rudder_d = Text(frame)
-adj_rudder_d.configure(font=font_settings)
-adj_rudder_d.insert(END, "0")  # Pre-fill entry1
-adj_rudder_d.place(x=120 + 60, y=95, height=20, width=30)
-adj_rudder_kI = Label(text="P:0.0 , I:0.0 , D:0.0, Ki=?.??")
-adj_rudder_kI.configure(font=("Arial", 9,'bold'))
-adj_rudder_kI.place(x=210, y=95)
-
-
-adj_para = Button(frame, text="Adjust parameters",command=Adjust_control_parameters)
-adj_para.place(x=120, y=135, height=30, width=260)
-adj_Dmin = Text(frame)
-adj_Dmin.insert(END, "2")
-adj_Dmin.place(x=10, y=140, height=20, width=20)
-adj_Dmax_label = Label(text="> Dist >")
-adj_Dmax_label.place(x=35, y = 135)
-r1_Dmax_label = Label(text="?")
-r1_Dmax_label.place(x=10, y = 155)
-adj_Dmax = Text(frame)
-adj_Dmax.insert(END, "8")
-adj_Dmax.place(x=90, y=135, height=20, width=20)
-r2_Dmax_label = Label(text="?")
-r2_Dmax_label.place(x=90, y = 155)
-
-adj_SPmin = Text(frame)
-adj_SPmin.insert(END, "2")  # Pre-fill entry1
-adj_SPmin.place(x=390, y=135, height=20, width=20)
-r1_SP_label = Label(text="?")
-r1_SP_label.place(x=390, y = 155)
-adj_Speed_label = Label(text=">Speed>")
-adj_Speed_label.place(x=415, y=135, height=20, width=45)
-adj_SPmax = Text(frame)
-adj_SPmax.insert(END, "75")  # Pre-fill entry1
-adj_SPmax.place(x=470, y=135, height=20, width=20)
-r2_SP_label = Label(text="?")
-r2_SP_label.place(x=470, y = 155)
-
-cal_comp = Button(frame, text="Calibrate compas",command=Calibrate_compass)
-cal_comp.place(x=10, y=170, height=30, width=110)
-set_comp = Button(frame, text="Set compas offset",command=Set_compass_offset)
-set_comp.place(x=160, y=170, height=30, width=110)
-comp_label = Label(text="?")
-comp_label.place(x=130, y = 175)
-adj_comp = Text(frame)
-adj_comp.insert(END, "----")
-adj_comp.place(x=275, y=175, height=20, width=40)
-mec_label = Label(text="?")
-mec_label.place(x=340, y = 175)
-set_mec = Button(frame, text="Set mechanic offset",command=Set_mecanical_offset)
-set_mec.place(x=355, y=170, height=30, width=110)
-adj_mec = Text(frame)
-adj_mec.insert(END, "--")
-adj_mec.place(x=470, y=175, height=20, width=20)
-
-
-idle = Button(frame, text="IDLE", command=idle)
-idle.place( x=windoww - 100 -10,y=10, height=30, width=100)
-
-lock = Button(frame, text="Lock position", command=lock_position)
-lock.place( x=windoww - 100 -10,y=50, height=30, width=100)
-
-dock = Button(frame, text="Sail to doc", command=doc_position)
-dock.place( x=windoww - 100 -10,y=90, height=30, width=100)
-
-# Create a button to open Google Maps
-open_maps_button = Button(root, text="Open Google Maps", bg = "#ff3b00", command=open_google_maps)
-open_maps_button.pack(pady=10)
-#dock.place( x=windoww - 100 -10,y=90, height=30, width=100)
-
-#placeholders incomming data
-wind_label_dir = Label(text="Wind direction:")
-wind_label_dir.place(x=pos_x_winddir, y = pos_y_winddir)
-wind_dir = Label(text="0")
-wind_dir.place(x=pos_x_data_winddir, y = pos_y_data_winddir)
-wind_label_dev = Label(text="Deviation:")
-wind_label_dev.place(x=pos_x_deviation, y = pos_y_winddir)
-wind_dev = Label(text="0")
-wind_dev.place(x=pos_x_data_deviation, y = pos_y_winddir)
-
-gps_label_dir = Label(text="GPS Speed:")
-gps_label_dir.place(x=pos_x_winddir, y =20+ pos_y_winddir)
-gps_data = Label(text="?")
-gps_data.place(x=pos_x_data_winddir-10, y =20+ pos_y_data_winddir)
-sat_label_dir = Label(text="Satellites:")
-sat_label_dir.place(x=pos_x_winddir + 150, y =20+ pos_y_winddir)
-sat_data = Label(text="?")
-sat_data.place(x=pos_x_data_winddir+130, y =20+ pos_y_data_winddir)
-
-
-
-
-
-out_text = Label(text="Out:")
-out_text.place(x=10, y=(windowh - 60))
-
-out_box1 = Text(frame)
-out_box1.place(x=50, y=(windowh - 60), height=20, width=(windoww - 50 - 10))
-
-in_text = Label(text="In:")
-in_text.place(x=10, y=(windowh - 30))
-
-in_box1 = Text(frame)
-in_box1.place(x=50, y=(windowh - 30), height=20, width=(windoww - 50 - 10))
-comp = compass.create_compass(root)
+# Initialize the list with four Robostruct instances
+robostructs = [
+    Robostruct(),
+    Robostruct(),
+    Robostruct(),
+    Robostruct(),  # Fourth instance with default values
+]
 start_serial_thread()  # Start the serial reading thread
-#start_udp_thread()
-#start_ble_thread()
-print(IDS.MsgType.LOTAGET)
-print(IDS.MsgType.LOTAGET.value)  # Output: 1
 root.mainloop()
