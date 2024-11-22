@@ -98,7 +98,7 @@ void storeAckMsg(lorabuf ackBuffer)
     {
         if (pendingMsg[i].msg == 0)
         {
-            printf("#storing on pos %d\r\n",i);
+            printf("#storing on pos %d\r\n", i);
             memcpy(&pendingMsg[i], &ackBuffer, sizeof(ackBuffer));
             return;
         }
@@ -175,7 +175,7 @@ void onReceive(int packetSize)
     {
         incoming += (char)LoRa.read();
     }
-    led.blink = 5;                           // fast blink led on reception lora message
+    led.blink = 5;                              // fast blink led on reception lora message
     xQueueSend(ledNormalLed, (void *)&led, 10); // send out trough Lora
     if (incomingLength != incoming.length())
     { // check length for error
@@ -240,7 +240,7 @@ void initloraqueue(void)
     loraIn = xQueueCreate(10, sizeof(lorabuf));
     InitLora();
     Serial.print("BuoyId=");
-    Serial.println(buoyId,HEX);
+    Serial.println(buoyId, HEX);
 }
 
 //***************************************************************************************************
@@ -264,12 +264,13 @@ void LoraTask(void *arg)
                 {
                     vTaskDelay(pdTICKS_TO_MS(50));
                 }
-                transmittReady = millis() + 150 + random(0, 50);
+                transmittReady = millis() + 150;
                 if (loraMsgout.ack == LORAGETACK)
                 {
                     loraMsgout.retry = 5;
                     storeAckMsg(loraMsgout);                            // put data in buffer (will be removed on ack)
                     retransmittReady = millis() + 900 + random(0, 150); // give some time for ack
+                    transmittReady = millis() + 500;
                 }
             }
         }
@@ -281,7 +282,7 @@ void LoraTask(void *arg)
             {
                 String loraString = String(loraMsgout.macIDr, HEX) + "," + String(buoyId, HEX) + "," + String(loraMsgout.ack);
                 loraString += "," + removeWhitespace(String(loraMsgout.data));
-                printf("Resend: %s\r\n",loraString.c_str());
+                printf("Resend: %s\r\n", loraString.c_str());
                 while (sendLora(loraString) != true)
                 {
                     vTaskDelay(pdTICKS_TO_MS(50));

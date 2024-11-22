@@ -5,8 +5,6 @@
 #include <RoboTone.h>
 #include "../../RobobuoyDependency\RobobuoyVersion.h"
 
-#define MAXSTRINGLENG 150
-
 extern unsigned long buoyId;
 extern unsigned long buoyIdAll;
 

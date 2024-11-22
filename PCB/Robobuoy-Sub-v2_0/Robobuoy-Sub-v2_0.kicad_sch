@@ -11,108 +11,6 @@
 		(company "NicE Engineering")
 	)
 	(lib_symbols
-		(symbol "Connector:TestPoint_Small"
-			(pin_numbers hide)
-			(pin_names
-				(offset 0.762) hide)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "TP"
-				(at 0 3.81 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "TestPoint_Small"
-				(at 0 2.032 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" ""
-				(at 5.08 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" "~"
-				(at 5.08 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "test point"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "test point tp"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_fp_filters" "Pin* Test*"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "TestPoint_Small_0_1"
-				(circle
-					(center 0 0)
-					(radius 0.508)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "TestPoint_Small_1_1"
-				(pin passive line
-					(at 0 0 90)
-					(length 0)
-					(name "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-		)
 		(symbol "Mechanical:MountingHole"
 			(pin_names
 				(offset 1.016)
@@ -196,13 +94,25 @@
 			)
 		)
 	)
-	(no_connect
-		(at 62.23 193.04)
-		(uuid "6ee6bec0-69a8-4401-a59c-138a8e8bc139")
+	(wire
+		(pts
+			(xy 120.65 120.65) (xy 120.65 161.29)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "61dcc87a-74c2-4b17-a796-7d5da6f4a826")
 	)
-	(no_connect
-		(at 71.12 193.04)
-		(uuid "ea7c2203-9786-4b7e-835e-0258c334ec6c")
+	(wire
+		(pts
+			(xy 123.19 120.65) (xy 123.19 161.29)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9979cefe-48f5-4ebb-9f71-316db3636883")
 	)
 	(wire
 		(pts
@@ -255,73 +165,6 @@
 			(justify left bottom)
 		)
 		(uuid "a8705544-687a-4eb4-8757-449e0d3ddfdd")
-	)
-	(symbol
-		(lib_id "Connector:TestPoint_Small")
-		(at 71.12 193.04 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "32afde3b-fe22-4465-9be1-b4d6fbbb0d1b")
-		(property "Reference" "TP302"
-			(at 72.39 191.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "RW2"
-			(at 72.39 194.31 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "A_Misc:ReworkPins"
-			(at 76.2 193.04 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 76.2 193.04 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 71.12 193.04 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "0ba18cc6-62f3-4eb1-a83e-7499845db3d7")
-		)
-		(instances
-			(project "Robuoy-Sub"
-				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
-					(reference "TP302")
-					(unit 1)
-				)
-			)
-		)
 	)
 	(symbol
 		(lib_id "Mechanical:MountingHole")
@@ -463,73 +306,6 @@
 			(project "Robuoy-Sub"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(reference "H303")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Connector:TestPoint_Small")
-		(at 62.23 193.04 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "b8b74dbc-98ad-4bf0-8998-abf5ff532d56")
-		(property "Reference" "TP301"
-			(at 63.5 191.77 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "RW1"
-			(at 63.5 194.31 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "A_Misc:ReworkPins"
-			(at 67.31 193.04 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 67.31 193.04 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 62.23 193.04 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "e297b9b2-ae60-4206-b513-bb4c38c9a6b9")
-		)
-		(instances
-			(project "Robuoy-Sub"
-				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
-					(reference "TP301")
 					(unit 1)
 				)
 			)
@@ -742,6 +518,26 @@
 			)
 			(uuid "e41ddc0f-75e7-4c5e-ad80-9fc92f606093")
 		)
+		(pin "COM" bidirectional
+			(at 120.65 120.65 270)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "59722cc7-a932-4333-b58a-e13561d2dc9a")
+		)
+		(pin "VbatEn" input
+			(at 123.19 120.65 270)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+			(uuid "fdb41164-ccfe-43da-9b69-2727ef6d8fbc")
+		)
 		(instances
 			(project "Robobuoy-Sub-v2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
@@ -810,6 +606,26 @@
 				(justify right)
 			)
 			(uuid "8468c967-8eaf-4e55-bbe3-a36e5d01c2d2")
+		)
+		(pin "COM" bidirectional
+			(at 120.65 161.29 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "c94e69f8-0d2d-4590-a4bc-b52d07dafb5e")
+		)
+		(pin "VbatEn" output
+			(at 123.19 161.29 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+			(uuid "5b1da86b-5254-47d4-91f9-f9f719469dc1")
 		)
 		(instances
 			(project "Robobuoy-Sub-v2_0"

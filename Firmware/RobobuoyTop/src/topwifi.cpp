@@ -12,8 +12,8 @@
 static int statik = IDLE;
 static RoboStruct msgIdOut;
 static RoboStruct topWifiIn;
-static UdpData udpBuffer;
-static UdpData udpBufferRecieved;
+static RoboStruct udpBuffer;
+static RoboStruct udpBufferRecieved;
 static LedData wifiCollorUtil;
 static bool ota = false;
 static int8_t id = 0;
@@ -153,9 +153,9 @@ bool udp_setup(int poort)
         udp.onPacket([](AsyncUDPPacket packet)
                      {
                         String stringUdpIn = (const char *)packet.data();
-                        if (verifyCRC(stringUdpIn))
+                        RoboStruct udpDataIn = rfDeCode(stringUdpIn);
+                        if (udpDataIn.IDs != -1 )
                         {
-                            stringUdpIn.toCharArray(udpDataIn, stringUdpIn.length() + 1);
                             xQueueSend(udpIn, (void *)&udpDataIn, 10); // notify main there is new data
                             if (lastUpdMsg != CRGB::DarkBlue)
                             {
@@ -186,7 +186,7 @@ void udpSend(String data)
 unsigned long initwifiqueue(void)
 {
     udpOut = xQueueCreate(10, sizeof(RoboStruct));
-    udpIn = xQueueCreate(10, MAXSTRINGLENG);
+    udpIn = xQueueCreate(10, sizeof(RoboStruct));
     byte mac[6];
     WiFi.macAddress(mac);
     unsigned long tmp = 0;
@@ -263,10 +263,10 @@ void WiFiTask(void *arg)
         if (xQueueReceive(udpOut, (void *)&msgIdOut, 1) == pdTRUE)
         {
 
-            String out = RoboCode(msgIdOut, msgIdOut.cmd);
-            out = addCRCToString(out);
-            // printf("UDP out<%s>\r\n",out.c_str());
+            String out = rfCode(msgIdOut);
+            Serial.println(out);
             udp.broadcast(out.c_str());
+            Serial.println("Udp out< " + out + " >");
         }
         if (lastUpdMsg + 1 * 1000 < millis() && wifiCollorUtil.color != CRGB::DarkOrange)
         {

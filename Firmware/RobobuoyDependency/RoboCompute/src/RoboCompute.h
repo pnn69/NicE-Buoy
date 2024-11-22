@@ -5,18 +5,17 @@
 
 /*some constans*/
 #define EARTH_MEAN_RADIUS 6372795
-#define radian(x) (x * M_PI / 180)
-#define degre(x) (x * 180 / M_PI)
-#define ILIM 35 // Maximum interal limit (35% power)
-
+// #define radian(x) (x * M_PI / 180)
+// #define degre(x) (x * 180 / M_PI)
+// #define ILIM 35 // Maximum interal limit (35% power)
 #define BUOYIDALL 1
-
+#define ROBOBASE 2
 #define HEAD 1
 #define PORT 2
 #define STARBOARD 3
-#define ROBOBASE -2
 
-#define SAMPELS 20 // 60 samples
+#define SAMPELS 30 // 60 samples
+#define MAXSTRINGLENG 150
 
 typedef enum
 {
@@ -89,7 +88,10 @@ struct RoboStruct
 {
     /* data */
     unsigned long mac = 0;
-    int msg = 0;
+    unsigned long IDs = 0;
+    unsigned long IDr = 0;
+    int cmd = 0;
+    int ack = -1;
     int loralstmsg = 0;
     int status = 0;
     double lat = 0;
@@ -116,7 +118,6 @@ struct RoboStruct
     float topAccuV = 0;
     int subAccuP = 0;
     int topAccuP = 0;
-    int cmd = 0;
     double ps, is, ds; // speed
     double kps = 20, kis = 0.2, kds = 0;
     unsigned long lastTimes = 0;
@@ -129,11 +130,11 @@ struct RoboStruct
     int minSpeed;
     int maxSpeed;
     double compassOffset;
-    unsigned long lastLoraIn = 0;    // last external communicatong
-    unsigned long lastLoraOut = 0;   // last external communicatong
-    unsigned long LoraFastTimer = 0; // last external communicatong
-    unsigned long lastUdpOut = 0;    // last external communicatong
-    unsigned long lastUdpIn = 0;     // last external communicatong
+    unsigned long lastLoraIn = 0;  // last external communicatong
+    unsigned long lastLoraOut = 0; // last external communicatong
+    unsigned long lastUdpOut = 0;  // last external communicatong
+    unsigned long lastUdpIn = 0;   // last external communicatong
+    unsigned char retry = 0;
 };
 
 struct RoboStructGps
@@ -166,7 +167,9 @@ struct RoboWindStruct
 };
 
 struct RoboStruct RoboDecode(String data, RoboStruct);
-String RoboCode(RoboStruct dataOut, int cmd);
+String RoboCode(RoboStruct dataOut);
+String rfCode(RoboStruct loraOut);
+RoboStruct rfDeCode(String rfIn);
 String removeBeginAndEndToString(String input);
 String addCRCToString(String input); // Use reference to modify the original string
 bool verifyCRC(String input);

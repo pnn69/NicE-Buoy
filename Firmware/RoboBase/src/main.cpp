@@ -131,7 +131,8 @@ int handelStatus(int status)
     switch (status)
     {
     case COMPUTESTART:
-        calcTrackPos(buoyPara);
+        buoyPara[0].wDir = mainData.wDir;
+        buoyPara[3] = calcTrackPos(buoyPara);
         for (int i = 0; i < 3; i++)
         {
             trackPosPrint(buoyPara[i].trackPos);
@@ -149,6 +150,7 @@ int handelStatus(int status)
         }
         break;
     case COMPUTETRACK:
+        buoyPara[0].wDir = mainData.wDir;
         for (int i = 0; i < 3; i++)
         {
             trackPosPrint(buoyPara[i].trackPos);
@@ -269,6 +271,8 @@ void setup()
     xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 1);
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, NULL, configMAX_PRIORITIES - 5, NULL, 0);
     xTaskCreatePinnedToCore(LedTask, "WiFiTask", 2000, NULL, 10, NULL, 1);
+    delay(500);
+    digitalWrite(LED_PIN, LOW);
     Serial.println("Main task running!");
 }
 

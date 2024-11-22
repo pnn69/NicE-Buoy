@@ -195,10 +195,10 @@ RoboStruct handleTimerRoutines(RoboStruct in)
 
     if (accuSamp < millis())
     {
-        accuSamp = 5000 + millis() + random(0, 100);
+        accuSamp = 5000 + millis();
         in.cmd = SUBACCU;
         battVoltage(in.subAccuV, in.subAccuP);
-        xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
+        xQueueSend(udpOut, (void *)&in, 10); // update WiFi
     }
 
     if (logtimer < millis())

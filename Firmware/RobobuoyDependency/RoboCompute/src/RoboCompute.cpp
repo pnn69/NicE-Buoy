@@ -171,11 +171,11 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
     output string format $ID,<data>*xx
     crc has to be added!
 */
-String RoboCode(RoboStruct dataOut, int cmd)
+String RoboCode(RoboStruct dataOut)
 {
-    String out = String(cmd);
+    String out = String(dataOut.cmd);
     out += "," + String(dataOut.status);
-    switch (cmd)
+    switch (dataOut.cmd)
     {
     case IDLE:
         break;
@@ -268,13 +268,13 @@ String RoboCode(RoboStruct dataOut, int cmd)
         break;
     case SETLOCKPOS:
     case SETDOCKPOS:
-        out += "," + String(dataOut.tgLat, 8);
-        out += "," + String(dataOut.tgLng, 8);
+        out += "," + String(dataOut.tgLat, 10);
+        out += "," + String(dataOut.tgLng, 10);
         break;
     case LOCKPOS:
     case DOCKPOS:
-        out += "," + String(dataOut.tgLat, 8);
-        out += "," + String(dataOut.tgLng, 8);
+        out += "," + String(dataOut.tgLat, 10);
+        out += "," + String(dataOut.tgLng, 10);
         out += "," + String(dataOut.tgDir, 0);
         out += "," + String(dataOut.tgDist, 2);
         break;
@@ -289,10 +289,59 @@ String RoboCode(RoboStruct dataOut, int cmd)
         out = String(PONG);
         break;
     default:
-        printf("Robocode: Unkown formatter <%d>\r\n", cmd);
+        printf("Robocode: Unkown formatter <%d>\r\n", dataOut.cmd);
         break;
     }
     return out;
+}
+
+//***************************************************************************************************
+//  code rf string
+//  add crc
+//***************************************************************************************************
+String rfCode(RoboStruct rfOut)
+{
+    String rfMsg = String(rfOut.IDr, HEX);
+    rfMsg += "," + String(rfOut.IDs, HEX);
+    rfMsg += "," + String(rfOut.ack);
+    rfMsg += "," + RoboCode(rfOut);
+    rfMsg = addCRCToString(rfMsg);
+    return rfMsg;
+}
+
+//***************************************************************************************************
+//  decode rf string
+//  $IDr,IDs,ACK,MSG,<data>*chk
+//***************************************************************************************************
+RoboStruct rfDeCode(String rfIn)
+{
+    RoboStruct in;
+    in.IDr = -1;
+    in.IDs = -1;
+    if (verifyCRC(rfIn))
+    {
+        int commaIndex;
+        // Parse mac
+        commaIndex = rfIn.indexOf(',');
+        String hexString = rfIn.substring(0, commaIndex);
+        in.IDr = strtoull(hexString.c_str(), NULL, 16);
+        // Parse macIn
+        rfIn = rfIn.substring(commaIndex + 1);
+        commaIndex = rfIn.indexOf(',');
+        hexString = rfIn.substring(0, commaIndex);
+        in.IDs = strtoull(hexString.c_str(), NULL, 16);
+        // Parse ack
+        rfIn = rfIn.substring(commaIndex + 1);
+        commaIndex = rfIn.indexOf(',');
+        in.ack = rfIn.substring(0, commaIndex).toInt();
+        // Parse msg
+        rfIn = rfIn.substring(commaIndex + 1);
+        commaIndex = rfIn.indexOf(',');
+        // Decode buffer
+        in.cmd = rfIn.substring(0, commaIndex).toInt();
+        in = RoboDecode(rfIn, in);
+    }
+    return in;
 }
 
 String removeBeginAndEndToString(String input)
@@ -387,7 +436,7 @@ double averigeWindRose(RoboWindStruct wData)
     double sumSin = 0, sumCos = 0;
     for (int i = 0; i < SAMPELS; ++i)
     {
-        double angle = (wData.data[i] * M_PI) / 180.0; // Convert to radians
+        double angle = radians(wData.data[i]); // Convert to radians
         sumSin += sin(angle);
         sumCos += cos(angle);
     }
@@ -670,8 +719,8 @@ RoboStruct CalcRemoteRudderBuoy(RoboStruct buoy)
         tsb = buoy.speedSet + buoy.speedSet * (1 - corr);
     }
 
-    tbb = (int)(buoy.speedSet * cos(radian(error)) * (1 - sin(radian(error))));
-    tsb = (int)(buoy.speedSet * cos(radian(error)) * (1 - sin(radian(error)) * -1));
+    tbb = (int)(buoy.speedSet * cos(radians(error)) * (1 - sin(radians(error))));
+    tsb = (int)(buoy.speedSet * cos(radians(error)) * (1 - sin(radians(error)) * -1));
     buoy.speedBb = (int)constrain(tbb, -60, 100);
     buoy.speedSb = (int)constrain(tsb, -60, 100);
     Serial.printf("Error=%lf BB=%d SB=%d\r\n\r\n", error, buoy.speedBb, buoy.speedSb);
@@ -760,10 +809,9 @@ void windDirectionToVector(double windDegrees, double *windX, double *windY)
         windDegrees -= 360;
     }
     // Convert degrees to radians
-    double windRadians = windDegrees * M_PI / 180.0;
     // Calculate the wind vector components
-    *windX = cos(windRadians);
-    *windY = sin(windRadians);
+    *windX = cos(radians(windDegrees));
+    *windY = sin(radians(windDegrees));
 }
 
 // Function to calculate the angle between two vectors in degrees
@@ -927,7 +975,7 @@ RoboStruct reCalcTrack(struct RoboStruct rsl[3])
     rsl[0].trackPos = -1;
     rsl[1].trackPos = -1;
     rsl[2].trackPos = -1;
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < 3; i++)
     {
         if (rsl[i].tgLng == 0 || rsl[i].tgLat == 0)
         {
@@ -959,6 +1007,7 @@ RoboStruct reCalcTrack(struct RoboStruct rsl[3])
         twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &lat2gem, &lng2gem); // calculate startline centerpoint
     }
     // determ  he wind angles for the start line (+-90 degrees from the wind direction)
+    printf("winddir =(%.1f)\r\n", rsl[0].wDir); // wind direction
     angle180 = rsl[0].wDir + 180;
     if (angle180 > 360)
     {

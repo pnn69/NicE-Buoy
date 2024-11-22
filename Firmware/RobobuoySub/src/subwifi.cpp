@@ -10,6 +10,7 @@ RoboStruct subwifiData;
 // UdpMsg udpData;
 static char udpData[MAXSTRINGLENG];
 static RoboStruct subWifiIn;
+static RoboStruct subWifiOut;
 AsyncUDP udp;
 // static UdpData udpBuffer;
 QueueHandle_t udpIn;
@@ -118,17 +119,16 @@ void setupudp(void)
         udp.onPacket([](AsyncUDPPacket packet)
                      {
                          String stringUdpIn = (const char *)packet.data();
-                         if(stringUdpIn.length() < MAXSTRINGLENG)
-                         {
-                            if (verifyCRC(stringUdpIn))
-                            {
-                                stringUdpIn.toCharArray(udpData,stringUdpIn.length() + 1);
-                                xQueueSend(udpIn, (void *)&udpData, 10); // notify main there is new data
-                            }
-                            else
-                            {
-                                Serial.println("crc error>" + stringUdpIn + "<");
-                            }
+                         Serial.println("Udp data in< " +String(stringUdpIn) + " >");
+                         
+                         RoboStruct udpDataIn = rfDeCode(stringUdpIn);
+                        if (udpDataIn.IDs != -1 )
+                        {
+                            xQueueSend(udpIn, (void *)&udpDataIn, 10); // notify main there is new data
+                        }
+                        else
+                        {
+                            Serial.println("crc error>" + stringUdpIn + "<");
                         } });
     }
 }
@@ -139,7 +139,7 @@ void setupudp(void)
 unsigned long initwifiqueue(void)
 {
     udpOut = xQueueCreate(10, sizeof(RoboStruct));
-    udpIn = xQueueCreate(10, MAXSTRINGLENG);
+    udpIn = xQueueCreate(10, sizeof(RoboStruct));
     byte mac[6];
     WiFi.macAddress(mac);
     unsigned long tmp = 0;
@@ -223,10 +223,9 @@ void WiFiTask(void *arg)
         ArduinoOTA.handle();
         if (xQueueReceive(udpOut, (void *)&subwifiData, 0) == pdTRUE)
         {
-            String out = RoboCode(subwifiData, subwifiData.cmd);
-            out = addCRCToString(out);
+            String out = rfCode(subwifiData);
             udp.broadcast(out.c_str());
-            //udp.broadcastTo(out.c_str(),1000);
+            Serial.println("Data out< " + out + " >");
         }
         delay(1);
     }
