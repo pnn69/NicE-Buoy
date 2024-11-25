@@ -16,7 +16,7 @@
 
 // pid subparameter;
 static RoboStruct mainData;
-static char udpInMain[MAXSTRINGLENG];
+static RoboStruct udpInMain;
 static Message esc;
 static unsigned long buoyId;
 static int subStatus = IDLE;
@@ -61,6 +61,7 @@ void setup()
     buoyId = initwifiqueue();
     Serial.print("Buoy ID: ");
     Serial.println(buoyId);
+    mainData.mac = buoyId;
     initbuzzerqueue();
     initledqueue();
     initescqueue();
@@ -174,7 +175,7 @@ int countKeyPressesWithTimeoutAndLongPressDetecton()
 }
 
 //***************************************************************************************************
-// Setup
+// Timer routines
 //***************************************************************************************************
 RoboStruct handleTimerRoutines(RoboStruct in)
 {
@@ -405,7 +406,6 @@ void loop(void)
                 mainLedStatus.blink = BLINK_SLOW;
                 xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
             }
-            mainData = RoboDecode(udpInMain, mainData);
             switch (mainData.cmd)
             {
             case IDLE:

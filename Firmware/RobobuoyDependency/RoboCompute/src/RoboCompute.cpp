@@ -18,16 +18,10 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
     dataStore.cmd = -1;
     String numbers[15];           // Array to hold the decoded numbers (adjust size as needed)
     int count = 0;                // Keep track of the number of extracted numbers
-    int startIndex = 0;           // Start after the '$'
-    int endIndex = data.length(); // End at the '*'
+    int startIndex = 0;           // Start
+    int endIndex = data.length(); // End
                                   // Split the substring by commas
-    if (startsWithDollar(data))   // strip $ and *
-    {
-        data = removeBeginAndEndToString(data);
-    }
-    // Serial.println("String to decode: " + data);
-    String substring = data.substring(startIndex, endIndex);
-
+    String substring = data;
     while (substring.length() > 0)
     {
         int commaIndex = substring.indexOf(',');
@@ -39,16 +33,15 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
             break;
         }
         // Extract the number before the comma
-        // String numStr = substring.substring(0, commaIndex);
-        // numbers[count++] = numStr.toInt(); // Convert to integer
         numbers[count++] = substring.substring(0, commaIndex);
 
         // Remove the extracted number and the comma from the substring
         substring = substring.substring(commaIndex + 1);
     }
     dataStore.cmd = numbers[0].toInt();
-    // dataStore.status = numbers[1].toInt();
-    //  printf("Command to decode:%d\r\n", dataStore.cmd);
+    // Serial.println("CMD:" + String(dataStore.cmd));
+    // Serial.println("Data:" + data);
+    dataStore.status = numbers[1].toInt();
     switch (dataStore.cmd)
     {
     case IDLE:
@@ -61,6 +54,8 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
     case LOCKED: // tgDir,tgDist
         dataStore.tgDir = numbers[2].toDouble();
         dataStore.tgDist = numbers[3].toDouble();
+        dataStore.wDir = numbers[4].toDouble();
+        dataStore.wStd = numbers[5].toDouble();
         break;
     case REMOTE: // speed,tgdir
         dataStore.speed = numbers[2].toInt();
@@ -122,16 +117,15 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         dataStore.subAccuV = numbers[6].toDouble();
         break;
     case BUOYPOS: // STATUS,LAT,LON,mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
-        dataStore.status = numbers[2].toInt();
-        dataStore.lat = numbers[3].toDouble();
-        dataStore.lng = numbers[4].toDouble();
-        dataStore.dirMag = numbers[5].toDouble();
-        dataStore.wDir = numbers[6].toDouble();
-        dataStore.wStd = numbers[7].toDouble();
-        dataStore.topAccuP = numbers[8].toInt();
-        dataStore.subAccuP = numbers[9].toInt();
-        dataStore.gpsFix = (bool)numbers[10].toInt();
-        dataStore.gpsSat = numbers[11].toInt();
+        dataStore.lat = numbers[2].toDouble();
+        dataStore.lng = numbers[3].toDouble();
+        dataStore.dirMag = numbers[4].toDouble();
+        dataStore.wDir = numbers[5].toDouble();
+        dataStore.wStd = numbers[6].toDouble();
+        dataStore.topAccuP = numbers[7].toInt();
+        dataStore.subAccuP = numbers[8].toInt();
+        dataStore.gpsFix = (bool)numbers[9].toInt();
+        dataStore.gpsSat = numbers[10].toInt();
         break;
     case DOCKING:
         break;
@@ -139,8 +133,8 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
     case DOCKPOS: // LAT,LON,wDir,wStd
         dataStore.tgLat = numbers[2].toDouble();
         dataStore.tgLng = numbers[3].toDouble();
-        dataStore.tgDir = numbers[4].toDouble();
-        dataStore.tgDist = numbers[5].toDouble();
+        dataStore.wDir = numbers[4].toDouble();
+        dataStore.wStd = numbers[5].toDouble();
         break;
     case SETLOCKPOS: // LAT,LON,wDir,wStd
     case SETDOCKPOS:
@@ -153,12 +147,14 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         break;
     case IDELING:
         break;
+    case LORAACK:
+        break;
     case PING:
         break;
     case PONG:
         break;
     default:
-        Serial.println("RoboDecode: Unkown decode formatter data in " + String(data));
+        Serial.println("RoboDecode: Unkown decode formatter data in <" + String(data) + ">");
         dataStore.cmd = -1;
         break;
     }
@@ -175,6 +171,11 @@ String RoboCode(RoboStruct dataOut)
 {
     String out = String(dataOut.cmd);
     out += "," + String(dataOut.status);
+    if (dataOut.ack == LORAACK) // only send ack data
+    {
+        return out;
+    }
+
     switch (dataOut.cmd)
     {
     case IDLE:
@@ -183,6 +184,8 @@ String RoboCode(RoboStruct dataOut)
     case LOCKED:
         out += "," + String(dataOut.tgDir, 2);
         out += "," + String(dataOut.tgDist, 2);
+        out += "," + String(dataOut.wDir, 1);
+        out += "," + String(dataOut.wStd, 1);
         break;
     case REMOTE:
         out += "," + String(dataOut.speed);
@@ -246,7 +249,6 @@ String RoboCode(RoboStruct dataOut)
         out += "," + String(dataOut.speedSet, 2);
         break;
     case BUOYPOS:
-        out += "," + String(dataOut.status);
         out += "," + String(dataOut.lat, 8);
         out += "," + String(dataOut.lng, 8);
         out += "," + String(dataOut.dirMag, 2);
@@ -275,8 +277,8 @@ String RoboCode(RoboStruct dataOut)
     case DOCKPOS:
         out += "," + String(dataOut.tgLat, 10);
         out += "," + String(dataOut.tgLng, 10);
-        out += "," + String(dataOut.tgDir, 0);
-        out += "," + String(dataOut.tgDist, 2);
+        out += "," + String(dataOut.wDir, 1);
+        out += "," + String(dataOut.wStd, 1);
         break;
     case LOCKING:
         break;
@@ -306,6 +308,7 @@ String rfCode(RoboStruct rfOut)
     rfMsg += "," + String(rfOut.ack);
     rfMsg += "," + RoboCode(rfOut);
     rfMsg = addCRCToString(rfMsg);
+    // Serial.println("coded data out<" + rfMsg + ">");
     return rfMsg;
 }
 
@@ -313,6 +316,7 @@ String rfCode(RoboStruct rfOut)
 //  decode rf string
 //  $IDr,IDs,ACK,MSG,<data>*chk
 //***************************************************************************************************
+// rfIn = "$9*39";
 RoboStruct rfDeCode(String rfIn)
 {
     RoboStruct in;
@@ -320,10 +324,11 @@ RoboStruct rfDeCode(String rfIn)
     in.IDs = -1;
     if (verifyCRC(rfIn))
     {
+        // Serial.println("crc OK");
         int commaIndex;
         // Parse mac
         commaIndex = rfIn.indexOf(',');
-        String hexString = rfIn.substring(0, commaIndex);
+        String hexString = rfIn.substring(1, commaIndex); // skip $
         in.IDr = strtoull(hexString.c_str(), NULL, 16);
         // Parse macIn
         rfIn = rfIn.substring(commaIndex + 1);
@@ -338,8 +343,14 @@ RoboStruct rfDeCode(String rfIn)
         rfIn = rfIn.substring(commaIndex + 1);
         commaIndex = rfIn.indexOf(',');
         // Decode buffer
-        in.cmd = rfIn.substring(0, commaIndex).toInt();
-        in = RoboDecode(rfIn, in);
+        int starIndex = rfIn.indexOf('*');
+        if (starIndex != -1)
+        {
+            rfIn = rfIn.substring(0, starIndex);
+            rfIn.replace("$", ""); // Remove $ if it's not needed in RoboDecode
+            // Serial.println("Decoding<" + rfIn + ">");
+            in = RoboDecode(rfIn, in);
+        }
     }
     return in;
 }
@@ -380,7 +391,7 @@ String addCRCToString(String input) // Use reference to modify the original stri
     sprintf(crcHex, "%02X", crc); // Convert byte to uppercase hex string
 
     // Append the checksum after the asterisk in the string
-    input = "$" + input + "*" + crcHex; // Modify input directly
+    input = "$" + input + "*" + String(crcHex); // Modify input directly
     return input;
 }
 
@@ -409,7 +420,7 @@ bool verifyCRC(String input)
     String givenCRC = input.substring(end + 1, end + 3);
 
     // Convert calculated CRC to a hexadecimal string
-    char calculatedCRCHex[3];
+    char calculatedCRCHex[2];
     sprintf(calculatedCRCHex, "%02X", calculatedCRC); // Convert byte to hex
 
     // Compare the calculated checksum with the provided checksum
@@ -498,18 +509,18 @@ void PidDecode(String data, int pid, RoboStruct buoy)
     }
     if (pid == PIDSPEED)
     {
-        buoy.ps = numbers[2];
+        buoy.ps = numbers[1];
+        buoy.is = numbers[2];
         buoy.is = numbers[3];
-        buoy.is = numbers[4];
         buoy.kps = 0;
         buoy.kis = 0;
         buoy.kds = 0;
     }
     if (pid == PIDRUDDER)
     {
-        buoy.pr = numbers[2];
+        buoy.pr = numbers[1];
+        buoy.ir = numbers[2];
         buoy.ir = numbers[3];
-        buoy.ir = numbers[4];
         buoy.kpr = 0;
         buoy.kir = 0;
         buoy.kdr = 0;
@@ -534,7 +545,7 @@ String PidEncode(int pid, RoboStruct buoy)
     return out;
 }
 
-double gpsgem[21][2];
+double gpsgem[21][1];
 int point = 0;
 void gpsGem(double &lat, double &lon)
 {
@@ -784,10 +795,10 @@ RoboStruct hooverPid(RoboStruct buoy)
     Position calculations
 */
 // Function to calculate the centroid (average point)
-void threePointAverage(struct RoboStruct p3[3], double *latgem, double *lnggem)
+void threePointAverage(struct RoboStruct p3[2], double *latgem, double *lnggem)
 {
-    *latgem = (p3[0].tgLat + p3[1].tgLat + p3[2].tgLat) / 3;
-    *lnggem = (p3[0].tgLng + p3[1].tgLng + p3[2].tgLng) / 3;
+    *latgem = (p3[0].tgLat + p3[1].tgLat + p3[1].tgLat) / 3;
+    *lnggem = (p3[0].tgLng + p3[1].tgLng + p3[1].tgLng) / 3;
 }
 // Function to calculate the centroid (average point)
 void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double *latgem, double *longem)
@@ -849,22 +860,12 @@ double computeWindAngle(double windDegrees, double lat, double lon, double centr
 RoboStruct recalcStarLine(struct RoboStruct rsl[3])
 {
     double d0, d1, d2, dir;
-    double mid[2];
+    double mid[3];
     double angleSb = 0;
     rsl[0].trackPos = -1;
     rsl[1].trackPos = -1;
     rsl[2].trackPos = -1;
-    angleSb = rsl[0].wDir + 90;
-    if (angleSb > 360)
-    {
-        angleSb -= 360;
-    }
-    double angleBb = angleSb + 180;
-    if (angleBb > 360)
-    {
-        angleBb -= 360;
-    }
-
+    printf("# Winddir 0:%.2f 1:%.3f 2:%.2f \r\n", rsl[0].wDir, rsl[1].wDir, rsl[2].wDir);
     d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng); // compute length p0 p1
     d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng); // compute length p0 p2
     d2 = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng); // compute length p1 p2
@@ -872,7 +873,7 @@ RoboStruct recalcStarLine(struct RoboStruct rsl[3])
     {
         if (rsl[0].tgLat == 0 || rsl[0].tgLng == 0 || rsl[1].tgLat == 0 || rsl[1].tgLng == 0) // check if data is ok
         {
-            printf("No data to compute with\r\n");
+            printf("# No data to compute with\r\n");
             return rsl[3];
         }
         angleSb = rsl[0].wDir + 90;
@@ -899,7 +900,7 @@ RoboStruct recalcStarLine(struct RoboStruct rsl[3])
     {
         if (rsl[0].tgLat == 0 || rsl[0].tgLng == 0 || rsl[2].tgLat == 0 || rsl[2].tgLng == 0) // check if data is ok
         {
-            printf("No data to compute with\r\n");
+            printf("# No data to compute with\r\n");
             return rsl[3];
         }
         angleSb = rsl[0].wDir + 90;
@@ -918,7 +919,7 @@ RoboStruct recalcStarLine(struct RoboStruct rsl[3])
         adjustPositionDirDist(angleSb, d1 / 2, mid[0], mid[1], &rsl[2].tgLat, &rsl[2].tgLng);      // compute starboard
         printf("winddir =(%.1f)\r\n", rsl[0].wDir);                                                // wind direction
         rsl[0].trackPos = PORT;
-        rsl[2].trackPos = STARBOARD;
+        rsl[1].trackPos = STARBOARD;
         return rsl[3];
     }
 
@@ -926,7 +927,7 @@ RoboStruct recalcStarLine(struct RoboStruct rsl[3])
     {
         if (rsl[1].tgLat == 0 || rsl[1].tgLng == 0 || rsl[2].tgLat == 0 || rsl[2].tgLng == 0) // check if data is ok
         {
-            printf("No data to compute with\r\n");
+            printf("# No data to compute with\r\n");
             return rsl[3];
         }
         angleSb = rsl[1].wDir + 90;
@@ -945,10 +946,10 @@ RoboStruct recalcStarLine(struct RoboStruct rsl[3])
         adjustPositionDirDist(angleSb, d2 / 2, mid[0], mid[1], &rsl[2].tgLat, &rsl[2].tgLng);      // compute starboard
         printf("winddir =(%.1f)\r\n", rsl[1].wDir);                                                // wind direction
         rsl[1].trackPos = PORT;
-        rsl[2].trackPos = STARBOARD;
-        return rsl[3];
+        rsl[1].trackPos = STARBOARD;
+        return rsl[2];
     }
-    return rsl[3];
+    return rsl[2];
 }
 
 /*
@@ -979,7 +980,7 @@ RoboStruct reCalcTrack(struct RoboStruct rsl[3])
     {
         if (rsl[i].tgLng == 0 || rsl[i].tgLat == 0)
         {
-            printf("No data to compute with\r\n");
+            printf("# No data to compute with\r\n");
             return rsl[3];
         }
     }
@@ -989,7 +990,7 @@ RoboStruct reCalcTrack(struct RoboStruct rsl[3])
 
     // determ the length of the startline
     d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng); // compute length p0 p1
-    d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng); // compute length p0 p2
+    d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng); // compute length p0 p2
     d2 = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng); // compute length p1 p2
     if (d0 < d1 && d0 < d2)
     {
@@ -998,17 +999,25 @@ RoboStruct reCalcTrack(struct RoboStruct rsl[3])
     }
     if (d1 < d2 && d1 < d0)
     {
-        startLineL = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng);        // compute length startline
-        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &lat2gem, &lng2gem); // calculate startline centerpoint
-    }
-    if (d2 < d0 && d2 < d1)
-    {
         startLineL = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng);        // compute length startline
         twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &lat2gem, &lng2gem); // calculate startline centerpoint
     }
+    if (d2 < d0 && d2 < d1)
+    {
+        startLineL = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng);        // compute length startline
+        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &lat2gem, &lng2gem); // calculate startline centerpoint
+    }
+    // search for the buoy clocesed to the wind direction
+    double b0 = computeWindAngle(rsl[0].wDir, rsl[0].tgLat, rsl[0].tgLng, lat3gem, lng3gem);
+    double b1 = computeWindAngle(rsl[0].wDir, rsl[1].tgLat, rsl[1].tgLng, lat3gem, lng3gem);
+    double b2 = computeWindAngle(rsl[0].wDir, rsl[2].tgLat, rsl[2].tgLng, lat3gem, lng3gem);
     // determ  he wind angles for the start line (+-90 degrees from the wind direction)
     printf("winddir =(%.1f)\r\n", rsl[0].wDir); // wind direction
     angle180 = rsl[0].wDir + 180;
+    if (b2 < b0 && b2 < b1)
+    {
+        angle180 = rsl[1].wDir + 180;
+    }
     if (angle180 > 360)
     {
         angle180 -= 360;
@@ -1023,10 +1032,6 @@ RoboStruct reCalcTrack(struct RoboStruct rsl[3])
     {
         angleBb -= 360;
     }
-    // search for the buoy clocesed to the wind direction
-    double b0 = computeWindAngle(rsl[0].wDir, rsl[0].tgLat, rsl[0].tgLng, lat3gem, lng3gem);
-    double b1 = computeWindAngle(rsl[0].wDir, rsl[1].tgLat, rsl[1].tgLng, lat3gem, lng3gem);
-    double b2 = computeWindAngle(rsl[0].wDir, rsl[2].tgLat, rsl[2].tgLng, lat3gem, lng3gem);
     if (b0 < b1 && b0 < b2)
     {
         centerPoint2Head = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, lat3gem, lng3gem);                     // calcultate the distance between the centerpoint and the startline
@@ -1034,11 +1039,11 @@ RoboStruct reCalcTrack(struct RoboStruct rsl[3])
         adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[0].tgLat, &rsl[0].tgLng); // calculate new position HEAD
         adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);          // point to new centerpoint of the startline
         adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng);       // compute port
-        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng);       // compute starboard
+        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng);       // compute starboard
         rsl[0].trackPos = HEAD;
         rsl[1].trackPos = PORT;
         rsl[2].trackPos = STARBOARD;
-        return rsl[3];
+        return rsl[2];
     }
     if (b1 < b0 && b1 < b2)
     {
@@ -1046,12 +1051,12 @@ RoboStruct reCalcTrack(struct RoboStruct rsl[3])
         centerPoint2Head = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, lat3gem, lng3gem);                     // calcultate the distance between the centerpoint and the startline
         adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[1].tgLat, &rsl[1].tgLng); // calculate new position HEAD
         adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);          // point to new centerpoint of the startline
-        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[0].tgLat, &rsl[0].tgLng);       // compute port
-        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng);       // compute starboard
+        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng);       // compute port
+        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng);       // compute starboard
         rsl[0].trackPos = PORT;
         rsl[1].trackPos = HEAD;
         rsl[2].trackPos = STARBOARD;
-        return rsl[3];
+        return rsl[2];
     }
     if (b2 < b0 && b2 < b1)
     {
@@ -1059,14 +1064,14 @@ RoboStruct reCalcTrack(struct RoboStruct rsl[3])
         centerPoint2Head = distanceBetween(rsl[2].tgLat, rsl[2].tgLng, lat3gem, lng3gem);                     // calcultate the distance between the centerpoint and the startline
         adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[2].tgLat, &rsl[2].tgLng); // calculate new position HEAD
         adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);          // point to new centerpoint of the startline
-        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[0].tgLat, &rsl[0].tgLng);       // compute port
-        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng);       // compute starboard
+        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng);       // compute port
+        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng);       // compute starboard
         rsl[0].trackPos = PORT;
         rsl[1].trackPos = STARBOARD;
         rsl[2].trackPos = HEAD;
-        return rsl[3];
+        return rsl[2];
     }
-    return rsl[3];
+    return rsl[2];
 }
 
 /*
@@ -1109,8 +1114,8 @@ RoboStruct calcTrackPos(RoboStruct rsl[3])
         }
         else
         {
-            rsl[1].trackPos = PORT;
             rsl[0].trackPos = STARBOARD;
+            rsl[1].trackPos = PORT;
             rsl[2].trackPos = HEAD;
         }
     }
@@ -1125,9 +1130,9 @@ RoboStruct calcTrackPos(RoboStruct rsl[3])
         }
         else
         {
-            rsl[2].trackPos = PORT;
-            rsl[1].trackPos = HEAD;
             rsl[0].trackPos = STARBOARD;
+            rsl[1].trackPos = HEAD;
+            rsl[2].trackPos = PORT;
         }
     }
     if (d2 < d0 && d2 < d1)
@@ -1142,10 +1147,44 @@ RoboStruct calcTrackPos(RoboStruct rsl[3])
         else
         {
             rsl[0].trackPos = HEAD;
+            rsl[1].trackPos = STARBOARD;
             rsl[2].trackPos = PORT;
-            rsl[2].trackPos = STARBOARD;
         }
     }
-    printf("#dir= %.0f\r\n", dir);
+    printf("# dir= %.0f\r\n", dir);
     return rsl[3];
+}
+
+/************************************************************************************************************************************************************************* */
+//  Store parameters
+/************************************************************************************************************************************************************************* */
+RoboStruct AddDataToBuoyBase(RoboStruct dataIn, RoboStruct buoyPara[3])
+{
+    for (int i = 0; i < 3; i++)
+    {
+        if (dataIn.IDs == buoyPara[i].IDs || buoyPara[i].IDs == 0)
+        {
+            memcpy(&buoyPara[i], &dataIn, sizeof(RoboStruct));
+            Serial.println("# Lock data stored! on pos:" + String(i) + " IDs:" + String(buoyPara[i].IDs, HEX) + "Lat:" + String(buoyPara[i].tgLat, 6) + "Lng:" + String(buoyPara[i].tgLng, 6) + " Wdir:" + String(buoyPara[i].wDir, 2));
+            return buoyPara[3];
+        }
+    }
+    Serial.println("# No data stored! :( ");
+    return buoyPara[3];
+}
+/************************************************************************************************************************************************************************* */
+//  Retreve parameters
+/************************************************************************************************************************************************************************* */
+int GetDataPosFromBuoyBase(uint64_t id, RoboStruct buoyPara[3])
+{
+    int i = -1;
+    for (i = 0; i < 3; i++)
+    {
+        if (id == buoyPara[i].IDs)
+        {
+            return i;
+        }
+    }
+    Serial.println("# No data found! :( ");
+    return -1;
 }

@@ -8,7 +8,7 @@
 
 RoboStruct subwifiData;
 // UdpMsg udpData;
-static char udpData[MAXSTRINGLENG];
+static RoboStruct udpData;
 static RoboStruct subWifiIn;
 static RoboStruct subWifiOut;
 AsyncUDP udp;
@@ -119,8 +119,6 @@ void setupudp(void)
         udp.onPacket([](AsyncUDPPacket packet)
                      {
                          String stringUdpIn = (const char *)packet.data();
-                         Serial.println("Udp data in< " +String(stringUdpIn) + " >");
-                         
                          RoboStruct udpDataIn = rfDeCode(stringUdpIn);
                         if (udpDataIn.IDs != -1 )
                         {
@@ -223,9 +221,10 @@ void WiFiTask(void *arg)
         ArduinoOTA.handle();
         if (xQueueReceive(udpOut, (void *)&subwifiData, 0) == pdTRUE)
         {
+            subwifiData.IDr = subwifiData.mac;
+            subwifiData.IDs = subwifiData.mac;
             String out = rfCode(subwifiData);
             udp.broadcast(out.c_str());
-            Serial.println("Data out< " + out + " >");
         }
         delay(1);
     }

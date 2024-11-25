@@ -203,4 +203,7 @@ RoboStruct reCalcTrack(struct RoboStruct rsl[3]);
 void trackPosPrint(int c);
 RoboStruct calcTrackPos(RoboStruct rsl[3]);
 
+RoboStruct AddDataToBuoyBase(RoboStruct dataIn, RoboStruct buoyPara[3]);
+int GetDataPosFromBuoyBase(uint64_t id, RoboStruct buoyPara[3]);
+
 #endif /* ROBOCOMPUTE */

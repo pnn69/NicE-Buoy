@@ -16,7 +16,6 @@ static unsigned long transmittReady = 0;
 QueueHandle_t loraOut;
 QueueHandle_t loraIn;
 
-
 //***************************************************************************************************
 //  Lora init
 //***************************************************************************************************
@@ -52,41 +51,6 @@ void initloraqueue(void)
 }
 
 //***************************************************************************************************
-//  Recieve and decode incomming lora message
-//  IDr,IDs,ACK,MSG,<data>
-//***************************************************************************************************
-// RoboStruct decodeString(String incoming)
-// {
-//     RoboStruct result;
-//     int commaIndex;
-//     // Parse mac
-//     commaIndex = incoming.indexOf(',');
-
-//     String hexString = incoming.substring(0, commaIndex);
-//     result.macIDr = strtoull(hexString.c_str(), NULL, 16);
-//     // Parse macIn
-//     incoming = incoming.substring(commaIndex + 1);
-//     commaIndex = incoming.indexOf(',');
-//     hexString = incoming.substring(0, commaIndex);
-//     result.macIDs = strtoull(hexString.c_str(), NULL, 16);
-//     // Parse ack
-//     incoming = incoming.substring(commaIndex + 1);
-//     commaIndex = incoming.indexOf(',');
-//     result.ack = incoming.substring(0, commaIndex).toInt();
-//     // Parse msg
-//     incoming = incoming.substring(commaIndex + 1);
-//     commaIndex = incoming.indexOf(',');
-//     result.cmd = incoming.substring(0, commaIndex).toInt();
-//     // Store remaining data as a char array
-//     incoming.toCharArray(result.data, incoming.length() + 1);
-//     incoming = incoming.substring(commaIndex + 1);
-//     commaIndex = incoming.indexOf(',');
-//     // ESP_LOGE(TAG, "Data recieved %s",result.data);
-//     return result;
-// }
-
-
-//***************************************************************************************************
 //  Store to ack buffer
 //***************************************************************************************************
 void storeAckMsg(RoboStruct ackBuffer)
@@ -109,8 +73,8 @@ void storeAckMsg(RoboStruct ackBuffer)
 //***************************************************************************************************
 void removeAckMsg(RoboStruct ackBuffer)
 {
-    Serial.println("looking for msg:" + String(ackBuffer.cmd) + "Id:" + String(ackBuffer.IDs,HEX));
-    //printf("looking for msg%d of id %lld\r\n", ackBuffer.cmd, ackBuffer.macIDs);
+    Serial.println("looking for msg:" + String(ackBuffer.cmd) + "Id:" + String(ackBuffer.IDs, HEX));
+    // printf("looking for msg%d of id %lld\r\n", ackBuffer.cmd, ackBuffer.macIDs);
     int i = 0;
     while (i < 10)
     {
@@ -198,7 +162,7 @@ void onReceive(int packetSize)
         Serial.println("#error: message length does not match length");
         return; // skip rest of function
     }
-    Serial.println("#Lora in <" + incoming + ">");
+    Serial.println("#Lora_i <" + incoming + ">");
     RoboStruct in = rfDeCode(incoming);
     if (in.IDr == buoyId && in.ack == LORAACK) // A message form me so check if its a ACK message
     {
@@ -213,6 +177,7 @@ void onReceive(int packetSize)
             // IDr,IDs,ACK,MSG
             loraMsgout.IDr = in.IDs;
             loraMsgout.IDs = buoyId;
+            loraMsgout.cmd = in.cmd;
             loraMsgout.ack = LORAACK;
             xQueueSend(loraOut, (void *)&loraMsgout, 10); // send ACK out
         }
@@ -231,7 +196,7 @@ bool sendLora(String loraTransmitt)
         LoRa.write(loraTransmitt.length());
         LoRa.print(loraTransmitt);
         LoRa.endPacket(); // finish packet and send it
-        Serial.println("#Lora out <" + loraTransmitt + ">");
+        Serial.println("#Lora_o <" + loraTransmitt + ">");
         return true;
     }
     return false;
@@ -242,8 +207,12 @@ bool sendLora(String loraTransmitt)
 //***************************************************************************************************
 void LoraTask(void *arg)
 {
-
     unsigned long retransmittReady = 0;
+    delay(500);
+    while (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
+    {
+        delay(10);
+    }
     while (1)
     {
         onReceive(LoRa.parsePacket()); // check if there is new data availeble
@@ -253,8 +222,6 @@ void LoraTask(void *arg)
             {
                 // IDr,IDs,ACK,MSG,<data>
                 String loraString = rfCode(loraMsgout);
-                //String(loraMsgout.macIDr, HEX) + "," + String(buoyId, HEX) + "," + String(loraMsgout.ack);
-                //loraString += "," + removeWhitespace(String(loraMsgout.data));
                 while (sendLora(String(loraString)) != true)
                 {
                     vTaskDelay(pdTICKS_TO_MS(50));

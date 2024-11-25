@@ -3,7 +3,6 @@
 #include "main.h"
 #include "io_base.h"
 #include "lorabase.h"
-#include "roboRaceTrack.h"
 #include "oled_ssd1306.h"
 #include "basewifi.h"
 #include "leds.h"
@@ -11,15 +10,14 @@
 // #define BUFLENMHRG 60 // one sampel each sec so 60 sec for stabilisation
 
 unsigned long buoyId = ROBOBASE;
-static RoboWindStruct wind;
-static lorabuf loraTx;
-static lorabuf loraRx;
-static char loraTransmitt[MAXSTRINGLENG];
+static RoboStruct wind;
+static RoboStruct loraTx;
+static RoboStruct loraRx;
 static RoboStruct mainData;
 static RoboStruct loraData;
 RoboStruct buoyPara[3] = {};
 static unsigned int status = IDLE;
-static int msg;
+static int cmd;
 unsigned long loraTimer = millis();
 
 int buttonState = 0;             // Current state of the button
@@ -131,18 +129,17 @@ int handelStatus(int status)
     switch (status)
     {
     case COMPUTESTART:
-        buoyPara[0].wDir = mainData.wDir;
+        printf("# Computing startline now!!!\r\n");
         buoyPara[3] = calcTrackPos(buoyPara);
         for (int i = 0; i < 3; i++)
         {
             trackPosPrint(buoyPara[i].trackPos);
-            printf(" = (%.12f,%.12f)\r\n", buoyPara[i].tgLat, buoyPara[i].tgLng);
+            printf(" = (%.12f,%.12f) # %lx\r\n", buoyPara[i].tgLat, buoyPara[i].tgLng, buoyPara[i].IDs);
         }
         buoyPara[3] = recalcStarLine(buoyPara);
         if ((buoyPara[0].trackPos != -1 && buoyPara[1].trackPos != -1) || (buoyPara[0].trackPos != -1 && buoyPara[2].trackPos != -1) || (buoyPara[1].trackPos != -1 && buoyPara[2].trackPos != -1))
         {
             status = SENDTRACK;
-            printf("#Send track info\r\n");
         }
         else
         {
@@ -150,6 +147,7 @@ int handelStatus(int status)
         }
         break;
     case COMPUTETRACK:
+        printf("# Computing new track now!!!\r\n");
         buoyPara[0].wDir = mainData.wDir;
         for (int i = 0; i < 3; i++)
         {
@@ -167,57 +165,51 @@ int handelStatus(int status)
         }
         break;
     case SENDTRACK:
+        printf("# Sending data out now!!!\r\n");
         for (int i = 0; i < 3; i++)
         {
-            if (buoyPara[i].trackPos != 0)
+            if (buoyPara[i].trackPos != 0 && buoyPara[i].IDs != 0)
             {
+                memcpy(&loraTx, &buoyPara[i], sizeof(RoboStruct));
                 trackPosPrint(buoyPara[i].trackPos);
-                printf("n = (%.12f,%.12f)\r\n", buoyPara[i].tgLat, buoyPara[i].tgLng);
-                loraTx.macIDr = buoyPara[i].mac;
-                loraTx.macIDs = buoyId;
-                loraTx.msg = SETLOCKPOS;
+                printf("n = (%.12f,%.12f)# IDr:%lx \r\n", buoyPara[i].tgLat, buoyPara[i].tgLng, buoyPara[i].IDs);
+                loraTx.IDr = buoyPara[i].IDs;
+                loraTx.IDs = buoyId;
+                loraTx.cmd = SETLOCKPOS;
                 loraTx.ack = LORAGETACK;
-                loraString = RoboCode(buoyPara[i], SETLOCKPOS);
-                loraString.toCharArray(loraTx.data, loraString.length() + 1);
                 xQueueSend(loraOut, (void *)&loraTx, 10); // send out trough Lora
             }
         }
         status = LOCKED;
         break;
     case DOCKING:
-        loraTx.macIDr = BUOYIDALL;
-        loraTx.macIDs = buoyId;
-        loraTx.msg = DOCKING;
+        loraTx.IDr = BUOYIDALL;
+        loraTx.IDs = buoyId;
+        loraTx.cmd = DOCKING;
         loraTx.ack = LORAINF;
-        loraString = RoboCode(buoyPara[0], DOCKING);
-        loraString.toCharArray(loraTx.data, loraString.length() + 1);
         xQueueSend(loraOut, (void *)&loraTx, 10); // send out trough Lora
         for (int i = 0; i < 3; i++)
         {
             if (buoyPara[i].mac != 0)
             {
-                loraTx.macIDr = buoyPara[i].mac;
-                loraTx.macIDs = buoyId;
-                loraTx.msg = DOCKING;
+                loraTx.IDr = buoyPara[i].mac;
+                loraTx.IDs = buoyId;
+                loraTx.cmd = DOCKING;
                 loraTx.ack = LORAGETACK;
-                loraString = RoboCode(buoyPara[i], DOCKING);
-                loraString.toCharArray(loraTx.data, loraString.length() + 1);
                 xQueueSend(loraOut, (void *)&loraTx, 10); // send out trough Lora
             }
         }
         status = DOCKED;
         break;
     case IDELING:
-        loraTx.macIDs = buoyId;
-        loraTx.msg = IDELING;
+        loraTx.IDs = buoyId;
+        loraTx.cmd = IDELING;
         loraTx.ack = LORAGETACK;
         for (int i = 0; i < 3; i++)
         {
             if (buoyPara[i].mac != 0)
             {
-                loraString = RoboCode(buoyPara[0], IDELING);
-                loraString.toCharArray(loraTx.data, loraString.length() + 1);
-                loraTx.macIDr = buoyPara[i].mac;
+                loraTx.IDr = buoyPara[i].mac;
                 xQueueSend(loraOut, (void *)&loraTx, 10); // send out trough Lora
             }
         }
@@ -228,21 +220,17 @@ int handelStatus(int status)
         {
             if (buoyPara[i].mac != 0)
             {
-                loraTx.macIDr = buoyPara[i].mac;
-                loraTx.macIDs = buoyId;
-                loraTx.msg = LOCKING;
+                loraTx.IDr = buoyPara[i].mac;
+                loraTx.IDs = buoyId;
+                loraTx.cmd = LOCKING;
                 loraTx.ack = LORAGETACK;
-                loraString = RoboCode(buoyPara[i], LOCKING);
-                loraString.toCharArray(loraTx.data, loraString.length() + 1);
                 xQueueSend(loraOut, (void *)&loraTx, 10); // send out trough Lora
             }
         }
-        loraTx.macIDr = BUOYIDALL;
-        loraTx.macIDs = buoyId;
-        loraTx.msg = LOCKING;
+        loraTx.IDr = BUOYIDALL;
+        loraTx.IDs = buoyId;
+        loraTx.cmd = LOCKING;
         loraTx.ack = LORASET;
-        loraString = RoboCode(buoyPara[0], LOCKING);
-        loraString.toCharArray(loraTx.data, loraString.length() + 1);
         xQueueSend(loraOut, (void *)&loraTx, 10); // send out trough Lora
         status = IDLE;
         break;
@@ -298,16 +286,9 @@ void loop(void)
         //***************************************************************************************************
         if (xQueueReceive(loraIn, (void *)&loraRx, 10) == pdTRUE) // New lora data
         {
-            String loraStringIn = String(loraRx.data);
-            loraData = RoboDecode(loraStringIn, loraData);
-            loraData.mac = loraRx.macIDs; // store ID
-            if (loraRx.macIDr == buoyId)  // yes i got a update
+            if (loraRx.cmd == LOCKPOS)
             {
-            }
-            if (loraRx.msg == LOCKPOS)
-            {
-                loraData.loralstmsg = millis();
-                AddDataToBuoyBase(loraData, buoyPara);
+                buoyPara[3] = AddDataToBuoyBase(loraRx, buoyPara);
             }
         }
         vTaskDelay(1);

@@ -157,7 +157,7 @@ bool udp_setup(int poort)
                         if (udpDataIn.IDs != -1 )
                         {
                             xQueueSend(udpIn, (void *)&udpDataIn, 10); // notify main there is new data
-                            if (lastUpdMsg != CRGB::DarkBlue)
+                            if (wifiCollorUtil.color != CRGB::DarkBlue)
                             {
                                 wifiCollorUtil.blink = BLINK_SLOW;
                                 wifiCollorUtil.color = CRGB::DarkBlue;
@@ -262,11 +262,10 @@ void WiFiTask(void *arg)
 
         if (xQueueReceive(udpOut, (void *)&msgIdOut, 1) == pdTRUE)
         {
-
+            msgIdOut.IDr = msgIdOut.mac;
+            msgIdOut.IDs = msgIdOut.mac;
             String out = rfCode(msgIdOut);
-            Serial.println(out);
             udp.broadcast(out.c_str());
-            Serial.println("Udp out< " + out + " >");
         }
         if (lastUpdMsg + 1 * 1000 < millis() && wifiCollorUtil.color != CRGB::DarkOrange)
         {
