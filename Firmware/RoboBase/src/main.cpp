@@ -177,6 +177,7 @@ int handelStatus(int status)
                 loraTx.IDs = buoyId;
                 loraTx.cmd = SETLOCKPOS;
                 loraTx.ack = LORAGETACK;
+                delay(25);
                 xQueueSend(loraOut, (void *)&loraTx, 10); // send out trough Lora
             }
         }
@@ -207,20 +208,29 @@ int handelStatus(int status)
         loraTx.ack = LORAGETACK;
         for (int i = 0; i < 3; i++)
         {
-            if (buoyPara[i].mac != 0)
+            if (buoyPara[i].IDs != 0)
             {
-                loraTx.IDr = buoyPara[i].mac;
+                loraTx.IDr = buoyPara[i].IDs;
                 xQueueSend(loraOut, (void *)&loraTx, 10); // send out trough Lora
             }
+        }
+        loraTx.IDr = BUOYIDALL;
+        loraTx.IDs = buoyId;
+        loraTx.cmd = IDELING;
+        loraTx.ack = LORASET;
+        for (int i = 0; i < 3; i++)
+        {
+            xQueueSend(loraOut, (void *)&loraTx, 10); // send out trough Lora
+            delay(150);
         }
         status = IDLE;
         break;
     case LOCKING:
         for (int i = 0; i < 3; i++)
         {
-            if (buoyPara[i].mac != 0)
+            if (buoyPara[i].IDs != 0)
             {
-                loraTx.IDr = buoyPara[i].mac;
+                loraTx.IDr = buoyPara[i].IDs;
                 loraTx.IDs = buoyId;
                 loraTx.cmd = LOCKING;
                 loraTx.ack = LORAGETACK;
@@ -231,7 +241,11 @@ int handelStatus(int status)
         loraTx.IDs = buoyId;
         loraTx.cmd = LOCKING;
         loraTx.ack = LORASET;
-        xQueueSend(loraOut, (void *)&loraTx, 10); // send out trough Lora
+        for (int i = 0; i < 3; i++)
+        {
+            xQueueSend(loraOut, (void *)&loraTx, 10); // send out trough Lora
+            delay(150);
+        }
         status = IDLE;
         break;
     default:

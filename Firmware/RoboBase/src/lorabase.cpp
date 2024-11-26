@@ -152,12 +152,12 @@ void onReceive(int packetSize)
         Serial.println("#error: message length does not match length");
         return; // skip rest of function
     }
-    Serial.println("#Lora_i <" + incoming + ">");
+    Serial.println(incoming);
     RoboStruct in = rfDeCode(incoming);
     if (in.IDr == buoyId && in.ack == LORAACK) // A message form me so check if its a ACK message
     {
         removeAckMsg(in);
-        printf("#Lora Ack recieved buffer cleared\r\n");
+        // printf("#Lora Ack recieved buffer cleared\r\n");
         return;
     }
     led.blink = 2;
@@ -201,7 +201,7 @@ void initloraqueue(void)
     loraOut = xQueueCreate(10, sizeof(RoboStruct));
     loraIn = xQueueCreate(10, sizeof(RoboStruct));
     InitLora();
-    Serial.print("BuoyId=");
+    Serial.print("# BuoyId=");
     Serial.println(buoyId, HEX);
 }
 

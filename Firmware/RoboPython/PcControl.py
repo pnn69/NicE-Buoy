@@ -16,10 +16,11 @@ from dataclasses import dataclass
 
 @dataclass
 class Robostruct:
+    mac: int = 0
     IDs: int = 0
     IDr: int = 0
+    cmd: int = 0
     ack: int = 0
-    mac: int = 0
     msg: int = 0
     status: int = 0
     lat: float = 0.0
@@ -70,44 +71,49 @@ ser = serial.Serial('COM60', 115200)  # Adjust baud rate as per your requirement
 #  Store data in struct
 #***************************************************************************************************
 def decode(robostruct,data):
-    if robostruct.msg == 50 and len(data) >= 10: #50,7,52.32046850,4.96557650,252.27,306.53,53.47,100,0,1,8
-        robostruct.lat = data[2]
-        robostruct.lng = data[3]
-        robostruct.mDir = round(data[4])
-        robostruct.wDir = round(data[5])
-        robostruct.wStd = data[6]
-        robostruct.topAccuP = data[7]
-        robostruct.subAccuP = data[8]
-        robostruct.gpsFix = data[9]
-        robostruct.gpsSat = data[10]    
+    if robostruct.msg == 19 and len(data) >= 9: #52.32053467, 4.96557883, 0.0, 0.0, 0.0, 100, 0, 1, 9
+        robostruct.lat = data[0]
+        robostruct.lng = data[1]
+        robostruct.mDir = round(data[2])
+        robostruct.wDir = round(data[3])
+        robostruct.wStd = data[4]
+        robostruct.topAccuP = data[5]
+        robostruct.subAccuP = data[6]
+        robostruct.gpsFix = data[7]
+        robostruct.gpsSat = data[8]    
         return
         
-    if robostruct.msg == 52 and len(data) >= 2: #51,52.32048950,4.96559850
-        robostruct.tgLat = data[1]
-        robostruct.tgLng = data[2]
-        #robostruct.tgDir = data[3]
-        #robostruct.tgDist = data[4]
+    if robostruct.msg == 21 and len(data) >= 4: #52.3204735, 4.965538333, 0.0, 0.0
+        robostruct.tgLat = data[0]
+        robostruct.tgLng = data[1]
+        robostruct.wDir = data[2]
+        robostruct.wStd = data[3]
         return
 
-    #if robostruct.msg == 52 and len(data) >= 2: #51,52.32048950,4.96559850
-    #    robostruct.tgLat = data[1]
-    #    robostruct.tgLng = data[2]
-    #    return
+    if robostruct.msg == 44 and len(data) >= 2: #233.36, 0.93
+        robostruct.tgDir = data[0]
+        robostruct.tgDist = data[1]
+        return
 
     if robostruct.msg == 55 and len(data) >= 2: #51,52.32048950,4.96559850,5.8,0.4
-        robostruct.tgLat = data[1]
-        robostruct.tgLng = data[2]
+        robostruct.tgLat = data[0]
+        robostruct.tgLng = data[1]
         return
     
-    if robostruct.msg == 53:#<fffffffe,c99779f4,6,53,16.62,5.82>
+    if robostruct.msg == 56:#80.0, 0, 0, 0, 0.0
+        robostruct.speedSet = data[0]
+        robostruct.speed = data[1]
+        robostruct.speedBb = data[2]
+        robostruct.speedSb = data[3]
+        robostruct.subAccuV = data[4]
         return
     #54,80.00,80,80,-80,0.00
-    if robostruct.msg == 56 and len(data) >= 6: 
-        robostruct.speedSet = data[1]
-        robostruct.speed = data[2]
-        robostruct.speedBb = data[3]
-        robostruct.speedSb = data[4]
-        robostruct.subAccuV = data[5]
+    if robostruct.msg == 56 and len(data) >= 5: 
+        robostruct.speedSet = data[0]
+        robostruct.speed = data[1]
+        robostruct.speedBb = data[2]
+        robostruct.speedSb = data[3]
+        robostruct.subAccuV = data[4]
         return
 
     print("Unknown data ")
@@ -139,6 +145,7 @@ def validate_and_extract_data(input_string):
 
 #***************************************************************************************************
 #  Decoder version 2
+#  IDr,IDs,ack,msg,data
 #***************************************************************************************************
 def decode_V2(input_str):
     # Remove angle brackets and split by commas
@@ -147,37 +154,38 @@ def decode_V2(input_str):
     
     try:
         # Try to decode the first four fields
-        field1 = int(fields[1], 16)  # IDs
-        field2 = int(fields[2])      # Ack
-        field3 = int(fields[3])      # msg
+        field1 = int(fields[0], 16)  # IDr
+        field2 = int(fields[1], 16)  # IDs
+        field3 = int(fields[2])      # Ack
+        field4 = int(fields[3])      # msg
 
         # Convert the remaining fields to `data`
-        data = [float(f.strip()) if '.' in f.strip() else int(f.strip()) for f in fields[3:]]
-        #print("IDr (Hex):", hex(field2))
+        data = [float(f.strip()) if '.' in f.strip() else int(f.strip()) for f in fields[5:]]
+        #print("IDr (Hex):", hex(field1))
+        #print("IDs (Hex):", hex(field2))
         #print("Ack", field3)
         #print("msg", field4)
         #print("Data:", data)
         #print("Nr of data fields:",  len(data))
 
-        if robostructs[0].mac == 0 or robostructs[0].mac == field1:
-            robostructs[0].mac = field1
-            robostructs[0].ack = field2
-            robostructs[0].msg = field3
+        if robostructs[0].IDs == 0 or robostructs[0].IDs == field2:
+            robostructs[0].IDs = field2
+            robostructs[0].ack = field3
+            robostructs[0].msg = field4
             decode(robostructs[0], data)
-            return
-        if robostructs[1].mac == 0 or robostructs[1].mac == field1:
-            robostructs[1].mac = field1
-            robostructs[1].ack = field2
-            robostructs[1].msg = field3
+            #return
+        elif robostructs[1].IDs == 0 or robostructs[1].IDs == field2:
+            robostructs[1].IDs = field2
+            robostructs[1].ack = field3
+            robostructs[1].msg = field4
             decode(robostructs[1], data)
-            return
-        if robostructs[2].mac == 0 or robostructs[2].mac == field1:
-            robostructs[2].mac = field1
-            robostructs[2].ack = field2
-            robostructs[2].msg = field3
+            #return
+        elif robostructs[2].IDs == 0 or robostructs[2].IDs == field2:
+            robostructs[2].IDs = field2
+            robostructs[2].ack = field3
+            robostructs[2].msg = field4
             decode(robostructs[2], data)
         return
-    
     except ValueError as e:
         # Print an error message and return None or some default values
         print(f"Error decoding input: {e}")

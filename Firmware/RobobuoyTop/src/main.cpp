@@ -19,7 +19,6 @@ static RoboStruct LoraTx;
 static RoboStruct loraRx;
 static RoboStruct mainData;
 static RoboStruct subData;
-static RoboStruct loraData;
 static LedData mainCollorStatus;
 static LedData mainCollorUtil;
 static LedData mainCollorGps;
@@ -252,6 +251,7 @@ void buttonLight(int status, bool fix)
 //***************************************************************************************************
 RoboStruct handelStatus(RoboStruct stat, GpsDataType gps)
 {
+    memcpy(&LoraTx, &stat, sizeof(RoboStruct));
     LoraTx = stat;
     LoraTx.IDs = buoyId;
     LoraTx.IDr = BUOYIDALL;
@@ -268,6 +268,7 @@ RoboStruct handelStatus(RoboStruct stat, GpsDataType gps)
         {
             beep(1, buzzer);
             stat.mac = buoyId;
+            stat.IDs = buoyId;
             stat.tgLat = stat.lat;
             stat.tgLng = stat.lng;
             AddDataToBuoyBase(stat, buoyPara); // store positon for later calculations Track positioning
@@ -413,7 +414,7 @@ RoboStruct handleTimerRoutines(RoboStruct timer)
         {
             LoraTx.IDr = BUOYIDALL;
             LoraTx.cmd = LOCKPOS;
-            printf("tglat:%.8f tglng:%.8f \r\n",LoraTx.tgLat,LoraTx.tgLng);
+            // printf("# tglat:%.8f tglng:%.8f \r\n", LoraTx.tgLat, LoraTx.tgLng);
             loralstmsg = 1;
         }
         break;
@@ -533,11 +534,13 @@ void loop(void)
         {
             if (loraRx.IDr == BUOYIDALL)
             {
-                if (mainGpsData.fix == true && mainData.status != LOCKED && loraRx.cmd == LOCKING)
+                if (mainGpsData.fix == true && mainData.status != LOCKED && loraRx.cmd == LOCKING) // locking command only execute when not locked!
                 {
                     printf("#Status set to LOCKING (by lora input)\r\n");
                     beep(1, buzzer);
                     mainData.mac = buoyId;
+                    mainData.IDr = buoyId;
+                    mainData.IDs = buoyId;
                     mainData.tgLat = mainData.lat;
                     mainData.tgLng = mainData.lng;
                     buoyPara[3] = AddDataToBuoyBase(mainData, buoyPara); // store positon for later calculations Track positioning
@@ -556,7 +559,6 @@ void loop(void)
                 {
                     mainData.lastLoraIn = millis(); // message was for me so update last lora tranmission.
                 }
-                loraData.mac = loraRx.IDs; // store ID
                 switch (loraRx.cmd)
                 {
                 case LOCKING:
@@ -577,13 +579,13 @@ void loop(void)
                     }
                     break;
                 case DIRDIST:
-                    mainData.tgDir = loraData.tgDir;
-                    mainData.tgDist = loraData.tgDist;
+                    mainData.tgDir = loraRx.tgDir;
+                    mainData.tgDist = loraRx.tgDist;
                     mainData.status = DIRDIST;
                     loraTimerIn = 5000 + millis(); // 5 sec timeout
                 case DIRSPEED:
-                    mainData.tgDir = loraData.tgDir;
-                    mainData.tgDist = loraData.speedSet;
+                    mainData.tgDir = loraRx.tgDir;
+                    mainData.tgDist = loraRx.speedSet;
                     mainData.status = REMOTE;
                     loraTimerIn = 5000 + millis(); // 5 sec timeout
                     break;
@@ -591,10 +593,10 @@ void loop(void)
                     buoyPara[3] = AddDataToBuoyBase(loraRx, buoyPara);
                     break;
                 case SETLOCKPOS: // store new data into position database
-                    mainData.tgLat = loraData.tgLat;
-                    mainData.tgLng = loraData.tgLng;
-                    mainData.lat = loraData.tgLat;
-                    mainData.lng = loraData.tgLng;
+                    mainData.tgLat = loraRx.tgLat;
+                    mainData.tgLng = loraRx.tgLng;
+                    mainData.lat = loraRx.tgLat;
+                    mainData.lng = loraRx.tgLng;
                     buoyPara[3] = AddDataToBuoyBase(loraRx, buoyPara);
                     mainData.status = LOCKING;
                     break;
@@ -607,21 +609,21 @@ void loop(void)
                     mainData.status = IDELING;
                     break;
                 case PIDRUDDERSET:
-                    pidRudderParameters(loraData, false);
-                    loraData.cmd = PIDRUDDERSET;
-                    xQueueSend(udpOut, (void *)&loraData, 0); // Keep the watchdog in sub happy
-                    mainData.pr = loraData.pr;
-                    mainData.ir = loraData.ir;
-                    mainData.dr = loraData.dr;
+                    pidRudderParameters(loraRx, false);
+                    loraRx.cmd = PIDRUDDERSET;
+                    xQueueSend(udpOut, (void *)&loraRx, 0); // Keep the watchdog in sub happy
+                    mainData.pr = loraRx.pr;
+                    mainData.ir = loraRx.ir;
+                    mainData.dr = loraRx.dr;
                     mainData.kir = 0;
                     break;
                 case PIDSPEEDSET:
-                    pidSpeedParameters(loraData, false);
-                    loraData.cmd = PIDSPEEDSET;
-                    xQueueSend(udpOut, (void *)&loraData, 0); // Keep the watchdog in sub happy
-                    mainData.ps = loraData.ps;
-                    mainData.is = loraData.is;
-                    mainData.ds = loraData.ds;
+                    pidSpeedParameters(loraRx, false);
+                    loraRx.cmd = PIDSPEEDSET;
+                    xQueueSend(udpOut, (void *)&loraRx, 0); // Keep the watchdog in sub happy
+                    mainData.ps = loraRx.ps;
+                    mainData.is = loraRx.is;
+                    mainData.ds = loraRx.ds;
                     mainData.kis = 0;
                     break;
                 default:
