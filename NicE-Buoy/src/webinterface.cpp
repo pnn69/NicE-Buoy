@@ -35,11 +35,11 @@ void setup_OTA()
                        {
     /* switch off all processes here!!!!! */
     Serial.println();
-    Serial.println("Recieving new firmware now!"); });
+    Serial.println("Receiving new firmware now!"); });
     ArduinoOTA.onEnd([]()
                      {
     /* do stuff after update here!! */
-    Serial.println("\nRecieving done!");
+    Serial.println("\nReceiving done!");
     Serial.println("Storing in memory and reboot!");
     Serial.println(); });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)

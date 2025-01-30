@@ -1,118 +1,93 @@
 import tkinter as tk
-import serial
-import threading
-import re
+from tkinter import ttk
+import math
 
-# Open COM3 port
-ser = serial.Serial('COM7', 115200)  # Adjust baud rate as per your requirement
-
-def radio_button_selected():
-    selected_option = radio_var.get()
-    print("Selected Radio Button:", selected_option)
-
-def submit():
-    output_field.delete(1.0, tk.END)
-    output_field.insert(tk.END, "1")
-    selected_option = radio_var.get()
-    output_field.insert(tk.END,"^" + selected_option)
-    output_field.insert(tk.END,"^SET")
-    if selected_option == "PID_RUDDER_PARAMETERS":
-        output_field.insert(tk.END,"^" + entry1.get())
-    if selected_option == "PID_SPEED_PARAMETERS":
-        output_field.insert(tk.END,"^" + entry2.get())
-    if selected_option == "CHANGE_POS_DIR_DIST":
-        output_field.insert(tk.END,"^" + entry3.get())
-    output_field.insert(tk.END,"")
-    output_data = output_field.get("1.0", tk.END).strip()
-    ser.write(output_data.encode())
-    print(output_data)
-
-def read_serial():
-    while True:
+class Entry(ttk.Frame):
+    def __init__(self, parent, label_text, button_text, label_background, wind_direction=None):
+        super().__init__(parent)
         
-        if ser.in_waiting > 0:
-            received_data = ser.readline().decode().strip()
-            received_text.config(state=tk.NORMAL)
-            received_text.insert(tk.END, received_data + '\n')
-            received_text.config(state=tk.DISABLED)
-            received_text.see(tk.END)
-            #input_string = "<1><23><2><2234,34.3>"
-            # Regular expression pattern to match the fragments enclosed in <>
-            pattern = r'<(.*?)>'
-            # Find all matches of the pattern in the input string
-            matches = re.findall(pattern, received_data)
-            # Initialize an empty buffer array
-            buffer_array = []
-            # Add matches to the buffer array
-            buffer_array.extend(matches)
-            received_data = ""
-            #<sender><status><msgID><ACK><MSG>
-            # 0       1       2      3    4
-            if len(buffer_array) > 2:
-                if buffer_array[2] == "29":
-                    buf29.delete(0,tk.END)
-                    buf29.insert(tk.END,buffer_array[4])  # Pre-fill entry3
-                if buffer_array[2] == "18":
-                    buf23.delete(0,tk.END)
-                    buf23.insert(tk.END,buffer_array[4])  # Pre-fill entry3
+        # Add label
+        label = ttk.Label(self, text=label_text, background=label_background, anchor='center')
+        label.pack(expand=True, fill='both')
+        
+        # Add wind rose canvas
+        self.canvas = tk.Canvas(self, width=200, height=200, bg="white")
+        self.canvas.pack(expand=True, fill='both', pady=10)
+        
+        # Draw wind rose on the canvas
+        self.draw_wind_rose(
+            canvas=self.canvas, 
+            center_x=100, 
+            center_y=100, 
+            outer_radius=80, 
+            inner_radius=50, 
+            directions=[
+                ("N", 90), ("NE", 45), ("E", 0), ("SE", -45),
+                ("S", -90), ("SW", -135), ("W", 180), ("NW", 135)
+            ], 
+            wind_direction=wind_direction
+        )
+        
+        # Add button
+        button = ttk.Button(self, text=button_text)
+        button.pack(expand=True, fill='both', pady=10)
+        
+        self.pack(side='left', expand=True, fill='both', padx=20, pady=20)
+    
+    def draw_wind_rose(self, canvas, center_x, center_y, outer_radius, inner_radius, directions, wind_direction=None):
+        """
+        Draws a wind rose with two concentric circles, labeled directions, and a wind direction line.
+        :param canvas: The Tkinter canvas to draw on.
+        :param center_x: X-coordinate of the wind rose center.
+        :param center_y: Y-coordinate of the wind rose center.
+        :param outer_radius: Radius of the outer circle.
+        :param inner_radius: Radius of the inner circle.
+        :param directions: List of tuples with direction labels and angles (in degrees).
+        :param wind_direction: The wind direction in degrees (0° = East, 90° = North, etc.).
+        """
+        # Draw outer circle
+        canvas.create_oval(
+            center_x - outer_radius, center_y - outer_radius,
+            center_x + outer_radius, center_y + outer_radius,
+            outline="black", width=2
+        )
+        
+        # Draw inner circle
+        canvas.create_oval(
+            center_x - inner_radius, center_y - inner_radius,
+            center_x + inner_radius, center_y + inner_radius,
+            outline="black", width=2
+        )
+        
+        # Add the direction labels
+        for direction, angle in directions:
+            # Convert angle to radians (correcting for Tkinter's coordinate system)
+            radian_angle = math.radians(-angle)
+            
+            # Calculate position for the labels
+            label_x = center_x + (outer_radius + 15) * math.cos(radian_angle)
+            label_y = center_y + (outer_radius + 15) * math.sin(radian_angle)
+            canvas.create_text(label_x, label_y, text=direction, fill="blue", font=("Arial", 8, "bold"))
+        
+        # Draw the wind direction line if provided
+        if wind_direction is not None:
+            # Convert wind direction to radians (correcting for Tkinter's coordinate system)
+            radian_angle = math.radians(-wind_direction)
+            end_x = center_x + (outer_radius * 0.9) * math.cos(radian_angle)
+            end_y = center_y + (outer_radius * 0.9) * math.sin(radian_angle)
+            canvas.create_line(center_x, center_y, end_x, end_y, fill="red", width=2, arrow=tk.LAST)
 
-
-# Create main window
+# Main Application
 root = tk.Tk()
-root.title("GUI with Radio Buttons, Input Fields, and Output Field")
+root.title("Wind Rose with Entry Class")
 
-# Create input fields
-entry1 = tk.Entry(root).insert(tk.END, "1,0.05,00")  # Pre-fill entry1
-entry1
-entry1.grid(row=1, column=0)
+# Add an instance of the Entry class with a wind rose
+entry = Entry(
+    root, 
+    label_text="Wind Rose Example", 
+    button_text="OK", 
+    label_background="lightgray", 
+    wind_direction=135  # Example wind direction
+)
 
-entry2 = tk.Entry(root)
-entry2.insert(tk.END, "20,0.4,0")  # Pre-fill entry2
-entry2.grid(row=1, column=1)
-
-entry3 = tk.Entry(root)
-entry3.grid(row=1, column=2)
-entry3.insert(tk.END, "0,100")  # Pre-fill entry3
-
-buf29 = tk.Entry(root)
-buf29.grid(row=1, column=4)
-buf29.insert(tk.END, "")  # Pre-fill entry3
-
-buf23 = tk.Entry(root,width=50)
-buf23.grid(row=2, column=4)
-buf23.insert(tk.END, "")  # Pre-fill entry3
-
-
-# Create radio buttons
-radio_var = tk.StringVar()
-radio_var.set(None)  # Set initial value to None
-
-radio_button1 = tk.Radiobutton(root, text="PID_RUDDER", variable=radio_var, value="PID_RUDDER_PARAMETERS", command=radio_button_selected)
-radio_button1.grid(row=0, column=0)
-
-radio_button2 = tk.Radiobutton(root, text="PID_SPEED", variable=radio_var, value="PID_SPEED_PARAMETERS", command=radio_button_selected)
-radio_button2.grid(row=0, column=1)
-
-radio_button3 = tk.Radiobutton(root, text="POS_DIR", variable=radio_var, value="CHANGE_POS_DIR_DIST", command=radio_button_selected)
-radio_button3.grid(row=0, column=2)
-
-# Create output field
-output_field = tk.Text(root, height=1, width=50)
-output_field.grid(row=2, columnspan=3)
-
-# Create received data text widget
-received_text = tk.Text(root, height=30, width=100)  # Wider size
-received_text.grid(row=50, columnspan=3)
-received_text.config(state=tk.DISABLED)
-
-# Create submit button
-submit_button = tk.Button(root, text="Submit", command=submit)
-submit_button.grid(row=2, columnspan=1)
-
-# Create and start thread for reading serial data
-serial_thread = threading.Thread(target=read_serial)
-serial_thread.daemon = True
-serial_thread.start()
-
-# Run the main event loop
 root.mainloop()

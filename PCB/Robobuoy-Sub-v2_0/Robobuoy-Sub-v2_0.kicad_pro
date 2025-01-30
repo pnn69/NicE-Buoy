@@ -37,9 +37,9 @@
         "other_text_thickness": 0.15,
         "other_text_upright": false,
         "pads": {
-          "drill": 3.2,
-          "height": 3.2,
-          "width": 3.2
+          "drill": 0.0,
+          "height": 5.0,
+          "width": 5.0
         },
         "silk_line_width": 0.15,
         "silk_text_italic": false,
@@ -701,6 +701,14 @@
     [
       "b4716c37-6296-4cc3-83d4-c08b9373ace7",
       "PSU"
+    ],
+    [
+      "4d0abcda-3746-4ac5-9ee7-1e20e70758fd",
+      "ESC_SB"
+    ],
+    [
+      "39201e8a-d0db-437b-8a38-9d9dbc2d1944",
+      "ESC_BB"
     ],
     [
       "77bea089-a6ae-4a6f-b95b-7a9010ad7c5d",

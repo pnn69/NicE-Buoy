@@ -50,10 +50,11 @@ typedef enum
     CALIBRATE_OFFSET_MAGNETIC_COMPASS,       //
     STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS, //
     DOCK_STORING,                            //
-    MUTE_ESC,                                //
-    BLINK_SLOW,                              //
-    BLINK_FAST,                              //
-    BLINK_OFF,                               //
+    MUTE_ESC,                                // esc off
+    BLINK_SLOW,                              // blink slow
+    BLINK_FAST,                              // blink fast
+    BLINK_OFF,                               // no Blinking/Fading
+    FADE_ON,                                 // fade mode
     SUBDATA,                                 // all data send known by sub
     SUBACCU,                                 // V,P accu voltage, accu percentage
     MDIR,                                    // magnetic direction

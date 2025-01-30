@@ -220,6 +220,10 @@ void WiFiTask(void *arg)
     }
     else // try to find accespoint NicE_WiFi. If no succes make a accecpoint BUOY_[MAC]
     {
+        wifiCollorUtil.color = CRGB::LightBlue;
+        wifiCollorUtil.blink = FADE_ON;
+        wifiCollorUtil.fadeAmount = 5;
+        xQueueSend(ledStatus, (void *)&wifiCollorUtil, 10); // update util led
         ap = "NicE_WiFi";
         apww = "!Ni1001100110";
         if (scan_for_wifi_ap(ap, apww, &ipTop) == false)

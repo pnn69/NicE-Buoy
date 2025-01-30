@@ -1,1 +1,1 @@
-global
+font_settings = ("Arial", 8)  # Change the font name and size as needed

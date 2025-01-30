@@ -1,0 +1,8573 @@
+(kicad_sch
+	(version 20231120)
+	(generator "eeschema")
+	(generator_version "8.0")
+	(uuid "af1a7709-5c88-4b81-acb8-7184cdb7d21e")
+	(paper "A3")
+	(lib_symbols
+		(symbol "+3.3V_1"
+			(power)
+			(pin_numbers hide)
+			(pin_names
+				(offset 0) hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "#PWR"
+				(at 0 -3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Value" "+3.3V"
+				(at 0 3.556 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"+3.3V\""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "+3.3V_1_0_1"
+				(polyline
+					(pts
+						(xy -0.762 1.27) (xy 0 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 2.54) (xy 0.762 1.27)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "+3.3V_1_1_1"
+				(pin power_in line
+					(at 0 0 90)
+					(length 0)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "Connector:Conn_01x02_Socket"
+			(pin_names
+				(offset 1.016) hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "J"
+				(at 0 2.54 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "Conn_01x02_Socket"
+				(at 0 -5.08 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Generic connector, single row, 01x02, script generated"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_locked" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "connector"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "Connector*:*_1x??_*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "Conn_01x02_Socket_1_1"
+				(arc
+					(start 0 -2.032)
+					(mid -0.5058 -2.54)
+					(end 0 -3.048)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.27 -2.54) (xy -0.508 -2.54)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.27 0) (xy -0.508 0)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start 0 0.508)
+					(mid -0.5058 0)
+					(end 0 -0.508)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at -5.08 0 0)
+					(length 3.81)
+					(name "Pin_1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -5.08 -2.54 0)
+					(length 3.81)
+					(name "Pin_2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "Connector:Conn_01x03_Pin"
+			(pin_names
+				(offset 1.016) hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "J"
+				(at 0 5.08 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "Conn_01x03_Pin"
+				(at 0 -5.08 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Generic connector, single row, 01x03, script generated"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_locked" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "connector"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "Connector*:*_1x??_*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "Conn_01x03_Pin_1_1"
+				(polyline
+					(pts
+						(xy 1.27 -2.54) (xy 0.8636 -2.54)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 0) (xy 0.8636 0)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 2.54) (xy 0.8636 2.54)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start 0.8636 -2.413)
+					(end 0 -2.667)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(rectangle
+					(start 0.8636 0.127)
+					(end 0 -0.127)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(rectangle
+					(start 0.8636 2.667)
+					(end 0 2.413)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(pin passive line
+					(at 5.08 2.54 180)
+					(length 3.81)
+					(name "Pin_1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 5.08 0 180)
+					(length 3.81)
+					(name "Pin_2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 5.08 -2.54 180)
+					(length 3.81)
+					(name "Pin_3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "Connector:TestPoint_Small"
+			(pin_numbers hide)
+			(pin_names
+				(offset 0.762) hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "TP"
+				(at 0 3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "TestPoint_Small"
+				(at 0 2.032 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 5.08 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 5.08 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "test point"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "test point tp"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "Pin* Test*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "TestPoint_Small_0_1"
+				(circle
+					(center 0 0)
+					(radius 0.508)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "TestPoint_Small_1_1"
+				(pin passive line
+					(at 0 0 90)
+					(length 0)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "Device:C_Small"
+			(pin_numbers hide)
+			(pin_names
+				(offset 0.254) hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "C"
+				(at 0.254 1.778 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "C_Small"
+				(at 0.254 -2.032 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Unpolarized capacitor, small symbol"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "capacitor cap"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "C_*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "C_Small_0_1"
+				(polyline
+					(pts
+						(xy -1.524 -0.508) (xy 1.524 -0.508)
+					)
+					(stroke
+						(width 0.3302)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.524 0.508) (xy 1.524 0.508)
+					)
+					(stroke
+						(width 0.3048)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "C_Small_1_1"
+				(pin passive line
+					(at 0 2.54 270)
+					(length 2.032)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -2.54 90)
+					(length 2.032)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "Device:D_Small"
+			(pin_numbers hide)
+			(pin_names
+				(offset 0.254) hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "D"
+				(at -1.27 2.032 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "D_Small"
+				(at -3.81 -2.032 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Diode, small symbol"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Sim.Device" "D"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Sim.Pins" "1=K 2=A"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "diode"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "TO-???* *_Diode_* *SingleDiode* D_*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "D_Small_0_1"
+				(polyline
+					(pts
+						(xy -0.762 -1.016) (xy -0.762 1.016)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.762 0) (xy 0.762 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.762 -1.016) (xy -0.762 0) (xy 0.762 1.016) (xy 0.762 -1.016)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "D_Small_1_1"
+				(pin passive line
+					(at -2.54 0 0)
+					(length 1.778)
+					(name "K"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 2.54 0 180)
+					(length 1.778)
+					(name "A"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "Device:LED_Small"
+			(pin_numbers hide)
+			(pin_names
+				(offset 0.254) hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "D"
+				(at -1.27 3.175 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "LED_Small"
+				(at -4.445 -2.54 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Light emitting diode, small symbol"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "LED diode light-emitting-diode"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "LED* LED_SMD:* LED_THT:*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "LED_Small_0_1"
+				(polyline
+					(pts
+						(xy -0.762 -1.016) (xy -0.762 1.016)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.016 0) (xy -0.762 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.762 -1.016) (xy -0.762 0) (xy 0.762 1.016) (xy 0.762 -1.016)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 0.762) (xy -0.508 1.27) (xy -0.254 1.27) (xy -0.508 1.27) (xy -0.508 1.016)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.508 1.27) (xy 0 1.778) (xy 0.254 1.778) (xy 0 1.778) (xy 0 1.524)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "LED_Small_1_1"
+				(pin passive line
+					(at -2.54 0 0)
+					(length 1.778)
+					(name "K"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 2.54 0 180)
+					(length 1.778)
+					(name "A"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "Device:R"
+			(pin_numbers hide)
+			(pin_names
+				(offset 0)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "R"
+				(at 2.032 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "R"
+				(at 0 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at -1.778 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Resistor"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "R res resistor"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "R_*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "R_0_1"
+				(rectangle
+					(start -1.016 -2.54)
+					(end 1.016 2.54)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "R_1_1"
+				(pin passive line
+					(at 0 3.81 270)
+					(length 1.27)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -3.81 90)
+					(length 1.27)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "Device:R_Small"
+			(pin_numbers hide)
+			(pin_names
+				(offset 0.254) hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "R"
+				(at 0.762 0.508 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "R_Small"
+				(at 0.762 -1.016 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Resistor, small symbol"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "R resistor"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "R_*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "R_Small_0_1"
+				(rectangle
+					(start -0.762 1.778)
+					(end 0.762 -1.778)
+					(stroke
+						(width 0.2032)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "R_Small_1_1"
+				(pin passive line
+					(at 0 2.54 270)
+					(length 0.762)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -2.54 90)
+					(length 0.762)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "Logic_LevelTranslator:SN74LV1T34DBV"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "U"
+				(at 5.08 6.35 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "SN74LV1T34DBV"
+				(at 5.08 3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" "Package_TO_SOT_SMD:SOT-23-5"
+				(at 16.51 -6.35 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "https://www.ti.com/lit/ds/symlink/sn74lv1t34.pdf"
+				(at -10.16 -5.08 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Single Power Supply, Single Buffer GATE, CMOS Logic, Level Shifter, SOT-23-5"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "single buffer level shift"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "SOT?23*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "SN74LV1T34DBV_0_1"
+				(rectangle
+					(start -5.08 5.08)
+					(end 5.08 -5.08)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.762 0) (xy -2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.016 0) (xy 2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "SN74LV1T34DBV_1_1"
+				(polyline
+					(pts
+						(xy -0.762 -0.762) (xy -0.762 0.762) (xy 1.016 0) (xy -0.762 -0.762)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin no_connect line
+					(at -5.08 2.54 0)
+					(length 2.54) hide
+					(name "NC"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -7.62 0 0)
+					(length 2.54)
+					(name "A"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 0 -7.62 90)
+					(length 2.54)
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 7.62 0 180)
+					(length 2.54)
+					(name "Y"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 0 7.62 270)
+					(length 2.54)
+					(name "VCC"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "Transistor_FET:2N7002"
+			(pin_names hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "Q"
+				(at 5.08 1.905 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "2N7002"
+				(at 5.08 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+				(at 5.08 -1.905 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+						(italic yes)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "https://www.onsemi.com/pub/Collateral/NDS7002A-D.PDF"
+				(at 5.08 -3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Description" "0.115A Id, 60V Vds, N-Channel MOSFET, SOT-23"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "N-Channel Switching MOSFET"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "SOT?23*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "2N7002_0_1"
+				(polyline
+					(pts
+						(xy 0.254 0) (xy -2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.254 1.905) (xy 0.254 -1.905)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.762 -1.27) (xy 0.762 -2.286)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.762 0.508) (xy 0.762 -0.508)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.762 2.286) (xy 0.762 1.27)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.54 2.54) (xy 2.54 1.778)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.54 -2.54) (xy 2.54 0) (xy 0.762 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.762 -1.778) (xy 3.302 -1.778) (xy 3.302 1.778) (xy 0.762 1.778)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.016 0) (xy 2.032 0.381) (xy 2.032 -0.381) (xy 1.016 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.794 0.508) (xy 2.921 0.381) (xy 3.683 0.381) (xy 3.81 0.254)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 3.302 0.381) (xy 2.921 -0.254) (xy 3.683 -0.254) (xy 3.302 0.381)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 1.651 0)
+					(radius 2.794)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 2.54 -1.778)
+					(radius 0.254)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(circle
+					(center 2.54 1.778)
+					(radius 0.254)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+			)
+			(symbol "2N7002_1_1"
+				(pin input line
+					(at -5.08 0 0)
+					(length 2.54)
+					(name "G"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 2.54 -5.08 90)
+					(length 2.54)
+					(name "S"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 2.54 5.08 270)
+					(length 2.54)
+					(name "D"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "Transistor_FET:AO3401A"
+			(pin_names hide)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "Q"
+				(at 5.08 1.905 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "AO3401A"
+				(at 5.08 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+				(at 5.08 -1.905 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+						(italic yes)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "http://www.aosmd.com/pdfs/datasheet/AO3401A.pdf"
+				(at 5.08 -3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+					(hide yes)
+				)
+			)
+			(property "Description" "-4.0A Id, -30V Vds, P-Channel MOSFET, SOT-23"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "P-Channel MOSFET"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "SOT?23*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "AO3401A_0_1"
+				(polyline
+					(pts
+						(xy 0.254 0) (xy -2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.254 1.905) (xy 0.254 -1.905)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.762 -1.27) (xy 0.762 -2.286)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.762 0.508) (xy 0.762 -0.508)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.762 2.286) (xy 0.762 1.27)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.54 2.54) (xy 2.54 1.778)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.54 -2.54) (xy 2.54 0) (xy 0.762 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.762 1.778) (xy 3.302 1.778) (xy 3.302 -1.778) (xy 0.762 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.286 0) (xy 1.27 0.381) (xy 1.27 -0.381) (xy 2.286 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.794 -0.508) (xy 2.921 -0.381) (xy 3.683 -0.381) (xy 3.81 -0.254)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 3.302 -0.381) (xy 2.921 0.254) (xy 3.683 0.254) (xy 3.302 -0.381)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 1.651 0)
+					(radius 2.794)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 2.54 -1.778)
+					(radius 0.254)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(circle
+					(center 2.54 1.778)
+					(radius 0.254)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+			)
+			(symbol "AO3401A_1_1"
+				(pin input line
+					(at -5.08 0 0)
+					(length 2.54)
+					(name "G"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 2.54 -5.08 90)
+					(length 2.54)
+					(name "S"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 2.54 5.08 270)
+					(length 2.54)
+					(name "D"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+		(symbol "power:GND"
+			(power)
+			(pin_names
+				(offset 0)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "#PWR"
+				(at 0 -6.35 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Value" "GND"
+				(at 0 -3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "GND_0_1"
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 -1.27) (xy 1.27 -1.27) (xy 0 -2.54) (xy -1.27 -1.27) (xy 0 -1.27)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "GND_1_1"
+				(pin power_in line
+					(at 0 0 270)
+					(length 0) hide
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
+	)
+	(junction
+		(at 303.53 101.6)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "05fa710a-e4c7-4877-9bb8-561c5c0b2fd2")
+	)
+	(junction
+		(at 191.77 217.17)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "068f1edb-492f-4751-808f-fd2f7fc8a5fb")
+	)
+	(junction
+		(at 196.85 139.7)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "100678b2-6f00-44ea-9d34-b1504d610f20")
+	)
+	(junction
+		(at 176.53 237.49)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "20bffb35-c26e-4586-8640-0d75fc9b3fbe")
+	)
+	(junction
+		(at 146.05 149.86)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "29104162-b64e-4771-95d4-f074d31ede5e")
+	)
+	(junction
+		(at 143.51 227.33)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "29531e61-96f4-4b29-b95b-eae350c030e9")
+	)
+	(junction
+		(at 196.85 217.17)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "2a386604-7f98-4ed8-991c-efc66e7a7cf3")
+	)
+	(junction
+		(at 334.01 87.63)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "2c1c4ab5-1fe1-419c-82fa-e45faf60265f")
+	)
+	(junction
+		(at 194.31 217.17)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "2febd6a9-3b49-457a-886b-e3dc093a0796")
+	)
+	(junction
+		(at 222.25 151.13)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "38a662be-5247-49db-b01b-b5978b1f7e15")
+	)
+	(junction
+		(at 212.09 226.06)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "3ff9baff-46f5-490f-9055-57d22c9b8e91")
+	)
+	(junction
+		(at 246.38 45.72)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "43cfa63e-6b20-4b7c-a952-2e5315e42352")
+	)
+	(junction
+		(at 168.91 160.02)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "4dda8e24-abf7-4228-92e5-bc70a0e2b608")
+	)
+	(junction
+		(at 234.95 151.13)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "50a257c1-d7f7-427c-96ac-8e1abd0268ef")
+	)
+	(junction
+		(at 247.65 151.13)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "51b83378-3fb2-481f-b717-9969d6c653c9")
+	)
+	(junction
+		(at 214.63 148.59)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "568a1129-d7dc-43da-a8ab-1b3ed0ce3aca")
+	)
+	(junction
+		(at 194.31 139.7)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "56e91a73-5b37-4717-966a-3cc82e507d70")
+	)
+	(junction
+		(at 163.83 149.86)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "64790aac-3598-49dd-8537-78f5467884c6")
+	)
+	(junction
+		(at 199.39 139.7)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "6f70f4b5-2641-4603-b191-7a714826c1ac")
+	)
+	(junction
+		(at 246.38 67.31)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "6fc8ea40-8f31-4119-aefa-90be3af777cd")
+	)
+	(junction
+		(at 234.95 45.72)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "777ee803-ab21-409e-b83d-5f8b337dddf1")
+	)
+	(junction
+		(at 209.55 127)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "7e653869-ba2b-4282-8f68-da622b78be06")
+	)
+	(junction
+		(at 245.11 228.6)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "815f39a0-5af1-4808-b49a-859c3516eb4d")
+	)
+	(junction
+		(at 166.37 227.33)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "83a683e9-8c1d-476a-81b4-fedda2d2b04f")
+	)
+	(junction
+		(at 227.33 148.59)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "9485007c-929d-453a-9621-8aae513aaf28")
+	)
+	(junction
+		(at 161.29 227.33)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "97f22b51-6e36-4d23-b9d2-93887e75320c")
+	)
+	(junction
+		(at 356.87 109.22)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "9ca0d6a2-02b3-49de-8b5f-07b7c9cc1a4d")
+	)
+	(junction
+		(at 234.95 127)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "9fbe28c5-802e-4886-a49b-6d45bc9441e9")
+	)
+	(junction
+		(at 166.37 237.49)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "a165fe29-a43a-4d25-bbdc-b136394497d8")
+	)
+	(junction
+		(at 232.41 204.47)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "a2fd819a-0d31-4f64-aeb3-a97832cf3715")
+	)
+	(junction
+		(at 234.95 67.31)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "a633c08c-4951-45fc-8bd9-3f67eb00d82d")
+	)
+	(junction
+		(at 246.38 62.23)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "ae6dc718-fe79-4acd-a7f4-773f5a2970d7")
+	)
+	(junction
+		(at 194.31 204.47)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "b1f7f372-5175-4b7c-903a-893e3941cb9a")
+	)
+	(junction
+		(at 232.41 228.6)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "bb08b449-c645-4b3c-840f-a120f0c85525")
+	)
+	(junction
+		(at 345.44 87.63)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "c29fbba5-8b54-48cc-a78b-962cceaf71ec")
+	)
+	(junction
+		(at 257.81 67.31)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "c8ee4b50-fabb-4dcc-81b0-8873aaf46410")
+	)
+	(junction
+		(at 168.91 149.86)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "cde43db2-d99d-4f52-843d-c35c7cc9938f")
+	)
+	(junction
+		(at 222.25 127)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "ce30105d-d03c-4531-8f48-5b11c0cf18af")
+	)
+	(junction
+		(at 204.47 59.69)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "cedfd3f3-03e1-4099-92e8-604d14be7829")
+	)
+	(junction
+		(at 207.01 204.47)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "d254ae1a-e0c4-4138-9bfe-174a84b02dbe")
+	)
+	(junction
+		(at 345.44 109.22)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "de656b7e-ce4d-451a-b94a-276b794d8346")
+	)
+	(junction
+		(at 219.71 228.6)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "e8a33d01-aa16-4503-b534-05263eb708eb")
+	)
+	(junction
+		(at 196.85 127)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "ec0be81a-7389-459c-8b62-2031638b8cab")
+	)
+	(junction
+		(at 334.01 109.22)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "ecdb791d-d821-4809-abf7-b4f058060748")
+	)
+	(junction
+		(at 345.44 104.14)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "eeaa1161-1f3e-4e94-8bb7-8202ee644399")
+	)
+	(junction
+		(at 224.79 226.06)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "fb6cd0c4-3388-4854-895a-728bfdaa4800")
+	)
+	(junction
+		(at 219.71 204.47)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "fe826789-c647-4111-bd19-d61a04546fc7")
+	)
+	(junction
+		(at 179.07 160.02)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "ff56ba78-fba3-4cca-bedd-7aebb4a2ee8d")
+	)
+	(wire
+		(pts
+			(xy 356.87 109.22) (xy 356.87 111.76)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "03a3db92-7d18-406e-8474-6787ee38f7a7")
+	)
+	(wire
+		(pts
+			(xy 214.63 139.7) (xy 214.63 148.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "08e18722-d2cb-4045-aa4a-fb8afe5986c2")
+	)
+	(wire
+		(pts
+			(xy 207.01 204.47) (xy 207.01 212.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "08f7c5da-326e-446e-b071-41ae543783c1")
+	)
+	(wire
+		(pts
+			(xy 232.41 204.47) (xy 245.11 204.47)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0c1ae4e4-060f-4dfb-b45a-dfa6e1321c11")
+	)
+	(wire
+		(pts
+			(xy 138.43 227.33) (xy 143.51 227.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0cbb2c67-b575-4d72-a986-f62d0693b007")
+	)
+	(wire
+		(pts
+			(xy 219.71 204.47) (xy 219.71 212.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0ccd5296-0013-4a7f-b181-ae97ed77aebd")
+	)
+	(wire
+		(pts
+			(xy 194.31 217.17) (xy 191.77 217.17)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "104f5bc5-ce9b-47cc-bf8b-bb86a8343e2b")
+	)
+	(wire
+		(pts
+			(xy 246.38 45.72) (xy 246.38 62.23)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "121b2b8e-ab19-4fb8-9117-50efada33093")
+	)
+	(wire
+		(pts
+			(xy 168.91 227.33) (xy 166.37 227.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1423f7b1-6a07-4011-92ce-ced519157423")
+	)
+	(wire
+		(pts
+			(xy 234.95 45.72) (xy 246.38 45.72)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "172c5e2f-ec16-4872-8138-44512bd036b1")
+	)
+	(wire
+		(pts
+			(xy 334.01 96.52) (xy 334.01 102.87)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "17de8d8f-3d6c-44d7-92ba-574fb5776b82")
+	)
+	(wire
+		(pts
+			(xy 123.19 227.33) (xy 133.35 227.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "18021ee1-f748-4340-9593-25933fc2e5e5")
+	)
+	(wire
+		(pts
+			(xy 161.29 234.95) (xy 161.29 237.49)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "18ae00b1-90d0-4eb0-90da-14f7464f0669")
+	)
+	(wire
+		(pts
+			(xy 237.49 226.06) (xy 224.79 226.06)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1c0ddef6-2967-4433-ba4f-8c893aee2e15")
+	)
+	(wire
+		(pts
+			(xy 234.95 67.31) (xy 246.38 67.31)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1debad9b-d2ad-4676-92ae-a43f9514061a")
+	)
+	(wire
+		(pts
+			(xy 204.47 59.69) (xy 218.44 59.69)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1e6cccb8-61bb-46f9-8320-9ca2055a5a67")
+	)
+	(wire
+		(pts
+			(xy 247.65 151.13) (xy 254 151.13)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1ec0ef86-ba82-468b-8099-d55564077247")
+	)
+	(wire
+		(pts
+			(xy 222.25 144.78) (xy 222.25 151.13)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "20198d72-5cb9-4b81-9e6a-3b0d0f6cf56a")
+	)
+	(wire
+		(pts
+			(xy 219.71 222.25) (xy 219.71 228.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "23e3d8a7-2a6c-4efb-a8fa-bd68ab15909b")
+	)
+	(wire
+		(pts
+			(xy 161.29 227.33) (xy 161.29 229.87)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2515e247-ef86-4fbb-9a30-51779290522d")
+	)
+	(wire
+		(pts
+			(xy 227.33 148.59) (xy 214.63 148.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "288f4339-75e9-49c8-91f3-30df9f9e7f89")
+	)
+	(wire
+		(pts
+			(xy 209.55 151.13) (xy 222.25 151.13)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "295365f3-a769-4b58-bec6-e96bd600805f")
+	)
+	(wire
+		(pts
+			(xy 209.55 127) (xy 209.55 134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2ac2e360-6fb5-4313-9757-2a6b25499c89")
+	)
+	(wire
+		(pts
+			(xy 245.11 228.6) (xy 251.46 228.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2b4042fa-7319-4d20-bdb8-c263667f7583")
+	)
+	(wire
+		(pts
+			(xy 125.73 149.86) (xy 135.89 149.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2c209237-8fef-44eb-94a5-258681ef1523")
+	)
+	(wire
+		(pts
+			(xy 163.83 157.48) (xy 163.83 160.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2ed39142-8f96-45b0-b9e0-447c0ad7b28d")
+	)
+	(wire
+		(pts
+			(xy 257.81 67.31) (xy 257.81 69.85)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2f46fe7c-cac0-41d2-b63a-39ba864bac93")
+	)
+	(wire
+		(pts
+			(xy 171.45 149.86) (xy 168.91 149.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3041cbfd-5cea-416d-b66b-2c897fce7c58")
+	)
+	(wire
+		(pts
+			(xy 176.53 217.17) (xy 176.53 222.25)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "320f330f-022b-4a78-945e-332aea50ba91")
+	)
+	(wire
+		(pts
+			(xy 163.83 149.86) (xy 163.83 152.4)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "35d1d4fe-0f18-493e-a52a-89acbbcc2f29")
+	)
+	(wire
+		(pts
+			(xy 234.95 45.72) (xy 234.95 49.53)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "35f6e9e4-0ff6-4134-bf63-e7233a9aaf82")
+	)
+	(wire
+		(pts
+			(xy 177.8 59.69) (xy 194.31 59.69)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "382bd66a-7801-4a87-9acc-2aa5923b8ae1")
+	)
+	(wire
+		(pts
+			(xy 234.95 54.61) (xy 234.95 60.96)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3ab6db89-2c98-4e7b-aee1-89f707fa7fb3")
+	)
+	(wire
+		(pts
+			(xy 224.79 217.17) (xy 224.79 226.06)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3b59b8b4-4d51-4e58-a752-57a0db305696")
+	)
+	(wire
+		(pts
+			(xy 199.39 59.69) (xy 204.47 59.69)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3bf4e9e5-c846-4d00-bb94-9bec9037275d")
+	)
+	(wire
+		(pts
+			(xy 166.37 237.49) (xy 176.53 237.49)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "403d961b-d857-4771-8de8-dbe9fa6f6208")
+	)
+	(wire
+		(pts
+			(xy 245.11 222.25) (xy 245.11 228.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "41aba1a8-a95d-4e99-b294-dbbeefe63206")
+	)
+	(wire
+		(pts
+			(xy 303.53 101.6) (xy 317.5 101.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "41ad17e4-dd99-4e36-8b03-aae4b8f1be2e")
+	)
+	(wire
+		(pts
+			(xy 181.61 217.17) (xy 176.53 217.17)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4500a159-d603-474a-a063-71cb123f5f6e")
+	)
+	(wire
+		(pts
+			(xy 194.31 201.93) (xy 194.31 204.47)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4568bb86-8106-42d2-89dc-2777751811c3")
+	)
+	(wire
+		(pts
+			(xy 179.07 161.29) (xy 179.07 160.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "45965ac9-5c1d-492b-82c2-b919ab4c5bf5")
+	)
+	(wire
+		(pts
+			(xy 196.85 217.17) (xy 196.85 226.06)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4598eb3f-896f-47aa-a830-0bd507bc0346")
+	)
+	(wire
+		(pts
+			(xy 356.87 116.84) (xy 356.87 119.38)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "464d5daa-d54a-492d-822a-60f152e777f4")
+	)
+	(wire
+		(pts
+			(xy 209.55 144.78) (xy 209.55 151.13)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "48aaf827-851d-4bc8-baa5-fa5eef51636f")
+	)
+	(wire
+		(pts
+			(xy 194.31 204.47) (xy 207.01 204.47)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4ba29bd2-9414-4c35-bbc7-9feb59c579e3")
+	)
+	(wire
+		(pts
+			(xy 207.01 204.47) (xy 219.71 204.47)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4ed89046-3fea-4910-94cb-f8bf4d08a706")
+	)
+	(wire
+		(pts
+			(xy 222.25 127) (xy 222.25 134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "505ab0f6-3bb4-4dc0-982e-e3542561efe9")
+	)
+	(wire
+		(pts
+			(xy 260.35 64.77) (xy 257.81 64.77)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "507e4f25-9e93-44b0-8ebb-242471a6c4d7")
+	)
+	(wire
+		(pts
+			(xy 194.31 204.47) (xy 194.31 205.74)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5401ae4f-acbc-4546-b45c-fb79d4e09a68")
+	)
+	(wire
+		(pts
+			(xy 179.07 160.02) (xy 179.07 154.94)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "54c589e1-c39b-4f99-af4b-2c5cd8dbbcfa")
+	)
+	(wire
+		(pts
+			(xy 325.12 87.63) (xy 325.12 93.98)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "564694fa-5595-430c-b709-ef30a1bb71dd")
+	)
+	(wire
+		(pts
+			(xy 232.41 204.47) (xy 232.41 212.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "572fd2fd-47f9-4081-a44a-1f2217062fe7")
+	)
+	(wire
+		(pts
+			(xy 240.03 148.59) (xy 227.33 148.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "577c4a82-2c10-4427-b6f6-7f577ad23b49")
+	)
+	(wire
+		(pts
+			(xy 212.09 226.06) (xy 196.85 226.06)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "58970818-f8eb-4b19-a0ca-ceafed982e44")
+	)
+	(wire
+		(pts
+			(xy 234.95 127) (xy 247.65 127)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "594d04d6-4ed6-47da-aefc-326a2497dc8e")
+	)
+	(wire
+		(pts
+			(xy 194.31 210.82) (xy 194.31 217.17)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5962700c-d38e-4124-ade7-d1016c220f6c")
+	)
+	(wire
+		(pts
+			(xy 199.39 139.7) (xy 199.39 148.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5adc52e5-6701-4756-9e0d-23916315dd6f")
+	)
+	(wire
+		(pts
+			(xy 234.95 151.13) (xy 247.65 151.13)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5bdcc3f3-61c9-458c-9bb4-2b2afc79f594")
+	)
+	(wire
+		(pts
+			(xy 163.83 160.02) (xy 168.91 160.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5ca78436-6518-4eb6-be36-9f8ccf0ca8c7")
+	)
+	(wire
+		(pts
+			(xy 257.81 74.93) (xy 257.81 77.47)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "60c799a9-4ff9-430d-9a6c-72b013b6a968")
+	)
+	(wire
+		(pts
+			(xy 234.95 127) (xy 234.95 134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "613f0c1f-94a2-43ef-bf19-9e81c50672de")
+	)
+	(wire
+		(pts
+			(xy 214.63 148.59) (xy 199.39 148.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "658d9eeb-6bc7-43ab-90c0-10dca1d8d3f1")
+	)
+	(wire
+		(pts
+			(xy 251.46 231.14) (xy 251.46 233.68)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "666c7cf3-7eb2-44e6-ad26-7b0f1ecd5a8f")
+	)
+	(wire
+		(pts
+			(xy 199.39 139.7) (xy 196.85 139.7)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "67992858-90df-48f5-8e61-3f34b11181d3")
+	)
+	(wire
+		(pts
+			(xy 234.95 66.04) (xy 234.95 67.31)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6905ce8b-f72f-43e2-a8f0-f30e69c9c6b7")
+	)
+	(wire
+		(pts
+			(xy 199.39 217.17) (xy 196.85 217.17)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6b39f591-3687-4518-909a-f34f5c0437af")
+	)
+	(wire
+		(pts
+			(xy 226.06 67.31) (xy 234.95 67.31)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "704c3a30-9ad4-4c63-a884-4df15feea223")
+	)
+	(wire
+		(pts
+			(xy 227.33 139.7) (xy 227.33 148.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "73c79f71-25eb-41cd-87e7-7a4dae3b28c4")
+	)
+	(wire
+		(pts
+			(xy 209.55 127) (xy 222.25 127)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7490b063-fa1a-454e-8010-b48599329deb")
+	)
+	(wire
+		(pts
+			(xy 222.25 151.13) (xy 234.95 151.13)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "757b15d5-122a-4f8e-8d97-3e33a0afcd84")
+	)
+	(wire
+		(pts
+			(xy 240.03 139.7) (xy 240.03 148.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "757f64e7-2832-434f-a3bb-4d9d0820ab55")
+	)
+	(wire
+		(pts
+			(xy 334.01 107.95) (xy 334.01 109.22)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "76d5a493-9c23-4afa-869b-fa73b711f311")
+	)
+	(wire
+		(pts
+			(xy 166.37 234.95) (xy 166.37 237.49)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "77f7e175-f8b1-4c2b-a52c-702189a71b31")
+	)
+	(wire
+		(pts
+			(xy 247.65 127) (xy 247.65 134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7a423d7f-c24f-4ace-b20b-76c5e92c733f")
+	)
+	(wire
+		(pts
+			(xy 161.29 237.49) (xy 166.37 237.49)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "808a6563-19f7-4613-a181-a6889f3b18f2")
+	)
+	(wire
+		(pts
+			(xy 196.85 125.73) (xy 196.85 127)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "85bd1ea3-8660-475f-8703-d37edbba190e")
+	)
+	(wire
+		(pts
+			(xy 184.15 139.7) (xy 179.07 139.7)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "86853325-4b5d-4da9-9912-377794a203eb")
+	)
+	(wire
+		(pts
+			(xy 226.06 45.72) (xy 234.95 45.72)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "870f74df-913b-4d8f-8a19-7ba1565d09df")
+	)
+	(wire
+		(pts
+			(xy 166.37 227.33) (xy 166.37 229.87)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "88055936-6e48-48b7-a173-25bd18aeaab7")
+	)
+	(wire
+		(pts
+			(xy 163.83 149.86) (xy 156.21 149.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "887ed9c2-3498-4652-b626-3d83360347e3")
+	)
+	(wire
+		(pts
+			(xy 176.53 238.76) (xy 176.53 237.49)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8e88bb94-31a5-4411-a653-ced66ef5179c")
+	)
+	(wire
+		(pts
+			(xy 245.11 204.47) (xy 245.11 212.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8f220810-dd14-4d05-aa28-aea1d90df114")
+	)
+	(wire
+		(pts
+			(xy 325.12 109.22) (xy 334.01 109.22)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9161ee2f-2ef2-4820-b611-f7dc442e5aee")
+	)
+	(wire
+		(pts
+			(xy 359.41 106.68) (xy 356.87 106.68)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9569b9d8-2597-4a2d-9c30-f2f79072b985")
+	)
+	(wire
+		(pts
+			(xy 325.12 87.63) (xy 334.01 87.63)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "95ba2deb-6386-4b6e-9aba-bb4034833a2a")
+	)
+	(wire
+		(pts
+			(xy 191.77 217.17) (xy 189.23 217.17)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "97a5ff05-18ef-4531-8c83-e16eef5e9418")
+	)
+	(wire
+		(pts
+			(xy 276.86 101.6) (xy 293.37 101.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9c316b7d-80df-4951-bf45-0026e69ca50a")
+	)
+	(wire
+		(pts
+			(xy 161.29 227.33) (xy 153.67 227.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a02771c5-a1e9-45b2-b3e6-8f1655b7138c")
+	)
+	(wire
+		(pts
+			(xy 176.53 237.49) (xy 176.53 232.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a1df84d9-6582-4213-a97d-20499cf1330d")
+	)
+	(wire
+		(pts
+			(xy 212.09 217.17) (xy 212.09 226.06)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a3789575-5b89-4bff-846e-610ead1efb56")
+	)
+	(wire
+		(pts
+			(xy 168.91 157.48) (xy 168.91 160.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a4f21e7c-d9a5-436e-8eb3-7d652b56c737")
+	)
+	(wire
+		(pts
+			(xy 334.01 87.63) (xy 334.01 91.44)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a67de1cd-2c6a-41a9-8b69-9a17c5e7b2c1")
+	)
+	(wire
+		(pts
+			(xy 345.44 109.22) (xy 356.87 109.22)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a9d30798-5bee-4d12-933b-c05400a03788")
+	)
+	(wire
+		(pts
+			(xy 207.01 228.6) (xy 219.71 228.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ab335202-58be-4c4b-83f9-29cbcc7534df")
+	)
+	(wire
+		(pts
+			(xy 196.85 127) (xy 209.55 127)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ad075253-c81e-4a75-9cbf-1fb51677fe5a")
+	)
+	(wire
+		(pts
+			(xy 298.45 101.6) (xy 303.53 101.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ad4f29fb-5aa6-45cd-a5a2-1dca1264a69d")
+	)
+	(wire
+		(pts
+			(xy 247.65 144.78) (xy 247.65 151.13)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "af1ce48e-fb45-46cf-bb29-89ee61ab69d1")
+	)
+	(wire
+		(pts
+			(xy 237.49 217.17) (xy 237.49 226.06)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b250113e-0ae6-447f-8483-e9081f85ddc2")
+	)
+	(wire
+		(pts
+			(xy 196.85 133.35) (xy 196.85 139.7)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b2d053cf-0bf5-43df-b43d-57aba17f862e")
+	)
+	(wire
+		(pts
+			(xy 246.38 67.31) (xy 257.81 67.31)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b5547ac8-af63-4f1e-bdde-4640c8dcb13b")
+	)
+	(wire
+		(pts
+			(xy 143.51 227.33) (xy 148.59 227.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b5c3a307-c37b-4b1b-8f62-2046a2c3a3eb")
+	)
+	(wire
+		(pts
+			(xy 196.85 127) (xy 196.85 128.27)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b81ad6d9-d6ce-46ae-bfdb-efac574df7b0")
+	)
+	(wire
+		(pts
+			(xy 219.71 228.6) (xy 232.41 228.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ba64749b-a94a-450c-a502-63bfa5b1d031")
+	)
+	(wire
+		(pts
+			(xy 219.71 204.47) (xy 232.41 204.47)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bb75f850-536c-4c29-9221-00d28cf37347")
+	)
+	(wire
+		(pts
+			(xy 207.01 222.25) (xy 207.01 228.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bc5235e5-5896-4463-beca-17426507d369")
+	)
+	(wire
+		(pts
+			(xy 166.37 227.33) (xy 161.29 227.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c498576b-86c4-472b-8822-8ca61bb3d217")
+	)
+	(wire
+		(pts
+			(xy 232.41 228.6) (xy 245.11 228.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c5013899-6beb-4178-9f8e-d7b20e9f06a0")
+	)
+	(wire
+		(pts
+			(xy 196.85 139.7) (xy 194.31 139.7)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c75c38e1-4fef-4a8e-8a82-fdbb34fc70dc")
+	)
+	(wire
+		(pts
+			(xy 196.85 217.17) (xy 194.31 217.17)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c851d764-fc1f-4d6a-a929-cb815c373a9c")
+	)
+	(wire
+		(pts
+			(xy 246.38 62.23) (xy 260.35 62.23)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c8dc3703-d8ce-4117-8197-b9b079ef4a39")
+	)
+	(wire
+		(pts
+			(xy 179.07 139.7) (xy 179.07 144.78)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c912fbd3-d8ad-45f2-b2ba-c143c999d489")
+	)
+	(wire
+		(pts
+			(xy 168.91 149.86) (xy 168.91 152.4)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cac119a9-73c6-46b3-925d-7c3176804c52")
+	)
+	(wire
+		(pts
+			(xy 332.74 101.6) (xy 359.41 101.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cd414fd8-678b-4a50-ab34-c2265a57e8c7")
+	)
+	(wire
+		(pts
+			(xy 232.41 222.25) (xy 232.41 228.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d196d632-4c0a-43eb-ae0a-7de61f7bb44c")
+	)
+	(wire
+		(pts
+			(xy 345.44 104.14) (xy 359.41 104.14)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d66fa09f-f589-49ab-b1b6-896f89c879cf")
+	)
+	(wire
+		(pts
+			(xy 194.31 139.7) (xy 191.77 139.7)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d72a35b5-21a6-418a-b2dd-6a7bcd7d51f7")
+	)
+	(wire
+		(pts
+			(xy 234.95 144.78) (xy 234.95 151.13)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d908f270-b785-44e7-adb8-79c0a35016c1")
+	)
+	(wire
+		(pts
+			(xy 168.91 160.02) (xy 179.07 160.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dabaa1ec-b7de-4646-9766-a2a663f179c1")
+	)
+	(wire
+		(pts
+			(xy 222.25 127) (xy 234.95 127)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dbbeaca1-e5ad-43c2-819e-d8b5587a7f77")
+	)
+	(wire
+		(pts
+			(xy 224.79 226.06) (xy 212.09 226.06)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dbcf9361-a7a6-44cc-9e43-2d9e70587d2f")
+	)
+	(wire
+		(pts
+			(xy 226.06 45.72) (xy 226.06 52.07)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dd20a912-fe01-4496-807e-ea1903c03381")
+	)
+	(wire
+		(pts
+			(xy 233.68 59.69) (xy 260.35 59.69)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dee1e531-7dc1-40d4-b9a6-620c42417fb2")
+	)
+	(wire
+		(pts
+			(xy 254 153.67) (xy 254 156.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e103adbd-5490-4833-b0ee-b2700ca01f65")
+	)
+	(wire
+		(pts
+			(xy 140.97 149.86) (xy 146.05 149.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "eb99f821-8ab5-4add-9c5d-b8d72324cd68")
+	)
+	(wire
+		(pts
+			(xy 168.91 149.86) (xy 163.83 149.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ef4b61cd-95d7-49b3-ba29-6a1c68e3b284")
+	)
+	(wire
+		(pts
+			(xy 201.93 139.7) (xy 199.39 139.7)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f23cb88e-0f6e-41e2-857f-cc85df65a1eb")
+	)
+	(wire
+		(pts
+			(xy 356.87 106.68) (xy 356.87 109.22)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f48bb1a9-44de-4547-83e2-2e77dd8ce139")
+	)
+	(wire
+		(pts
+			(xy 345.44 87.63) (xy 345.44 104.14)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f73c7648-e6d9-4910-b8ed-991bf10e21dc")
+	)
+	(wire
+		(pts
+			(xy 334.01 87.63) (xy 345.44 87.63)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f7e92abc-eaa7-4ab2-a0b0-37723908b5d6")
+	)
+	(wire
+		(pts
+			(xy 334.01 109.22) (xy 345.44 109.22)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fb13bead-c88b-485f-a955-880f7a0848be")
+	)
+	(wire
+		(pts
+			(xy 146.05 149.86) (xy 151.13 149.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fb54be0e-516c-42af-8d6f-334738d845b7")
+	)
+	(wire
+		(pts
+			(xy 257.81 64.77) (xy 257.81 67.31)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fbda15c5-e6d8-4dc3-b0d5-38becef5d604")
+	)
+	(text "Ugs max -10V"
+		(exclude_from_sim no)
+		(at 186.182 130.81 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "a74d2cfa-5787-405e-85b3-6c184eb318f9")
+	)
+	(hierarchical_label "PWR_ESC_BB"
+		(shape output)
+		(at 123.19 227.33 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "17120f41-73a9-4853-acfe-48cf3386d4f4")
+	)
+	(hierarchical_label "PWR_ESC_SB"
+		(shape output)
+		(at 125.73 149.86 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "38b90f4f-84dc-4456-a526-f265db8f7b4d")
+	)
+	(symbol
+		(lib_id "Connector:Conn_01x02_Socket")
+		(at 256.54 231.14 0)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "01871b98-4b94-4995-9de0-4aa31dd98950")
+		(property "Reference" "J304"
+			(at 257.81 231.1401 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "ESCBB"
+			(at 257.81 228.6001 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Connector:AMASS_XT60-F_1x02_P7.20mm_Vertical"
+			(at 256.54 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 256.54 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x02, script generated"
+			(at 256.54 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 256.54 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C98734"
+			(at 257.81 231.1401 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "d771fe9d-1583-44e8-abab-bf9cf8a0f8ad")
+		)
+		(pin "1"
+			(uuid "0bff3646-2ad3-4531-95d6-5f7a51bef0b5")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "J304")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "J305")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C_Small")
+		(at 345.44 106.68 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "0255ee7b-7244-4316-aba5-abd5e6ae1200")
+		(property "Reference" "C301"
+			(at 346.964 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "100n"
+			(at 346.964 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Device:C_0603"
+			(at 345.44 106.68 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 345.44 106.68 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 345.44 106.68 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C14663"
+			(at 345.44 106.68 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 345.44 106.68 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "510d20f8-f7f7-4fe2-b4d5-722a2a227914")
+		)
+		(pin "2"
+			(uuid "a479a46c-9b4e-4df0-9e13-220c89b13ee6")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "C402")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "C301")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 185.42 217.17 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "0b19ff0b-8baa-476e-98ea-3cfc13f4bfdf")
+		(property "Reference" "R312"
+			(at 185.42 215.9 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10K"
+			(at 185.42 217.17 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 185.42 218.948 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 185.42 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 185.42 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell" "2331736"
+			(at 185.42 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MF" "TE CONNECTIVITY"
+			(at 185.42 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MFN" "CRGH0603F10K"
+			(at 185.42 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Octopart" ""
+			(at 185.42 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25804"
+			(at 185.42 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 185.42 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "a9bf22eb-274d-4ead-bc10-15949b355297")
+		)
+		(pin "2"
+			(uuid "69346711-8360-4dad-b1c6-7078d579203c")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "R312")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "R319")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_Small")
+		(at 257.81 72.39 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "0b4bd021-0598-4350-8a24-b80f7b22377b")
+		(property "Reference" "R306"
+			(at 261.112 71.628 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "100"
+			(at 260.604 73.66 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 257.81 72.39 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 257.81 72.39 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor, small symbol"
+			(at 257.81 72.39 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 257.81 72.39 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C22775"
+			(at 257.048 68.58 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "79e4a0c1-61c9-4748-86d2-870f37d7056e")
+		)
+		(pin "2"
+			(uuid "141d431c-372f-433c-9a55-dba8679822ce")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "R403")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "R306")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_Small")
+		(at 334.01 93.98 0)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "0f2f1f58-8b46-4818-9201-205a4ca57813")
+		(property "Reference" "R303"
+			(at 337.566 94.996 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "4.7k"
+			(at 337.312 93.218 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 334.01 93.98 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 334.01 93.98 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 334.01 93.98 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C4177"
+			(at 334.01 93.98 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 334.01 93.98 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "1748cb38-d698-41f7-af49-04a740c1a37b")
+		)
+		(pin "2"
+			(uuid "700ad764-8378-4f62-b64f-b36ed474f464")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "R405")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "R303")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:Conn_01x03_Pin")
+		(at 364.49 104.14 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "0f867ae4-39a0-4183-b1b2-9e6faf7b328f")
+		(property "Reference" "J301"
+			(at 365.76 102.8699 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "ESC_BB"
+			(at 365.76 105.4099 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
+			(at 364.49 104.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 364.49 104.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x03, script generated"
+			(at 364.49 104.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 364.49 104.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C5341202"
+			(at 365.76 102.8699 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "c36f17cc-a9c8-4ee8-b634-d9c5eaa3b596")
+		)
+		(pin "2"
+			(uuid "78893daa-ac9d-43d6-9739-dd4d332b13ea")
+		)
+		(pin "3"
+			(uuid "82e60174-b2ff-4f0c-8a07-5bbd10e01940")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "J402")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "J301")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:LED_Small")
+		(at 234.95 63.5 270)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "13657902-515c-42ed-bc29-6c0f01cbc89d")
+		(property "Reference" "D302"
+			(at 239.522 63.754 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "PWR_ESC_BB"
+			(at 235.204 69.088 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "LED_SMD:LED_0603_1608Metric"
+			(at 234.95 63.5 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://datasheet.lcsc.com/szlcsc/Hubei-KENTO-Elec-KT-0603R_C2286.pdf"
+			(at 234.95 63.5 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 234.95 63.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C2286"
+			(at 234.95 63.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "543dd924-a722-4fd1-8d80-306874a721c7")
+		)
+		(pin "2"
+			(uuid "af04de80-07e7-40f6-9dd6-278fa10181bf")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "D401")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "D302")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_Small")
+		(at 234.95 52.07 0)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "1621da6c-04a7-41f3-a3ae-7b2cfd7368e6")
+		(property "Reference" "R304"
+			(at 238.506 53.086 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "4.7k"
+			(at 238.252 51.308 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 234.95 52.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 234.95 52.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 234.95 52.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C4177"
+			(at 234.95 52.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 234.95 52.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "4eca690c-9981-4e72-95de-9a1c80fc0984")
+		)
+		(pin "2"
+			(uuid "9aec962d-61b3-45a2-88b7-ed6123092804")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "R402")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "R304")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Transistor_FET:AO3401A")
+		(at 229.87 217.17 0)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "1cab4a27-a8a5-4d1e-8e9a-3ad8a62d6084")
+		(property "Reference" "Q308"
+			(at 224.282 212.852 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "AO3401A"
+			(at 223.012 222.758 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+			(at 234.95 215.265 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "http://www.aosmd.com/pdfs/datasheet/AO3401A.pdf"
+			(at 234.95 213.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "-4.0A Id, -30V Vds, P-Channel MOSFET, SOT-23"
+			(at 229.87 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C15127"
+			(at 229.87 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "c87ddfb6-2312-4f80-a964-70de2d6c6ca1")
+		)
+		(pin "3"
+			(uuid "ddc26f0c-c71c-49d9-a8f8-d92722d062f7")
+		)
+		(pin "1"
+			(uuid "8ae42f16-b1ae-4edb-8e26-0b6bf342fe78")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "Q308")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "Q317")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 176.53 238.76 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "1d059424-4abf-4ec2-8ef4-052e0a6b9873")
+		(property "Reference" "#PWR0304"
+			(at 176.53 245.11 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 176.657 243.1542 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 176.53 238.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 176.53 238.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 176.53 238.76 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "96169625-f636-4ba4-8ce0-2e580f00c40a")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "#PWR0304")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "#PWR0309")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Transistor_FET:AO3401A")
+		(at 217.17 217.17 0)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "1ea12140-a357-437a-881c-f66c8f8464e4")
+		(property "Reference" "Q306"
+			(at 211.582 212.852 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "AO3401A"
+			(at 210.312 222.758 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+			(at 222.25 215.265 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "http://www.aosmd.com/pdfs/datasheet/AO3401A.pdf"
+			(at 222.25 213.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "-4.0A Id, -30V Vds, P-Channel MOSFET, SOT-23"
+			(at 217.17 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C15127"
+			(at 217.17 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "8263717f-36a8-412c-8d95-ef2e921d988b")
+		)
+		(pin "3"
+			(uuid "be0698ab-3500-4428-a381-d57b5d058743")
+		)
+		(pin "1"
+			(uuid "e78af9cb-1b71-4336-8709-dc99aa641404")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "Q306")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "Q315")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:D_Small")
+		(at 135.89 227.33 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "27bccc0b-6f1d-4ab2-8c25-d55d7f1eebc4")
+		(property "Reference" "D304"
+			(at 135.89 225.298 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "SS14"
+			(at 135.636 229.616 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "A_Device:D_SMA_4.3x3x2.4"
+			(at 135.89 227.33 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 135.89 227.33 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 135.89 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Sim.Device" "D"
+			(at 135.89 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Sim.Pins" "1=K 2=A"
+			(at 135.89 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C2480"
+			(at 135.89 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 135.89 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "12c4666d-4a79-4942-be45-564d5c390cf5")
+		)
+		(pin "2"
+			(uuid "0dbe8b48-e66b-4230-a4e8-3b5df7e619e7")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "D304")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "D305")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Transistor_FET:AO3401A")
+		(at 207.01 139.7 0)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "36596a74-5914-49b6-9190-5e9d3ccd5c41")
+		(property "Reference" "Q303"
+			(at 201.422 135.382 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "AO3401A"
+			(at 200.152 145.288 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+			(at 212.09 137.795 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "http://www.aosmd.com/pdfs/datasheet/AO3401A.pdf"
+			(at 212.09 135.89 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "-4.0A Id, -30V Vds, P-Channel MOSFET, SOT-23"
+			(at 207.01 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C15127"
+			(at 207.01 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "d78dbb89-3d01-4e0e-a5a7-5948cb4a5e12")
+		)
+		(pin "3"
+			(uuid "1209bd60-33f2-4834-9b8e-ac53eb678461")
+		)
+		(pin "1"
+			(uuid "7bb6ea16-0c09-4a21-955d-fdbb4bb4ff85")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "Q303")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "Q314")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Transistor_FET:2N7002")
+		(at 176.53 149.86 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "36a7c3b5-050f-48f2-b571-937eefb864a8")
+		(property "Reference" "Q301"
+			(at 180.34 146.304 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "AO3400A"
+			(at 182.372 158.496 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+			(at 181.61 151.765 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/1811081213_Alpha---Omega-Semicon-AO3400A_C20917.pdf"
+			(at 181.61 153.67 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "5.7A Id, 30V Vds, N-Channel MOSFET, SOT-23"
+			(at 176.53 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C20917"
+			(at 176.53 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 176.53 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "4ae27c74-821e-4076-a79a-fce865b63370")
+		)
+		(pin "3"
+			(uuid "da248063-09a3-4f56-aba4-db0122d0e56f")
+		)
+		(pin "2"
+			(uuid "ab9ae829-5f2b-4099-b1cb-1fe21411facf")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "Q301")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "Q312")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C_Small")
+		(at 246.38 64.77 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "4284c387-3f36-459d-a85a-dc19f51db9a6")
+		(property "Reference" "C302"
+			(at 247.904 63.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "100n"
+			(at 247.904 66.04 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Device:C_0603"
+			(at 246.38 64.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 246.38 64.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 246.38 64.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C14663"
+			(at 246.38 64.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 246.38 64.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "b36261dc-becd-447d-9830-ca92f8216124")
+		)
+		(pin "2"
+			(uuid "ed745d65-cd49-449f-baaf-76719ee5d9d0")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "C401")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "C302")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 179.07 161.29 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "4ab06910-9fc8-4a17-a695-783471815b46")
+		(property "Reference" "#PWR0303"
+			(at 179.07 167.64 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 177.927 165.6842 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 179.07 161.29 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 179.07 161.29 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 179.07 161.29 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "373dd61c-7652-41ba-a348-e8c4555efd6e")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "#PWR0303")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "#PWR0310")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:Conn_01x03_Pin")
+		(at 265.43 62.23 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "4df7f4c3-b13b-4aba-a7f3-2a945ecffa7d")
+		(property "Reference" "J302"
+			(at 266.7 60.9599 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "ESC_BB"
+			(at 266.7 63.4999 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical"
+			(at 265.43 62.23 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 265.43 62.23 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x03, script generated"
+			(at 265.43 62.23 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 265.43 62.23 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C5341202"
+			(at 266.7 60.9599 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "dbe370ee-03ea-4961-8c46-d53c47e76ea6")
+		)
+		(pin "2"
+			(uuid "5dba5a1f-67e5-46bc-b173-7a2d4479830a")
+		)
+		(pin "3"
+			(uuid "978a571b-ce25-4925-a0a8-0b25770146ac")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "J401")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "J302")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint_Small")
+		(at 303.53 101.6 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(uuid "513d93f5-c8df-4a46-b8c9-6ca7913eb59c")
+		(property "Reference" "TP301"
+			(at 300.228 103.632 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "ESC_BB"
+			(at 299.212 99.822 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Pads_Pins:Testpad_1"
+			(at 308.61 101.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 308.61 101.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 303.53 101.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 303.53 101.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "61b54941-b818-484b-854b-3d5caf28e451")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "TP403")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "TP301")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_Small")
+		(at 356.87 114.3 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "520f8ca3-3677-420f-a7f4-43794f70ea40")
+		(property "Reference" "R305"
+			(at 360.172 113.538 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "100"
+			(at 359.664 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 356.87 114.3 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 356.87 114.3 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor, small symbol"
+			(at 356.87 114.3 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 356.87 114.3 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C22775"
+			(at 356.108 110.49 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "b2a4a019-a0b1-4a02-8a48-4bc87f7b30d9")
+		)
+		(pin "2"
+			(uuid "c0c8fae5-57e1-4d09-9e98-fa7b8d6035c2")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "R406")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "R305")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Transistor_FET:AO3401A")
+		(at 232.41 139.7 0)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "5f4cfdd9-2d81-4fe3-b1db-49588c49152f")
+		(property "Reference" "Q307"
+			(at 226.822 135.382 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "AO3401A"
+			(at 225.552 145.288 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+			(at 237.49 137.795 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "http://www.aosmd.com/pdfs/datasheet/AO3401A.pdf"
+			(at 237.49 135.89 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "-4.0A Id, -30V Vds, P-Channel MOSFET, SOT-23"
+			(at 232.41 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C15127"
+			(at 232.41 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "e8025680-26cd-462b-a270-2ef52c832e76")
+		)
+		(pin "3"
+			(uuid "6e3a3182-267b-4875-bb59-403ebe4a49d2")
+		)
+		(pin "1"
+			(uuid "f5addc14-0240-4ceb-be92-13e8ad1d486b")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "Q307")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "Q318")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint_Small")
+		(at 246.38 45.72 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(uuid "5fd7f546-3038-4795-9cde-21b9ca11faa9")
+		(property "Reference" "TP304"
+			(at 247.396 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "ESC_5V"
+			(at 242.316 43.688 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Pads_Pins:Testpad_1"
+			(at 251.46 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 251.46 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 246.38 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 246.38 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "24c7a7d2-cdfc-45e9-bf59-e4e1944406d2")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "TP402")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "TP304")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 356.87 119.38 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "677b8de4-7539-4ccc-9333-b094a4534c02")
+		(property "Reference" "#PWR0301"
+			(at 356.87 125.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 356.87 124.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Footprint" ""
+			(at 356.87 119.38 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 356.87 119.38 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 356.87 119.38 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "f10bd1e3-e747-4a1b-84a3-e63e049e763f")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "#PWR0402")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "#PWR0301")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Transistor_FET:AO3401A")
+		(at 204.47 217.17 0)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "6c01c0bf-c5b0-43dc-a9e2-828abfc82960")
+		(property "Reference" "Q304"
+			(at 198.882 212.852 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "AO3401A"
+			(at 197.612 222.758 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+			(at 209.55 215.265 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "http://www.aosmd.com/pdfs/datasheet/AO3401A.pdf"
+			(at 209.55 213.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "-4.0A Id, -30V Vds, P-Channel MOSFET, SOT-23"
+			(at 204.47 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C15127"
+			(at 204.47 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "485c733f-30e0-47c1-9ddd-aa1d3de9329f")
+		)
+		(pin "3"
+			(uuid "01ee41e5-ed84-44e4-9035-4ee5d5e3051a")
+		)
+		(pin "1"
+			(uuid "b3c3a178-2622-49f8-8524-cb5ea2cc411c")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "Q304")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "Q313")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 187.96 139.7 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "73472f10-49d9-4f79-ac3c-cc8495b1d029")
+		(property "Reference" "R311"
+			(at 187.96 138.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10K"
+			(at 187.96 139.7 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 187.96 141.478 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 187.96 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 187.96 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell" "2331736"
+			(at 187.96 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MF" "TE CONNECTIVITY"
+			(at 187.96 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MFN" "CRGH0603F10K"
+			(at 187.96 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Octopart" ""
+			(at 187.96 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25804"
+			(at 187.96 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 187.96 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "e2d99e8f-099b-41d4-8e02-fa753eedded1")
+		)
+		(pin "2"
+			(uuid "ff85c865-1b30-403a-b3da-a35a5e0fafde")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "R311")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "R320")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 257.81 77.47 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "753123ef-fef8-4b97-9845-927477a7eac3")
+		(property "Reference" "#PWR0302"
+			(at 257.81 83.82 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 257.81 82.55 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Footprint" ""
+			(at 257.81 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 257.81 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 257.81 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "14b6fc5e-f72b-425c-bcaf-c8e0f791d978")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "#PWR0401")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "#PWR0302")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_Small")
+		(at 166.37 232.41 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "7855598c-275e-45b8-907b-bb96f42a2fe5")
+		(property "Reference" "R310"
+			(at 168.91 225.806 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "100K"
+			(at 168.402 234.95 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 166.37 232.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 166.37 232.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor, small symbol"
+			(at 166.37 232.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 166.37 232.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25804"
+			(at 166.116 229.616 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "2a3aae83-d10f-468c-841f-eb0b417e940f")
+		)
+		(pin "1"
+			(uuid "fa9b49bf-1d23-49fd-b577-e7eba7ca3722")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "R310")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "R317")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Transistor_FET:2N7002")
+		(at 173.99 227.33 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "84e495ac-aaf3-4d30-8d14-94f9c8b0d448")
+		(property "Reference" "Q302"
+			(at 177.8 223.774 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "AO3400A"
+			(at 179.832 235.966 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+			(at 179.07 229.235 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/1811081213_Alpha---Omega-Semicon-AO3400A_C20917.pdf"
+			(at 179.07 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "5.7A Id, 30V Vds, N-Channel MOSFET, SOT-23"
+			(at 173.99 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C20917"
+			(at 173.99 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 173.99 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "bec23e77-52cd-4c4d-845a-74d3a1704e59")
+		)
+		(pin "3"
+			(uuid "874b00f6-14fa-4a25-9cd4-d07fbe3869af")
+		)
+		(pin "2"
+			(uuid "ab303dff-eb36-4a6a-8d82-d1d1fdc2de9d")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "Q302")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "Q311")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint_Small")
+		(at 194.31 139.7 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(uuid "859f9be8-8197-4a63-af85-3675ec71bccd")
+		(property "Reference" "TP307"
+			(at 191.262 143.002 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "ESC_SB-POWER-5V"
+			(at 184.404 141.732 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "A_Pads_Pins:Testpad_1"
+			(at 199.39 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 199.39 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 194.31 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 194.31 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "93ba2c56-f415-4d36-b015-abef85142137")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "TP307")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "TP312")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint_Small")
+		(at 345.44 87.63 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(uuid "87078074-1dcf-4a38-85df-83064fd61dc5")
+		(property "Reference" "TP303"
+			(at 346.456 87.63 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "ESC_5V"
+			(at 341.376 85.598 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Pads_Pins:Testpad_1"
+			(at 350.52 87.63 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 350.52 87.63 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 345.44 87.63 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 345.44 87.63 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "e89effbf-e049-4c3b-b164-d4b5baeb0234")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "TP404")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "TP303")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "+3.3V_1")
+		(lib_id "power:+3.3V")
+		(at 194.31 201.93 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "893a1fab-b20d-4d8a-b405-d171bd2a0ddf")
+		(property "Reference" "#PWR0306"
+			(at 194.31 205.74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "Vbatt"
+			(at 194.31 196.85 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 194.31 201.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 194.31 201.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
+			(at 194.31 201.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "16db9c82-7d60-4ffe-8764-9916b3d9af1c")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "#PWR0306")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "#PWR0311")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C_Small")
+		(at 161.29 232.41 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "8c58a59c-0717-498b-86c2-b4bd716e697f")
+		(property "Reference" "C304"
+			(at 163.322 225.806 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10u/25V"
+			(at 158.496 237.49 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Device:C_0805"
+			(at 161.29 232.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 161.29 232.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 161.29 232.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C15850"
+			(at 161.29 232.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "d410af95-19a4-4d2d-9e5f-f2b5be2370a8")
+		)
+		(pin "2"
+			(uuid "76436cef-03df-4b58-a3e2-ef040c3301be")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "C304")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "C305")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint_Small")
+		(at 204.47 59.69 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(uuid "a2fad231-b27f-4148-90c3-b0fafb698d29")
+		(property "Reference" "TP302"
+			(at 201.168 61.722 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "ESC_BB"
+			(at 200.152 57.912 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Pads_Pins:Testpad_1"
+			(at 209.55 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 209.55 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 204.47 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 204.47 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "9dfb6026-d217-4fed-a4b0-acf6b2baa92a")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "TP401")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "TP302")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 254 156.21 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "a37d4537-45fd-4b00-8ab4-9eea22136bdd")
+		(property "Reference" "#PWR0307"
+			(at 254 162.56 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 254.127 160.6042 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 254 156.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 254 156.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 254 156.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "e33f1a3d-31a2-45d4-895d-e202f06e5630")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "#PWR0307")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "#PWR0314")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_Small")
+		(at 153.67 149.86 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "a38ada57-536a-4feb-a72a-cdd59b7446d1")
+		(property "Reference" "R307"
+			(at 153.67 148.082 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "100"
+			(at 153.67 151.638 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 153.67 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 153.67 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor, small symbol"
+			(at 153.67 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 153.67 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C22775"
+			(at 149.86 150.622 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "63fbaee6-0543-4287-85c7-da3c62031243")
+		)
+		(pin "2"
+			(uuid "02969b4c-f181-414f-8faa-37521b18a524")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "R307")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "R316")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint_Small")
+		(at 143.51 227.33 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(uuid "a7107834-b804-427b-9687-9b4907d14673")
+		(property "Reference" "TP306"
+			(at 139.954 225.552 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "ESC_BB-POWER"
+			(at 132.588 221.996 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Pads_Pins:Testpad_1"
+			(at 148.59 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 148.59 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 143.51 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 143.51 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "050f371b-4816-4af9-86da-411257a26462")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "TP306")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "TP309")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Transistor_FET:AO3401A")
+		(at 245.11 139.7 0)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "b5bd9c77-a8fc-4bf5-b8b0-d1f7f5287414")
+		(property "Reference" "Q309"
+			(at 239.522 135.382 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "AO3401A"
+			(at 238.252 145.288 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+			(at 250.19 137.795 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "http://www.aosmd.com/pdfs/datasheet/AO3401A.pdf"
+			(at 250.19 135.89 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "-4.0A Id, -30V Vds, P-Channel MOSFET, SOT-23"
+			(at 245.11 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C15127"
+			(at 245.11 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "3feab7f9-205f-4f54-be5f-2e08460700f7")
+		)
+		(pin "3"
+			(uuid "3fb40a24-68cf-4053-939c-9a179a5bb142")
+		)
+		(pin "1"
+			(uuid "71b4c55a-f80c-452c-9810-ae09167d7aa7")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "Q309")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "Q320")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Transistor_FET:AO3401A")
+		(at 219.71 139.7 0)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "ba44db0d-7fcf-489b-b4da-85d3f18ee908")
+		(property "Reference" "Q305"
+			(at 214.122 135.382 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "AO3401A"
+			(at 212.852 145.288 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+			(at 224.79 137.795 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "http://www.aosmd.com/pdfs/datasheet/AO3401A.pdf"
+			(at 224.79 135.89 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "-4.0A Id, -30V Vds, P-Channel MOSFET, SOT-23"
+			(at 219.71 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C15127"
+			(at 219.71 139.7 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "d70100ef-3c80-4b39-917d-8f08b3f60090")
+		)
+		(pin "3"
+			(uuid "0123c7af-7b9e-4f7f-bb31-159ee2ef9766")
+		)
+		(pin "1"
+			(uuid "69b3500a-5694-41e1-b7f2-d92cc47cd3d4")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "Q305")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "Q316")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C_Small")
+		(at 163.83 154.94 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "ba8b4704-5c9f-4696-9cf2-520f999dd3f1")
+		(property "Reference" "C303"
+			(at 165.862 148.336 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10u/25V"
+			(at 161.036 160.02 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Device:C_0805"
+			(at 163.83 154.94 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 163.83 154.94 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 163.83 154.94 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C15850"
+			(at 163.83 154.94 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "9a990a65-a2c5-47f4-9cd6-2c85a89a796a")
+		)
+		(pin "2"
+			(uuid "0031d0cb-92e9-4059-ac44-016bfb948b9c")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "C303")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "C306")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:LED_Small")
+		(at 334.01 105.41 270)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "c3b1c830-d5d5-466c-962a-959673336d17")
+		(property "Reference" "D301"
+			(at 338.582 105.664 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "PWR_ESC_BB"
+			(at 334.264 110.998 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "LED_SMD:LED_0603_1608Metric"
+			(at 334.01 105.41 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://datasheet.lcsc.com/szlcsc/Hubei-KENTO-Elec-KT-0603R_C2286.pdf"
+			(at 334.01 105.41 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 334.01 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C2286"
+			(at 334.01 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "6e62b2c6-d5a2-40a5-abae-ff49a852ee39")
+		)
+		(pin "2"
+			(uuid "51980841-272e-4b22-91d8-928c72903ab4")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "D402")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "D301")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_Small")
+		(at 196.85 59.69 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "c9773db8-61d3-4a87-9f76-77274fe77ae7")
+		(property "Reference" "R302"
+			(at 196.088 56.388 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "100"
+			(at 198.12 56.896 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 196.85 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 196.85 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor, small symbol"
+			(at 196.85 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 196.85 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C22775"
+			(at 193.04 60.452 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "b9bef5f1-9770-4e96-a9b1-a2ce77d7977d")
+		)
+		(pin "2"
+			(uuid "4d562335-2bf0-4928-ba73-9b3a4efe7c1e")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "R401")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "R302")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Transistor_FET:AO3401A")
+		(at 242.57 217.17 0)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "ca6016a1-ab1e-4e53-9bad-a61a6de25f24")
+		(property "Reference" "Q310"
+			(at 236.982 212.852 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "AO3401A"
+			(at 235.712 222.758 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+			(at 247.65 215.265 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "http://www.aosmd.com/pdfs/datasheet/AO3401A.pdf"
+			(at 247.65 213.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "-4.0A Id, -30V Vds, P-Channel MOSFET, SOT-23"
+			(at 242.57 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C15127"
+			(at 242.57 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "9aed77e2-21f4-4e8e-8447-c525842f277e")
+		)
+		(pin "3"
+			(uuid "e08f0826-eb7d-4a0c-9843-7f46b980bcbe")
+		)
+		(pin "1"
+			(uuid "cd7077be-5db1-4fae-87d0-771f561ba7d9")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "Q310")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "Q319")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_Small")
+		(at 151.13 227.33 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "cc417581-5960-4ab3-85aa-13e6da3c75e2")
+		(property "Reference" "R308"
+			(at 151.13 225.552 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "100"
+			(at 151.13 229.108 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 151.13 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 151.13 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor, small symbol"
+			(at 151.13 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 151.13 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C22775"
+			(at 147.32 228.092 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "a8eda14d-1933-492a-917e-c4b47a6af8ed")
+		)
+		(pin "2"
+			(uuid "9772de63-69bd-463e-9eba-32ef509a53c7")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "R308")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "R315")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "+3.3V_1")
+		(lib_id "power:+3.3V")
+		(at 196.85 125.73 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "d0d8d2fe-3ab9-4da5-be0a-4509d65b927d")
+		(property "Reference" "#PWR0305"
+			(at 196.85 129.54 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "Vbatt"
+			(at 196.85 120.65 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 196.85 125.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 196.85 125.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
+			(at 196.85 125.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "39443686-a4f2-45cc-bf84-c06682498348")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "#PWR0305")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "#PWR0312")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint_Small")
+		(at 146.05 149.86 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(uuid "d15b9f61-a385-4e35-bc3f-0f7faabef48b")
+		(property "Reference" "TP305"
+			(at 143.002 147.828 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "ESC_SB-POWER"
+			(at 138.684 145.288 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Pads_Pins:Testpad_1"
+			(at 151.13 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 151.13 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 146.05 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 146.05 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "a5ce493e-53dc-4622-9452-a1da387e84a3")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "TP305")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "TP310")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:Conn_01x02_Socket")
+		(at 259.08 153.67 0)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "d3bb882b-f755-45e5-944c-23c0738892d0")
+		(property "Reference" "J303"
+			(at 260.35 153.6701 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "ESCSB"
+			(at 260.35 151.1301 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Connector:AMASS_XT60-F_1x02_P7.20mm_Vertical"
+			(at 259.08 153.67 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 259.08 153.67 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x02, script generated"
+			(at 259.08 153.67 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 259.08 153.67 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C98734"
+			(at 260.35 153.6701 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "3a5f5b5f-bfbe-41fe-9c55-9b9c30d923e2")
+		)
+		(pin "1"
+			(uuid "8b209f13-ccc9-42fc-bde0-75c05969cada")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "J303")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "J306")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint_Small")
+		(at 191.77 217.17 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(uuid "d73a2589-38c6-4306-bdc7-382b57a4023a")
+		(property "Reference" "TP308"
+			(at 188.722 220.472 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "ESC_SB-POWER-5V"
+			(at 181.864 219.202 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "A_Pads_Pins:Testpad_1"
+			(at 196.85 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 196.85 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 191.77 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 191.77 217.17 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "59b58d90-be87-4d37-ae4f-ad3aef23cd2f")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "TP308")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "TP311")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_Small")
+		(at 194.31 208.28 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "d9195365-8ed6-4e04-8993-b67e0dd946af")
+		(property "Reference" "R314"
+			(at 195.326 207.518 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "18K"
+			(at 195.58 209.296 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 194.31 208.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 194.31 208.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor, small symbol"
+			(at 194.31 208.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 194.31 208.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25810"
+			(at 195.326 207.518 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "ad19dcae-1f64-4964-bf1d-b74bc4c72dc2")
+		)
+		(pin "1"
+			(uuid "a9fd1464-ac70-4dd9-9b07-b9b49569c06e")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "R314")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "R321")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:D_Small")
+		(at 138.43 149.86 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "db42014d-892a-416a-8ccd-1b6bb29a1dab")
+		(property "Reference" "D303"
+			(at 137.922 147.828 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "SS14"
+			(at 138.43 151.892 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "A_Device:D_SMA_4.3x3x2.4"
+			(at 138.43 149.86 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 138.43 149.86 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 138.43 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Sim.Device" "D"
+			(at 138.43 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Sim.Pins" "1=K 2=A"
+			(at 138.43 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C2480"
+			(at 138.43 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 138.43 149.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "8da3dc82-5827-4dd6-b96a-348eff2bd3c1")
+		)
+		(pin "2"
+			(uuid "d9ba9afb-846f-4b59-a866-1089c2706d83")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "D303")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "D306")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 251.46 233.68 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "ddac0f03-c091-49c0-b4a4-2c68acc54023")
+		(property "Reference" "#PWR0308"
+			(at 251.46 240.03 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 251.587 238.0742 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 251.46 233.68 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 251.46 233.68 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 251.46 233.68 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "46310a29-ce4f-4c42-91ab-2c5326b0212c")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "#PWR0308")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "#PWR0313")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_Small")
+		(at 168.91 154.94 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "e039c488-08ec-4026-9960-d08b364cb4ce")
+		(property "Reference" "R309"
+			(at 171.45 148.336 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "100K"
+			(at 170.942 157.48 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 168.91 154.94 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 168.91 154.94 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor, small symbol"
+			(at 168.91 154.94 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 168.91 154.94 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25804"
+			(at 168.656 152.146 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "23c97029-791e-4751-9fcf-2227a512eab0")
+		)
+		(pin "1"
+			(uuid "0f91260c-9be6-4bbf-9522-5105a9001571")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "R309")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "R318")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_Small")
+		(at 196.85 130.81 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "e4abae4b-f9b3-48af-bdcf-ee53577d214d")
+		(property "Reference" "R313"
+			(at 197.866 130.048 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "18K"
+			(at 198.12 131.826 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 196.85 130.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 196.85 130.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor, small symbol"
+			(at 196.85 130.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 196.85 130.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25810"
+			(at 197.866 130.048 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "8a07c80d-d5ed-4015-bbf3-a97b22e79dff")
+		)
+		(pin "1"
+			(uuid "86003cc3-22c6-41fd-a67f-4f4e91489b21")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "R313")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "R322")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Logic_LevelTranslator:SN74LV1T34DBV")
+		(at 226.06 59.69 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "ebec7b0d-6d6a-4f91-b1b4-d4ba3b61f61f")
+		(property "Reference" "U302"
+			(at 217.932 54.356 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "SN74LV1T34DBV"
+			(at 217.932 50.8 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-5"
+			(at 242.57 66.04 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/sn74lv1t34.pdf"
+			(at 215.9 64.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Single Power Supply, Single Buffer GATE, CMOS Logic, Level Shifter, SOT-23-5"
+			(at 226.06 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C100024"
+			(at 226.06 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 226.06 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "5"
+			(uuid "6d4cb494-09b1-4f94-9489-2a582d525a0e")
+		)
+		(pin "1"
+			(uuid "37612b04-9774-42eb-9257-fb2ba1ff99a3")
+		)
+		(pin "4"
+			(uuid "fba5fe67-313e-4340-bb58-f63be86228c3")
+		)
+		(pin "2"
+			(uuid "bcedaad3-7288-4598-9ffc-423ec2562bd2")
+		)
+		(pin "3"
+			(uuid "6b4d0b5d-b09c-4ee7-b6ab-c6517a8b52be")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "U401")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "U302")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Logic_LevelTranslator:SN74LV1T34DBV")
+		(at 325.12 101.6 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "f5016db3-6cca-4376-a7d8-ab2de876b160")
+		(property "Reference" "U301"
+			(at 316.992 96.266 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "SN74LV1T34DBV"
+			(at 316.992 92.71 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-5"
+			(at 341.63 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://www.ti.com/lit/ds/symlink/sn74lv1t34.pdf"
+			(at 314.96 106.68 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Single Power Supply, Single Buffer GATE, CMOS Logic, Level Shifter, SOT-23-5"
+			(at 325.12 101.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C100024"
+			(at 325.12 101.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 325.12 101.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "5"
+			(uuid "5fc9963a-f3e0-4ae5-8e19-257aa6984d09")
+		)
+		(pin "1"
+			(uuid "8e1d4e46-bbf1-41c3-8d64-d1c091fc0506")
+		)
+		(pin "4"
+			(uuid "788a35e5-9015-495e-931f-10933992aa93")
+		)
+		(pin "2"
+			(uuid "395fa9ee-8a7a-446b-be6a-231b0fde023d")
+		)
+		(pin "3"
+			(uuid "d8ba2c3a-f973-4a31-a2e0-ce688670faff")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "U402")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "U301")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_Small")
+		(at 295.91 101.6 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "f8a33b38-5584-476d-a0ff-7515bf538775")
+		(property "Reference" "R301"
+			(at 295.148 98.298 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "100"
+			(at 297.18 98.806 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 295.91 101.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 295.91 101.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor, small symbol"
+			(at 295.91 101.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 295.91 101.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C22775"
+			(at 292.1 102.362 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "795854a6-87d8-4df5-bd3f-3bc643f26eae")
+		)
+		(pin "2"
+			(uuid "935e17dd-1ef2-4e60-b572-3dc6b4320175")
+		)
+		(instances
+			(project "Robobuoy-Sub-v2_0"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/4d0abcda-3746-4ac5-9ee7-1e20e70758fd"
+					(reference "R404")
+					(unit 1)
+				)
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/777010df-70fc-4f61-8f13-a78dd4e06e58"
+					(reference "R301")
+					(unit 1)
+				)
+			)
+		)
+	)
+)

@@ -162,6 +162,45 @@ void LedTask(void *arg)
                     }
                     FastLED.show();
                 }
+                if (ledDataStatus.blink == FADE_ON)
+                {
+                    for (int i = 0; i < 2; i++)
+                    {
+                        leds[LEDSTATUS][i] = (leds[LEDSTATUS][i] * ledDataStatus.brightness) / 255;
+                    }
+                    FastLED.show();
+                    ledDataStatus.brightness += ledDataStatus.fadeAmount;
+                    if (ledDataStatus.brightness <= 0 || ledDataStatus.brightness >= 255)
+                    {
+                        ledDataStatus.fadeAmount = -ledDataStatus.fadeAmount;
+                    }
+                }
+                if (ledDataUtil.blink == FADE_ON)
+                {
+                    for (int i = 0; i < 2; i++)
+                    {
+                        leds[LEDGPS][i] = (leds[LEDGPS][i] * ledDataUtil.brightness) / 255;
+                    }
+                    FastLED.show();
+                    ledDataUtil.brightness += ledDataUtil.fadeAmount;
+                    if (ledDataUtil.brightness <= 0 || ledDataUtil.brightness >= 255)
+                    {
+                        ledDataUtil.fadeAmount = -ledDataUtil.fadeAmount;
+                    }
+                }
+                if (ledDataGps.blink == FADE_ON)
+                {
+                    for (int i = 0; i < 2; i++)
+                    {
+                        leds[LEDUTIL][i] = (leds[LEDUTIL][i] * ledDataGps.brightness) / 255;
+                    }
+                    FastLED.show();
+                    ledDataGps.brightness += ledDataGps.fadeAmount;
+                    if (ledDataGps.brightness <= 0 || ledDataGps.brightness >= 255)
+                    {
+                        ledDataGps.fadeAmount = -ledDataGps.fadeAmount;
+                    }
+                }
             }
         }
         vTaskDelay(1);

@@ -9,8 +9,10 @@ extern QueueHandle_t ledGps;    // Accu status
 
 struct LedData
 {
-    CRGB color; // collor
-    int blink;  // mode
+    CRGB color;         // collor
+    int blink;          // mode
+    int fadeAmount = 5; //
+    int brightness = 0;
 };
 
 bool initledqueue(void);
