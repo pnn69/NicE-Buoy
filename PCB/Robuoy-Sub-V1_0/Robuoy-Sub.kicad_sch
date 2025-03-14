@@ -1,7 +1,7 @@
 (kicad_sch
-	(version 20231120)
+	(version 20241209)
 	(generator "eeschema")
-	(generator_version "8.0")
+	(generator_version "9.0")
 	(uuid "77bea089-a6ae-4a6f-b95b-7a9010ad7c5d")
 	(paper "A4")
 	(title_block
@@ -12,9 +12,13 @@
 	)
 	(lib_symbols
 		(symbol "Connector:TestPoint_Small"
-			(pin_numbers hide)
+			(pin_numbers
+				(hide yes)
+			)
 			(pin_names
-				(offset 0.762) hide)
+				(offset 0.762)
+				(hide yes)
+			)
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
@@ -112,6 +116,7 @@
 					)
 				)
 			)
+			(embedded_fonts no)
 		)
 		(symbol "Mechanical:MountingHole"
 			(pin_names
@@ -194,7 +199,30 @@
 					)
 				)
 			)
+			(embedded_fonts no)
 		)
+	)
+	(text "300"
+		(exclude_from_sim no)
+		(at 78.74 186.69 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "6fe3bfae-0ad9-4e45-9e43-8b56142ee6c8")
+	)
+	(text "ESP32\nCOMPASS\nBATTERY MONITOR\nPOWERSUPPY 12V 5V 3.3V\n"
+		(exclude_from_sim no)
+		(at 13.462 22.352 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "a8705544-687a-4eb4-8757-449e0d3ddfdd")
 	)
 	(no_connect
 		(at 62.23 193.04)
@@ -233,28 +261,6 @@
 			(type default)
 		)
 		(uuid "dfae3cca-a6c4-438a-8931-59cf3dfcfaec")
-	)
-	(text "300"
-		(exclude_from_sim no)
-		(at 78.74 186.69 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "6fe3bfae-0ad9-4e45-9e43-8b56142ee6c8")
-	)
-	(text "ESP32\nCOMPASS\nBATTERY MONITOR\nPOWERSUPPY 12V 5V 3.3V\n"
-		(exclude_from_sim no)
-		(at 13.462 22.352 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "a8705544-687a-4eb4-8757-449e0d3ddfdd")
 	)
 	(symbol
 		(lib_id "Connector:TestPoint_Small")
@@ -684,6 +690,10 @@
 	(sheet
 		(at 95.25 50.8)
 		(size 44.45 69.85)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
 		(fields_autoplaced yes)
 		(stroke
 			(width 0.1524)
@@ -714,33 +724,33 @@
 		)
 		(pin "PWR_ESC_BB" input
 			(at 113.03 120.65 270)
+			(uuid "eb59a8bb-af8b-45f9-846c-d6b1f8535ac3")
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 				(justify left)
 			)
-			(uuid "eb59a8bb-af8b-45f9-846c-d6b1f8535ac3")
 		)
 		(pin "PWR_ESC_SB" input
 			(at 115.57 120.65 270)
+			(uuid "9d6388b4-1eb2-437c-a046-084f63e8ba8d")
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 				(justify left)
 			)
-			(uuid "9d6388b4-1eb2-437c-a046-084f63e8ba8d")
 		)
 		(pin "Vsamp" output
 			(at 118.11 120.65 270)
+			(uuid "e41ddc0f-75e7-4c5e-ad80-9fc92f606093")
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 				(justify left)
 			)
-			(uuid "e41ddc0f-75e7-4c5e-ad80-9fc92f606093")
 		)
 		(instances
 			(project "Robuoy-Sub"
@@ -753,6 +763,10 @@
 	(sheet
 		(at 78.74 161.29)
 		(size 69.85 25.4)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
 		(fields_autoplaced yes)
 		(stroke
 			(width 0.1524)
@@ -783,33 +797,33 @@
 		)
 		(pin "PWR_ESC_SB" output
 			(at 115.57 161.29 90)
+			(uuid "fd4b6096-889d-4757-9dd1-b4b327699ad6")
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 				(justify right)
 			)
-			(uuid "fd4b6096-889d-4757-9dd1-b4b327699ad6")
 		)
 		(pin "PWR_ESC_BB" output
 			(at 113.03 161.29 90)
+			(uuid "948a3cb2-d43e-4b91-a45b-12e4fde2048f")
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 				(justify right)
 			)
-			(uuid "948a3cb2-d43e-4b91-a45b-12e4fde2048f")
 		)
 		(pin "Vsamp" input
 			(at 118.11 161.29 90)
+			(uuid "8468c967-8eaf-4e55-bbe3-a36e5d01c2d2")
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 				(justify right)
 			)
-			(uuid "8468c967-8eaf-4e55-bbe3-a36e5d01c2d2")
 		)
 		(instances
 			(project "Robuoy-Sub"
@@ -824,4 +838,5 @@
 			(page "10")
 		)
 	)
+	(embedded_fonts no)
 )

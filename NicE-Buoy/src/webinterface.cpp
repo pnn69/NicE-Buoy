@@ -14,6 +14,8 @@ static bool OTA = false;
 static bool WEBok = false;
 AsyncUDP udp;
 
+
+
 /* ****************************************************************************/
 /* * Over the air setup */
 /* * If timers are used kill the processes befor going to dwonload the new
