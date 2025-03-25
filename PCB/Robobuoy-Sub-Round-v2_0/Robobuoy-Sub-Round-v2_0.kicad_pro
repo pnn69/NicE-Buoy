@@ -194,12 +194,17 @@
         0.2,
         0.4,
         0.6,
+        0.7,
         0.8,
         1.0,
         1.5,
         2.0,
         2.5,
-        3.0
+        3.0,
+        3.5,
+        4.0,
+        4.5,
+        5.0
       ],
       "tuning_pattern_settings": {
         "diff_pair_defaults": {
@@ -488,7 +493,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "Robuoy-Sub.kicad_pro",
+    "filename": "Robobuoy-Sub-Round-v2_0.kicad_pro",
     "version": 2
   },
   "net_settings": {
@@ -527,7 +532,7 @@
       "plot": "",
       "pos_files": "jlcpcb/",
       "specctra_dsn": "",
-      "step": "Robuoy-Sub.step",
+      "step": "Robobuoy-Sub-v2_0.step",
       "svg": "",
       "vrml": ""
     },
@@ -724,6 +729,14 @@
     [
       "b4716c37-6296-4cc3-83d4-c08b9373ace7",
       "PSU"
+    ],
+    [
+      "d9b500e3-6ae8-40b1-9e53-8420007da61f",
+      "ESC_SB"
+    ],
+    [
+      "5daf7a73-832c-4e39-8c8c-f94977e3e987",
+      "ESC_BB"
     ],
     [
       "77bea089-a6ae-4a6f-b95b-7a9010ad7c5d",
