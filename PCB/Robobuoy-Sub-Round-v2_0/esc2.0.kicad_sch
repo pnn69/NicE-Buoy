@@ -4295,7 +4295,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "a64ec328-28e4-498c-9f98-1f039911431b")
 		(property "Reference" "J302"
 			(at 234.95 116.8399 0)

@@ -130,13 +130,23 @@
 	)
 	(wire
 		(pts
-			(xy 116.84 120.65) (xy 116.84 161.29)
+			(xy 119.38 120.65) (xy 119.38 161.29)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "2dd190cd-c3a7-4fab-891e-ac597db2234d")
+		(uuid "40f8ba70-2cd0-4981-9ecf-2140c31483da")
+	)
+	(wire
+		(pts
+			(xy 114.3 120.65) (xy 114.3 161.29)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4ef85e60-68dd-4f1b-8328-814d5b83b260")
 	)
 	(bus
 		(pts
@@ -147,6 +157,26 @@
 			(type default)
 		)
 		(uuid "5b3cb686-20bb-45a4-930a-88498799905d")
+	)
+	(wire
+		(pts
+			(xy 116.84 120.65) (xy 116.84 161.29)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ac169082-d8dd-4fc3-89f6-ba1fad150980")
+	)
+	(wire
+		(pts
+			(xy 111.76 120.65) (xy 111.76 161.29)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f4c74055-2140-4485-991f-13a42d61da4c")
 	)
 	(symbol
 		(lib_id "Mechanical:MountingHole")
@@ -212,7 +242,7 @@
 			)
 		)
 		(instances
-			(project "Robuoy-Top"
+			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(reference "H404")
 					(unit 1)
@@ -284,7 +314,7 @@
 			)
 		)
 		(instances
-			(project "Robuoy-Top"
+			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(reference "H403")
 					(unit 1)
@@ -356,7 +386,7 @@
 			)
 		)
 		(instances
-			(project "Robuoy-Top"
+			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(reference "H402")
 					(unit 1)
@@ -428,7 +458,7 @@
 			)
 		)
 		(instances
-			(project "Robuoy-Top"
+			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(reference "H401")
 					(unit 1)
@@ -470,7 +500,7 @@
 				(hide yes)
 			)
 		)
-		(pin "RADIO_[1..5]" bidirectional
+		(pin "RADIO_[1..6]" bidirectional
 			(at 116.84 41.91 270)
 			(uuid "b67271b5-62a1-4d52-93df-bf61c7fb2663")
 			(effects
@@ -481,7 +511,7 @@
 			)
 		)
 		(instances
-			(project "Robuoy-Top"
+			(project "Robobuoy-Top-Round-v2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(page "6")
 				)
@@ -523,7 +553,7 @@
 				(hide yes)
 			)
 		)
-		(pin "RADIO_[1..5]" bidirectional
+		(pin "RADIO_[1..6]" bidirectional
 			(at 116.84 50.8 90)
 			(uuid "f29161ac-6baf-417d-b596-536e7ba8db0f")
 			(effects
@@ -533,9 +563,39 @@
 				(justify right)
 			)
 		)
-		(pin "Vbatt" output
+		(pin "VbatEn" input
+			(at 114.3 120.65 270)
+			(uuid "4cc9edef-4cf0-4988-a576-41346bb1f81e")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "Vsamp" output
 			(at 116.84 120.65 270)
-			(uuid "31777b7d-e5fe-4036-9aa1-ca6124ac758e")
+			(uuid "f537cc89-fc95-4fdb-81e8-d0ba6381b4dc")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "COM" bidirectional
+			(at 119.38 120.65 270)
+			(uuid "0e92ab1c-6f1b-4cd5-8ab6-304cb2aecd1b")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "ON" input
+			(at 111.76 120.65 270)
+			(uuid "b6c88326-1f30-41dd-94c6-322e3f61c7dd")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -544,7 +604,7 @@
 			)
 		)
 		(instances
-			(project "Robuoy-Top"
+			(project "Robobuoy-Top-Round-v2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(page "1")
 				)
@@ -586,9 +646,39 @@
 				(hide yes)
 			)
 		)
-		(pin "Vbatt" input
+		(pin "VbatEn" output
+			(at 114.3 161.29 90)
+			(uuid "f77b836e-2a3e-4de6-afca-cbddb1e1f12b")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "Vsamp" input
 			(at 116.84 161.29 90)
-			(uuid "c187a3a6-16d4-45e7-a2db-69a72cf94501")
+			(uuid "e0fa9656-d888-47b7-96c7-87a22f9bf060")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "COM" bidirectional
+			(at 119.38 161.29 90)
+			(uuid "ea99826e-a66a-4f86-a778-56e4eb580690")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "ON" output
+			(at 111.76 161.29 90)
+			(uuid "6cc70462-6e19-4aed-80c4-4dfb2cd687a2")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -597,7 +687,7 @@
 			)
 		)
 		(instances
-			(project "Robuoy-Top"
+			(project "Robobuoy-Top-Round-v2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(page "2")
 				)

@@ -739,7 +739,7 @@
 			(embedded_fonts no)
 		)
 	)
-	(text "RADIO_1  MOSI\nRADIO_2  MISO\nRADIO_3  SCK\nRADIO_4  ^CS\nRADIO_5  ^RESET"
+	(text "RADIO_1  MOSI\nRADIO_2  MISO\nRADIO_3  SCK\nRADIO_4  ^CS\nRADIO_5  ^RESET\nRADIO_6  DIO0"
 		(exclude_from_sim no)
 		(at 189.23 107.95 0)
 		(effects
@@ -791,10 +791,6 @@
 		(uuid "b858b4f2-85f5-4ecd-a231-12ac65c9f44f")
 	)
 	(no_connect
-		(at 133.35 91.44)
-		(uuid "d116753a-ad3e-4176-8763-cf1262a370d4")
-	)
-	(no_connect
 		(at 133.35 96.52)
 		(uuid "f3612301-a16d-443a-9c5f-f77f04f22e87")
 	)
@@ -815,6 +811,15 @@
 			(type default)
 		)
 		(uuid "b82adeb7-a90e-48bd-802f-8938da0c2291")
+	)
+	(bus_entry
+		(at 114.3 88.9)
+		(size 2.54 2.54)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "df504428-4e71-4b23-a44e-ac03ca849e47")
 	)
 	(bus_entry
 		(at 162.56 99.06)
@@ -955,6 +960,16 @@
 	)
 	(wire
 		(pts
+			(xy 116.84 91.44) (xy 133.35 91.44)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6a8438ec-6829-45c2-9f0c-c96bd0aaf9ff")
+	)
+	(wire
+		(pts
 			(xy 110.49 177.8) (xy 121.285 177.8)
 		)
 		(stroke
@@ -993,6 +1008,16 @@
 		)
 		(uuid "9e318462-8c38-477e-aa9b-7881f5bfcf54")
 	)
+	(bus
+		(pts
+			(xy 114.3 88.9) (xy 114.3 114.3)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "adccb7a3-73c1-4e12-897f-84dd1c3abf5d")
+	)
 	(wire
 		(pts
 			(xy 153.67 99.06) (xy 162.56 99.06)
@@ -1025,6 +1050,16 @@
 	)
 	(bus
 		(pts
+			(xy 165.1 114.3) (xy 114.3 114.3)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d4151cd1-63da-4675-8d90-26d9fc8c074e")
+	)
+	(bus
+		(pts
 			(xy 165.1 88.9) (xy 165.1 81.28)
 		)
 		(stroke
@@ -1032,6 +1067,16 @@
 			(type default)
 		)
 		(uuid "dabb73fd-372a-4d69-bcb3-b825a3c37410")
+	)
+	(bus
+		(pts
+			(xy 114.3 85.09) (xy 114.3 88.9)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f5767bd4-610b-438f-8de8-faa904191425")
 	)
 	(wire
 		(pts
@@ -1073,6 +1118,16 @@
 		)
 		(uuid "64d10ac0-e854-4172-9b7a-effa6e5a890d")
 	)
+	(label "RADIO_6"
+		(at 116.84 91.44 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "6868df99-c906-4261-bfb9-6f044eea3944")
+	)
 	(label "RADIO_3"
 		(at 154.94 96.52 0)
 		(effects
@@ -1093,7 +1148,7 @@
 		)
 		(uuid "be639fec-7e41-42be-9f4e-0e40f790df38")
 	)
-	(hierarchical_label "RADIO_[1..5]"
+	(hierarchical_label "RADIO_[1..6]"
 		(shape bidirectional)
 		(at 168.91 81.28 0)
 		(effects
@@ -1189,7 +1244,7 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy-Top"
+			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
 					(reference "C302")
 					(unit 1)
@@ -1319,7 +1374,7 @@
 			(uuid "f3fe0af2-e252-4eb0-90b6-80c1698f0b75")
 		)
 		(instances
-			(project "Robuoy-Top"
+			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
 					(reference "U301")
 					(unit 1)
@@ -1385,7 +1440,7 @@
 			(uuid "af4c0c46-4eda-449c-84df-38f649c2d378")
 		)
 		(instances
-			(project "Robuoy-Top"
+			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
 					(reference "#PWR0303")
 					(unit 1)
@@ -1451,7 +1506,7 @@
 			(uuid "8cd98c3c-854c-406c-99a1-adaf2df7c306")
 		)
 		(instances
-			(project "Robuoy-Top"
+			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
 					(reference "#PWR0302")
 					(unit 1)
@@ -1544,7 +1599,7 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy-Top"
+			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
 					(reference "C301")
 					(unit 1)
@@ -1610,7 +1665,7 @@
 			(uuid "a6299aa3-f3ae-4c71-bf2f-b8ea9638f6b4")
 		)
 		(instances
-			(project "Robuoy-Top"
+			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
 					(reference "#PWR0301")
 					(unit 1)
@@ -1676,7 +1731,7 @@
 			(uuid "6abbd2d3-2c77-4b52-b59d-38f9e6ab9838")
 		)
 		(instances
-			(project "Robuoy-Top"
+			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
 					(reference "#PWR0304")
 					(unit 1)
@@ -1769,7 +1824,7 @@
 					(unit 1)
 				)
 			)
-			(project "Robuoy-Top"
+			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/1dc26a2c-fbf5-4621-ae52-68ee3e95a03a"
 					(reference "C303")
 					(unit 1)
