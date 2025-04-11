@@ -675,6 +675,12 @@
           "label": "Height",
           "name": "Height",
           "show": false
+        },
+        {
+          "group_by": false,
+          "label": "Type",
+          "name": "Type",
+          "show": false
         }
       ],
       "filter_string": "",
