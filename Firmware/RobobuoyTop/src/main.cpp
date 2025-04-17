@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "esp_log.h"
 #include <PID_v1.h>
 #include "main.h"
 #include "io_top.h"
@@ -9,12 +10,14 @@
 #include "buzzer.h"
 #include "adc.h"
 #include "loratop.h"
+#include "sercom.h"
 #include "calibrate.h"
 
 // #define BUFLENMHRG 60 // one sampel each sec so 60 sec for stabilisation
 RoboStruct buoyPara[3] = {};
 static RoboWindStruct wind;
 static RoboStruct udpDataIn;
+static RoboStruct serDataIn;
 static RoboStruct LoraTx;
 static RoboStruct loraRx;
 static RoboStruct mainData;
@@ -77,6 +80,7 @@ void setup()
     mainData.IDs = buoyId;
     initgpsqueue();
     initloraqueue();
+    initserqueue();
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 1000, NULL, 1, NULL, 1);
     xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
     xTaskCreatePinnedToCore(GpsTask, "GpsTask", 2000, NULL, configMAX_PRIORITIES - 8, NULL, 1);
@@ -92,7 +96,8 @@ void setup()
     {
         wifiConfig = 0; // Setup normal accespoint
     }
-    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 2, NULL, 0);
+    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 10, NULL, 0);
+    xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
     xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 1);
     Serial.println("Main task running!");
     // defautls(mainData);
@@ -215,9 +220,9 @@ void buttonLight(int status, bool fix)
         {
             digitalWrite(BUTTON_LIGHT_PIN, LOW);
             blink = 2000;
-            mainCollorGps.color = CRGB::Green;
-            mainCollorGps.blink = BLINK_OFF;
-            xQueueSend(ledGps, (void *)&mainCollorGps, 0); // update led
+            // mainCollorGps.color = CRGB::Green;
+            // mainCollorGps.blink = BLINK_OFF;
+            // xQueueSend(ledGps, (void *)&mainCollorGps, 0); // update led
         }
         else
         {
@@ -425,7 +430,7 @@ RoboStruct handleTimerRoutines(RoboStruct timer)
         xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
     }
 
-    if (timer.lastUdpOut + 250 < millis())
+    if (timer.lastUdpOut + 1002 < millis())
     {
         timer.lastUdpOut = millis();
         timer.cmd = PING;
@@ -440,6 +445,7 @@ RoboStruct handleTimerRoutines(RoboStruct timer)
             timer.cmd = DIRSPEED;
         }
         xQueueSend(udpOut, (void *)&timer, 0); // Keep the watchdog in sub happy
+        xQueueSend(serOut, (void *)&timer, 0); // Keep the watchdog in sub happy
         timer.lastUdpOut = millis();
     }
 
@@ -470,7 +476,7 @@ void loop(void)
     mainCollorUtil.blink = BLINK_SLOW;
     mainCollorUtil.color = CRGB::DarkOrange;
     xQueueSend(ledUtil, (void *)&mainCollorUtil, 0); // update GPS led
-    // beep(1000, buzzer);
+    beep(1000, buzzer);
     bool firstfix = false;
     mainData.lastLoraOut = millis();
     while (true)
@@ -647,6 +653,30 @@ void loop(void)
             case SUBACCU:
                 mainData.subAccuV = udpDataIn.subAccuV;
                 mainData.subAccuP = udpDataIn.subAccuP;
+                break;
+            default:
+                break;
+            }
+        }
+        //***************************************************************************************************
+        //      New serial data
+        //***************************************************************************************************
+        if (xQueueReceive(serIn, (void *)&serDataIn, 1) == pdTRUE)
+        {
+            switch (serDataIn.cmd)
+            {
+            case DIRSPEED:
+                mainData.dirMag = serDataIn.dirMag;
+                Serial.print("new compass data: ");
+                Serial.println(serDataIn.dirMag);
+                break;
+            case SUBACCU:
+                mainData.subAccuV = serDataIn.subAccuV;
+                mainData.subAccuP = serDataIn.subAccuP;
+                Serial.print("new serial data V:");
+                Serial.print(serDataIn.subAccuV);
+                Serial.print(" P:");
+                Serial.println(serDataIn.subAccuP);
                 break;
             default:
                 break;

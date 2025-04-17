@@ -4427,6 +4427,12 @@
 		(uuid "3c096890-3d9f-4b1e-88b6-07d06bd5b965")
 	)
 	(junction
+		(at 297.18 129.54)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "3d94d6b1-d87b-4308-92c2-772416bad896")
+	)
+	(junction
 		(at 120.65 262.89)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -4485,12 +4491,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "57b6e200-9411-4aba-97d0-c1a5e7c2fe8c")
-	)
-	(junction
-		(at 273.05 116.84)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "5ae79362-cece-4de0-8a56-9866f69f5247")
 	)
 	(junction
 		(at 170.18 152.4)
@@ -4601,12 +4601,6 @@
 		(uuid "be59a5bf-17cd-4348-b296-71de45a1dc95")
 	)
 	(junction
-		(at 304.8 127)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "c32473a0-2a7a-4d65-b5c1-1106c9441fcb")
-	)
-	(junction
 		(at 147.32 257.81)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -4647,6 +4641,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "f46ded89-79b4-4354-b484-420eb3285d60")
+	)
+	(junction
+		(at 299.72 127)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "f513dda7-5f2d-467a-b9f4-8d0e479ad2ee")
 	)
 	(junction
 		(at 95.25 262.89)
@@ -4816,16 +4816,6 @@
 	)
 	(wire
 		(pts
-			(xy 304.8 127) (xy 325.12 127)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "191b4482-9ea7-4a4c-93a5-45e785ddff60")
-	)
-	(wire
-		(pts
 			(xy 120.65 262.89) (xy 128.27 262.89)
 		)
 		(stroke
@@ -4936,7 +4926,7 @@
 	)
 	(wire
 		(pts
-			(xy 304.8 119.38) (xy 304.8 127)
+			(xy 299.72 104.14) (xy 299.72 127)
 		)
 		(stroke
 			(width 0)
@@ -5156,6 +5146,16 @@
 	)
 	(wire
 		(pts
+			(xy 297.18 129.54) (xy 349.25 129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "53acf7bb-0632-4539-a2c4-36ba6b989e63")
+	)
+	(wire
+		(pts
 			(xy 342.9 49.53) (xy 345.44 49.53)
 		)
 		(stroke
@@ -5276,16 +5276,6 @@
 	)
 	(wire
 		(pts
-			(xy 273.05 99.06) (xy 273.05 116.84)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "68e5593e-0915-42f3-b231-1e61d0eedbae")
-	)
-	(wire
-		(pts
 			(xy 165.1 152.4) (xy 165.1 149.86)
 		)
 		(stroke
@@ -5293,16 +5283,6 @@
 			(type default)
 		)
 		(uuid "69722794-eec5-416c-b421-c28b0473679d")
-	)
-	(wire
-		(pts
-			(xy 198.12 129.54) (xy 273.05 129.54)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6a5bf1f0-46e0-4935-b1af-129dbea42611")
 	)
 	(wire
 		(pts
@@ -5376,7 +5356,7 @@
 	)
 	(wire
 		(pts
-			(xy 302.26 124.46) (xy 325.12 124.46)
+			(xy 302.26 124.46) (xy 349.25 124.46)
 		)
 		(stroke
 			(width 0)
@@ -5486,7 +5466,7 @@
 	)
 	(wire
 		(pts
-			(xy 302.26 121.92) (xy 341.63 121.92)
+			(xy 302.26 106.68) (xy 332.74 106.68)
 		)
 		(stroke
 			(width 0)
@@ -5556,16 +5536,6 @@
 	)
 	(wire
 		(pts
-			(xy 273.05 129.54) (xy 273.05 116.84)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "976c5648-3e3c-457c-b20f-90e81582ad83")
-	)
-	(wire
-		(pts
 			(xy 39.37 243.84) (xy 39.37 246.38)
 		)
 		(stroke
@@ -5606,6 +5576,16 @@
 	)
 	(wire
 		(pts
+			(xy 297.18 101.6) (xy 297.18 129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9c7b8b08-df22-4e04-9d8c-dad586030b3b")
+	)
+	(wire
+		(pts
 			(xy 49.53 196.85) (xy 53.34 196.85)
 		)
 		(stroke
@@ -5626,7 +5606,7 @@
 	)
 	(wire
 		(pts
-			(xy 302.26 121.92) (xy 302.26 124.46)
+			(xy 302.26 106.68) (xy 302.26 124.46)
 		)
 		(stroke
 			(width 0)
@@ -5656,7 +5636,7 @@
 	)
 	(wire
 		(pts
-			(xy 341.63 116.84) (xy 273.05 116.84)
+			(xy 332.74 101.6) (xy 297.18 101.6)
 		)
 		(stroke
 			(width 0)
@@ -5826,6 +5806,16 @@
 	)
 	(wire
 		(pts
+			(xy 299.72 127) (xy 349.25 127)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d2168e04-c7fe-476b-adeb-b5696e609c85")
+	)
+	(wire
+		(pts
 			(xy 295.91 26.67) (xy 295.91 29.21)
 		)
 		(stroke
@@ -5846,7 +5836,7 @@
 	)
 	(wire
 		(pts
-			(xy 304.8 119.38) (xy 341.63 119.38)
+			(xy 299.72 104.14) (xy 332.74 104.14)
 		)
 		(stroke
 			(width 0)
@@ -5856,7 +5846,7 @@
 	)
 	(wire
 		(pts
-			(xy 198.12 127) (xy 304.8 127)
+			(xy 198.12 127) (xy 299.72 127)
 		)
 		(stroke
 			(width 0)
@@ -6076,7 +6066,7 @@
 	)
 	(wire
 		(pts
-			(xy 273.05 99.06) (xy 292.1 99.06)
+			(xy 198.12 129.54) (xy 297.18 129.54)
 		)
 		(stroke
 			(width 0)
@@ -6426,7 +6416,7 @@
 	)
 	(hierarchical_label "COM"
 		(shape bidirectional)
-		(at 292.1 99.06 0)
+		(at 349.25 129.54 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -6448,7 +6438,7 @@
 	)
 	(hierarchical_label "ESC_SB"
 		(shape output)
-		(at 325.12 124.46 0)
+		(at 349.25 124.46 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -6481,7 +6471,7 @@
 	)
 	(hierarchical_label "ESC_BB"
 		(shape output)
-		(at 325.12 127 0)
+		(at 349.25 127 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -9131,7 +9121,7 @@
 	)
 	(symbol
 		(lib_id "power:+3.3V")
-		(at 349.25 109.22 0)
+		(at 340.36 93.98 0)
 		(mirror y)
 		(unit 1)
 		(exclude_from_sim no)
@@ -9141,7 +9131,7 @@
 		(fields_autoplaced yes)
 		(uuid "79a82f33-d232-4eb9-bc70-f7be55142b5e")
 		(property "Reference" "#PWR0125"
-			(at 349.25 113.03 0)
+			(at 340.36 97.79 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9150,7 +9140,7 @@
 			)
 		)
 		(property "Value" "+3.3V"
-			(at 349.25 104.14 0)
+			(at 340.36 88.9 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9158,7 +9148,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 349.25 109.22 0)
+			(at 340.36 93.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9167,7 +9157,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 349.25 109.22 0)
+			(at 340.36 93.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9176,7 +9166,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 349.25 109.22 0)
+			(at 340.36 93.98 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9694,7 +9684,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 349.25 127 0)
+		(at 340.36 111.76 0)
 		(mirror y)
 		(unit 1)
 		(exclude_from_sim no)
@@ -9704,7 +9694,7 @@
 		(fields_autoplaced yes)
 		(uuid "9aaac55d-0f1c-49a7-bf3c-8c7c28b0d484")
 		(property "Reference" "#PWR0126"
-			(at 349.25 133.35 0)
+			(at 340.36 118.11 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9713,7 +9703,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 349.25 132.08 0)
+			(at 340.36 116.84 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9721,7 +9711,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 349.25 127 0)
+			(at 340.36 111.76 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9730,7 +9720,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 349.25 127 0)
+			(at 340.36 111.76 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9739,7 +9729,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 349.25 127 0)
+			(at 340.36 111.76 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11802,7 +11792,7 @@
 	)
 	(symbol
 		(lib_id "Power_Protection:USBLC6-4SC6")
-		(at 349.25 116.84 0)
+		(at 340.36 101.6 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -11811,7 +11801,7 @@
 		(fields_autoplaced yes)
 		(uuid "e0a6c216-7c53-4911-8102-e2e11a17e9d5")
 		(property "Reference" "U103"
-			(at 355.6 116.8399 0)
+			(at 346.71 101.5999 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11820,7 +11810,7 @@
 			)
 		)
 		(property "Value" "USBLC6-4SC6"
-			(at 355.6 119.3799 0)
+			(at 346.71 104.1399 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11829,7 +11819,7 @@
 			)
 		)
 		(property "Footprint" "Package_TO_SOT_SMD:SOT-23-6"
-			(at 351.79 127 0)
+			(at 342.9 111.76 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11840,7 +11830,7 @@
 			)
 		)
 		(property "Datasheet" "https://www.st.com/resource/en/datasheet/usblc6-4.pdf"
-			(at 351.79 129.54 0)
+			(at 342.9 114.3 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11850,7 +11840,7 @@
 			)
 		)
 		(property "Description" "Very low capacitance ESD protection diode, 4 data-line, SOT-23-6"
-			(at 349.25 116.84 0)
+			(at 340.36 101.6 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11859,7 +11849,7 @@
 			)
 		)
 		(property "JLCS" ""
-			(at 349.25 116.84 0)
+			(at 340.36 101.6 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11868,7 +11858,7 @@
 			)
 		)
 		(property "LCSC" "C5197386"
-			(at 355.6 116.8399 0)
+			(at 346.71 101.5999 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11877,7 +11867,7 @@
 			)
 		)
 		(property "Field5" ""
-			(at 349.25 116.84 0)
+			(at 340.36 101.6 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11886,7 +11876,7 @@
 			)
 		)
 		(property "Type" ""
-			(at 349.25 116.84 0)
+			(at 340.36 101.6 0)
 			(effects
 				(font
 					(size 1.27 1.27)

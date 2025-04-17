@@ -12,11 +12,13 @@
 #include "compass.h"
 #include "buzzer.h"
 #include "adc.h"
+#include "sercom.h"
 #define HOST_NAME "RoboBuoySub"
 
 // pid subparameter;
 static RoboStruct mainData;
 static RoboStruct udpInMain;
+static RoboStruct serDataIn;
 static Message esc;
 static unsigned long buoyId;
 static int subStatus = IDLE;
@@ -50,28 +52,40 @@ PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
 //***************************************************************************************************
 void setup()
 {
+    pinMode(PWRENABLE, OUTPUT);
+    digitalWrite(PWRENABLE, 1);
+    pinMode(BATTENABLE, OUTPUT);
+    digitalWrite(BATTENABLE, 1);
     Serial.begin(115200);
     Setpoint = 0;             // tg angle
     myPID.SetMode(AUTOMATIC); // turn the PID on
     myPID.SetOutputLimits(-180, 180);
     pinMode(BUTTON_PIN, INPUT);
+    pinMode(ESC_SB_PWR_PIN, OUTPUT);
+    pinMode(ESC_BB_PWR_PIN, OUTPUT);
+    digitalWrite(PWRENABLE, true);
+    digitalWrite(ESC_SB_PWR_PIN, true);
+    digitalWrite(ESC_BB_PWR_PIN, true);
     delay(10);
     printf("\r\nSetup running!\r\n");
     printf("Robobuoy Sub Version: %0.1f\r\n", SUBVERSION);
-    buoyId = initwifiqueue();
+    buoyId = initwifi();
     Serial.print("Buoy ID: ");
     Serial.println(buoyId);
     mainData.mac = buoyId;
+    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
     initbuzzerqueue();
     initledqueue();
     initescqueue();
     initMemory();
     initcompassQueue();
+    initserqueue();
     InitCompass();
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 1000, NULL, 1, NULL, 1);
     xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 10, NULL, 1);
     xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
     xTaskCreatePinnedToCore(CompassTask, "CompasaTask", 2000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
+    xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
     if (digitalRead(BUTTON_PIN) == true)
     {
         delay(100);
@@ -80,7 +94,6 @@ void setup()
             wifiConfig = 1;
         }
     }
-    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
     /*
     Get sored settings
     */
@@ -139,7 +152,7 @@ int countKeyPressesWithTimeoutAndLongPressDetecton()
     }
     buttonState = digitalRead(BUTTON_PIN);
     // Check if the button is pressed and it's a new press (debounce)
-    if (buttonState == HIGH && lastButtonState == LOW && !debounce)
+    if (buttonState == LOW && lastButtonState == HIGH && !debounce)
     {
         pressCount++;                     // Increment the button press count
         debounce = true;                  // Set debounce flag
@@ -148,12 +161,12 @@ int countKeyPressesWithTimeoutAndLongPressDetecton()
         lastPressTime = currentTime;      // Record the time of the last press
     }
     // Reset debounce flag if the button is released
-    if (buttonState == LOW)
+    if (buttonState == HIGH)
     {
         debounce = false;
     }
     // If more than 2 seconds have passed without a press, return the count
-    if ((currentTime - lastPressTime) > 500 && pressCount > 0 && buttonState == LOW)
+    if ((currentTime - lastPressTime) > 500 && pressCount > 0 && buttonState == HIGH)
     {
         if (pressCount == 0x100) // previous detecion was a long press
         {
@@ -164,7 +177,7 @@ int countKeyPressesWithTimeoutAndLongPressDetecton()
         pressCount = 0;                   // Reset the press count after returning
         return finalPressCount;           // Return the number of key presses
     }
-    else if ((currentTime - lastPressTime) > 3000 && pressCount == 1 && buttonState == HIGH)
+    else if ((currentTime - lastPressTime) > 3000 && pressCount == 1 && buttonState == LOW)
     {
 
         pressCount = 0x0100;
@@ -192,14 +205,16 @@ RoboStruct handleTimerRoutines(RoboStruct in)
         nextSamp = millis();
         in.cmd = DIRSPEED;
         xQueueSend(udpOut, (void *)&in, 10); // update WiFi
+        xQueueSend(serOut, (void *)&in, 10); // Keep the watchdog in sub happy
     }
 
     if (accuSamp < millis())
     {
-        accuSamp = 5000 + millis();
+        accuSamp = 1010 + millis();
         in.cmd = SUBACCU;
         battVoltage(in.subAccuV, in.subAccuP);
         xQueueSend(udpOut, (void *)&in, 10); // update WiFi
+        xQueueSend(serOut, (void *)&in, 10); // Keep the watchdog in sub happy
     }
 
     if (logtimer < millis())
@@ -207,27 +222,27 @@ RoboStruct handleTimerRoutines(RoboStruct in)
         logtimer = millis() + 1000;
         if (subStatus == CALCRUDDER)
         {
-            printf("hdg:%6.2f dir%6.2f dist%5.2f speed:%4d ", in.dirMag, in.tgDir, in.tgDist, in.speed);
-            // printf(" buoy.iintergrater:%f pr%f ir%f err%f", in.iintergrater, in.pr, in.ir,in.lastErrr);
-            printf("Dir:%6.1f Speed:%4d BB:%2d SB:%2d is:%5.1f ir:%5.1f\r\n", smallestAngle(in.dirMag, in.tgDir), in.speed, in.speedBb, in.speedSb, in.is, in.ir);
+            // printf("hdg:%6.2f dir%6.2f dist%5.2f speed:%4d ", in.dirMag, in.tgDir, in.tgDist, in.speed);
+            //  printf(" buoy.iintergrater:%f pr%f ir%f err%f", in.iintergrater, in.pr, in.ir,in.lastErrr);
+            // printf("Dir:%6.1f Speed:%4d BB:%2d SB:%2d is:%5.1f ir:%5.1f\r\n", smallestAngle(in.dirMag, in.tgDir), in.speed, in.speedBb, in.speedSb, in.is, in.ir);
         }
         else
         {
             double ang = smallestAngle(in.dirSet, in.dirMag);
 
-            printf("Hdg:%5.2f tgAngle:%5.1f Speed:%d Bb:%d Sb:%d ", in.dirMag, ang, in.speed, in.speedBb, in.speedSb);
+            // printf("Hdg:%5.2f tgAngle:%5.1f Speed:%d Bb:%d Sb:%d ", in.dirMag, ang, in.speed, in.speedBb, in.speedSb);
 
             if (in.speedBb == in.speedSb)
             {
-                printf("-\r\n");
+                // printf("-\r\n");
             }
             if (in.speedBb < in.speedSb)
             {
-                printf(">\r\n");
+                // printf(">\r\n");
             }
             if (in.speedBb > in.speedSb)
             {
-                printf("<\r\n");
+                // printf("<\r\n");
             }
             logtimer = millis() + 500;
         }
@@ -434,6 +449,24 @@ void loop(void)
                 break;
             }
         }
+        //***************************************************************************************************
+        //      New serial data
+        //***************************************************************************************************
+        if (xQueueReceive(serIn, (void *)&serDataIn, 1) == pdTRUE)
+        {
+            switch (serDataIn.cmd)
+            {
+                case DIRSPEED:
+                Serial.println("new DirSpeed");
+                break;
+                case PING:
+                Serial.println("Ping");
+                break;
+            default:
+                Serial.println(serDataIn.cmd);
+                break;
+            }
+        }
+        vTaskDelay(1);
     }
-    vTaskDelay(1);
 }
