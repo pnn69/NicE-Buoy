@@ -1,6 +1,9 @@
 #ifndef DATASTORAGE_H_
 #define DATASTORAGE_H_
 
+#define GET true
+#define SET false
+
 void initMemory(void);
 void memBuoyId(int8_t *id, bool get);
 void apParameters(String *ap, String *ww, bool get);

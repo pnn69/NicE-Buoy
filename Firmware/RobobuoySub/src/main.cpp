@@ -53,9 +53,9 @@ PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
 void setup()
 {
     pinMode(PWRENABLE, OUTPUT);
-    digitalWrite(PWRENABLE, 1);
+    digitalWrite(PWRENABLE, 1); // enable powersupply
     pinMode(BATTENABLE, OUTPUT);
-    digitalWrite(BATTENABLE, 1);
+    digitalWrite(BATTENABLE, 1); // enable batery sample signal
     Serial.begin(115200);
     Setpoint = 0;             // tg angle
     myPID.SetMode(AUTOMATIC); // turn the PID on
@@ -64,23 +64,23 @@ void setup()
     pinMode(ESC_SB_PWR_PIN, OUTPUT);
     pinMode(ESC_BB_PWR_PIN, OUTPUT);
     digitalWrite(PWRENABLE, true);
-    digitalWrite(ESC_SB_PWR_PIN, true);
-    digitalWrite(ESC_BB_PWR_PIN, true);
-    delay(10);
+    // digitalWrite(ESC_SB_PWR_PIN, true); //turn esc sb on (for testing)
+    // digitalWrite(ESC_BB_PWR_PIN, true); //turn esc bb on (for testing)
     printf("\r\nSetup running!\r\n");
     printf("Robobuoy Sub Version: %0.1f\r\n", SUBVERSION);
-    buoyId = initwifi();
+    buoyId = initwifi(); // buoyID is mac adress esp32
     Serial.print("Buoy ID: ");
     Serial.println(buoyId);
     mainData.mac = buoyId;
-    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
-    initbuzzerqueue();
-    initledqueue();
-    initescqueue();
+    char mac[6];
     initMemory();
+    InitCompass();
+    initledqueue();
+    initbuzzerqueue();
+    initescqueue();
     initcompassQueue();
     initserqueue();
-    InitCompass();
+    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 1000, NULL, 1, NULL, 1);
     xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 10, NULL, 1);
     xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
@@ -192,28 +192,24 @@ int countKeyPressesWithTimeoutAndLongPressDetecton()
 //***************************************************************************************************
 RoboStruct handleTimerRoutines(RoboStruct in)
 {
-    if (in.status != IDLE && in.lastUdpIn + 5000 < millis()) // udp timeout detection
+    if (in.status != IDLE && in.lastSerIn + 5000 < millis()) // udp timeout detection
     {
-        mainLedStatus.color = CRGB::LightGoldenrodYellow;
+        mainLedStatus.color = CRGB::Red;
         mainLedStatus.blink = BLINK_FAST;
         xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
         subStatus = IDELING;
     }
 
-    if (nextSamp + 100 < millis())
+    if (nextSamp + 1010 < millis())
     {
         nextSamp = millis();
-        in.cmd = DIRSPEED;
-        xQueueSend(udpOut, (void *)&in, 10); // update WiFi
-        xQueueSend(serOut, (void *)&in, 10); // Keep the watchdog in sub happy
     }
 
     if (accuSamp < millis())
     {
-        accuSamp = 1010 + millis();
+        accuSamp = 60 * 1010 + millis();
         in.cmd = SUBACCU;
         battVoltage(in.subAccuV, in.subAccuP);
-        xQueueSend(udpOut, (void *)&in, 10); // update WiFi
         xQueueSend(serOut, (void *)&in, 10); // Keep the watchdog in sub happy
     }
 
@@ -340,6 +336,7 @@ void loop(void)
     float vbat = 0;
     int speedbb = 50, speedsb = 0;
     unsigned long rudderTimer = 0;
+    unsigned long lastSerIn = millis();
     beep(1000, buzzer);
     delay(500);
     mainLedStatus.color = CRGB::LightPink;
@@ -390,7 +387,7 @@ void loop(void)
         //***************************************************************************************************
         //      New compass data
         //***************************************************************************************************
-        if (xQueueReceive(compass, (void *)&mainData.dirMag, 2) == pdTRUE)
+        if (xQueueReceive(compass, (void *)&mainData.dirMag, 0) == pdTRUE)
         {
             if (mainData.status == LOCKED || mainData.status == DOCKED)
             {
@@ -404,23 +401,9 @@ void loop(void)
         //***************************************************************************************************
         //      new udp message
         //***************************************************************************************************
-        if (mainData.lastUdpIn + 2000 < millis())
-        {
-            mainData.lastUdpIn = millis();
-            mainLedStatus.color = CRGB::LightPink;
-            mainLedStatus.blink = BLINK_SLOW;
-            xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
-            mainData.status = IDELING;
-        }
         if (xQueueReceive(udpIn, (void *)&udpInMain, 0) == pdTRUE)
         {
-            mainData.lastUdpIn = millis();
-            if (mainLedStatus.color != CRGB::DarkBlue)
-            {
-                mainLedStatus.color = CRGB::DarkBlue;
-                mainLedStatus.blink = BLINK_SLOW;
-                xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
-            }
+            // mainData.lastSerIn = millis();
             switch (mainData.cmd)
             {
             case IDLE:
@@ -452,19 +435,66 @@ void loop(void)
         //***************************************************************************************************
         //      New serial data
         //***************************************************************************************************
-        if (xQueueReceive(serIn, (void *)&serDataIn, 1) == pdTRUE)
+        if (xQueueReceive(serIn, (void *)&serDataIn, 0) == pdTRUE)
         {
+            mainData.lastSerIn = millis();
+            if (mainLedStatus.color != CRGB::DarkBlue)
+            {
+                Serial.println("Set light to Blue");
+                mainLedStatus.color = CRGB::DarkBlue;
+                mainLedStatus.blink = BLINK_SLOW;
+                xQueueSend(ledStatus, (void *)&mainLedStatus, 0); // update util led
+            }
             switch (serDataIn.cmd)
             {
-                case DIRSPEED:
-                Serial.println("new DirSpeed");
+            case IDLE:
+                mainData.status = IDELING;
                 break;
-                case PING:
-                Serial.println("Ping");
+            case DIRSPEED:
+                mainData.speed = (int)mainData.speedSet;
+                mainData.dirSet = (int)mainData.dirSet;
+                mainData.status = REMOTE;
+                xQueueSend(serOut, (void *)&mainData, 10);
+                break;
+            case PIDRUDDERSET:
+                mainData.kpr = serDataIn.kpr;
+                mainData.kir = serDataIn.kir;
+                mainData.kdr = serDataIn.kdr;
+                pidRudderParameters(mainData, SET);
+                mainData.kir = 0;
+                break;
+            case PIDSPEEDSET:
+                mainData.kps = serDataIn.kps;
+                mainData.kis = serDataIn.kis;
+                mainData.kds = serDataIn.kds;
+                pidSpeedParameters(mainData, SET);
+                mainData.kis = 0;
+                break;
+            case STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS:
+                mainData.compassOffset += mainData.tgDir;
+                MechanicalCorrection(&mainData.compassOffset, SET);
+                break;
+            case PING:
+                mainData.cmd = DIRSPEED;
+                xQueueSend(serOut, (void *)&mainData, 10);
                 break;
             default:
-                Serial.println(serDataIn.cmd);
+                // Serial.println(serDataIn.cmd);
                 break;
+            }
+        }
+        //***************************************************************************************************
+        //      Serial watchdog
+        //***************************************************************************************************
+        if (mainData.lastSerIn + 2000 < millis())
+        {
+            if (mainLedStatus.color != CRGB::Red)
+            {
+                Serial.println("Set light to Red");
+                mainData.lastSerIn = millis();
+                mainLedStatus.color = CRGB::Red;
+                mainLedStatus.blink = BLINK_SLOW;
+                xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
             }
         }
         vTaskDelay(1);

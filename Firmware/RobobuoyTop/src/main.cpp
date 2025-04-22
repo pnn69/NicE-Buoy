@@ -196,7 +196,7 @@ RoboStruct handelKeyPress(RoboStruct key)
         case 10:
             key.status = STOREASDOC;
             break;
-        case 0x0100:
+        case 5:
             // Sail to dock position
             key.status = DOCKING;
             break;
@@ -284,6 +284,7 @@ RoboStruct handelStatus(RoboStruct stat, GpsDataType gps)
             LoraTx.cmd = LOCKPOS;
             LoraTx.ack = LORASET;
             xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
+            Serial.println("Lat:" + String(stat.tgLat) + " Long:" + String(stat.tgLng));
             stat.status = LOCKED;
         }
         else
@@ -385,14 +386,19 @@ RoboStruct handleTimerRoutines(RoboStruct timer)
     if ((timer.status == LOCKED || timer.status == DOCKED) && timer.loralstmsg + 5000 < millis())
     {
         timer.loralstmsg = millis() + random(0, 150);
-        LoraTx.cmd = BUOYPOS;
-        xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
         LoraTx.cmd = SUBPWR;
         xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
+        xQueueSend(udpOut, (void *)&LoraTx, 10);  // send out trough wifi
+        LoraTx.cmd = BUOYPOS;
+        xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
+        xQueueSend(udpOut, (void *)&LoraTx, 10);  // send out trough wifi
+        LoraTx.cmd = LOCKPOS;
+        xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
+        xQueueSend(udpOut, (void *)&LoraTx, 10);  // send out trough wifi
     }
 
     // if (timer.lastLoraOut + 29000 + random(1000, 2000) < millis())
-    if (timer.lastLoraOut + 2000 < millis())
+    if (timer.lastLoraOut + 2015 < millis())
     {
         timer.lastLoraOut = millis();
         LoraTx.cmd = BUOYPOS;
@@ -430,23 +436,27 @@ RoboStruct handleTimerRoutines(RoboStruct timer)
         xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
     }
 
-    if (timer.lastUdpOut + 1002 < millis())
+    if (timer.lastSerOut + 100 < millis())
     {
-        timer.lastUdpOut = millis();
-        timer.cmd = PING;
+        timer.lastSerOut = millis();
         if (timer.status == LOCKED || timer.status == DOCKED)
         {
             RouteToPoint(timer.lat, timer.lng, timer.tgLat, timer.tgLng, &timer.tgDist, &timer.tgDir);
             timer = hooverPid(timer);
             timer.cmd = DIRSPEED;
+            xQueueSend(serOut, (void *)&timer, 0); // Keep the watchdog in sub happy
+            xQueueSend(udpOut, (void *)&timer, 0); // Keep the watchdog in sub happy
         }
-        if (timer.status == REMOTE) // Send course info
+        else if (timer.status == REMOTE) // Send course info
         {
             timer.cmd = DIRSPEED;
+            xQueueSend(serOut, (void *)&timer, 0); // Keep the watchdog in sub happy
         }
-        xQueueSend(udpOut, (void *)&timer, 0); // Keep the watchdog in sub happy
-        xQueueSend(serOut, (void *)&timer, 0); // Keep the watchdog in sub happy
-        timer.lastUdpOut = millis();
+        else
+        {
+            timer.cmd = PING;
+            xQueueSend(serOut, (void *)&timer, 0); // Keep the watchdog in sub happy
+        }
     }
 
     if (logtimer < millis())
@@ -457,6 +467,12 @@ RoboStruct handleTimerRoutines(RoboStruct timer)
         timer.wStd = wind.wStd;
         timer.wDir = wind.wDir; // averige wind dir
         battVoltage(timer.topAccuV, timer.topAccuP);
+        if (timer.status == LOCKED) //update wind data if locked
+        {
+            timer.cmd = WINDDATA;
+            xQueueSend(serOut, (void *)&timer, 10); 
+            xQueueSend(udpOut, (void *)&timer, 10); 
+        }
 
         // RouteToPoint(timer.lat, timer.lng, timer.tgLat, timer.tgLng, &timer.tgDist, &timer.tgDir);
         // printf("Status:%d Lat: %.0f Lon:%.0f tgLat: %.0f tgLon:%.0f tgDist:%.2f tgDir:%.0f mDir:%.0f wDir:%.0f wStd:%.2f ", timer.status, timer.lat, timer.lng, timer.tgLat, timer.tgLng, timer.tgDist, timer.tgDir, timer.dirMag, timer.wDir, timer.wStd);
@@ -474,8 +490,6 @@ void loop(void)
     mainCollorGps.blink = BLINK_FAST;
     xQueueSend(ledGps, (void *)&mainCollorGps, 0); // update GPS led
     mainCollorUtil.blink = BLINK_SLOW;
-    mainCollorUtil.color = CRGB::DarkOrange;
-    xQueueSend(ledUtil, (void *)&mainCollorUtil, 0); // update GPS led
     beep(1000, buzzer);
     bool firstfix = false;
     mainData.lastLoraOut = millis();
@@ -516,6 +530,7 @@ void loop(void)
                 LoraTx.cmd = BUOYPOS;
                 LoraTx.ack = LORAINF;
                 xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
+                xQueueSend(udpOut, (void *)&LoraTx, 10);  // send out trough Lora
             }
             if (mainGpsData.fix == true)
             {
@@ -527,8 +542,9 @@ void loop(void)
                     mainData = hooverPid(mainData);
                     mainData.cmd = DIRSPEED;
                     mainData.IDs = buoyId;
-                    xQueueSend(udpOut, (void *)&mainData, 0); // update WiFi
-                    mainData.lastUdpOut = millis();
+                    xQueueSend(serOut, (void *)&mainData, 0); // update sub
+                    // Serial.println("Distance:" + String(mainData.tgDist));
+                    mainData.lastSerOut = millis();
                 }
             }
         }
@@ -615,22 +631,26 @@ void loop(void)
                     mainData.status = IDELING;
                     break;
                 case PIDRUDDERSET:
-                    pidRudderParameters(loraRx, false);
+                    pidRudderParameters(loraRx, SET);
                     loraRx.cmd = PIDRUDDERSET;
                     xQueueSend(udpOut, (void *)&loraRx, 0); // Keep the watchdog in sub happy
                     mainData.pr = loraRx.pr;
                     mainData.ir = loraRx.ir;
                     mainData.dr = loraRx.dr;
                     mainData.kir = 0;
+                    mainData.cmd = PIDRUDDERSET;
+                    xQueueSend(serOut, (void *)&mainData, 0); // update sub
                     break;
                 case PIDSPEEDSET:
-                    pidSpeedParameters(loraRx, false);
+                    pidSpeedParameters(loraRx, SET);
                     loraRx.cmd = PIDSPEEDSET;
                     xQueueSend(udpOut, (void *)&loraRx, 0); // Keep the watchdog in sub happy
                     mainData.ps = loraRx.ps;
                     mainData.is = loraRx.is;
                     mainData.ds = loraRx.ds;
                     mainData.kis = 0;
+                    mainData.cmd = PIDSPEEDSET;
+                    xQueueSend(serOut, (void *)&mainData, 0); // update sub
                     break;
                 default:
                     break;
@@ -642,7 +662,6 @@ void loop(void)
         //***************************************************************************************************
         if (xQueueReceive(udpIn, (void *)&udpDataIn, 1) == pdTRUE)
         {
-            mainData.lastUdpIn = millis();
             switch (udpDataIn.cmd)
             {
             case DIRSPEED:
@@ -663,23 +682,42 @@ void loop(void)
         //***************************************************************************************************
         if (xQueueReceive(serIn, (void *)&serDataIn, 1) == pdTRUE)
         {
+            mainData.lastSerIn = millis();
+            if (mainCollorUtil.color != CRGB::DarkBlue)
+            {
+                mainCollorUtil.color = CRGB::DarkBlue;
+                mainCollorUtil.blink = BLINK_SLOW;
+                xQueueSend(ledUtil, (void *)&mainCollorUtil, 0); // update GPS led
+            }
             switch (serDataIn.cmd)
             {
+            case PONG:
+                break;
             case DIRSPEED:
-                mainData.dirMag = serDataIn.dirMag;
-                Serial.print("new compass data: ");
-                Serial.println(serDataIn.dirMag);
+                mainData.dirMag = udpDataIn.dirMag;
+                mainData.speedBb = udpDataIn.speedBb;
+                mainData.speedSb = udpDataIn.speedSb;
                 break;
             case SUBACCU:
-                mainData.subAccuV = serDataIn.subAccuV;
-                mainData.subAccuP = serDataIn.subAccuP;
-                Serial.print("new serial data V:");
-                Serial.print(serDataIn.subAccuV);
-                Serial.print(" P:");
-                Serial.println(serDataIn.subAccuP);
+                mainData.subAccuV = udpDataIn.subAccuV;
+                mainData.subAccuP = udpDataIn.subAccuP;
                 break;
             default:
                 break;
+            }
+        }
+        //***************************************************************************************************
+        //      Serial watchdog
+        //***************************************************************************************************
+        if (mainData.lastSerIn + 2000 < millis())
+        {
+            if (mainCollorUtil.color != CRGB::Red)
+            {
+                Serial.println("Set light to Red");
+                mainData.lastSerIn = millis();
+                mainCollorUtil.color = CRGB::Red;
+                mainCollorUtil.blink = BLINK_SLOW;
+                xQueueSend(ledUtil, (void *)&mainCollorUtil, 0); // update GPS led
             }
         }
     }

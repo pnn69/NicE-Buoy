@@ -13,7 +13,7 @@
 
 #include "../../RobobuoyDependency\RobobuoyVersion.h"
 
-#define NUM_DIRECTIONS 75
+#define NUM_DIRECTIONS 10
 
 static LedData compassLedStatus;
 static PwrData compassPwrData;
@@ -188,7 +188,7 @@ bool CalibrateCompass(void)
 //***************************************************************************************************
 double GetHeading(void)
 {
-    double mHeding = heading((vector<int>){0, 1, 0}); // Select oriontation
+    double mHeding = (double)heading((vector<int>){0, 1, 0}); // Select oriontation
     mHeding = mHeding + magneticCorrection;
     if (mHeding < 0)
     {
@@ -218,12 +218,11 @@ double GetHeadingRaw(void)
     return (double)t;
 }
 
-static int cbufpointer = 0;
-static float directions[NUM_DIRECTIONS];
-
 //***************************************************************************************************
 //
 //***************************************************************************************************
+static int cbufpointer = 0;
+static double directions[NUM_DIRECTIONS];
 double CompassAverage(double in)
 {
     directions[cbufpointer++] = in;
@@ -286,9 +285,11 @@ void initcompassQueue(void)
 //***************************************************************************************************
 void CompassTask(void *arg)
 {
+    unsigned long compassSampTime = millis();
     while (1)
     {
         mDir = GetHeadingAvg();
+        // mDir = GetHeading();
         xQueueSend(compass, (void *)&mDir, 0); // notify main there is new data
         vTaskDelay(1);
     }

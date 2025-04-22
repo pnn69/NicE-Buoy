@@ -145,6 +145,11 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         dataStore.tgDir = numbers[2].toDouble();
         dataStore.tgDist = numbers[3].toDouble();
         break;
+    case WINDDATA:
+        dataStore.wDir = numbers[2].toDouble();
+        dataStore.wStd = numbers[2].toDouble();
+        break;
+
     case IDELING:
         break;
     case LORAACK:
@@ -280,6 +285,10 @@ String RoboCode(RoboStruct dataOut)
         out += "," + String(dataOut.wDir, 1);
         out += "," + String(dataOut.wStd, 1);
         break;
+    case WINDDATA:
+        out += "," + String(dataOut.wDir, 1);
+        out += "," + String(dataOut.wStd, 1);
+        break;
     case LOCKING:
         break;
     case IDELING:
@@ -299,7 +308,7 @@ String RoboCode(RoboStruct dataOut)
 
 //***************************************************************************************************
 //  code rf string
-//  add crc 
+//  add crc
 // $IDr,IDs,ack,msg,data*chk
 //***************************************************************************************************
 String rfCode(RoboStruct rfOut)

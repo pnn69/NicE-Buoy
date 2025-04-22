@@ -19,13 +19,18 @@ void initserqueue(void)
 void SercomTask(void *arg)
 {
     char buff[50];
-    // Serial1.begin(921600, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, true); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
-    Serial1.begin(230400, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, true); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
+    Serial1.begin(460800, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, true); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
+    //Serial1.begin(230400, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, true); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
     while (1)
     {
         if (Serial1.available()) // recieve data form top
         {
-            String serStringIn = Serial1.readStringUntil('\n');
+            String serStringIn = "";
+            while (Serial1.available())
+            {
+                serStringIn += (char)Serial1.read();
+            }
+            Serial1.flush();
             RoboStruct serDataIn = rfDeCode(serStringIn);
             if (serDataIn.IDs != -1)
             {
@@ -34,15 +39,18 @@ void SercomTask(void *arg)
             }
             else
             {
-                // Serial.println("crc error: " + serStringIn);
+                Serial.println("crc error: " + serStringIn);
             }
         }
-        if (xQueueReceive(serOut, (void *)&serDataOut, 1) == pdTRUE) // send data to top
+        if (xQueueReceive(serOut, (void *)&serDataOut, 0) == pdTRUE) // send data to top
         {
             String out = rfCode(serDataOut);
             Serial1.println(out);
-            Serial1.readBytes(buff, sizeof(out));
-            Serial1.flush();
+            delay(2);
+            while (Serial1.available())
+            {
+                Serial1.read();
+            }
         }
         delay(1);
     }

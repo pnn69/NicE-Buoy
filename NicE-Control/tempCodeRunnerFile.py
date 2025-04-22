@@ -1,1 +1,7 @@
-font_settings = ("Arial", 8)  # Change the font name and size as needed
+entry = Entry(
+    root, 
+    label_text="Wind Rose Example", 
+    button_text="OK", 
+    label_background="lightgray", 
+    wind_direction=135  # Example wind direction
+)

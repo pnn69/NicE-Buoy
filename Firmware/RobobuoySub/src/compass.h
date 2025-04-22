@@ -11,7 +11,7 @@ void calibrateParametersCompas(void);
 bool CalibrateCompass(void);
 double GetHeading(void);
 double GetHeadingRaw(void);
-double CompassAverage(float);
+double CompassAverage(double);
 double GetHeadingAvg(void);
 void CompassTask(void *arg);
 #endif /* COMPASS_H_ */

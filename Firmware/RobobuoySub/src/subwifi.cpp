@@ -146,6 +146,7 @@ unsigned long initwifi(void)
     {
         tmp = (tmp << 8) | mac[i];
     }
+    Serial.printf("ESP32-mac: %02x%02x%02x%02x%02x%02x\r\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     return tmp;
 }
 
@@ -172,6 +173,12 @@ bool scan_for_wifi_ap(String ssipap)
     }
     Serial.println("Acces point not foud.....");
     return false;
+}
+
+uint8_t* getMacId(uint8_t* mac)
+{
+    WiFi.macAddress(mac);
+    return mac;
 }
 
 //***************************************************************************************************

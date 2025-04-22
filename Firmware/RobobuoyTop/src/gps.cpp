@@ -28,16 +28,15 @@ bool initgpsqueue(void)
 
 void GpsTask(void *arg)
 {
-    Serial1.begin(GPSBAUD, SERIAL_8N1, GPSRX, GPSTX);
+    Serial2.begin(GPSBAUD, SERIAL_8N1, GPSRX, GPSTX);
     Serial.println("Gps task running!");
     while (1)
     {
-        while (Serial1.available() > 0)
+        while (Serial2.available() > 0)
         {
-            // char c = Serial1.read();
-            // Serial.print(c);
-            // if (gps.encode(c))
-            if (gps.encode(Serial1.read()))
+            char c = Serial2.read();
+            //Serial.print(c);
+            if (gps.encode(c))
             {
                 gpsTimeOut = millis();
                 if (gps.location.isUpdated() && gps.location.isValid())

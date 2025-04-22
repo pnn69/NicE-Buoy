@@ -23,8 +23,7 @@ void initMemory(void)
         Serial.printf("Buoy Memory configured\r\n");
         delay(1000);
     }
-    id = storage.getChar("NicE_BuoyID", 0);
-    if (id != 0)
+    else
     {
         Serial.printf("Buoy Memory OK\r\n");
     }
@@ -189,9 +188,9 @@ RoboStruct pidRudderParameters(RoboStruct buoy, bool get)
     }
     else
     {
-        storage.putDouble("Prd", buoy.pr);
-        storage.putDouble("Ird", buoy.ir);
-        storage.putDouble("Drd", buoy.dr);
+        storage.putDouble("Prd", buoy.kpr);
+        storage.putDouble("Ird", buoy.kir);
+        storage.putDouble("Drd", buoy.kdr);
     }
     stopMem();
     return buoy;

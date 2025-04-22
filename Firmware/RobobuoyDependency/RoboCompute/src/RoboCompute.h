@@ -82,7 +82,8 @@ typedef enum
     COMPUTETRACK,                            //
     NEWBUOYPOS,                              // lat,lng
     TXT,                                     // Text message
-    ROBODEFAULTS,
+    ROBODEFAULTS,                            //
+    WINDDATA,                                // wDir,wStd;
 } msg_t;
 
 struct RoboStruct
@@ -134,6 +135,8 @@ struct RoboStruct
     unsigned long lastLoraIn = 0;  // last external communicatong
     unsigned long lastLoraOut = 0; // last external communicatong
     unsigned long lastUdpOut = 0;  // last external communicatong
+    unsigned long lastSerOut = 0;  // last external communicatong
+    unsigned long lastSerIn = 0;   // last external communicatong
     unsigned long lastUdpIn = 0;   // last external communicatong
     unsigned char retry = 0;
 };

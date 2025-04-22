@@ -96,8 +96,8 @@ void EscTask(void *arg)
         {
             spbb = rcv_msg.speedbb;
             spsb = rcv_msg.speedsb;
-            escbb.write(map(rcv_msg.speedbb, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
-            escsb.write(map(rcv_msg.speedsb, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+            escbb.write(map(rcv_msg.speedbb, -100, 100, 180, 0)); // set servo to 'rcv_msg.speedbb'
+            escsb.write(map(rcv_msg.speedsb, -100, 100, 180, 0)); // set servo to 'rcv_msg.speedsb'
             uint8_t r, g;
             if (rcv_msg.speedbb < 0)
             {
@@ -133,7 +133,7 @@ void EscTask(void *arg)
         {
             if (digitalRead(ESC_BB_PWR_PIN) == 0)
             {
-                escbb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+                escbb.write(map(0, -100, 100, 180, 0)); // tell servo to go to 0 rpm
                 digitalWrite(ESC_BB_PWR_PIN, HIGH);
                 delay(1000);
             }
@@ -154,7 +154,7 @@ void EscTask(void *arg)
         {
             if (digitalRead(ESC_SB_PWR_PIN) == 0)
             {
-                escsb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+                escsb.write(map(0, -100, 100, 180, 0)); // tell servo to go  0 rpm
                 digitalWrite(ESC_SB_PWR_PIN, HIGH);
                 delay(1000);
             }

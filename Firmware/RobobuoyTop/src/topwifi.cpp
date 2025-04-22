@@ -194,6 +194,7 @@ unsigned long initwifiqueue(void)
     {
         tmp = (tmp << 8) | mac[i];
     }
+    Serial.printf("ESP32-mac: %02x%02x%02x%02x%02x%02x\r\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     return tmp;
 }
 
@@ -270,13 +271,6 @@ void WiFiTask(void *arg)
             msgIdOut.IDs = msgIdOut.mac;
             String out = rfCode(msgIdOut);
             udp.broadcast(out.c_str());
-        }
-        if (lastUpdMsg + 1 * 1000 < millis() && wifiCollorUtil.color != CRGB::DarkOrange)
-        {
-            wifiCollorUtil.color = CRGB::DarkOrange;
-            wifiCollorUtil.blink = BLINK_SLOW;
-            xQueueSend(ledUtil, (void *)&wifiCollorUtil, 0); // update GPS led
-            lastUpdMsg = millis();
         }
         delay(1);
     }
