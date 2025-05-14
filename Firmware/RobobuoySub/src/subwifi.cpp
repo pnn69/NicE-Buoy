@@ -4,6 +4,7 @@
 #include <ArduinoOTA.h>
 #include <RoboCompute.h>
 #include "main.h"
+#include "io_sub.h"
 #include "datastorage.h"
 #include "subwifi.h"
 
@@ -41,7 +42,9 @@ bool setup_OTA()
     Serial.println("Storing in memory and reboot!");
     Serial.println(); });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
-                          { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); });
+                          { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); 
+                            digitalWrite(PWRENABLE, 1); // enable powersupply
+                        });
     ArduinoOTA.onError([](ota_error_t error)
                        { ESP.restart(); });
     /* setup the OTA server */

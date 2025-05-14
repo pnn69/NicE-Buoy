@@ -54,8 +54,9 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
     case LOCKED: // tgDir,tgDist
         dataStore.tgDir = numbers[2].toDouble();
         dataStore.tgDist = numbers[3].toDouble();
-        dataStore.wDir = numbers[4].toDouble();
-        dataStore.wStd = numbers[5].toDouble();
+        dataStore.tgSpeed = numbers[4].toInt();
+        dataStore.wDir = numbers[5].toDouble();
+        dataStore.wStd = numbers[6].toDouble();
         break;
     case REMOTE: // speed,tgdir
         dataStore.speed = numbers[2].toInt();
@@ -141,9 +142,10 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         dataStore.tgLat = numbers[2].toDouble();
         dataStore.tgLng = numbers[3].toDouble();
         break;
-    case DIRDIST:
+    case DIRDISTSP:
         dataStore.tgDir = numbers[2].toDouble();
         dataStore.tgDist = numbers[3].toDouble();
+        dataStore.tgSpeed = numbers[3].toInt();
         break;
     case WINDDATA:
         dataStore.wDir = numbers[2].toDouble();
@@ -189,6 +191,7 @@ String RoboCode(RoboStruct dataOut)
     case LOCKED:
         out += "," + String(dataOut.tgDir, 2);
         out += "," + String(dataOut.tgDist, 2);
+        out += "," + String(dataOut.tgSpeed);
         out += "," + String(dataOut.wDir, 1);
         out += "," + String(dataOut.wStd, 1);
         break;
@@ -244,9 +247,10 @@ String RoboCode(RoboStruct dataOut)
         out += "," + String(dataOut.kir, 3);
         out += "," + String(dataOut.kdr, 3);
         break;
-    case DIRDIST:
+    case DIRDISTSP:
         out += "," + String(dataOut.tgDir, 2);
         out += "," + String(dataOut.tgDist, 2);
+        out += "," + String(dataOut.tgSpeed);
         break;
     case CALCRUDDER:
         out += "," + String(dataOut.tgDir, 2);

@@ -16,6 +16,14 @@ void initserqueue(void)
     serIn = xQueueCreate(10, sizeof(RoboStruct));
 }
 
+void PowerOnSub(void)
+{
+    pinMode(COM_PIN_TX, OUTPUT);
+    digitalWrite(COM_PIN_TX, 1);
+    delay(2000);
+    Serial1.begin(460800, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, true); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
+}
+
 void SercomTask(void *arg)
 {
     char buff[50];

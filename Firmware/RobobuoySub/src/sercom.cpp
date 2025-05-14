@@ -37,10 +37,10 @@ void SercomTask(void *arg)
                 xQueueSend(serIn, (void *)&serDataIn, 10); // notify main there is new data
                 lastSerMsg = millis();
             }
-            else
-            {
-                Serial.println("crc error: " + serStringIn);
-            }
+            // else
+            // {
+            //     Serial.println("crc error: " + serStringIn);
+            // }
         }
         if (xQueueReceive(serOut, (void *)&serDataOut, 0) == pdTRUE) // send data to top
         {

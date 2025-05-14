@@ -70,6 +70,11 @@ void initescqueue(void)
     escsb.setPeriodHertz(100);                  // standard 400 hz servo
     escsb.attach(ESC_SB_PIN, ESC_MIN, ESC_MAX); // attaches the servo on pin 18 to the servo object
     escspeed = xQueueCreate(10, sizeof(Message));
+    digitalWrite(ESC_SB_PWR_PIN, HIGH); // Poweron esc
+    printf("ESC SB on!\r\n");
+    delay(500);
+    digitalWrite(ESC_BB_PWR_PIN, HIGH); // Poweron esc
+    printf("ESC BB on!\r\n");
 }
 
 void EscTask(void *arg)
@@ -80,13 +85,15 @@ void EscTask(void *arg)
     int spsb = 0, spbb = 0;
     pinMode(ESC_SB_PWR_PIN, OUTPUT);
     pinMode(ESC_BB_PWR_PIN, OUTPUT);
-    escbb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
-    escsb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
-    delay(500);
-    void beepESC();
-    Message rcv_msg;
     digitalWrite(ESC_SB_PWR_PIN, HIGH);
     digitalWrite(ESC_BB_PWR_PIN, HIGH);
+    printf("ESC SB ON\r\n");
+    printf("ESC BB ON\r\n");
+    delay(500);
+    escbb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+    escsb.write(map(0, -100, 100, 180, 0)); // tell servo to go to position in variable 'pos'
+    void beepESC();
+    Message rcv_msg;
     sbStamp = millis();
     bbStamp = millis();
     printf("ESC task running!\r\n");
@@ -135,6 +142,7 @@ void EscTask(void *arg)
             {
                 escbb.write(map(0, -100, 100, 180, 0)); // tell servo to go to 0 rpm
                 digitalWrite(ESC_BB_PWR_PIN, HIGH);
+                printf("ESC BB ON\r\n");
                 delay(1000);
             }
             bbStamp = millis();
@@ -145,6 +153,7 @@ void EscTask(void *arg)
             {
                 bbStamp = millis();
                 digitalWrite(ESC_BB_PWR_PIN, LOW); // Poweroff esc
+                printf("ESC BB OFF\r\n");
             }
         }
         /*
@@ -156,6 +165,7 @@ void EscTask(void *arg)
             {
                 escsb.write(map(0, -100, 100, 180, 0)); // tell servo to go  0 rpm
                 digitalWrite(ESC_SB_PWR_PIN, HIGH);
+                printf("ESC SB ON\r\n");
                 delay(1000);
             }
             sbStamp = millis();
@@ -166,6 +176,7 @@ void EscTask(void *arg)
             {
                 sbStamp = millis();
                 digitalWrite(ESC_SB_PWR_PIN, LOW); // Poweroff esc
+                printf("ESC SB OFF\r\n");
             }
         }
         if (logStamp + 1000 < millis())

@@ -272,6 +272,7 @@ RoboStruct handelStatus(RoboStruct stat, GpsDataType gps)
         if (gps.fix == true)
         {
             beep(1, buzzer);
+            PowerOnSub();
             stat.mac = buoyId;
             stat.IDs = buoyId;
             stat.tgLat = stat.lat;
@@ -296,6 +297,7 @@ RoboStruct handelStatus(RoboStruct stat, GpsDataType gps)
 
     case DOCKING:
         beep(1, buzzer);
+        PowerOnSub();
         stat = memDockPos(stat, true);
         printf("Retreved data for docking tgLat:%.8f tgLng:%.8f\r\n", stat.tgLat, stat.tgLng);
         stat.status = DOCKED;
@@ -417,7 +419,7 @@ RoboStruct handleTimerRoutines(RoboStruct timer)
             if (timer.status == LOCKED || timer.status == DOCKED)
             {
                 //  IDr,IDs,MSG,ACK,tgDir,tgDist
-                LoraTx.cmd = DIRDIST;
+                LoraTx.cmd = DIRDISTSP;
                 loralstmsg = 3;
                 break;
             }
@@ -455,7 +457,7 @@ RoboStruct handleTimerRoutines(RoboStruct timer)
         else
         {
             timer.cmd = PING;
-            xQueueSend(serOut, (void *)&timer, 0); // Keep the watchdog in sub happy
+            // xQueueSend(serOut, (void *)&timer, 0); // Keep the watchdog in sub happy
         }
     }
 
@@ -467,11 +469,11 @@ RoboStruct handleTimerRoutines(RoboStruct timer)
         timer.wStd = wind.wStd;
         timer.wDir = wind.wDir; // averige wind dir
         battVoltage(timer.topAccuV, timer.topAccuP);
-        if (timer.status == LOCKED) //update wind data if locked
+        if (timer.status == LOCKED) // update wind data if locked
         {
             timer.cmd = WINDDATA;
-            xQueueSend(serOut, (void *)&timer, 10); 
-            xQueueSend(udpOut, (void *)&timer, 10); 
+            xQueueSend(serOut, (void *)&timer, 10);
+            xQueueSend(udpOut, (void *)&timer, 10);
         }
 
         // RouteToPoint(timer.lat, timer.lng, timer.tgLat, timer.tgLng, &timer.tgDist, &timer.tgDir);
@@ -540,10 +542,10 @@ void loop(void)
                 {
                     RouteToPoint(mainData.lat, mainData.lng, mainData.tgLat, mainData.tgLng, &mainData.tgDist, &mainData.tgDir);
                     mainData = hooverPid(mainData);
-                    mainData.cmd = DIRSPEED;
+                    mainData.cmd = LOCKED;
                     mainData.IDs = buoyId;
                     xQueueSend(serOut, (void *)&mainData, 0); // update sub
-                    // Serial.println("Distance:" + String(mainData.tgDist));
+                    Serial.println("Distance: " + String(mainData.tgDist) + " Dir: " + String(mainData.tgDir));
                     mainData.lastSerOut = millis();
                 }
             }
@@ -600,10 +602,11 @@ void loop(void)
                         mainData.status = LOCKED;
                     }
                     break;
-                case DIRDIST:
+                case DIRDISTSP:
                     mainData.tgDir = loraRx.tgDir;
                     mainData.tgDist = loraRx.tgDist;
-                    mainData.status = DIRDIST;
+                    mainData.tgSpeed = loraRx.tgSpeed;
+                    mainData.status = DIRDISTSP;
                     loraTimerIn = 5000 + millis(); // 5 sec timeout
                 case DIRSPEED:
                     mainData.tgDir = loraRx.tgDir;

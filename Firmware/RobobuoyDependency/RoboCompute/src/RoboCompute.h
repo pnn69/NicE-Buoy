@@ -63,7 +63,7 @@ typedef enum
     SPEED,                                   // speed
     SUBSPEED,                                // speed BB, speed SB , speed
     DIRSPEED,                                // mDir,speedbb,speedsb,speed
-    DIRDIST,                                 // Direction and distance
+    DIRDISTSP,                               // Direction and distance
     TOPID,                                   // mac[unsigned long]
     SUBID,                                   // mac[unsigned long]
     REMOTEID,                                // mac[unsigned long]
@@ -110,6 +110,7 @@ struct RoboStruct
     double wStd = 0;
     double dirMag = 0;
     double tgDir = 0;
+    int tgSpeed = 0;
     int trackPos = 0;
     int speed = 0; // speed
     int speedBb = 0;

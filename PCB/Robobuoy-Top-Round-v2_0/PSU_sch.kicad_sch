@@ -3108,6 +3108,16 @@
 		)
 		(uuid "15d27a14-6b16-4c9f-93b3-a940438a77bb")
 	)
+	(text "Wrong position!"
+		(exclude_from_sim no)
+		(at 104.14 91.44 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "4052ee4c-3078-4905-8981-0084b048aa71")
+	)
 	(text "Vbatt max 25,2V"
 		(exclude_from_sim no)
 		(at 81.534 70.866 0)

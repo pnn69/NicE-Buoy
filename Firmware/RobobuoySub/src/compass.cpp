@@ -120,6 +120,7 @@ bool InitCompass(void)
     CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], GET); //  get callibration data
     m_min = (vector<float>){min_mag[0], min_mag[1], min_mag[2]};
     m_max = (vector<float>){max_mag[0], max_mag[1], max_mag[2]};
+    printf("Compass calibration: %1.3f %1.3f %1.3f %1.3f %1.3f %1.3f \r\n",max_mag[0], max_mag[1], max_mag[2], min_mag[0], min_mag[1], min_mag[2]);
 
     if (!mag.begin())
     {
@@ -188,7 +189,7 @@ bool CalibrateCompass(void)
 //***************************************************************************************************
 double GetHeading(void)
 {
-    double mHeding = (double)heading((vector<int>){0, 1, 0}); // Select oriontation
+    double mHeding = (double)heading((vector<int>){0, 0, 1}); // Select oriontation
     mHeding = mHeding + magneticCorrection;
     if (mHeding < 0)
     {
@@ -206,7 +207,7 @@ double GetHeading(void)
 //***************************************************************************************************
 double GetHeadingRaw(void)
 {
-    double t = heading((vector<int>){0, 1, 0});
+    double t = heading((vector<int>){0, 0, 1});
     if (t >= 360.0)
     {
         t -= 360;
@@ -288,8 +289,8 @@ void CompassTask(void *arg)
     unsigned long compassSampTime = millis();
     while (1)
     {
-        mDir = GetHeadingAvg();
-        // mDir = GetHeading();
+        //mDir = GetHeadingAvg();
+        mDir = GetHeading();
         xQueueSend(compass, (void *)&mDir, 0); // notify main there is new data
         vTaskDelay(1);
     }

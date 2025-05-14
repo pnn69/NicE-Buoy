@@ -21,6 +21,7 @@ static RoboStruct udpInMain;
 static RoboStruct serDataIn;
 static Message esc;
 static unsigned long buoyId;
+static unsigned long PwrOff;
 static int subStatus = IDLE;
 static LedData mainLedStatus;
 static PwrData mainPwrData;
@@ -31,6 +32,7 @@ unsigned long nextSamp = millis();
 unsigned long accuSamp = millis();
 unsigned long logtimer = millis();
 unsigned long udptimer = millis();
+unsigned long pidtimer = millis();
 
 int buttonState = 0;              // Current state of the button
 int lastButtonState = 0;          // Previous state of the button
@@ -43,9 +45,9 @@ int presses = 0;
 //***************************************************************************************************
 //  new pid stuff
 //***************************************************************************************************
-double Setpoint, Input, Output;
+double rudderSetpoint = 0, rudderInput, rudderOutput;
 double Kp = 1, Ki = 0.1, Kd = 0.1;
-PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
+PID rudderPID(&rudderInput, &rudderOutput, &rudderSetpoint, Kp, Ki, Kd, DIRECT);
 
 //***************************************************************************************************
 // Setup
@@ -53,19 +55,20 @@ PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
 void setup()
 {
     pinMode(PWRENABLE, OUTPUT);
+    pinMode(BUTTON_PIN, INPUT);
+    pinMode(ESC_SB_PWR_PIN, OUTPUT);
+    pinMode(ESC_BB_PWR_PIN, OUTPUT);
+    digitalWrite(ESC_SB_PWR_PIN, LOW);
+    digitalWrite(ESC_BB_PWR_PIN, LOW);
+    delay(100);
     digitalWrite(PWRENABLE, 1); // enable powersupply
     pinMode(BATTENABLE, OUTPUT);
     digitalWrite(BATTENABLE, 1); // enable batery sample signal
     Serial.begin(115200);
-    Setpoint = 0;             // tg angle
-    myPID.SetMode(AUTOMATIC); // turn the PID on
-    myPID.SetOutputLimits(-180, 180);
-    pinMode(BUTTON_PIN, INPUT);
-    pinMode(ESC_SB_PWR_PIN, OUTPUT);
-    pinMode(ESC_BB_PWR_PIN, OUTPUT);
+    // rudderPID.SetMode(AUTOMATIC); // turn the PID on
+    // rudderPID.SetOutputLimits(-180, 180);
+
     digitalWrite(PWRENABLE, true);
-    // digitalWrite(ESC_SB_PWR_PIN, true); //turn esc sb on (for testing)
-    // digitalWrite(ESC_BB_PWR_PIN, true); //turn esc bb on (for testing)
     printf("\r\nSetup running!\r\n");
     printf("Robobuoy Sub Version: %0.1f\r\n", SUBVERSION);
     buoyId = initwifi(); // buoyID is mac adress esp32
@@ -135,7 +138,9 @@ void setup()
                    " MINspeed:" + String(mainData.minSpeed) +
                    " Maxoffsetdistance:" + String(mainData.maxOfsetDist) +
                    " MINoffsetdistance:" + String(mainData.minOfsetDist));
-    myPID.SetTunings(mainData.kpr, mainData.kir, mainData.kdr, DIRECT);
+    rudderPID.SetTunings(mainData.kpr, mainData.kir, mainData.kdr, DIRECT);
+    rudderPID.SetMode(AUTOMATIC);
+    rudderPID.SetOutputLimits(-99, 99);
     Serial.println("Setup done!");
 }
 
@@ -192,56 +197,50 @@ int countKeyPressesWithTimeoutAndLongPressDetecton()
 //***************************************************************************************************
 RoboStruct handleTimerRoutines(RoboStruct in)
 {
-    if (in.status != IDLE && in.lastSerIn + 5000 < millis()) // udp timeout detection
+    if (nextSamp + 250 < millis())
     {
-        mainLedStatus.color = CRGB::Red;
-        mainLedStatus.blink = BLINK_FAST;
-        xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
-        subStatus = IDELING;
-    }
-
-    if (nextSamp + 1010 < millis())
-    {
+        printf("COG: %03.0f TG: %03f.0 Error: %03.0f PIDout: %03.0f\r\n", in.dirMag, in.tgDir, rudderOutput);
         nextSamp = millis();
     }
 
     if (accuSamp < millis())
     {
         accuSamp = 60 * 1010 + millis();
-        in.cmd = SUBACCU;
         battVoltage(in.subAccuV, in.subAccuP);
-        xQueueSend(serOut, (void *)&in, 10); // Keep the watchdog in sub happy
     }
 
     if (logtimer < millis())
     {
         logtimer = millis() + 1000;
-        if (subStatus == CALCRUDDER)
-        {
-            // printf("hdg:%6.2f dir%6.2f dist%5.2f speed:%4d ", in.dirMag, in.tgDir, in.tgDist, in.speed);
-            //  printf(" buoy.iintergrater:%f pr%f ir%f err%f", in.iintergrater, in.pr, in.ir,in.lastErrr);
-            // printf("Dir:%6.1f Speed:%4d BB:%2d SB:%2d is:%5.1f ir:%5.1f\r\n", smallestAngle(in.dirMag, in.tgDir), in.speed, in.speedBb, in.speedSb, in.is, in.ir);
-        }
-        else
-        {
-            double ang = smallestAngle(in.dirSet, in.dirMag);
+        in.cmd = SUBACCU;
+        xQueueSend(serOut, (void *)&in, 10); // Keep the watchdog in sub happy
+        //        if (subStatus == CALCRUDDER)
+        //        {
+        // printf("hdg:%6.2f dir%6.2f dist%5.2f speed:%4d ", in.dirMag, in.tgDir, in.tgDist, in.speed);
+        // printf("Dir:%6.1f Speed:%4d BB:%2d SB:%2d is:%5.1f ir:%5.1f\r\n", smallestAngle(in.dirMag, in.tgDir), in.speed, in.speedBb, in.speedSb, in.is, in.ir);
+        printf("Hdg:%5.2f tgAngle:%5.1f Speed:%d Bb:%d Sb:%d \r\n", in.dirMag, in.tgDir, in.speed, in.speedBb, in.speedSb);
+        // Serial.println("Distance: " + String(mainData.tgDist) + " Dir: " + String(mainData.tgDir));
+        // }
+        // else
+        // {
+        //     double ang = smallestAngle(in.dirSet, in.dirMag);
 
-            // printf("Hdg:%5.2f tgAngle:%5.1f Speed:%d Bb:%d Sb:%d ", in.dirMag, ang, in.speed, in.speedBb, in.speedSb);
+        //     // printf("Hdg:%5.2f tgAngle:%5.1f Speed:%d Bb:%d Sb:%d ", in.dirMag, ang, in.speed, in.speedBb, in.speedSb);
 
-            if (in.speedBb == in.speedSb)
-            {
-                // printf("-\r\n");
-            }
-            if (in.speedBb < in.speedSb)
-            {
-                // printf(">\r\n");
-            }
-            if (in.speedBb > in.speedSb)
-            {
-                // printf("<\r\n");
-            }
-            logtimer = millis() + 500;
-        }
+        //     if (in.speedBb == in.speedSb)
+        //     {
+        //         // printf("-\r\n");
+        //     }
+        //     if (in.speedBb < in.speedSb)
+        //     {
+        //         // printf(">\r\n");
+        //     }
+        //     if (in.speedBb > in.speedSb)
+        //     {
+        //         // printf("<\r\n");
+        //     }
+        //     logtimer = millis() + 500;
+        // }
     }
     return in;
 }
@@ -281,21 +280,11 @@ int handelKeyPress(int key)
 //***************************************************************************************************
 RoboStruct rudderPid(RoboStruct rud)
 {
-    Input = smallestAngle(rud.dirSet, rud.dirMag);
-    Setpoint = 0;
-    myPID.Compute();
-    // Output += rud.compassOffset; // mecanical offset
-    // if (Output < 0)
-    // {
-    //     Output += 360;
-    // }
-    // if (Output > 360)
-    // {
-    //     Output -= 360;
-    // }
-    double deltaPwr = (Output / 180) * 2;
-    double bb = rud.speed * (1 - deltaPwr);
-    double sb = rud.speed * (1 + deltaPwr);
+    rudderInput = smallestAngle(rud.tgDir, rud.dirMag);
+    rudderSetpoint = 0;
+    rudderPID.Compute();
+    double bb = rud.tgSpeed - rudderOutput / 2;
+    double sb = rud.tgSpeed + rudderOutput / 2;
     rud.speedSb = constrain(sb, rud.minSpeed, rud.maxSpeed);
     rud.speedBb = constrain(bb, rud.minSpeed, rud.maxSpeed);
     if (esc.speedbb != rud.speedBb || esc.speedsb != rud.speedSb)
@@ -351,6 +340,7 @@ void loop(void)
     /*
         Main loop
     */
+    PwrOff = millis();
     while (true)
     {
         //***************************************************************************************************
@@ -362,7 +352,7 @@ void loop(void)
         //     if (mainData.status == LOCKED || mainData.status == DOCKED)
         //     {
         //         Input = smallestAngle(mainData.dirSet, mainData.dirMag);
-        //         myPID.Compute();
+        //         rudderPID.Compute();
         //         mainData.speed = 50;
         //         double deltaPwr = (Output / 180) * 2;
         //         double bb = mainData.speed * (1 + deltaPwr);
@@ -391,7 +381,7 @@ void loop(void)
         {
             if (mainData.status == LOCKED || mainData.status == DOCKED)
             {
-                if (rudderTimer + 250 < millis())
+                if (rudderTimer + 100 < millis())
                 {
                     rudderTimer = millis();
                     mainData = rudderPid(mainData);
@@ -410,16 +400,21 @@ void loop(void)
                 mainData.status = IDELING;
                 break;
             case DIRSPEED:
-                mainData.speed = (int)mainData.speedSet;
+                mainData.speed = (int)udpInMain.speedSet;
                 mainData.status = REMOTE;
                 break;
-            case REMOTE:
+            case DIRDISTSP:
+                mainData.tgDir = (int)udpInMain.tgDir;
+                mainData.tgDist = (int)udpInMain.tgDist;
+                mainData.tgSpeed = (int)udpInMain.tgSpeed;
+                mainData.status = LOCKED;
+                break;
             case PIDRUDDERSET:
-                pidRudderParameters(mainData, false);
+                pidRudderParameters(udpInMain, false);
                 mainData.kir = 0;
                 break;
             case PIDSPEEDSET:
-                pidSpeedParameters(mainData, false);
+                pidSpeedParameters(udpInMain, false);
                 mainData.kis = 0;
                 break;
             case STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS:
@@ -438,6 +433,10 @@ void loop(void)
         if (xQueueReceive(serIn, (void *)&serDataIn, 0) == pdTRUE)
         {
             mainData.lastSerIn = millis();
+            if (serDataIn.cmd != PING)
+            {
+                PwrOff = millis();
+            }
             if (mainLedStatus.color != CRGB::DarkBlue)
             {
                 Serial.println("Set light to Blue");
@@ -450,11 +449,23 @@ void loop(void)
             case IDLE:
                 mainData.status = IDELING;
                 break;
+            case DIRDISTSP:
+                mainData.tgDir = (int)serDataIn.tgDir;
+                mainData.tgDist = (int)serDataIn.tgDist;
+                mainData.tgSpeed = (int)serDataIn.tgSpeed;
+                mainData.status = LOCKED;
+                break;
             case DIRSPEED:
-                mainData.speed = (int)mainData.speedSet;
-                mainData.dirSet = (int)mainData.dirSet;
+                mainData.dirSet = (int)serDataIn.dirSet;
+                mainData.speed = (int)serDataIn.speedSet;
                 mainData.status = REMOTE;
                 xQueueSend(serOut, (void *)&mainData, 10);
+                break;
+            case LOCKED:
+            case DOCKED:
+                mainData.tgDist = serDataIn.tgDist;
+                mainData.tgDir = serDataIn.tgDir;
+                mainData.status = serDataIn.cmd;
                 break;
             case PIDRUDDERSET:
                 mainData.kpr = serDataIn.kpr;
@@ -486,7 +497,8 @@ void loop(void)
         //***************************************************************************************************
         //      Serial watchdog
         //***************************************************************************************************
-        if (mainData.lastSerIn + 2000 < millis())
+        // if (mainData.lastSerIn + 1000 * 5 < millis())
+        if (mainData.lastSerIn + 1000 * 2 < millis())
         {
             if (mainLedStatus.color != CRGB::Red)
             {
@@ -495,7 +507,25 @@ void loop(void)
                 mainLedStatus.color = CRGB::Red;
                 mainLedStatus.blink = BLINK_SLOW;
                 xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
+                beep(500, buzzer);
+                mainData.speed = 0;
+                mainData.status = IDELING;
             }
+        }
+        //***************************************************************************************************
+        //      Shutdown the system
+        //***************************************************************************************************
+        // if (PwrOff + 1000 * 60 * 3 < millis())
+        if (PwrOff + 1000 * 30 * 1 < millis())
+        {
+            beep(-1, buzzer);
+            printf("Power off now!'r'n");
+            delay(1000);
+            digitalWrite(PWRENABLE, 0); // disable powersupply
+            delay(1000);
+            digitalWrite(PWRENABLE, 0); // disable powersupply
+            delay(1000);
+            PwrOff = millis();
         }
         vTaskDelay(1);
     }
