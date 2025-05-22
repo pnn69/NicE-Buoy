@@ -1,14 +1,15 @@
 #include <TinyGPSPlus.h>
 #include "gps.h"
 #include "io_top.h"
-//#include "leds.h"
+#include "RoboCompute.h"
+// #include "leds.h"
 
 // #define GPSBAUD 9600
 //   #define GPSBAUD 4800
 #define GPSBAUD 115200
 
 TinyGPSPlus gps;
-GpsDataType gpsdata;
+RoboStruct gpsdata;
 QueueHandle_t gpsQue;
 static uint32_t fix_age = 10000;
 static unsigned long gpsTimeOut = 0;
@@ -35,62 +36,48 @@ void GpsTask(void *arg)
         while (Serial2.available() > 0)
         {
             char c = Serial2.read();
-            //Serial.print(c);
+            // Serial.print(c);
             if (gps.encode(c))
             {
                 gpsTimeOut = millis();
                 if (gps.location.isUpdated() && gps.location.isValid())
                 {
-                    if (gpsdata.lat != gps.location.lat())
-                    {
-                        gpsdata.lat = gps.location.lat();
-                        newGpsData = true;
-                    }
-                    if (gpsdata.lng != gps.location.lng())
-                    {
-                        gpsdata.lng = gps.location.lng();
-                        newGpsData = true;
-                    }
+                    gpsdata.lat = gps.location.lat();
+                    gpsdata.lng = gps.location.lng();
                 }
                 if (gps.speed.isValid())
                 {
-                    gpsdata.speed = gps.speed.kmph();
+                    gpsdata.speed = (int)gps.speed.kmph();
                 }
-                if (gps.course.isValid() && gpsdata.cource != gps.course.deg())
+                if (gps.course.isValid())
                 {
-                    gpsdata.cource = gps.course.deg();
+                    gpsdata.gpsDir = (int)gps.course.deg();
                 }
-                if (gpsdata.nrsats != gps.satellites.value())
+                gpsdata.gpsSat = (int)gps.satellites.value();
+                gpsdata.gpsFixAge = gps.location.age();
+                if (gpsdata.gpsFixAge < 1000)
                 {
-                    gpsdata.nrsats = gps.satellites.value();
-                }
-                fix_age = gps.location.age();
-                if (fix_age < 1000)
-                {
-                    if (gpsdata.fix == false)
-                    {
-                        newGpsData = true;
-                        gpsdata.fix = true;
-                    }
+                    newGpsData = true;
+                    gpsdata.gpsFix = true;
                 }
                 else
                 {
-                    if (gpsdata.fix == true)
+                    if (gpsdata.gpsFix == true)
                     {
                         newGpsData = true;
-                        gpsdata.fix = false;
+                        gpsdata.gpsFix = false;
                     }
                 }
             }
         }
         if (gpsTimeOut + 5000 < millis())
         {
-            gpsdata.fix = false;
+            gpsdata.gpsFix = false;
         }
         if (newGpsData == true) // only updat if position has been changed
         {
-            newGpsData = false;
             xQueueSend(gpsQue, (void *)&gpsdata, 10);
+            newGpsData = false;
         }
         delay(1);
     }

@@ -5,7 +5,4 @@
 #include <RoboTone.h>
 #include "../../RobobuoyDependency\RobobuoyVersion.h"
 
-extern unsigned long buoyId;
-extern unsigned long buoyIdAll;
-
 #endif /* MAIN_H_ */

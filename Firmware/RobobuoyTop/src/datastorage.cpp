@@ -158,18 +158,15 @@ RoboStruct pidSpeedParameters(RoboStruct buoy, bool get)
     startMem();
     if (get)
     {
-        buoy.ps = storage.getDouble("Psp", 20);
-        buoy.is = storage.getDouble("Isp", 0.4);
-        buoy.ds = storage.getDouble("Dsp", 0);
-        buoy.kps = 0;
-        buoy.kis = 0;
-        buoy.kds = 0;
+        buoy.ps = storage.getDouble("ps", 20);
+        buoy.is = storage.getDouble("is", 0.4);
+        buoy.ds = storage.getDouble("ds", 0);
     }
     else
     {
-        storage.putDouble("Psp", buoy.ps);
-        storage.putDouble("Isp", buoy.is);
-        storage.putDouble("Dsp", buoy.ds);
+        storage.putDouble("ps", buoy.ps);
+        storage.putDouble("is", buoy.is);
+        storage.putDouble("ds", buoy.ds);
     }
     stopMem();
     return buoy;
@@ -180,18 +177,15 @@ RoboStruct pidRudderParameters(RoboStruct buoy, bool get)
     startMem();
     if (get)
     {
-        buoy.pr = storage.getDouble("Prd", 0.5);
-        buoy.ir = storage.getDouble("Ird", 0.02);
-        buoy.dr = storage.getDouble("Drd", 0);
-        buoy.kpr = 0;
-        buoy.kir = 0;
-        buoy.kdr = 0;
+        buoy.pr = storage.getDouble("pr", 0.5);
+        buoy.ir = storage.getDouble("ir", 0.02);
+        buoy.dr = storage.getDouble("dr", 0);
     }
     else
     {
-        storage.putDouble("Prd", buoy.pr);
-        storage.putDouble("Ird", buoy.ir);
-        storage.putDouble("Drd", buoy.dr);
+        storage.putDouble("pr", buoy.pr);
+        storage.putDouble("ir", buoy.ir);
+        storage.putDouble("dr", buoy.dr);
     }
     stopMem();
     return buoy;

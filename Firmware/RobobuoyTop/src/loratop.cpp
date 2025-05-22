@@ -3,6 +3,7 @@
 #include "loratop.h"
 #include "io_top.h"
 #include "main.h"
+#include "topwifi.h"
 
 static const char *TAG = "lora.cpp";
 static bool loraOk = false;
@@ -15,6 +16,7 @@ static RoboStruct loraStruct;
 static unsigned long transmittReady = 0;
 QueueHandle_t loraOut;
 QueueHandle_t loraIn;
+static unsigned long buoyId = 0;
 
 //***************************************************************************************************
 //  Lora init
@@ -35,6 +37,7 @@ bool InitLora(void)
     LoRa.enableCrc();
     Serial.println("Succes!");
     loraOk = true;
+    buoyId = espMac();
     return true;
 }
 
@@ -47,7 +50,7 @@ void initloraqueue(void)
     loraOut = xQueueCreate(10, sizeof(RoboStruct));
     InitLora();
     Serial.print("#BuoyId=");
-    Serial.println(buoyId, HEX);
+    Serial.println(espMac(), HEX);
 }
 
 //***************************************************************************************************
@@ -209,10 +212,10 @@ void LoraTask(void *arg)
 {
     unsigned long retransmittReady = 0;
     delay(500);
-    while (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
-    {
-        delay(10);
-    }
+    // while (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
+    // {
+    //     delay(10);
+    // }
     while (1)
     {
         onReceive(LoRa.parsePacket()); // check if there is new data availeble
@@ -221,6 +224,7 @@ void LoraTask(void *arg)
             if (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
             {
                 // IDr,IDs,ACK,MSG,<data>
+                loraMsgout.IDs = buoyId;
                 String loraString = rfCode(loraMsgout);
                 while (sendLora(String(loraString)) != true)
                 {

@@ -1,5 +1,7 @@
 import folium
 import math
+import webbrowser
+import os  # Add this import
 
 # Coordinates
 head = (52.28926899869115, 4.926260253375628)
@@ -58,3 +60,5 @@ m.save("openstreetmap_with_wind_arrow.html")
 
 # If you want to directly view it in a notebook (if running in Jupyter)
 # m  # Uncomment this line if running in Jupyter
+# Open the map in the default web browser
+webbrowser.open("file://" + os.path.abspath("openstreetmap_with_wind_arrow.html"))

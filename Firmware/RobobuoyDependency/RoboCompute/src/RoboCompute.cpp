@@ -54,7 +54,7 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
     case LOCKED: // tgDir,tgDist
         dataStore.tgDir = numbers[2].toDouble();
         dataStore.tgDist = numbers[3].toDouble();
-        dataStore.tgSpeed = numbers[4].toInt();
+        dataStore.tgSpeed = numbers[4].toDouble();
         dataStore.wDir = numbers[5].toDouble();
         dataStore.wStd = numbers[6].toDouble();
         break;
@@ -67,9 +67,9 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         break;
     case DIRSPEED:
         dataStore.dirMag = numbers[2].toDouble();
-        dataStore.speedBb = numbers[3].toInt();
-        dataStore.speedSb = numbers[4].toInt();
-        dataStore.speed = numbers[5].toInt();
+        dataStore.speed = numbers[3].toInt();
+        dataStore.speedBb = numbers[4].toInt();
+        dataStore.speedSb = numbers[5].toInt();
         break;
     case ROUTTOPOINT: //?
         break;
@@ -97,18 +97,12 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         dataStore.pr = numbers[2].toDouble();
         dataStore.ir = numbers[3].toDouble();
         dataStore.dr = numbers[4].toDouble();
-        dataStore.kpr = numbers[5].toDouble();
-        dataStore.kir = numbers[6].toDouble();
-        dataStore.kdr = numbers[7].toDouble();
         break;
     case PIDSPEEDSET: // Pspeed,Ispeed,Dspeed,kp,ki,kd
     case PIDSPEED:    // Pspeed,Ispeed,Dspeed,kp,ki,kd
         dataStore.ps = numbers[2].toDouble();
         dataStore.is = numbers[3].toDouble();
         dataStore.ds = numbers[4].toDouble();
-        dataStore.kps = numbers[5].toDouble();
-        dataStore.kis = numbers[6].toDouble();
-        dataStore.kds = numbers[7].toDouble();
         break;
     case SUBPWR:
         dataStore.speedSet = numbers[2].toInt();
@@ -142,16 +136,14 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         dataStore.tgLat = numbers[2].toDouble();
         dataStore.tgLng = numbers[3].toDouble();
         break;
-    case DIRDISTSP:
+    case DIRDIST:
         dataStore.tgDir = numbers[2].toDouble();
         dataStore.tgDist = numbers[3].toDouble();
-        dataStore.tgSpeed = numbers[3].toInt();
         break;
     case WINDDATA:
         dataStore.wDir = numbers[2].toDouble();
         dataStore.wStd = numbers[2].toDouble();
         break;
-
     case IDELING:
         break;
     case LORAACK:
@@ -159,6 +151,8 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
     case PING:
         break;
     case PONG:
+        break;
+    case CALIBRATE_MAGNETIC_COMPASS:
         break;
     default:
         Serial.println("RoboDecode: Unkown decode formatter data in <" + String(data) + ">");
@@ -191,7 +185,7 @@ String RoboCode(RoboStruct dataOut)
     case LOCKED:
         out += "," + String(dataOut.tgDir, 2);
         out += "," + String(dataOut.tgDist, 2);
-        out += "," + String(dataOut.tgSpeed);
+        out += "," + String(dataOut.tgSpeed, 2);
         out += "," + String(dataOut.wDir, 1);
         out += "," + String(dataOut.wStd, 1);
         break;
@@ -210,16 +204,20 @@ String RoboCode(RoboStruct dataOut)
         out += "," + String(dataOut.dirMag, 2);
         break;
     case GDIR:
-        out += "," + String(dataOut.dirGps, 2);
+        out += "," + String(dataOut.gpsDir, 2);
         break;
     case TDIR:
         out += "," + String(dataOut.tgDir, 2);
         break;
     case DIRSPEED:
         out += "," + String(dataOut.dirMag, 2);
+        out += "," + String(dataOut.speed);
         out += "," + String(dataOut.speedSb);
         out += "," + String(dataOut.speedBb);
-        out += "," + String(dataOut.speed);
+        break;
+    case TGDIRSPEED:
+        out += "," + String(dataOut.tgDir, 2);
+        out += "," + String(dataOut.speedSet);
         break;
     case SUBSPEED:
         out += "," + String(dataOut.speedSb);
@@ -231,26 +229,20 @@ String RoboCode(RoboStruct dataOut)
         out += "," + String(dataOut.subAccuP);
         break;
     case PIDSPEED:
+    case PIDSPEEDSET:
         out += "," + String(dataOut.ps, 3);
         out += "," + String(dataOut.is, 3);
         out += "," + String(dataOut.ds, 3);
-        out += "," + String(dataOut.kps, 3);
-        out += "," + String(dataOut.kis, 3);
-        out += "," + String(dataOut.kds, 3);
         break;
     case PIDRUDDER:
     case PIDRUDDERSET:
         out += "," + String(dataOut.pr, 3);
         out += "," + String(dataOut.ir, 3);
         out += "," + String(dataOut.dr, 3);
-        out += "," + String(dataOut.kpr, 3);
-        out += "," + String(dataOut.kir, 3);
-        out += "," + String(dataOut.kdr, 3);
         break;
-    case DIRDISTSP:
+    case DIRDIST:
         out += "," + String(dataOut.tgDir, 2);
         out += "," + String(dataOut.tgDist, 2);
-        out += "," + String(dataOut.tgSpeed);
         break;
     case CALCRUDDER:
         out += "," + String(dataOut.tgDir, 2);
@@ -275,6 +267,10 @@ String RoboCode(RoboStruct dataOut)
         out += "," + String(dataOut.speedSb);
         out += "," + String(dataOut.subAccuV, 2);
         break;
+    case SPBBSPSB:
+        out += "," + String(dataOut.speedSb);
+        out += "," + String(dataOut.speedBb);
+        break;
     case DOCKING:
         break;
     case SETLOCKPOS:
@@ -296,6 +292,8 @@ String RoboCode(RoboStruct dataOut)
     case LOCKING:
         break;
     case IDELING:
+        break;
+    case CALIBRATE_MAGNETIC_COMPASS:
         break;
     case PING:
         out = String(PING);
@@ -388,25 +386,22 @@ String removeBeginAndEndToString(String input)
 }
 
 // Subroutine to add CRC to a string (similar to NMEA format)
-String addCRCToString(String input) // Use reference to modify the original string
+String addCRCToString(String input)
 {
-    // Find where the checksum starts (between '$' and '*')
-    int end = input.length() + 1;
-
-    // Calculate the checksum (XOR of all characters between '$' and '*')
     byte crc = 0;
-    for (int i = 0; i < end; i++)
+
+    // Calculate checksum: XOR all characters in input
+    for (int i = 0; i < input.length(); i++)
     {
-        crc ^= input[i]; // XOR operation for each character
+        crc ^= input[i];
     }
 
-    // Convert checksum to hexadecimal format
-    char crcHex[3];               // Buffer to hold two hex digits + null terminator
-    sprintf(crcHex, "%02X", crc); // Convert byte to uppercase hex string
+    // Convert checksum to 2-digit uppercase hex
+    char crcHex[3];
+    sprintf(crcHex, "%02X", crc);
 
-    // Append the checksum after the asterisk in the string
-    input = "$" + input + "*" + String(crcHex); // Modify input directly
-    return input;
+    // Assemble final string with $ and *XX
+    return "$" + input + "*" + String(crcHex);
 }
 
 // Subroutine to check if the checksum in the string is valid
@@ -434,11 +429,12 @@ bool verifyCRC(String input)
     String givenCRC = input.substring(end + 1, end + 3);
 
     // Convert calculated CRC to a hexadecimal string
-    char calculatedCRCHex[2];
+    char calculatedCRCHex[3];
     sprintf(calculatedCRCHex, "%02X", calculatedCRC); // Convert byte to hex
 
     // Compare the calculated checksum with the provided checksum
-    return givenCRC.equalsIgnoreCase(calculatedCRCHex);
+    // return givenCRC.equalsIgnoreCase(calculatedCRCHex);
+    return givenCRC.equalsIgnoreCase(String(calculatedCRCHex));
 }
 
 /*
@@ -526,18 +522,12 @@ void PidDecode(String data, int pid, RoboStruct buoy)
         buoy.ps = numbers[1];
         buoy.is = numbers[2];
         buoy.is = numbers[3];
-        buoy.kps = 0;
-        buoy.kis = 0;
-        buoy.kds = 0;
     }
     if (pid == PIDRUDDER)
     {
         buoy.pr = numbers[1];
         buoy.ir = numbers[2];
         buoy.ir = numbers[3];
-        buoy.kpr = 0;
-        buoy.kir = 0;
-        buoy.kdr = 0;
     }
 }
 
@@ -774,19 +764,19 @@ RoboStruct hooverPid(RoboStruct buoy)
     double dErr = (error - buoy.lastErrs) / timeChange;
     /* Do not sail backwards*/
     // if (buoy.iintergrates < 0)
-    if (buoy.kis * buoy.errSums < 0)
+    if (buoy.is * buoy.errSums < 0)
     {
         buoy.errSums = 0;
     }
     // /*max 70% I correction*/
-    if (buoy.kis * buoy.errSums > 70)
+    if (buoy.is * buoy.errSums > 70)
     {
-        buoy.errSums = 70 / buoy.kis;
+        buoy.errSums = 70 / buoy.is;
     }
     /*Compute PID Output*/
-    buoy.ps = buoy.kps * error;
-    buoy.is = buoy.kis * buoy.errSums;
-    buoy.ds = buoy.kds * dErr;
+    buoy.ps = buoy.ps * error;
+    buoy.is = buoy.is * buoy.errSums;
+    buoy.ds = buoy.ds * dErr;
     Output = buoy.ps + buoy.is + buoy.ds;
     /* Do not sail backwards*/
     if (Output < 0)

@@ -65,15 +65,15 @@ int decodeMsg()
     int recipient = LoRa.read();                                  // address send to
     if (recipient != 0xFF && recipient != 0xFE && recipient != 1) // if the recipient isn't this device or broadcast,
     {
-        Serial.print("<");
-        Serial.print(recipient);
-        Serial.println(":Not for me!>");
-        ret = false; // skip rest of function
+        // Serial.print("<");
+        // Serial.print(recipient);
+        // Serial.println(":Not for me!>");
+        // ret = false; // skip rest of function
     }
-    else
-    {
+    // else
+    // {
         ret = true;
-    }
+    // }
     byte sender_l = LoRa.read();         // sender address
     byte status_l = LoRa.read();         // status
     byte incomingMsgId_l = LoRa.read();  // msg ID
@@ -99,11 +99,11 @@ int decodeMsg()
     loraIn.snr = LoRa.packetSnr();
     Serial.printf("<%d><%d><%d><%d><", sender_l, status_l, incomingMsgId_l, gsia_l);
     Serial.println(incoming + ">");
-    if (SerialBT.connected())
-    {
-        SerialBT.printf("<%d><%d><%d><%d><", sender_l, status_l, incomingMsgId_l, gsia_l);
-        SerialBT.println(incoming + ">");
-    }
+    // if (SerialBT.connected())
+    // {
+    //     SerialBT.printf("<%d><%d><%d><%d><", sender_l, status_l, incomingMsgId_l, gsia_l);
+    //     SerialBT.println(incoming + ">");
+    // }
     return ret;
 }
 

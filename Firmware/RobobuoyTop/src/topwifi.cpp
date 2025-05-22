@@ -113,11 +113,11 @@ void setup_wifi_ap(String ap, String ww, IPAddress *tmp)
     Serial.println("Setting up access point now");
 
     // Configure static IP
-    IPAddress local_IP(192, 168, 4, 1); // Desired static IP address
-    IPAddress subnet(255, 255, 255, 0); // Subnet mask
-    IPAddress gateway(192, 168, 1, 5);  // Gateway address
-    IPAddress primaryDNS(0, 0, 0, 0);   // Primary DNS (optional)
-    IPAddress secondaryDNS(0, 0, 0, 0); // Secondary DNS (optional)
+    IPAddress local_IP(192, 168, 1, 84); // Desired static IP address
+    IPAddress subnet(255, 255, 255, 0);  // Subnet mask
+    IPAddress gateway(192, 168, 1, 5);   // Gateway address
+    IPAddress primaryDNS(0, 0, 0, 0);    // Primary DNS (optional)
+    IPAddress secondaryDNS(0, 0, 0, 0);  // Secondary DNS (optional)
 
     // Set the static IP address if possible
     if (!WiFi.softAPConfig(local_IP, gateway, subnet))
@@ -183,19 +183,26 @@ void udpSend(String data)
 /*
     init WiFi que
 */
+unsigned long espMac(void)
+{
+    byte macarr[6];
+    WiFi.macAddress(macarr);
+    unsigned long mac = 0;
+    for (int i = 2; i < 6; i++)
+    {
+        mac = (mac << 8) | macarr[i];
+    }
+    return mac;
+}
+
+/*
+    init WiFi que
+*/
 unsigned long initwifiqueue(void)
 {
     udpOut = xQueueCreate(10, sizeof(RoboStruct));
     udpIn = xQueueCreate(10, sizeof(RoboStruct));
-    byte mac[6];
-    WiFi.macAddress(mac);
-    unsigned long tmp = 0;
-    for (int i = 2; i < 6; i++)
-    {
-        tmp = (tmp << 8) | mac[i];
-    }
-    Serial.printf("ESP32-mac: %02x%02x%02x%02x%02x%02x\r\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    return tmp;
+    return espMac();
 }
 
 /*
@@ -269,6 +276,7 @@ void WiFiTask(void *arg)
         {
             msgIdOut.IDr = msgIdOut.mac;
             msgIdOut.IDs = msgIdOut.mac;
+            msgIdOut.ack = msgIdOut.ack;
             String out = rfCode(msgIdOut);
             udp.broadcast(out.c_str());
         }

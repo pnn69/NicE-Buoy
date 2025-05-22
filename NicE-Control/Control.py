@@ -11,7 +11,7 @@ import socket
 
 
 font_settings = ("Arial", 8)  # Change the font name and size as needed
-
+buoyId = 0xb72874
 windowh = 350
 windoww = 500
 latitude = None
@@ -40,7 +40,7 @@ pos_y_data_deviation = 200
 
 
 # Open COM7 port
-ser = serial.Serial('COM60', 115200)  # Adjust baud rate as per your requirement
+ser = serial.Serial('COM6', 115200)  # Adjust baud rate as per your requirement
 
 def Adjust_position():
     pos_dir_content = adj_pos_dir.get("1.0", "end-1c")  # Get content of adj_pos_dir1
@@ -508,7 +508,7 @@ wind_dev.place(x=pos_x_data_deviation, y = pos_y_winddir)
 
 gps_label_dir = Label(text="GPS Speed:")
 gps_label_dir.place(x=pos_x_winddir, y =20+ pos_y_winddir)
-gps_data = Label(text="?")
+gps_data = Label(text="?") 
 gps_data.place(x=pos_x_data_winddir-10, y =20+ pos_y_data_winddir)
 sat_label_dir = Label(text="Satellites:")
 sat_label_dir.place(x=pos_x_winddir + 150, y =20+ pos_y_winddir)

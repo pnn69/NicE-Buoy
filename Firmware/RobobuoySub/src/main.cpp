@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <RoboTone.h>
 #include <RoboCompute.h>
-#include <PID_v1.h>
 #include "main.h"
 #include "freertos/task.h"
 #include "io_sub.h"
@@ -13,13 +12,17 @@
 #include "buzzer.h"
 #include "adc.h"
 #include "sercom.h"
+#include "pidrudspeed.h"
+
 #define HOST_NAME "RoboBuoySub"
 
 // pid subparameter;
 static RoboStruct mainData;
 static RoboStruct udpInMain;
 static RoboStruct serDataIn;
-static Message esc;
+static RoboStruct dataIn;
+static RoboStruct compassInData;
+static Message escOut;
 static unsigned long buoyId;
 static unsigned long PwrOff;
 static int subStatus = IDLE;
@@ -33,6 +36,7 @@ unsigned long accuSamp = millis();
 unsigned long logtimer = millis();
 unsigned long udptimer = millis();
 unsigned long pidtimer = millis();
+unsigned long esctimer = millis();
 
 int buttonState = 0;              // Current state of the button
 int lastButtonState = 0;          // Previous state of the button
@@ -43,46 +47,36 @@ bool debounce = false;            // Debouncing flag
 int presses = 0;
 
 //***************************************************************************************************
-//  new pid stuff
-//***************************************************************************************************
-double rudderSetpoint = 0, rudderInput, rudderOutput;
-double Kp = 1, Ki = 0.1, Kd = 0.1;
-PID rudderPID(&rudderInput, &rudderOutput, &rudderSetpoint, Kp, Ki, Kd, DIRECT);
-
-//***************************************************************************************************
 // Setup
 //***************************************************************************************************
 void setup()
 {
     pinMode(PWRENABLE, OUTPUT);
-    pinMode(BUTTON_PIN, INPUT);
+    digitalWrite(PWRENABLE, 1); // enable powersupply
     pinMode(ESC_SB_PWR_PIN, OUTPUT);
     pinMode(ESC_BB_PWR_PIN, OUTPUT);
     digitalWrite(ESC_SB_PWR_PIN, LOW);
     digitalWrite(ESC_BB_PWR_PIN, LOW);
-    delay(100);
-    digitalWrite(PWRENABLE, 1); // enable powersupply
+    Serial.begin(115200);
+    pinMode(BUTTON_PIN, INPUT);
     pinMode(BATTENABLE, OUTPUT);
     digitalWrite(BATTENABLE, 1); // enable batery sample signal
-    Serial.begin(115200);
-    // rudderPID.SetMode(AUTOMATIC); // turn the PID on
-    // rudderPID.SetOutputLimits(-180, 180);
-
     digitalWrite(PWRENABLE, true);
     printf("\r\nSetup running!\r\n");
     printf("Robobuoy Sub Version: %0.1f\r\n", SUBVERSION);
-    buoyId = initwifi(); // buoyID is mac adress esp32
-    Serial.print("Buoy ID: ");
-    Serial.println(buoyId);
-    mainData.mac = buoyId;
-    char mac[6];
+    printf("Robobuoy Sub Build: %s %s\r\n", __DATE__, __TIME__);
+    mainData.mac = espMac();
+    printf("Robobuoy ID: %08x\r\n", mainData.mac);
+    initwifi(); // buoyID is mac adress esp32
     initMemory();
     InitCompass();
     initledqueue();
     initbuzzerqueue();
-    initescqueue();
     initcompassQueue();
     initserqueue();
+    initRudPid();
+    initSpeedPid();
+    initescqueue();
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 1000, NULL, 1, NULL, 1);
     xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 10, NULL, 1);
@@ -97,50 +91,7 @@ void setup()
             wifiConfig = 1;
         }
     }
-    /*
-    Get sored settings
-    */
-
-    // mainData.ps = 20;
-    // mainData.is = 0.1;
-    // mainData.ds = 0;
-    // pidSpeedParameters(mainData, SET);
-    mainData.pr = 1;
-    mainData.ir = 0.05;
-    mainData.dr = 0.01;
-    pidRudderParameters(mainData, SET);
-    // mainData.minOfsetDist = 2;
-    // mainData.maxOfsetDist = 8;
-    // mainData.minSpeed = 0;
-    // mainData.maxSpeed = 80;
-    // computeParameters(mainData, SET);
-    // mainData.minOfsetDist = 2;
-    // mainData.maxOfsetDist = 8;
-    // mainData.minSpeed = 0;
-    // mainData.maxSpeed = 80;
-    // computeParameters(mainData, SET);
-    mainData = pidSpeedParameters(mainData, GET);
-    mainData = pidRudderParameters(mainData, GET);
-    // mainData.compassOffset = 0;
-    // CompassOffsetCorrection(&mainData.compassOffset, SET);
-    CompassOffsetCorrection(&mainData.compassOffset, GET);
     mainData = computeParameters(mainData, GET);
-    // mainData.minOfsetDist = 1;
-    // mainData.maxOfsetDist = 8;
-    // mainData.minSpeed =  -80;
-    // mainData.maxSpeed =  80;
-    // mainData = computeParameters(mainData, SET);
-    Serial.println("Compute Parameters Kpr:" + String(mainData.kps) +
-                   " I:" + String(mainData.kis) +
-                   " Rudder p:" + String(mainData.kpr) +
-                   " I:" + String(mainData.kir) +
-                   " MAxspeed:" + String(mainData.maxSpeed) +
-                   " MINspeed:" + String(mainData.minSpeed) +
-                   " Maxoffsetdistance:" + String(mainData.maxOfsetDist) +
-                   " MINoffsetdistance:" + String(mainData.minOfsetDist));
-    rudderPID.SetTunings(mainData.kpr, mainData.kir, mainData.kdr, DIRECT);
-    rudderPID.SetMode(AUTOMATIC);
-    rudderPID.SetOutputLimits(-99, 99);
     Serial.println("Setup done!");
 }
 
@@ -193,62 +144,9 @@ int countKeyPressesWithTimeoutAndLongPressDetecton()
 }
 
 //***************************************************************************************************
-// Timer routines
-//***************************************************************************************************
-RoboStruct handleTimerRoutines(RoboStruct in)
-{
-    if (nextSamp + 250 < millis())
-    {
-        printf("COG: %03.0f TG: %03f.0 Error: %03.0f PIDout: %03.0f\r\n", in.dirMag, in.tgDir, rudderOutput);
-        nextSamp = millis();
-    }
-
-    if (accuSamp < millis())
-    {
-        accuSamp = 60 * 1010 + millis();
-        battVoltage(in.subAccuV, in.subAccuP);
-    }
-
-    if (logtimer < millis())
-    {
-        logtimer = millis() + 1000;
-        in.cmd = SUBACCU;
-        xQueueSend(serOut, (void *)&in, 10); // Keep the watchdog in sub happy
-        //        if (subStatus == CALCRUDDER)
-        //        {
-        // printf("hdg:%6.2f dir%6.2f dist%5.2f speed:%4d ", in.dirMag, in.tgDir, in.tgDist, in.speed);
-        // printf("Dir:%6.1f Speed:%4d BB:%2d SB:%2d is:%5.1f ir:%5.1f\r\n", smallestAngle(in.dirMag, in.tgDir), in.speed, in.speedBb, in.speedSb, in.is, in.ir);
-        printf("Hdg:%5.2f tgAngle:%5.1f Speed:%d Bb:%d Sb:%d \r\n", in.dirMag, in.tgDir, in.speed, in.speedBb, in.speedSb);
-        // Serial.println("Distance: " + String(mainData.tgDist) + " Dir: " + String(mainData.tgDir));
-        // }
-        // else
-        // {
-        //     double ang = smallestAngle(in.dirSet, in.dirMag);
-
-        //     // printf("Hdg:%5.2f tgAngle:%5.1f Speed:%d Bb:%d Sb:%d ", in.dirMag, ang, in.speed, in.speedBb, in.speedSb);
-
-        //     if (in.speedBb == in.speedSb)
-        //     {
-        //         // printf("-\r\n");
-        //     }
-        //     if (in.speedBb < in.speedSb)
-        //     {
-        //         // printf(">\r\n");
-        //     }
-        //     if (in.speedBb > in.speedSb)
-        //     {
-        //         // printf("<\r\n");
-        //     }
-        //     logtimer = millis() + 500;
-        // }
-    }
-    return in;
-}
-
-//***************************************************************************************************
 //      key press stuff
 //***************************************************************************************************
-int handelKeyPress(int key)
+void handelKeyPress(void)
 {
     int presses = countKeyPressesWithTimeoutAndLongPressDetecton();
     if (presses > 0)
@@ -264,7 +162,8 @@ int handelKeyPress(int key)
         if (presses == 10) // Calibrate compas
         {
             beep(1, buzzer);
-            calibrateParametersCompas();
+            presses = CALIBRATE_MAGNETIC_COMPASS;
+            xQueueSend(compassIn, (void *)&presses, 10); // Start compass calibration
             presses = -1;
         }
         if (presses != -1)
@@ -272,46 +171,98 @@ int handelKeyPress(int key)
             beep(-1, buzzer);
         }
     }
-    return key;
 }
-
 //***************************************************************************************************
-//  RudderPID
+// Timer routines
 //***************************************************************************************************
-RoboStruct rudderPid(RoboStruct rud)
+void handleTimerRoutines(RoboStruct *in)
 {
-    rudderInput = smallestAngle(rud.tgDir, rud.dirMag);
-    rudderSetpoint = 0;
-    rudderPID.Compute();
-    double bb = rud.tgSpeed - rudderOutput / 2;
-    double sb = rud.tgSpeed + rudderOutput / 2;
-    rud.speedSb = constrain(sb, rud.minSpeed, rud.maxSpeed);
-    rud.speedBb = constrain(bb, rud.minSpeed, rud.maxSpeed);
-    if (esc.speedbb != rud.speedBb || esc.speedsb != rud.speedSb)
+    if (in->status == LOCKED || in->status == DOCKED)
     {
-        esc.speedbb = rud.speedBb;
-        esc.speedsb = rud.speedSb;
-        xQueueSend(escspeed, (void *)&esc, 10);
+        in->maxSpeed = 40;
+        in->minSpeed = -40;
+        if (in->tgDist > 1.5)
+        {
+            in->tgSpeed = speedPid(in->tgDist);
+            rudderPid(in);
+        }
+        else if (in->tgDist > .5)
+        {
+            RoboStruct *t = in;
+            t->maxSpeed = 20;
+            t->minSpeed = -20;
+            t->tgSpeed = 0;
+            rudderPid(t);
+            in->tgSpeed = t->tgSpeed;
+            in->speedSb = t->speedSb;
+            in->speedBb = t->speedBb;
+        }
+        else
+        {
+            RoboStruct *t = in;
+            t->maxSpeed = 0;
+            t->minSpeed = 0;
+            t->tgSpeed = 0;
+            rudderPid(t);
+            in->tgSpeed = t->tgSpeed;
+        }
     }
-    return rud;
+    else if (in->status == DIRSPEED)
+    {
+        in->tgSpeed = in->speedSet;
+        rudderPid(in);
+    }
+    else if (in->status == REMOTE)
+    {
+        escOut.speedbb = in->speedBb;
+        escOut.speedsb = in->speedSb;
+        xQueueSend(escspeed, (void *)&escOut, 10);
+    }
+    else if (esctimer + 50 < millis())
+    {
+        esctimer = millis();
+        escOut.speedbb = 0;
+        escOut.speedsb = 0;
+        xQueueSend(escspeed, (void *)&escOut, 10);
+    }
+
+    if (nextSamp + 1000 < millis())
+    {
+        nextSamp = millis();
+        printf("COG:%03.0f TG:%03.0f TD:%05.2f Error: %03.0f output: %07.2f tgSpeed: %05.2f Sb: %3d Bb: %3d\r\n", in->dirMag, in->tgDir, in->tgDist, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->tgSpeed, in->speedSb, in->speedBb);
+        in->cmd = DIRSPEED;
+        xQueueSend(serOut, (void *)in, 10);
+    }
+
+    if (accuSamp < millis())
+    {
+        accuSamp = 60 * 1010 + millis();
+        battVoltage(in->subAccuV, in->subAccuP);
+    }
+
+    if (logtimer < millis())
+    {
+        logtimer = millis() + 1000;
+        in->cmd = SUBACCU;
+        xQueueSend(serOut, (void *)in, 10); // Keep the watchdog in sub happy
+    }
 }
 
 //***************************************************************************************************
 //      status actions
 //***************************************************************************************************
-RoboStruct handelStatus(RoboStruct stat)
+void handelStatus(RoboStruct *stat)
 {
-    if (stat.status == IDELING)
+    if (stat->status == IDELING)
     {
-        stat.speed = 0;
-        stat.speedBb = 0;
-        stat.speedSb = 0;
-        stat.status = IDLE;
-        esc.speedbb = 0;
-        esc.speedsb = 0;
-        xQueueSend(escspeed, (void *)&esc, 100);
+        stat->speed = 0;
+        stat->speedBb = 0;
+        stat->speedSb = 0;
+        escOut.speedbb = 0;
+        escOut.speedsb = 0;
+        xQueueSend(escspeed, (void *)&escOut, 10);
+        stat->status = IDLE;
     }
-    return stat;
 }
 
 //***************************************************************************************************
@@ -319,178 +270,115 @@ RoboStruct handelStatus(RoboStruct stat)
 //***************************************************************************************************
 void loop(void)
 {
-    String dataIn = "";
-    String dataOut = "";
-    int msg = -1;
-    float vbat = 0;
-    int speedbb = 50, speedsb = 0;
-    unsigned long rudderTimer = 0;
-    unsigned long lastSerIn = millis();
-    beep(1000, buzzer);
-    delay(500);
-    mainLedStatus.color = CRGB::LightPink;
-    mainLedStatus.blink = BLINK_SLOW;
-    xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
-    mainPwrData.bb = CRGB::Black;
-    mainPwrData.sb = CRGB::Black;
-    mainPwrData.blinkBb = BLINK_OFF;
-    mainPwrData.blinkSb = BLINK_OFF;
-    xQueueSend(ledPwr, (void *)&mainPwrData, 10); // update util led
-    unsigned long pidtimer = millis();
-    /*
-        Main loop
-    */
     PwrOff = millis();
     while (true)
     {
         //***************************************************************************************************
-        //      new PID gepruttel
-        //***************************************************************************************************
-        // if (pidtimer + 100 < millis())
-        // {
-        //     pidtimer = millis();
-        //     if (mainData.status == LOCKED || mainData.status == DOCKED)
-        //     {
-        //         Input = smallestAngle(mainData.dirSet, mainData.dirMag);
-        //         rudderPID.Compute();
-        //         mainData.speed = 50;
-        //         double deltaPwr = (Output / 180) * 2;
-        //         double bb = mainData.speed * (1 + deltaPwr);
-        //         double sb = mainData.speed * (1 - deltaPwr);
-        //         mainData.speedSb = constrain(sb, mainData.minSpeed, mainData.maxSpeed);
-        //         mainData.speedBb = constrain(bb, mainData.minSpeed, mainData.maxSpeed);
-        //         // printf("Correction:%3.0f Angle:%6.2f SpeedBb:%4.1d SpeedSb:%4.1d tmp:%.2f\r\n", Output, Input, mainData.speedBb, mainData.speedSb, deltaPwr);
-        //     }
-        // }
-        //***************************************************************************************************
         //      Timer routines
         //***************************************************************************************************
-        mainData = handleTimerRoutines(mainData);
+        handleTimerRoutines(&mainData);
         //***************************************************************************************************
         //      Check front key
         //***************************************************************************************************
-        presses = handelKeyPress(presses);
+        handelKeyPress();
         //***************************************************************************************************
         //      Status change handeling
         //***************************************************************************************************
-        mainData = handelStatus(mainData);
+        handelStatus(&mainData);
         //***************************************************************************************************
         //      New compass data
         //***************************************************************************************************
-        if (xQueueReceive(compass, (void *)&mainData.dirMag, 0) == pdTRUE)
+        xQueueReceive(compass, (void *)&mainData.dirMag, 0);
+        //***************************************************************************************************
+        //      new serial message
+        //***************************************************************************************************
+        dataIn.IDr = -1;
+        if (xQueueReceive(serIn, (void *)&dataIn, 0) == pdTRUE) // New serial data
         {
-            if (mainData.status == LOCKED || mainData.status == DOCKED)
+            mainData.lastSerIn = millis();
+            if (mainLedStatus.color != CRGB::DarkBlue)
             {
-                if (rudderTimer + 100 < millis())
-                {
-                    rudderTimer = millis();
-                    mainData = rudderPid(mainData);
-                }
+                mainLedStatus.color = CRGB::DarkBlue;
+                mainLedStatus.blink = BLINK_SLOW;
+                xQueueSend(ledStatus, (void *)&mainLedStatus, 0); // update util led
             }
         }
         //***************************************************************************************************
         //      new udp message
         //***************************************************************************************************
-        if (xQueueReceive(udpIn, (void *)&udpInMain, 0) == pdTRUE)
+        if (dataIn.IDr == -1) // skip if we have new serial data
         {
-            // mainData.lastSerIn = millis();
-            switch (mainData.cmd)
+            if(xQueueReceive(udpIn, (void *)&dataIn, 0) == pdTRUE) // New UDP data
             {
-            case IDLE:
-                mainData.status = IDELING;
-                break;
-            case DIRSPEED:
-                mainData.speed = (int)udpInMain.speedSet;
-                mainData.status = REMOTE;
-                break;
-            case DIRDISTSP:
-                mainData.tgDir = (int)udpInMain.tgDir;
-                mainData.tgDist = (int)udpInMain.tgDist;
-                mainData.tgSpeed = (int)udpInMain.tgSpeed;
-                mainData.status = LOCKED;
-                break;
-            case PIDRUDDERSET:
-                pidRudderParameters(udpInMain, false);
-                mainData.kir = 0;
-                break;
-            case PIDSPEEDSET:
-                pidSpeedParameters(udpInMain, false);
-                mainData.kis = 0;
-                break;
-            case STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS:
-                mainData.compassOffset += mainData.tgDir;
-                MechanicalCorrection(&mainData.compassOffset, SET);
-                break;
-            case PING:
-                mainData.cmd = PONG;
-                xQueueSend(udpOut, (void *)&mainData, 10); // update WiFi
-                break;
+                printf("UDP data in\r\n");
             }
         }
-        //***************************************************************************************************
-        //      New serial data
-        //***************************************************************************************************
-        if (xQueueReceive(serIn, (void *)&serDataIn, 0) == pdTRUE)
+        if (dataIn.IDr != -1)
         {
-            mainData.lastSerIn = millis();
-            if (serDataIn.cmd != PING)
-            {
-                PwrOff = millis();
-            }
-            if (mainLedStatus.color != CRGB::DarkBlue)
-            {
-                Serial.println("Set light to Blue");
-                mainLedStatus.color = CRGB::DarkBlue;
-                mainLedStatus.blink = BLINK_SLOW;
-                xQueueSend(ledStatus, (void *)&mainLedStatus, 0); // update util led
-            }
-            switch (serDataIn.cmd)
+            switch (dataIn.cmd)
             {
             case IDLE:
                 mainData.status = IDELING;
                 break;
-            case DIRDISTSP:
-                mainData.tgDir = (int)serDataIn.tgDir;
-                mainData.tgDist = (int)serDataIn.tgDist;
-                mainData.tgSpeed = (int)serDataIn.tgSpeed;
+            case DIRDIST:
+                if (mainData.status != LOCKED)
+                {
+                    rudderPID.SetMode(AUTOMATIC); // turn the PID on
+                }
+                mainData.tgDir = dataIn.tgDir;
+                mainData.tgDist = dataIn.tgDist;
                 mainData.status = LOCKED;
                 break;
             case DIRSPEED:
-                mainData.dirSet = (int)serDataIn.dirSet;
-                mainData.speed = (int)serDataIn.speedSet;
+                if (mainData.status != DIRSPEED)
+                    mainData.tgDir = dataIn.tgDir;
+                mainData.speedSet = dataIn.speedSet;
+                mainData.status = DIRSPEED;
+                break;
+            case SPBBSPSB:
                 mainData.status = REMOTE;
-                xQueueSend(serOut, (void *)&mainData, 10);
                 break;
             case LOCKED:
+                if (mainData.status != LOCKED)
+                {
+                    printf("Locked\r\n");
+                    initRudPid();
+                    initSpeedPid();
+                    mainData.tgLat = dataIn.tgLat;
+                    mainData.tgLng = dataIn.tgLng;
+                    mainData.status = LOCKED;
+                }
+                break;
             case DOCKED:
-                mainData.tgDist = serDataIn.tgDist;
-                mainData.tgDir = serDataIn.tgDir;
-                mainData.status = serDataIn.cmd;
+                if (mainData.status != DOCKED)
+                {
+                    printf("Docked\r\n");
+                    initRudPid();
+                    initSpeedPid();
+                    memDockPos(&dataIn, GET);
+                    mainData.status = DOCKED;
+                }
                 break;
             case PIDRUDDERSET:
-                mainData.kpr = serDataIn.kpr;
-                mainData.kir = serDataIn.kir;
-                mainData.kdr = serDataIn.kdr;
-                pidRudderParameters(mainData, SET);
-                mainData.kir = 0;
+                printf("Rudder PID pr:%0.2f ir:%0.2f dr:%0.2f\r\n", dataIn.pr, dataIn.ir, dataIn.dr);
+                pidRudderParameters(dataIn, SET);
+                rudderPID.SetTunings(dataIn.pr, dataIn.ir, dataIn.dr, DIRECT);
                 break;
             case PIDSPEEDSET:
-                mainData.kps = serDataIn.kps;
-                mainData.kis = serDataIn.kis;
-                mainData.kds = serDataIn.kds;
-                pidSpeedParameters(mainData, SET);
-                mainData.kis = 0;
+                printf("Rudder PID ps:%0.2f is:%0.2f ds:%0.2f\r\n", dataIn.ps, dataIn.is, dataIn.ds);
+                pidSpeedParameters(dataIn, SET);
+                speedPID.SetTunings(dataIn.ps, dataIn.is, dataIn.ds, DIRECT);
                 break;
-            case STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS:
-                mainData.compassOffset += mainData.tgDir;
-                MechanicalCorrection(&mainData.compassOffset, SET);
+            case STORE_INCLINATION:
+                Inclination(&dataIn.compassOffset, SET);
+                break;
+            case CALIBRATE_MAGNETIC_COMPASS:
+                xQueueSend(compassIn, (void *)&dataIn.cmd, 10); // Keep the watchdog in sub happy
+                delay(1000);
                 break;
             case PING:
                 mainData.cmd = DIRSPEED;
                 xQueueSend(serOut, (void *)&mainData, 10);
-                break;
-            default:
-                // Serial.println(serDataIn.cmd);
                 break;
             }
         }
@@ -498,7 +386,7 @@ void loop(void)
         //      Serial watchdog
         //***************************************************************************************************
         // if (mainData.lastSerIn + 1000 * 5 < millis())
-        if (mainData.lastSerIn + 1000 * 2 < millis())
+        if (mainData.lastSerIn + 1000 * 5 < millis())
         {
             if (mainLedStatus.color != CRGB::Red)
             {
@@ -507,8 +395,8 @@ void loop(void)
                 mainLedStatus.color = CRGB::Red;
                 mainLedStatus.blink = BLINK_SLOW;
                 xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
-                beep(500, buzzer);
                 mainData.speed = 0;
+                mainData.speedSet = 0;
                 mainData.status = IDELING;
             }
         }
@@ -518,14 +406,17 @@ void loop(void)
         // if (PwrOff + 1000 * 60 * 3 < millis())
         if (PwrOff + 1000 * 30 * 1 < millis())
         {
-            beep(-1, buzzer);
-            printf("Power off now!'r'n");
-            delay(1000);
-            digitalWrite(PWRENABLE, 0); // disable powersupply
-            delay(1000);
-            digitalWrite(PWRENABLE, 0); // disable powersupply
-            delay(1000);
             PwrOff = millis();
+            triggerESC();
+            // beep(-1, buzzer);
+            printf("Power off now!\r\n");
+            digitalWrite(ESC_SB_PWR_PIN, LOW);
+            digitalWrite(ESC_BB_PWR_PIN, LOW);
+            // digitalWrite(PWRENABLE, 0); // disable powersupply
+            // delay(1000);
+            // digitalWrite(PWRENABLE, 0); // disable powersupply
+            // delay(1000);
+            // PwrOff = millis();
         }
         vTaskDelay(1);
     }

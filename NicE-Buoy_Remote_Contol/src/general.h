@@ -42,6 +42,6 @@ extern bool ledstatus;
 extern buoyDataType buoy[NR_BUOYS];
 extern int notify;
 extern unsigned long checkAckStamp;
-extern BluetoothSerial SerialBT;
+//extern BluetoothSerial SerialBT;
 
 #endif /* GENERA:_H_ */

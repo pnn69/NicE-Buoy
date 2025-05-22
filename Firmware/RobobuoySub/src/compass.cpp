@@ -2,7 +2,8 @@
 #include <Wire.h>
 #include <RoboCompute.h>
 #include "main.h"
-#include <Adafruit_LSM303AGR_Mag.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_LIS2MDL.h>
 #include <Adafruit_LSM303_Accel.h>
 #include <math.h>
 #include "leds.h"
@@ -10,10 +11,11 @@
 #include "io_sub.h"
 #include "datastorage.h"
 #include "esc.h"
-
+#include "float.h"
 #include "../../RobobuoyDependency\RobobuoyVersion.h"
 
 #define NUM_DIRECTIONS 10
+float min_mag[3], max_mag[3];
 
 static LedData compassLedStatus;
 static PwrData compassPwrData;
@@ -21,13 +23,16 @@ static Buzz compassBuzzerData;
 static double mDir = 0;
 
 QueueHandle_t compass;
+QueueHandle_t compassIn;
+static RoboStruct compassInData;
 
-Adafruit_LSM303AGR_Mag_Unified mag = Adafruit_LSM303AGR_Mag_Unified(12345);
+// Adafruit_LSM303AGR_Mag_Unified mag = Adafruit_LSM303AGR_Mag_Unified(12345);
+Adafruit_LIS2MDL mag = Adafruit_LIS2MDL(12345); //  includes LSM303AGR
 Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
 
 Message comp_msg; /* ESC que struckt */
 
-static double magneticCorrection = 0;
+static double inclination = 0;
 static double mechanicCorrection = 0;
 
 template <typename T>
@@ -116,16 +121,17 @@ float heading(vector<T> from)
 //***************************************************************************************************
 bool InitCompass(void)
 {
-    float min_mag[3], max_mag[3];
+    // CompassOffsetCorrection(&mainData.compassOffset, GET);
     CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], GET); //  get callibration data
     m_min = (vector<float>){min_mag[0], min_mag[1], min_mag[2]};
     m_max = (vector<float>){max_mag[0], max_mag[1], max_mag[2]};
-    printf("Compass calibration: %1.3f %1.3f %1.3f %1.3f %1.3f %1.3f \r\n",max_mag[0], max_mag[1], max_mag[2], min_mag[0], min_mag[1], min_mag[2]);
+    printf("Compass calibration: %1.3f %1.3f %1.3f %1.3f %1.3f %1.3f \r\n", max_mag[0], max_mag[1], max_mag[2], min_mag[0], min_mag[1], min_mag[2]);
 
     if (!mag.begin())
     {
         Serial.println("Unable to initialize LSM303 magnetometer");
         while (1)
+         esp_restart();//  reset if compass not found
             ;
     }
 
@@ -138,7 +144,7 @@ bool InitCompass(void)
     accel.setMode(LSM303_MODE_NORMAL);
     sensors_event_t event;
     mag.getEvent(&event);
-    CompassOffsetCorrection(&magneticCorrection, GET);
+    Inclination(&inclination, GET);
     MechanicalCorrection(&mechanicCorrection, GET);
     return 0;
 }
@@ -148,20 +154,20 @@ bool InitCompass(void)
 //***************************************************************************************************
 bool CalibrateCompass(void)
 {
-    static unsigned long calstamp;
     sensors_event_t event;
+    static unsigned long calstamp;
     u_int lokcnt = 0;
     bool lokon = 0;
-    Serial.println("Callibrating compass now!!!");
+    Serial.println("Calibration compass now!!!");
     calstamp = millis();
-    float min_mag[3], max_mag[3];
     for (int i = 0; i < 3; i++)
     {
-        min_mag[i] = +2147483647;
-        max_mag[i] = -2147483648;
+        min_mag[i] = FLT_MAX;
+        max_mag[i] = FLT_MIN;
     }
 
-    while (millis() - calstamp <= 1000 * 60) // 1 minute callibrating
+    // while (millis() - calstamp <= 1000 * 60) // 1 minute callibrating
+    while (millis() - calstamp <= 1000 * 30) // 1 minute callibrating
     {
         mag.getEvent(&event);
         min_mag[0] = min(min_mag[0], event.magnetic.x);
@@ -170,17 +176,12 @@ bool CalibrateCompass(void)
         max_mag[1] = max(max_mag[1], event.magnetic.y);
         min_mag[2] = min(min_mag[2], event.magnetic.z);
         max_mag[2] = max(max_mag[2], event.magnetic.z);
-
-        if (lokcnt++ > 1000)
-        {
-            lokcnt = 0;
-            Serial.printf("Calllibration factors Compass: MaxXYZ: {%f, %f, %f}; MinXYZ {%f, %f, %f};\r\n", max_mag[0], max_mag[1], max_mag[2], min_mag[0], min_mag[1], min_mag[2]);
-        }
+        printf("XYZmax in: {%05.2f, %05.2f, %05.2f,%05.2f, %05.2f, %05.2f Magnetometer: %f %f %f  }\r\n", max_mag[0], min_mag[0], max_mag[1], min_mag[1], max_mag[2], min_mag[2], event.magnetic.x, event.magnetic.y, event.magnetic.z);
     }
     CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], SET); //  store callibration data
     m_min = (vector<float>){min_mag[0], min_mag[1], min_mag[2]};
     m_max = (vector<float>){max_mag[0], max_mag[1], max_mag[2]};
-    Serial.printf("New calllibration factors Compass: MaxXYZ: {%f, %f, %f}; MinXYZ {%f, %f, %f};\r\n", max_mag[0], max_mag[1], max_mag[2], min_mag[0], min_mag[1], min_mag[2]);
+    printf("New calibration factors Compass: XYZ: {%f, %f, %f,%f, %f, %f};\r\n", max_mag[0], min_mag[0], max_mag[1], min_mag[1], max_mag[2], min_mag[2]);
     return 0;
 }
 
@@ -189,17 +190,20 @@ bool CalibrateCompass(void)
 //***************************************************************************************************
 double GetHeading(void)
 {
-    double mHeding = (double)heading((vector<int>){0, 0, 1}); // Select oriontation
-    mHeding = mHeding + magneticCorrection;
-    if (mHeding < 0)
+    double mHeading = (double)heading((vector<int>){1, 0, 0}); // Select oriontation
+    // sensors_event_t event;
+    // mag.getEvent(&event);
+    // double mHeading = (atan2(event.magnetic.x - (max_mag[0] + min_mag[0]) / 2, event.magnetic.y - (max_mag[1] + min_mag[1]) / 2) * 180) / PI;
+    mHeading += inclination + 90;
+    if (mHeading < 0)
     {
-        mHeding = mHeding + 360.0;
+        mHeading = mHeading + 360.0;
     }
-    else if (mHeding >= 360.0)
+    else if (mHeading >= 360.0)
     {
-        mHeding = mHeding - 360.0;
+        mHeading = mHeading - 360.0;
     }
-    return mHeding;
+    return mHeading;
 }
 
 //***************************************************************************************************
@@ -207,7 +211,10 @@ double GetHeading(void)
 //***************************************************************************************************
 double GetHeadingRaw(void)
 {
-    double t = heading((vector<int>){0, 0, 1});
+    // double t = heading((vector<int>){0, 1, 0});
+    sensors_event_t event;
+    mag.getEvent(&event);
+    double t = (atan2(event.magnetic.x - (max_mag[0] + min_mag[0]) / 2, event.magnetic.y - (max_mag[1] + min_mag[1]) / 2) * 180) / PI;
     if (t >= 360.0)
     {
         t -= 360;
@@ -218,7 +225,6 @@ double GetHeadingRaw(void)
     }
     return (double)t;
 }
-
 //***************************************************************************************************
 //
 //***************************************************************************************************
@@ -266,36 +272,28 @@ double GetHeadingAvg(void)
 //***************************************************************************************************
 void calibrateMagneticNorth(void)
 {
-    double h = mDir - magneticCorrection;
+    double h = mDir - inclination;
     if (h < 0)
     {
         h += 360;
     }
-    magneticCorrection = smallestAngle(h, 0);
-    CompassOffsetCorrection(&magneticCorrection, SET);
-    printf("\r\n\r\nNew magnetic offset stored: %.2f\r\n\r\n", magneticCorrection);
+    inclination = smallestAngle(h, 0);
+    Inclination(&inclination, SET);
+    printf("\r\n\r\nNew magnetic offset stored: %.2f\r\n\r\n", inclination);
 }
 
+//***************************************************************************************************
+//  Compass queue
+//***************************************************************************************************
 void initcompassQueue(void)
 {
     compass = xQueueCreate(1, sizeof(double));
+    compassIn = xQueueCreate(1, sizeof(int));
 }
 
 //***************************************************************************************************
-//  Compass task
+//  Compass calibratie norht
 //***************************************************************************************************
-void CompassTask(void *arg)
-{
-    unsigned long compassSampTime = millis();
-    while (1)
-    {
-        //mDir = GetHeadingAvg();
-        mDir = GetHeading();
-        xQueueSend(compass, (void *)&mDir, 0); // notify main there is new data
-        vTaskDelay(1);
-    }
-}
-
 void calibrateNorthCompas(void)
 {
     compassBuzzerData.hz = 1000;
@@ -322,6 +320,9 @@ void calibrateNorthCompas(void)
     xQueueSend(buzzer, (void *)&compassBuzzerData, 10); // update util led
 }
 
+//***************************************************************************************************
+//  Compass calibratie parameters
+//***************************************************************************************************
 void calibrateParametersCompas(void)
 {
     compassLedStatus.color = CRGB::DarkBlue;
@@ -352,4 +353,28 @@ void calibrateParametersCompas(void)
     compassPwrData.blinkSb = BLINK_OFF;
     xQueueSend(ledStatus, (void *)&compassLedStatus, 10); // update util led
     xQueueSend(ledPwr, (void *)&compassPwrData, 10);      // update util led
+}
+//***************************************************************************************************
+//  Compass task
+//***************************************************************************************************
+void CompassTask(void *arg)
+{
+    double mHdg = 0;
+    int cmd = 0;
+    unsigned long compassSampTime = millis();
+    while (1)
+    {
+        mHdg = GetHeadingAvg();
+        xQueueSend(compass, (void *)&mHdg, 0);                   // notify main there is new data
+        if (xQueueReceive(compassIn, (void *)&cmd, 0) == pdTRUE) // send data to bottom
+        {
+            if (cmd == CALIBRATE_MAGNETIC_COMPASS)
+            {
+                printf("Calibrate compass now!!!\r\n");
+                calibrateParametersCompas();
+                printf("Calibrate compass done!!!\r\n");
+            }
+        }
+        vTaskDelay(1);
+    }
 }

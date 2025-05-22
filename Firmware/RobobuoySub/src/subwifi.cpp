@@ -138,19 +138,10 @@ void setupudp(void)
 //***************************************************************************************************
 //  Setup WiFi queue
 //***************************************************************************************************
-unsigned long initwifi(void)
+void initwifi(void)
 {
     udpOut = xQueueCreate(10, sizeof(RoboStruct));
     udpIn = xQueueCreate(10, sizeof(RoboStruct));
-    byte mac[6];
-    WiFi.macAddress(mac);
-    unsigned long tmp = 0;
-    for (int i = 2; i < 6; i++)
-    {
-        tmp = (tmp << 8) | mac[i];
-    }
-    Serial.printf("ESP32-mac: %02x%02x%02x%02x%02x%02x\r\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    return tmp;
 }
 
 /*
@@ -181,6 +172,17 @@ bool scan_for_wifi_ap(String ssipap)
 uint8_t* getMacId(uint8_t* mac)
 {
     WiFi.macAddress(mac);
+    return mac;
+}
+unsigned long espMac(void)
+{
+    byte macarr[6];
+    WiFi.macAddress(macarr);
+    unsigned long mac = 0;
+    for (int i = 2; i < 6; i++)
+    {
+        mac = (mac << 8) | macarr[i];
+    }
     return mac;
 }
 

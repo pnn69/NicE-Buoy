@@ -9,19 +9,9 @@ const int pwmResolution = 8; // 8-bit resolution (duty cycle values from 0 to 25
 QueueHandle_t buzzer;
 static Buzz buzzerData;
 
-bool initbuzzerqueue()
+void initbuzzerqueue(void)
 {
     buzzer = xQueueCreate(50, sizeof(Buzz));
-    if (buzzer == NULL)
-    {
-        printf("Queue buzzer could not be created. %p\\r\n", buzzer);
-        return false;
-    }
-    else
-    {
-        Serial.println("Queue buzzer created.");
-    }
-    return true;
 }
 
 void setSquareWaveFrequency(int frequency)
@@ -67,4 +57,3 @@ void buzzerTask(void *arg)
     }
     vTaskDelay(1);
 }
-

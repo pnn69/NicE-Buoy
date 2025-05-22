@@ -11,6 +11,7 @@ void initMemory(void)
     // Note: Namespace name is limited to 15 chars.
     storage.begin("NicE_Buoy_Data", false);
     char id = storage.getChar("NicE_BuoyID", 0);
+    //id = 0;
     if (id == 0)
     {
         Serial.printf("Configuring Non-volatile memory now!\n\r");
@@ -57,23 +58,22 @@ void memBuoyId(int8_t *id, bool get)
 /*
     Dock position
 */
-RoboStruct memDockPos(RoboStruct buoy, bool get)
+void memDockPos(RoboStruct* buoy, bool get)
 {
     startMem();
     if (get)
     {
-        buoy.tgLat = storage.getDouble("Docklat", 0);
-        buoy.tgLng = storage.getDouble("Docklon", 0);
+        buoy->tgLat = storage.getDouble("Docklat", 0);
+        buoy->tgLng = storage.getDouble("Docklon", 0);
         // Serial.printf("Get Doc pos form memory  %.8lf %.8lf\r\n", *lat, *lon);
     }
     else
     {
         // Serial.printf("Store Doc pos in memory  %.8lf %.8lf\r\n", *lat, *lon);
-        storage.putDouble("Docklat", buoy.tgLat);
-        storage.putDouble("Docklon", buoy.tgLng);
+        storage.putDouble("Docklat", buoy->tgLat);
+        storage.putDouble("Docklon", buoy->tgLng);
     }
     stopMem();
-    return buoy;
 }
 
 /*
@@ -105,16 +105,16 @@ void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, floa
     stopMem();
 }
 
-void CompassOffsetCorrection(double *delta, bool get)
+void Inclination(double *inclination, bool get)
 {
     startMem();
     if (get)
     {
-        *delta = storage.getDouble("Delta", 0);
+        *inclination = storage.getDouble("Inclination", 0);
     }
     else
     {
-        storage.putDouble("Delta", *delta);
+        storage.putDouble("Inclination", *inclination);
     }
     stopMem();
 }
@@ -157,18 +157,15 @@ RoboStruct pidSpeedParameters(RoboStruct buoy, bool get)
     startMem();
     if (get)
     {
-        buoy.kps = storage.getDouble("Psp", 20);
-        buoy.kis = storage.getDouble("Isp", 0.4);
-        buoy.kds = storage.getDouble("Dsp", 0);
-        buoy.ps = 0;
-        buoy.is = 0;
-        buoy.ds = 0;
+        buoy.ps = storage.getDouble("ps", 20);
+        buoy.is = storage.getDouble("is", 0.4);
+        buoy.ds = storage.getDouble("ds", 0);
     }
     else
     {
-        storage.putDouble("Psp", buoy.kps);
-        storage.putDouble("Isp", buoy.kis);
-        storage.putDouble("Dsp", buoy.kds);
+        storage.putDouble("ps", buoy.ps);
+        storage.putDouble("is", buoy.is);
+        storage.putDouble("ds", buoy.ds);
     }
     stopMem();
     return buoy;
@@ -178,19 +175,16 @@ RoboStruct pidRudderParameters(RoboStruct buoy, bool get)
     startMem();
     if (get)
     {
-        buoy.kpr = storage.getDouble("Prd", 0.5);
-        buoy.kir = storage.getDouble("Ird", 0.02);
-        buoy.kdr = storage.getDouble("Drd", 0);
-        buoy.pr = 0;
-        buoy.ir = 0;
-        buoy.dr = 0;
+        buoy.pr = storage.getDouble("pr", 0.5);
+        buoy.ir = storage.getDouble("ir", 0.02);
+        buoy.dr = storage.getDouble("dr", 0);
         buoy.compassOffset = storage.getInt("Mecanic", 0);
     }
     else
     {
-        storage.putDouble("Prd", buoy.kpr);
-        storage.putDouble("Ird", buoy.kir);
-        storage.putDouble("Drd", buoy.kdr);
+        storage.putDouble("pr", buoy.pr);
+        storage.putDouble("ir", buoy.ir);
+        storage.putDouble("dr", buoy.dr);
     }
     stopMem();
     return buoy;

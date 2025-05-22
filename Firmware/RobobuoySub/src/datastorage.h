@@ -5,10 +5,10 @@
 #define SET false
 
 void initMemory(void);
-RoboStruct memDockPos(RoboStruct buoy, bool get);
+void memDockPos(RoboStruct *buoy, bool get);
 void memBuoyId(int8_t *id, bool get);
 void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, float *MinX, float *MinY, float *MinZ, bool get);
-void CompassOffsetCorrection(double *delta, bool get);
+void Inclination(double *inclination, bool get);
 void MechanicalCorrection(double *delta, bool get);
 RoboStruct computeParameters(RoboStruct buoy, bool get);
 RoboStruct pidSpeedParameters(RoboStruct buoy, bool get);

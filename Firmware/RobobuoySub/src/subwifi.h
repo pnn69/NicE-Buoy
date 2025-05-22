@@ -7,7 +7,8 @@ extern QueueHandle_t udpIn;
 #define MAXSTRINGLENG 150
 
 uint8_t* getMacId(uint8_t* mac);
-unsigned long initwifi(void);
+unsigned long espMac(void);
+void initwifi(void);
 void WiFiTask(void *arg);
 
 #endif /* SUBWIFI_H_ */

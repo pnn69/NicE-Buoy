@@ -38,11 +38,11 @@ String str = "";
 char bufferin[100];
 char bufferout[8][100];
 buoyDataType buoy[NR_BUOYS];
-BluetoothSerial SerialBT;
+//BluetoothSerial SerialBT;
 
 void setup()
 {
-    SerialBT.begin("NicE_Buoy_Control"); // Bluetooth device name
+    //SerialBT.begin("NicE_Buoy_Control"); // Bluetooth device name
     Serial.begin(115200);
     pinMode(LED_PIN, OUTPUT);
     pinMode(SW_P_1, INPUT_PULLUP);
@@ -299,12 +299,12 @@ void loop()
         str = Serial.readString();
         str.toCharArray(bufferin, str.length() + 1);
     }
-    if (SerialBT.connected() && SerialBT.available())
-    {
-        SerialBT.setTimeout(500);
-        str = SerialBT.readString();
-        str.toCharArray(bufferin, str.length() + 1);
-    }
+    // if (SerialBT.connected() && SerialBT.available())
+    // {
+    //     SerialBT.setTimeout(500);
+    //     str = SerialBT.readString();
+    //     str.toCharArray(bufferin, str.length() + 1);
+    // }
     if (str != "")
     {
         int i = 0;
