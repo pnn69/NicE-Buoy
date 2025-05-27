@@ -21,12 +21,14 @@ PIDRUDDERSET = 56
 PIDSPEEDSET = 58
 LOCKING = 12
 IDELING = 8
+IDLE = 7
 DOCKING = 15
 REMOTE = 25
 BUOYIDALL = 1
 LORAGETACK = 3
 LORAINF = 6
-
+STORE_DECLINATION = 31
+MAXMINPWR = 68
 # Utility Functions
 
 
@@ -135,16 +137,74 @@ class PIDSender(QWidget):
         self.serial_port = None
         layout = QVBoxLayout()
         # PID input groups
+        pid_layout = QHBoxLayout()
+
         self.SpeedPid_inputs = self.create_pid_input_group(
             "Speed (Kp, Ki, Kd)", ["Kps", "Kis", "Kds"], self.send_SpeedPid)
-        layout.addWidget(self.SpeedPid_inputs["box"])
+        pid_layout.addWidget(self.SpeedPid_inputs["box"])
 
         self.RudderPid_inputs = self.create_pid_input_group(
             "Rudder (Kp, Ki, Kd)", ["Kpr", "Kir", "Kdr"], self.send_RudderPid)
-        layout.addWidget(self.RudderPid_inputs["box"])
+        pid_layout.addWidget(self.RudderPid_inputs["box"])
 
-        # Restore saved values
+        layout.addLayout(pid_layout)
+                # Restore saved values
         self.restore_values()
+
+        # Power and Declination layout
+        power_declination_layout = QHBoxLayout()
+
+        # Max Power Input
+        power_declination_layout.addWidget(QLabel("Max Power (-100 to 100):"))
+        self.max_power_input = QLineEdit()
+        self.max_power_input.setPlaceholderText("Enter max power")
+        power_declination_layout.addWidget(self.max_power_input)
+
+        # Add spacing between fields
+        power_declination_layout.addSpacing(20)
+
+        # Min Power Input
+        power_declination_layout.addWidget(QLabel("Min Power (-100 to 100):"))
+        self.min_power_input = QLineEdit()
+        self.min_power_input.setPlaceholderText("Enter min power")
+        power_declination_layout.addWidget(self.min_power_input)
+
+        # Add spacing between fields
+        power_declination_layout.addSpacing(20)
+
+        # Declination Input
+        power_declination_layout.addWidget(QLabel("Declination (°):"))
+        self.declination_input = QLineEdit()
+        self.declination_input.setPlaceholderText("Enter declination float")
+        power_declination_layout.addWidget(self.declination_input)
+
+        layout.addLayout(power_declination_layout)
+
+        # Load saved values
+        max_power_val = self.saved_values.get("MaxPower", 0.0)
+        min_power_val = self.saved_values.get("MinPower", 0.0)
+        declination_val = self.saved_values.get("Declination", 0.0)
+        self.max_power_input.setText(str(max_power_val))
+        self.min_power_input.setText(str(min_power_val))
+        self.declination_input.setText(str(declination_val))
+
+        # Buttons layout
+        buttons_layout = QHBoxLayout()
+
+        # Send Power Limits button aligned left
+        self.send_power_button = QPushButton("Send Power Limits")
+        self.send_power_button.clicked.connect(self.send_power_limits)
+        buttons_layout.addWidget(self.send_power_button, alignment=Qt.AlignLeft)
+
+        # Spacer in middle to push buttons to edges
+        buttons_layout.addStretch(1)
+
+        # Send Declination button aligned right
+        self.send_declination_button = QPushButton("Send Declination")
+        self.send_declination_button.clicked.connect(self.send_declination)
+        buttons_layout.addWidget(self.send_declination_button, alignment=Qt.AlignRight)
+
+        layout.addLayout(buttons_layout)
 
         # Serial display
         layout.addWidget(QLabel("Incoming Serial Data:"))
@@ -197,8 +257,14 @@ class PIDSender(QWidget):
         return {"box": box, "inputs": inputs}
 
     def create_slider(self, name, on_change):
+        def format_slider_value(val):
+            if val < 0:
+                return f"-{abs(val):02d}"
+            else:
+                return f"{val:02d}"
+
         layout = QHBoxLayout()
-        label = QLabel("0")
+        label = QLabel("00")  # default as two digits
         slider = QSlider(Qt.Horizontal)
         slider.setRange(-100, 100)
         slider.setValue(0)
@@ -206,7 +272,7 @@ class PIDSender(QWidget):
         slider.setTickPosition(QSlider.TicksBelow)
 
         slider.valueChanged.connect(lambda val: (
-            label.setText(str(val)),
+            label.setText(format_slider_value(val)),
             on_change(name, val)
         ))
 
@@ -326,14 +392,57 @@ class PIDSender(QWidget):
         full_message = generate_nmea_message(base_message)
         send_message(full_message, self.serial_port)
 
+    def send_power_limits(self):
+        try:
+            max_power = int(self.max_power_input.text())
+            min_power = int(self.min_power_input.text())        
+        except ValueError:
+            print("Invalid max or min power value.")
+            return
+
+        # Clamp values between -100 and 100
+        max_power = max(-100, min(100, max_power))
+        min_power = max(-100, min(100, min_power))
+
+        # Save to config
+        self.saved_values["MaxPower"] = max_power
+        self.saved_values["MinPower"] = min_power
+        save_values(self.saved_values)
+
+        # Prepare message, choose an ID, example 98 for power limits
+        # Format: LORAINF, 98, 0, max_power, min_power, 0, 0
+        base_message = f"{LORAINF},{MAXMINPWR },{IDLE},{float_to_str(max_power)},{float_to_str(min_power)}"
+        full_message = generate_nmea_message(base_message)
+        send_message(full_message, self.serial_port)
+        print(f"Power limits sent: Max={max_power}, Min={min_power}")
+
+
+    def send_declination(self):
+        try:
+            declination_value = float(self.declination_input.text())
+        except ValueError:
+            print("Invalid declination value.")
+            return
+
+        # Save declination to config
+        self.saved_values["Declination"] = declination_value
+        save_values(self.saved_values)
+
+        # Prepare message, choose IDs arbitrarily or define your own, example below:
+        # Let's say LORAINF=6, id=99 for declination, with one float value + some zeros to match your format
+        base_message = f"{LORAGETACK},{STORE_DECLINATION},{IDLE},{float_to_str(declination_value)}"
+        full_message = generate_nmea_message(base_message)
+        send_message(full_message, self.serial_port)
+        print(f"Declination {declination_value} sent.")
+
     def on_mode_button_clicked(self, button):
         # button is the QRadioButton clicked
         if button == self.lock_radio:
-            base_message = f"{LORAGETACK},{LOCKING}"
+            base_message = f"{LORAGETACK},{LOCKING},{IDLE}"
         elif button == self.idle_radio:
-            base_message = f"{LORAGETACK},{IDELING}"
+            base_message = f"{LORAGETACK},{IDELING},{IDLE}"
         elif button == self.docking_radio:
-            base_message = f"{LORAGETACK},{DOCKING}"
+            base_message = f"{LORAGETACK},{DOCKING},{IDLE}"
         else:
             return  # No action for other buttons (like Remote)
 

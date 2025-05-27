@@ -149,6 +149,10 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
     case STORE_DECLINATION:
         dataStore.declination = numbers[2].toDouble();
         break;
+    case MAXMINPWR:
+        dataStore.maxSpeed = numbers[2].toInt();
+        dataStore.minSpeed = numbers[3].toInt();
+        break;
     case IDELING:
         break;
     case LORAACK:
@@ -295,6 +299,10 @@ String RoboCode(RoboStruct dataOut)
     case WINDDATA:
         out += "," + String(dataOut.wDir, 1);
         out += "," + String(dataOut.wStd, 1);
+        break;
+    case MAXMINPWR:
+        out += "," + String(dataOut.maxSpeed);
+        out += "," + String(dataOut.minSpeed);
         break;
     case LOCKING:
         break;

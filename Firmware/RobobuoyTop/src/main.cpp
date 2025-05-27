@@ -114,11 +114,13 @@ int countKeyPressesWithTimeoutAndFinalLongPress()
         lastPressTime = currentTime;
         debounce = true;
         longPressReported = false;
+        beep(2000, buzzer);
     }
 
     // Long press detection
     if (buttonState == HIGH && (currentTime - lastPressTime > 3000) && !longPressReported)
     {
+        beep(2000, buzzer);
         int result = 101 + pressCount; // 100 + short press count
         pressCount = 0;
         longPressReported = true;
@@ -577,6 +579,9 @@ void handelRfData(RoboStruct *RfOut)
                 break;
             case STORE_DECLINATION:
                 RfOut->declination = RfIn.declination; // set inclination'
+                xQueueSend(serOut, (void *)&RfIn, 0);  // update sub
+                break;
+            case MAXMINPWR:
                 xQueueSend(serOut, (void *)&RfIn, 0);  // update sub
                 break;
             default:

@@ -138,6 +138,9 @@ void handelKeyPress(RoboStruct *key)
         case 105:
             key->cmd = STOREASDOC;
             break;
+        case 10:
+            key->cmd = STORE_DECLINATION;
+            break;
         case 110:
             key->cmd = CALIBRATE_MAGNETIC_COMPASS;
             break;

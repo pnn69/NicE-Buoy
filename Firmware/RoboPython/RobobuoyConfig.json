@@ -8,5 +8,8 @@
         "Kps": 30.0,
         "Kis": 0.09,
         "Kds": 0.05
-    }
+    },
+    "Declination": 1.52,
+    "MaxPower": 70,
+    "MinPower": -70
 }

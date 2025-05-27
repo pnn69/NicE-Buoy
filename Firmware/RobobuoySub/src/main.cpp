@@ -408,6 +408,8 @@ void loop(void)
                 break;
                 printf("Declination: %0.2f\r\n", dataIn.declination);
                 break;
+            case MAXMINPWR:
+                break;    
             case PING:
                 mainData.cmd = DIRSPEED;
                 xQueueSend(serOut, (void *)&mainData, 10);

@@ -86,6 +86,7 @@ typedef enum
     TXT,                              // Text message
     ROBODEFAULTS,                     //
     WINDDATA,                         // wDir,wStd;
+    MAXMINPWR,                        // max power, min power
 } msg_t;
 
 struct RoboStruct
