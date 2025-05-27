@@ -44,7 +44,7 @@ void initSpeedPid(void)
     t = computeParameters(t, GET);
     speed.maxSpeed = t.maxSpeed;
     speed.minSpeed = t.minSpeed;
-    speedPID.SetOutputLimits(speed.minSpeed, speed.maxSpeed);
+    speedPID.SetOutputLimits(0, speed.maxSpeed);
     speedPID.SetMode(AUTOMATIC); // turn the PID on
     Serial.println("PID speed ps:" + String(speed.ps, 2) +
                    " is:" + String(speed.is, 2) +
@@ -61,28 +61,25 @@ void rudderPid(RoboStruct *rud)
     rudderInput = smallestAngle(rud->tgDir, rud->dirMag);
     rudderSetpoint = 0;
     rudderPID.Compute();
+
     rud->tgSpeed = constrain(rud->tgSpeed, rud->minSpeed, rud->maxSpeed);
-    double bb = rud->tgSpeed - rudderOutput;
     double sb = rud->tgSpeed + rudderOutput;
+    double bb = rud->tgSpeed - rudderOutput;
     rud->speedSb = constrain(sb, rud->minSpeed, rud->maxSpeed);
     rud->speedBb = constrain(bb, rud->minSpeed, rud->maxSpeed);
-    if (esc.speedbb != rud->speedBb || esc.speedsb != rud->speedSb)
-    {
-        esc.speedbb = rud->speedBb;
-        esc.speedsb = rud->speedSb;
-        xQueueSend(escspeed, (void *)&esc, 10);
-    }
+    esc.speedbb = rud->speedBb;
+    esc.speedsb = rud->speedSb;
+    xQueueSend(escspeed, (void *)&esc, 10);
 
+    // printf("TD:%05.2f  tgSpeed: %05.2f angle: %03.0f output: %07.2f  Sb: %3d Bb: %3d\r\n", rud->tgDist, rud->tgSpeed, rudderInput, rudderOutput, rud->speedSb, rud->speedBb);
 }
 //***************************************************************************************************
 //  speedPID
 //***************************************************************************************************
-double speedPid(double dist)
+void speedPid(RoboStruct *dist)
 {
-    speedInput = -dist + 2;
+    speedInput = -(dist->tgDist - 2);
     speedSetpoint = 0;
     speedPID.Compute();
-    // printf("tgDist: %05.2f tgSpeed: %05.2f     ", dist, speedOutput);
-    // printf("ps:%0.2f is:%0.2f ds:%0.2f\r\n", speedPID.GetKp(), speedPID.GetKi(), speedPID.GetKd());
-    return speedOutput;
+    dist->tgSpeed = speedOutput;
 }

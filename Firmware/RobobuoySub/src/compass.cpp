@@ -25,6 +25,7 @@ static double mDir = 0;
 QueueHandle_t compass;
 QueueHandle_t compassIn;
 static RoboStruct compassInData;
+static double declination = 0;
 
 // Adafruit_LSM303AGR_Mag_Unified mag = Adafruit_LSM303AGR_Mag_Unified(12345);
 Adafruit_LIS2MDL mag = Adafruit_LIS2MDL(12345); //  includes LSM303AGR
@@ -32,7 +33,6 @@ Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
 
 Message comp_msg; /* ESC que struckt */
 
-static double inclination = 0;
 static double mechanicCorrection = 0;
 
 template <typename T>
@@ -131,8 +131,8 @@ bool InitCompass(void)
     {
         Serial.println("Unable to initialize LSM303 magnetometer");
         while (1)
-         esp_restart();//  reset if compass not found
-            ;
+            esp_restart(); //  reset if compass not found
+        ;
     }
 
     if (!accel.begin())
@@ -144,7 +144,7 @@ bool InitCompass(void)
     accel.setMode(LSM303_MODE_NORMAL);
     sensors_event_t event;
     mag.getEvent(&event);
-    Inclination(&inclination, GET);
+    Declination(&declination, GET);
     MechanicalCorrection(&mechanicCorrection, GET);
     return 0;
 }
@@ -194,7 +194,7 @@ double GetHeading(void)
     // sensors_event_t event;
     // mag.getEvent(&event);
     // double mHeading = (atan2(event.magnetic.x - (max_mag[0] + min_mag[0]) / 2, event.magnetic.y - (max_mag[1] + min_mag[1]) / 2) * 180) / PI;
-    mHeading += inclination + 90;
+    mHeading += declination + 90;
     if (mHeading < 0)
     {
         mHeading = mHeading + 360.0;
@@ -272,14 +272,18 @@ double GetHeadingAvg(void)
 //***************************************************************************************************
 void calibrateMagneticNorth(void)
 {
-    double h = mDir - inclination;
+    double h = mDir - declination;
     if (h < 0)
     {
         h += 360;
     }
-    inclination = smallestAngle(h, 0);
-    Inclination(&inclination, SET);
-    printf("\r\n\r\nNew magnetic offset stored: %.2f\r\n\r\n", inclination);
+    if (h > 360)
+    {
+        h -= 360;
+    }
+    declination = smallestAngle(h, 0);
+    Declination(&declination, SET);
+    printf("\r\n\r\nNew magnetic offset stored: %.2f\r\n\r\n", declination);
 }
 
 //***************************************************************************************************

@@ -4,17 +4,14 @@
 #include <ArduinoOTA.h>
 #include <AsyncUDP.h>
 #include "main.h"
-#include "topwifi.h"
-#include "leds.h"
-#include "datastorage.h"
-#include "buzzer.h"
+#include "controlwifi.h"
 
 static int statik = IDLE;
 static RoboStruct msgIdOut;
 static RoboStruct topWifiIn;
 static RoboStruct udpBuffer;
 static RoboStruct udpBufferRecieved;
-static LedData wifiCollorUtil;
+
 static bool ota = false;
 static int8_t id = 0;
 static char udpDataIn[MAXSTRINGLENG];
@@ -157,12 +154,6 @@ bool udp_setup(int poort)
                         if (udpDataIn.IDs != -1 )
                         {
                             xQueueSend(udpIn, (void *)&udpDataIn, 10); // notify main there is new data
-                            if (wifiCollorUtil.color != CRGB::DarkBlue)
-                            {
-                                wifiCollorUtil.blink = BLINK_SLOW;
-                                wifiCollorUtil.color = CRGB::DarkBlue;
-                                xQueueSend(ledUtil, (void *)&wifiCollorUtil, 0); // update GPS led
-                            }
                             lastUpdMsg = millis();
                         }
                         else
@@ -228,10 +219,6 @@ void WiFiTask(void *arg)
     }
     else // try to find accespoint NicE_WiFi. If no succes make a accecpoint BUOY_[MAC]
     {
-        wifiCollorUtil.color = CRGB::LightBlue;
-        wifiCollorUtil.blink = FADE_ON;
-        wifiCollorUtil.fadeAmount = 5;
-        xQueueSend(ledStatus, (void *)&wifiCollorUtil, 10); // update util led
         ap = "NicE_WiFi";
         apww = "!Ni1001100110";
         if (scan_for_wifi_ap(ap, apww, &ipTop) == false)
@@ -246,9 +233,6 @@ void WiFiTask(void *arg)
     Serial.println(ipTop);
     ota = setup_OTA();
     udp_setup(1001);
-    wifiCollorUtil.color = CRGB::Black;
-    wifiCollorUtil.blink = BLINK_OFF;
-    xQueueSend(ledStatus, (void *)&wifiCollorUtil, 10); // update util led
     printf("WiFI task running!\r\n");
     /*
         WiFI loop

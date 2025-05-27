@@ -11,6 +11,6 @@ void initRudPid(void);
 void initSpeedPid(void);
 
 void rudderPid(RoboStruct *rud);
-double speedPid(double speed);
+void speedPid(RoboStruct *speed);
 
 #endif // PIDRUDSPEED_H

@@ -10,6 +10,7 @@ typedef struct Message
 } Message;
 
 void initescqueue(void);
+void startESC(void);
 void beepESC(void);
 void triggerESC(void);
 void EscTask(void *arg);

@@ -78,14 +78,26 @@ void triggerESC(void)
         ;
 }
 
+void playTone(int frequency)
+{
+    if (frequency == 0)
+    {
+        ledcWrite(0, microsecondsToDuty(1000)); // Send 1000us = neutral
+        return;
+    }
+
+    int toneWidth = 1500 + (sin(millis() / 100.0) * 200); // Optionally modulate
+
+    ledcWrite(0, microsecondsToDuty(toneWidth)); // Slightly modulate PWM to trick ESC
+}
+
 void beepESC(void)
 {
     Serial.println("Beep ESC");
-    ledcSetup(ESC_BB_CHANNEL, 0, ESC_RESOLUTION);
-    ledcSetup(ESC_SB_CHANNEL, 0, ESC_RESOLUTION);
-    ledcAttachPin(ESC_BB_PIN, ESC_BB_CHANNEL); // e.g., GPIO 25
-    ledcAttachPin(ESC_SB_PIN, ESC_SB_CHANNEL); // e.g., GPIO 26
-    delay(500);
+    playTone(880); // A5    delay(500);
+    delay(1000);   // Wait for 1 second
+    playTone(660); // E5
+    delay(1000);   // Wait for 1 second
     ledcSetup(ESC_BB_CHANNEL, ESC_FREQ, ESC_RESOLUTION);
     ledcSetup(ESC_SB_CHANNEL, ESC_FREQ, ESC_RESOLUTION);
     ledcAttachPin(ESC_BB_PIN, ESC_BB_CHANNEL); // e.g., GPIO 25
@@ -105,10 +117,10 @@ void initescqueue(void)
 void startESC(void)
 {
     digitalWrite(ESC_SB_PWR_PIN, HIGH);
-    Serial.println("ESC BB ON\r\n");
+    Serial.println("ESC BB ON");
     delay(1000);
     digitalWrite(ESC_BB_PWR_PIN, HIGH);
-    Serial.println("ESC SB ON\r\n");
+    Serial.println("ESC SB ON");
     delay(1000);
     // Set up PWM channels
     ledcSetup(ESC_BB_CHANNEL, ESC_FREQ, ESC_RESOLUTION);
@@ -116,27 +128,27 @@ void startESC(void)
     ledcAttachPin(ESC_BB_PIN, ESC_BB_CHANNEL); // e.g., GPIO 25
     ledcAttachPin(ESC_SB_PIN, ESC_SB_CHANNEL); // e.g., GPIO 26
     uint16_t neutral = speedToPulse(0);
-    for (int i = 0; i < 200; i++)
+    for (int i = 0; i < 100; i++)
     { // 2 seconds at 20ms
         ledcWrite(ESC_BB_CHANNEL, neutral);
         ledcWrite(ESC_SB_CHANNEL, neutral);
         delay(20);
     }
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < 2; i++)
     {
         neutral = speedToPulse(i);
         ledcWrite(ESC_BB_CHANNEL, neutral);
         ledcWrite(ESC_SB_CHANNEL, neutral);
         delay(50);
     }
-    for (int i = 5; i > -5; i--)
+    for (int i = 2; i > -2; i--)
     {
         neutral = speedToPulse(i);
         ledcWrite(ESC_BB_CHANNEL, neutral);
         ledcWrite(ESC_SB_CHANNEL, neutral);
         delay(50);
     }
-    for (int i = -5; i < 0; i++)
+    for (int i = -2; i < 0; i++)
     {
         neutral = speedToPulse(i);
         ledcWrite(ESC_BB_CHANNEL, neutral);
@@ -164,8 +176,8 @@ void EscTask(void *arg)
     {
         if (xQueueReceive(escspeed, (void *)&rcv_msg, 0) == pdTRUE)
         {
-            spbb = rcv_msg.speedbb;
-            spsb = rcv_msg.speedsb;
+            spsb = -rcv_msg.speedbb;
+            spbb = -rcv_msg.speedsb;
             uint8_t r, g;
             if (rcv_msg.speedbb < 0)
             {
@@ -195,7 +207,6 @@ void EscTask(void *arg)
             powerIndicator.sb[1] = g;
             powerIndicator.sb[2] = 0;
             powerIndicator.blinkSb = BLINK_OFF;
-            xQueueSend(ledPwr, (void *)&powerIndicator, 0);
         }
         if (spsb != 0 || spbb != 0)
         {
@@ -209,17 +220,6 @@ void EscTask(void *arg)
                 spbbAct = 0;
             }
         }
-        // if (bbStamp + 1000 * 60 * 10 < millis() && digitalRead(ESC_BB_PWR_PIN) == 1 && sbStamp + 1000 * 60 * 10 < millis() && digitalRead(ESC_SB_PWR_PIN) == 1)
-        // {
-        //     ledcWrite(ESC_SB_CHANNEL, speedToPulse(0));
-        //     ledcWrite(ESC_BB_CHANNEL, speedToPulse(0));
-        //     delay(1000);
-        //     printf("ESC'S  OFF\r\n");
-        //     digitalWrite(ESC_BB_PWR_PIN, LOW);
-        //     digitalWrite(ESC_SB_PWR_PIN, LOW);
-        //     spsbAct = 0;
-        //     spbbAct = 0;
-        // }
         if (logStamp + 100 < millis())
         {
             logStamp = millis();
@@ -228,31 +228,26 @@ void EscTask(void *arg)
         if (escStamp < millis())
         {
             escStamp = millis() + 30;
-            if (spsb != spsbAct)
+            xQueueSend(ledPwr, (void *)&powerIndicator, 0);
+            if (spsb > spsbAct)
             {
-                if (spsb > spsbAct)
-                {
 
-                    spsbAct++;
-                }
-                else
-                {
-                    spsbAct--;
-                }
-                ledcWrite(ESC_SB_CHANNEL, speedToPulse(spsbAct));
+                spsbAct++;
             }
-            if (spbb != spbbAct)
+            else
             {
-                if (spbb > spbbAct)
-                {
-                    spbbAct++;
-                }
-                else
-                {
-                    spbbAct--;
-                }
-                ledcWrite(ESC_BB_CHANNEL, speedToPulse(spbbAct));
+                spsbAct--;
             }
+            ledcWrite(ESC_SB_CHANNEL, speedToPulse(spsbAct));
+            if (spbb > spbbAct)
+            {
+                spbbAct++;
+            }
+            else
+            {
+                spbbAct--;
+            }
+            ledcWrite(ESC_BB_CHANNEL, speedToPulse(spbbAct));
         }
 
         delay(1);

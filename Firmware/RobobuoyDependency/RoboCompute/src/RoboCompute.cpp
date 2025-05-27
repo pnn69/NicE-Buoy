@@ -59,8 +59,8 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         dataStore.wStd = numbers[6].toDouble();
         break;
     case REMOTE: // speed,tgdir
-        dataStore.speed = numbers[2].toInt();
-        dataStore.tgDir = numbers[3].toDouble();
+        dataStore.speedBb = numbers[2].toInt();
+        dataStore.speedSb = numbers[3].toInt();
         break;
     case TOPDATA: // ?
         printf("TOPDATA Not implementend yet/r/n");
@@ -109,7 +109,7 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         dataStore.speed = numbers[3].toInt();
         dataStore.speedBb = numbers[4].toInt();
         dataStore.speedSb = numbers[5].toInt();
-        dataStore.subAccuV = numbers[6].toDouble();
+        dataStore.subAccuV = numbers[6].toFloat();
         break;
     case BUOYPOS: // STATUS,LAT,LON,mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
         dataStore.lat = numbers[2].toDouble();
@@ -131,6 +131,8 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         dataStore.wDir = numbers[4].toDouble();
         dataStore.wStd = numbers[5].toDouble();
         break;
+    case STOREASDOC:
+        break;
     case SETLOCKPOS: // LAT,LON,wDir,wStd
     case SETDOCKPOS:
         dataStore.tgLat = numbers[2].toDouble();
@@ -143,6 +145,9 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
     case WINDDATA:
         dataStore.wDir = numbers[2].toDouble();
         dataStore.wStd = numbers[2].toDouble();
+        break;
+    case STORE_DECLINATION:
+        dataStore.declination = numbers[2].toDouble();
         break;
     case IDELING:
         break;
@@ -180,6 +185,8 @@ String RoboCode(RoboStruct dataOut)
     switch (dataOut.cmd)
     {
     case IDLE:
+        out += ",0";
+        out += ",0";
         break;
     case DOCKED:
     case LOCKED:
@@ -190,13 +197,13 @@ String RoboCode(RoboStruct dataOut)
         out += "," + String(dataOut.wStd, 1);
         break;
     case REMOTE:
-        out += "," + String(dataOut.speed);
-        out += "," + String(dataOut.tgDir, 2);
+        out += "," + String(dataOut.speedBb);
+        out += "," + String(dataOut.speedSb);
         break;
     case SUBDATA:
         out += "," + String(dataOut.dirMag, 2);
-        out += "," + String(dataOut.speedSb);
         out += "," + String(dataOut.speedBb);
+        out += "," + String(dataOut.speedSb);
         out += "," + String(dataOut.subAccuV, 2);
         out += "," + String(dataOut.subAccuP);
         break;
@@ -212,16 +219,16 @@ String RoboCode(RoboStruct dataOut)
     case DIRSPEED:
         out += "," + String(dataOut.dirMag, 2);
         out += "," + String(dataOut.speed);
-        out += "," + String(dataOut.speedSb);
         out += "," + String(dataOut.speedBb);
+        out += "," + String(dataOut.speedSb);
         break;
     case TGDIRSPEED:
         out += "," + String(dataOut.tgDir, 2);
         out += "," + String(dataOut.speedSet);
         break;
     case SUBSPEED:
-        out += "," + String(dataOut.speedSb);
         out += "," + String(dataOut.speedBb);
+        out += "," + String(dataOut.speedSb);
         out += "," + String(dataOut.speed);
         break;
     case SUBACCU:
@@ -268,8 +275,8 @@ String RoboCode(RoboStruct dataOut)
         out += "," + String(dataOut.subAccuV, 2);
         break;
     case SPBBSPSB:
-        out += "," + String(dataOut.speedSb);
         out += "," + String(dataOut.speedBb);
+        out += "," + String(dataOut.speedSb);
         break;
     case DOCKING:
         break;
@@ -293,7 +300,13 @@ String RoboCode(RoboStruct dataOut)
         break;
     case IDELING:
         break;
+    case STOREASDOC:
+        break;
     case CALIBRATE_MAGNETIC_COMPASS:
+        break;
+    case STORE_DECLINATION:
+        out += "," + String(dataOut.declination, 2);
+        break;
         break;
     case PING:
         out = String(PING);
@@ -441,42 +454,40 @@ bool verifyCRC(String input)
 Add new data in buffer
 Structure buf[averige][deviation][data0][datan...]
 */
-RoboWindStruct addNewSampleInBuffer(RoboWindStruct wData, double nwdata)
+void addNewSampleInBuffer(RoboWindStruct *wData, double nwdata)
 {
-    if (wData.ptr >= SAMPELS)
+    if (wData->ptr >= SAMPELS)
     {
-        wData.ptr = 0;
+        wData->ptr = 0;
     }
-    wData.data[wData.ptr] = nwdata;
-    wData.ptr++;
-    return wData;
+    wData->data[wData->ptr] = nwdata;
+    wData->ptr++;
 }
 
-double averigeWindRose(RoboWindStruct wData)
+void averigeWindRose(RoboWindStruct *wData)
 {
     double sumSin = 0, sumCos = 0;
     for (int i = 0; i < SAMPELS; ++i)
     {
-        double angle = radians(wData.data[i]); // Convert to radians
+        double angle = radians(wData->data[i]); // Convert to radians
         sumSin += sin(angle);
         sumCos += cos(angle);
     }
     double meanAngle = atan2(sumSin / SAMPELS, sumCos / SAMPELS);   // Compute mean angle
     double meanDegrees = fmod(meanAngle * 180.0 / M_PI + 360, 360); // Convert mean angle to degrees
-    wData.wDir = meanDegrees;
-    return meanDegrees;
+    wData->wDir = meanDegrees;
 }
 /*
 compute deviation of a buffer pos
 Structure buf[averige][deviation][data0][datan...]
 */
-RoboWindStruct deviationWindRose(RoboWindStruct wData)
+void deviationWindRose(RoboWindStruct *wData)
 {
-    wData.wDir = averigeWindRose(wData);
+    averigeWindRose(wData);
     double sumSquaredCircularDiff = 0;
     for (int i = 0; i < SAMPELS; ++i)
     {
-        double diff = wData.data[i] - wData.wDir;
+        double diff = wData->data[i] - wData->wDir;
         if (diff > 180)
         {
             diff -= 360;
@@ -487,8 +498,7 @@ RoboWindStruct deviationWindRose(RoboWindStruct wData)
         }
         sumSquaredCircularDiff += diff * diff;
     }
-    wData.wStd = sqrt(sumSquaredCircularDiff / SAMPELS);
-    return wData;
+    wData->wStd = sqrt(sumSquaredCircularDiff / SAMPELS);
 }
 
 void PidDecode(String data, int pid, RoboStruct buoy)

@@ -43,13 +43,13 @@ typedef enum
     SETDOCKPOS,                       // tgLat,tgLng
     DOCKPOS,                          // tgLat,tgLng,tgDir,tgDist
     UNLOCK,                           //
-    REMOTE,                           // dir,speed
+    REMOTE,                           // speedBb.sdpeedSb
     REMOTEING,                        //
     CALIBRATE_MAGNETIC_COMPASS,       // calibrate magnetic compass
     START_CALIBRATE_MAGNETIC_COMPASS, // start calibrate magnetic compass
     LINEAR_CALLIBRATING,              //
-    CALIBRATE_INCLINATION,            //
-    STORE_INCLINATION,                //
+    SET_DECLINATION,                  // Curren direction is true north calculate declination and store it
+    STORE_DECLINATION,                // +1.5-2.0 in NL
     DOCK_STORING,                     //
     MUTE_ESC,                         // esc off
     BLINK_SLOW,                       // blink slow
@@ -131,7 +131,7 @@ struct RoboStruct
     int maxOfsetDist = 20;
     int minSpeed = 0;
     int maxSpeed = 80;
-    double compassOffset = 0;
+    double declination = 0;
     unsigned long buoyId = 0;
     unsigned long lastLoraIn = 0;  // last external communicatong
     unsigned long lastLoraOut = 0; // last external communicatong
@@ -179,8 +179,8 @@ String removeBeginAndEndToString(String input);
 String addCRCToString(String input); // Use reference to modify the original string
 bool verifyCRC(String input);
 
-double averigeWindRose(RoboWindStruct wData);
-RoboWindStruct deviationWindRose(RoboWindStruct wData);
+void averigeWindRose(RoboWindStruct *wData);
+void deviationWindRose(RoboWindStruct *wData);
 void initPid(int pid, RoboStruct buoy);
 void PidDecode(String data, int pid, RoboStruct buoy);
 String PidEncode(int pid, RoboStruct buoy);
@@ -188,7 +188,7 @@ void gpsGem(double &lat, double &lon);
 double distanceBetween(double lat1, double long1, double lat2, double long2);
 double computeWindAngle(double windDegrees, double lat, double lon, double centroidLat, double centroidLon);
 double approxRollingAverage(double avg, double input);
-RoboWindStruct addNewSampleInBuffer(RoboWindStruct wData, double nwdata);
+void addNewSampleInBuffer(RoboWindStruct *wData, double nwdata);
 void checkparameters(RoboStruct buoy);
 
 void adjustPositionDirDist(double dir, double dist, double lat, double lon, double *latOut, double *lonOut);

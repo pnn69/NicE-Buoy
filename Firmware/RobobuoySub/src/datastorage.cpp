@@ -11,7 +11,7 @@ void initMemory(void)
     // Note: Namespace name is limited to 15 chars.
     storage.begin("NicE_Buoy_Data", false);
     char id = storage.getChar("NicE_BuoyID", 0);
-    //id = 0;
+    // id = 0;
     if (id == 0)
     {
         Serial.printf("Configuring Non-volatile memory now!\n\r");
@@ -58,7 +58,7 @@ void memBuoyId(int8_t *id, bool get)
 /*
     Dock position
 */
-void memDockPos(RoboStruct* buoy, bool get)
+void memDockPos(RoboStruct *buoy, bool get)
 {
     startMem();
     if (get)
@@ -105,16 +105,16 @@ void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, floa
     stopMem();
 }
 
-void Inclination(double *inclination, bool get)
+void Declination(double *declination, bool get)
 {
     startMem();
     if (get)
     {
-        *inclination = storage.getDouble("Inclination", 0);
+        *declination = storage.getDouble("declination", 1.5);
     }
     else
     {
-        storage.putDouble("Inclination", *inclination);
+        storage.putDouble("decclination", *declination);
     }
     stopMem();
 }
@@ -178,7 +178,6 @@ RoboStruct pidRudderParameters(RoboStruct buoy, bool get)
         buoy.pr = storage.getDouble("pr", 0.5);
         buoy.ir = storage.getDouble("ir", 0.02);
         buoy.dr = storage.getDouble("dr", 0);
-        buoy.compassOffset = storage.getInt("Mecanic", 0);
     }
     else
     {

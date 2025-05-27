@@ -1,0 +1,77 @@
+<!-- https://www.youtube.com/watch?v=72QBpz-QY1k  -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>NicE buoy remote controller</title>
+    <Meta charset="ÜTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="discription" content="NicE buoy remote controller">
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<body>
+    </div>
+    <header>
+        <div class="topnav">
+            <!-- Dit is voor commentaar wordt niet weergegeven -->
+            <h1>NicE buoy remote controller</h1>
+            <p id="status"> Status window</p>
+        </div>
+
+        <div id="buoybox">
+            <h2>
+                Buoy 1
+            </h2>
+
+        </div>
+        <!-- dif class="split" -->
+        <div class="card">
+            <div class="barscontainer">
+                <div class="barcontainer">
+                    <div class="bar" id="bb1" style="height:70%">
+                    </div>
+                </div>
+                <div class=" barcontainer">
+                    <div class="bar" id="sb1" style="height:70%">
+                    </div>
+                </div>
+                <div id="radioBtn"><br>
+                    <input type="radio" name="mode" id="Lock_Buoy_1">
+                    <label for="Lock_Buoy_1">Lock position</label><br>
+                    <input type="radio" name="mode" id="Remote_Buoy_1">
+                    <label for="Remote_Buoy_1">Remote Contol</label><br>
+                    <input type="radio" name="mode" id="Doc_Buoy_1">
+                    <label for="Doc_Buoy_1">Doc Buoy</label><br>
+                    <input type="radio" name="mode" id="Idle_1">
+                    <label for="Idle_1">Standby</label><br>
+                </div>
+                <p class="switch">BB<input type="range" id="Rudder1" min="-100"
+                        max="100" step="10" value="0" class="slider">SB
+                    <p class="state">Rudder: <span id="rudder1"></span>
+                        &deg;</p>
+
+                    <p>&lt;&lt; <input type="range" id="Trottle1" min="-100"
+                            max="100" step="1" value="0" class="slider">&gt;&gt;
+                    </p>
+
+                    <p class="state">Throttle: <span id="trottle1"></span>
+                        &percnt;</p>
+                    <div>
+                        <h3>
+                            Heading:<span id="mdir1"></span>&deg; Target:<span
+                                id="tdir1"></span>&deg; Target:<span
+                                id="tgdistance1"></span>M
+                        </h3>
+                    </div>
+                    <p class="rssi1"> Rssi:<span id="rssi1"></span>dBm</p>
+
+                </p>
+            </div>
+        </div>
+    </header>
+    <script src="index.js"></script>
+</body>
+
+</html>

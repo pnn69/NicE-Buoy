@@ -1,18 +1,17 @@
-# make a script with 6 input fields containg  float's
-# Make two groups
-# variable names group 1: Kps Kis Kds
-# variable namesgroup 2: Kpr Kir Kdr
-# For each group, make a  sendbutton
-# If the button is pressed send a udp braodast with the values of the group
 import sys
 import socket
 import os
 import json
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QLineEdit, QPushButton, QGroupBox
+    QLabel, QLineEdit, QPushButton, QGroupBox, QTextEdit
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QRadioButton, QButtonGroup
+from PyQt5.QtWidgets import QSlider
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QTextCursor
+import serial  # Add at the top if not already present
+import serial.tools.list_ports
 
 UDP_PORT = 1001
 BROADCAST_IP = '255.255.255.255'
@@ -32,7 +31,7 @@ def compute_nmea_crc(sentence: str) -> str:
     return f"{crc:02X}"  # 2-digit uppercase hex
 
 
-def send_udp_broadcast(values, id, group_name):
+def send_udp_broadcast(values, id, group_name, serial_port=None):
     ordered_keys = ["Kps", "Kis", "Kds"] if group_name == "SpeedPid" else [
         "Kpr", "Kir", "Kdr"]
     try:
@@ -41,22 +40,30 @@ def send_udp_broadcast(values, id, group_name):
         print("Error: Missing values for", group_name)
         return
 
-    # Convert to stripped float strings
     value_strs = [float_to_str(v) for v in ordered_values]
     base_message = f"1,2,6,{id},0," + ",".join(value_strs)+",0,0,0"
-
-    # Compute NMEA-style CRC
     crc_hex = compute_nmea_crc(base_message)
-
-    # Final message with *CRC
     full_message = f"${base_message}*{crc_hex}"
-    print("Sending:", full_message)
+    print("Sending (UDP):", full_message)
 
-    # Send broadcast
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    sock.sendto(full_message.encode('utf-8'), (BROADCAST_IP, UDP_PORT))
-    sock.close()
+    # Send UDP
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+#        sock.sendto(full_message.encode('utf-8'), (BROADCAST_IP, UDP_PORT))
+        sock.close()
+    except Exception as e:
+        print(f"UDP send failed: {e}")
+
+    # Send to COM60
+    try:
+        if serial_port and serial_port.is_open:
+            serial_port.write((full_message + '\n').encode())
+            print("Sent to COM60.")
+        else:
+            print("Serial port not available or not open.")
+    except serial.SerialException as e:
+        print(f"Failed to send to COM60: {e}")
 
 
 def save_values(group_values):
@@ -102,6 +109,61 @@ class PIDSender(QWidget):
         # Load stored values
         self.restore_values()
 
+        self.serial_display = QTextEdit()
+        self.serial_display.setReadOnly(True)
+        self.serial_display.setMinimumHeight(150)
+        layout.addWidget(QLabel("Incoming Serial Data:"))
+        layout.addWidget(self.serial_display)
+
+        self.serial_port = None
+        self.setup_serial_port("COM60")
+
+        # Timer to poll serial input
+        self.serial_timer = QTimer()
+        self.serial_timer.timeout.connect(self.read_serial_data)
+        self.serial_timer.start(200)  # Poll every 200ms
+
+# Add sliders for Rudder and Speed
+        layout.addWidget(QLabel("Rudder Control:"))
+        self.rudder_slider, self.rudder_label = self.create_slider("Rudder")
+        layout.addLayout(self.rudder_slider)
+
+        layout.addWidget(QLabel("Speed Control:"))
+        self.speed_slider, self.speed_label = self.create_slider("Speed")
+        layout.addLayout(self.speed_slider)
+
+ # Add radio buttons for Lock, Remote, and Idle
+        mode_group_box = QGroupBox("Control Mode")
+        mode_layout = QHBoxLayout()
+
+        self.lock_radio = QRadioButton("Lock")
+        self.remote_radio = QRadioButton("Remote")
+        self.idle_radio = QRadioButton("Idle")
+
+        self.radio_group = QButtonGroup()
+        self.radio_group.addButton(self.lock_radio)
+        self.radio_group.addButton(self.remote_radio)
+        self.radio_group.addButton(self.idle_radio)
+
+        mode_layout.addWidget(self.lock_radio)
+        mode_layout.addWidget(self.remote_radio)
+        mode_layout.addWidget(self.idle_radio)
+
+        self.lock_radio.setChecked(True)  # Default selection
+
+        mode_group_box.setLayout(mode_layout)
+        layout.addWidget(mode_group_box)
+
+
+    def get_selected_mode(self):
+            if self.lock_radio.isChecked():
+                return "Lock"
+            elif self.remote_radio.isChecked():
+                return "Remote"
+            elif self.idle_radio.isChecked():
+                return "Idle"
+            return None
+
     def create_input_group(self, title, var_names, send_callback):
         box = QGroupBox(title)
         vbox = QVBoxLayout()
@@ -143,15 +205,55 @@ class PIDSender(QWidget):
 
     def send_SpeedPid(self):
         values = self.get_values(self.SpeedPid_inputs["inputs"])
-        send_udp_broadcast(values, PIDSPEEDSET, "SpeedPid")
+        send_udp_broadcast(values, PIDSPEEDSET, "SpeedPid", self.serial_port)
         self.saved_values["SpeedPid"] = values
         save_values(self.saved_values)
 
     def send_RudderPid(self):
         values = self.get_values(self.RudderPid_inputs["inputs"])
-        send_udp_broadcast(values, PIDRUDDERSET, "RudderPid")
+        send_udp_broadcast(values, PIDRUDDERSET, "RudderPid", self.serial_port)
         self.saved_values["RudderPid"] = values
         save_values(self.saved_values)
+
+    def closeEvent(self, event):
+        if self.serial_port and self.serial_port.is_open:
+            self.serial_port.close()
+        event.accept()
+
+    def setup_serial_port(self, port_name):
+        try:
+            self.serial_port = serial.Serial(
+                port=port_name, baudrate=115200, timeout=0.1)
+            print(f"Serial port {port_name} opened for reading.")
+        except serial.SerialException as e:
+            print(f"Failed to open serial port {port_name}: {e}")
+            self.serial_port = None
+    def create_slider(self, name):
+            hbox = QHBoxLayout()
+            label = QLabel("0")
+            slider = QSlider(Qt.Horizontal)
+            slider.setMinimum(-100)
+            slider.setMaximum(100)
+            slider.setValue(0)
+            slider.setTickInterval(10)
+            slider.setTickPosition(QSlider.TicksBelow)
+            slider.valueChanged.connect(lambda val: label.setText(str(val)))
+            hbox.addWidget(slider)
+            hbox.addWidget(label)
+            return hbox, label
+
+    def read_serial_data(self):
+        if self.serial_port and self.serial_port.in_waiting:
+            try:
+                data = self.serial_port.read(
+                    self.serial_port.in_waiting).decode(errors='ignore')
+                if data:
+                    self.serial_display.moveCursor(QTextCursor.End)
+                    self.serial_display.insertPlainText(data)
+                    self.serial_display.verticalScrollBar().setValue(
+                        self.serial_display.verticalScrollBar().maximum())
+            except Exception as e:
+                print(f"Error reading serial data: {e}")
 
 
 if __name__ == "__main__":

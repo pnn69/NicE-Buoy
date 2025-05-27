@@ -35,12 +35,13 @@ static unsigned long logtimer = millis();
 static unsigned long remotetimer = millis();
 static unsigned long updateSubtimer = millis();
 
-int buttonState = 0;             // Current state of the button
-int lastButtonState = 0;         // Previous state of the button
-unsigned long lastPressTime = 0; // Time of the last press
-unsigned long debounceDelay = 0; // Debounce time in milliseconds
-int pressCount = 0;              // Count the number of button presses
-bool debounce = false;           // Debouncing flag
+bool debounce = false;
+bool buttonState = false;
+bool lastButtonState = false;
+bool longPressReported = false;
+unsigned long lastPressTime = 0;
+unsigned long debounceDelay = 0;
+int pressCount = 0;
 
 //***************************************************************************************************
 //  new pid stuff
@@ -97,62 +98,72 @@ void setup()
 //***************************************************************************************************
 //      keypress detection
 //***************************************************************************************************
-int countKeyPressesWithTimeoutAndLongPressDetecton()
+#define LONG_PRESS_DURATION 5000 // ms
+#define PRESS_TIMEOUT 500        // ms
+int countKeyPressesWithTimeoutAndFinalLongPress()
 {
-    // Get the current time
     unsigned long currentTime = millis();
+    int buttonState = digitalRead(BUTTON_PIN);
+    // Debounce
     if (currentTime < debounceDelay)
-    {
-        return -1; // debounce
-    }
-    buttonState = digitalRead(BUTTON_PIN);
-    // Check if the button is pressed and it's a new press (debounce)
-    if (buttonState == HIGH && lastButtonState == LOW && !debounce)
-    {
-        pressCount++;                     // Increment the button press count
-        debounce = true;                  // Set debounce flag
-        beep(10, buzzer);                 // short high pitch beep
-        debounceDelay = currentTime + 50; // Simple debouncing by adding a delay
-        lastPressTime = currentTime;      // Record the time of the last press
-    }
-    // Reset debounce flag if the button is released
-    if (buttonState == LOW)
-    {
-        debounce = false;
-    }
-    // If more than 2 seconds have passed without a press, return the count
-    if ((currentTime - lastPressTime) > 500 && pressCount > 0 && buttonState == LOW)
-    {
-        if (pressCount == 0x100) // previous detecion was a long press
-        {
-            pressCount = 0; // Reset the press count after returning
-            return -1;      // Return -1 if 0.5 seconds haven't passed yet
-        }
-        int finalPressCount = pressCount; // Store the current press count
-        pressCount = 0;                   // Reset the press count after returning
-        return finalPressCount;           // Return the number of key presses
-    }
-    else if ((currentTime - lastPressTime) > 3000 && pressCount == 1 && buttonState == HIGH)
-    {
+        return -1;
 
-        pressCount = 0x0100;
-        return 0X100;
+    // Start of a new press
+    if (buttonState == HIGH && lastButtonState == LOW)
+    {
+        lastPressTime = currentTime;
+        debounce = true;
+        longPressReported = false;
     }
-    lastButtonState = buttonState; // Save the last button state
-    return -1;                     // Return -1 if 0.5 seconds haven't passed yet
+
+    // Long press detection
+    if (buttonState == HIGH && (currentTime - lastPressTime > 3000) && !longPressReported)
+    {
+        int result = 101 + pressCount; // 100 + short press count
+        pressCount = 0;
+        longPressReported = true;
+        return result;
+    }
+
+    // Count short presses on release
+    if (buttonState == LOW && lastButtonState == HIGH && debounce)
+    {
+        if (!longPressReported)
+        {
+            pressCount++;
+        }
+        debounce = false;
+        debounceDelay = currentTime + 50;
+    }
+
+    // Timeout for short press sequence (500 ms)
+    if ((currentTime - lastPressTime) > 500 && pressCount > 0 && buttonState == LOW && !longPressReported)
+    {
+        int result = pressCount;
+        pressCount = 0;
+        return result;
+    }
+    lastButtonState = buttonState;
+    return -1;
 }
 
 //***************************************************************************************************
+//      Short, Short, Short	3
+//      Short, Short, Long	103
+//      Short, Long, Short	1 (resets after invalid long in middle, or could be ignored)
+//      Long only	0
+//      Short, Short, Short, Long	104
 //      key press stuff
 //      One press: lock/unlock
-//      Two press: start computation
+//      Two press: start line computation
 //      Three press: compute track
 //      Five press: sail to dock position
-//      Ten press: store as doc
+//      Four short presses and one long: store as docposition
+//      nine short presses and onle long: start calibration of magnetic compass
 //***************************************************************************************************
 void handelKeyPress(RoboStruct *key)
 {
-    int presses = countKeyPressesWithTimeoutAndLongPressDetecton();
+    int presses = countKeyPressesWithTimeoutAndFinalLongPress();
     if (presses > 0)
     {
         switch (presses)
@@ -176,11 +187,14 @@ void handelKeyPress(RoboStruct *key)
         case 5:
             key->status = DOCKING;
             break;
-        case 10:
-            key->status = START_CALIBRATE_MAGNETIC_COMPASS;
-            break;
-        case 0x0100:
+        case 105:
             key->status = STOREASDOC;
+            break;
+        case 10:
+            key->status = SET_DECLINATION;
+            break;
+        case 110:
+            key->status = START_CALIBRATE_MAGNETIC_COMPASS;
             break;
         default:
             beep(-1, buzzer);
@@ -201,9 +215,6 @@ void buttonLight(RoboStruct sta)
         {
             digitalWrite(BUTTON_LIGHT_PIN, LOW);
             blink = 2000;
-            // mainCollorGps.color = CRGB::Green;
-            // mainCollorGps.blink = BLINK_OFF;
-            // xQueueSend(ledGps, (void *)&mainCollorGps, 0); // update led
         }
         else if (sta.status == CALIBRATE_MAGNETIC_COMPASS)
         {
@@ -253,8 +264,9 @@ void handelStatus(RoboStruct *stat, RoboStruct *buoyPara)
         beep(2, buzzer);
         stat->cmd = IDLE;
         stat->status = IDLE;
-        xQueueSend(udpOut, (void *)&stat, 0);  // update WiFi
-        xQueueSend(loraOut, (void *)&stat, 0); // update Lora
+        xQueueSend(serOut, (void *)stat, 0);  // update sub
+        xQueueSend(udpOut, (void *)stat, 0);  // update WiFi
+        xQueueSend(loraOut, (void *)stat, 0); // update Lora
         break;
     case LOCKING:
         if (stat->gpsFix == true)
@@ -262,16 +274,14 @@ void handelStatus(RoboStruct *stat, RoboStruct *buoyPara)
             beep(1, buzzer);
             PowerOnSub();
             stat->status = LOCKED;
-            stat->IDr = BUOYIDALL; // Send to all
-            stat->IDs = stat->mac; // msg is comming from me
             stat->cmd = LOCKPOS;
             stat->ack = LORASET;
             stat->tgLat = stat->lat;
             stat->tgLng = stat->lng;
             AddDataToBuoyBase(*stat, buoyPara); // store positon for later calculations Track positioning
             // IDr,IDs,ACK,MSG,LAT,LON
-            xQueueSend(udpOut, (void *)&stat, 0);   // update WiFi
-            xQueueSend(loraOut, (void *)&stat, 10); // send out trough Lora
+            xQueueSend(udpOut, (void *)stat, 0);   // update WiFi
+            xQueueSend(loraOut, (void *)stat, 10); // send out trough Lora
         }
         else
         {
@@ -357,8 +367,14 @@ void handelStatus(RoboStruct *stat, RoboStruct *buoyPara)
         PowerOnSub();
         delay(500);
         LoraTx.cmd = CALIBRATE_MAGNETIC_COMPASS;
+        LoraTx.ack = LORAGETACK;
         xQueueSend(serOut, (void *)&LoraTx, 10); // send out trough Lora
         stat->status = CALIBRATE_MAGNETIC_COMPASS;
+        break;
+    case SET_DECLINATION:
+        LoraTx.cmd = SET_DECLINATION;
+        LoraTx.ack = LORAGETACK;
+        xQueueSend(serOut, (void *)&LoraTx, 10); // send out trough Lora
         break;
     default:
         break;
@@ -383,12 +399,12 @@ void handleTimerRoutines(RoboStruct *timer)
         {
             RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
             timer->cmd = DIRDIST;
-            xQueueSend(serOut, (void *)timer, 0); // Keep the watchdog in sub happy
+            xQueueSend(serOut, (void *)timer, 0); // send course and distance to sub
         }
-        else if (timer->status == REMOTE) // Send course info
+        else if (timer->status == REMOTE) // Remote controlled
         {
-            timer->cmd = SPBBSPSB;
-            xQueueSend(serOut, (void *)timer, 0); // Keep the watchdog in sub happy
+            timer->cmd = REMOTE;
+            xQueueSend(serOut, (void *)timer, 0);
         }
         else
         {
@@ -417,7 +433,7 @@ void handleTimerRoutines(RoboStruct *timer)
             xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
             xQueueSend(udpOut, (void *)timer, 10);
             timer->cmd = WINDDATA;
-            xQueueSend(serOut, (void *)timer, 10);
+            xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
             xQueueSend(udpOut, (void *)timer, 10);
         }
     }
@@ -426,8 +442,8 @@ void handleTimerRoutines(RoboStruct *timer)
     {
         logtimer = millis() + 1000 + random(0, 150);
         battVoltage(timer->topAccuV, timer->topAccuP);
-        wind = addNewSampleInBuffer(wind, timer->dirMag); // add sample to buffer for wind direction calculation.
-        wind = deviationWindRose(wind);
+        addNewSampleInBuffer(&wind, timer->dirMag); // add sample to buffer for wind direction calculation.
+        deviationWindRose(&wind);
         timer->wStd = wind.wStd;
         timer->wDir = wind.wDir; // averige wind dir
 
@@ -468,7 +484,7 @@ void handelRfData(RoboStruct *RfOut)
             switch (RfIn.cmd)
             {
             case DOCKING:
-                printf("#Status set to DOCKING (by lora input)\r\n");
+                printf("#Status set to DOCKING\r\n");
                 RfOut->status = DOCKING;
                 break;
             case LOCKPOS: // store new data into position database
@@ -487,7 +503,7 @@ void handelRfData(RoboStruct *RfOut)
                 break;
             }
         }
-        if (RfIn.IDr == RfOut->mac) // yes for me
+        if (RfIn.IDr == RfOut->mac || RfIn.IDr == BUOYIDALL) // yes for me
         {
             switch (RfIn.cmd)
             {
@@ -500,14 +516,20 @@ void handelRfData(RoboStruct *RfOut)
                 }
                 RfOut->status = REMOTE;
                 break;
+            case REMOTE:
+                if (RfOut->status != REMOTE)
+                {
+                    RfOut->status = REMOTE;
+                }
+                RfOut->speedBb = RfIn.speedBb;
+                RfOut->speedSb = RfIn.speedSb;
+                break;
             case DIRDIST:
-                RfOut->tgDir = RfIn.tgDir;
-                RfOut->tgDist = RfIn.tgDist;
+                adjustPositionDirDist(RfIn.tgDir, RfIn.tgDist, RfOut->lat, RfOut->lng, &RfOut->tgLat, &RfOut->tgLng);
                 if (RfOut->status != LOCKED)
                 {
-                    PowerOnSub();
+                    RfOut->status = LOCKED;
                 }
-                RfOut->status = LOCKED;
                 break;
             case LOCKING:
                 if (RfOut->gpsFix == true)
@@ -515,6 +537,9 @@ void handelRfData(RoboStruct *RfOut)
                     RfOut->status = LOCKING;
                     beep(1, buzzer);
                 }
+                break;
+            case DOCKPOS: // store new data into position database
+                memDockPos(RfIn, SET);
                 break;
             case LOCKPOS: // store new data into position database
                 buoyPara[3] = AddDataToBuoyBase(*RfOut, buoyPara);
@@ -544,6 +569,15 @@ void handelRfData(RoboStruct *RfOut)
             case SUBACCU:
                 RfOut->subAccuV = RfIn.subAccuV;
                 RfOut->subAccuP = RfIn.subAccuP;
+                break;
+            case SUBPWR:
+                RfOut->speedBb = RfIn.speedBb;   // set speed for bow
+                RfOut->speedSb = RfIn.speedSb;   // set speed for stern
+                RfOut->subAccuV = RfIn.subAccuV; // set sub accu voltage
+                break;
+            case STORE_DECLINATION:
+                RfOut->declination = RfIn.declination; // set inclination'
+                xQueueSend(serOut, (void *)&RfIn, 0);  // update sub
                 break;
             default:
                 break;

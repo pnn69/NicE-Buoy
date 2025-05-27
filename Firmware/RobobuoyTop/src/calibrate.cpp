@@ -44,7 +44,8 @@ RoboStruct compasOffestCallicration(RoboStruct calibrate)
         // sailedDir = calculateAngle(startlat, startlng, calibrate.lat, calibrate.lng);
         sailedDir = calculateAngle(startlat, startlng, 52.50113909510498, 5.062448670554131);
         cdir = smallestAngle(sailedDir, cdir);
-        calibrate.cmd = STORE_CALIBRATE_OFFSET_MAGNETIC_COMPASS;
+        calibrate.cmd = STORE_DECLINATION;
+
         calibrate.tgDir = cdir;
         printf("error found: %d\r\n", cdir);
         // xQueueSend(udpOut, (void *)&calibrate, 0); // update WiFi

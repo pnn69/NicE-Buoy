@@ -1,41 +1,56 @@
+/*
+https://github.com/sandeepmistry/arduino-LoRa/blob/master/examples/LoRaDuplex/LoRaDuplex.ino
+*/
 #include <Arduino.h>
+#include <SPI.h> // include libraries
 #include <LoRa.h>
-#include "loratop.h"
-#include "io_top.h"
-#include "main.h"
-#include "topwifi.h"
+#include "io.h"
+#include "LiLlora.h"
+#include "RoboCompute.h"
+#include "oled_ssd1306.h"
+#include "sercom.h"
+#include "controlwifi.h"
 
-static const char *TAG = "lora.cpp";
-static bool loraOk = false;
-static unsigned long my_id = 0;
-static char loraData[MAXSTRINGLENG];
-static RoboStruct loraMsgout = {};
-static RoboStruct loraMsgin = {};
-static RoboStruct pendingMsg[10] = {};
-static RoboStruct loraStruct;
+int counter = 0;
+
+const int csPin = 18;    // LoRa radio chip select
+const int resetPin = 23; // LoRa radio reset
+const int irqPin = 26;   // change for your board; must be a hardware interrupt pin
+
+static unsigned long lasttransmission = 0;
 static unsigned long transmittReady = 0;
+
+static RoboStruct loraMsgout = {};
+static RoboStruct loraMsser = {};
+RoboStruct pendingMsg[10] = {};
+
+String outgoing;          // outgoing message
+byte msgCount = 0;        // count of outgoing messages
+byte localAddress = 0xFE; // address of this device
+byte destination = 0x01;  // destination to send to
 QueueHandle_t loraOut;
 QueueHandle_t loraIn;
+QueueHandle_t loraOutSerial; // Queue for serial output
+
 static unsigned long buoyId = 0;
+// struct loraDataType loraIn;
+// struct loraDataType loraOut;
 
 //***************************************************************************************************
 //  Lora init
 //***************************************************************************************************
 bool InitLora(void)
 {
-
     SPI.begin(RADIO_SCLK_PIN, RADIO_MISO_PIN, RADIO_MOSI_PIN);
     Serial.print("LoRa setup ");
-    // LoRa.setPins(RADIO_CS_PIN, RADIO_RST_PIN, RADIO_DIO0_PIN);
-    LoRa.setPins(RADIO_CS_PIN, RADIO_RST_PIN); // only polling mode so no irq needed
+    LoRa.setPins(RADIO_CS_PIN, RADIO_RST_PIN, RADIO_DIO0_PIN);
     if (!LoRa.begin(LoRa_frequency))
     {
-        Serial.println("Failed!");
+        Serial.println(" failed!");
         return false;
     }
     LoRa.enableCrc();
-    Serial.println("Succes!");
-    buoyId = espMac();
+    Serial.println(" Succes!");
     return true;
 }
 
@@ -46,9 +61,11 @@ void initloraqueue(void)
 {
     loraIn = xQueueCreate(10, sizeof(RoboStruct));
     loraOut = xQueueCreate(10, sizeof(RoboStruct));
+    loraOutSerial = xQueueCreate(10, sizeof(String));
     InitLora();
     Serial.print("#BuoyId=");
     Serial.println(espMac(), HEX);
+    buoyId = espMac();
 }
 
 //***************************************************************************************************
@@ -61,8 +78,9 @@ void storeAckMsg(RoboStruct ackBuffer)
     {
         if (pendingMsg[i].cmd == 0)
         {
-            memcpy(&pendingMsg[i], &ackBuffer, sizeof(ackBuffer));
-            Serial.println("message stored on pos:" + String(i) + " rettrys left:" + ackBuffer.retry + " for:" + String(ackBuffer.IDr, HEX) + " msg:" + ackBuffer.cmd);
+            // memcpy(&pendingMsg[i], &ackBuffer, sizeof(ackBuffer));
+            pendingMsg[i] = ackBuffer;
+            //Serial.println("message stored on pos:" + String(i) + " rettrys left:" + ackBuffer.retry + " for:" + String(ackBuffer.IDr, HEX) + " msg:" + ackBuffer.cmd);
             return;
         }
         i++;
@@ -82,7 +100,7 @@ void removeAckMsg(RoboStruct ackBuffer)
         // Serial.println("ackBuffer.macIDr: " + String(ackBuffer.macIDs,HEX) +" pendingMsg[i].macIDs: " + String(pendingMsg[i].macIDr,HEX));
         if (pendingMsg[i].cmd == ackBuffer.cmd && pendingMsg[i].IDr == ackBuffer.IDs)
         {
-            Serial.println("message removed pos:" + String(i) + " rettrys left:" + pendingMsg[i].retry + " for:" + String(pendingMsg[i].IDr, HEX) + " msg:" + pendingMsg[i].cmd);
+            //Serial.println("message removed pos:" + String(i) + " rettrys left:" + pendingMsg[i].retry + " for:" + String(pendingMsg[i].IDr, HEX) + " msg:" + pendingMsg[i].cmd);
             pendingMsg[i].ack = 0;
             pendingMsg[i].cmd = 0;
             pendingMsg[i].IDs = 0;
@@ -99,7 +117,7 @@ void removeAckMsg(RoboStruct ackBuffer)
 //  check ack buffer
 //  remove data if more than n times has failed
 //***************************************************************************************************
-RoboStruct chkAckMsg()
+RoboStruct chkAckMsg(void)
 {
     RoboStruct in;
     in.ack = 0;
@@ -109,7 +127,8 @@ RoboStruct chkAckMsg()
     {
         if (pendingMsg[i].cmd != 0)
         {
-            memcpy(&in, &pendingMsg[i], sizeof(RoboStruct));
+            // memcpy(&in, &pendingMsg[i], sizeof(RoboStruct));
+            in = pendingMsg[i];
             pendingMsg[i].retry--;
             if (pendingMsg[i].retry == 0)
             {
@@ -119,7 +138,7 @@ RoboStruct chkAckMsg()
                 pendingMsg[i].IDr = 0;
             }
             // printf("message ack on pos:%d rettrys left %d to:%lld  msg:%d\r\n", i, pendingMsg[i].retry, pendingMsg[i].macIDr, pendingMsg[i].cmd);
-            Serial.println("message ack on pos:" + String(i) + " rettrys left:" + pendingMsg[i].retry + " for:" + String(pendingMsg[i].IDr, HEX) + " msg:" + pendingMsg[i].cmd);
+            //Serial.println("message ack on pos:" + String(i) + " rettrys left:" + pendingMsg[i].retry + " for:" + String(pendingMsg[i].IDr, HEX) + " msg:" + pendingMsg[i].cmd);
             return in;
         }
         i++;
@@ -153,17 +172,18 @@ void onReceive(int packetSize)
     // read packet header bytes:
     byte incomingLength = LoRa.read(); // incoming msg length
     String incoming = "";
+    digitalWrite(LED_PIN, HIGH); // turn on led
     while (LoRa.available())
     {
         incoming += (char)LoRa.read();
     }
-
+    digitalWrite(LED_PIN, LOW); // turn on led
     if (incomingLength != incoming.length())
     { // check length for error
         Serial.println("#error: message length does not match length");
         return; // skip rest of function
     }
-    Serial.println("#Lora_i <" + incoming + ">");
+    Serial.println(incoming);
     RoboStruct in = rfDeCode(incoming);
     if (in.IDr == buoyId && in.ack == LORAACK) // A message form me so check if its a ACK message
     {
@@ -193,12 +213,14 @@ bool sendLora(String loraTransmitt)
 {
     if (LoRa.beginPacket()) // start packet
     {
+        digitalWrite(LED_PIN, HIGH); // turn on led
         loraTransmitt = removeWhitespace(loraTransmitt);
         LoRa.write(loraTransmitt.length());
         LoRa.print(loraTransmitt);
         LoRa.endPacket(); // finish packet and send it
-        Serial.println("#Lora_o <" + loraTransmitt + ">");
-        return true;
+        Serial.println(loraTransmitt);
+        digitalWrite(LED_PIN, LOW); // turn on led
+        return true;                // return true if success
     }
     return false;
 }
@@ -209,35 +231,49 @@ bool sendLora(String loraTransmitt)
 void LoraTask(void *arg)
 {
     unsigned long retransmittReady = 0;
+    String serDataOut = "";
     delay(500);
-    // while (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
-    // {
-    //     delay(10);
-    // }
     while (1)
     {
         onReceive(LoRa.parsePacket()); // check if there is new data availeble
         if (transmittReady < millis())
         {
-            if (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
+            // data to send from serial
+            if (xQueueReceive(loraOutSerial, (void *)&serDataOut, 0) == pdTRUE) // send data from serial to lora
             {
-                // IDr,IDs,ACK,MSG,<data>
-                loraMsgout.IDs = buoyId;
-                String loraString = rfCode(loraMsgout);
-                while (sendLora(String(loraString)) != true)
+                while (sendLora(serDataOut) != true)
                 {
                     vTaskDelay(pdTICKS_TO_MS(50));
                 }
+                RoboStruct loraMsgin = rfDeCode(serDataOut);
+                if (loraMsgin.ack == LORAGETACK)
+                {
+                    loraMsgin.retry = 5;
+                    storeAckMsg(loraMsgin); // put data in buffer (will be removed on ack)
+                    retransmittReady = millis() + 900 + random(0, 150); // give some time for ack
+                }
                 transmittReady = millis() + 150;
+            }
+            // data to send from main
+            if (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
+            {
+                String loraString = rfCode(loraMsgout);
+                while (sendLora(String(loraString)) != true)
+                {
+                    vTaskDelay(pdTICKS_TO_MS(150));
+                }
+                Serial.println(loraString);
                 if (loraMsgout.ack == LORAGETACK)
                 {
                     loraMsgout.retry = 5;
-                    storeAckMsg(loraMsgout);                            // put data in buffer (will be removed on ack)
+                    storeAckMsg(loraMsgout); // put data in buffer (will be removed on ack)
                     retransmittReady = millis() + 900 + random(0, 150); // give some time for ack
                     transmittReady = millis() + 250;
                 }
+                transmittReady = millis() + 150;
             }
         }
+
         /* retry one time*/
         if (retransmittReady < millis())
         {
@@ -252,6 +288,6 @@ void LoraTask(void *arg)
                 retransmittReady = millis() + 1500 + random(0, 150);
             }
         }
-        vTaskDelay(1);
     }
+    vTaskDelay(1);
 }
