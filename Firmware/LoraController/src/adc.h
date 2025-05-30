@@ -4,6 +4,7 @@
 struct adcDataType
 {
     int rudder;
+    int heading;
     unsigned int rawr;
     int speed;
     unsigned int raws;

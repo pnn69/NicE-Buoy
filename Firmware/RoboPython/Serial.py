@@ -24,11 +24,16 @@ IDELING = 8
 IDLE = 7
 DOCKING = 15
 REMOTE = 25
-BUOYIDALL = 1
+BUOYIDALL = 0xb72874
+ME = 0x99
 LORAGETACK = 3
 LORAINF = 6
 STORE_DECLINATION = 31
 MAXMINPWR = 68
+DIRDIST = 47
+#data
+serial_data_by_ids = {}
+
 # Utility Functions
 
 
@@ -42,13 +47,72 @@ def compute_nmea_crc(sentence: str) -> str:
         crc ^= ord(char)
     return f"{crc:02X}"
 
+def parse_value(val):
+    """Convert to int or float if possible, else return original string."""
+    try:
+        if '.' in val:
+            return float(val)
+        else:
+            return int(val)
+    except ValueError:
+        return val
+
+def calculate_checksum(nmea_str):
+    """Calculate XOR checksum for characters in the string."""
+    checksum = 0
+    for char in nmea_str:
+        checksum ^= ord(char)
+    return checksum
+
+def parse_serial_line(line):
+    if not line.startswith('$') or '*' not in line:
+        return None  # Invalid format
+
+    try:
+        body, checksum_str = line[1:].split('*', 1)
+        calculated_checksum = calculate_checksum(body)
+        expected_checksum = int(checksum_str.strip(), 16)
+    except ValueError:
+        return None  # Malformed checksum part
+
+    if calculated_checksum != expected_checksum:
+        print(f"Checksum mismatch: {calculated_checksum:02X} != {expected_checksum:02X}")
+        return None
+
+    fields = body.split(',')
+    if len(fields) < 5:
+        return None
+
+    try:
+        IDr = int(fields[0])
+        IDs = fields[1]
+        ACK = int(fields[2])
+        command = int(fields[3])
+        status = int(fields[4])
+        data_fields = [parse_value(f) for f in fields[5:]]
+    except ValueError:
+        return None
+
+    decoded = {
+        'IDr': IDr,
+        'IDs': IDs,
+        'ACK': ACK,
+        'command': command,
+        'status': status,
+        'data': data_fields,
+        'checksum': f"{expected_checksum:02X}"
+    }
+
+    serial_data_by_ids[IDs] = decoded
+    return decoded
+
 
 def generate_nmea_message(base_message: str) -> str:
     """
     Generate full NMEA message string with CRC.
     $IDr,IDs,ack,msg,data*chk
     """
-    base_message = f"{BUOYIDALL},1," + base_message
+    base_message = f"{BUOYIDALL:06x},{ME:x}," + base_message
     base_message = base_message.lstrip()
     crc = compute_nmea_crc(base_message)
     return f"${base_message}*{crc}"
@@ -72,7 +136,8 @@ def send_message(full_message: str, serial_port=None):
     # Send via serial
     try:
         if serial_port and serial_port.is_open:
-            serial_port.write((full_message + '\n').encode())
+            # serial_port.write((full_message + '\n').encode())
+            serial_port.write(full_message.encode())  # <-- No \n
         else:
             print("Serial port not available or not open.")
     except serial.SerialException as e:
@@ -148,7 +213,7 @@ class PIDSender(QWidget):
         pid_layout.addWidget(self.RudderPid_inputs["box"])
 
         layout.addLayout(pid_layout)
-                # Restore saved values
+        # Restore saved values
         self.restore_values()
 
         # Power and Declination layout
@@ -194,7 +259,8 @@ class PIDSender(QWidget):
         # Send Power Limits button aligned left
         self.send_power_button = QPushButton("Send Power Limits")
         self.send_power_button.clicked.connect(self.send_power_limits)
-        buttons_layout.addWidget(self.send_power_button, alignment=Qt.AlignLeft)
+        buttons_layout.addWidget(
+            self.send_power_button, alignment=Qt.AlignLeft)
 
         # Spacer in middle to push buttons to edges
         buttons_layout.addStretch(1)
@@ -202,7 +268,8 @@ class PIDSender(QWidget):
         # Send Declination button aligned right
         self.send_declination_button = QPushButton("Send Declination")
         self.send_declination_button.clicked.connect(self.send_declination)
-        buttons_layout.addWidget(self.send_declination_button, alignment=Qt.AlignRight)
+        buttons_layout.addWidget(
+            self.send_declination_button, alignment=Qt.AlignRight)
 
         layout.addLayout(buttons_layout)
 
@@ -222,6 +289,29 @@ class PIDSender(QWidget):
         self.speed_slider_layout, self.speed_label, self.speed_slider = self.create_slider(
             "Speed", self.on_slider_change)
         layout.addLayout(self.speed_slider_layout)
+
+        # Distance and Direction inputs with send button
+        distance_direction_layout = QHBoxLayout()
+
+        # Distance input
+        distance_direction_layout.addWidget(QLabel("Distance:"))
+        self.distance_input = QLineEdit("0")  # Default value = 0
+        distance_direction_layout.addWidget(self.distance_input)
+
+        # Direction input
+        distance_direction_layout.addWidget(QLabel("Direction:"))
+        self.direction_input = QLineEdit("180")  # Default value = 180
+        distance_direction_layout.addWidget(self.direction_input)
+
+        # Send button
+        self.send_distance_direction_button = QPushButton(
+            "Send Distance/Direction")
+        self.send_distance_direction_button.clicked.connect(
+            self.send_distance_direction)
+        distance_direction_layout.addWidget(
+            self.send_distance_direction_button)
+
+        layout.addLayout(distance_direction_layout)
 
         # Control mode radio buttons
         layout.addWidget(self.create_mode_radio_buttons())
@@ -368,6 +458,12 @@ class PIDSender(QWidget):
                     self.serial_display.insertPlainText(data)
                     self.serial_display.verticalScrollBar().setValue(
                         self.serial_display.verticalScrollBar().maximum())
+                    result = parse_serial_line(data)
+                    # Print result
+                    if result:
+                        print(serial_data_by_ids)
+                    else: 
+                         print(f"Error {data}")
             except Exception as e:
                 print(f"Error reading serial data: {e}")
 
@@ -395,7 +491,7 @@ class PIDSender(QWidget):
     def send_power_limits(self):
         try:
             max_power = int(self.max_power_input.text())
-            min_power = int(self.min_power_input.text())        
+            min_power = int(self.min_power_input.text())
         except ValueError:
             print("Invalid max or min power value.")
             return
@@ -415,7 +511,6 @@ class PIDSender(QWidget):
         full_message = generate_nmea_message(base_message)
         send_message(full_message, self.serial_port)
         print(f"Power limits sent: Max={max_power}, Min={min_power}")
-
 
     def send_declination(self):
         try:
@@ -448,6 +543,20 @@ class PIDSender(QWidget):
 
         full_message = generate_nmea_message(base_message)
         send_message(full_message, self.serial_port)
+
+    def send_distance_direction(self):
+        try:
+            distance = int(self.distance_input.text())
+            direction = int(self.direction_input.text())
+        except ValueError:
+            print("Invalid distance or direction input.")
+            return
+
+        # Construct and send the message
+        base_message = f"{LORAINF},{DIRDIST},{IDLE},{direction},{distance}"
+        full_message = generate_nmea_message(base_message)
+        send_message(full_message, self.serial_port)
+        print(f"Distance & Direction sent: {distance}, {direction}")
 
     def closeEvent(self, event):
         if self.serial_port and self.serial_port.is_open:

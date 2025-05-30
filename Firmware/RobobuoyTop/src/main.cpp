@@ -179,6 +179,7 @@ void handelKeyPress(RoboStruct *key)
             {
                 key->status = IDELING;
             }
+            key->loralstmsg = 0;
             break;
         case 2:
             key->status = COMPUTESTART;
@@ -266,9 +267,13 @@ void handelStatus(RoboStruct *stat, RoboStruct *buoyPara)
         beep(2, buzzer);
         stat->cmd = IDLE;
         stat->status = IDLE;
-        xQueueSend(serOut, (void *)stat, 0);  // update sub
+        xQueueSend(serOut, (void *)stat, 20); // update sub
         xQueueSend(udpOut, (void *)stat, 0);  // update WiFi
         xQueueSend(loraOut, (void *)stat, 0); // update Lora
+        delay(200);
+        xQueueSend(serOut, (void *)stat, 10); // update sub
+        delay(500);
+        xQueueSend(serOut, (void *)stat, 10); // update sub
         break;
     case LOCKING:
         if (stat->gpsFix == true)
@@ -378,6 +383,19 @@ void handelStatus(RoboStruct *stat, RoboStruct *buoyPara)
         LoraTx.ack = LORAGETACK;
         xQueueSend(serOut, (void *)&LoraTx, 10); // send out trough Lora
         break;
+    case STOREASDOC:
+        if (stat->gpsFix == true)
+        {
+            printf("Storing docpositoin\r\n");
+            memDockPos(*stat, SET);
+            beep(1000, buzzer);
+        }
+        else
+        {
+            beep(-1, buzzer);
+        }
+        stat->status = IDELING;
+        break;
     default:
         break;
     }
@@ -394,19 +412,24 @@ void handleTimerRoutines(RoboStruct *timer)
     //***************************************************************************************************
     // sub data out
     //***************************************************************************************************
-    if (timer->lastSerOut + 100 < millis())
+    if (timer->lastSerOut < millis())
     {
-        timer->lastSerOut = millis();
+        timer->lastSerOut = millis() + 5000;
         if (timer->status == LOCKED || timer->status == DOCKED)
         {
+            timer->lastSerOut = millis() + 2000;
             RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
             timer->cmd = DIRDIST;
             xQueueSend(serOut, (void *)timer, 0); // send course and distance to sub
         }
         else if (timer->status == REMOTE) // Remote controlled
         {
+            timer->lastSerOut = millis() + 750;
             timer->cmd = REMOTE;
             xQueueSend(serOut, (void *)timer, 0);
+            timer->cmd = DIRSPEED;
+            xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
+            xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
         }
         else
         {
@@ -416,15 +439,23 @@ void handleTimerRoutines(RoboStruct *timer)
     //***************************************************************************************************
     // RF data out
     //***************************************************************************************************
-    if (timer->loralstmsg + 5000 < millis())
+    if (timer->loralstmsg < millis())
     {
-        timer->loralstmsg = millis() + random(0, 150);
-        timer->cmd = BUOYPOS;
-        xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
-        xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
+        if (timer->status == IDLE)
+        {
+            timer->loralstmsg = millis() + 5000 + random(0, 150);
+        }
+        else
+        {
+            timer->loralstmsg = millis() + 1000 + random(0, 150);
+        }
         timer->cmd = SUBPWR;
         xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
         xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
+        timer->cmd = DIRSPEED;
+        xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
+        xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
+
         if ((timer->status == LOCKED || timer->status == DOCKED))
         {
             timer->cmd = LOCKPOS;
@@ -457,7 +488,8 @@ void handleTimerRoutines(RoboStruct *timer)
     {
         udpTimerOut = millis() + random(0, 150);
         timer->cmd = BUOYPOS;
-        xQueueSend(udpOut, (void *)timer, 0); // Send to udp
+        xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
+        xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
     }
 }
 
@@ -519,18 +551,17 @@ void handelRfData(RoboStruct *RfOut)
                 RfOut->status = REMOTE;
                 break;
             case REMOTE:
-                if (RfOut->status != REMOTE)
-                {
-                    RfOut->status = REMOTE;
-                }
-                RfOut->speedBb = RfIn.speedBb;
-                RfOut->speedSb = RfIn.speedSb;
+                RfOut->status = RfIn.cmd;
+                RfOut->tgDir = RfIn.tgDir;
+                RfOut->tgSpeed = RfIn.tgSpeed;
+                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                printf("Status = %d", RfIn.cmd);
                 break;
             case DIRDIST:
                 adjustPositionDirDist(RfIn.tgDir, RfIn.tgDist, RfOut->lat, RfOut->lng, &RfOut->tgLat, &RfOut->tgLng);
                 if (RfOut->status != LOCKED)
                 {
-                    RfOut->status = LOCKED;
+                    RfOut->status = LOCKING;
                 }
                 break;
             case LOCKING:
@@ -540,23 +571,38 @@ void handelRfData(RoboStruct *RfOut)
                     beep(1, buzzer);
                 }
                 break;
-            case DOCKPOS: // store new data into position database
-                memDockPos(RfIn, SET);
+            case DOCKPOS: // Get the positon to dock
+                memDockPos(*RfOut, GET);
+            case STOREASDOC: // Store location as doc location
+                if (RfOut->gpsFix == true)
+                {
+                    memDockPos(*RfOut, SET);
+                    beep(1000, buzzer);
+                }
+                else
+                {
+                    beep(-1, buzzer);
+                }
                 break;
             case LOCKPOS: // store new data into position database
-                buoyPara[3] = AddDataToBuoyBase(*RfOut, buoyPara);
+                buoyPara[3] = AddDataToBuoyBase(RfIn, buoyPara);
                 break;
-            case SETLOCKPOS: // store new data into position database
+            case SETLOCKPOS: // store new data into position database and sail to it
                 RfOut->tgLat = RfIn.tgLat;
                 RfOut->tgLng = RfIn.tgLng;
+                RfIn.IDs = RfOut->mac; // Put this Id in field for positioning
                 buoyPara[3] = AddDataToBuoyBase(RfIn, buoyPara);
-                RfOut->status = LOCKING;
+                RfOut->status = LOCKED;
                 break;
             case DOCKING:
                 printf("#Status set to DOCKING (by lora input)\r\n");
                 RfOut->status = DOCKING;
                 break;
             case IDELING:
+                printf("#Status set to IDLE (by lora input)\r\n");
+                RfOut->status = IDELING;
+                break;
+            case IDLE:
                 printf("#Status set to IDLE (by lora input)\r\n");
                 RfOut->status = IDELING;
                 break;
@@ -582,7 +628,7 @@ void handelRfData(RoboStruct *RfOut)
                 xQueueSend(serOut, (void *)&RfIn, 0);  // update sub
                 break;
             case MAXMINPWR:
-                xQueueSend(serOut, (void *)&RfIn, 0);  // update sub
+                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 break;
             default:
                 break;
@@ -650,6 +696,15 @@ void handelSerialData(RoboStruct *ser)
             printf("#Status set to IDELING (by serial input)\r\n");
             ser->status = IDELING;
             break;
+        case STOREASDOC:
+            if (ser->gpsFix == true)
+            {
+                printf("Store Doc pos)\r\n");
+                memDockPos(*ser, SET);
+            }
+            ser->status = IDELING;
+            break;
+
         default:
             break;
         }

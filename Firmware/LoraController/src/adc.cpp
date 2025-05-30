@@ -34,11 +34,11 @@ void readAdc(adcDataType *adc)
 {
     int tmp, newValue;
     tmp = 0;
-    for (int i = 0; i < 20; i++)
+    for (int i = 0; i < 10; i++)
     {
         tmp += analogRead(POT_RUDDER);
     }
-    tmp = tmp / 20; // average over 20 samples
+    tmp = tmp / 10; // average over 20 samples
     tmp = constrain(tmp, 47, 4047);
     if (tmp < 2000 - MUTE_RUDDER)
     {
@@ -52,12 +52,10 @@ void readAdc(adcDataType *adc)
     {
         newValue = 0;
     }
-    if (adc->rawr - JITTER > tmp || adc->rawr + JITTER < tmp)
-    {
-        adc->rawr = tmp;
-        adc->rudder = newValue;
-        adc->newdata = true;
-    }
+    adc->rawr = tmp;
+    adc->rudder = newValue;
+    adc->newdata = true;
+    adc->heading = constrain(map(tmp, 47, 4047, 0, 360), 0, 350); // 4095;
 
     // tmp = analogRead(POT_SPEED);
     tmp = 0;

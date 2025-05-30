@@ -177,12 +177,11 @@ void handelKeyPress(void)
 //***************************************************************************************************
 void handleTimerRoutines(RoboStruct *in)
 {
-    in->maxSpeed = 70;
-    in->minSpeed = -70;
     switch (in->status)
     {
     case LOCKED:
     case DOCKED:
+    case DIRDIST:
         if (in->tgDist > 1.5)
         {
             speedPid(in);
@@ -210,27 +209,32 @@ void handleTimerRoutines(RoboStruct *in)
             xQueueSend(escspeed, (void *)&escOut, 10);
         }
         break;
-
-    case DIRDIST:
-        in->tgSpeed = in->speedSet;
+    case REMOTE:
         rudderPid(in);
         break;
-
-    case REMOTE:
+    case SPBBSPSB: // SpeedBb,SpeedSb
         escOut.speedbb = in->speedBb;
         escOut.speedsb = in->speedSb;
         xQueueSend(escspeed, (void *)&escOut, 10);
         break;
+    case IDLE:
+    case IDELING:
+        escOut.speedbb = 0;
+        escOut.speedsb = 0;
+        xQueueSend(escspeed, (void *)&escOut, 10);
+        break;
     default:
+        escOut.speedbb = 0;
+        escOut.speedsb = 0;
+        xQueueSend(escspeed, (void *)&escOut, 10);
         break;
     }
 
     if (nextSamp + 1000 < millis())
     {
         nextSamp = millis();
-        in->cmd = DIRSPEED;
         xQueueSend(serOut, (void *)in, 10);
-        printf("COG:%03.0f TG:%03.0f TD:%05.2f Error: %03.0f output: %07.2f tgSpeed: %05.2f Sb: %3d Bb: %3d\r\n", in->dirMag, in->tgDir, in->tgDist, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->tgSpeed, in->speedSb, in->speedBb);
+        printf("COG:%03.0f TG:%03.0f TD:%05.2f Error: %03.0f output: %07.2f tgSpeed: %05.2f bb: %3d Sb: %3d sTATUS:%d\r\n", in->dirMag, in->tgDir, in->tgDist, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->tgSpeed, in->speedBb, in->speedSb,in->status);
     }
 
     if (accuSamp < millis())
@@ -261,9 +265,6 @@ void handelStatus(RoboStruct *stat)
         xQueueSend(escspeed, (void *)&escOut, 10);
         printf("Idle\r\n");
         delay(100);
-        digitalWrite(ESC_SB_PWR_PIN, LOW);
-        digitalWrite(ESC_BB_PWR_PIN, LOW);
-
         stat->status = IDLE;
     }
 }
@@ -313,14 +314,15 @@ void loop(void)
         //***************************************************************************************************
         //      new udp message (handle only if no new serial data)
         //***************************************************************************************************
-        else if (xQueueReceive(udpIn, (void *)&dataIn, 0)) // New UDP data
-        {
-        }
+        // else if (xQueueReceive(udpIn, (void *)&dataIn, 0)) // New UDP data
+        // {
+        // }
         if (dataIn.IDr != -1)
         {
             switch (dataIn.cmd)
             {
             case IDLE:
+            case IDELING:
                 escOut.speedbb = 0;
                 escOut.speedsb = 0;
                 xQueueSend(escspeed, (void *)&escOut, 10);
@@ -330,36 +332,39 @@ void loop(void)
             case DIRDIST:
                 if (mainData.status != LOCKED)
                 {
+                    computeParameters(mainData, GET);
                     printf("DIRDIST\r\n");
                     startESC();
                     mainData.tgDist = 0;
                     initRudPid();
                     initSpeedPid();
+                    mainData.status = LOCKED;
                 }
                 mainData.tgDir = dataIn.tgDir;
                 mainData.tgDist = dataIn.tgDist;
-                mainData.status = LOCKED;
                 break;
             case DIRSPEED:
                 if (mainData.status != DIRSPEED)
                 {
+                    computeParameters(mainData, GET);
                     printf("DIRSPEED\r\n");
                     mainData.tgDist = 0;
                     startESC();
                     initRudPid();
                     initSpeedPid();
+                    mainData.status = DIRSPEED;
                 }
                 mainData.tgDir = dataIn.tgDir;
                 mainData.speedSet = dataIn.speedSet;
-                mainData.status = DIRSPEED;
                 break;
             case REMOTE:
-                mainData.speedBb = dataIn.speedBb;
-                mainData.speedSb = dataIn.speedSb;
-                mainData.status = REMOTE;
-                break;
-            case SPBBSPSB:
-                mainData.status = REMOTE;
+                if (mainData.status != REMOTE)
+                {
+                    computeParameters(mainData, GET);
+                    mainData.status = REMOTE;
+                }
+                mainData.tgDir = dataIn.tgDir;
+                mainData.tgSpeed = dataIn.tgSpeed;
                 break;
             case LOCKED:
                 if (mainData.status != LOCKED)
@@ -409,7 +414,9 @@ void loop(void)
                 printf("Declination: %0.2f\r\n", dataIn.declination);
                 break;
             case MAXMINPWR:
-                break;    
+                speedMaxMin(&dataIn, SET);
+                speedMaxMin(&mainData, GET);
+                break;
             case PING:
                 mainData.cmd = DIRSPEED;
                 xQueueSend(serOut, (void *)&mainData, 10);
@@ -431,6 +438,8 @@ void loop(void)
                 mainLedStatus.color = CRGB::Red;
                 mainLedStatus.blink = BLINK_SLOW;
                 xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
+                digitalWrite(ESC_SB_PWR_PIN, LOW);
+                digitalWrite(ESC_BB_PWR_PIN, LOW);
                 mainData.status = IDELING;
             }
         }

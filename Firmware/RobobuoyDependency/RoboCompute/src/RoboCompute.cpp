@@ -59,8 +59,8 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         dataStore.wStd = numbers[6].toDouble();
         break;
     case REMOTE: // speed,tgdir
-        dataStore.speedBb = numbers[2].toInt();
-        dataStore.speedSb = numbers[3].toInt();
+        dataStore.tgDir = numbers[2].toDouble();
+        dataStore.tgSpeed = numbers[3].toDouble();
         break;
     case TOPDATA: // ?
         printf("TOPDATA Not implementend yet/r/n");
@@ -105,7 +105,7 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         dataStore.ds = numbers[4].toDouble();
         break;
     case SUBPWR:
-        dataStore.speedSet = numbers[2].toInt();
+        dataStore.speedSet = numbers[2].toDouble();
         dataStore.speed = numbers[3].toInt();
         dataStore.speedBb = numbers[4].toInt();
         dataStore.speedSb = numbers[5].toInt();
@@ -152,6 +152,11 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
     case MAXMINPWR:
         dataStore.maxSpeed = numbers[2].toInt();
         dataStore.minSpeed = numbers[3].toInt();
+        break;
+    case DIRMDIRTGDIRG:
+        dataStore.dirMag = numbers[2].toDouble();
+        dataStore.tgDir = numbers[2].toDouble();
+        dataStore.gpsDir = numbers[2].toInt();
         break;
     case IDELING:
         break;
@@ -201,8 +206,8 @@ String RoboCode(RoboStruct dataOut)
         out += "," + String(dataOut.wStd, 1);
         break;
     case REMOTE:
-        out += "," + String(dataOut.speedBb);
-        out += "," + String(dataOut.speedSb);
+        out += "," + String(dataOut.tgDir, 0);
+        out += "," + String(dataOut.tgSpeed, 0);
         break;
     case SUBDATA:
         out += "," + String(dataOut.dirMag, 2);
@@ -228,7 +233,7 @@ String RoboCode(RoboStruct dataOut)
         break;
     case TGDIRSPEED:
         out += "," + String(dataOut.tgDir, 2);
-        out += "," + String(dataOut.speedSet);
+        out += "," + String(dataOut.speedSet, 0);
         break;
     case SUBSPEED:
         out += "," + String(dataOut.speedBb);
@@ -272,7 +277,7 @@ String RoboCode(RoboStruct dataOut)
         out += "," + String(dataOut.gpsSat);
         break;
     case SUBPWR:
-        out += "," + String(dataOut.speedSet);
+        out += "," + String(dataOut.speedSet, 0);
         out += "," + String(dataOut.speed);
         out += "," + String(dataOut.speedBb);
         out += "," + String(dataOut.speedSb);
@@ -305,6 +310,10 @@ String RoboCode(RoboStruct dataOut)
         out += "," + String(dataOut.minSpeed);
         break;
     case LOCKING:
+    case DIRMDIRTGDIRG:
+        out += "," + String(dataOut.dirMag, 0);
+        out += "," + String(dataOut.tgDir, 0);
+        out += "," + String(dataOut.gpsDir);
         break;
     case IDELING:
         break;
@@ -346,12 +355,30 @@ String rfCode(RoboStruct rfOut)
 }
 
 //***************************************************************************************************
+//   Subroutine to add CRC to a string (similar to NMEA format)
+//***************************************************************************************************
+String addCRCToString(String input)
+{
+    input.trim();           // Clean up whitespace
+    input.replace(" ", ""); // remove all internal spaces
+    byte crc = 0;
+    for (int i = 0; i < input.length(); i++)
+    {
+        crc ^= (byte)input.charAt(i); // ✅ ensure unsigned XOR
+    }
+    char crcHex[3];
+    sprintf(crcHex, "%02X", crc);
+    return "$" + input + "*" + String(crcHex);
+    ;
+}
+//***************************************************************************************************
 //  decode rf string
 //  $IDr,IDs,ACK,MSG,<data>*chk
 //***************************************************************************************************
 // rfIn = "$9*39";
 RoboStruct rfDeCode(String rfIn)
 {
+    rfIn.trim(); // Clean up whitespace
     RoboStruct in;
     in.IDr = -1;
     in.IDs = -1;
@@ -404,25 +431,6 @@ String removeBeginAndEndToString(String input)
         // If $ or * is not found, or * comes before $, return an empty string
         return "";
     }
-}
-
-// Subroutine to add CRC to a string (similar to NMEA format)
-String addCRCToString(String input)
-{
-    byte crc = 0;
-
-    // Calculate checksum: XOR all characters in input
-    for (int i = 0; i < input.length(); i++)
-    {
-        crc ^= input[i];
-    }
-
-    // Convert checksum to 2-digit uppercase hex
-    char crcHex[3];
-    sprintf(crcHex, "%02X", crc);
-
-    // Assemble final string with $ and *XX
-    return "$" + input + "*" + String(crcHex);
 }
 
 // Subroutine to check if the checksum in the string is valid

@@ -152,6 +152,25 @@ RoboStruct computeParameters(RoboStruct buoy, bool get)
     stopMem();
     return buoy;
 }
+
+void speedMaxMin(RoboStruct *buoy, bool get)
+{
+    startMem();
+    if (get)
+    {
+        buoy->minSpeed = storage.getInt("minSpeed", -80);
+        buoy->maxSpeed = storage.getInt("maxSpeed", 80);
+    }
+    else
+    {
+        storage.putInt("minSpeed", buoy->minSpeed);
+        storage.putInt("maxSpeed", buoy->maxSpeed);
+    }
+    stopMem();
+}
+
+
+
 RoboStruct pidSpeedParameters(RoboStruct buoy, bool get)
 {
     startMem();

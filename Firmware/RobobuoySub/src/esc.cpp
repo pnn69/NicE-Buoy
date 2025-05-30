@@ -176,8 +176,8 @@ void EscTask(void *arg)
     {
         if (xQueueReceive(escspeed, (void *)&rcv_msg, 0) == pdTRUE)
         {
-            spsb = -rcv_msg.speedbb;
-            spbb = -rcv_msg.speedsb;
+            spbb = -rcv_msg.speedbb;
+            spsb = -rcv_msg.speedsb;
             uint8_t r, g;
             if (rcv_msg.speedbb < 0)
             {

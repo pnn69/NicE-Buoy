@@ -11,6 +11,7 @@ void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, floa
 void Declination(double *declination, bool get);
 void MechanicalCorrection(double *delta, bool get);
 RoboStruct computeParameters(RoboStruct buoy, bool get);
+void speedMaxMin(RoboStruct* buoy, bool get);
 RoboStruct pidSpeedParameters(RoboStruct buoy, bool get);
 RoboStruct pidRudderParameters(RoboStruct buoy, bool get);
 void apParameters(String *ap, String *ww, bool get);

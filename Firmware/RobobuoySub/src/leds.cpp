@@ -59,8 +59,8 @@ void LedTask(void *arg)
         }
         if (xQueueReceive(ledPwr, (void *)&ledPwrData, 0) == pdTRUE)
         {
-            leds[LEDBB] = ledPwrData.bb;
-            leds[LEDSB] = ledPwrData.sb;
+            leds[LEDBB] = ledPwrData.sb;
+            leds[LEDSB] = ledPwrData.bb;
             FastLED.show();
         }
         /*

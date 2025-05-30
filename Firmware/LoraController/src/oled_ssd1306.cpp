@@ -3,6 +3,7 @@
 #include "main.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include "main.h"
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
@@ -133,6 +134,7 @@ void updateDisplay(String showdata)
     display.println(pout);
     display.display();
 }
+
 void updateOled(RoboStruct *data)
 {
     display.clearDisplay();
@@ -141,9 +143,11 @@ void updateOled(RoboStruct *data)
     display.printf("BB%2d%%\n\r", data->speedBb);
     display.setCursor(0, 15);
     display.printf("SB%2d%%\n\r", data->speedSb);
-    // display.setCursor(0, 40);
-    // display.printf("%04.2f%V\n\r", data->subAccuV);
-    display.setCursor(90, 0);
+    display.setCursor(70, 0);
+
+    int t = posID(data) + 1;
+    display.printf("B %d", t);
+    display.setCursor(90, 15);
     if (data->status == IDLE)
     {
         display.printf("I");
@@ -160,11 +164,6 @@ void updateOled(RoboStruct *data)
     {
         display.printf("R");
     }
-    if (data->status == DOCKED || data->status == LOCKED)
-    {
-        display.setCursor(0, 30);
-        display.printf("%03.1f%M\n\r", data->tgDist);
-    }
     int fill = 0;
     int tmp = (int)map(data->subAccuV, 19, 25.2, 0, 100); // 4095;
     tmp = constrain(tmp, 0, 100);
@@ -180,11 +179,9 @@ void updateOled(RoboStruct *data)
     }
     else
     {
-        display.fillRect(SCREEN_WIDTH - 19, SCREEN_HEIGHT / 2 - fill, 10,fill , WHITE);
+        display.fillRect(SCREEN_WIDTH - 19, SCREEN_HEIGHT / 2 - fill, 10, fill, WHITE);
     }
     display.fillRect(SCREEN_WIDTH - 19, SCREEN_HEIGHT / 2, 10, -fill, WHITE);
-    Serial.println(data->speedBb);
-    Serial.println(fill);
 
     display.drawRect(SCREEN_WIDTH - 10, 0, 10, 64, WHITE);
     fill = (data->speedSb / 100.0) * (SCREEN_HEIGHT / 2);
@@ -194,10 +191,19 @@ void updateOled(RoboStruct *data)
     }
     else
     {
-        display.fillRect(SCREEN_WIDTH - 10, SCREEN_HEIGHT / 2 - fill, 10,fill, WHITE);
+        display.fillRect(SCREEN_WIDTH - 10, SCREEN_HEIGHT / 2 - fill, 10, fill, WHITE);
     }
 
-    Serial.println(data->speedSb);
-    Serial.println(fill);
+    if (data->status == DOCKED || data->status == LOCKED)
+    {
+        display.setCursor(0, 30);
+        display.printf("%03.1f%M %03d", data->tgDist, (int)data->dirMag);
+    }
+    if (data->status == REMOTE)
+    {
+        display.setCursor(0, 30);
+        display.printf("H%03d S%03d", (int)data->tgDir, (int)data->tgSpeed);
+    }
+
     display.display();
 }

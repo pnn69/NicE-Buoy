@@ -62,9 +62,10 @@ void rudderPid(RoboStruct *rud)
     rudderSetpoint = 0;
     rudderPID.Compute();
 
-    rud->tgSpeed = constrain(rud->tgSpeed, rud->minSpeed, rud->maxSpeed);
-    double sb = rud->tgSpeed + rudderOutput;
-    double bb = rud->tgSpeed - rudderOutput;
+    double s = constrain(rud->tgSpeed, rud->minSpeed, rud->maxSpeed);
+    s -=abs(rudderOutput);
+    double sb = s - rudderOutput;
+    double bb = s + rudderOutput;
     rud->speedSb = constrain(sb, rud->minSpeed, rud->maxSpeed);
     rud->speedBb = constrain(bb, rud->minSpeed, rud->maxSpeed);
     esc.speedbb = rud->speedBb;

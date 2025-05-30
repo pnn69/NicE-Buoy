@@ -5,6 +5,7 @@
 
 extern QueueHandle_t loraOut;
 extern QueueHandle_t loraIn;
+extern QueueHandle_t loraToMain;
 extern QueueHandle_t loraOutSerial; // Queue for serial output
 
 void initloraqueue(void);

@@ -87,6 +87,7 @@ typedef enum
     ROBODEFAULTS,                     //
     WINDDATA,                         // wDir,wStd;
     MAXMINPWR,                        // max power, min power
+    DIRMDIRTGDIRG,                    // dir Magnetic dir Target dir Gps
 } msg_t;
 
 struct RoboStruct

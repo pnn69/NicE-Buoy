@@ -70,8 +70,8 @@ RoboStruct memDockPos(RoboStruct buoy, bool get)
     else
     {
         // Serial.printf("Store Doc pos in memory  %.8lf %.8lf\r\n", *lat, *lon);
-        storage.putDouble("Docklat", buoy.tgLat);
-        storage.putDouble("Docklon", buoy.tgLng);
+        storage.putDouble("Docklat", buoy.lat);
+        storage.putDouble("Docklon", buoy.lng);
     }
     stopMem();
     return buoy;

@@ -150,7 +150,8 @@ bool udp_setup(int poort)
         udp.onPacket([](AsyncUDPPacket packet)
                      {
                         String stringUdpIn = (const char *)packet.data();
-                        RoboStruct udpDataIn = rfDeCode(stringUdpIn);
+                        //RoboStruct udpDataIn = rfDeCode(stringUdpIn);
+                        RoboStruct udpDataIn;
                         if (udpDataIn.IDs != -1 )
                         {
                             xQueueSend(udpIn, (void *)&udpDataIn, 10); // notify main there is new data

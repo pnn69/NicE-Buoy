@@ -191,14 +191,17 @@ void onReceive(int packetSize)
 //***************************************************************************************************
 bool sendLora(String loraTransmitt)
 {
-    if (LoRa.beginPacket()) // start packet
+    if (transmittReady < millis())
     {
-        loraTransmitt = removeWhitespace(loraTransmitt);
-        LoRa.write(loraTransmitt.length());
-        LoRa.print(loraTransmitt);
-        LoRa.endPacket(); // finish packet and send it
-        Serial.println("#Lora_o <" + loraTransmitt + ">");
-        return true;
+        if (LoRa.beginPacket()) // start packet
+        {
+            LoRa.write(loraTransmitt.length());
+            LoRa.print(loraTransmitt);
+            LoRa.endPacket(); // finish packet and send it
+            Serial.println("#Lora_o <" + loraTransmitt + ">");
+            transmittReady = millis() + 10;
+            return true;
+        }
     }
     return false;
 }
@@ -209,33 +212,23 @@ bool sendLora(String loraTransmitt)
 void LoraTask(void *arg)
 {
     unsigned long retransmittReady = 0;
-    delay(500);
-    // while (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
-    // {
-    //     delay(10);
-    // }
     while (1)
     {
         onReceive(LoRa.parsePacket()); // check if there is new data availeble
-        if (transmittReady < millis())
+        if (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
         {
-            if (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
+            // IDr,IDs,ACK,MSG,<data>
+            loraMsgout.IDs = buoyId;
+            String loraString = rfCode(loraMsgout);
+            while (sendLora(String(loraString)) != true)
             {
-                // IDr,IDs,ACK,MSG,<data>
-                loraMsgout.IDs = buoyId;
-                String loraString = rfCode(loraMsgout);
-                while (sendLora(String(loraString)) != true)
-                {
-                    vTaskDelay(pdTICKS_TO_MS(50));
-                }
-                transmittReady = millis() + 150;
-                if (loraMsgout.ack == LORAGETACK)
-                {
-                    loraMsgout.retry = 5;
-                    storeAckMsg(loraMsgout);                            // put data in buffer (will be removed on ack)
-                    retransmittReady = millis() + 900 + random(0, 150); // give some time for ack
-                    transmittReady = millis() + 250;
-                }
+                vTaskDelay(pdTICKS_TO_MS(50));
+            }
+            if (loraMsgout.ack == LORAGETACK)
+            {
+                loraMsgout.retry = 5;
+                storeAckMsg(loraMsgout);                            // put data in buffer (will be removed on ack)
+                retransmittReady = millis() + 900 + random(0, 150); // give some time for ack
             }
         }
         /* retry one time*/
