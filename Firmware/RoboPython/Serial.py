@@ -4,6 +4,7 @@ import json
 import socket
 import serial
 import serial.tools.list_ports
+import tempfile
 
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
@@ -12,9 +13,12 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QTextCursor
+from PyQt5.QtGui import QFont
 
 # Constants
 UDP_PORT = 1001
+COMPORT = "COM60"
+# COMPORT = "COM40"
 BROADCAST_IP = '255.255.255.255'
 SETTINGS_FILE = "RobobuoyConfig.json"
 PIDRUDDERSET = 56
@@ -30,8 +34,9 @@ LORAGETACK = 3
 LORAINF = 6
 STORE_DECLINATION = 31
 MAXMINPWR = 68
+MAXMINPWRSET = 69
 DIRDIST = 47
-#data
+# data
 serial_data_by_ids = {}
 
 # Utility Functions
@@ -47,6 +52,7 @@ def compute_nmea_crc(sentence: str) -> str:
         crc ^= ord(char)
     return f"{crc:02X}"
 
+
 def parse_value(val):
     """Convert to int or float if possible, else return original string."""
     try:
@@ -57,6 +63,7 @@ def parse_value(val):
     except ValueError:
         return val
 
+
 def calculate_checksum(nmea_str):
     """Calculate XOR checksum for characters in the string."""
     checksum = 0
@@ -64,23 +71,28 @@ def calculate_checksum(nmea_str):
         checksum ^= ord(char)
     return checksum
 
+
 def parse_serial_line(line):
     if not line.startswith('$') or '*' not in line:
-        return None  # Invalid format
+        print("Invalid start or missing '*'")
+        return None
 
     try:
         body, checksum_str = line[1:].split('*', 1)
         calculated_checksum = calculate_checksum(body)
         expected_checksum = int(checksum_str.strip(), 16)
-    except ValueError:
-        return None  # Malformed checksum part
+    except ValueError as e:
+        print(f"Checksum parsing error: {e}")
+        return None
 
     if calculated_checksum != expected_checksum:
-        print(f"Checksum mismatch: {calculated_checksum:02X} != {expected_checksum:02X}")
+        print(
+            f"Checksum mismatch: {calculated_checksum:02X} != {expected_checksum:02X}")
         return None
 
     fields = body.split(',')
     if len(fields) < 5:
+        print(f"Too few fields: {fields}")
         return None
 
     try:
@@ -90,7 +102,8 @@ def parse_serial_line(line):
         command = int(fields[3])
         status = int(fields[4])
         data_fields = [parse_value(f) for f in fields[5:]]
-    except ValueError:
+    except ValueError as e:
+        print(f"Data parsing error: {e}")
         return None
 
     decoded = {
@@ -159,10 +172,16 @@ def send_udp_broadcast(values, pid_id, group_name, serial_port=None):
     send_message(full_message, serial_port)
 
 
+def log(self, msg):
+    self.serial_display.append(f"[LOG] {msg}")
+
+
 def save_values(group_values):
     try:
-        with open(SETTINGS_FILE, 'w') as f:
-            json.dump(group_values, f, indent=4)
+        with tempfile.NamedTemporaryFile('w', delete=False, dir='.') as tf:
+            json.dump(group_values, tf, indent=4)
+            temp_name = tf.name
+        os.replace(temp_name, SETTINGS_FILE)
     except Exception as e:
         print("Error saving values:", e)
 
@@ -186,8 +205,9 @@ class PIDSender(QWidget):
         self.debounce_timer = QTimer()
         self.debounce_timer.setSingleShot(True)
         self.debounce_timer.timeout.connect(self.send_control_update)
-
         super().__init__()
+        # ... your other init code ...
+        self.serial_buffer = ""
         self.setWindowTitle("PID UDP Broadcaster")
         # Get screen geometry
         screen = QApplication.primaryScreen()
@@ -295,7 +315,7 @@ class PIDSender(QWidget):
 
         # Distance input
         distance_direction_layout.addWidget(QLabel("Distance:"))
-        self.distance_input = QLineEdit("0")  # Default value = 0
+        self.distance_input = QLineEdit("10")  # Default value = 0
         distance_direction_layout.addWidget(self.distance_input)
 
         # Direction input
@@ -318,7 +338,11 @@ class PIDSender(QWidget):
 
         self.setLayout(layout)
 
-        self.setup_serial_port("COM60")
+        self.setup_serial_port(COMPORT)
+
+        ports = list(serial.tools.list_ports.comports())
+        for p in ports:
+            print(p.device)
 
         # Serial read timer
         self.serial_timer = QTimer()
@@ -454,16 +478,25 @@ class PIDSender(QWidget):
                 data = self.serial_port.read(
                     self.serial_port.in_waiting).decode(errors='ignore')
                 if data:
-                    self.serial_display.moveCursor(QTextCursor.End)
-                    self.serial_display.insertPlainText(data)
-                    self.serial_display.verticalScrollBar().setValue(
-                        self.serial_display.verticalScrollBar().maximum())
-                    result = parse_serial_line(data)
-                    # Print result
-                    if result:
-                        print(serial_data_by_ids)
-                    else: 
-                         print(f"Error {data}")
+                    self.serial_buffer += data  # append to buffer
+
+                    while '\n' in self.serial_buffer:
+                        line, self.serial_buffer = self.serial_buffer.split(
+                            '\n', 1)
+                        line = line.strip()
+
+                        if line:
+                            self.serial_display.moveCursor(QTextCursor.End)
+                            self.serial_display.insertPlainText(line + '\n')
+                            self.serial_display.verticalScrollBar().setValue(
+                                self.serial_display.verticalScrollBar().maximum())
+
+                            result = parse_serial_line(line)
+                            if result is None:
+                                print(f"Error: {line}")
+                            else:
+                                print(f"ok: {result}")
+
             except Exception as e:
                 print(f"Error reading serial data: {e}")
 
@@ -505,30 +538,25 @@ class PIDSender(QWidget):
         self.saved_values["MinPower"] = min_power
         save_values(self.saved_values)
 
-        # Prepare message, choose an ID, example 98 for power limits
-        # Format: LORAINF, 98, 0, max_power, min_power, 0, 0
-        base_message = f"{LORAINF},{MAXMINPWR },{IDLE},{float_to_str(max_power)},{float_to_str(min_power)}"
+        # Prepare message and send
+        base_message = f"{LORAINF},{MAXMINPWRSET},0,{max_power},{min_power},0,0"
         full_message = generate_nmea_message(base_message)
         send_message(full_message, self.serial_port)
-        print(f"Power limits sent: Max={max_power}, Min={min_power}")
 
     def send_declination(self):
         try:
-            declination_value = float(self.declination_input.text())
+            declination = float(self.declination_input.text())
         except ValueError:
             print("Invalid declination value.")
             return
 
-        # Save declination to config
-        self.saved_values["Declination"] = declination_value
+        self.saved_values["Declination"] = declination
         save_values(self.saved_values)
 
-        # Prepare message, choose IDs arbitrarily or define your own, example below:
-        # Let's say LORAINF=6, id=99 for declination, with one float value + some zeros to match your format
-        base_message = f"{LORAGETACK},{STORE_DECLINATION},{IDLE},{float_to_str(declination_value)}"
+        base_message = f"{LORAINF},{STORE_DECLINATION},{IDLE},{float_to_str(declination)}"
         full_message = generate_nmea_message(base_message)
         send_message(full_message, self.serial_port)
-        print(f"Declination {declination_value} sent.")
+        print(f"Declination sent: {declination}")
 
     def on_mode_button_clicked(self, button):
         # button is the QRadioButton clicked
@@ -546,8 +574,8 @@ class PIDSender(QWidget):
 
     def send_distance_direction(self):
         try:
-            distance = int(self.distance_input.text())
-            direction = int(self.direction_input.text())
+            distance = float(self.distance_input.text())
+            direction = float(self.direction_input.text())
         except ValueError:
             print("Invalid distance or direction input.")
             return
@@ -556,7 +584,7 @@ class PIDSender(QWidget):
         base_message = f"{LORAINF},{DIRDIST},{IDLE},{direction},{distance}"
         full_message = generate_nmea_message(base_message)
         send_message(full_message, self.serial_port)
-        print(f"Distance & Direction sent: {distance}, {direction}")
+        print(f"Distance & Direction sent: {direction},{distance}")
 
     def closeEvent(self, event):
         if self.serial_port and self.serial_port.is_open:
@@ -566,6 +594,9 @@ class PIDSender(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+     # Set a larger global font
+    font = QFont("Arial", 12)  # Try 12–14 for visibility
+    app.setFont(font)
     window = PIDSender()
     window.show()
     sys.exit(app.exec_())

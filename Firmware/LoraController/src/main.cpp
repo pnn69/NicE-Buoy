@@ -127,7 +127,7 @@ void handelKeyPress(RoboStruct *key)
     int presses = countKeyPressesWithTimeoutAndLongPressDetecton();
     if (presses > 0)
     {
-        Serial.printf("Key pressed %d times status %d\r\n", presses,key->status);
+        Serial.printf("Key pressed %d times status %d\r\n", presses, key->status);
         switch (presses)
         {
         case 1: // lock / unlock
@@ -351,10 +351,13 @@ void loop()
 
         if (adcmain.swPos != lastWsPos) //
         {
+            if (lastWsPos != SW_RIGHT)
+            {
+                mainData.cmd = IDELING;    //
+                mainData.ack = LORAGETACK; // ack needed
+                newLoraDataOut = true;     // set flag to send data out
+            }
             lastWsPos = adcmain.swPos; //
-            mainData.cmd = IDELING;    //
-            mainData.ack = LORAGETACK; // ack needed
-            newLoraDataOut = true;     // set flag to send data out
         }
         else
         {
@@ -421,7 +424,12 @@ void loop()
     }
     if (handelRfData())
     {
+        double tg = mainData.tgDir;
         getBuoyArr(&mainData);
+        if (adcmain.swPos == SW_LEFT)
+        {
+            mainData.tgDir = tg;
+        }
         updateOled(&mainData);
     }
     delay(1);

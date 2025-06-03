@@ -150,6 +150,7 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
         dataStore.declination = numbers[2].toDouble();
         break;
     case MAXMINPWR:
+    case MAXMINPWRSET:
         dataStore.maxSpeed = numbers[2].toInt();
         dataStore.minSpeed = numbers[3].toInt();
         break;
@@ -305,6 +306,7 @@ String RoboCode(RoboStruct dataOut)
         out += "," + String(dataOut.wDir, 1);
         out += "," + String(dataOut.wStd, 1);
         break;
+    case MAXMINPWRSET:
     case MAXMINPWR:
         out += "," + String(dataOut.maxSpeed);
         out += "," + String(dataOut.minSpeed);
@@ -674,17 +676,23 @@ void checkparameters(RoboStruct buoy)
 input: directon to go to, distance and start position
 return: target latitude and longitude
 */
-void adjustPositionDirDist(double bearing, double distance, double lat1, double lon1, double *lat2, double *lon2)
+void adjustPositionDirDist(double bearing_deg, double distance,
+                           double lat1_deg, double lon1_deg,
+                           double *lat2_deg, double *lon2_deg)
 {
-    double d, phi1;
-    double dlat, dlon;
-    double theta = radians(bearing);
-    d = degrees(distance) / EARTH_MEAN_RADIUS; // arc length in degrees
-    phi1 = radians(lat1);                      // convert lat to radians
-    dlat = d * cos(theta);                     // latitude change in degrees*10^6
-    dlon = d * sin(theta) / cos(phi1);         // longitude change, corrected for latitude
-    *lat2 = lat1 + dlat;
-    *lon2 = lon1 + dlon;
+    double lat1 = radians(lat1_deg);
+    double lon1 = radians(lon1_deg);
+    double bearing = radians(bearing_deg);
+    double angular_distance = distance / (EARTH_RADIUS_KM * 1000.0);
+
+    double lat2 = asin(sin(lat1) * cos(angular_distance) +
+                       cos(lat1) * sin(angular_distance) * cos(bearing));
+
+    double lon2 = lon1 + atan2(sin(bearing) * sin(angular_distance) * cos(lat1),
+                               cos(angular_distance) - sin(lat1) * sin(lat2));
+
+    *lat2_deg = degrees(lat2);
+    *lon2_deg = degrees(lon2);
 }
 
 double smallestAngle(double heading1, double heading2)

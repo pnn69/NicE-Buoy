@@ -118,10 +118,9 @@ void startESC(void)
 {
     digitalWrite(ESC_SB_PWR_PIN, HIGH);
     Serial.println("ESC BB ON");
-    delay(1000);
+    delay(500);
     digitalWrite(ESC_BB_PWR_PIN, HIGH);
     Serial.println("ESC SB ON");
-    delay(1000);
     // Set up PWM channels
     ledcSetup(ESC_BB_CHANNEL, ESC_FREQ, ESC_RESOLUTION);
     ledcSetup(ESC_SB_CHANNEL, ESC_FREQ, ESC_RESOLUTION);
@@ -162,14 +161,10 @@ void startESC(void)
 //***************************************************************************************************
 void EscTask(void *arg)
 {
-    unsigned long sbStamp = 0;
-    unsigned long bbStamp = 0;
     unsigned long logStamp = 0;
     int spsb = 0, spbb = 0;
     int spsbAct = 0, spbbAct = 0;
     Message rcv_msg;
-    sbStamp = millis();
-    bbStamp = millis();
     startESC();
     printf("ESC task running!\r\n");
     while (1)
@@ -214,8 +209,6 @@ void EscTask(void *arg)
             {
                 startESC();
                 printf("ESC'S  ON\r\n");
-                bbStamp = millis();
-                sbStamp = millis();
                 spsbAct = 0;
                 spbbAct = 0;
             }
@@ -249,7 +242,6 @@ void EscTask(void *arg)
             }
             ledcWrite(ESC_BB_CHANNEL, speedToPulse(spbbAct));
         }
-
         delay(1);
     }
 }

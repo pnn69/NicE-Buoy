@@ -4,5 +4,6 @@
 #include <RoboCompute.h>
 #include <RoboTone.h>
 #include "../../RobobuoyDependency\RobobuoyVersion.h"
+#include "topwifi.h"
 
 #endif /* MAIN_H_ */

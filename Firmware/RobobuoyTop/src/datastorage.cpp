@@ -5,20 +5,22 @@ Preferences storage;
 
 void initMemory(void)
 {
+
     // Open Preferences with my-app namespace. Each application module, library, etc
     // has to use a namespace name to prevent key name collisions. We will open storage in
     // RW-mode (second parameter has to be false).
     // Note: Namespace name is limited to 15 chars.
     storage.begin("NicE_Buoy_Data", false);
-    char id = storage.getChar("NicE_BuoyID", 0);
-    if (id == 0)
+    unsigned long id = espMac();
+    Serial.println(id, HEX);
+    if (id != storage.getLong64("NicE_BuoyID", 0))
     {
         Serial.printf("Configuring Non-volatile memory now!\n\r");
-        storage.putChar("NicE_BuoyID", 100);
+        storage.putLong64("NicE_BuoyID", id);
         Serial.printf("Storing data Bouy ID to 100\r\n");
         // tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
-        storage.putDouble("Doclat", 52.29308075283747);
-        storage.putDouble("Doclon", 4.932570409845357);
+        storage.putDouble("Docklat", 52.29308075283747);
+        storage.putDouble("Docklon", 4.932570409845357);
         Serial.printf("Storing data Target position \r\nWSVOP landing stage tglatitude = 52.29308075283747, tglongitude = 4.932570409845357 ");
         Serial.printf("Buoy Memory configured\r\n");
         delay(1000);
@@ -65,7 +67,7 @@ RoboStruct memDockPos(RoboStruct buoy, bool get)
     {
         buoy.tgLat = storage.getDouble("Docklat", 0);
         buoy.tgLng = storage.getDouble("Docklon", 0);
-        // Serial.printf("Get Doc pos form memory  %.8lf %.8lf\r\n", *lat, *lon);
+        Serial.printf("Get Doc pos form memory  %.8lf %.8lf\r\n", buoy.tgLat, buoy.tgLng);
     }
     else
     {

@@ -131,7 +131,8 @@ void setupudp(void)
                         else
                         {
                             Serial.println("crc error>" + stringUdpIn + "<");
-                        } });
+                        } 
+                    });
     }
 }
 
@@ -242,6 +243,6 @@ void WiFiTask(void *arg)
             String out = rfCode(subwifiData);
             udp.broadcast(out.c_str());
         }
-        delay(100);
+        delay(1);
     }
 }

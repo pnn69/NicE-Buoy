@@ -1,12 +1,12 @@
 {
     "RudderPid": {
-        "Kpr": 0.5,
-        "Kir": 0.05,
+        "Kpr": 0.8,
+        "Kir": 0.01,
         "Kdr": 0.01
     },
     "SpeedPid": {
         "Kps": 20.0,
-        "Kis": 0.5,
+        "Kis": 1.0,
         "Kds": 0.05
     },
     "Declination": 1.52,

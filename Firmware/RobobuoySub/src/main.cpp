@@ -74,15 +74,10 @@ void setup()
     initbuzzerqueue();
     initcompassQueue();
     initserqueue();
-    initRudPid();
-    initSpeedPid();
+    initRudPid(&mainData);
+    initSpeedPid(&mainData);
+    speedMaxMin(&mainData, GET);
     initescqueue();
-    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
-    xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 1000, NULL, 1, NULL, 1);
-    xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 10, NULL, 1);
-    xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
-    xTaskCreatePinnedToCore(CompassTask, "CompasaTask", 2000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
-    xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
     if (digitalRead(BUTTON_PIN) == true)
     {
         delay(100);
@@ -91,7 +86,12 @@ void setup()
             wifiConfig = 1;
         }
     }
-    mainData = computeParameters(mainData, GET);
+    //xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
+    xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 1000, NULL, 1, NULL, 1);
+    xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 10, NULL, 1);
+    xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
+    xTaskCreatePinnedToCore(CompassTask, "CompasaTask", 2000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
+    xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
     Serial.println("Setup done!");
 }
 
@@ -172,6 +172,7 @@ void handelKeyPress(void)
         }
     }
 }
+
 //***************************************************************************************************
 // Timer routines
 //***************************************************************************************************
@@ -191,22 +192,24 @@ void handleTimerRoutines(RoboStruct *in)
             }
             rudderPid(in);
         }
-        else if (in->tgDist > .5)
+        else if (in->tgDist > 0.5)
         {
-            RoboStruct *t = in;
-            t->maxSpeed = 20;
-            t->minSpeed = -20;
-            t->tgSpeed = 0;
-            rudderPid(t);
-            in->tgSpeed = t->tgSpeed;
-            in->speedSb = t->speedSb;
-            in->speedBb = t->speedBb;
+            in->tgSpeed = 0;
+            rudderPid(in);
         }
         else
         {
+            in->tgSpeed = 0;
+            in->speedBb = 0;
+            in->speedSb = 0;
             escOut.speedbb = 0;
             escOut.speedsb = 0;
             xQueueSend(escspeed, (void *)&escOut, 10);
+        }
+        if (udptimer < millis())
+        {
+            udptimer = millis() + 250;
+            xQueueSend(udpOut, (void *)in, 10);
         }
         break;
     case REMOTE:
@@ -230,11 +233,16 @@ void handleTimerRoutines(RoboStruct *in)
         break;
     }
 
-    if (nextSamp + 1000 < millis())
+    if (nextSamp < millis())
     {
-        nextSamp = millis();
-        xQueueSend(serOut, (void *)in, 10);
-        printf("COG:%03.0f TG:%03.0f TD:%05.2f Error: %03.0f output: %07.2f tgSpeed: %05.2f bb: %3d Sb: %3d sTATUS:%d\r\n", in->dirMag, in->tgDir, in->tgDist, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->tgSpeed, in->speedBb, in->speedSb,in->status);
+        nextSamp =  1000 +millis();
+        if(in->status == LOCKED || in->status == DOCKED){
+            nextSamp =  250 +millis();
+        }
+        printf("COG:%03.0f TG:%03.0f TD:%05.2f Error: %03.0f  tgSpeed: %05.2f Rudderoutput: %07.2f  bb: %3d Sb: %3d sTATUS:%d\r\n", in->dirMag, in->tgDir, in->tgDist, in->tgSpeed, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb, in->status);
+        dataIn = *in;
+        dataIn.cmd = DIRSPEED;
+        xQueueSend(serOut, (void *)&dataIn, 10);
     }
 
     if (accuSamp < millis())
@@ -246,8 +254,9 @@ void handleTimerRoutines(RoboStruct *in)
     if (logtimer < millis())
     {
         logtimer = millis() + 1000;
-        in->cmd = SUBACCU;
-        xQueueSend(serOut, (void *)in, 10); // Keep the watchdog in sub happy
+        dataIn = *in;
+        dataIn.cmd = SUBACCU;
+        //xQueueSend(serOut, (void *)&dataIn, 10); // Keep the watchdog in sub happy
     }
 }
 //***************************************************************************************************
@@ -304,6 +313,8 @@ void loop(void)
         dataIn.IDr = -1;
         if (xQueueReceive(serIn, (void *)&dataIn, 0) == pdTRUE) // New serial data
         {
+            mainData.lastSerIn = millis();
+            PwrOff = millis();
             if (mainLedStatus.color != CRGB::DarkBlue)
             {
                 mainLedStatus.color = CRGB::DarkBlue;
@@ -323,21 +334,26 @@ void loop(void)
             {
             case IDLE:
             case IDELING:
-                escOut.speedbb = 0;
-                escOut.speedsb = 0;
-                xQueueSend(escspeed, (void *)&escOut, 10);
-                mainData.status = IDELING;
-                printf("\"IDLE\" command recieved!\r\n");
+                if (mainData.status != IDELING)
+                {
+                    escOut.speedbb = 0;
+                    escOut.speedsb = 0;
+                    xQueueSend(escspeed, (void *)&escOut, 10);
+                    mainData.status = IDELING;
+                    printf("\"IDLE\" command recieved!\r\n");
+                }
                 break;
             case DIRDIST:
                 if (mainData.status != LOCKED)
                 {
-                    computeParameters(mainData, GET);
+                    computeParameters(&mainData, GET);
                     printf("DIRDIST\r\n");
                     startESC();
                     mainData.tgDist = 0;
-                    initRudPid();
-                    initSpeedPid();
+                    speedMaxMin(&dataIn, SET);
+                    speedMaxMin(&mainData, GET);
+                    initRudPid(&mainData);
+                    initSpeedPid(&mainData);
                     mainData.status = LOCKED;
                 }
                 mainData.tgDir = dataIn.tgDir;
@@ -346,12 +362,13 @@ void loop(void)
             case DIRSPEED:
                 if (mainData.status != DIRSPEED)
                 {
-                    computeParameters(mainData, GET);
+                    computeParameters(&mainData, GET);
                     printf("DIRSPEED\r\n");
                     mainData.tgDist = 0;
-                    startESC();
-                    initRudPid();
-                    initSpeedPid();
+                    speedMaxMin(&dataIn, SET);
+                    speedMaxMin(&mainData, GET);
+                    initRudPid(&mainData);
+                    initSpeedPid(&mainData);
                     mainData.status = DIRSPEED;
                 }
                 mainData.tgDir = dataIn.tgDir;
@@ -360,7 +377,7 @@ void loop(void)
             case REMOTE:
                 if (mainData.status != REMOTE)
                 {
-                    computeParameters(mainData, GET);
+                    computeParameters(&mainData, GET);
                     mainData.status = REMOTE;
                 }
                 mainData.tgDir = dataIn.tgDir;
@@ -371,9 +388,10 @@ void loop(void)
                 {
                     printf("Locked\r\n");
                     mainData.tgDist = 0;
-                    startESC();
-                    initRudPid();
-                    initSpeedPid();
+                    speedMaxMin(&dataIn, SET);
+                    speedMaxMin(&mainData, GET);
+                    initRudPid(&mainData);
+                    initSpeedPid(&mainData);
                     mainData.tgLat = dataIn.tgLat;
                     mainData.tgLng = dataIn.tgLng;
                     mainData.status = LOCKED;
@@ -385,24 +403,44 @@ void loop(void)
                     printf("Docked\r\n");
                     startESC();
                     mainData.tgDist = 0;
-                    initRudPid();
-                    initSpeedPid();
+                    speedMaxMin(&dataIn, SET);
+                    speedMaxMin(&mainData, GET);
+                    initRudPid(&mainData);
+                    initSpeedPid(&mainData);
+
                     memDockPos(&dataIn, GET);
                     mainData.status = DOCKED;
                 }
                 break;
+            case PIDRUDDER:
+                if (dataIn.ack == LORAGET)
+                {
+                    mainData.ack = LORAINF;
+                    xQueueSend(serOut, (void *)&mainData, 10);
+                }
+                break;
             case PIDRUDDERSET:
                 printf("Rudder PID pr:%0.2f ir:%0.2f dr:%0.2f\r\n", dataIn.pr, dataIn.ir, dataIn.dr);
-                pidRudderParameters(dataIn, SET);
+                pidRudderParameters(&dataIn, SET);
+                pidRudderParameters(&mainData, GET);
                 rudderPID.SetTunings(dataIn.pr, dataIn.ir, dataIn.dr, DIRECT);
+                break;
+            case PIDSPEED:
+                if (dataIn.ack == LORAGET)
+                {
+                    mainData.ack = LORAINF;
+                    xQueueSend(serOut, (void *)&mainData, 10);
+                }
                 break;
             case PIDSPEEDSET:
                 printf("Rudder PID ps:%0.2f is:%0.2f ds:%0.2f\r\n", dataIn.ps, dataIn.is, dataIn.ds);
-                pidSpeedParameters(dataIn, SET);
+                pidSpeedParameters(&dataIn, SET);
+                pidSpeedParameters(&mainData, GET);
                 speedPID.SetTunings(dataIn.ps, dataIn.is, dataIn.ds, DIRECT);
                 break;
             case STORE_DECLINATION:
                 Declination(&dataIn.declination, SET);
+                Declination(&mainData.declination, GET);
                 break;
             case SET_DECLINATION:
                 calibrateMagneticNorth();
@@ -414,8 +452,19 @@ void loop(void)
                 printf("Declination: %0.2f\r\n", dataIn.declination);
                 break;
             case MAXMINPWR:
+                if (dataIn.ack == LORAGET)
+                {
+                    mainData.ack = LORAINF;
+                    xQueueSend(serOut, (void *)&mainData, 10);
+                }
+                break;
+            case MAXMINPWRSET:
+                printf("Max speed %d Min speed %d\r\n", dataIn.maxSpeed, dataIn.minSpeed);
                 speedMaxMin(&dataIn, SET);
                 speedMaxMin(&mainData, GET);
+                initRudPid(&mainData);
+                initSpeedPid(&mainData);
+                printf("Max speed %d Min speed %d\r\n", mainData.maxSpeed, mainData.minSpeed);
                 break;
             case PING:
                 mainData.cmd = DIRSPEED;
@@ -429,18 +478,18 @@ void loop(void)
         //      Serial watchdog
         //***************************************************************************************************
         // if (mainData.lastSerIn + 1000 * 5 < millis())
-        if (mainData.lastSerIn + 1000 * 5 < millis())
+        if (mainData.lastSerIn + 1000 * 10 < millis())
         {
             if (mainLedStatus.color != CRGB::Red)
             {
-                Serial.println("Set light to Red");
-                mainData.lastSerIn = millis();
-                mainLedStatus.color = CRGB::Red;
-                mainLedStatus.blink = BLINK_SLOW;
-                xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
-                digitalWrite(ESC_SB_PWR_PIN, LOW);
-                digitalWrite(ESC_BB_PWR_PIN, LOW);
-                mainData.status = IDELING;
+                // Serial.println("Set light to Red");
+                // mainData.lastSerIn = millis();
+                // mainLedStatus.color = CRGB::Red;
+                // mainLedStatus.blink = BLINK_SLOW;
+                // xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
+                // digitalWrite(ESC_SB_PWR_PIN, LOW);
+                // digitalWrite(ESC_BB_PWR_PIN, LOW);
+                // mainData.status = IDELING;
             }
         }
         //***************************************************************************************************

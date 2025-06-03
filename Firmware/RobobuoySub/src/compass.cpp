@@ -283,7 +283,7 @@ void calibrateMagneticNorth(void)
     }
     declination = smallestAngle(h, 0);
     Declination(&declination, SET);
-    printf("\r\n\r\nNew magnetic offset stored: %.2f\r\n\r\n", declination);
+    printf("\r\n\r\nNew magnetic declination stored: %.2f\r\n\r\n", declination);
 }
 
 //***************************************************************************************************

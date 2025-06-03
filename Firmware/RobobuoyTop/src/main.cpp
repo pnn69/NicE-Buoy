@@ -267,13 +267,10 @@ void handelStatus(RoboStruct *stat, RoboStruct *buoyPara)
         beep(2, buzzer);
         stat->cmd = IDLE;
         stat->status = IDLE;
-        xQueueSend(serOut, (void *)stat, 20); // update sub
         xQueueSend(udpOut, (void *)stat, 0);  // update WiFi
         xQueueSend(loraOut, (void *)stat, 0); // update Lora
-        delay(200);
-        xQueueSend(serOut, (void *)stat, 10); // update sub
-        delay(500);
-        xQueueSend(serOut, (void *)stat, 10); // update sub
+        stat->ack = LORAGETACK;
+        xQueueSend(serOut, (void *)stat, 20); // update sub
         break;
     case LOCKING:
         if (stat->gpsFix == true)
@@ -417,10 +414,11 @@ void handleTimerRoutines(RoboStruct *timer)
         timer->lastSerOut = millis() + 5000;
         if (timer->status == LOCKED || timer->status == DOCKED)
         {
-            timer->lastSerOut = millis() + 2000;
+            timer->lastSerOut = millis() + 500;
             RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
             timer->cmd = DIRDIST;
             xQueueSend(serOut, (void *)timer, 0); // send course and distance to sub
+            xQueueSend(loraOut, (void *)timer, 0); // send course and distance to sub
         }
         else if (timer->status == REMOTE) // Remote controlled
         {
@@ -469,6 +467,12 @@ void handleTimerRoutines(RoboStruct *timer)
             xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
             xQueueSend(udpOut, (void *)timer, 10);
         }
+        if (timer->status == REMOTE)
+        {
+            timer->cmd = REMOTE;
+            xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
+            xQueueSend(udpOut, (void *)timer, 10);
+        }
     }
 
     if (logtimer < millis())
@@ -480,9 +484,9 @@ void handleTimerRoutines(RoboStruct *timer)
         timer->wStd = wind.wStd;
         timer->wDir = wind.wDir; // averige wind dir
 
-        // RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
-        // printf("Status:%d Lat: %.0f Lon:%.0f tgLat: %.0f tgLon:%.0f tgDist:%.2f tgDir:%.0f mDir:%.0f wDir:%.0f wStd:%.2f ", timer->status, timer->lat, timer->lng, timer->tgLat, timer->tgLng, timer->tgDist, timer->tgDir, timer->dirMag, timer->wDir, timer->wStd);
-        // printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %d%% BB:%02d SB:%02d\r\n", timer->topAccuV, timer->topAccuP, timer->subAccuV, timer->subAccuP, timer->speedBb, timer->speedSb);
+        RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
+        printf("Status:%d Lat: %.0f Lon:%.0f tgLat: %.0f tgLon:%.0f tgDist:%.2f tgDir:%.0f mDir:%.0f wDir:%.0f wStd:%.2f ", timer->status, timer->lat, timer->lng, timer->tgLat, timer->tgLng, timer->tgDist, timer->tgDir, timer->dirMag, timer->wDir, timer->wStd);
+        printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %d%% BB:%02d SB:%02d\r\n", timer->topAccuV, timer->topAccuP, timer->subAccuV, timer->subAccuP, timer->speedBb, timer->speedSb);
     }
     if (udpTimerOut + 5000 < millis())
     {
@@ -513,34 +517,54 @@ void handelRfData(RoboStruct *RfOut)
         RfOut->IDr = RfIn.IDs;
         RfOut->ack = LORAINF;
         RfOut->cmd = RfIn.cmd;
-        if (RfIn.IDr == BUOYIDALL)
-        {
-            switch (RfIn.cmd)
-            {
-            case DOCKING:
-                printf("#Status set to DOCKING\r\n");
-                RfOut->status = DOCKING;
-                break;
-            case LOCKPOS: // store new data into position database
-                buoyPara[3] = AddDataToBuoyBase(RfIn, buoyPara);
-                break;
-            case PIDRUDDERSET:
-                pidRudderParameters(RfIn, SET);
-                printf("#PIDRUDDERSET: %05.2f %05.2f %05.2f\r\n", RfIn.pr, RfIn.ir, RfIn.dr);
-                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
-                break;
-            case PIDSPEEDSET:
-                pidSpeedParameters(RfIn, SET);
-                printf("#PIDSPEEDSET: %05.2f %05.2f %05.2f\r\n", RfIn.ps, RfIn.is, RfIn.ds);
-                RfOut->cmd = PIDSPEEDSET;
-                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
-                break;
-            }
-        }
         if (RfIn.IDr == RfOut->mac || RfIn.IDr == BUOYIDALL) // yes for me
         {
             switch (RfIn.cmd)
             {
+            case DOCKING:
+                if (RfOut->status != DOCKING || RfOut->status != DOCKED)
+                {
+                    printf("#Status set to DOCKING\r\n");
+                    RfOut->status = DOCKING;
+                }
+                break;
+            case LOCKPOS: // store new data into position database
+                buoyPara[3] = AddDataToBuoyBase(RfIn, buoyPara);
+                break;
+            case PIDRUDDER:
+                if (RfIn.ack == LORAGET)
+                {
+                    xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                }
+                else
+                {
+                    xQueueSend(loraOut, (void *)&RfIn, 0); // update sub
+                    xQueueSend(udpOut, (void *)&RfIn, 0);  // update sub
+                }
+                break;
+            case PIDRUDDERSET:
+                pidRudderParameters(RfIn, SET);
+                printf("#PIDRUDDERSET: %05.2f %05.2f %05.2f\r\n", RfIn.pr, RfIn.ir, RfIn.dr);
+                RfIn.ack = LORAGETACK;
+                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                break;
+            case PIDSPEED:
+                if (RfIn.ack == LORAGET)
+                {
+                    xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                }
+                else
+                {
+                    xQueueSend(loraOut, (void *)&RfIn, 0); // update sub
+                    xQueueSend(udpOut, (void *)&RfIn, 0);  // update sub
+                }
+            case PIDSPEEDSET:
+                pidSpeedParameters(RfIn, SET);
+                printf("#PIDSPEEDSET: %05.2f %05.2f %05.2f\r\n", RfIn.ps, RfIn.is, RfIn.ds);
+                RfOut->cmd = PIDSPEEDSET;
+                RfIn.ack = LORAGETACK;
+                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                break;
             case DIRSPEED:
                 RfOut->tgDir = RfIn.tgDir;
                 RfOut->speedSet = RfIn.speedSet;
@@ -558,14 +582,19 @@ void handelRfData(RoboStruct *RfOut)
                 printf("Status = %d", RfIn.cmd);
                 break;
             case DIRDIST:
+                double lat, lon;
+                printf("New dir: %f New distance %f\r\n", RfIn.tgDir, RfIn.tgDist);
                 adjustPositionDirDist(RfIn.tgDir, RfIn.tgDist, RfOut->lat, RfOut->lng, &RfOut->tgLat, &RfOut->tgLng);
+                printf("New cordinates: https://www.google.nl/maps/@%f,%f,14z\r\n", RfOut->tgLat, RfOut->tgLng);
+                RouteToPoint(RfOut->lat, RfOut->lng, RfOut->tgLat, RfOut->tgLng, &RfOut->tgDist, &RfOut->tgDir);
+                printf("New dir: %f New distance %f\r\n", RfOut->tgDir, RfOut->tgDist);
                 if (RfOut->status != LOCKED)
                 {
                     RfOut->status = LOCKING;
                 }
                 break;
             case LOCKING:
-                if (RfOut->gpsFix == true)
+                if (RfOut->gpsFix == true && RfOut->status != LOCKING)
                 {
                     RfOut->status = LOCKING;
                     beep(1, buzzer);
@@ -584,9 +613,6 @@ void handelRfData(RoboStruct *RfOut)
                     beep(-1, buzzer);
                 }
                 break;
-            case LOCKPOS: // store new data into position database
-                buoyPara[3] = AddDataToBuoyBase(RfIn, buoyPara);
-                break;
             case SETLOCKPOS: // store new data into position database and sail to it
                 RfOut->tgLat = RfIn.tgLat;
                 RfOut->tgLng = RfIn.tgLng;
@@ -594,25 +620,13 @@ void handelRfData(RoboStruct *RfOut)
                 buoyPara[3] = AddDataToBuoyBase(RfIn, buoyPara);
                 RfOut->status = LOCKED;
                 break;
-            case DOCKING:
-                printf("#Status set to DOCKING (by lora input)\r\n");
-                RfOut->status = DOCKING;
-                break;
             case IDELING:
-                printf("#Status set to IDLE (by lora input)\r\n");
-                RfOut->status = IDELING;
-                break;
             case IDLE:
-                printf("#Status set to IDLE (by lora input)\r\n");
-                RfOut->status = IDELING;
-                break;
-            case PIDRUDDERSET:
-                pidRudderParameters(RfIn, SET);
-                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
-                break;
-            case PIDSPEEDSET:
-                pidSpeedParameters(RfIn, SET);
-                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                if (RfOut->status != IDELING || RfOut->status != IDLE)
+                {
+                    printf("#Status set to IDLE (by lora input)\r\n");
+                    RfOut->status = IDELING;
+                }
                 break;
             case SUBACCU:
                 RfOut->subAccuV = RfIn.subAccuV;
@@ -628,6 +642,19 @@ void handelRfData(RoboStruct *RfOut)
                 xQueueSend(serOut, (void *)&RfIn, 0);  // update sub
                 break;
             case MAXMINPWR:
+                if (RfIn.ack == LORAGET)
+                {
+                    xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                }
+                else
+                {
+                    xQueueSend(loraOut, (void *)&RfIn, 0); // update
+                    xQueueSend(udpOut, (void *)&RfIn, 0);  // update
+                }
+                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                break;
+            case MAXMINPWRSET:
+                RfIn.ack = LORAGETACK;
                 xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 break;
             default:

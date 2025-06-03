@@ -5,6 +5,7 @@
 
 /*some constans*/
 #define EARTH_MEAN_RADIUS 6372795
+#define EARTH_RADIUS_KM 6371.0
 // #define radian(x) (x * M_PI / 180)
 // #define degre(x) (x * 180 / M_PI)
 // #define ILIM 35 // Maximum interal limit (35% power)
@@ -19,7 +20,7 @@
 
 typedef enum
 {
-    LOTAGET = 1,                      // info request
+    LORAGET = 1,                      // info request
     LORASET,                          // info to store
     LORAGETACK,                       // ack requerd
     LORAACK,                          // ack on message
@@ -87,6 +88,7 @@ typedef enum
     ROBODEFAULTS,                     //
     WINDDATA,                         // wDir,wStd;
     MAXMINPWR,                        // max power, min power
+    MAXMINPWRSET,                     // max power, min power set
     DIRMDIRTGDIRG,                    // dir Magnetic dir Target dir Gps
 } msg_t;
 

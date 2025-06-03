@@ -198,7 +198,7 @@ bool sendLora(String loraTransmitt)
             LoRa.write(loraTransmitt.length());
             LoRa.print(loraTransmitt);
             LoRa.endPacket(); // finish packet and send it
-            Serial.println("#Lora_o <" + loraTransmitt + ">");
+            //Serial.println("#Lora_o <" + loraTransmitt + ">");
             transmittReady = millis() + 10;
             return true;
         }

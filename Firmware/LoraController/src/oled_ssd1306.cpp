@@ -197,12 +197,23 @@ void updateOled(RoboStruct *data)
     if (data->status == DOCKED || data->status == LOCKED)
     {
         display.setCursor(0, 30);
-        display.printf("%03.1f%M %03d", data->tgDist, (int)data->dirMag);
+        if (data->tgDist < 100)
+        {
+            display.printf("%3.1f%M %03d", data->tgDist, (int)data->dirMag);
+        }
+        else if (data->tgDist < 1000)
+        {
+            display.printf("%3.0f%M %03d", data->tgDist, (int)data->dirMag);
+        }
+        else
+        {
+            display.printf("%3.1f%KM %03d", data->tgDist / 1000, (int)data->dirMag);
+        }
     }
     if (data->status == REMOTE)
     {
         display.setCursor(0, 30);
-        display.printf("H%03d S%03d", (int)data->tgDir, (int)data->tgSpeed);
+        display.printf("H%03d m%03d", (int)data->tgDir, (int)data->dirMag);
     }
 
     display.display();
