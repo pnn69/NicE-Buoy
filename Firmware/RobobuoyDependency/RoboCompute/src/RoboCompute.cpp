@@ -8,8 +8,9 @@ bool startsWithDollar(const String &str)
 }
 
 /*
+    $IDr,IDs,ACK,MSG,STATUS,<data>*chksum
     decode incomming data.
-    input string format $ID,<data>*
+    input string format $msg,STATUS,<data>*
     output parameters in to stuct type RoboStruct
     crc does not have any value
 */
@@ -162,6 +163,8 @@ struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
     case IDELING:
         break;
     case LORAACK:
+    case SET_DECLINATION:
+        dataStore.status = SET_DECLINATION;
         break;
     case PING:
         break;
@@ -323,6 +326,8 @@ String RoboCode(RoboStruct dataOut)
         break;
     case CALIBRATE_MAGNETIC_COMPASS:
         break;
+    case SET_DECLINATION:
+        break;
     case STORE_DECLINATION:
         out += "," + String(dataOut.declination, 2);
         break;
@@ -343,7 +348,7 @@ String RoboCode(RoboStruct dataOut)
 //***************************************************************************************************
 //  code rf string
 //  add crc
-// $IDr,IDs,ack,msg,data*chk
+// $IDr,IDs,ack,cmd,status,data*chk
 //***************************************************************************************************
 String rfCode(RoboStruct rfOut)
 {

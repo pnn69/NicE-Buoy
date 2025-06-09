@@ -15,9 +15,9 @@ double ps = 0, is = 0, ds = 0;
 PID rudderPID(&rudderInput, &rudderOutput, &rudderSetpoint, pr, ir, dr, DIRECT);
 PID speedPID(&speedInput, &speedOutput, &speedSetpoint, ps, is, ds, DIRECT);
 
-void initRudPid(RoboStruct* rud)
+void initRudPid(RoboStruct *rud)
 {
-    speedMaxMin(rud,GET);
+    speedMaxMin(rud, GET);
     pidRudderParameters(rud, GET);
     computeParameters(rud, GET);
     rudderPID.SetSampleTime(100); // milliseconds
@@ -31,9 +31,9 @@ void initRudPid(RoboStruct* rud)
                    " maxSpeed:" + String(rud->maxSpeed));
 }
 
-void initSpeedPid(RoboStruct* speed)
+void initSpeedPid(RoboStruct *speed)
 {
-    speedMaxMin(speed,GET);
+    speedMaxMin(speed, GET);
     speedPID.SetSampleTime(100); // milliseconds
     pidSpeedParameters(speed, GET);
     speedPID.SetTunings(speed->ps, speed->is, speed->ds, DIRECT);
@@ -57,16 +57,24 @@ void rudderPid(RoboStruct *rud)
     rudderPID.Compute();
 
     double s = constrain(rud->tgSpeed, rud->minSpeed, rud->maxSpeed);
-    s -=abs(rudderOutput);
-    double sb = s - rudderOutput;
+    int margin = abs(rudderOutput);
+    if (s < rud->minSpeed - margin)
+    {
+        s = rud->minSpeed - margin; // or some appropriate minimum correction
+    }
+    else if (s > rud->maxSpeed + margin)
+    {
+        s = rud->maxSpeed + margin; // clamp to upper limit
+    }
     double bb = s + rudderOutput;
+    double sb = s - rudderOutput;
     rud->speedSb = constrain(sb, rud->minSpeed, rud->maxSpeed);
     rud->speedBb = constrain(bb, rud->minSpeed, rud->maxSpeed);
     esc.speedbb = rud->speedBb;
     esc.speedsb = rud->speedSb;
     xQueueSend(escspeed, (void *)&esc, 10);
 
-    //printf("TD:%05.2f  tgSpeed: %05.2f angle: %03.0f output: %07.2f  Sb: %3d Bb: %3d\r\n", rud->tgDist, rud->tgSpeed, rudderInput, rudderOutput, rud->speedSb, rud->speedBb);
+    // printf("TD:%05.2f  tgSpeed: %05.2f angle: %03.0f output: %07.2f  Sb: %3d Bb: %3d\r\n", rud->tgDist, rud->tgSpeed, rudderInput, rudderOutput, rud->speedSb, rud->speedBb);
 }
 //***************************************************************************************************
 //  speedPID

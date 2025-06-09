@@ -10,10 +10,11 @@
 // #define degre(x) (x * 180 / M_PI)
 // #define ILIM 35 // Maximum interal limit (35% power)
 #define BUOYIDALL 1
-#define ROBOBASE 2
+#define ROBOBASE 99
 #define HEAD 1
 #define PORT 2
 #define STARBOARD 3
+#define BAUDRATE 460800
 
 #define SAMPELS 30 // 60 samples
 #define MAXSTRINGLENG 150
@@ -102,6 +103,7 @@ struct RoboStruct
     int ack = -1;
     int loralstmsg = 0;
     int status = 0;
+    int sub_status = 0;
     double lat = 0;
     double lng = 0;
     double tgLat = 0;

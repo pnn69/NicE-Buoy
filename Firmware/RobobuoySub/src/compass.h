@@ -10,7 +10,7 @@ void initcompassQueue(void);
 void calibrateNorthCompas(void);
 void calibrateParametersCompas(void);
 bool CalibrateCompass(void);
-double GetHeading(void);
+// double GetHeading(void);
 double GetHeadingRaw(void);
 double GetHeadingRaw(int x, int y, int z);
 double CompassAverage(double);

@@ -114,7 +114,7 @@ void Declination(double *declination, bool get)
     }
     else
     {
-        storage.putDouble("decclination", *declination);
+        storage.putDouble("declination", *declination);
     }
     stopMem();
 }
@@ -132,22 +132,18 @@ void MechanicalCorrection(double *delta, bool get)
     stopMem();
 }
 
-void computeParameters(RoboStruct* buoy, bool get)
+void computeParameters(RoboStruct *buoy, bool get)
 {
     startMem();
     if (get)
     {
         buoy->minOfsetDist = storage.getInt("minOfsetDist", 1);
         buoy->maxOfsetDist = storage.getInt("maxOfsetDist", 8);
-        buoy->minSpeed = storage.getInt("minSpeed", -80);
-        buoy->maxSpeed = storage.getInt("maxSpeed", 80);
     }
     else
     {
         storage.putInt("minOfsetDist", buoy->minOfsetDist);
         storage.putInt("maxOfsetDist", buoy->maxOfsetDist);
-        storage.putInt("minSpeed", buoy->minSpeed);
-        storage.putInt("maxSpeed", buoy->maxSpeed);
     }
     stopMem();
 }
@@ -157,8 +153,8 @@ void speedMaxMin(RoboStruct *buoy, bool get)
     startMem();
     if (get)
     {
-        buoy->minSpeed = storage.getInt("minSpeed", -80);
-        buoy->maxSpeed = storage.getInt("maxSpeed", 80);
+        buoy->minSpeed = storage.getInt("minSpeed", -73);
+        buoy->maxSpeed = storage.getInt("maxSpeed", 73);
     }
     else
     {
@@ -168,9 +164,7 @@ void speedMaxMin(RoboStruct *buoy, bool get)
     stopMem();
 }
 
-
-
-void pidSpeedParameters(RoboStruct* buoy, bool get)
+void pidSpeedParameters(RoboStruct *buoy, bool get)
 {
     startMem();
     if (get)
@@ -187,7 +181,7 @@ void pidSpeedParameters(RoboStruct* buoy, bool get)
     }
     stopMem();
 }
-void pidRudderParameters(RoboStruct* buoy, bool get)
+void pidRudderParameters(RoboStruct *buoy, bool get)
 {
     startMem();
     if (get)

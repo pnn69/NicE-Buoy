@@ -86,7 +86,7 @@ void setup()
             wifiConfig = 1;
         }
     }
-    //xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
+    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 1000, NULL, 1, NULL, 1);
     xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 10, NULL, 1);
     xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
@@ -156,7 +156,8 @@ void handelKeyPress(void)
         if (presses == 5) // Calibrate compas north
         {
             beep(1, buzzer);
-            calibrateNorthCompas();
+            delay(1000);
+            calibrateMagneticNorth();
             presses = -1;
         }
         if (presses == 10) // Calibrate compas
@@ -206,12 +207,12 @@ void handleTimerRoutines(RoboStruct *in)
             escOut.speedsb = 0;
             xQueueSend(escspeed, (void *)&escOut, 10);
         }
-        if (udptimer < millis())
-        {
-            udptimer = millis() + 250;
-            xQueueSend(udpOut, (void *)in, 10);
-        }
-        break;
+        // if (udptimer < millis())
+        // {
+        //     udptimer = millis() + 250;
+        //     xQueueSend(udpOut, (void *)in, 10);
+        // }
+        // break;
     case REMOTE:
         rudderPid(in);
         break;
@@ -227,36 +228,28 @@ void handleTimerRoutines(RoboStruct *in)
         xQueueSend(escspeed, (void *)&escOut, 10);
         break;
     default:
-        escOut.speedbb = 0;
-        escOut.speedsb = 0;
-        xQueueSend(escspeed, (void *)&escOut, 10);
         break;
     }
 
     if (nextSamp < millis())
     {
-        nextSamp =  1000 +millis();
-        if(in->status == LOCKED || in->status == DOCKED){
-            nextSamp =  250 +millis();
-        }
-        printf("COG:%03.0f TG:%03.0f TD:%05.2f Error: %03.0f  tgSpeed: %05.2f Rudderoutput: %07.2f  bb: %3d Sb: %3d sTATUS:%d\r\n", in->dirMag, in->tgDir, in->tgDist, in->tgSpeed, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb, in->status);
-        dataIn = *in;
-        dataIn.cmd = DIRSPEED;
-        xQueueSend(serOut, (void *)&dataIn, 10);
+        nextSamp = 250 + millis();
+        printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d S:%d\n", in->tgDist, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb, in->status);
+        in->cmd = DIRSPEED;
+        xQueueSend(serOut, (void *)in, 10);
     }
 
     if (accuSamp < millis())
     {
-        accuSamp = 60 * 1010 + millis();
+        accuSamp = 1010 + millis();
         battVoltage(in->subAccuV, in->subAccuP);
     }
 
     if (logtimer < millis())
     {
-        logtimer = millis() + 1000;
-        dataIn = *in;
-        dataIn.cmd = SUBACCU;
-        //xQueueSend(serOut, (void *)&dataIn, 10); // Keep the watchdog in sub happy
+        logtimer = millis() + 5000;
+        in->cmd = SUBACCU;
+        xQueueSend(serOut, (void *)in, 10);
     }
 }
 //***************************************************************************************************
@@ -269,15 +262,227 @@ void handelStatus(RoboStruct *stat)
         stat->speed = 0;
         stat->speedBb = 0;
         stat->speedSb = 0;
+        stat->status = IDLE;
         escOut.speedbb = 0;
         escOut.speedsb = 0;
         xQueueSend(escspeed, (void *)&escOut, 10);
+        xQueueSend(serOut, (void *)stat, 10);
         printf("Idle\r\n");
-        delay(100);
-        stat->status = IDLE;
+    }
+}
+//***************************************************************************************************
+//  Handle incomming data
+//***************************************************************************************************
+/**
+ * @brief Handles incoming serial and RF data for the RoboBuoy system.
+ *
+ * This function processes new data received from either the serial interface or RF (UDP) communication.
+ * It updates the system state, executes commands, and manages the control logic for the RoboBuoy.
+ * The function checks for new serial data, updates LED status, and processes commands such as IDLE, DIRDIST,
+ * DIRSPEED, REMOTE, LOCKED, DOCKED, PID tuning, declination settings, and power settings.
+ * It also handles sending acknowledgments and updating PID parameters for rudder and speed controllers.
+ *
+ * @param ser Pointer to a RoboStruct structure containing the current state and parameters of the RoboBuoy.
+ */
+void handelSerandRfdata(RoboStruct *ser)
+{
+
+    dataIn.IDr = -1;
+    if (xQueueReceive(serIn, (void *)&dataIn, 0) == pdTRUE) // New serial data
+    {
+        mainData.lastSerIn = millis();
+        PwrOff = millis();
+        if (mainLedStatus.color != CRGB::DarkBlue)
+        {
+            mainLedStatus.color = CRGB::DarkBlue;
+            mainLedStatus.blink = BLINK_SLOW;
+            xQueueSend(ledStatus, (void *)&mainLedStatus, 0); // update util led
+        }
+    }
+    //***************************************************************************************************
+    //      new udp message (handle only if no new serial data)
+    //***************************************************************************************************
+    // else if (xQueueReceive(udpIn, (void *)&dataIn, 0)) // New UDP data
+    // {
+    // }
+    if (dataIn.IDr != -1)
+    {
+        switch (dataIn.cmd)
+        {
+        case IDLE:
+        case IDELING:
+            if (ser->status != IDELING)
+                if (ser->status != IDELING)
+                {
+                    escOut.speedbb = 0;
+                    escOut.speedsb = 0;
+                    xQueueSend(escspeed, (void *)&escOut, 10);
+                    ser->tgDist = 0;
+                    ser->tgSpeed = 0;
+                    ser->tgDir = 0;
+                    ser->status = IDELING;
+                    initRudPid(ser);
+                    initSpeedPid(ser);
+                    printf("IDLE command recieved!\r\n");
+                }
+            break;
+        case DIRDIST:
+            if (ser->status != LOCKED)
+            {
+                printf("DIRDIST command recieved!");
+                initRudPid(ser);
+                initSpeedPid(ser);
+                ser->status = LOCKED;
+            }
+            ser->tgDir = dataIn.tgDir;
+            ser->tgDist = dataIn.tgDist;
+            break;
+        case DIRSPEED:
+            if (ser->status != DIRSPEED)
+            {
+                printf("DIRSPEED command recieved!");
+                ser->tgDist = 0;
+                initRudPid(ser);
+                initSpeedPid(ser);
+                ser->status = DIRSPEED;
+            }
+            ser->tgDir = dataIn.tgDir;
+            ser->speedSet = dataIn.speedSet;
+            break;
+        case REMOTE:
+            if (ser->status != REMOTE)
+            {
+                ser->status = REMOTE;
+            }
+            ser->tgDir = dataIn.tgDir;
+            ser->tgSpeed = dataIn.tgSpeed;
+            break;
+        case LOCKED:
+            if (ser->status != LOCKED)
+            {
+                printf("Locked command recieved!");
+                ser->tgDist = 0;
+                initRudPid(ser);
+                initSpeedPid(ser);
+                ser->tgLat = dataIn.tgLat;
+                ser->tgLng = dataIn.tgLng;
+                ser->status = LOCKED;
+            }
+            break;
+        case DOCKED:
+            if (ser->status != DOCKED)
+            {
+                printf("Docked command recieved!");
+                ser->tgDist = 0;
+                initRudPid(ser);
+                initSpeedPid(ser);
+                memDockPos(&dataIn, GET);
+                ser->status = DOCKED;
+            }
+            break;
+        case PIDRUDDER:
+            if (dataIn.ack == LORAGET)
+            {
+                ser->ack = LORAINF;
+                xQueueSend(serOut, (void *)ser, 10);
+            }
+            break;
+        case PIDRUDDERSET:
+            printf("Rudder PID pr:%0.2f ir:%0.2f dr:%0.2f\r\n", dataIn.pr, dataIn.ir, dataIn.dr);
+            pidRudderParameters(&dataIn, SET);
+            pidRudderParameters(ser, GET);
+            rudderPID.SetTunings(dataIn.pr, dataIn.ir, dataIn.dr, DIRECT);
+            break;
+        case PIDSPEED:
+            if (dataIn.ack == LORAGET)
+            {
+                ser->ack = LORAINF;
+                xQueueSend(serOut, (void *)ser, 10);
+            }
+            break;
+        case PIDSPEEDSET:
+            printf("Rudder PID ps:%0.2f is:%0.2f ds:%0.2f\r\n", dataIn.ps, dataIn.is, dataIn.ds);
+            pidSpeedParameters(&dataIn, SET);
+            pidSpeedParameters(ser, GET);
+            speedPID.SetTunings(dataIn.ps, dataIn.is, dataIn.ds, DIRECT);
+            break;
+        case STORE_DECLINATION:
+            printf("Declinaton set to: %f\r\n", dataIn.declination);
+            Declination(&dataIn.declination, SET);
+            Declination(&ser->declination, GET);
+            break;
+        case SET_DECLINATION:
+            calibrateMagneticNorth();
+            ser->status = IDLE;
+            xQueueSend(serOut, (void *)ser, 10);
+            break;
+        case CALIBRATE_MAGNETIC_COMPASS:
+            calibrateParametersCompas();
+            ser->status = IDLE;
+            xQueueSend(serOut, (void *)ser, 10);
+            break;
+        case MAXMINPWR:
+            if (dataIn.ack == LORAGET)
+            {
+                ser->ack = LORAINF;
+                xQueueSend(serOut, (void *)ser, 10);
+            }
+            break;
+        case MAXMINPWRSET:
+            printf("Max speed %d Min speed %d\r\n", dataIn.maxSpeed, dataIn.minSpeed);
+            speedMaxMin(&dataIn, SET);
+            speedMaxMin(ser, GET);
+            initRudPid(ser);
+            initSpeedPid(ser);
+            printf("Max speed %d Min speed %d\r\n", ser->maxSpeed, ser->minSpeed);
+            break;
+        case PING:
+            ser->cmd = DIRSPEED;
+            xQueueSend(serOut, (void *)ser, 10);
+            break;
+        }
+        ser->lastSerIn = millis();
+        PwrOff = millis();
     }
 }
 
+//***************************************************************************************************
+//  Serial
+//***************************************************************************************************
+void handelSerialTimeOut(RoboStruct *ser)
+{
+    // if (mainData.lastSerIn + 1000 * 5 < millis())
+    if (ser->lastSerIn + 1000 * 5 < millis())
+    {
+        if (mainLedStatus.color != CRGB::Red)
+        {
+            Serial.println("Set light to Red");
+            ser->lastSerIn = millis();
+            mainLedStatus.color = CRGB::Red;
+            mainLedStatus.blink = BLINK_SLOW;
+            xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
+            digitalWrite(ESC_SB_PWR_PIN, LOW);
+            digitalWrite(ESC_BB_PWR_PIN, LOW);
+            ser->status = IDELING;
+        }
+    }
+    //***************************************************************************************************
+    //      Shutdown the system
+    //***************************************************************************************************
+    if (PwrOff + 1000 * 60 * 5 < millis())
+    {
+        PwrOff = millis();
+        triggerESC();
+        beep(-1, buzzer);
+        printf("Power off now!\r\n");
+        digitalWrite(ESC_SB_PWR_PIN, LOW);
+        digitalWrite(ESC_BB_PWR_PIN, LOW);
+        delay(1000);
+        digitalWrite(PWRENABLE, 0); // disable powersupply
+        delay(1000);
+        PwrOff = millis();
+    }
+}
 //***************************************************************************************************
 //  Main loop
 //***************************************************************************************************
@@ -308,207 +513,13 @@ void loop(void)
         //***************************************************************************************************
         xQueueReceive(compass, (void *)&mainData.dirMag, 0);
         //***************************************************************************************************
-        //      new serial message
+        //      new serial message and udp
         //***************************************************************************************************
-        dataIn.IDr = -1;
-        if (xQueueReceive(serIn, (void *)&dataIn, 0) == pdTRUE) // New serial data
-        {
-            mainData.lastSerIn = millis();
-            PwrOff = millis();
-            if (mainLedStatus.color != CRGB::DarkBlue)
-            {
-                mainLedStatus.color = CRGB::DarkBlue;
-                mainLedStatus.blink = BLINK_SLOW;
-                xQueueSend(ledStatus, (void *)&mainLedStatus, 0); // update util led
-            }
-        }
-        //***************************************************************************************************
-        //      new udp message (handle only if no new serial data)
-        //***************************************************************************************************
-        // else if (xQueueReceive(udpIn, (void *)&dataIn, 0)) // New UDP data
-        // {
-        // }
-        if (dataIn.IDr != -1)
-        {
-            switch (dataIn.cmd)
-            {
-            case IDLE:
-            case IDELING:
-                if (mainData.status != IDELING)
-                {
-                    escOut.speedbb = 0;
-                    escOut.speedsb = 0;
-                    xQueueSend(escspeed, (void *)&escOut, 10);
-                    mainData.status = IDELING;
-                    printf("\"IDLE\" command recieved!\r\n");
-                }
-                break;
-            case DIRDIST:
-                if (mainData.status != LOCKED)
-                {
-                    computeParameters(&mainData, GET);
-                    printf("DIRDIST\r\n");
-                    startESC();
-                    mainData.tgDist = 0;
-                    speedMaxMin(&dataIn, SET);
-                    speedMaxMin(&mainData, GET);
-                    initRudPid(&mainData);
-                    initSpeedPid(&mainData);
-                    mainData.status = LOCKED;
-                }
-                mainData.tgDir = dataIn.tgDir;
-                mainData.tgDist = dataIn.tgDist;
-                break;
-            case DIRSPEED:
-                if (mainData.status != DIRSPEED)
-                {
-                    computeParameters(&mainData, GET);
-                    printf("DIRSPEED\r\n");
-                    mainData.tgDist = 0;
-                    speedMaxMin(&dataIn, SET);
-                    speedMaxMin(&mainData, GET);
-                    initRudPid(&mainData);
-                    initSpeedPid(&mainData);
-                    mainData.status = DIRSPEED;
-                }
-                mainData.tgDir = dataIn.tgDir;
-                mainData.speedSet = dataIn.speedSet;
-                break;
-            case REMOTE:
-                if (mainData.status != REMOTE)
-                {
-                    computeParameters(&mainData, GET);
-                    mainData.status = REMOTE;
-                }
-                mainData.tgDir = dataIn.tgDir;
-                mainData.tgSpeed = dataIn.tgSpeed;
-                break;
-            case LOCKED:
-                if (mainData.status != LOCKED)
-                {
-                    printf("Locked\r\n");
-                    mainData.tgDist = 0;
-                    speedMaxMin(&dataIn, SET);
-                    speedMaxMin(&mainData, GET);
-                    initRudPid(&mainData);
-                    initSpeedPid(&mainData);
-                    mainData.tgLat = dataIn.tgLat;
-                    mainData.tgLng = dataIn.tgLng;
-                    mainData.status = LOCKED;
-                }
-                break;
-            case DOCKED:
-                if (mainData.status != DOCKED)
-                {
-                    printf("Docked\r\n");
-                    startESC();
-                    mainData.tgDist = 0;
-                    speedMaxMin(&dataIn, SET);
-                    speedMaxMin(&mainData, GET);
-                    initRudPid(&mainData);
-                    initSpeedPid(&mainData);
-
-                    memDockPos(&dataIn, GET);
-                    mainData.status = DOCKED;
-                }
-                break;
-            case PIDRUDDER:
-                if (dataIn.ack == LORAGET)
-                {
-                    mainData.ack = LORAINF;
-                    xQueueSend(serOut, (void *)&mainData, 10);
-                }
-                break;
-            case PIDRUDDERSET:
-                printf("Rudder PID pr:%0.2f ir:%0.2f dr:%0.2f\r\n", dataIn.pr, dataIn.ir, dataIn.dr);
-                pidRudderParameters(&dataIn, SET);
-                pidRudderParameters(&mainData, GET);
-                rudderPID.SetTunings(dataIn.pr, dataIn.ir, dataIn.dr, DIRECT);
-                break;
-            case PIDSPEED:
-                if (dataIn.ack == LORAGET)
-                {
-                    mainData.ack = LORAINF;
-                    xQueueSend(serOut, (void *)&mainData, 10);
-                }
-                break;
-            case PIDSPEEDSET:
-                printf("Rudder PID ps:%0.2f is:%0.2f ds:%0.2f\r\n", dataIn.ps, dataIn.is, dataIn.ds);
-                pidSpeedParameters(&dataIn, SET);
-                pidSpeedParameters(&mainData, GET);
-                speedPID.SetTunings(dataIn.ps, dataIn.is, dataIn.ds, DIRECT);
-                break;
-            case STORE_DECLINATION:
-                Declination(&dataIn.declination, SET);
-                Declination(&mainData.declination, GET);
-                break;
-            case SET_DECLINATION:
-                calibrateMagneticNorth();
-                break;
-            case CALIBRATE_MAGNETIC_COMPASS:
-                xQueueSend(compassIn, (void *)&dataIn.cmd, 10); // Keep the watchdog in sub happy
-                delay(1000);
-                break;
-                printf("Declination: %0.2f\r\n", dataIn.declination);
-                break;
-            case MAXMINPWR:
-                if (dataIn.ack == LORAGET)
-                {
-                    mainData.ack = LORAINF;
-                    xQueueSend(serOut, (void *)&mainData, 10);
-                }
-                break;
-            case MAXMINPWRSET:
-                printf("Max speed %d Min speed %d\r\n", dataIn.maxSpeed, dataIn.minSpeed);
-                speedMaxMin(&dataIn, SET);
-                speedMaxMin(&mainData, GET);
-                initRudPid(&mainData);
-                initSpeedPid(&mainData);
-                printf("Max speed %d Min speed %d\r\n", mainData.maxSpeed, mainData.minSpeed);
-                break;
-            case PING:
-                mainData.cmd = DIRSPEED;
-                xQueueSend(serOut, (void *)&mainData, 10);
-                break;
-            }
-            mainData.lastSerIn = millis();
-            PwrOff = millis();
-        }
+        handelSerandRfdata(&mainData);
         //***************************************************************************************************
         //      Serial watchdog
         //***************************************************************************************************
-        // if (mainData.lastSerIn + 1000 * 5 < millis())
-        if (mainData.lastSerIn + 1000 * 10 < millis())
-        {
-            if (mainLedStatus.color != CRGB::Red)
-            {
-                // Serial.println("Set light to Red");
-                // mainData.lastSerIn = millis();
-                // mainLedStatus.color = CRGB::Red;
-                // mainLedStatus.blink = BLINK_SLOW;
-                // xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
-                // digitalWrite(ESC_SB_PWR_PIN, LOW);
-                // digitalWrite(ESC_BB_PWR_PIN, LOW);
-                // mainData.status = IDELING;
-            }
-        }
-        //***************************************************************************************************
-        //      Shutdown the system
-        //***************************************************************************************************
-        // if (PwrOff + 1000 * 60 * 3 < millis())
-        if (PwrOff + 1000 * 60 * 5 < millis())
-        {
-            PwrOff = millis();
-            triggerESC();
-            beep(-1, buzzer);
-            printf("Power off now!\r\n");
-            digitalWrite(ESC_SB_PWR_PIN, LOW);
-            digitalWrite(ESC_BB_PWR_PIN, LOW);
-            delay(1000);
-            digitalWrite(PWRENABLE, 0); // disable powersupply
-            delay(1000);
-            PwrOff = millis();
-        }
+        handelSerialTimeOut(&mainData);
         vTaskDelay(1);
     }
 }

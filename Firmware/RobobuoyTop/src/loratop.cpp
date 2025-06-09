@@ -163,7 +163,7 @@ void onReceive(int packetSize)
         Serial.println("#error: message length does not match length");
         return; // skip rest of function
     }
-    Serial.println("#Lora_i <" + incoming + ">");
+    //Serial.println("#Lora_i <" + incoming + ">");
     RoboStruct in = rfDeCode(incoming);
     if (in.IDr == buoyId && in.ack == LORAACK) // A message form me so check if its a ACK message
     {

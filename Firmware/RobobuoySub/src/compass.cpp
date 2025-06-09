@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <RoboCompute.h>
+#include "compass.h"
 #include "main.h"
 #include <Adafruit_Sensor.h>
 #include <Adafruit_LIS2MDL.h>
@@ -16,7 +17,7 @@
 
 #define NUM_DIRECTIONS 10
 float min_mag[3], max_mag[3];
-
+static Message escOut;
 static LedData compassLedStatus;
 static PwrData compassPwrData;
 static Buzz compassBuzzerData;
@@ -145,7 +146,9 @@ bool InitCompass(void)
     sensors_event_t event;
     mag.getEvent(&event);
     Declination(&declination, GET);
-    MechanicalCorrection(&mechanicCorrection, GET);
+    // MechanicalCorrection(&mechanicCorrection, GET);
+    printf("Declination set to: %3.2f\r\n", declination);
+    mechanicCorrection = 0;
     return 0;
 }
 
@@ -182,48 +185,38 @@ bool CalibrateCompass(void)
     m_min = (vector<float>){min_mag[0], min_mag[1], min_mag[2]};
     m_max = (vector<float>){max_mag[0], max_mag[1], max_mag[2]};
     printf("New calibration factors Compass: XYZ: {%f, %f, %f,%f, %f, %f};\r\n", max_mag[0], min_mag[0], max_mag[1], min_mag[1], max_mag[2], min_mag[2]);
+    printf("Heading %f\r\n", GetHeadingRaw());
+    delay(5000);
     return 0;
 }
 
 //***************************************************************************************************
 //
 //***************************************************************************************************
-double GetHeading(void)
-{
-    double mHeading = (double)heading((vector<int>){1, 0, 0}); // Select oriontation
-    // sensors_event_t event;
-    // mag.getEvent(&event);
-    // double mHeading = (atan2(event.magnetic.x - (max_mag[0] + min_mag[0]) / 2, event.magnetic.y - (max_mag[1] + min_mag[1]) / 2) * 180) / PI;
-    mHeading += declination + 90;
-    if (mHeading < 0)
-    {
-        mHeading = mHeading + 360.0;
-    }
-    else if (mHeading >= 360.0)
-    {
-        mHeading = mHeading - 360.0;
-    }
-    return mHeading;
-}
+// double GetHeading(void)
+// {
+//     double mHeading = (double)heading((vector<int>){1, 0, 0}); // Select oriontation
+//     // sensors_event_t event;
+//     // mag.getEvent(&event);
+//     // double mHeading = (atan2(event.magnetic.x - (max_mag[0] + min_mag[0]) / 2, event.magnetic.y - (max_mag[1] + min_mag[1]) / 2) * 180) / PI;
+//     mHeading += 90;
+//     if (mHeading < 0)
+//     {
+//         mHeading = mHeading + 360.0;
+//     }
+//     else if (mHeading >= 360.0)
+//     {
+//         mHeading = mHeading - 360.0;
+//     }
+//     return mHeading;
+// }
 
 //***************************************************************************************************
 //
 //***************************************************************************************************
 double GetHeadingRaw(void)
 {
-    // double t = heading((vector<int>){0, 1, 0});
-    sensors_event_t event;
-    mag.getEvent(&event);
-    double t = (atan2(event.magnetic.x - (max_mag[0] + min_mag[0]) / 2, event.magnetic.y - (max_mag[1] + min_mag[1]) / 2) * 180) / PI;
-    if (t >= 360.0)
-    {
-        t -= 360;
-    }
-    else if (t < 0)
-    {
-        t += 360;
-    }
-    return (double)t;
+    return  heading((vector<int>){1, 0, 0});
 }
 //***************************************************************************************************
 //
@@ -264,7 +257,7 @@ double CompassAverage(double in)
 //***************************************************************************************************
 double GetHeadingAvg(void)
 {
-    return CompassAverage(GetHeading());
+    return CompassAverage(GetHeadingRaw());
 }
 
 //***************************************************************************************************
@@ -272,7 +265,11 @@ double GetHeadingAvg(void)
 //***************************************************************************************************
 void calibrateMagneticNorth(void)
 {
-    double h = mDir - declination;
+    escOut.speedbb = 0;
+    escOut.speedsb = 0;
+    xQueueSend(escspeed, (void *)&escOut, 10);
+    delay(1000);
+    double h = GetHeadingAvg() + 90;
     if (h < 0)
     {
         h += 360;
@@ -282,8 +279,17 @@ void calibrateMagneticNorth(void)
         h -= 360;
     }
     declination = smallestAngle(h, 0);
+    if (h < 0)
+    {
+        declination += 360;
+    }
+    if (declination > 360)
+    {
+        declination -= 360;
+    }
+
     Declination(&declination, SET);
-    printf("\r\n\r\nNew magnetic declination stored: %.2f\r\n\r\n", declination);
+    printf("\r\n\r\nMeaserd heading: %.2f  New magnetic declination stored: %.2f\r\n\r\n", h, declination);
 }
 
 //***************************************************************************************************
@@ -300,6 +306,9 @@ void initcompassQueue(void)
 //***************************************************************************************************
 void calibrateNorthCompas(void)
 {
+    escOut.speedbb = 0;
+    escOut.speedsb = 0;
+    xQueueSend(escspeed, (void *)&escOut, 10);
     compassBuzzerData.hz = 1000;
     compassBuzzerData.repeat = 5;
     compassBuzzerData.pause = 50;
@@ -368,7 +377,15 @@ void CompassTask(void *arg)
     unsigned long compassSampTime = millis();
     while (1)
     {
-        mHdg = GetHeadingAvg();
+        mHdg = GetHeadingAvg() + declination + 90;
+        if (mHdg < 0)
+        {
+            mHdg = mHdg + 360.0;
+        }
+        else if (mHdg >= 360.0)
+        {
+            mHdg = mHdg - 360.0;
+        }
         xQueueSend(compass, (void *)&mHdg, 0);                   // notify main there is new data
         if (xQueueReceive(compassIn, (void *)&cmd, 0) == pdTRUE) // send data to bottom
         {

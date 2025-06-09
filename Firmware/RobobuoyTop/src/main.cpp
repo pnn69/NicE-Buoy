@@ -276,7 +276,6 @@ void handelStatus(RoboStruct *stat, RoboStruct *buoyPara)
         if (stat->gpsFix == true)
         {
             beep(1, buzzer);
-            PowerOnSub();
             stat->status = LOCKED;
             stat->cmd = LOCKPOS;
             stat->ack = LORASET;
@@ -286,6 +285,10 @@ void handelStatus(RoboStruct *stat, RoboStruct *buoyPara)
             // IDr,IDs,ACK,MSG,LAT,LON
             xQueueSend(udpOut, (void *)stat, 0);   // update WiFi
             xQueueSend(loraOut, (void *)stat, 10); // send out trough Lora
+            RouteToPoint(stat->lat, stat->lng, stat->tgLat, stat->tgLng, &stat->tgDist, &stat->tgDir);
+            stat->cmd = DIRDIST;
+            xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
+            xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
         }
         else
         {
@@ -296,12 +299,15 @@ void handelStatus(RoboStruct *stat, RoboStruct *buoyPara)
 
     case DOCKING:
         beep(1, buzzer);
-        PowerOnSub();
         doc = memDockPos(doc, GET);
         stat->tgLat = doc.tgLat;
         stat->tgLng = doc.tgLng;
         stat->status = DOCKED;
         printf("Retreved data for docking tgLat:%.8f tgLng:%.8f\r\n", stat->tgLat, stat->tgLng);
+        RouteToPoint(stat->lat, stat->lng, stat->tgLat, stat->tgLng, &stat->tgDist, &stat->tgDir);
+        stat->cmd = DIRDIST;
+        xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
+        xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
         break;
 
     case COMPUTESTART:
@@ -368,8 +374,6 @@ void handelStatus(RoboStruct *stat, RoboStruct *buoyPara)
         stat->status = LOCKED;
         break;
     case START_CALIBRATE_MAGNETIC_COMPASS:
-        PowerOnSub();
-        delay(500);
         LoraTx.cmd = CALIBRATE_MAGNETIC_COMPASS;
         LoraTx.ack = LORAGETACK;
         xQueueSend(serOut, (void *)&LoraTx, 10); // send out trough Lora
@@ -414,11 +418,14 @@ void handleTimerRoutines(RoboStruct *timer)
         timer->lastSerOut = millis() + 5000;
         if (timer->status == LOCKED || timer->status == DOCKED)
         {
-            timer->lastSerOut = millis() + 500;
+            timer->lastSerOut = millis() + 1000;
             RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
             timer->cmd = DIRDIST;
-            xQueueSend(serOut, (void *)timer, 0); // send course and distance to sub
+            xQueueSend(serOut, (void *)timer, 0);  // send course and distance to sub
             xQueueSend(loraOut, (void *)timer, 0); // send course and distance to sub
+            timer->cmd = DIRMDIRTGDIRG;
+            xQueueSend(loraOut, (void *)timer, 0); // send course and distance to sub
+            xQueueSend(udpOut, (void *)timer, 0);  // send course and distance to sub
         }
         else if (timer->status == REMOTE) // Remote controlled
         {
@@ -427,7 +434,7 @@ void handleTimerRoutines(RoboStruct *timer)
             xQueueSend(serOut, (void *)timer, 0);
             timer->cmd = DIRSPEED;
             xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
-            xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
+            //xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
         }
         else
         {
@@ -484,9 +491,9 @@ void handleTimerRoutines(RoboStruct *timer)
         timer->wStd = wind.wStd;
         timer->wDir = wind.wDir; // averige wind dir
 
-        RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
-        printf("Status:%d Lat: %.0f Lon:%.0f tgLat: %.0f tgLon:%.0f tgDist:%.2f tgDir:%.0f mDir:%.0f wDir:%.0f wStd:%.2f ", timer->status, timer->lat, timer->lng, timer->tgLat, timer->tgLng, timer->tgDist, timer->tgDir, timer->dirMag, timer->wDir, timer->wStd);
-        printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %d%% BB:%02d SB:%02d\r\n", timer->topAccuV, timer->topAccuP, timer->subAccuV, timer->subAccuP, timer->speedBb, timer->speedSb);
+        // RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
+        // printf("Status:%d Lat: %.0f Lon:%.0f tgLat: %.0f tgLon:%.0f tgDist:%.2f tgDir:%.0f mDir:%.0f wDir:%.0f wStd:%.2f ", timer->status, timer->lat, timer->lng, timer->tgLat, timer->tgLng, timer->tgDist, timer->tgDir, timer->dirMag, timer->wDir, timer->wStd);
+        // printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %d%% BB:%02d SB:%02d\r\n", timer->topAccuV, timer->topAccuP, timer->subAccuV, timer->subAccuP, timer->speedBb, timer->speedSb);
     }
     if (udpTimerOut + 5000 < millis())
     {
@@ -568,10 +575,6 @@ void handelRfData(RoboStruct *RfOut)
             case DIRSPEED:
                 RfOut->tgDir = RfIn.tgDir;
                 RfOut->speedSet = RfIn.speedSet;
-                if (RfOut->status != REMOTE)
-                {
-                    PowerOnSub();
-                }
                 RfOut->status = REMOTE;
                 break;
             case REMOTE:
@@ -579,7 +582,7 @@ void handelRfData(RoboStruct *RfOut)
                 RfOut->tgDir = RfIn.tgDir;
                 RfOut->tgSpeed = RfIn.tgSpeed;
                 xQueueSend(serOut, (void *)&RfIn, 0); // update sub
-                printf("Status = %d", RfIn.cmd);
+                RfOut->status = RfIn.cmd;
                 break;
             case DIRDIST:
                 double lat, lon;
@@ -638,8 +641,10 @@ void handelRfData(RoboStruct *RfOut)
                 RfOut->subAccuV = RfIn.subAccuV; // set sub accu voltage
                 break;
             case STORE_DECLINATION:
+                printf("Declinaton set to: %f\r\n", RfIn.declination);
                 RfOut->declination = RfIn.declination; // set inclination'
-                xQueueSend(serOut, (void *)&RfIn, 0);  // update sub
+                RfIn.ack = LORAGETACK;
+                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 break;
             case MAXMINPWR:
                 if (RfIn.ack == LORAGET)
@@ -712,7 +717,7 @@ void handelSerialData(RoboStruct *ser)
             ser->dirMag = serDataIn.dirMag;
             ser->speedBb = serDataIn.speedBb;
             ser->speedSb = serDataIn.speedSb;
-            // printf("DirMag: %05.2f BB: %d SB: %d\r\n", ser->dirMag, ser->speedBb, ser->speedSb);
+            printf("M:%03.0f T:%03.0f D:%03.1f   BB:%d SB:%d\r\n", ser->dirMag, ser->tgDir, ser->tgDist, ser->speedBb, ser->speedSb);
 
             break;
         case SUBACCU:
@@ -722,6 +727,9 @@ void handelSerialData(RoboStruct *ser)
         case IDELING:
             printf("#Status set to IDELING (by serial input)\r\n");
             ser->status = IDELING;
+            break;
+        case IDLE:
+            ser->status = IDLE;
             break;
         case STOREASDOC:
             if (ser->gpsFix == true)

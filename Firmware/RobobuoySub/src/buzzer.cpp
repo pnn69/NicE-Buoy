@@ -53,7 +53,7 @@ void buzzerTask(void *arg)
             timeStamp = millis() + buzzerData.duration;
             while (buzzerData.repeat--)
             {
-                //setSquareWaveFrequency(buzzerData.hz);
+                setSquareWaveFrequency(buzzerData.hz);
                 timeStamp = millis() + buzzerData.duration;
                 while (timeStamp > millis())
                     ;
@@ -66,4 +66,3 @@ void buzzerTask(void *arg)
     }
     vTaskDelay(1);
 }
-

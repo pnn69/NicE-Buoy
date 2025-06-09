@@ -12,21 +12,13 @@ static RoboStruct serDataIn;
 RoboStruct pendingMsgSer[10] = {};
 static unsigned long lastSerMsg;
 static unsigned long retransmittReady = 0;
+static unsigned long muteTx = 0;
 
 void initserqueue(void)
 {
     serOut = xQueueCreate(10, sizeof(RoboStruct));
     serIn = xQueueCreate(10, sizeof(RoboStruct));
     mac = espMac();
-}
-
-void PowerOnSub(void)
-{
-    pinMode(COM_PIN_TX, OUTPUT);
-    digitalWrite(COM_PIN_TX, 1);
-    delay(500);
-    Serial1.begin(460800, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, true); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
-    delay(1500);
 }
 
 //***************************************************************************************************
@@ -100,15 +92,13 @@ RoboStruct chkAckMsgSer(void)
     }
     return in;
 }
-
+#define LEVEL false
 void SercomTask(void *arg)
 {
-    char buff[50];
-    pinMode(COM_PIN_TX, OUTPUT);
-    digitalWrite(COM_PIN_TX, 1);
-    delay(2000);
-    Serial1.begin(460800, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, true); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
-    // Serial1.begin(230400, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, true); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
+    Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_TX, COM_PIN_TX, LEVEL); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
+    // Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, false); // Half-duplex on same pin
+    Serial.println("Serial1 initialized on GPIO32");
+
     while (1)
     {
         // //***************************************************************************************************
@@ -133,6 +123,7 @@ void SercomTask(void *arg)
         //***************************************************************************************************
         if (Serial1.available()) // recieve data form top
         {
+            muteTx = millis();
             String serStringIn = "";
             while (Serial1.available())
             {
@@ -164,12 +155,15 @@ void SercomTask(void *arg)
         if (xQueueReceive(serOut, (void *)&serDataOut, 0) == pdTRUE) // send data to bottom
         {
             String out = rfCode(serDataOut);
-            Serial1.println(out);
-            delay(2);
-            while (Serial1.available())
+            while (muteTx + 15 > millis())
             {
-                Serial1.read();
             }
+            Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
+            delay(2);
+            Serial1.println(out);
+            Serial1.flush();
+            Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_TX, COM_PIN_TX, LEVEL); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
+            delay(15);                                                          // Allow TX to complete
             if (serDataOut.ack == LORAGETACK)
             {
                 serDataOut.retry = 5;
@@ -186,18 +180,24 @@ void SercomTask(void *arg)
             serDataOut = chkAckMsgSer();
             if (serDataOut.cmd != 0)
             {
-                String loraString = rfCode(serDataOut);
-                Serial1.println(loraString);
-                Serial.print("Resending: ");
-                Serial.println(loraString);
-                delay(2);
-                while (Serial1.available())
+                while (muteTx + 15 > millis())
                 {
-                    Serial1.read();
                 }
+                String loraString = rfCode(serDataOut);
+                Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
+                delay(2);
+                Serial1.println(loraString);
+                Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_TX, COM_PIN_TX, LEVEL); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
+                Serial1.flush();
+                delay(15);
                 retransmittReady = millis() + random(300, 750);
             }
         }
+        // if (muteTx + 1000 * 60 * 1 < millis())
+        // {
+        //     Serial.println("Put Serial COM1 TX pin low so sub can sleep");
+        //     pinMode(COM_PIN_TX, INPUT_PULLDOWN);
+        // }
         delay(1);
     }
 }

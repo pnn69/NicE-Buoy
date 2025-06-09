@@ -286,7 +286,6 @@ bool handelRfData(void)
         {
         case DIRDIST:
             IDs[pos].tgDir = RfIn.tgDir;   // set target direction
-            IDs[pos].tgDir = RfIn.tgDir;   // set target direction
             IDs[pos].tgDist = RfIn.tgDist; // set target distance
             updd = true;                   // data is updated
             break;
@@ -303,11 +302,12 @@ bool handelRfData(void)
             IDs[pos].speed = RfIn.speed;     // set sub accu voltage
             updd = true;                     // data is updated
             break;
-        case DIRMDIRTGDIRG:
-            IDs[pos].tgDir = RfIn.dirMag;  // set target direction
-            IDs[pos].gpsDir = RfIn.gpsDir; // set target distance
-            updd = true;                   // data is updated
-            break;
+            // case DIRMDIRTGDIRG:
+            //     IDs[pos].dirMag = RfIn.dirMag;  // set target direction
+            //     IDs[pos].tgDir = RfIn.tgDir;  // set target direction
+            //     IDs[pos].gpsDir = RfIn.gpsDir; // set target distance
+            //     updd = true;                   // data is updated
+            //     break;
         }
     }
     return updd; // return true if data is updated
@@ -320,11 +320,11 @@ unsigned long remoteTimer = millis();
 void loop()
 {
 
-    readAdc(&adcmain); // get adc data
     if (mainData.IDs == -1 || mainData.IDs == 0 || mainData.IDs == 1)
     {
         getNextValidID(&mainData);
     }
+    readAdc(&adcmain); // get adc data
     switch (adcmain.swPos)
     {
     case SW_LEFT:
@@ -332,7 +332,7 @@ void loop()
         {
             if (remoteTimer < millis())
             {
-                remoteTimer = 1000 + millis();
+                remoteTimer = 500 + millis();
                 mainData.tgDir = adcmain.heading;
                 mainData.tgSpeed = adcmain.speed;
                 mainData.cmd = REMOTE;

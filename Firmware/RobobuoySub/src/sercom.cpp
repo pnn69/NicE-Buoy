@@ -13,6 +13,7 @@ static RoboStruct serDataIn;
 RoboStruct pendingMsg[10] = {};
 static unsigned long lastSerMsg;
 static unsigned long retransmittReady = 0;
+static unsigned long muteTx = 0;
 
 void initserqueue(void)
 {
@@ -92,12 +93,16 @@ RoboStruct chkAckMsg(void)
     }
     return in;
 }
-
+#define LEVEL false
 void SercomTask(void *arg)
 {
-    char buff[50];
-    Serial1.begin(460800, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, true); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
-    // Serial1.begin(230400, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, true); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
+    // char buff[50];
+    delay(2000);
+    Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // Half-duplex on same pin
+    Serial.println("Serial1 initialized on GPIO" + COM_PIN_TX);
+
+    // Serial1.begin(460800, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, true); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
+    //  Serial1.begin(230400, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, true); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
     while (1)
     {
         //***************************************************************************************************
@@ -122,6 +127,7 @@ void SercomTask(void *arg)
         //***************************************************************************************************
         if (Serial1.available()) // recieve data form top
         {
+            muteTx = millis();
             String serStringIn = "";
             while (Serial1.available())
             {
@@ -153,8 +159,16 @@ void SercomTask(void *arg)
         //***************************************************************************************************
         if (xQueueReceive(serOut, (void *)&serDataOut, 0) == pdTRUE) // send data to bottom
         {
+            while (muteTx + 15 > millis())
+            {
+            }
             String out = rfCode(serDataOut);
+            Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
+            delay(2);
             Serial1.println(out);
+            Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_TX, COM_PIN_TX, LEVEL); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
+            Serial1.flush();
+            delay(15); // Allow TX to complete
             if (serDataOut.ack == LORAGETACK)
             {
                 serDataOut.retry = 5;
@@ -176,13 +190,16 @@ void SercomTask(void *arg)
             serDataOut = chkAckMsg();
             if (serDataOut.cmd != 0)
             {
-                String loraString = rfCode(serDataOut);
-                Serial1.println(loraString);
-                delay(2);
-                while (Serial1.available())
+                while (muteTx + 15 > millis())
                 {
-                    Serial1.read();
                 }
+                String out = rfCode(serDataOut);
+                Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
+                delay(2);
+                Serial1.println(out);
+                Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_TX, COM_PIN_TX, LEVEL); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
+                Serial1.flush();
+                delay(15);
                 retransmittReady = millis() + random(300, 750);
             }
         }

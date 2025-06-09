@@ -140,14 +140,14 @@ void updateOled(RoboStruct *data)
     display.clearDisplay();
     display.setTextSize(2);
     display.setCursor(0, 0);
-    display.printf("BB%2d%%\n\r", data->speedBb);
+    display.printf("BB%2d%\n\r", data->speedBb);
     display.setCursor(0, 15);
-    display.printf("SB%2d%%\n\r", data->speedSb);
+    display.printf("SB%2d%\n\r", data->speedSb);
     display.setCursor(70, 0);
 
     int t = posID(data) + 1;
-    display.printf("B %d", t);
-    display.setCursor(90, 15);
+    display.printf("%d ", t);
+    display.setCursor(90, 0);
     if (data->status == IDLE)
     {
         display.printf("I");
@@ -164,6 +164,9 @@ void updateOled(RoboStruct *data)
     {
         display.printf("R");
     }
+    display.setCursor(70, 15);
+    display.printf("%3.0f", data->dirMag);
+
     int fill = 0;
     int tmp = (int)map(data->subAccuV, 19, 25.2, 0, 100); // 4095;
     tmp = constrain(tmp, 0, 100);
@@ -199,21 +202,21 @@ void updateOled(RoboStruct *data)
         display.setCursor(0, 30);
         if (data->tgDist < 100)
         {
-            display.printf("%3.1f%M %03d", data->tgDist, (int)data->dirMag);
+            display.printf("%3.1f%M %3.0f", data->tgDist, data->tgDir);
         }
         else if (data->tgDist < 1000)
         {
-            display.printf("%3.0f%M %03d", data->tgDist, (int)data->dirMag);
+            display.printf("%3.0f%M %3.0f", data->tgDist, data->tgDir);
         }
         else
         {
-            display.printf("%3.1f%KM %03d", data->tgDist / 1000, (int)data->dirMag);
+            display.printf("%3.1f%KM %3.0f", data->tgDist / 1000, data->tgDir);
         }
     }
-    if (data->status == REMOTE)
+    else if (data->status == REMOTE)
     {
-        display.setCursor(0, 30);
-        display.printf("H%03d m%03d", (int)data->tgDir, (int)data->dirMag);
+        display.setCursor(70, 30);
+        display.printf("%3.0f", data->tgDir);
     }
 
     display.display();

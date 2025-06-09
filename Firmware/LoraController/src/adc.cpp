@@ -32,6 +32,9 @@ uint32_t readADC_Cal(int ADC_Raw)
 */
 void readAdc(adcDataType *adc)
 {
+    //*************************************************************************************
+    // Course
+    //************************************************************************************* 
     int tmp, newValue;
     tmp = 0;
     for (int i = 0; i < 10; i++)
@@ -39,39 +42,24 @@ void readAdc(adcDataType *adc)
         tmp += analogRead(POT_RUDDER);
     }
     tmp = tmp / 10; // average over 20 samples
-    tmp = constrain(tmp, 47, 4047);
-    if (tmp < 2000 - MUTE_RUDDER)
-    {
-        newValue = map(tmp, 47, 2000 - MUTE_RUDDER, 40, 0); // 4095;
-    }
-    else if (tmp > 2000 + MUTE)
-    {
-        newValue = map(tmp, 2000 + MUTE_RUDDER, 4047, 0, -40); // 4095;
-    }
-    else
-    {
-        newValue = 0;
-    }
-    adc->rawr = tmp;
-    adc->rudder = newValue;
-    adc->newdata = true;
-    adc->heading = constrain(map(tmp, 47, 4047, 0, 360), 0, 350); // 4095;
-
-    // tmp = analogRead(POT_SPEED);
+    adc->heading = constrain(map(tmp, 0, 4095, 0, 360), 0, 360); // 4095;
+  
+    //*************************************************************************************
+    // Speed  
+    //************************************************************************************* 
     tmp = 0;
     for (int i = 0; i < 20; i++)
     {
         tmp += analogRead(POT_SPEED);
     }
     tmp = tmp / 20; // average over 20 samples
-    tmp = constrain(tmp, 47, 4047);
-    if (tmp < 2000 - MUTE)
+    if (tmp < 4095/2 -700)
     {
-        newValue = map(tmp, 47, 2000 - MUTE, -100, 0); // 4095;
+        newValue = map(tmp, 0,  4095/2 -700, -100, 0); // 4095;
     }
-    else if (tmp > 2000 + MUTE)
+    else if (tmp >  4095/2 -200 + 700)
     {
-        newValue = map(tmp, 2000 + MUTE, 4047, 0, 100); // 4095;
+        newValue = map(tmp, 4095/2 +700,  4094, 0, 100); // 4095;
     }
     else
     {

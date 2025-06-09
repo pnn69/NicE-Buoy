@@ -6,7 +6,6 @@ extern QueueHandle_t serOut;
 extern QueueHandle_t serIn;
 
 void initserqueue(void);
-void PowerOnSub(void);
 void SercomTask(void *arg);
 
 #endif /* SERCOM_H_ */
