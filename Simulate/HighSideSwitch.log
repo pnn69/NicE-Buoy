@@ -1,6 +1,6 @@
 LTspice 24.0.12 for Windows
 Circuit: * C:\tmp\NicE-Buoy\Simulate\HighSideSwitch.asc
-Start Time: Wed Nov 20 11:49:37 2024
+Start Time: Thu Jun 12 19:17:29 2025
 solver = Normal
 Maximum thread count: 20
 tnom = 27
@@ -15,5 +15,5 @@ WARNING: Node NC_04 is floating.
 WARNING: Less than two connections to node nc_01.  This node is used by m3.
 WARNING: Less than two connections to node nc_03.  This node is used by m3.
 Direct Newton iteration for .op point succeeded.
-Total elapsed time: 0.117 seconds.
+Total elapsed time: 0.298 seconds.
 

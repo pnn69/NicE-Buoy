@@ -138,16 +138,6 @@
 		)
 		(uuid "40f8ba70-2cd0-4981-9ecf-2140c31483da")
 	)
-	(wire
-		(pts
-			(xy 114.3 120.65) (xy 114.3 161.29)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "4ef85e60-68dd-4f1b-8328-814d5b83b260")
-	)
 	(bus
 		(pts
 			(xy 116.84 41.91) (xy 116.84 50.8)
@@ -177,6 +167,16 @@
 			(type default)
 		)
 		(uuid "f4c74055-2140-4485-991f-13a42d61da4c")
+	)
+	(wire
+		(pts
+			(xy 121.92 120.65) (xy 121.92 161.29)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fb13e1f5-37cd-4c49-8f5d-4e8e1cc129a2")
 	)
 	(symbol
 		(lib_id "Mechanical:MountingHole")
@@ -511,7 +511,7 @@
 			)
 		)
 		(instances
-			(project "Robobuoy-Top-Round-v2_0"
+			(project "Robobuoy-Top-Round-v2_1"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(page "6")
 				)
@@ -563,36 +563,6 @@
 				(justify right)
 			)
 		)
-		(pin "VbatEn" input
-			(at 114.3 120.65 270)
-			(uuid "4cc9edef-4cf0-4988-a576-41346bb1f81e")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(pin "Vsamp" output
-			(at 116.84 120.65 270)
-			(uuid "f537cc89-fc95-4fdb-81e8-d0ba6381b4dc")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(pin "COM" bidirectional
-			(at 119.38 120.65 270)
-			(uuid "0e92ab1c-6f1b-4cd5-8ab6-304cb2aecd1b")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
 		(pin "ON" input
 			(at 111.76 120.65 270)
 			(uuid "b6c88326-1f30-41dd-94c6-322e3f61c7dd")
@@ -603,8 +573,38 @@
 				(justify left)
 			)
 		)
+		(pin "TX_SUB" output
+			(at 121.92 120.65 270)
+			(uuid "f1cd6914-b146-43eb-8fb9-1c783c23c304")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "VSAMP" input
+			(at 116.84 120.65 270)
+			(uuid "360d2899-4232-4301-95ef-486da0c280b9")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "RX_SUB" input
+			(at 119.38 120.65 270)
+			(uuid "548963b1-8e9e-4187-8b47-d5ef53c8a295")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
 		(instances
-			(project "Robobuoy-Top-Round-v2_0"
+			(project "Robobuoy-Top-Round-v2_1"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(page "1")
 				)
@@ -646,36 +646,6 @@
 				(hide yes)
 			)
 		)
-		(pin "VbatEn" output
-			(at 114.3 161.29 90)
-			(uuid "f77b836e-2a3e-4de6-afca-cbddb1e1f12b")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "Vsamp" input
-			(at 116.84 161.29 90)
-			(uuid "e0fa9656-d888-47b7-96c7-87a22f9bf060")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(pin "COM" bidirectional
-			(at 119.38 161.29 90)
-			(uuid "ea99826e-a66a-4f86-a778-56e4eb580690")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
 		(pin "ON" output
 			(at 111.76 161.29 90)
 			(uuid "6cc70462-6e19-4aed-80c4-4dfb2cd687a2")
@@ -686,8 +656,38 @@
 				(justify right)
 			)
 		)
+		(pin "VSAMP" input
+			(at 116.84 161.29 90)
+			(uuid "749af702-d662-4556-a340-7722c2aed0b6")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "RX_SUB" input
+			(at 119.38 161.29 90)
+			(uuid "fd269f44-eb42-404e-8a93-14dfdc8379c1")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "TX_SUB" output
+			(at 121.92 161.29 90)
+			(uuid "54b34aea-0cf7-47e0-acaf-1afe89d4e3cb")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
 		(instances
-			(project "Robobuoy-Top-Round-v2_0"
+			(project "Robobuoy-Top-Round-v2_1"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(page "2")
 				)

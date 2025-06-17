@@ -3265,322 +3265,6 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "Simulation_SPICE:PMOS"
-			(pin_numbers
-				(hide yes)
-			)
-			(pin_names
-				(offset 0)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "Q"
-				(at 5.08 1.27 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Value" "PMOS"
-				(at 5.08 -1.27 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Footprint" ""
-				(at 5.08 2.54 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" "https://ngspice.sourceforge.io/docs/ngspice-html-manual/manual.xhtml#cha_MOSFETs"
-				(at 0 -12.7 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "P-MOSFET transistor, drain/source/gate"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Sim.Device" "PMOS"
-				(at 0 -17.145 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Sim.Type" "VDMOS"
-				(at 0 -19.05 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Sim.Pins" "1=D 2=G 3=S"
-				(at 0 -15.24 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "transistor PMOS P-MOS P-MOSFET simulation"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "PMOS_0_1"
-				(polyline
-					(pts
-						(xy 0.254 1.905) (xy 0.254 -1.905)
-					)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0.254 0) (xy -2.54 0)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0.762 2.286) (xy 0.762 1.27)
-					)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0.762 1.778) (xy 3.302 1.778) (xy 3.302 -1.778) (xy 0.762 -1.778)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0.762 0.508) (xy 0.762 -0.508)
-					)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0.762 -1.27) (xy 0.762 -2.286)
-					)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(circle
-					(center 1.651 0)
-					(radius 2.794)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 2.286 0) (xy 1.27 0.381) (xy 1.27 -0.381) (xy 2.286 0)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type outline)
-					)
-				)
-				(polyline
-					(pts
-						(xy 2.54 2.54) (xy 2.54 1.778)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(circle
-					(center 2.54 1.778)
-					(radius 0.254)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type outline)
-					)
-				)
-				(circle
-					(center 2.54 -1.778)
-					(radius 0.254)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type outline)
-					)
-				)
-				(polyline
-					(pts
-						(xy 2.54 -2.54) (xy 2.54 0) (xy 0.762 0)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 2.794 -0.508) (xy 2.921 -0.381) (xy 3.683 -0.381) (xy 3.81 -0.254)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 3.302 -0.381) (xy 2.921 0.254) (xy 3.683 0.254) (xy 3.302 -0.381)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "PMOS_1_1"
-				(pin input line
-					(at -5.08 0 0)
-					(length 2.54)
-					(name "G"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 2.54 5.08 270)
-					(length 2.54)
-					(name "D"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 2.54 -5.08 90)
-					(length 2.54)
-					(name "S"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
 		(symbol "Switch:SW_Push"
 			(pin_numbers
 				(hide yes)
@@ -4417,12 +4101,6 @@
 		(uuid "13453016-cdd7-4047-80ab-5b1876d9c675")
 	)
 	(junction
-		(at 138.43 257.81)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "1659644c-b7b0-44ab-9316-b9f0346b4dbc")
-	)
-	(junction
 		(at 128.27 257.81)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -4513,6 +4191,12 @@
 		(uuid "5ea90139-d6c7-4701-ae0e-b59bf1ba6868")
 	)
 	(junction
+		(at 162.56 257.81)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "6ac28b00-e539-40de-846b-7a32106a6a85")
+	)
+	(junction
 		(at 62.23 259.08)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -4549,20 +4233,10 @@
 		(uuid "c33de58a-3673-4971-a50d-018600324d4c")
 	)
 	(junction
-		(at 147.32 257.81)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "c700e53e-f54d-4853-9f6e-79f98fa64bf5")
-	)
-	(junction
 		(at 168.91 152.4)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "d0253d30-2c47-4e0d-af91-7d969c5ca9a5")
-	)
-	(no_connect
-		(at 198.12 91.44)
-		(uuid "bc1674b5-ddad-418a-b3c2-f3aadb83ad03")
 	)
 	(bus_entry
 		(at 346.71 46.99)
@@ -4630,7 +4304,7 @@
 	)
 	(wire
 		(pts
-			(xy 198.12 129.54) (xy 217.17 129.54)
+			(xy 198.12 91.44) (xy 217.17 91.44)
 		)
 		(stroke
 			(width 0)
@@ -4710,6 +4384,16 @@
 	)
 	(wire
 		(pts
+			(xy 313.69 212.09) (xy 322.58 212.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "131e3274-c5e3-4a06-a439-b76500178a5f")
+	)
+	(wire
+		(pts
 			(xy 335.28 49.53) (xy 344.17 49.53)
 		)
 		(stroke
@@ -4757,16 +4441,6 @@
 			(type default)
 		)
 		(uuid "23b6460e-d3af-4585-b6d9-a50d95b817dc")
-	)
-	(wire
-		(pts
-			(xy 138.43 257.81) (xy 147.32 257.81)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "23e35383-eecc-4eb2-871d-c087220f649b")
 	)
 	(wire
 		(pts
@@ -5340,6 +5014,16 @@
 	)
 	(wire
 		(pts
+			(xy 327.66 212.09) (xy 336.55 212.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b2e100d7-c94d-4870-892e-9332c01d4785")
+	)
+	(wire
+		(pts
 			(xy 213.36 262.89) (xy 218.44 262.89)
 		)
 		(stroke
@@ -5367,16 +5051,6 @@
 			(type default)
 		)
 		(uuid "b78dc3a8-74ba-413a-b0cb-816cc5d055ba")
-	)
-	(wire
-		(pts
-			(xy 198.12 134.62) (xy 217.17 134.62)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "bb18bcbe-b09c-4f82-a6d6-957a50a61783")
 	)
 	(wire
 		(pts
@@ -5508,6 +5182,16 @@
 		)
 		(uuid "d18905cd-a542-4a13-9c1c-a1ab2260d633")
 	)
+	(wire
+		(pts
+			(xy 198.12 121.92) (xy 217.17 121.92)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d252b3fe-984d-4a2f-a002-755a03807184")
+	)
 	(bus
 		(pts
 			(xy 346.71 41.91) (xy 346.71 44.45)
@@ -5627,6 +5311,16 @@
 			(type default)
 		)
 		(uuid "e2b975c3-c804-4379-8de0-f59603a1d74b")
+	)
+	(wire
+		(pts
+			(xy 198.12 119.38) (xy 217.17 119.38)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e2fecb31-8463-45fa-b07d-068da2380f2d")
 	)
 	(wire
 		(pts
@@ -6068,7 +5762,7 @@
 	)
 	(global_label "BUZZER"
 		(shape input)
-		(at 217.17 129.54 0)
+		(at 217.17 91.44 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -6078,7 +5772,7 @@
 		)
 		(uuid "9358bb8a-7017-4645-9c3e-d9c1e2fd2887")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 227.5937 129.54 0)
+			(at 227.5937 91.44 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6178,7 +5872,7 @@
 	)
 	(global_label "LEDS"
 		(shape output)
-		(at 336.55 212.09 180)
+		(at 313.69 212.09 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -6188,7 +5882,7 @@
 		)
 		(uuid "d839fb0f-86be-4a09-bf20-2a2daa908e34")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 328.9082 212.09 0)
+			(at 306.0482 212.09 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6264,27 +5958,27 @@
 			)
 		)
 	)
-	(hierarchical_label "VbatEn"
+	(hierarchical_label "RX_SUB"
 		(shape input)
-		(at 217.17 134.62 0)
+		(at 217.17 119.38 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify left)
 		)
-		(uuid "111567dc-cc42-4016-8497-21750f4d3413")
+		(uuid "37cdc0b1-7bf7-43f2-9bb9-2b084d31a2d0")
 	)
-	(hierarchical_label "COM"
-		(shape bidirectional)
-		(at 217.17 132.08 0)
+	(hierarchical_label "VSAMP"
+		(shape input)
+		(at 217.17 139.7 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify left)
 		)
-		(uuid "2aafcd00-3b8f-4ae6-9cbb-a39375b803b1")
+		(uuid "484d93f8-81b4-4c5b-ac23-33d0ac8565ff")
 	)
 	(hierarchical_label "ON"
 		(shape input)
@@ -6297,16 +5991,16 @@
 		)
 		(uuid "719f918e-0ed0-4ffb-98fc-a72af4b437dc")
 	)
-	(hierarchical_label "Vsamp"
-		(shape output)
-		(at 217.17 139.7 0)
+	(hierarchical_label "ON"
+		(shape input)
+		(at 217.17 132.08 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify left)
 		)
-		(uuid "c9398a57-f161-417c-a5b0-39d455594731")
+		(uuid "918daaab-766b-424e-a9f5-9e9d8aff70e2")
 	)
 	(hierarchical_label "RADIO_[1..6]"
 		(shape bidirectional)
@@ -6319,6 +6013,17 @@
 		)
 		(uuid "d27eafc8-ec11-40cd-869f-d4c81eaec915")
 	)
+	(hierarchical_label "TX_SUB"
+		(shape output)
+		(at 217.17 121.92 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "ffe08e49-9fda-48af-a72a-53ce8d4867f1")
+	)
 	(symbol
 		(lib_id "power:GND")
 		(at 369.57 90.17 270)
@@ -6329,7 +6034,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "003b155c-90dd-4c50-94d2-5c10608927f7")
-		(property "Reference" "#PWR0132"
+		(property "Reference" "#PWR0123"
 			(at 363.22 90.17 0)
 			(effects
 				(font
@@ -6380,7 +6085,7 @@
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0132")
+					(reference "#PWR0123")
 					(unit 1)
 				)
 			)
@@ -6555,7 +6260,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "10eb5df4-a75f-4617-94c5-1845d448b864")
-		(property "Reference" "R112"
+		(property "Reference" "R105"
 			(at 201.168 203.454 90)
 			(effects
 				(font
@@ -6625,7 +6330,7 @@
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "R112")
+					(reference "R105")
 					(unit 1)
 				)
 			)
@@ -6712,7 +6417,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "15bb3d74-8cc1-47c1-a64b-d137cd83405a")
-		(property "Reference" "#PWR0131"
+		(property "Reference" "#PWR0122"
 			(at 361.95 226.06 0)
 			(effects
 				(font
@@ -6762,7 +6467,7 @@
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0131")
+					(reference "#PWR0122")
 					(unit 1)
 				)
 			)
@@ -6964,7 +6669,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "1d975b59-5fbd-4ade-874f-86a09a739733")
-		(property "Reference" "R119"
+		(property "Reference" "R104"
 			(at 178.054 218.694 90)
 			(effects
 				(font
@@ -7034,7 +6739,7 @@
 		(instances
 			(project "Robobuoy-Top-Round-v2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "R119")
+					(reference "R104")
 					(unit 1)
 				)
 			)
@@ -7545,7 +7250,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "517fe205-4f56-4a76-bfd4-2ac1bbb8a7e1")
-		(property "Reference" "R117"
+		(property "Reference" "R103"
 			(at 163.83 208.28 0)
 			(effects
 				(font
@@ -7652,7 +7357,7 @@
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "R117")
+					(reference "R103")
 					(unit 1)
 				)
 			)
@@ -7669,7 +7374,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "55107d26-dc98-4289-9c33-4347de5b49fd")
-		(property "Reference" "#PWR0139"
+		(property "Reference" "#PWR0109"
 			(at 162.56 218.44 0)
 			(effects
 				(font
@@ -7720,7 +7425,7 @@
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0139")
+					(reference "#PWR0109")
 					(unit 1)
 				)
 			)
@@ -7736,7 +7441,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "5fcaee31-d38b-43a7-962c-1ef4e67ec284")
-		(property "Reference" "J103"
+		(property "Reference" "J102"
 			(at 219.71 201.9301 0)
 			(effects
 				(font
@@ -7811,7 +7516,7 @@
 		(instances
 			(project ""
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "J103")
+					(reference "J102")
 					(unit 1)
 				)
 			)
@@ -7920,7 +7625,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "6ecc0f39-8902-43be-9b84-032b8bea2eab")
-		(property "Reference" "#PWR0136"
+		(property "Reference" "#PWR0126"
 			(at 379.73 226.06 0)
 			(effects
 				(font
@@ -7970,7 +7675,93 @@
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0136")
+					(reference "#PWR0126")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_Small")
+		(at 325.12 212.09 90)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "6f855de5-68e1-47ad-8971-699af2d1bb10")
+		(property "Reference" "R108"
+			(at 329.438 211.074 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "100"
+			(at 325.12 210.312 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 325.12 212.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 325.12 212.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 325.12 212.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C22775"
+			(at 325.12 212.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 325.12 212.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "e5224deb-5fa8-4b15-b0b9-d03cb6ba3c6b")
+		)
+		(pin "2"
+			(uuid "f38f054e-1350-4245-92e5-4b03c2b332f3")
+		)
+		(instances
+			(project "Robobuoy-Top-Round-v2_1"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
+					(reference "R108")
 					(unit 1)
 				)
 			)
@@ -7986,7 +7777,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "7020df90-6d8b-4ad0-a152-ca863c123f7f")
-		(property "Reference" "#PWR0105"
+		(property "Reference" "#PWR0104"
 			(at 57.15 218.44 0)
 			(effects
 				(font
@@ -8037,7 +7828,7 @@
 		(instances
 			(project "Robobuoy-Top-Round-v2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0105")
+					(reference "#PWR0104")
 					(unit 1)
 				)
 			)
@@ -8149,7 +7940,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "73ff61d7-25ad-4aa5-826f-9773773926f6")
-		(property "Reference" "D104"
+		(property "Reference" "D102"
 			(at 347.345 205.74 0)
 			(effects
 				(font
@@ -8227,7 +8018,7 @@
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "D104")
+					(reference "D102")
 					(unit 1)
 				)
 			)
@@ -8244,7 +8035,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "838236ee-0eea-4c81-979a-a92f02acd11b")
-		(property "Reference" "#PWR0116"
+		(property "Reference" "#PWR0113"
 			(at 193.04 231.14 0)
 			(effects
 				(font
@@ -8295,7 +8086,7 @@
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0116")
+					(reference "#PWR0113")
 					(unit 1)
 				)
 			)
@@ -8310,7 +8101,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "852544f2-4682-4510-8961-86296e89df7a")
-		(property "Reference" "#PWR0117"
+		(property "Reference" "#PWR0124"
 			(at 373.38 92.71 0)
 			(effects
 				(font
@@ -8319,7 +8110,7 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "+3.3V"
+		(property "Value" "+5V"
 			(at 362.204 92.456 90)
 			(effects
 				(font
@@ -8360,7 +8151,75 @@
 		(instances
 			(project "Robobuoy-Top-Round-v2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0117")
+					(reference "#PWR0124")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+5V")
+		(at 162.56 257.81 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "8a3c8417-2cc1-4985-9d4e-3c9540919cb6")
+		(property "Reference" "#PWR0127"
+			(at 162.56 261.62 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+5V"
+			(at 165.1 256.5399 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" ""
+			(at 162.56 257.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 162.56 257.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 162.56 257.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "5a7c3961-c075-442c-b6f9-e44a4f4b19d8")
+		)
+		(instances
+			(project "Robobuoy-Top-Round-v2_1"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
+					(reference "#PWR0127")
 					(unit 1)
 				)
 			)
@@ -8576,7 +8435,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "920d6c82-1fbd-434b-a3ae-cea0e5deeca1")
-		(property "Reference" "R104"
+		(property "Reference" "R106"
 			(at 211.582 193.294 90)
 			(effects
 				(font
@@ -8666,7 +8525,7 @@
 		(instances
 			(project "Robobuoy-Top-Round-v2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "R104")
+					(reference "R106")
 					(unit 1)
 				)
 			)
@@ -8739,6 +8598,74 @@
 		)
 	)
 	(symbol
+		(lib_id "power:+5V")
+		(at 361.95 204.47 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "97012135-53ef-40f0-94d7-f9c1063f2d1d")
+		(property "Reference" "#PWR0121"
+			(at 361.95 208.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+5V"
+			(at 364.49 203.1999 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" ""
+			(at 361.95 204.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 361.95 204.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 361.95 204.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "b9d5a2c5-f2bd-4d15-b68e-6b62d509633d")
+		)
+		(instances
+			(project "Robobuoy-Top-Round-v2_1"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
+					(reference "#PWR0121")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 186.69 212.09 0)
 		(mirror y)
@@ -8749,7 +8676,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "9c0ef67b-7953-4dbb-bbb1-2e76d4256f8d")
-		(property "Reference" "#PWR0114"
+		(property "Reference" "#PWR0112"
 			(at 186.69 218.44 0)
 			(effects
 				(font
@@ -8800,123 +8727,7 @@
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0114")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Simulation_SPICE:PMOS")
-		(at 190.5 219.71 0)
-		(mirror x)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "9c82923f-34a0-446c-ae47-d8eff010e1fe")
-		(property "Reference" "Q101"
-			(at 196.85 219.71 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "A03401A"
-			(at 199.39 219.71 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
-			(at 195.58 222.25 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "https://ngspice.sourceforge.io/docs/ngspice-html-manual/manual.xhtml#cha_MOSFETs"
-			(at 190.5 207.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "P-MOSFET transistor, drain/source/gate"
-			(at 190.5 219.71 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Sim.Device" "PMOS"
-			(at 190.5 202.565 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Sim.Type" "VDMOS"
-			(at 190.5 200.66 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Sim.Pins" "1=D 2=G 3=S"
-			(at 190.5 204.47 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "LCSC" "C15127"
-			(at 190.5 219.71 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "JLCS" ""
-			(at 190.5 219.71 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "2"
-			(uuid "4b22e3b2-26cb-400c-ae9b-4be6194db368")
-		)
-		(pin "1"
-			(uuid "defae279-4ad5-454e-994c-191141ad245e")
-		)
-		(pin "3"
-			(uuid "37f7a203-e3e5-4138-8899-ceac9a0f3b74")
-		)
-		(instances
-			(project "Robobuoy-Top-V2_0"
-				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "Q101")
+					(reference "#PWR0112")
 					(unit 1)
 				)
 			)
@@ -9010,6 +8821,142 @@
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
 					(reference "C101")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+5V")
+		(at 344.17 204.47 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "9d6e5f78-7b70-42ed-b8af-3a566bd43c3e")
+		(property "Reference" "#PWR0119"
+			(at 344.17 208.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+5V"
+			(at 346.71 203.1999 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" ""
+			(at 344.17 204.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 344.17 204.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 344.17 204.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "37181a93-5858-4b01-86cf-df5c1e6efe77")
+		)
+		(instances
+			(project "Robobuoy-Top-Round-v2_1"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
+					(reference "#PWR0119")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+5V")
+		(at 379.73 204.47 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "a36accd8-5d28-4b45-b857-ad10574ba0a6")
+		(property "Reference" "#PWR0125"
+			(at 379.73 208.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+5V"
+			(at 382.27 203.1999 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" ""
+			(at 379.73 204.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 379.73 204.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 379.73 204.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "493e96cb-67dc-4f05-b6de-033b934b3c6c")
+		)
+		(instances
+			(project "Robobuoy-Top-Round-v2_1"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
+					(reference "#PWR0125")
 					(unit 1)
 				)
 			)
@@ -9245,7 +9192,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "a5cff9df-ea02-4eae-9f18-b24ef766bfc9")
-		(property "Reference" "D105"
+		(property "Reference" "D103"
 			(at 364.49 205.74 0)
 			(effects
 				(font
@@ -9323,73 +9270,7 @@
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "D105")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3.3V")
-		(at 361.95 204.47 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "a98ad962-036c-4acc-8b5d-1240cf4cff8c")
-		(property "Reference" "#PWR0130"
-			(at 361.95 208.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "+3.3V"
-			(at 361.95 199.39 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 361.95 204.47 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 361.95 204.47 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 361.95 204.47 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "bfe2de46-d971-4bb7-bbc6-854abf68666d")
-		)
-		(instances
-			(project "Robobuoy-Top-V2_0"
-				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0130")
+					(reference "D103")
 					(unit 1)
 				)
 			)
@@ -9498,7 +9379,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "ad44fb7e-f7fb-4fd1-95f2-502553a854d8")
-		(property "Reference" "#PWR0110"
+		(property "Reference" "#PWR0111"
 			(at 168.91 161.29 0)
 			(effects
 				(font
@@ -9548,7 +9429,7 @@
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0110")
+					(reference "#PWR0111")
 					(unit 1)
 				)
 			)
@@ -9658,7 +9539,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "bec04259-adb4-4dfb-b757-5d1453aa2f7b")
-		(property "Reference" "#PWR0112"
+		(property "Reference" "#PWR0118"
 			(at 233.68 279.4 0)
 			(effects
 				(font
@@ -9708,7 +9589,7 @@
 		(instances
 			(project "Robobuoy-Top-Round-v2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0112")
+					(reference "#PWR0118")
 					(unit 1)
 				)
 			)
@@ -9723,7 +9604,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "c45728f2-f253-4600-8904-2567c9a72198")
-		(property "Reference" "#PWR0104"
+		(property "Reference" "#PWR0106"
 			(at 62.23 280.67 0)
 			(effects
 				(font
@@ -9779,7 +9660,7 @@
 			)
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0104")
+					(reference "#PWR0106")
 					(unit 1)
 				)
 			)
@@ -9888,7 +9769,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "c9233947-cdb8-4dcd-816b-1040d4fb0349")
-		(property "Reference" "J104"
+		(property "Reference" "J103"
 			(at 374.015 85.09 0)
 			(effects
 				(font
@@ -9964,7 +9845,7 @@
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "J104")
+					(reference "J103")
 					(unit 1)
 				)
 			)
@@ -9980,7 +9861,7 @@
 		(dnp no)
 		(uuid "cc06a617-b098-48ca-b46d-7109124ed4b3")
 		(property "Reference" "C106"
-			(at 139.065 259.08 0)
+			(at 139.446 258.572 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10064,17 +9945,55 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+3.3V")
-		(at 344.17 204.47 0)
+		(lib_id "Transistor_FET:2N7002")
+		(at 190.5 219.71 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "cd71862e-f319-4aa9-a6ec-a458b5270ee0")
-		(property "Reference" "#PWR0128"
-			(at 344.17 208.28 0)
+		(uuid "cfb5ccea-8e3c-4928-8b84-ddd69e4e52f9")
+		(property "Reference" "Q101"
+			(at 194.31 216.154 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "AO3400A"
+			(at 196.342 228.346 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+			(at 195.58 221.615 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/1811081213_Alpha---Omega-Semicon-AO3400A_C20917.pdf"
+			(at 195.58 223.52 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "5.7A Id, 30V Vds, N-Channel MOSFET, SOT-23"
+			(at 190.5 219.71 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10082,16 +10001,8 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "+3.3V"
-			(at 344.17 199.39 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 344.17 204.47 0)
+		(property "LCSC" "C20917"
+			(at 190.5 219.71 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10099,8 +10010,8 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
-			(at 344.17 204.47 0)
+		(property "JLCS" ""
+			(at 190.5 219.71 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10108,8 +10019,17 @@
 				(hide yes)
 			)
 		)
-		(property "Description" ""
-			(at 344.17 204.47 0)
+		(property "Field5" ""
+			(at 190.5 219.71 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Type" ""
+			(at 190.5 219.71 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10118,12 +10038,18 @@
 			)
 		)
 		(pin "1"
-			(uuid "52c23fdd-143e-4ed4-acd8-0f46b5a859d9")
+			(uuid "1d461aac-f8c9-44f6-b3a0-85fd58ce9d1f")
+		)
+		(pin "3"
+			(uuid "2df6367e-8f3f-48df-b7a2-d8d81eaab37d")
+		)
+		(pin "2"
+			(uuid "d9fdafd8-9d1a-4c4c-b464-5fbcb12fdc77")
 		)
 		(instances
-			(project "Robobuoy-Top-V2_0"
+			(project "Robobuoy-Top-Round-v2_1"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0128")
+					(reference "Q101")
 					(unit 1)
 				)
 			)
@@ -10204,7 +10130,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "dc59482f-6200-4a33-be28-e067bd23a2d5")
-		(property "Reference" "D106"
+		(property "Reference" "D104"
 			(at 382.27 205.74 0)
 			(effects
 				(font
@@ -10282,7 +10208,7 @@
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "D106")
+					(reference "D104")
 					(unit 1)
 				)
 			)
@@ -10299,7 +10225,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "dd2e916c-3085-42a6-9247-bfbf5536860d")
-		(property "Reference" "#PWR0113"
+		(property "Reference" "#PWR0115"
 			(at 207.01 199.39 0)
 			(effects
 				(font
@@ -10350,7 +10276,7 @@
 		(instances
 			(project "Robobuoy-Top-Round-v2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0113")
+					(reference "#PWR0115")
 					(unit 1)
 				)
 			)
@@ -10366,7 +10292,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "e0b901a8-c63c-416e-9658-ee56aa00834f")
-		(property "Reference" "#PWR0129"
+		(property "Reference" "#PWR0120"
 			(at 344.17 226.06 0)
 			(effects
 				(font
@@ -10416,7 +10342,7 @@
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0129")
+					(reference "#PWR0120")
 					(unit 1)
 				)
 			)
@@ -10521,7 +10447,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "e1fff0a6-7538-4310-9f60-868768a7760c")
-		(property "Reference" "#PWR0106"
+		(property "Reference" "#PWR0105"
 			(at 67.31 220.98 0)
 			(effects
 				(font
@@ -10572,7 +10498,7 @@
 		(instances
 			(project "Robobuoy-Top-Round-v2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0106")
+					(reference "#PWR0105")
 					(unit 1)
 				)
 			)
@@ -10711,7 +10637,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "e9fee72b-b045-4582-a17f-aacbbe544808")
-		(property "Reference" "C113"
+		(property "Reference" "C110"
 			(at 187.325 206.375 0)
 			(effects
 				(font
@@ -10783,7 +10709,7 @@
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "C113")
+					(reference "C110")
 					(unit 1)
 				)
 			)
@@ -10800,7 +10726,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "eee1a18e-80ed-46ac-80e2-ece32a8d9d87")
-		(property "Reference" "#PWR0111"
+		(property "Reference" "#PWR0117"
 			(at 233.68 250.19 0)
 			(effects
 				(font
@@ -10809,7 +10735,7 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "+3.3V"
+		(property "Value" "+5V"
 			(at 236.22 245.1099 0)
 			(effects
 				(font
@@ -10851,7 +10777,7 @@
 		(instances
 			(project "Robobuoy-Top-Round-v2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0111")
+					(reference "#PWR0117")
 					(unit 1)
 				)
 			)
@@ -10866,7 +10792,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "f2086a3d-893f-427a-b728-676a9ceff731")
-		(property "Reference" "R103"
+		(property "Reference" "R107"
 			(at 220.98 261.112 90)
 			(effects
 				(font
@@ -10954,73 +10880,7 @@
 		(instances
 			(project "Robobuoy-Top-Round-v2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "R103")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3.3V")
-		(at 379.73 204.47 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "f2d4e9e8-b365-4c6c-adbf-23a583337e40")
-		(property "Reference" "#PWR0135"
-			(at 379.73 208.28 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "+3.3V"
-			(at 379.73 199.39 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 379.73 204.47 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 379.73 204.47 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" ""
-			(at 379.73 204.47 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "71906feb-2f9b-4f04-b2bd-f9ed98a8efad")
-		)
-		(instances
-			(project "Robobuoy-Top-V2_0"
-				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0135")
+					(reference "R107")
 					(unit 1)
 				)
 			)
@@ -11037,7 +10897,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "f3a99553-50c3-4210-8027-7f1e1a9e8492")
-		(property "Reference" "#PWR0119"
+		(property "Reference" "#PWR0114"
 			(at 198.12 194.31 0)
 			(effects
 				(font
@@ -11088,7 +10948,7 @@
 		(instances
 			(project "Robobuoy-Top-Round-v2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0119")
+					(reference "#PWR0114")
 					(unit 1)
 				)
 			)
@@ -11104,7 +10964,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "f3f23ec6-0f6f-4eb1-aa3b-872ba343e9a3")
-		(property "Reference" "#PWR0109"
+		(property "Reference" "#PWR0110"
 			(at 165.1 69.85 0)
 			(effects
 				(font
@@ -11154,7 +11014,7 @@
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0109")
+					(reference "#PWR0110")
 					(unit 1)
 				)
 			)
@@ -11170,7 +11030,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "f4842b67-501c-490f-b08a-dfff6f7855be")
-		(property "Reference" "#PWR0121"
+		(property "Reference" "#PWR0116"
 			(at 217.17 201.93 0)
 			(effects
 				(font
@@ -11221,7 +11081,7 @@
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/20fb3964-c9d0-4636-b697-42bcddc45d6f"
-					(reference "#PWR0121")
+					(reference "#PWR0116")
 					(unit 1)
 				)
 			)

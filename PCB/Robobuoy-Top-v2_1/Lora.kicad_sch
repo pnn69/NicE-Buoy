@@ -751,22 +751,22 @@
 		(uuid "1b2901e8-59a9-4db0-98d9-1f8fa3e97f0c")
 	)
 	(junction
-		(at 128.905 182.88)
+		(at 129.54 177.8)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "6d5ed7f3-fb4d-47a2-a51d-03996127d881")
+		(uuid "815ba290-afb1-4cbd-bc87-065dea73eedc")
+	)
+	(junction
+		(at 129.54 182.88)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "85cc5fdd-88e1-469c-aa95-c3ae546bcd43")
 	)
 	(junction
 		(at 121.285 177.8)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "9bba08df-d361-4b1c-94ec-c1c76cee3fce")
-	)
-	(junction
-		(at 128.905 177.8)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "c9226343-71a5-40dd-8b6a-ed060e335cb5")
 	)
 	(junction
 		(at 121.285 182.88)
@@ -850,7 +850,7 @@
 	)
 	(wire
 		(pts
-			(xy 134.62 182.88) (xy 128.905 182.88)
+			(xy 134.62 182.88) (xy 129.54 182.88)
 		)
 		(stroke
 			(width 0)
@@ -950,7 +950,7 @@
 	)
 	(wire
 		(pts
-			(xy 121.285 182.88) (xy 128.905 182.88)
+			(xy 121.285 182.88) (xy 129.54 182.88)
 		)
 		(stroke
 			(width 0)
@@ -1000,7 +1000,7 @@
 	)
 	(wire
 		(pts
-			(xy 134.62 177.8) (xy 128.905 177.8)
+			(xy 134.62 177.8) (xy 129.54 177.8)
 		)
 		(stroke
 			(width 0)
@@ -1030,7 +1030,7 @@
 	)
 	(wire
 		(pts
-			(xy 121.285 177.8) (xy 128.905 177.8)
+			(xy 121.285 177.8) (xy 129.54 177.8)
 		)
 		(stroke
 			(width 0)
@@ -1741,7 +1741,7 @@
 	)
 	(symbol
 		(lib_id "Device:C_Small")
-		(at 128.905 180.34 0)
+		(at 129.54 180.34 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1749,7 +1749,7 @@
 		(dnp no)
 		(uuid "d481a9f1-c708-4cf6-9f18-8303f15b1e1a")
 		(property "Reference" "C303"
-			(at 127.635 176.53 0)
+			(at 128.27 176.53 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1758,7 +1758,7 @@
 			)
 		)
 		(property "Value" "100n"
-			(at 127 184.15 0)
+			(at 127.635 184.15 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1767,7 +1767,7 @@
 			)
 		)
 		(property "Footprint" "A_Device:C_0603"
-			(at 128.905 180.34 0)
+			(at 129.54 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1776,7 +1776,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 128.905 180.34 0)
+			(at 129.54 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1785,7 +1785,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 128.905 180.34 0)
+			(at 129.54 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1794,7 +1794,7 @@
 			)
 		)
 		(property "LCSC" "C14663"
-			(at 128.905 180.34 0)
+			(at 129.54 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1803,7 +1803,7 @@
 			)
 		)
 		(property "JLCS" ""
-			(at 128.905 180.34 0)
+			(at 129.54 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
