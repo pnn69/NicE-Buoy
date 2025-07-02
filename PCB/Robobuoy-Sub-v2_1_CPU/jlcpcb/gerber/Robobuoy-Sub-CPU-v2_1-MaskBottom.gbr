@@ -1,12 +1,20 @@
 %TF.GenerationSoftware,KiCad,Pcbnew,9.0.2*%
+<<<<<<< HEAD
 %TF.CreationDate,2025-06-19T10:12:08+02:00*%
+=======
+%TF.CreationDate,2025-06-17T18:03:46+02:00*%
+>>>>>>> 2e23f7f8cb64151a60ec3d004f8241720292418e
 %TF.ProjectId,Robobuoy-Sub-CPU-v2_1,526f626f-6275-46f7-992d-5375622d4350,2.0*%
 %TF.SameCoordinates,Original*%
 %TF.FileFunction,Soldermask,Bot*%
 %TF.FilePolarity,Negative*%
 %FSLAX46Y46*%
 G04 Gerber Fmt 4.6, Leading zero omitted, Abs format (unit mm)*
+<<<<<<< HEAD
 G04 Created by KiCad (PCBNEW 9.0.2) date 2025-06-19 10:12:08*
+=======
+G04 Created by KiCad (PCBNEW 9.0.2) date 2025-06-17 18:03:46*
+>>>>>>> 2e23f7f8cb64151a60ec3d004f8241720292418e
 %MOMM*%
 %LPD*%
 G01*
