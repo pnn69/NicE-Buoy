@@ -6,6 +6,6 @@
 extern QueueHandle_t buzzer;
 bool initbuzzerqueue(void);
 void buzzerTask(void *arg);
-void beep(int sound);
+
 
 #endif /* ESC_H_ */

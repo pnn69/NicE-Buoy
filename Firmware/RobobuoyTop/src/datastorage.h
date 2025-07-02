@@ -10,7 +10,7 @@ void apParameters(String *ap, String *ww, bool get);
 void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, float *MinX, float *MinY, float *MinZ, bool get);
 void CompassOffsetCorrection(int *delta, bool get);
 void MechanicalCorrection(int *delta, bool get);
-RoboStruct memDockPos(RoboStruct buoy, bool get);
+void memDockPos(RoboStruct *buoy, bool get);
 RoboStruct computeParameters(RoboStruct buoy, bool get);
 RoboStruct computeParameters(RoboStruct buoy, bool get);
 RoboStruct pidSpeedParameters(RoboStruct buoy, bool get);

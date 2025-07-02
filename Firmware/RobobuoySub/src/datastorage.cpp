@@ -69,7 +69,7 @@ void memDockPos(RoboStruct *buoy, bool get)
     }
     else
     {
-        // Serial.printf("Store Doc pos in memory  %.8lf %.8lf\r\n", *lat, *lon);
+        Serial.printf("Store Doc pos in memory  %.8lf %.8lf\r\n", buoy->tgLat, buoy->tgLng);
         storage.putDouble("Docklat", buoy->tgLat);
         storage.putDouble("Docklon", buoy->tgLng);
     }
@@ -169,15 +169,15 @@ void pidSpeedParameters(RoboStruct *buoy, bool get)
     startMem();
     if (get)
     {
-        buoy->ps = storage.getDouble("ps", 20);
-        buoy->is = storage.getDouble("is", 0.4);
-        buoy->ds = storage.getDouble("ds", 0);
+        buoy->Kps = storage.getDouble("Kps", 20);
+        buoy->Kis = storage.getDouble("Kis", 0.4);
+        buoy->Kds = storage.getDouble("Kds", 0);
     }
     else
     {
-        storage.putDouble("ps", buoy->ps);
-        storage.putDouble("is", buoy->is);
-        storage.putDouble("ds", buoy->ds);
+        storage.putDouble("Kps", buoy->Kps);
+        storage.putDouble("Kis", buoy->Kis);
+        storage.putDouble("Kds", buoy->Kds);
     }
     stopMem();
 }
@@ -186,15 +186,15 @@ void pidRudderParameters(RoboStruct *buoy, bool get)
     startMem();
     if (get)
     {
-        buoy->pr = storage.getDouble("pr", 0.5);
-        buoy->ir = storage.getDouble("ir", 0.02);
-        buoy->dr = storage.getDouble("dr", 0);
+        buoy->Kpr = storage.getDouble("Kpr", 0.5);
+        buoy->Kir = storage.getDouble("Kir", 0.02);
+        buoy->Kdr = storage.getDouble("Kdr", 0);
     }
     else
     {
-        storage.putDouble("pr", buoy->pr);
-        storage.putDouble("ir", buoy->ir);
-        storage.putDouble("dr", buoy->dr);
+        storage.putDouble("Kpr", buoy->Kpr);
+        storage.putDouble("Kir", buoy->Kir);
+        storage.putDouble("Kdr", buoy->Kdr);
     }
     stopMem();
 }

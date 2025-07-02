@@ -60,23 +60,22 @@ void memBuoyId(int8_t *id, bool get)
 /*
     Dock position
 */
-RoboStruct memDockPos(RoboStruct buoy, bool get)
+void memDockPos(RoboStruct *buoy, bool get)
 {
     startMem();
     if (get)
     {
-        buoy.tgLat = storage.getDouble("Docklat", 0);
-        buoy.tgLng = storage.getDouble("Docklon", 0);
-        Serial.printf("Get Doc pos form memory  %.8lf %.8lf\r\n", buoy.tgLat, buoy.tgLng);
+        buoy->tgLat = storage.getDouble("Docklat", 0);
+        buoy->tgLng = storage.getDouble("Docklon", 0);
+        // Serial.printf("Get Doc pos form memory  %.8lf %.8lf\r\n", *lat, *lon);
     }
     else
     {
-        // Serial.printf("Store Doc pos in memory  %.8lf %.8lf\r\n", *lat, *lon);
-        storage.putDouble("Docklat", buoy.lat);
-        storage.putDouble("Docklon", buoy.lng);
+        Serial.printf("Store Doc pos in memory  %.8lf %.8lf\r\n", buoy->tgLat, buoy->tgLng);
+        storage.putDouble("Docklat", buoy->tgLat);
+        storage.putDouble("Docklon", buoy->tgLng);
     }
     stopMem();
-    return buoy;
 }
 
 /*
@@ -216,7 +215,7 @@ RoboStruct defautls(RoboStruct buoy)
     //***************************************************************************************************
     buoy.tgLat = 52.29308075283747;
     buoy.tgLng = 4.932570409845357;
-    memDockPos(buoy, false); // store default wsvop
+    memDockPos(&buoy, false); // store default wsvop
                              //***************************************************************************************************
                              //  PID rudder
                              //***************************************************************************************************

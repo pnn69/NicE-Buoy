@@ -93,14 +93,12 @@ RoboStruct chkAckMsg(void)
     }
     return in;
 }
-#define LEVEL false
 void SercomTask(void *arg)
 {
     // char buff[50];
     delay(2000);
     Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // Half-duplex on same pin
-    Serial.println("Serial1 initialized on GPIO" + COM_PIN_TX);
-
+    
     // Serial1.begin(460800, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, true); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
     //  Serial1.begin(230400, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, true); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
     while (1)
@@ -131,8 +129,10 @@ void SercomTask(void *arg)
             String serStringIn = "";
             while (Serial1.available())
             {
+                delay(1); // allow serial to catch up
                 serStringIn += (char)Serial1.read();
             }
+            Serial.println(serStringIn);
             RoboStruct serDataIn = rfDeCode(serStringIn);
             if (serDataIn.IDs != -1)
             {
@@ -163,12 +163,9 @@ void SercomTask(void *arg)
             {
             }
             String out = rfCode(serDataOut);
-            Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
-            delay(2);
             Serial1.println(out);
-            Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_TX, COM_PIN_TX, LEVEL); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
+            delay(5); // Allow TX to complete
             Serial1.flush();
-            delay(15); // Allow TX to complete
             if (serDataOut.ack == LORAGETACK)
             {
                 serDataOut.retry = 5;
@@ -194,12 +191,9 @@ void SercomTask(void *arg)
                 {
                 }
                 String out = rfCode(serDataOut);
-                Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
-                delay(2);
                 Serial1.println(out);
-                Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_TX, COM_PIN_TX, LEVEL); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
+                delay(5);
                 Serial1.flush();
-                delay(15);
                 retransmittReady = millis() + random(300, 750);
             }
         }

@@ -682,6 +682,12 @@
           "label": "Type",
           "name": "Type",
           "show": false
+        },
+        {
+          "group_by": false,
+          "label": "JCSC",
+          "name": "JCSC",
+          "show": false
         }
       ],
       "filter_string": "",

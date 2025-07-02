@@ -101,5 +101,5 @@ void readAdc(void)
         sw_pos = SW_MID;
     }
 
-    // Serial.printf("Dir raw:%04d converted:%04d,Speed Raw:%04d converted:%04d\r\n", adc.rawr, adc.rudder, adc.raws, adc.speed);
+    //Serial.printf("Dir raw:%04d converted:%04d,Speed Raw:%04d converted:%04d\r\n", adc.rawr, adc.rudder, adc.raws, adc.speed);
 }

@@ -241,6 +241,42 @@
 				(hide yes)
 			)
 		)
+		(property "Height" ""
+			(at 31.115 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer_Name" ""
+			(at 31.115 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer_Part_Number" ""
+			(at 31.115 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Sim.Type" ""
+			(at 31.115 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
@@ -305,6 +341,42 @@
 			)
 		)
 		(property "JLCS" ""
+			(at 26.67 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Height" ""
+			(at 26.67 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer_Name" ""
+			(at 26.67 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer_Part_Number" ""
+			(at 26.67 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Sim.Type" ""
 			(at 26.67 191.135 0)
 			(effects
 				(font
@@ -385,6 +457,42 @@
 				(hide yes)
 			)
 		)
+		(property "Height" ""
+			(at 22.225 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer_Name" ""
+			(at 22.225 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer_Part_Number" ""
+			(at 22.225 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Sim.Type" ""
+			(at 22.225 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
@@ -457,6 +565,42 @@
 				(hide yes)
 			)
 		)
+		(property "Height" ""
+			(at 17.78 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer_Name" ""
+			(at 17.78 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer_Part_Number" ""
+			(at 17.78 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Sim.Type" ""
+			(at 17.78 191.135 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(instances
 			(project "Robobuoy-Top-V2_0"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
@@ -511,7 +655,7 @@
 			)
 		)
 		(instances
-			(project "Robobuoy-Top-Round-v2_1"
+			(project "Robobuoy-Top-v2_1"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(page "6")
 				)
@@ -604,7 +748,7 @@
 			)
 		)
 		(instances
-			(project "Robobuoy-Top-Round-v2_1"
+			(project "Robobuoy-Top-v2_1"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(page "1")
 				)
@@ -687,7 +831,7 @@
 			)
 		)
 		(instances
-			(project "Robobuoy-Top-Round-v2_1"
+			(project "Robobuoy-Top-v2_1"
 				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d"
 					(page "2")
 				)

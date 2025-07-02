@@ -91,6 +91,15 @@ void setup()
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 10, NULL, 0);
     xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
     xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 1);
+    // tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
+    // mainData.tgLat = 52.29308075283747;
+    // mainData.tgLng = 4.932570409845357;
+    // memDockPos(&mainData, SET);
+    // mainData.tgLat = 0;
+    // mainData.tgLng = 0;
+    // memDockPos(&mainData, GET);
+    // Serial.println("Dock position set to: ");
+    // Serial.printf("Lat: %.8lf, Lng: %.8lf\r\n", mainData.tgLat, mainData.tgLng);
     Serial.println("Main task running!");
     // defautls(mainData);
 }
@@ -216,7 +225,7 @@ void buttonLight(RoboStruct sta)
         buttonBlinkTimer = millis() + blink;
         if (sta.status == LOCKED || sta.status == DOCKED)
         {
-            digitalWrite(BUTTON_LIGHT_PIN, LOW);
+            digitalWrite(BUTTON_LIGHT_PIN, HIGH);
             blink = 2000;
         }
         else if (sta.status == CALIBRATE_MAGNETIC_COMPASS)
@@ -299,7 +308,7 @@ void handelStatus(RoboStruct *stat, RoboStruct *buoyPara)
 
     case DOCKING:
         beep(1, buzzer);
-        doc = memDockPos(doc, GET);
+        memDockPos(&doc, GET);
         stat->tgLat = doc.tgLat;
         stat->tgLng = doc.tgLng;
         stat->status = DOCKED;
@@ -388,7 +397,7 @@ void handelStatus(RoboStruct *stat, RoboStruct *buoyPara)
         if (stat->gpsFix == true)
         {
             printf("Storing docpositoin\r\n");
-            memDockPos(*stat, SET);
+            memDockPos(stat, SET);
             beep(1000, buzzer);
         }
         else
@@ -434,7 +443,7 @@ void handleTimerRoutines(RoboStruct *timer)
             xQueueSend(serOut, (void *)timer, 0);
             timer->cmd = DIRSPEED;
             xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
-            //xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
+            // xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
         }
         else
         {
@@ -604,11 +613,11 @@ void handelRfData(RoboStruct *RfOut)
                 }
                 break;
             case DOCKPOS: // Get the positon to dock
-                memDockPos(*RfOut, GET);
+                memDockPos(RfOut, GET);
             case STOREASDOC: // Store location as doc location
                 if (RfOut->gpsFix == true)
                 {
-                    memDockPos(*RfOut, SET);
+                    memDockPos(RfOut, SET);
                     beep(1000, buzzer);
                 }
                 else
@@ -679,7 +688,6 @@ void handelGpsData(RoboStruct *gps)
     {
         gps->lat = gpsin.lat;
         gps->lng = gpsin.lng;
-        gps->gpsFix = gpsin.gpsFix;
         gps->gpsSat = gpsin.gpsSat;
         if (gpsin.gpsFix == true && gps->gpsFix == false)
         {
@@ -691,6 +699,7 @@ void handelGpsData(RoboStruct *gps)
             xQueueSend(loraOut, (void *)&tx, 10); // send out trough Lora
             xQueueSend(udpOut, (void *)&tx, 10);  // send out trough Lora
         }
+        gps->gpsFix = gpsin.gpsFix;
     }
 }
 //***************************************************************************************************
@@ -735,7 +744,7 @@ void handelSerialData(RoboStruct *ser)
             if (ser->gpsFix == true)
             {
                 printf("Store Doc pos)\r\n");
-                memDockPos(*ser, SET);
+                memDockPos(ser, SET);
             }
             ser->status = IDELING;
             break;

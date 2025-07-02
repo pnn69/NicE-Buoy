@@ -60,8 +60,8 @@ void setup()
     digitalWrite(ESC_BB_PWR_PIN, LOW);
     Serial.begin(115200);
     pinMode(BUTTON_PIN, INPUT);
-    pinMode(BATTENABLE, OUTPUT);
-    digitalWrite(BATTENABLE, 1); // enable batery sample signal
+    pinMode(PWRENABLE, OUTPUT);
+    digitalWrite(PWRENABLE, 1); // enable batery sample signal
     digitalWrite(PWRENABLE, true);
     printf("\r\n\r\n\r\nSetup running!\r\n");
     printf("Robobuoy Sub Version: %0.1f Sub Build: %s %s\r\n", SUBVERSION, __DATE__, __TIME__);
@@ -234,7 +234,8 @@ void handleTimerRoutines(RoboStruct *in)
     if (nextSamp < millis())
     {
         nextSamp = 250 + millis();
-        printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d S:%d\n", in->tgDist, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb, in->status);
+        printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d S:%d", in->tgDist, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb, in->status);
+        printf("     RudderITerm: %03.0f  SpeedITerm: %03.0f\r\n", in->ir, in->is);
         in->cmd = DIRSPEED;
         xQueueSend(serOut, (void *)in, 10);
     }

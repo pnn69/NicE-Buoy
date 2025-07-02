@@ -216,7 +216,7 @@ bool CalibrateCompass(void)
 //***************************************************************************************************
 double GetHeadingRaw(void)
 {
-    return  heading((vector<int>){1, 0, 0});
+    return heading((vector<int>){1, 0, 0});
 }
 //***************************************************************************************************
 //
@@ -269,7 +269,7 @@ void calibrateMagneticNorth(void)
     escOut.speedsb = 0;
     xQueueSend(escspeed, (void *)&escOut, 10);
     delay(1000);
-    double h = GetHeadingAvg() + 90;
+    double h = GetHeadingAvg();
     if (h < 0)
     {
         h += 360;
@@ -377,7 +377,7 @@ void CompassTask(void *arg)
     unsigned long compassSampTime = millis();
     while (1)
     {
-        mHdg = GetHeadingAvg() + declination + 90;
+        mHdg = GetHeadingAvg() + declination;
         if (mHdg < 0)
         {
             mHdg = mHdg + 360.0;

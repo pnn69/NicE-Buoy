@@ -14,7 +14,10 @@
 #define HEAD 1
 #define PORT 2
 #define STARBOARD 3
-#define BAUDRATE 460800
+// #define BAUDRATE 460800
+#define BAUDRATE 115200
+// #define BAUDRATE 9600
+#define LEVEL true
 
 #define SAMPELS 30 // 60 samples
 #define MAXSTRINGLENG 150
@@ -131,8 +134,10 @@ struct RoboStruct
     unsigned long lastTimes = 0;
     double errSums = 0;
     double lastErrs = 0;
-    double ps, is, ds; // PID parameters speed
-    double pr, ir, dr; // PID parameters rudder
+    double Kps, Kis, Kds; // PID parameters speed
+    double ps, is, ds;    // PID parameters speed
+    double Kpr, Kir, Kdr; // PID parameters rudder
+    double pr, ir, dr;    // PID parameters rudder
     int minOfsetDist = 2;
     int maxOfsetDist = 20;
     int minSpeed = 0;

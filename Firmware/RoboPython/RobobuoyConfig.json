@@ -10,6 +10,6 @@
         "Kds": 0.0
     },
     "Declination": 7.0,
-    "MaxPower": 50,
-    "MinPower": -50
+    "MaxPower": 70,
+    "MinPower": -70
 }

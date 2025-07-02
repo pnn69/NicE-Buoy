@@ -344,8 +344,10 @@ void loop()
             lastWsPos = adcmain.swPos;  //
             mainData.tgSpeed = 0;       // set speed
             mainData.cmd = REMOTE;
-            newLoraDataOut = true; // set flag to send data out
+            newLoraDataOut = true;     // set flag to send data out
+            lastWsPos = adcmain.swPos; //
         }
+        // Serial.printf("Remote control mode: tgDir: %f tgSpeed: %f\r\n", mainData.tgDir, mainData.tgSpeed);
         break;
     case SW_MID: // Remote control mode
 

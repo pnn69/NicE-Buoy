@@ -28,7 +28,7 @@ IDELING = 8
 IDLE = 7
 DOCKING = 15
 REMOTE = 25
-BUOYIDALL = 0xb87d24
+BUOYIDALL = 0xb7a5b58c
 ME = 0x99
 LORAGETACK = 3
 LORAINF = 6
@@ -594,7 +594,7 @@ class PIDSender(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-     # Set a larger global font
+    # Set a larger global font
     font = QFont("Arial", 12)  # Try 12–14 for visibility
     app.setFont(font)
     window = PIDSender()
