@@ -76,7 +76,7 @@ void rudderPid(RoboStruct *rud)
     xQueueSend(escspeed, (void *)&esc, 10);
 
     rud->ir = rudderPID.GetITerm();
-    //Serial.println(rud->ir);
+    // Serial.println(rud->ir);
 
     // printf("TD:%05.2f  tgSpeed: %05.2f angle: %03.0f output: %07.2f  Sb: %3d Bb: %3d\r\n", rud->tgDist, rud->tgSpeed, rudderInput, rudderOutput, rud->speedSb, rud->speedBb);
 }
@@ -90,5 +90,5 @@ void speedPid(RoboStruct *dist)
     speedPID.Compute();
     dist->tgSpeed = speedOutput;
     dist->is = speedPID.GetITerm();
-    //Serial.println(dist->is);
+    // Serial.println(dist->is);
 }

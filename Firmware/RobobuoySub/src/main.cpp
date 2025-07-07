@@ -234,8 +234,8 @@ void handleTimerRoutines(RoboStruct *in)
     if (nextSamp < millis())
     {
         nextSamp = 250 + millis();
-        printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d S:%d", in->tgDist, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb, in->status);
-        printf("     RudderITerm: %03.0f  SpeedITerm: %03.0f\r\n", in->ir, in->is);
+        printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", in->tgDist, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb);
+        printf("     RudderITerm: %03.0f  SpeedITerm: %03.0f   Max:%d Min:%d\r\n", in->ir, in->is, in->maxSpeed, in->minSpeed);
         in->cmd = DIRSPEED;
         xQueueSend(serOut, (void *)in, 10);
     }
@@ -330,7 +330,7 @@ void handelSerandRfdata(RoboStruct *ser)
         case DIRDIST:
             if (ser->status != LOCKED)
             {
-                printf("DIRDIST command recieved!");
+                printf("DIRDIST command recieved!\r\n");
                 initRudPid(ser);
                 initSpeedPid(ser);
                 ser->status = LOCKED;
@@ -341,7 +341,7 @@ void handelSerandRfdata(RoboStruct *ser)
         case DIRSPEED:
             if (ser->status != DIRSPEED)
             {
-                printf("DIRSPEED command recieved!");
+                printf("DIRSPEED command recieved!\r\n");
                 ser->tgDist = 0;
                 initRudPid(ser);
                 initSpeedPid(ser);
@@ -353,6 +353,7 @@ void handelSerandRfdata(RoboStruct *ser)
         case REMOTE:
             if (ser->status != REMOTE)
             {
+                printf("REMOTE command recieved!\r\n");
                 ser->status = REMOTE;
             }
             ser->tgDir = dataIn.tgDir;
@@ -361,7 +362,7 @@ void handelSerandRfdata(RoboStruct *ser)
         case LOCKED:
             if (ser->status != LOCKED)
             {
-                printf("Locked command recieved!");
+                printf("LOCKED command recieved!\r\n");
                 ser->tgDist = 0;
                 initRudPid(ser);
                 initSpeedPid(ser);
@@ -373,7 +374,7 @@ void handelSerandRfdata(RoboStruct *ser)
         case DOCKED:
             if (ser->status != DOCKED)
             {
-                printf("Docked command recieved!");
+                printf("DOCKED command recieved!\r\n");
                 ser->tgDist = 0;
                 initRudPid(ser);
                 initSpeedPid(ser);
@@ -442,6 +443,7 @@ void handelSerandRfdata(RoboStruct *ser)
             xQueueSend(serOut, (void *)ser, 10);
             break;
         }
+        dataIn.cmd = -1; // reset command
         ser->lastSerIn = millis();
         PwrOff = millis();
     }

@@ -98,7 +98,7 @@ void SercomTask(void *arg)
     // char buff[50];
     delay(2000);
     Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // Half-duplex on same pin
-    
+
     // Serial1.begin(460800, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, true); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
     //  Serial1.begin(230400, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, true); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
     while (1)
@@ -132,7 +132,7 @@ void SercomTask(void *arg)
                 delay(1); // allow serial to catch up
                 serStringIn += (char)Serial1.read();
             }
-            Serial.println(serStringIn);
+            // Serial.print(serStringIn);
             RoboStruct serDataIn = rfDeCode(serStringIn);
             if (serDataIn.IDs != -1)
             {
@@ -146,12 +146,16 @@ void SercomTask(void *arg)
             }
             if (serDataIn.ack == LORAGETACK) // on ack request send ack back
             {
+                delay(10); // Allow TX to complete
                 // IDr,IDs,ACK,MSG
                 serDataIn.IDr = serDataIn.IDs;
                 serDataIn.IDs = mac;
                 serDataIn.ack = LORAACK;
                 xQueueSend(serOut, (void *)&serDataIn, 10); // send ACK out
                 printf("sending ack\r\n");
+                delay(10); // Allow TX to complete
+                Serial1.flush();
+
             }
         }
         //***************************************************************************************************
@@ -164,7 +168,7 @@ void SercomTask(void *arg)
             }
             String out = rfCode(serDataOut);
             Serial1.println(out);
-            delay(5); // Allow TX to complete
+            delay(10); // Allow TX to complete
             Serial1.flush();
             if (serDataOut.ack == LORAGETACK)
             {
@@ -172,7 +176,7 @@ void SercomTask(void *arg)
                 storeAckMsg(serDataOut);                            // put data in buffer (will be removed on ack)
                 retransmittReady = millis() + 500 + random(0, 150); // give some time for ack
             }
-            delay(5);
+            delay(1);
             while (Serial1.available())
             {
                 Serial1.read();
@@ -192,7 +196,7 @@ void SercomTask(void *arg)
                 }
                 String out = rfCode(serDataOut);
                 Serial1.println(out);
-                delay(5);
+                delay(10);
                 Serial1.flush();
                 retransmittReady = millis() + random(300, 750);
             }

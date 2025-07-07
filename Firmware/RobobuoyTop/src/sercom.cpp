@@ -96,7 +96,7 @@ void SercomTask(void *arg)
 {
     Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
     // Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, false); // Half-duplex on same pin
-    
+
     while (1)
     {
         // //***************************************************************************************************
@@ -128,7 +128,7 @@ void SercomTask(void *arg)
                 serStringIn += (char)Serial1.read();
                 delay(1);
             }
-            Serial.print("Sercom RX: " + serStringIn);
+            // Serial.print("Sercom RX: " + serStringIn);
             RoboStruct serDataIn = rfDeCode(serStringIn);
             if (serDataIn.IDs != -1)
             {
@@ -142,11 +142,15 @@ void SercomTask(void *arg)
             }
             if (serDataIn.ack == LORAGETACK) // on ack request send ack back
             {
+                delay(10); // Allow TX to complete
                 // IDr,IDs,ACK,MSG
                 serDataIn.IDr = serDataIn.IDs;
                 serDataIn.IDs = mac;
                 serDataIn.ack = LORAACK;
                 xQueueSend(serOut, (void *)&serDataIn, 10); // send ACK out
+                delay(10); // Allow TX to complete
+                Serial1.flush();
+
             }
         }
         //***************************************************************************************************
@@ -159,7 +163,7 @@ void SercomTask(void *arg)
             {
             }
             Serial1.println(out);
-            delay(5); // Allow TX to complete
+            delay(10); // Allow TX to complete
             Serial1.flush();
             if (serDataOut.ack == LORAGETACK)
             {
@@ -182,7 +186,7 @@ void SercomTask(void *arg)
                 }
                 String loraString = rfCode(serDataOut);
                 Serial1.println(loraString);
-                delay(5);
+                delay(10);
                 Serial1.flush();
                 retransmittReady = millis() + random(300, 750);
             }

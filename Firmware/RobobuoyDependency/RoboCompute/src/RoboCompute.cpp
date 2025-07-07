@@ -1201,19 +1201,20 @@ RoboStruct calcTrackPos(RoboStruct rsl[3])
 /************************************************************************************************************************************************************************* */
 //  Store parameters
 /************************************************************************************************************************************************************************* */
-RoboStruct AddDataToBuoyBase(RoboStruct dataIn, RoboStruct buoyPara[3])
+void AddDataToBuoyBase(RoboStruct dataIn, RoboStruct* buoyPara[3])
 {
     for (int i = 0; i < 3; i++)
     {
-        if (dataIn.IDs == buoyPara[i].IDs || buoyPara[i].IDs == 0)
+        if (buoyPara[i] == nullptr)
+            continue;
+        if (dataIn.IDs == buoyPara[i]->IDs || buoyPara[i]->IDs == 0)
         {
-            memcpy(&buoyPara[i], &dataIn, sizeof(RoboStruct));
-            Serial.println("# Lock data stored! on pos:" + String(i) + " IDs:" + String(buoyPara[i].IDs, HEX) + "Lat:" + String(buoyPara[i].tgLat, 6) + "Lng:" + String(buoyPara[i].tgLng, 6) + " Wdir:" + String(buoyPara[i].wDir, 2));
-            return buoyPara[3];
+            *buoyPara[i] = dataIn;  // Store the data in the buoyPara array
+            Serial.println("# Lock data stored! on pos:" + String(i) + " IDs:" + String(buoyPara[i]->IDs, HEX) + "Lat:" + String(buoyPara[i]->tgLat, 6) + "Lng:" + String(buoyPara[i]->tgLng, 6) + " Wdir:" + String(buoyPara[i]->wDir, 2));
+            return;
         }
     }
     Serial.println("# No data stored! :( ");
-    return buoyPara[3];
 }
 /************************************************************************************************************************************************************************* */
 //  Retreve parameters

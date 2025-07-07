@@ -15,8 +15,9 @@
 #define PORT 2
 #define STARBOARD 3
 // #define BAUDRATE 460800
+// #define BAUDRATE 230400
 #define BAUDRATE 115200
-// #define BAUDRATE 9600
+//  #define BAUDRATE 9600
 #define LEVEL true
 
 #define SAMPELS 30 // 60 samples
@@ -192,7 +193,6 @@ bool verifyCRC(String input);
 
 void averigeWindRose(RoboWindStruct *wData);
 void deviationWindRose(RoboWindStruct *wData);
-void initPid(int pid, RoboStruct buoy);
 void PidDecode(String data, int pid, RoboStruct buoy);
 String PidEncode(int pid, RoboStruct buoy);
 void gpsGem(double &lat, double &lon);
@@ -208,9 +208,8 @@ bool determineDirection(double heading1, double heading2);
 double Angle2SpeedFactor(double angle);
 double CalcDocSpeed(double tgdistance);
 RoboStruct CalcRemoteRudderBuoy(RoboStruct buoy);
-RoboStruct CalcRudderBuoy(RoboStruct buoy);
 RoboStruct hooverPid(RoboStruct buoy);
-void threePointAverage(struct RoboStruct p3[3], double *latgem, double *lnggem);
+void threePointAverage(struct RoboStruct p3[2], double *latgem, double *lnggem);
 void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double *latgem, double *longem);
 void windDirectionToVector(double windDegrees, double *windX, double *windY);
 double calculateAngle(double x1, double y1, double x2, double y2);
@@ -218,8 +217,7 @@ RoboStruct recalcStarLine(struct RoboStruct rsl[3]);
 RoboStruct reCalcTrack(struct RoboStruct rsl[3]);
 void trackPosPrint(int c);
 RoboStruct calcTrackPos(RoboStruct rsl[3]);
-
-RoboStruct AddDataToBuoyBase(RoboStruct dataIn, RoboStruct buoyPara[3]);
+void AddDataToBuoyBase(RoboStruct dataIn, RoboStruct *buoyPara[3]);
 int GetDataPosFromBuoyBase(uint64_t id, RoboStruct buoyPara[3]);
 
 #endif /* ROBOCOMPUTE */

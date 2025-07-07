@@ -15,7 +15,10 @@
 
 // #define BUFLENMHRG 60 // one sampel each sec so 60 sec for stabilisation
 static RoboStruct mainData;
-static RoboStruct buoyPara[3] = {};
+// RoboStruct b0, b1, b2;
+// RoboStruct *buoyPara[4] = {&b0, &b1, &b2};
+RoboStruct buoyPara[3] = {};
+RoboStruct *buoyParaPtrs[3] = {&buoyPara[0], &buoyPara[1], &buoyPara[2]};
 static RoboStruct mainUdpIn;
 static RoboWindStruct wind;
 static LedData mainCollorStatus;
@@ -263,10 +266,9 @@ void buttonLight(RoboStruct sta)
 //***************************************************************************************************
 //  status actions
 //***************************************************************************************************
-void handelStatus(RoboStruct *stat, RoboStruct *buoyPara)
+void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
 {
     RoboStruct LoraTx;
-    RoboStruct doc;
     stat->IDs = stat->buoyId;
     LoraTx = *stat;
     stat->IDr = BUOYIDALL;
@@ -290,7 +292,7 @@ void handelStatus(RoboStruct *stat, RoboStruct *buoyPara)
             stat->ack = LORASET;
             stat->tgLat = stat->lat;
             stat->tgLng = stat->lng;
-            AddDataToBuoyBase(*stat, buoyPara); // store positon for later calculations Track positioning
+            AddDataToBuoyBase(*stat, buoyParaPtrs); // store positon for later calculations Track positioning
             // IDr,IDs,ACK,MSG,LAT,LON
             xQueueSend(udpOut, (void *)stat, 0);   // update WiFi
             xQueueSend(loraOut, (void *)stat, 10); // send out trough Lora
@@ -308,9 +310,7 @@ void handelStatus(RoboStruct *stat, RoboStruct *buoyPara)
 
     case DOCKING:
         beep(1, buzzer);
-        memDockPos(&doc, GET);
-        stat->tgLat = doc.tgLat;
-        stat->tgLng = doc.tgLng;
+        memDockPos(stat, GET);
         stat->status = DOCKED;
         printf("Retreved data for docking tgLat:%.8f tgLng:%.8f\r\n", stat->tgLat, stat->tgLng);
         RouteToPoint(stat->lat, stat->lng, stat->tgLat, stat->tgLng, &stat->tgDist, &stat->tgDir);
@@ -374,7 +374,7 @@ void handelStatus(RoboStruct *stat, RoboStruct *buoyPara)
                 xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
                 xQueueSend(udpOut, (void *)&LoraTx, 10);  // send out trough WiFi
             }
-            if (buoyPara[i].IDs == stat->buoyId)
+            if (buoyPara[i].IDs == stat->mac)
             {
                 stat->tgLat = buoyPara[i].tgLat;
                 stat->tgLng = buoyPara[i].tgLng;
@@ -516,7 +516,7 @@ void handleTimerRoutines(RoboStruct *timer)
 // ***************************************************************************************************
 // handle external data input
 // ***************************************************************************************************
-void handelRfData(RoboStruct *RfOut)
+void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
 {
     RoboStruct RfIn;
     RfIn.IDr = -1;
@@ -545,7 +545,7 @@ void handelRfData(RoboStruct *RfOut)
                 }
                 break;
             case LOCKPOS: // store new data into position database
-                buoyPara[3] = AddDataToBuoyBase(RfIn, buoyPara);
+                AddDataToBuoyBase(RfIn, &buoyPara[3]);
                 break;
             case PIDRUDDER:
                 if (RfIn.ack == LORAGET)
@@ -584,7 +584,7 @@ void handelRfData(RoboStruct *RfOut)
             case DIRSPEED:
                 RfOut->tgDir = RfIn.tgDir;
                 RfOut->speedSet = RfIn.speedSet;
-                RfOut->status = REMOTE;
+                RfOut->status = DIRSPEED;
                 break;
             case REMOTE:
                 RfOut->status = RfIn.cmd;
@@ -629,7 +629,7 @@ void handelRfData(RoboStruct *RfOut)
                 RfOut->tgLat = RfIn.tgLat;
                 RfOut->tgLng = RfIn.tgLng;
                 RfIn.IDs = RfOut->mac; // Put this Id in field for positioning
-                buoyPara[3] = AddDataToBuoyBase(RfIn, buoyPara);
+                AddDataToBuoyBase(RfIn, &buoyPara[3]);
                 RfOut->status = LOCKED;
                 break;
             case IDELING:
@@ -702,10 +702,10 @@ void handelGpsData(RoboStruct *gps)
         gps->gpsFix = gpsin.gpsFix;
     }
 }
+
 //***************************************************************************************************
 //      New serial data
 //***************************************************************************************************
-// RoboStruct handelSerialData(RoboStruct ser)
 void handelSerialData(RoboStruct *ser)
 {
     RoboStruct serDataIn;
@@ -753,7 +753,18 @@ void handelSerialData(RoboStruct *ser)
             break;
         }
     }
+    if (mainData.lastSerIn + 2000 < millis())
+    {
+        mainData.lastSerIn = millis();
+        if (mainCollorUtil.color != CRGB::Red)
+        {
+            mainCollorUtil.color = CRGB::Red;
+            mainCollorUtil.blink = BLINK_SLOW;
+            xQueueSend(ledUtil, (void *)&mainCollorUtil, 0); // update GPS led
+        }
+    }
 }
+
 //***************************************************************************************************
 //      Main loop
 //***************************************************************************************************
@@ -786,7 +797,7 @@ void loop(void)
         //***************************************************************************************************
         //      New data Rf data (UTP or Lora)
         //***************************************************************************************************
-        handelRfData(&mainData);
+        handelRfData(&mainData, buoyParaPtrs);
         //****************************************************************************************************
         //      New GPS data
         //***************************************************************************************************
@@ -803,15 +814,5 @@ void loop(void)
         //***************************************************************************************************
         //      Serial watchdog
         //***************************************************************************************************
-        if (mainData.lastSerIn + 2000 < millis())
-        {
-            mainData.lastSerIn = millis();
-            if (mainCollorUtil.color != CRGB::Red)
-            {
-                mainCollorUtil.color = CRGB::Red;
-                mainCollorUtil.blink = BLINK_SLOW;
-                xQueueSend(ledUtil, (void *)&mainCollorUtil, 0); // update GPS led
-            }
-        }
     }
 }
