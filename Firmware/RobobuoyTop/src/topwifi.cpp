@@ -19,6 +19,7 @@ static bool ota = false;
 static int8_t id = 0;
 static char udpDataIn[MAXSTRINGLENG];
 static IPAddress ipTop;
+static unsigned long mac = 0;
 AsyncUDP udp;
 QueueHandle_t udpOut;
 QueueHandle_t udpIn;
@@ -153,8 +154,9 @@ bool udp_setup(int poort)
         udp.onPacket([](AsyncUDPPacket packet)
                      {
                         String stringUdpIn = (const char *)packet.data();
-                        RoboStruct udpDataIn = rfDeCode(stringUdpIn);
-                        if (udpDataIn.IDs != -1 )
+                        RoboStruct udpDataIn;
+                        rfDeCode(stringUdpIn,&udpDataIn);
+                        if (udpDataIn.IDs != -1 && udpDataIn.IDs != mac) // ignore own messages
                         {
                             xQueueSend(udpIn, (void *)&udpDataIn, 10); // notify main there is new data
                             if (wifiCollorUtil.color != CRGB::DarkBlue)
@@ -187,7 +189,6 @@ unsigned long espMac(void)
 {
     byte macarr[6];
     WiFi.macAddress(macarr);
-    unsigned long mac = 0;
     for (int i = 2; i < 6; i++)
     {
         mac = (mac << 8) | macarr[i];
@@ -276,7 +277,7 @@ void WiFiTask(void *arg)
         {
             msgIdOut.IDr = msgIdOut.mac;
             msgIdOut.IDs = msgIdOut.mac;
-            String out = rfCode(msgIdOut);
+            String out = rfCode(&msgIdOut);
             udp.broadcast(out.c_str());
         }
         delay(1);

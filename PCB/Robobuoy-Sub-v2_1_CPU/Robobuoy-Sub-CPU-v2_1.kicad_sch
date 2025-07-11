@@ -5543,6 +5543,16 @@
 		)
 		(uuid "1aa3155b-d4fb-4b38-ab97-10b35a38b30f")
 	)
+	(text "Make 1K"
+		(exclude_from_sim no)
+		(at 78.232 154.432 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "57c16c1e-a7ae-4351-8b84-f9bdd896d293")
+	)
 	(text "High voltage (VBATT)"
 		(exclude_from_sim no)
 		(at 62.484 132.842 0)

@@ -7,12 +7,12 @@
 QueueHandle_t serOut;
 QueueHandle_t serIn;
 static unsigned long mac;
+
 static RoboStruct serDataOut;
 static RoboStruct serDataIn;
-RoboStruct pendingMsgSer[10] = {};
+RoboStruct pendingMsg[10] = {};
 static unsigned long lastSerMsg;
 static unsigned long retransmittReady = 0;
-static unsigned long muteTx = 0;
 
 void initserqueue(void)
 {
@@ -24,15 +24,15 @@ void initserqueue(void)
 //***************************************************************************************************
 //  Store to ack buffer
 //***************************************************************************************************
-void storeAckMsgSer(RoboStruct ackBuffer)
+void SerstoreAckMsg(RoboStruct ackBuffer)
 {
     int i = 0;
     while (i < 10)
     {
-        if (pendingMsgSer[i].cmd == 0)
+        if (pendingMsg[i].cmd == 0)
         {
-            memcpy(&pendingMsgSer[i], &ackBuffer, sizeof(ackBuffer));
-            pendingMsgSer[i] = ackBuffer;
+            memcpy(&pendingMsg[i], &ackBuffer, sizeof(ackBuffer));
+            pendingMsg[i] = ackBuffer;
             // Serial.println("message stored on pos:" + String(i) + " rettrys left:" + ackBuffer.retry + " for:" + String(ackBuffer.IDr, HEX) + " msg:" + ackBuffer.cmd);
             return;
         }
@@ -43,20 +43,20 @@ void storeAckMsgSer(RoboStruct ackBuffer)
 //***************************************************************************************************
 //  Remove to ack buffer
 //***************************************************************************************************
-void removeAckMsgSer(RoboStruct ackBuffer)
+void SerremoveAckMsg(RoboStruct ackBuffer)
 {
     // Serial.println("looking for msg:" + String(ackBuffer.cmd) + " Id:" + String(ackBuffer.IDs, HEX));
     int i = 0;
     while (i < 10)
     {
-        // Serial.println("Found:" + String(pendingMsgSer[i].cmd) + " Id:" + String(pendingMsgSer[i].IDr, HEX));
-        if (pendingMsgSer[i].cmd == ackBuffer.cmd)
+        // Serial.println("Found:" + String(pendingMsg[i].cmd) + " Id:" + String(pendingMsg[i].IDr, HEX));
+        if (pendingMsg[i].cmd == ackBuffer.cmd)
         {
-            pendingMsgSer[i].ack = 0;
-            pendingMsgSer[i].cmd = 0;
-            pendingMsgSer[i].IDs = 0;
-            pendingMsgSer[i].IDr = 0;
-            pendingMsgSer[i].retry = 0;
+            pendingMsg[i].ack = 0;
+            pendingMsg[i].cmd = 0;
+            pendingMsg[i].IDs = 0;
+            pendingMsg[i].IDr = 0;
+            pendingMsg[i].retry = 0;
             return;
         }
         i++;
@@ -67,7 +67,7 @@ void removeAckMsgSer(RoboStruct ackBuffer)
 //  check ack buffer
 //  remove data if more than n times has failed
 //***************************************************************************************************
-RoboStruct chkAckMsgSer(void)
+RoboStruct SerchkAckMsg(void)
 {
     RoboStruct in;
     in.ack = 0;
@@ -75,16 +75,16 @@ RoboStruct chkAckMsgSer(void)
     int i = 0;
     while (i < 10)
     {
-        if (pendingMsgSer[i].cmd != 0)
+        if (pendingMsg[i].cmd != 0)
         {
-            in = pendingMsgSer[i];
-            pendingMsgSer[i].retry--;
-            if (pendingMsgSer[i].retry == 0)
+            in = pendingMsg[i];
+            pendingMsg[i].retry--;
+            if (pendingMsg[i].retry == 0)
             {
-                pendingMsgSer[i].cmd = 0;
-                pendingMsgSer[i].ack = 0;
-                pendingMsgSer[i].IDs = 0;
-                pendingMsgSer[i].IDr = 0;
+                pendingMsg[i].cmd = 0;
+                pendingMsg[i].ack = 0;
+                pendingMsg[i].IDs = 0;
+                pendingMsg[i].IDr = 0;
             }
             return in;
         }
@@ -94,14 +94,14 @@ RoboStruct chkAckMsgSer(void)
 }
 void SercomTask(void *arg)
 {
-    Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // RX on GPIO 32, TX on GPIO 32 (Only one wire)
-    // Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, false); // Half-duplex on same pin
-
+    delay(2000);
+    // Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // Half-duplex on same pin
+    Serial1.begin(230400, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // Half-duplex on same pin
     while (1)
     {
-        // //***************************************************************************************************
-        // // Recieving data from pc
-        // //***************************************************************************************************
+        //***************************************************************************************************
+        // Recieving data from PC
+        //***************************************************************************************************
         if (Serial.available()) // recieve data form top
         {
             String serStringIn = "";
@@ -109,7 +109,8 @@ void SercomTask(void *arg)
             {
                 serStringIn += (char)Serial.read();
             }
-            RoboStruct serDataIn = rfDeCode(serStringIn);
+            RoboStruct serDataIn;
+            rfDeCode(serStringIn, &serDataIn);
             if (serDataIn.IDs != -1)
             {
                 xQueueSend(serIn, (void *)&serDataIn, 10); // notify main there is new data
@@ -117,59 +118,52 @@ void SercomTask(void *arg)
             }
         }
         //***************************************************************************************************
-        // Recieving data from sub
+        // Recieving data from Sub
         //***************************************************************************************************
-        if (Serial1.available()) // recieve data form top
+        if (Serial1.available()) // recieve data form sub
         {
-            muteTx = millis();
             String serStringIn = "";
             while (Serial1.available())
             {
                 serStringIn += (char)Serial1.read();
-                delay(1);
             }
-            // Serial.print("Sercom RX: " + serStringIn);
-            RoboStruct serDataIn = rfDeCode(serStringIn);
-            if (serDataIn.IDs != -1)
+            // Serial.print("RxTop " + serStringIn);
+            RoboStruct serDataIn;
+            rfDeCode(serStringIn, &serDataIn);
+            if (serDataIn.IDs != -1 && serDataIn.IDs != mac) // ignore own messages
             {
-                xQueueSend(serIn, (void *)&serDataIn, 10); // notify main there is new data
-                lastSerMsg = millis();
-            }
-            if (serDataIn.ack == LORAACK) // A message form me so check if its a ACK message
-            {
-                printf("ack recieved removing cmd\r\n");
-                removeAckMsgSer(serDataIn);
+                if (serDataIn.ack == LORAACK) // A message form me so check if its a ACK message
+                {
+                    printf("ack recieved removing cmd\r\n");
+                    SerremoveAckMsg(serDataIn);
+                }
+                else
+                {
+                    xQueueSend(serIn, (void *)&serDataIn, 10); // notify main there is new data
+                    lastSerMsg = millis();
+                }
             }
             if (serDataIn.ack == LORAGETACK) // on ack request send ack back
             {
-                delay(10); // Allow TX to complete
-                // IDr,IDs,ACK,MSG
                 serDataIn.IDr = serDataIn.IDs;
                 serDataIn.IDs = mac;
                 serDataIn.ack = LORAACK;
                 xQueueSend(serOut, (void *)&serDataIn, 10); // send ACK out
-                delay(10); // Allow TX to complete
-                Serial1.flush();
-
+                printf("sending ack\r\n");
             }
         }
         //***************************************************************************************************
-        // Sending data to sub
+        // Sending data to Sub
         //***************************************************************************************************
         if (xQueueReceive(serOut, (void *)&serDataOut, 0) == pdTRUE) // send data to bottom
         {
-            String out = rfCode(serDataOut);
-            while (muteTx + 15 > millis())
-            {
-            }
+            String out = rfCode(&serDataOut);
             Serial1.println(out);
-            delay(10); // Allow TX to complete
-            Serial1.flush();
             if (serDataOut.ack == LORAGETACK)
             {
                 serDataOut.retry = 5;
-                storeAckMsgSer(serDataOut);                         // put data in buffer (will be removed on ack)
-                retransmittReady = millis() + 500 + random(0, 150); // give some time for ack
+                SerstoreAckMsg(serDataOut);                         // put data in buffer (will be removed on ack)
+                retransmittReady = millis() + 750 + random(0, 150); // give some time for ack
             }
         }
 
@@ -178,24 +172,14 @@ void SercomTask(void *arg)
         //***************************************************************************************************
         if (retransmittReady < millis())
         {
-            serDataOut = chkAckMsgSer();
+            serDataOut = SerchkAckMsg();
             if (serDataOut.cmd != 0)
             {
-                while (muteTx + 15 > millis())
-                {
-                }
-                String loraString = rfCode(serDataOut);
-                Serial1.println(loraString);
-                delay(10);
-                Serial1.flush();
-                retransmittReady = millis() + random(300, 750);
+                String out = rfCode(&serDataOut);
+                Serial1.println(out);
+                retransmittReady = millis() + random(1200, 750);
             }
         }
-        // if (muteTx + 1000 * 60 * 1 < millis())
-        // {
-        //     Serial.println("Put Serial COM1 TX pin low so sub can sleep");
-        //     pinMode(COM_PIN_TX, INPUT_PULLDOWN);
-        // }
         delay(1);
     }
 }

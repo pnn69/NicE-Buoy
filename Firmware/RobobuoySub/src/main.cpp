@@ -30,15 +30,10 @@ static LedData mainLedStatus;
 static PwrData mainPwrData;
 static Buzz mainBuzzerData;
 static int wifiConfig = 0;
-
+// timer variables
 unsigned long nextSamp = millis();
-unsigned long accuSamp = millis();
 unsigned long logtimer = millis();
-unsigned long udptimer = millis();
-unsigned long pidtimer = millis();
-unsigned long esctimer = millis();
-unsigned long serialtimer = millis();
-
+// Button configuration
 int buttonState = 0;              // Current state of the button
 int lastButtonState = 0;          // Previous state of the button
 unsigned long lastPressTime = 0;  // Time of the last press
@@ -88,10 +83,10 @@ void setup()
     }
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 1000, NULL, 1, NULL, 1);
-    xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 10, NULL, 1);
+    xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 5, NULL, 1);
     xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
-    xTaskCreatePinnedToCore(CompassTask, "CompasaTask", 2000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
-    xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
+    xTaskCreatePinnedToCore(CompassTask, "CompasaTask", 2000, NULL, configMAX_PRIORITIES - 1, NULL, 0);
+    xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 3, NULL, 0);
     Serial.println("Setup done!");
 }
 
@@ -191,6 +186,7 @@ void handleTimerRoutines(RoboStruct *in)
             {
                 in->tgSpeed = 0;
             }
+            // Serial.printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f\r\n", in->tgDist, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag));
             rudderPid(in);
         }
         else if (in->tgDist > 0.5)
@@ -203,18 +199,16 @@ void handleTimerRoutines(RoboStruct *in)
             in->tgSpeed = 0;
             in->speedBb = 0;
             in->speedSb = 0;
-            escOut.speedbb = 0;
-            escOut.speedsb = 0;
-            xQueueSend(escspeed, (void *)&escOut, 10);
         }
-        // if (udptimer < millis())
-        // {
-        //     udptimer = millis() + 250;
-        //     xQueueSend(udpOut, (void *)in, 10);
-        // }
-        // break;
+        escOut.speedbb = in->speedBb;
+        escOut.speedsb = in->speedSb;
+        xQueueSend(escspeed, (void *)&escOut, 10);
+        break;
     case REMOTE:
         rudderPid(in);
+        escOut.speedbb = in->speedBb;
+        escOut.speedsb = in->speedSb;
+        xQueueSend(escspeed, (void *)&escOut, 10);
         break;
     case SPBBSPSB: // SpeedBb,SpeedSb
         escOut.speedbb = in->speedBb;
@@ -235,20 +229,15 @@ void handleTimerRoutines(RoboStruct *in)
     {
         nextSamp = 250 + millis();
         printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", in->tgDist, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb);
-        printf("     RudderITerm: %03.0f  SpeedITerm: %03.0f   Max:%d Min:%d\r\n", in->ir, in->is, in->maxSpeed, in->minSpeed);
+        printf("     RudderITerm: %03.0f\r\n", in->Kir, in->Kis);
         in->cmd = DIRSPEED;
         xQueueSend(serOut, (void *)in, 10);
     }
 
-    if (accuSamp < millis())
-    {
-        accuSamp = 1010 + millis();
-        battVoltage(in->subAccuV, in->subAccuP);
-    }
-
     if (logtimer < millis())
     {
-        logtimer = millis() + 5000;
+        logtimer = millis() + 5010;
+        battVoltage(in->subAccuV, in->subAccuP);
         in->cmd = SUBACCU;
         xQueueSend(serOut, (void *)in, 10);
     }
@@ -390,10 +379,11 @@ void handelSerandRfdata(RoboStruct *ser)
             }
             break;
         case PIDRUDDERSET:
-            printf("Rudder PID pr:%0.2f ir:%0.2f dr:%0.2f\r\n", dataIn.pr, dataIn.ir, dataIn.dr);
+            printf("New rudder PID settings pr:%0.2f ir:%0.2f dr:%0.2f\r\n", dataIn.Kpr, dataIn.Kir, dataIn.Kdr);
             pidRudderParameters(&dataIn, SET);
             pidRudderParameters(ser, GET);
-            rudderPID.SetTunings(dataIn.pr, dataIn.ir, dataIn.dr, DIRECT);
+            rudderPID.SetTunings(ser->Kpr, ser->Kir, ser->Kdr, DIRECT);
+            printf("Rudder PID stored pr:%0.2f ir:%0.2f dr:%0.2f\r\n", ser->Kpr, ser->Kir, ser->Kdr);
             break;
         case PIDSPEED:
             if (dataIn.ack == LORAGET)
@@ -403,10 +393,11 @@ void handelSerandRfdata(RoboStruct *ser)
             }
             break;
         case PIDSPEEDSET:
-            printf("Rudder PID ps:%0.2f is:%0.2f ds:%0.2f\r\n", dataIn.ps, dataIn.is, dataIn.ds);
+            printf("New speed PID settings ps:%0.2f is:%0.2f ds:%0.2f\r\n", dataIn.Kps, dataIn.Kis, dataIn.Kds);
             pidSpeedParameters(&dataIn, SET);
             pidSpeedParameters(ser, GET);
-            speedPID.SetTunings(dataIn.ps, dataIn.is, dataIn.ds, DIRECT);
+            speedPID.SetTunings(ser->Kps, ser->Kis, ser->Kds, DIRECT);
+            printf("Speed PID stored ps:%0.2f is:%0.2f ds:%0.2f\r\n", ser->Kps, ser->Kis, ser->Kds);
             break;
         case STORE_DECLINATION:
             printf("Declinaton set to: %f\r\n", dataIn.declination);
@@ -454,7 +445,6 @@ void handelSerandRfdata(RoboStruct *ser)
 //***************************************************************************************************
 void handelSerialTimeOut(RoboStruct *ser)
 {
-    // if (mainData.lastSerIn + 1000 * 5 < millis())
     if (ser->lastSerIn + 1000 * 5 < millis())
     {
         if (mainLedStatus.color != CRGB::Red)
@@ -472,7 +462,8 @@ void handelSerialTimeOut(RoboStruct *ser)
     //***************************************************************************************************
     //      Shutdown the system
     //***************************************************************************************************
-    if (PwrOff + 1000 * 60 * 5 < millis())
+    if (PwrOff + 1000 * 60 * 15 < millis())
+    // if (PwrOff + 1000 *  10 < millis())
     {
         PwrOff = millis();
         triggerESC();
@@ -480,7 +471,6 @@ void handelSerialTimeOut(RoboStruct *ser)
         printf("Power off now!\r\n");
         digitalWrite(ESC_SB_PWR_PIN, LOW);
         digitalWrite(ESC_BB_PWR_PIN, LOW);
-        delay(1000);
         digitalWrite(PWRENABLE, 0); // disable powersupply
         delay(1000);
         PwrOff = millis();

@@ -3,7 +3,7 @@
 #include "buzzer.h"
 #include "io_sub.h"
 const int squareWavePin = 2; // Pin 2 for square wave
-const int pwmChannel = 0;    // PWM channel (0-15)
+const int pwmChannel = 4;    // PWM channel (0-15)
 const int pwmResolution = 8; // 8-bit resolution (duty cycle values from 0 to 255)
 
 QueueHandle_t buzzer;
@@ -54,15 +54,31 @@ void buzzerTask(void *arg)
             while (buzzerData.repeat--)
             {
                 setSquareWaveFrequency(buzzerData.hz);
-                timeStamp = millis() + buzzerData.duration;
-                while (timeStamp > millis())
-                    ;
+                vTaskDelay(pdMS_TO_TICKS(buzzerData.duration));
                 ledcDetachPin(BUZZER_PIN);
-                timeStamp = millis() + buzzerData.pause;
-                while (timeStamp > millis())
-                    ;
+                vTaskDelay(pdMS_TO_TICKS(buzzerData.pause));
             }
         }
     }
     vTaskDelay(1);
 }
+// if ((xQueueReceive(buzzer, (void *)&buzzerData, 0) == pdTRUE))
+// {
+//     if (buzzerData.hz == 0)
+//         buzzerData.hz = 1000;
+
+//     if (buzzerData.duration == 0)
+//         buzzerData.duration = 500;
+
+//     if (buzzerData.pause == 0)
+//         buzzerData.pause = 100;
+
+//     for (int i = 0; i < buzzerData.repeat; i++)
+//     {
+//         setSquareWaveFrequency(buzzerData.hz); // Start buzzer
+//         vTaskDelay(pdMS_TO_TICKS(buzzerData.duration));
+
+//         ledcDetachPin(BUZZER_PIN); // Stop buzzer
+//         vTaskDelay(pdMS_TO_TICKS(buzzerData.pause));
+//     }
+// }

@@ -9,9 +9,9 @@
 #include "io_sub.h"
 
 #define NUM_LEDS 3
-#define LEDBB 2
+#define LEDBB 0
 #define LEDSTATUS 1
-#define LEDSB 0
+#define LEDSB 2
 
 CRGB ledData;
 CRGB leds[NUM_LEDS];

@@ -327,7 +327,7 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
             trackPosPrint(buoyPara[i].trackPos);
             printf(" = (%.12f,%.12f)\r\n", buoyPara[i].tgLat, buoyPara[i].tgLng);
         }
-        buoyPara[3] = recalcStarLine(buoyPara);
+        recalcStartLine(buoyPara);
         if ((buoyPara[0].trackPos != -1 && buoyPara[1].trackPos != -1) || (buoyPara[0].trackPos != -1 && buoyPara[2].trackPos != -1) || (buoyPara[1].trackPos != -1 && buoyPara[2].trackPos != -1))
         {
             beep(1, buzzer);
@@ -347,7 +347,7 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
             trackPosPrint(buoyPara[i].trackPos);
             printf(" = (%.12f,%.12f)\r\n", buoyPara[i].tgLat, buoyPara[i].tgLng);
         }
-        buoyPara[3] = reCalcTrack(buoyPara);
+        reCalcTrack(buoyPara);
         if (buoyPara[0].trackPos != -1 || buoyPara[1].trackPos != -1 || buoyPara[2].trackPos != -1)
         {
             beep(1, buzzer);
@@ -427,27 +427,20 @@ void handleTimerRoutines(RoboStruct *timer)
         timer->lastSerOut = millis() + 5000;
         if (timer->status == LOCKED || timer->status == DOCKED)
         {
-            timer->lastSerOut = millis() + 1000;
+            timer->lastSerOut = millis() + 250;
             RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
             timer->cmd = DIRDIST;
-            xQueueSend(serOut, (void *)timer, 0);  // send course and distance to sub
-            xQueueSend(loraOut, (void *)timer, 0); // send course and distance to sub
-            timer->cmd = DIRMDIRTGDIRG;
-            xQueueSend(loraOut, (void *)timer, 0); // send course and distance to sub
-            xQueueSend(udpOut, (void *)timer, 0);  // send course and distance to sub
+            xQueueSend(serOut, (void *)timer, 0); // send course and distance to sub
+            // timer->cmd = DIRMDIRTGDIRG;
+            // xQueueSend(udpOut, (void *)timer, 0);  // send course and distance to sub
         }
         else if (timer->status == REMOTE) // Remote controlled
         {
-            timer->lastSerOut = millis() + 750;
+            timer->lastSerOut = millis() + 500;
             timer->cmd = REMOTE;
             xQueueSend(serOut, (void *)timer, 0);
             timer->cmd = DIRSPEED;
-            xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
-            // xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
-        }
-        else
-        {
-            timer->cmd = PING;
+            xQueueSend(udpOut, (void *)timer, 10); // send out trough wifi
         }
     }
     //***************************************************************************************************
@@ -595,11 +588,11 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 break;
             case DIRDIST:
                 double lat, lon;
-                printf("New dir: %f New distance %f\r\n", RfIn.tgDir, RfIn.tgDist);
+                // printf("New dir: %f New distance %f\r\n", RfIn.tgDir, RfIn.tgDist);
                 adjustPositionDirDist(RfIn.tgDir, RfIn.tgDist, RfOut->lat, RfOut->lng, &RfOut->tgLat, &RfOut->tgLng);
-                printf("New cordinates: https://www.google.nl/maps/@%f,%f,14z\r\n", RfOut->tgLat, RfOut->tgLng);
+                // printf("New cordinates: https://www.google.nl/maps/@%f,%f,14z\r\n", RfOut->tgLat, RfOut->tgLng);
                 RouteToPoint(RfOut->lat, RfOut->lng, RfOut->tgLat, RfOut->tgLng, &RfOut->tgDist, &RfOut->tgDir);
-                printf("New dir: %f New distance %f\r\n", RfOut->tgDir, RfOut->tgDist);
+                // printf("New dir: %f New distance %f\r\n", RfOut->tgDir, RfOut->tgDist);
                 if (RfOut->status != LOCKED)
                 {
                     RfOut->status = LOCKING;
@@ -692,7 +685,6 @@ void handelGpsData(RoboStruct *gps)
         if (gpsin.gpsFix == true && gps->gpsFix == false)
         {
             beep(2000, buzzer);
-            gps->gpsFix = true;
             tx.IDr = BUOYIDALL;
             tx.cmd = BUOYPOS;
             tx.ack = LORAINF;

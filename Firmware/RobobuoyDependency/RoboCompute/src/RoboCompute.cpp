@@ -14,334 +14,369 @@ bool startsWithDollar(const String &str)
     output parameters in to stuct type RoboStruct
     crc does not have any value
 */
-struct RoboStruct RoboDecode(String data, RoboStruct dataStore)
+void RoboDecode(String data, RoboStruct *dataStore)
 {
-    dataStore.cmd = -1;
-    String numbers[15];           // Array to hold the decoded numbers (adjust size as needed)
-    int count = 0;                // Keep track of the number of extracted numbers
-    int startIndex = 0;           // Start
-    int endIndex = data.length(); // End
-                                  // Split the substring by commas
+    dataStore->cmd = -1;
+
+    String numbers[15]; // Array to hold the decoded numbers
+    int count = 0;
     String substring = data;
-    while (substring.length() > 0)
+
+    // Split the string by commas
+    while (substring.length() > 0 && count < 15)
     {
         int commaIndex = substring.indexOf(',');
-        // If there's no more comma, this is the last number
         if (commaIndex == -1)
         {
-            // numbers[count++] = substring.toInt(); // Convert the last part to an integer
             numbers[count++] = substring;
             break;
         }
-        // Extract the number before the comma
         numbers[count++] = substring.substring(0, commaIndex);
-
-        // Remove the extracted number and the comma from the substring
         substring = substring.substring(commaIndex + 1);
     }
-    dataStore.cmd = numbers[0].toInt();
-    // Serial.println("CMD:" + String(dataStore.cmd));
-    // Serial.println("Data:" + data);
-    dataStore.status = numbers[1].toInt();
-    switch (dataStore.cmd)
+
+    // Parse fields
+    dataStore->cmd = numbers[0].toInt();
+    dataStore->status = numbers[1].toInt();
+
+    switch (dataStore->cmd)
     {
     case IDLE:
-        dataStore.speed = 0;
-        dataStore.tgDist = 0;
+        dataStore->speed = 0;
+        dataStore->tgDist = 0;
         break;
-    case LOCKING:
+
+    case DOCKED:
+    case LOCKED:
+        dataStore->tgDir = numbers[2].toDouble();
+        dataStore->tgDist = numbers[3].toDouble();
+        dataStore->tgSpeed = numbers[4].toDouble();
+        dataStore->wDir = numbers[5].toDouble();
+        dataStore->wStd = numbers[6].toDouble();
         break;
-    case DOCKED: // tgDir,tgDist
-    case LOCKED: // tgDir,tgDist
-        dataStore.tgDir = numbers[2].toDouble();
-        dataStore.tgDist = numbers[3].toDouble();
-        dataStore.tgSpeed = numbers[4].toDouble();
-        dataStore.wDir = numbers[5].toDouble();
-        dataStore.wStd = numbers[6].toDouble();
+
+    case REMOTE:
+        dataStore->tgDir = numbers[2].toDouble();
+        dataStore->tgSpeed = numbers[3].toDouble();
         break;
-    case REMOTE: // speed,tgdir
-        dataStore.tgDir = numbers[2].toDouble();
-        dataStore.tgSpeed = numbers[3].toDouble();
-        break;
-    case TOPDATA: // ?
-        printf("TOPDATA Not implementend yet/r/n");
-        break;
+
     case DIRSPEED:
-        dataStore.dirMag = numbers[2].toDouble();
-        dataStore.speed = numbers[3].toInt();
-        dataStore.speedBb = numbers[4].toInt();
-        dataStore.speedSb = numbers[5].toInt();
+        dataStore->dirMag = numbers[2].toDouble();
+        dataStore->speed = numbers[3].toInt();
+        dataStore->speedBb = numbers[4].toInt();
+        dataStore->speedSb = numbers[5].toInt();
         break;
-    case ROUTTOPOINT: //?
+
+    case SPBBSPSB:
+        dataStore->speedBb = numbers[2].toInt();
+        dataStore->speedSb = numbers[3].toInt();
         break;
-    case SPBBSPSB: // SpeedBb,SpeedSb
-        dataStore.speedBb = numbers[2].toInt();
-        dataStore.speedSb = numbers[3].toInt();
+
+    case CALCRUDDER:
+        dataStore->tgDir = numbers[2].toDouble();
+        dataStore->tgDist = numbers[3].toDouble();
+        dataStore->speedSet = numbers[4].toDouble();
         break;
-    case CALCRUDDER: // tgDir,tgDist,Speed
-        dataStore.tgDir = numbers[2].toDouble();
-        dataStore.tgDist = numbers[3].toDouble();
-        dataStore.speedSet = numbers[4].toDouble();
+
     case SPEED:
-        dataStore.speed = numbers[2].toInt();
+        dataStore->speed = numbers[2].toInt();
+        break;
+
     case SUBSPEED:
-        dataStore.speedBb = numbers[2].toInt();
-        dataStore.speedSb = numbers[3].toInt();
-        dataStore.speed = numbers[4].toInt();
+        dataStore->speedBb = numbers[2].toInt();
+        dataStore->speedSb = numbers[3].toInt();
+        dataStore->speed = numbers[4].toInt();
         break;
-    case SUBACCU: // V,P
-        dataStore.subAccuV = numbers[2].toFloat();
-        dataStore.subAccuP = numbers[3].toInt();
+
+    case SUBACCU:
+        dataStore->subAccuV = numbers[2].toFloat();
+        dataStore->subAccuP = numbers[3].toInt();
         break;
-    case PIDRUDDERSET: // Prudder,Irudder,Drudder,kp,ki,kd
-    case PIDRUDDER:    // Prudder,Irudder,Drudder,kp,ki,kd
-        dataStore.pr = numbers[2].toDouble();
-        dataStore.ir = numbers[3].toDouble();
-        dataStore.dr = numbers[4].toDouble();
+
+    case PIDRUDDERSET:
+    case PIDRUDDER:
+        dataStore->Kpr = numbers[2].toDouble();
+        dataStore->Kir = numbers[3].toDouble();
+        dataStore->Kdr = numbers[4].toDouble();
         break;
-    case PIDSPEEDSET: // Pspeed,Ispeed,Dspeed,kp,ki,kd
-    case PIDSPEED:    // Pspeed,Ispeed,Dspeed,kp,ki,kd
-        dataStore.ps = numbers[2].toDouble();
-        dataStore.is = numbers[3].toDouble();
-        dataStore.ds = numbers[4].toDouble();
+
+    case PIDSPEEDSET:
+    case PIDSPEED:
+        dataStore->Kps = numbers[2].toDouble();
+        dataStore->Kis = numbers[3].toDouble();
+        dataStore->Kds = numbers[4].toDouble();
         break;
+
     case SUBPWR:
-        dataStore.speedSet = numbers[2].toDouble();
-        dataStore.speed = numbers[3].toInt();
-        dataStore.speedBb = numbers[4].toInt();
-        dataStore.speedSb = numbers[5].toInt();
-        dataStore.subAccuV = numbers[6].toFloat();
+        dataStore->speedSet = numbers[2].toDouble();
+        dataStore->speed = numbers[3].toInt();
+        dataStore->speedBb = numbers[4].toInt();
+        dataStore->speedSb = numbers[5].toInt();
+        dataStore->subAccuV = numbers[6].toFloat();
         break;
-    case BUOYPOS: // STATUS,LAT,LON,mDir,wDir,wStd,BattPecTop,BattPercBott,speedbb,speedsb
-        dataStore.lat = numbers[2].toDouble();
-        dataStore.lng = numbers[3].toDouble();
-        dataStore.dirMag = numbers[4].toDouble();
-        dataStore.wDir = numbers[5].toDouble();
-        dataStore.wStd = numbers[6].toDouble();
-        dataStore.topAccuP = numbers[7].toInt();
-        dataStore.subAccuP = numbers[8].toInt();
-        dataStore.gpsFix = (bool)numbers[9].toInt();
-        dataStore.gpsSat = numbers[10].toInt();
+
+    case BUOYPOS:
+        dataStore->lat = numbers[2].toDouble();
+        dataStore->lng = numbers[3].toDouble();
+        dataStore->dirMag = numbers[4].toDouble();
+        dataStore->wDir = numbers[5].toDouble();
+        dataStore->wStd = numbers[6].toDouble();
+        dataStore->topAccuP = numbers[7].toInt();
+        dataStore->subAccuP = numbers[8].toInt();
+        dataStore->gpsFix = (bool)numbers[9].toInt();
+        dataStore->gpsSat = numbers[10].toInt();
         break;
-    case DOCKING:
+
+    case LOCKPOS:
+    case DOCKPOS:
+        dataStore->tgLat = numbers[2].toDouble();
+        dataStore->tgLng = numbers[3].toDouble();
+        dataStore->wDir = numbers[4].toDouble();
+        dataStore->wStd = numbers[5].toDouble();
         break;
-    case LOCKPOS: // LAT,LON,wDir,wStd
-    case DOCKPOS: // LAT,LON,wDir,wStd
-        dataStore.tgLat = numbers[2].toDouble();
-        dataStore.tgLng = numbers[3].toDouble();
-        dataStore.wDir = numbers[4].toDouble();
-        dataStore.wStd = numbers[5].toDouble();
-        break;
-    case STOREASDOC:
-        break;
-    case SETLOCKPOS: // LAT,LON,wDir,wStd
+
+    case SETLOCKPOS:
     case SETDOCKPOS:
-        dataStore.tgLat = numbers[2].toDouble();
-        dataStore.tgLng = numbers[3].toDouble();
+        dataStore->tgLat = numbers[2].toDouble();
+        dataStore->tgLng = numbers[3].toDouble();
         break;
+
     case DIRDIST:
-        dataStore.tgDir = numbers[2].toDouble();
-        dataStore.tgDist = numbers[3].toDouble();
+        dataStore->tgDir = numbers[2].toDouble();
+        dataStore->tgDist = numbers[3].toDouble();
         break;
+
     case WINDDATA:
-        dataStore.wDir = numbers[2].toDouble();
-        dataStore.wStd = numbers[2].toDouble();
+        dataStore->wDir = numbers[2].toDouble();
+        dataStore->wStd = numbers[2].toDouble(); // NOTE: This might be a bug (same index twice)
         break;
+
     case STORE_DECLINATION:
-        dataStore.declination = numbers[2].toDouble();
+        dataStore->declination = numbers[2].toDouble();
         break;
+
     case MAXMINPWR:
     case MAXMINPWRSET:
-        dataStore.maxSpeed = numbers[2].toInt();
-        dataStore.minSpeed = numbers[3].toInt();
+        dataStore->maxSpeed = numbers[2].toInt();
+        dataStore->minSpeed = numbers[3].toInt();
         break;
+
     case DIRMDIRTGDIRG:
-        dataStore.dirMag = numbers[2].toDouble();
-        dataStore.tgDir = numbers[2].toDouble();
-        dataStore.gpsDir = numbers[2].toInt();
+        dataStore->dirMag = numbers[2].toDouble();
+        dataStore->tgDir = numbers[2].toDouble();
+        dataStore->gpsDir = numbers[2].toInt();
         break;
-    case IDELING:
-        break;
-    case LORAACK:
+
     case SET_DECLINATION:
-        dataStore.status = SET_DECLINATION;
+        dataStore->status = SET_DECLINATION;
         break;
+
+    case TOPDATA:
+        Serial.println("TOPDATA not implemented yet");
+        break;
+
+    case ROUTTOPOINT:
+    case DOCKING:
+    case STOREASDOC:
+    case IDELING:
+    case LOCKING:
     case PING:
-        break;
     case PONG:
-        break;
     case CALIBRATE_MAGNETIC_COMPASS:
+    case LORAACK:
+        // Nothing to do
         break;
+
     default:
-        Serial.println("RoboDecode: Unkown decode formatter data in <" + String(data) + ">");
-        dataStore.cmd = -1;
+        Serial.println("RoboDecode: Unknown decode format in <" + data + ">");
+        dataStore->cmd = -1;
         break;
     }
-    return dataStore;
 }
-
 /*
     Encode outgoing data.
     input DATA RoboSruct and depeding on field msg
     output string format $ID,<data>*xx
     crc has to be added!
 */
-String RoboCode(RoboStruct dataOut)
+String RoboCode(const RoboStruct *dataOut)
 {
-    String out = String(dataOut.cmd);
-    out += "," + String(dataOut.status);
-    if (dataOut.ack == LORAACK) // only send ack data
+    String out = String(dataOut->cmd);
+    out += "," + String(dataOut->status);
+
+    if (dataOut->ack == LORAACK) // only send ack data
     {
         return out;
     }
 
-    switch (dataOut.cmd)
+    switch (dataOut->cmd)
     {
     case IDLE:
-        out += ",0";
-        out += ",0";
+        out += ",0,0";
         break;
+
     case DOCKED:
     case LOCKED:
-        out += "," + String(dataOut.tgDir, 2);
-        out += "," + String(dataOut.tgDist, 2);
-        out += "," + String(dataOut.tgSpeed, 2);
-        out += "," + String(dataOut.wDir, 1);
-        out += "," + String(dataOut.wStd, 1);
+        out += "," + String(dataOut->tgDir, 2);
+        out += "," + String(dataOut->tgDist, 2);
+        out += "," + String(dataOut->tgSpeed, 2);
+        out += "," + String(dataOut->wDir, 1);
+        out += "," + String(dataOut->wStd, 1);
         break;
+
     case REMOTE:
-        out += "," + String(dataOut.tgDir, 0);
-        out += "," + String(dataOut.tgSpeed, 0);
+        out += "," + String(dataOut->tgDir, 0);
+        out += "," + String(dataOut->tgSpeed, 0);
         break;
+
     case SUBDATA:
-        out += "," + String(dataOut.dirMag, 2);
-        out += "," + String(dataOut.speedBb);
-        out += "," + String(dataOut.speedSb);
-        out += "," + String(dataOut.subAccuV, 2);
-        out += "," + String(dataOut.subAccuP);
+        out += "," + String(dataOut->dirMag, 2);
+        out += "," + String(dataOut->speedBb);
+        out += "," + String(dataOut->speedSb);
+        out += "," + String(dataOut->subAccuV, 2);
+        out += "," + String(dataOut->subAccuP);
         break;
+
     case MDIR:
-        out += "," + String(dataOut.dirMag, 2);
+        out += "," + String(dataOut->dirMag, 2);
         break;
+
     case GDIR:
-        out += "," + String(dataOut.gpsDir, 2);
+        out += "," + String(dataOut->gpsDir, 2);
         break;
+
     case TDIR:
-        out += "," + String(dataOut.tgDir, 2);
+        out += "," + String(dataOut->tgDir, 2);
         break;
+
     case DIRSPEED:
-        out += "," + String(dataOut.dirMag, 2);
-        out += "," + String(dataOut.speed);
-        out += "," + String(dataOut.speedBb);
-        out += "," + String(dataOut.speedSb);
+        out += "," + String(dataOut->dirMag, 2);
+        out += "," + String(dataOut->speed);
+        out += "," + String(dataOut->speedBb);
+        out += "," + String(dataOut->speedSb);
         break;
+
     case TGDIRSPEED:
-        out += "," + String(dataOut.tgDir, 2);
-        out += "," + String(dataOut.speedSet, 0);
+        out += "," + String(dataOut->tgDir, 2);
+        out += "," + String(dataOut->speedSet, 0);
         break;
+
     case SUBSPEED:
-        out += "," + String(dataOut.speedBb);
-        out += "," + String(dataOut.speedSb);
-        out += "," + String(dataOut.speed);
+        out += "," + String(dataOut->speedBb);
+        out += "," + String(dataOut->speedSb);
+        out += "," + String(dataOut->speed);
         break;
+
     case SUBACCU:
-        out += "," + String(dataOut.subAccuV, 2);
-        out += "," + String(dataOut.subAccuP);
+        out += "," + String(dataOut->subAccuV, 2);
+        out += "," + String(dataOut->subAccuP);
         break;
+
     case PIDSPEED:
     case PIDSPEEDSET:
-        out += "," + String(dataOut.ps, 3);
-        out += "," + String(dataOut.is, 3);
-        out += "," + String(dataOut.ds, 3);
+        out += "," + String(dataOut->Kps, 3);
+        out += "," + String(dataOut->Kis, 3);
+        out += "," + String(dataOut->Kds, 3);
         break;
+
     case PIDRUDDER:
     case PIDRUDDERSET:
-        out += "," + String(dataOut.pr, 3);
-        out += "," + String(dataOut.ir, 3);
-        out += "," + String(dataOut.dr, 3);
+        out += "," + String(dataOut->Kpr, 3);
+        out += "," + String(dataOut->Kir, 3);
+        out += "," + String(dataOut->Kdr, 3);
         break;
+
     case DIRDIST:
-        out += "," + String(dataOut.tgDir, 2);
-        out += "," + String(dataOut.tgDist, 2);
+        out += "," + String(dataOut->tgDir, 2);
+        out += "," + String(dataOut->tgDist, 2);
         break;
+
     case CALCRUDDER:
-        out += "," + String(dataOut.tgDir, 2);
-        out += "," + String(dataOut.tgDist, 2);
-        out += "," + String(dataOut.speedSet, 2);
+        out += "," + String(dataOut->tgDir, 2);
+        out += "," + String(dataOut->tgDist, 2);
+        out += "," + String(dataOut->speedSet, 2);
         break;
+
     case BUOYPOS:
-        out += "," + String(dataOut.lat, 8);
-        out += "," + String(dataOut.lng, 8);
-        out += "," + String(dataOut.dirMag, 2);
-        out += "," + String(dataOut.wDir, 2);
-        out += "," + String(dataOut.wStd, 2);
-        out += "," + String(dataOut.topAccuP);
-        out += "," + String(dataOut.subAccuP);
-        out += "," + String(dataOut.gpsFix);
-        out += "," + String(dataOut.gpsSat);
+        out += "," + String(dataOut->lat, 8);
+        out += "," + String(dataOut->lng, 8);
+        out += "," + String(dataOut->dirMag, 2);
+        out += "," + String(dataOut->wDir, 2);
+        out += "," + String(dataOut->wStd, 2);
+        out += "," + String(dataOut->topAccuP);
+        out += "," + String(dataOut->subAccuP);
+        out += "," + String(dataOut->gpsFix);
+        out += "," + String(dataOut->gpsSat);
         break;
+
     case SUBPWR:
-        out += "," + String(dataOut.speedSet, 0);
-        out += "," + String(dataOut.speed);
-        out += "," + String(dataOut.speedBb);
-        out += "," + String(dataOut.speedSb);
-        out += "," + String(dataOut.subAccuV, 2);
+        out += "," + String(dataOut->speedSet, 0);
+        out += "," + String(dataOut->speed);
+        out += "," + String(dataOut->speedBb);
+        out += "," + String(dataOut->speedSb);
+        out += "," + String(dataOut->subAccuV, 2);
         break;
+
     case SPBBSPSB:
-        out += "," + String(dataOut.speedBb);
-        out += "," + String(dataOut.speedSb);
+        out += "," + String(dataOut->speedBb);
+        out += "," + String(dataOut->speedSb);
         break;
-    case DOCKING:
-        break;
+
     case SETLOCKPOS:
     case SETDOCKPOS:
-        out += "," + String(dataOut.tgLat, 10);
-        out += "," + String(dataOut.tgLng, 10);
+        out += "," + String(dataOut->tgLat, 10);
+        out += "," + String(dataOut->tgLng, 10);
         break;
+
     case LOCKPOS:
     case DOCKPOS:
-        out += "," + String(dataOut.tgLat, 10);
-        out += "," + String(dataOut.tgLng, 10);
-        out += "," + String(dataOut.wDir, 1);
-        out += "," + String(dataOut.wStd, 1);
+        out += "," + String(dataOut->tgLat, 10);
+        out += "," + String(dataOut->tgLng, 10);
+        out += "," + String(dataOut->wDir, 1);
+        out += "," + String(dataOut->wStd, 1);
         break;
+
     case WINDDATA:
-        out += "," + String(dataOut.wDir, 1);
-        out += "," + String(dataOut.wStd, 1);
+        out += "," + String(dataOut->wDir, 1);
+        out += "," + String(dataOut->wStd, 1);
         break;
+
     case MAXMINPWRSET:
     case MAXMINPWR:
-        out += "," + String(dataOut.maxSpeed);
-        out += "," + String(dataOut.minSpeed);
+        out += "," + String(dataOut->maxSpeed);
+        out += "," + String(dataOut->minSpeed);
         break;
-    case LOCKING:
+
     case DIRMDIRTGDIRG:
-        out += "," + String(dataOut.dirMag, 0);
-        out += "," + String(dataOut.tgDir, 0);
-        out += "," + String(dataOut.gpsDir);
+    case LOCKING:
+        out += "," + String(dataOut->dirMag, 0);
+        out += "," + String(dataOut->tgDir, 0);
+        out += "," + String(dataOut->gpsDir);
         break;
+
+    case STORE_DECLINATION:
+        out += "," + String(dataOut->declination, 2);
+        break;
+
+    case PING:
+        return String(PING);
+
+    case PONG:
+        return String(PONG);
+
+    // Cases with no output
+    case DOCKING:
     case IDELING:
-        break;
     case STOREASDOC:
-        break;
     case CALIBRATE_MAGNETIC_COMPASS:
-        break;
     case SET_DECLINATION:
         break;
-    case STORE_DECLINATION:
-        out += "," + String(dataOut.declination, 2);
-        break;
-        break;
-    case PING:
-        out = String(PING);
-        break;
-    case PONG:
-        out = String(PONG);
-        break;
+
     default:
-        printf("Robocode: Unkown formatter <%d>\r\n", dataOut.cmd);
+        printf("RoboCode: Unknown formatter <%d>\r\n", dataOut->cmd);
         break;
     }
+
     return out;
 }
 
@@ -350,11 +385,11 @@ String RoboCode(RoboStruct dataOut)
 //  add crc
 // $IDr,IDs,ack,cmd,status,data*chk
 //***************************************************************************************************
-String rfCode(RoboStruct rfOut)
+String rfCode(RoboStruct *rfOut)
 {
-    String rfMsg = String(rfOut.IDr, HEX);
-    rfMsg += "," + String(rfOut.IDs, HEX);
-    rfMsg += "," + String(rfOut.ack);
+    String rfMsg = String(rfOut->IDr, HEX);
+    rfMsg += "," + String(rfOut->IDs, HEX);
+    rfMsg += "," + String(rfOut->ack);
     rfMsg += "," + RoboCode(rfOut);
     rfMsg = addCRCToString(rfMsg);
     // Serial.println("coded data out<" + rfMsg + ">");
@@ -383,43 +418,60 @@ String addCRCToString(String input)
 //  $IDr,IDs,ACK,MSG,<data>*chk
 //***************************************************************************************************
 // rfIn = "$9*39";
-RoboStruct rfDeCode(String rfIn)
+void rfDeCode(String rfIn, RoboStruct *in)
 {
-    rfIn.trim(); // Clean up whitespace
-    RoboStruct in;
-    in.IDr = -1;
-    in.IDs = -1;
-    if (verifyCRC(rfIn))
+    rfIn.trim(); // Remove whitespace
+
+    // Set defaults
+    in->IDr = -1;
+    in->IDs = -1;
+
+    // Basic structure validation
+    if (!rfIn.startsWith("$") || rfIn.indexOf('*') == -1)
     {
-        // Serial.println("crc OK");
-        int commaIndex;
-        // Parse mac
-        commaIndex = rfIn.indexOf(',');
-        String hexString = rfIn.substring(1, commaIndex); // skip $
-        in.IDr = strtoull(hexString.c_str(), NULL, 16);
-        // Parse macIn
-        rfIn = rfIn.substring(commaIndex + 1);
-        commaIndex = rfIn.indexOf(',');
-        hexString = rfIn.substring(0, commaIndex);
-        in.IDs = strtoull(hexString.c_str(), NULL, 16);
-        // Parse ack
-        rfIn = rfIn.substring(commaIndex + 1);
-        commaIndex = rfIn.indexOf(',');
-        in.ack = rfIn.substring(0, commaIndex).toInt();
-        // Parse msg
-        rfIn = rfIn.substring(commaIndex + 1);
-        commaIndex = rfIn.indexOf(',');
-        // Decode buffer
-        int starIndex = rfIn.indexOf('*');
-        if (starIndex != -1)
-        {
-            rfIn = rfIn.substring(0, starIndex);
-            rfIn.replace("$", ""); // Remove $ if it's not needed in RoboDecode
-            // Serial.println("Decoding<" + rfIn + ">");
-            in = RoboDecode(rfIn, in);
-        }
+        return; // Invalid format
     }
-    return in;
+
+    // CRC check
+    if (!verifyCRC(rfIn))
+    {
+        return;
+    }
+
+    int commaIndex;
+
+    // Parse IDr
+    commaIndex = rfIn.indexOf(',');
+    if (commaIndex == -1)
+        return;
+    String hexString = rfIn.substring(1, commaIndex);
+    in->IDr = strtoull(hexString.c_str(), NULL, 16);
+
+    // Parse IDs
+    rfIn = rfIn.substring(commaIndex + 1);
+    commaIndex = rfIn.indexOf(',');
+    if (commaIndex == -1)
+        return;
+    hexString = rfIn.substring(0, commaIndex);
+    in->IDs = strtoull(hexString.c_str(), NULL, 16);
+
+    // Parse ack
+    rfIn = rfIn.substring(commaIndex + 1);
+    commaIndex = rfIn.indexOf(',');
+    if (commaIndex == -1)
+        return;
+    in->ack = rfIn.substring(0, commaIndex).toInt();
+
+    // Parse msg and data
+    rfIn = rfIn.substring(commaIndex + 1);
+    int starIndex = rfIn.indexOf('*');
+    if (starIndex == -1)
+        return;
+    String dataPart = rfIn.substring(0, starIndex);
+    dataPart.replace("$", "");
+
+    // Decode remaining data into struct
+    RoboDecode(dataPart, in);
 }
 
 String removeBeginAndEndToString(String input)
@@ -487,41 +539,48 @@ void addNewSampleInBuffer(RoboWindStruct *wData, double nwdata)
     wData->ptr++;
 }
 
-void averigeWindRose(RoboWindStruct *wData)
+void averageWindVector(RoboWindStruct *wData)
 {
-    double sumSin = 0, sumCos = 0;
+    double sumX = 0, sumY = 0;
+
     for (int i = 0; i < SAMPELS; ++i)
     {
-        double angle = radians(wData->data[i]); // Convert to radians
-        sumSin += sin(angle);
-        sumCos += cos(angle);
+        double angleRad = radians(wData->data[i]);
+        double speed = wData->speed[i];
+
+        sumX += cos(angleRad) * speed;
+        sumY += sin(angleRad) * speed;
     }
-    double meanAngle = atan2(sumSin / SAMPELS, sumCos / SAMPELS);   // Compute mean angle
-    double meanDegrees = fmod(meanAngle * 180.0 / M_PI + 360, 360); // Convert mean angle to degrees
-    wData->wDir = meanDegrees;
+
+    double meanAngle = atan2(sumY, sumX);
+    wData->wDir = fmod((meanAngle * 180.0 / M_PI) + 360.0, 360.0); // degrees
+    wData->wSpeed = sqrt(sumX * sumX + sumY * sumY) / SAMPELS;
 }
+
 /*
 compute deviation of a buffer pos
 Structure buf[averige][deviation][data0][datan...]
 */
 void deviationWindRose(RoboWindStruct *wData)
 {
-    averigeWindRose(wData);
+    averageWindVector(wData); // Compute mean wind direction first
+
     double sumSquaredCircularDiff = 0;
+
     for (int i = 0; i < SAMPELS; ++i)
     {
         double diff = wData->data[i] - wData->wDir;
-        if (diff > 180)
-        {
-            diff -= 360;
-        }
-        else if (diff < -180)
-        {
-            diff += 360;
-        }
+
+        // Wrap difference to [-180, 180)
+        if (diff > 180.0)
+            diff -= 360.0;
+        else if (diff < -180.0)
+            diff += 360.0;
+
         sumSquaredCircularDiff += diff * diff;
     }
-    wData->wStd = sqrt(sumSquaredCircularDiff / SAMPELS);
+
+    wData->wStd = sqrt(sumSquaredCircularDiff / SAMPELS); // Standard deviation in degrees
 }
 
 void PidDecode(String data, int pid, RoboStruct buoy)
@@ -552,15 +611,15 @@ void PidDecode(String data, int pid, RoboStruct buoy)
     }
     if (pid == PIDSPEED)
     {
-        buoy.ps = numbers[1];
-        buoy.is = numbers[2];
-        buoy.is = numbers[3];
+        buoy.Kps = numbers[1];
+        buoy.Kis = numbers[2];
+        buoy.Kis = numbers[3];
     }
     if (pid == PIDRUDDER)
     {
-        buoy.pr = numbers[1];
-        buoy.ir = numbers[2];
-        buoy.ir = numbers[3];
+        buoy.Kpr = numbers[1];
+        buoy.Kir = numbers[2];
+        buoy.Kir = numbers[3];
     }
 }
 
@@ -569,15 +628,15 @@ String PidEncode(int pid, RoboStruct buoy)
     String out = "";
     if (pid == PIDSPEED)
     {
-        out = String(buoy.ps);
-        out += "," + String(buoy.is);
-        out += "," + String(buoy.ds);
+        out = String(buoy.Kps);
+        out += "," + String(buoy.Kis);
+        out += "," + String(buoy.Kds);
     }
     if (pid == PIDRUDDER)
     {
-        out = String(buoy.pr);
-        out += "," + String(buoy.ir);
-        out += "," + String(buoy.dr);
+        out = String(buoy.Kpr);
+        out += "," + String(buoy.Kir);
+        out += "," + String(buoy.Kdr);
     }
     return out;
 }
@@ -622,21 +681,25 @@ double distanceBetween(double lat1, double lon1, double lat2, double lon2)
     // Haversine formula
     double a = sin(dLat / 2) * sin(dLat / 2) + cos(lat1) * cos(lat2) * sin(dLon / 2) * sin(dLon / 2);
     double c = 2 * atan2(sqrt(a), sqrt(1 - a));
-    // Distance in kilometers
+    // Distance in meters
     return EARTH_MEAN_RADIUS * c;
 }
 
 double calculateBearing(double lat1, double lon1, double lat2, double lon2)
 {
+    // Convert degrees to radians
     double dLon = (lon2 - lon1) * M_PI / 180.0;
     lat1 = lat1 * M_PI / 180.0;
     lat2 = lat2 * M_PI / 180.0;
 
+    // Calculate bearing
     double y = sin(dLon) * cos(lat2);
     double x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon);
 
-    double bearing = atan2(y, x) * (180.0 / M_PI); // Convert to degrees
-    return fmod((bearing + 360), 360);             // Normalize to 0-360
+    double bearing = atan2(y, x) * (180.0 / M_PI); // radians to degrees
+
+    // Normalize to 0-360 degrees
+    return fmod((bearing + 360.0), 360.0);
 }
 
 /*Approimate roling average deafualt 100 samples*/
@@ -698,16 +761,24 @@ void adjustPositionDirDist(double bearing_deg, double distance,
 
     *lat2_deg = degrees(lat2);
     *lon2_deg = degrees(lon2);
+    // Normalize longitude to -180...+180
+    if (*lon2_deg > 180.0)
+        *lon2_deg -= 360.0;
+    else if (*lon2_deg < -180.0)
+        *lon2_deg += 360.0;
 }
 
 double smallestAngle(double heading1, double heading2)
 {
-    double angle = fmod(heading2 - heading1 + 360, 360); // Calculate the difference and keep it within 360 degrees
+    // Calculate the difference and normalize to [0, 360)
+    double angle = fmod(heading2 - heading1 + 360, 360);
+
+    // Convert angles > 180 to negative equivalent to get shortest turn direction
     if (angle > 180)
     {
-        return angle - 360; // Angle is greater than 180, SB (turn right)
+        return angle - 360; // Turn right (negative angle)
     }
-    return angle; // Angle is less than or equal to 180, BB (Turn left)
+    return angle; // Turn left (positive angle)
 }
 
 /*
@@ -716,15 +787,8 @@ double smallestAngle(double heading1, double heading2)
 */
 bool determineDirection(double heading1, double heading2)
 {
-    double angle = fmod(heading2 - heading1 + 360, 360); // Calculate the difference and keep it within 360 degrees
-    if (angle > 180)
-    {
-        return 1; // Angle is greater than 180, SB (turn right)
-    }
-    else
-    {
-        return 0; // Angle is less than or equal to 180, BB (Turn left)
-    }
+    double angle = fmod(heading2 - heading1 + 360, 360); // Normalize difference to [0, 360)
+    return (angle > 180);                                // true if angle > 180 (turn right), else false
 }
 
 /*
@@ -803,20 +867,20 @@ RoboStruct hooverPid(RoboStruct buoy)
     double dErr = (error - buoy.lastErrs) / timeChange;
     /* Do not sail backwards*/
     // if (buoy.iintergrates < 0)
-    if (buoy.is * buoy.errSums < 0)
+    if (buoy.Kis * buoy.errSums < 0)
     {
         buoy.errSums = 0;
     }
     // /*max 70% I correction*/
-    if (buoy.is * buoy.errSums > 70)
+    if (buoy.Kis * buoy.errSums > 70)
     {
-        buoy.errSums = 70 / buoy.is;
+        buoy.errSums = 70 / buoy.Kis;
     }
     /*Compute PID Output*/
-    buoy.ps = buoy.ps * error;
-    buoy.is = buoy.is * buoy.errSums;
-    buoy.ds = buoy.ds * dErr;
-    Output = buoy.ps + buoy.is + buoy.ds;
+    buoy.Kps = buoy.Kps * error;
+    buoy.Kis = buoy.Kis * buoy.errSums;
+    buoy.Kds = buoy.Kds * dErr;
+    Output = buoy.Kps + buoy.Kis + buoy.Kds;
     /* Do not sail backwards*/
     if (Output < 0)
     {
@@ -840,8 +904,8 @@ RoboStruct hooverPid(RoboStruct buoy)
 // Function to calculate the centroid (average point)
 void threePointAverage(struct RoboStruct p3[2], double *latgem, double *lnggem)
 {
-    *latgem = (p3[0].tgLat + p3[1].tgLat + p3[1].tgLat) / 3;
-    *lnggem = (p3[0].tgLng + p3[1].tgLng + p3[1].tgLng) / 3;
+    *latgem = (p3[0].tgLat + p3[1].tgLat + p3[2].tgLat) / 3;
+    *lnggem = (p3[0].tgLng + p3[1].tgLng + p3[2].tgLng) / 3;
 }
 // Function to calculate the centroid (average point)
 void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double *latgem, double *longem)
@@ -853,19 +917,14 @@ void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double 
 // Function to convert wind direction in degrees to a vector
 void windDirectionToVector(double windDegrees, double *windX, double *windY)
 {
-    // Normalize wind direction to [0, 360)
-    while (windDegrees < 0)
-    {
+    // Normalize to [0, 360)
+    windDegrees = fmod(windDegrees, 360);
+    if (windDegrees < 0)
         windDegrees += 360;
-    }
-    while (windDegrees >= 360)
-    {
-        windDegrees -= 360;
-    }
-    // Convert degrees to radians
-    // Calculate the wind vector components
-    *windX = cos(radians(windDegrees));
-    *windY = sin(radians(windDegrees));
+
+    double radiansAngle = radians(windDegrees);
+    *windX = cos(radiansAngle);
+    *windY = sin(radiansAngle);
 }
 
 // Function to calculate the angle between two vectors in degrees
@@ -877,12 +936,21 @@ double calculateAngle(double x1, double y1, double x2, double y2)
     // Calculate the cosine of the angle
     double cosAngle = dotProduct / (magnitudeA * magnitudeB);
     // Clamp the value to the range [-1, 1] to avoid NaN from acos
-    if (cosAngle > 1.0)
-        cosAngle = 1.0;
-    if (cosAngle < -1.0)
-        cosAngle = -1.0;
-    // Return the angle in degrees
+    cosAngle = fmax(-1.0, fmin(1.0, cosAngle)); // Clamp to [-1, 1]    // Return the angle in degrees
     return acos(cosAngle) * (180.0 / M_PI);
+}
+double calculateAngleSigned(double x1, double y1, double x2, double y2)
+{
+    double dotProduct = x1 * x2 + y1 * y2;
+    double magnitudeA = sqrt(x1 * x1 + y1 * y1);
+    double magnitudeB = sqrt(x2 * x2 + y2 * y2);
+    // Calculate the cosine of the angle
+    double cosAngle = dotProduct / (magnitudeA * magnitudeB);
+    // Clamp the value to the range [-1, 1] to avoid NaN from acos
+    cosAngle = fmax(-1.0, fmin(1.0, cosAngle)); // Clamp to [-1, 1]    // Return the angle in degrees
+    double crossProduct = x1 * y2 - y1 * x2;
+    double angle = atan2(crossProduct, dotProduct) * (180.0 / M_PI); // Signed angle
+    return angle;
 }
 
 // Function to calculate bearing from one point to another using latitude and longitude
@@ -900,99 +968,73 @@ double computeWindAngle(double windDegrees, double lat, double lon, double centr
 /************************************************************************************************************************************************************************* */
 // Conversion ready until here
 /************************************************************************************************************************************************************************* */
-RoboStruct recalcStarLine(struct RoboStruct rsl[3])
+#define INVALID_POINT(p) ((p).tgLat == 0.0 || (p).tgLng == 0.0)
+
+void recalcStartLine(struct RoboStruct rsl[3])
 {
-    double d0, d1, d2, dir;
-    double mid[3];
-    double angleSb = 0;
-    rsl[0].trackPos = -1;
-    rsl[1].trackPos = -1;
-    rsl[2].trackPos = -1;
+    double d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng);
+    double d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+    double d2 = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+
+    double midLat, midLng;
+    double angleSb, angleBb;
+
     printf("# Winddir 0:%.2f 1:%.3f 2:%.2f \r\n", rsl[0].wDir, rsl[1].wDir, rsl[2].wDir);
-    d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng); // compute length p0 p1
-    d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng); // compute length p0 p2
-    d2 = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng); // compute length p1 p2
+
     if (d0 < d1 && d0 < d2)
     {
-        if (rsl[0].tgLat == 0 || rsl[0].tgLng == 0 || rsl[1].tgLat == 0 || rsl[1].tgLng == 0) // check if data is ok
+        if (INVALID_POINT(rsl[0]) || INVALID_POINT(rsl[1]))
         {
-            printf("# No data to compute with\r\n");
-            return rsl[3];
+            printf("# No data to compute with (0-1)\r\n");
+            return;
         }
-        angleSb = rsl[0].wDir + 90;
-        if (angleSb > 360)
-        {
-            angleSb -= 360;
-        }
-        double angleBb = angleSb + 180;
-        if (angleBb > 360)
-        {
-            angleBb -= 360;
-        }
-        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng, &mid[0], &mid[1]); // calculate startline centerpoint
-        printf("midpoint =(%.12f,%.12f)\r\n", mid[0], mid[1]);                                     // mid point of thre (for plotting the windrose and calculations)
-        adjustPositionDirDist(angleBb, d0 / 2, mid[0], mid[1], &rsl[0].tgLat, &rsl[0].tgLng);      // compute port
-        adjustPositionDirDist(angleSb, d0 / 2, mid[0], mid[1], &rsl[1].tgLat, &rsl[1].tgLng);      // compute starboard
-        printf("winddir =(%.1f)\r\n", rsl[0].wDir);                                                // wind direction
+
+        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng, &midLat, &midLng);
+        angleSb = fmod(rsl[0].wDir + 90.0, 360.0);
+        angleBb = fmod(angleSb + 180.0, 360.0);
+
+        adjustPositionDirDist(angleBb, d0 / 2, midLat, midLng, &rsl[0].tgLat, &rsl[0].tgLng); // PORT
+        adjustPositionDirDist(angleSb, d0 / 2, midLat, midLng, &rsl[1].tgLat, &rsl[1].tgLng); // STARBOARD
+
         rsl[0].trackPos = PORT;
         rsl[1].trackPos = STARBOARD;
-        return rsl[3];
     }
-
-    if (d1 < d0 && d0 < d2)
+    else if (d1 < d0 && d1 < d2)
     {
-        if (rsl[0].tgLat == 0 || rsl[0].tgLng == 0 || rsl[2].tgLat == 0 || rsl[2].tgLng == 0) // check if data is ok
+        if (INVALID_POINT(rsl[0]) || INVALID_POINT(rsl[2]))
         {
-            printf("# No data to compute with\r\n");
-            return rsl[3];
+            printf("# No data to compute with (0-2)\r\n");
+            return;
         }
-        angleSb = rsl[0].wDir + 90;
-        if (angleSb > 360)
-        {
-            angleSb -= 360;
-        }
-        double angleBb = angleSb + 180;
-        if (angleBb > 360)
-        {
-            angleBb -= 360;
-        }
-        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &mid[0], &mid[1]); // calculate startline centerpoint
-        printf("midpoint =(%.12f,%.12f)\r\n", mid[0], mid[1]);                                     // mid point of thre (for plotting the windrose and calculations)
-        adjustPositionDirDist(angleBb, d1 / 2, mid[0], mid[1], &rsl[0].tgLat, &rsl[0].tgLng);      // compute port
-        adjustPositionDirDist(angleSb, d1 / 2, mid[0], mid[1], &rsl[2].tgLat, &rsl[2].tgLng);      // compute starboard
-        printf("winddir =(%.1f)\r\n", rsl[0].wDir);                                                // wind direction
+
+        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &midLat, &midLng);
+        angleSb = fmod(rsl[0].wDir + 90.0, 360.0);
+        angleBb = fmod(angleSb + 180.0, 360.0);
+
+        adjustPositionDirDist(angleBb, d1 / 2, midLat, midLng, &rsl[0].tgLat, &rsl[0].tgLng); // PORT
+        adjustPositionDirDist(angleSb, d1 / 2, midLat, midLng, &rsl[2].tgLat, &rsl[2].tgLng); // STARBOARD
+
         rsl[0].trackPos = PORT;
-        rsl[1].trackPos = STARBOARD;
-        return rsl[3];
+        rsl[2].trackPos = STARBOARD;
     }
-
-    if (d2 < d0 && d2 < d1)
+    else if (d2 < d0 && d2 < d1)
     {
-        if (rsl[1].tgLat == 0 || rsl[1].tgLng == 0 || rsl[2].tgLat == 0 || rsl[2].tgLng == 0) // check if data is ok
+        if (INVALID_POINT(rsl[1]) || INVALID_POINT(rsl[2]))
         {
-            printf("# No data to compute with\r\n");
-            return rsl[3];
+            printf("# No data to compute with (1-2)\r\n");
+            return;
         }
-        angleSb = rsl[1].wDir + 90;
-        if (angleSb > 360)
-        {
-            angleSb -= 360;
-        }
-        double angleBb = angleSb + 180;
-        if (angleBb > 360)
-        {
-            angleBb -= 360;
-        }
-        twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &mid[0], &mid[1]); // calculate startline centerpoint
-        printf("midpoint =(%.12f,%.12f)\r\n", mid[0], mid[1]);                                     // mid point of thre (for plotting the windrose and calculations)
-        adjustPositionDirDist(angleBb, d2 / 2, mid[0], mid[1], &rsl[1].tgLat, &rsl[1].tgLng);      // compute port
-        adjustPositionDirDist(angleSb, d2 / 2, mid[0], mid[1], &rsl[2].tgLat, &rsl[2].tgLng);      // compute starboard
-        printf("winddir =(%.1f)\r\n", rsl[1].wDir);                                                // wind direction
+
+        twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &midLat, &midLng);
+        angleSb = fmod(rsl[1].wDir + 90.0, 360.0);
+        angleBb = fmod(angleSb + 180.0, 360.0);
+
+        adjustPositionDirDist(angleBb, d2 / 2, midLat, midLng, &rsl[1].tgLat, &rsl[1].tgLng); // PORT
+        adjustPositionDirDist(angleSb, d2 / 2, midLat, midLng, &rsl[2].tgLat, &rsl[2].tgLng); // STARBOARD
+
         rsl[1].trackPos = PORT;
-        rsl[1].trackPos = STARBOARD;
-        return rsl[2];
+        rsl[2].trackPos = STARBOARD;
     }
-    return rsl[2];
 }
 
 /*
@@ -1009,112 +1051,107 @@ RoboStruct recalcStarLine(struct RoboStruct rsl[3])
     - New position buoy2, HEAD,PORT,STARBORD
     - New position buoy3, HEAD,PORT,STARBORD
 */
-RoboStruct reCalcTrack(struct RoboStruct rsl[3])
+void reCalcTrack(struct RoboStruct rsl[3])
 {
     double d0, d1, d2;
     double startLineL, centerPont2Startline, centerPoint2Head;
-    double angleSb, angleBb, angle180, dir;
+    double angleSb, angleBb, angle180;
     double lat2gem, lng2gem;
     double lat3gem, lng3gem;
-    rsl[0].trackPos = -1;
-    rsl[1].trackPos = -1;
-    rsl[2].trackPos = -1;
+
+    // Reset track positions
     for (int i = 0; i < 3; i++)
     {
+        rsl[i].trackPos = -1;
         if (rsl[i].tgLng == 0 || rsl[i].tgLat == 0)
         {
             printf("# No data to compute with\r\n");
-            return rsl[3];
+            return;
         }
     }
-    // mid point of three buoys (for plotting the windrose and calculations)
+
+    // Midpoint of three buoys
     threePointAverage(rsl, &lat3gem, &lng3gem);
     printf("midpoint =(%.12f,%.12f)\r\n", lat3gem, lng3gem);
 
-    // determ the length of the startline
-    d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng); // compute length p0 p1
-    d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng); // compute length p0 p2
-    d2 = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng); // compute length p1 p2
+    // Distances between buoys
+    d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng);
+    d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+    d2 = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+
+    // Determine start line and midpoint of that line
     if (d0 < d1 && d0 < d2)
     {
-        startLineL = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng);        // compute length startline
-        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng, &lat2gem, &lng2gem); // calculate startline centerpoint
+        startLineL = d0;
+        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng, &lat2gem, &lng2gem);
     }
-    if (d1 < d2 && d1 < d0)
+    else if (d1 < d2 && d1 < d0)
     {
-        startLineL = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng);        // compute length startline
-        twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &lat2gem, &lng2gem); // calculate startline centerpoint
+        startLineL = d1;
+        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &lat2gem, &lng2gem);
     }
-    if (d2 < d0 && d2 < d1)
+    else
     {
-        startLineL = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng);        // compute length startline
-        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &lat2gem, &lng2gem); // calculate startline centerpoint
+        startLineL = d2;
+        twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &lat2gem, &lng2gem);
     }
-    // search for the buoy clocesed to the wind direction
+
+    // Compute wind angles to midpoint
     double b0 = computeWindAngle(rsl[0].wDir, rsl[0].tgLat, rsl[0].tgLng, lat3gem, lng3gem);
     double b1 = computeWindAngle(rsl[0].wDir, rsl[1].tgLat, rsl[1].tgLng, lat3gem, lng3gem);
     double b2 = computeWindAngle(rsl[0].wDir, rsl[2].tgLat, rsl[2].tgLng, lat3gem, lng3gem);
-    // determ  he wind angles for the start line (+-90 degrees from the wind direction)
-    printf("winddir =(%.1f)\r\n", rsl[0].wDir); // wind direction
+
+    printf("winddir =(%.1f)\r\n", rsl[0].wDir);
+
     angle180 = rsl[0].wDir + 180;
-    if (b2 < b0 && b2 < b1)
-    {
-        angle180 = rsl[1].wDir + 180;
-    }
     if (angle180 > 360)
-    {
         angle180 -= 360;
-    }
+
     angleSb = rsl[0].wDir + 90;
     if (angleSb > 360)
-    {
         angleSb -= 360;
-    }
+
     angleBb = angleSb + 180;
     if (angleBb > 360)
-    {
         angleBb -= 360;
-    }
+
+    // Determine which buoy is HEAD (closest to wind direction)
     if (b0 < b1 && b0 < b2)
     {
-        centerPoint2Head = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, lat3gem, lng3gem);                     // calcultate the distance between the centerpoint and the startline
-        centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);                           // calcultate the distance between the centerpoint and the startline
-        adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[0].tgLat, &rsl[0].tgLng); // calculate new position HEAD
-        adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);          // point to new centerpoint of the startline
-        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng);       // compute port
-        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng);       // compute starboard
+        centerPoint2Head = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, lat3gem, lng3gem);
+        centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);
+        adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[0].tgLat, &rsl[0].tgLng); // HEAD
+        adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);
+        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng); // PORT
+        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng); // STARBOARD
         rsl[0].trackPos = HEAD;
         rsl[1].trackPos = PORT;
         rsl[2].trackPos = STARBOARD;
-        return rsl[2];
     }
-    if (b1 < b0 && b1 < b2)
+    else if (b1 < b0 && b1 < b2)
     {
-        centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);                           // calcultate the distance between the centerpoint and the startline
-        centerPoint2Head = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, lat3gem, lng3gem);                     // calcultate the distance between the centerpoint and the startline
-        adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[1].tgLat, &rsl[1].tgLng); // calculate new position HEAD
-        adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);          // point to new centerpoint of the startline
-        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng);       // compute port
-        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng);       // compute starboard
-        rsl[0].trackPos = PORT;
+        centerPoint2Head = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, lat3gem, lng3gem);
+        centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);
+        adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[1].tgLat, &rsl[1].tgLng); // HEAD
+        adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);
+        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[0].tgLat, &rsl[0].tgLng); // PORT
+        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng); // STARBOARD
         rsl[1].trackPos = HEAD;
+        rsl[0].trackPos = PORT;
         rsl[2].trackPos = STARBOARD;
-        return rsl[2];
     }
-    if (b2 < b0 && b2 < b1)
+    else
     {
-        centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);                           // calcultate the distance between the centerpoint and the startline
-        centerPoint2Head = distanceBetween(rsl[2].tgLat, rsl[2].tgLng, lat3gem, lng3gem);                     // calcultate the distance between the centerpoint and the startline
-        adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[2].tgLat, &rsl[2].tgLng); // calculate new position HEAD
-        adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);          // point to new centerpoint of the startline
-        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng);       // compute port
-        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng);       // compute starboard
+        centerPoint2Head = distanceBetween(rsl[2].tgLat, rsl[2].tgLng, lat3gem, lng3gem);
+        centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);
+        adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[2].tgLat, &rsl[2].tgLng); // HEAD
+        adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);
+        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[0].tgLat, &rsl[0].tgLng); // PORT
+        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng); // STARBOARD
+        rsl[2].trackPos = HEAD;
         rsl[0].trackPos = PORT;
         rsl[1].trackPos = STARBOARD;
-        rsl[2].trackPos = HEAD;
-        return rsl[2];
     }
-    return rsl[2];
 }
 
 /*
@@ -1201,7 +1238,7 @@ RoboStruct calcTrackPos(RoboStruct rsl[3])
 /************************************************************************************************************************************************************************* */
 //  Store parameters
 /************************************************************************************************************************************************************************* */
-void AddDataToBuoyBase(RoboStruct dataIn, RoboStruct* buoyPara[3])
+void AddDataToBuoyBase(RoboStruct dataIn, RoboStruct *buoyPara[3])
 {
     for (int i = 0; i < 3; i++)
     {
@@ -1209,26 +1246,25 @@ void AddDataToBuoyBase(RoboStruct dataIn, RoboStruct* buoyPara[3])
             continue;
         if (dataIn.IDs == buoyPara[i]->IDs || buoyPara[i]->IDs == 0)
         {
-            *buoyPara[i] = dataIn;  // Store the data in the buoyPara array
+            *buoyPara[i] = dataIn; // Store the data in the buoyPara array
             Serial.println("# Lock data stored! on pos:" + String(i) + " IDs:" + String(buoyPara[i]->IDs, HEX) + "Lat:" + String(buoyPara[i]->tgLat, 6) + "Lng:" + String(buoyPara[i]->tgLng, 6) + " Wdir:" + String(buoyPara[i]->wDir, 2));
             return;
         }
     }
-    Serial.println("# No data stored! :( ");
+    printf("# No data stored! :( \r\n");
 }
 /************************************************************************************************************************************************************************* */
 //  Retreve parameters
 /************************************************************************************************************************************************************************* */
 int GetDataPosFromBuoyBase(uint64_t id, RoboStruct buoyPara[3])
 {
-    int i = -1;
-    for (i = 0; i < 3; i++)
+    for (int i = 0; i < 3; i++)
     {
         if (id == buoyPara[i].IDs)
         {
             return i;
         }
     }
-    Serial.println("# No data found! :( ");
+    printf("# No data found! :( \r\n");
     return -1;
 }

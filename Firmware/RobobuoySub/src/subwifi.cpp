@@ -42,9 +42,10 @@ bool setup_OTA()
     Serial.println("Storing in memory and reboot!");
     Serial.println(); });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
-                          { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); 
-                            digitalWrite(PWRENABLE, 1); // enable powersupply
-                        });
+                          {
+                              Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+                              digitalWrite(PWRENABLE, 1); // enable powersupply
+                          });
     ArduinoOTA.onError([](ota_error_t error)
                        { ESP.restart(); });
     /* setup the OTA server */
@@ -78,20 +79,22 @@ bool scan_for_wifi_ap(String *ssidap, String ww)
             String ssid = WiFi.SSID(i);
             if (ssid.indexOf(*ssidap) != -1)
             {
-                Serial.print("Acces point foud, logging in...");
+                Serial.println("Access point found, attempting to connect...");
                 WiFi.begin(ssid.c_str(), ww.c_str());
                 while (WiFi.status() != WL_CONNECTED)
                 {
                     delay(50);
                     Serial.print(".");
-                    if (timeout + 60 * 1000 < millis())
+                    if (millis() - timeout > 60000) // 1 minute timeout
                     {
+                        Serial.println("\nConnection timed out. Restarting...");
+                        delay(100);
                         esp_restart();
                     }
                 }
-                Serial.print(".\r\n");
-                Serial.print("Loggend in to SSIS: ");
-                Serial.println(*ssidap);
+                Serial.println("\nConnected.");
+                Serial.print("Logged in to SSID: ");
+                Serial.println(ssid);
                 Serial.print("IP address: ");
                 Serial.println(WiFi.localIP());
                 if (ssid.indexOf("PAIR_ME_") != -1)
@@ -99,7 +102,7 @@ bool scan_for_wifi_ap(String *ssidap, String ww)
                     ssid.replace("PAIR_ME_", "BUOY_");
                     apParameters(&ssid, &ww, false); // store parameters
                     Serial.println("Network parameters stored:" + ssid);
-                    Serial.println("Rebooting in 5 seconds");
+                    Serial.println("Rebooting in 5 seconds...");
                     delay(5000);
                     esp_restart();
                 }
@@ -113,27 +116,36 @@ bool scan_for_wifi_ap(String *ssidap, String ww)
 //***************************************************************************************************
 //      Setup Async UDP
 //***************************************************************************************************
-void setupudp(void)
+bool setupudp(void)
 {
     if (udp.listen(1001))
     {
-        Serial.print("UDP server na IP: ");
+        Serial.print("UDP server at IP: ");
         Serial.print(WiFi.localIP());
         Serial.println(" port: 1001");
         udp.onPacket([](AsyncUDPPacket packet)
                      {
-                         String stringUdpIn = (const char *)packet.data();
-                         RoboStruct udpDataIn = rfDeCode(stringUdpIn);
-                        if (udpDataIn.IDs != -1 )
+                        RoboStruct udpDataIn;
+                         String stringUdpIn = (const char *)packet.data();  // Convert incoming data to String
+                         rfDeCode(stringUdpIn,&udpDataIn);     // Decode string to RoboStruct
+                        if (udpDataIn.IDs != -1 && udpDataIn.IDs != subwifiData.mac) // ignore own messages
                         {
                             xQueueSend(udpIn, (void *)&udpDataIn, 10); // notify main there is new data
                         }
                         else
                         {
-                            Serial.println("crc error>" + stringUdpIn + "<");
-                        } 
-                    });
+                            Serial.printf("CRC error from %s:%u >%s<\n",
+                            packet.remoteIP().toString().c_str(),
+                            packet.remotePort(),
+                            stringUdpIn.c_str());
+                        } });
+        return true;
     }
+    else
+    {
+        Serial.println("Failed to start UDP listener on port 1001");
+    }
+    return false;
 }
 
 //***************************************************************************************************
@@ -145,9 +157,9 @@ void initwifi(void)
     udpIn = xQueueCreate(10, sizeof(RoboStruct));
 }
 
-/*
-    Scan for accespoindts
-*/
+//***************************************************************************************************
+//  Scan for accespoints
+//***************************************************************************************************
 bool scan_for_wifi_ap(String ssipap)
 {
     unsigned long timeout = millis();
@@ -170,11 +182,18 @@ bool scan_for_wifi_ap(String ssipap)
     return false;
 }
 
-uint8_t* getMacId(uint8_t* mac)
+//***************************************************************************************************
+//  mac address
+//***************************************************************************************************
+uint8_t *getMacId(uint8_t *mac)
 {
     WiFi.macAddress(mac);
     return mac;
 }
+
+//***************************************************************************************************
+//  mac address
+//***************************************************************************************************
 unsigned long espMac(void)
 {
     byte macarr[6];
@@ -209,7 +228,7 @@ void WiFiTask(void *arg)
     }
     if (ap == false)
     {
-        //wm.resetSettings();
+        // wm.resetSettings();
         wm.autoConnect(macStr);
         // wm.setConfigPortalTimeout(60 * 10);
         // wm.setConfigPortalBlocking(true);
@@ -228,7 +247,7 @@ void WiFiTask(void *arg)
     Serial.print(ssid);
     Serial.println("\"");
     setup_OTA();
-    setupudp();
+    // setupudp();
     Serial.print("WiFI task running!\r\n");
     //***************************************************************************************************
     //  WiFi main loop
@@ -240,7 +259,7 @@ void WiFiTask(void *arg)
         {
             subwifiData.IDr = subwifiData.mac;
             subwifiData.IDs = subwifiData.mac;
-            String out = rfCode(subwifiData);
+            String out = rfCode(&subwifiData);
             udp.broadcast(out.c_str());
         }
         delay(1);

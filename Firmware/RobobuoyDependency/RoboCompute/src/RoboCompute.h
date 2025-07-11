@@ -136,9 +136,7 @@ struct RoboStruct
     double errSums = 0;
     double lastErrs = 0;
     double Kps, Kis, Kds; // PID parameters speed
-    double ps, is, ds;    // PID parameters speed
     double Kpr, Kir, Kdr; // PID parameters rudder
-    double pr, ir, dr;    // PID parameters rudder
     int minOfsetDist = 2;
     int maxOfsetDist = 20;
     int minSpeed = 0;
@@ -175,23 +173,25 @@ struct RoboStructGps
     int speedSb = 0;
 };
 
-struct RoboWindStruct
+typedef struct
 {
-    int ptr = 0;
-    double wDir = 0;
-    double wStd = 0;
-    double data[SAMPELS];
-};
+    double data[SAMPELS];  // Wind direction in degrees
+    double speed[SAMPELS]; // Wind speed in m/s (or any unit)
+    double wDir;           // Averaged wind direction
+    double wStd;           // Standard deviation of direction
+    double wSpeed;         // Averaged wind speed (optional)
+    int ptr;               // Pointer to the current sample
+} RoboWindStruct;
 
-struct RoboStruct RoboDecode(String data, RoboStruct);
-String RoboCode(RoboStruct dataOut);
-String rfCode(RoboStruct loraOut);
-RoboStruct rfDeCode(String rfIn);
+void RoboDecode(String data, RoboStruct *dataStore);
+String RoboCode(const RoboStruct *dataOut);
+String rfCode(RoboStruct *loraOut);
+void rfDeCode(String rfIn, RoboStruct *in);
 String removeBeginAndEndToString(String input);
 String addCRCToString(String input); // Use reference to modify the original string
 bool verifyCRC(String input);
 
-void averigeWindRose(RoboWindStruct *wData);
+void averageWindVector(RoboWindStruct *wData);
 void deviationWindRose(RoboWindStruct *wData);
 void PidDecode(String data, int pid, RoboStruct buoy);
 String PidEncode(int pid, RoboStruct buoy);
@@ -204,6 +204,7 @@ void checkparameters(RoboStruct buoy);
 
 void adjustPositionDirDist(double dir, double dist, double lat, double lon, double *latOut, double *lonOut);
 double smallestAngle(double heading1, double heading2);
+double calculateAngleSigned(double x1, double y1, double x2, double y2);
 bool determineDirection(double heading1, double heading2);
 double Angle2SpeedFactor(double angle);
 double CalcDocSpeed(double tgdistance);
@@ -213,8 +214,8 @@ void threePointAverage(struct RoboStruct p3[2], double *latgem, double *lnggem);
 void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double *latgem, double *longem);
 void windDirectionToVector(double windDegrees, double *windX, double *windY);
 double calculateAngle(double x1, double y1, double x2, double y2);
-RoboStruct recalcStarLine(struct RoboStruct rsl[3]);
-RoboStruct reCalcTrack(struct RoboStruct rsl[3]);
+void recalcStartLine(struct RoboStruct rsl[3]);
+void reCalcTrack(struct RoboStruct rsl[3]);
 void trackPosPrint(int c);
 RoboStruct calcTrackPos(RoboStruct rsl[3]);
 void AddDataToBuoyBase(RoboStruct dataIn, RoboStruct *buoyPara[3]);

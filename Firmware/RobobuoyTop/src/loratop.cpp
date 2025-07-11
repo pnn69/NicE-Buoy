@@ -164,7 +164,8 @@ void onReceive(int packetSize)
         return; // skip rest of function
     }
     //Serial.println("#Lora_i <" + incoming + ">");
-    RoboStruct in = rfDeCode(incoming);
+    RoboStruct in;
+    rfDeCode(incoming,&in);
     if (in.IDr == buoyId && in.ack == LORAACK) // A message form me so check if its a ACK message
     {
         removeAckMsg(in);
@@ -219,7 +220,7 @@ void LoraTask(void *arg)
         {
             // IDr,IDs,ACK,MSG,<data>
             loraMsgout.IDs = buoyId;
-            String loraString = rfCode(loraMsgout);
+            String loraString = rfCode(&loraMsgout);
             while (sendLora(String(loraString)) != true)
             {
                 vTaskDelay(pdTICKS_TO_MS(50));
@@ -237,7 +238,7 @@ void LoraTask(void *arg)
             loraMsgout = chkAckMsg();
             if (loraMsgout.cmd != 0)
             {
-                String loraString = rfCode(loraMsgout);
+                String loraString = rfCode(&loraMsgout);
                 while (sendLora(loraString) != true)
                 {
                     vTaskDelay(pdTICKS_TO_MS(50));

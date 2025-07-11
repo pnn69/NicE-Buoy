@@ -3173,6 +3173,16 @@
 		)
 		(uuid "8df5dd6a-2d12-4a77-808e-31641ee9cc47")
 	)
+	(text "1K"
+		(exclude_from_sim no)
+		(at 84.836 92.456 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "9b26d796-b381-41e3-91ef-09b26df00d9d")
+	)
 	(text "26V Max"
 		(exclude_from_sim no)
 		(at 49.276 73.914 0)

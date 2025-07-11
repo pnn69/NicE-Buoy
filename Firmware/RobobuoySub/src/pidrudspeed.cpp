@@ -20,12 +20,12 @@ void initRudPid(RoboStruct *rud)
 {
     speedMaxMin(rud, GET);
     pidRudderParameters(rud, GET);
-    computeParameters(rud, GET);
+    // computeParameters(rud, GET);
     rudderPID.SetSampleTime(100); // milliseconds
     rudderPID.SetTunings(rud->Kpr, rud->Kir, rud->Kdr, DIRECT);
     rudderPID.SetOutputLimits(-100, 100);
     rudderPID.SetMode(AUTOMATIC); // turn the PID on
-    Serial.println("PID rudder pr:" + String(rud->Kpr, 2) +
+    Serial.println("PID rudder used for calculations> pr:" + String(rud->Kpr, 2) +
                    " ir:" + String(rud->Kir, 2) +
                    " dr:" + String(rud->Kdr, 2) +
                    " minSpeed:" + String(rud->minSpeed) +
@@ -41,7 +41,7 @@ void initSpeedPid(RoboStruct *speed)
     computeParameters(speed, GET);
     speedPID.SetOutputLimits(0, speed->maxSpeed);
     speedPID.SetMode(AUTOMATIC); // turn the PID on
-    Serial.println("PID speed ps:" + String(speed->Kps, 2) +
+    Serial.println("PID speed  used for calculations> ps:" + String(speed->Kps, 2) +
                    " is:" + String(speed->Kis, 2) +
                    " ds:" + String(speed->Kds, 2) +
                    " minSpeed:" + String(speed->minSpeed) +
@@ -71,12 +71,7 @@ void rudderPid(RoboStruct *rud)
     double sb = s - rudderOutput;
     rud->speedSb = constrain(sb, rud->minSpeed, rud->maxSpeed);
     rud->speedBb = constrain(bb, rud->minSpeed, rud->maxSpeed);
-    esc.speedbb = rud->speedBb;
-    esc.speedsb = rud->speedSb;
-    xQueueSend(escspeed, (void *)&esc, 10);
-
-    rud->ir = rudderPID.GetITerm();
-    // Serial.println(rud->ir);
+    rud->Kir = rudderPID.GetITerm();
 
     // printf("TD:%05.2f  tgSpeed: %05.2f angle: %03.0f output: %07.2f  Sb: %3d Bb: %3d\r\n", rud->tgDist, rud->tgSpeed, rudderInput, rudderOutput, rud->speedSb, rud->speedBb);
 }
@@ -89,6 +84,6 @@ void speedPid(RoboStruct *dist)
     speedSetpoint = 0;
     speedPID.Compute();
     dist->tgSpeed = speedOutput;
-    dist->is = speedPID.GetITerm();
+    dist->Kis = speedPID.GetITerm();
     // Serial.println(dist->is);
 }

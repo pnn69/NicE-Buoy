@@ -1,15 +1,15 @@
 {
     "RudderPid": {
-        "Kpr": 0.5,
-        "Kir": 0.0,
-        "Kdr": 0.0
+        "Kpr": 1.0,
+        "Kir": 0.05,
+        "Kdr": 0.1
     },
     "SpeedPid": {
-        "Kps": 20.0,
-        "Kis": 0.01,
+        "Kps": 30.0,
+        "Kis": 0.05,
         "Kds": 0.0
     },
-    "Declination": 7.0,
+    "Declination": 5.0,
     "MaxPower": 70,
     "MinPower": -70
 }

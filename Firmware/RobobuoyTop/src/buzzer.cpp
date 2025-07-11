@@ -3,7 +3,7 @@
 #include "buzzer.h"
 #include "io_top.h"
 const int squareWavePin = 2; // Pin 2 for square wave
-const int pwmChannel = 0;    // PWM channel (0-15)
+const int pwmChannel = 4;    // PWM channel (0-15)
 const int pwmResolution = 8; // 8-bit resolution (duty cycle values from 0 to 255)
 
 QueueHandle_t buzzer;
@@ -45,13 +45,9 @@ void buzzerTask(void *arg)
             while (buzzerData.repeat--)
             {
                 setSquareWaveFrequency(buzzerData.hz);
-                timeStamp = millis() + buzzerData.duration;
-                while (timeStamp > millis())
-                    ;
+                vTaskDelay(pdMS_TO_TICKS(buzzerData.duration));
                 ledcDetachPin(BUZZER_PIN);
-                timeStamp = millis() + buzzerData.pause;
-                while (timeStamp > millis())
-                    ;
+                vTaskDelay(pdMS_TO_TICKS(buzzerData.pause));
             }
         }
     }
