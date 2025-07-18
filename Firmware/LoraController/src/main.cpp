@@ -280,6 +280,13 @@ bool handelRfData(void)
         {
             pos = 0;
         }
+        if (IDs[pos].status == IDLE)
+        {
+            IDs[pos].speedBb = 0;
+            IDs[pos].speedSb = 0;
+            IDs[pos].tgDir = 0;  // set target direction
+            IDs[pos].tgDist = 0; // set target distance
+        }
         IDs[pos].IDs = RfIn.IDs;
         IDs[pos].status = RfIn.status;
         switch (RfIn.cmd)
@@ -295,6 +302,12 @@ bool handelRfData(void)
             IDs[pos].subAccuV = RfIn.subAccuV; // set sub accu voltage
             updd = true;                       // data is updated
             break;
+        case TOPPWR:
+            IDs[pos].speedBb = RfIn.speedBb;   // set speed for bow
+            IDs[pos].speedSb = RfIn.speedSb;   // set speed for stern
+            IDs[pos].subAccuV = RfIn.topAccuV; // set sub accu voltage
+            updd = true;                       // data is updated
+            break;
         case DIRSPEED:
             IDs[pos].dirMag = RfIn.dirMag;   // set speed for bow
             IDs[pos].speedBb = RfIn.speedBb; // set speed for bow
@@ -302,12 +315,26 @@ bool handelRfData(void)
             IDs[pos].speed = RfIn.speed;     // set sub accu voltage
             updd = true;                     // data is updated
             break;
-            // case DIRMDIRTGDIRG:
-            //     IDs[pos].dirMag = RfIn.dirMag;  // set target direction
-            //     IDs[pos].tgDir = RfIn.tgDir;  // set target direction
-            //     IDs[pos].gpsDir = RfIn.gpsDir; // set target distance
-            //     updd = true;                   // data is updated
-            //     break;
+        case DIRMDIRTGDIRG:
+            IDs[pos].dirMag = RfIn.dirMag; // set target direction
+            IDs[pos].tgDir = RfIn.tgDir;   // set target direction
+            IDs[pos].gpsDir = RfIn.gpsDir; // set target distance
+            updd = true;                   // data is updated
+            break;
+        case TOPDATA:                          // DirMag,dirGps,dirTg,distTg,windDir,windStd,speedBb,speedSb,ip,ir,subAccuV,subAccuP
+            IDs[pos].dirMag = RfIn.dirMag;     // target direction
+            IDs[pos].gpsDir = RfIn.gpsDir;     // gps direction
+            IDs[pos].tgDir = RfIn.tgDir;       // target direction
+            IDs[pos].tgDist = RfIn.tgDist;     // target distance
+            IDs[pos].wDir = RfIn.wDir;         // wind direction
+            IDs[pos].wStd = RfIn.wStd;         // wind standard deviation
+            IDs[pos].speedBb = RfIn.speedBb;   // speed for bow
+            IDs[pos].speedSb = RfIn.speedSb;   // speed for stern
+            IDs[pos].ip = RfIn.ip;             // integrator speed
+            IDs[pos].ir = RfIn.ir;             // irtegrator rudder
+            IDs[pos].subAccuV = RfIn.subAccuV; // top accu voltage
+            IDs[pos].subAccuP = RfIn.subAccuP; // top accu percentage
+            updd = true;                   // data is updated
         }
     }
     return updd; // return true if data is updated
@@ -394,15 +421,15 @@ void loop()
     //***************************************************************************************************
     switch (mainData.cmd)
     {
+    case DOCKING:
+        mainData.ack = LORAGETACK; // ack needed
+        newLoraDataOut = true;     // set flag to send data out
+        break;
     case LOCKING:
         mainData.ack = LORAGETACK; // ack needed
         newLoraDataOut = true;     // set flag to send data out
         break;
     case IDELING:
-        mainData.ack = LORAGETACK; // ack needed
-        newLoraDataOut = true;     // set flag to send data out
-        break;
-    case DOCKING:
         mainData.ack = LORAGETACK; // ack needed
         newLoraDataOut = true;     // set flag to send data out
         break;

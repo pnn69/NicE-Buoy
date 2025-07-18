@@ -62,7 +62,7 @@ typedef enum
     BLINK_FAST,                       // blink fast
     BLINK_OFF,                        // no Blinking/Fading
     FADE_ON,                          // fade mode
-    SUBDATA,                          // all data send known by sub
+    SUBDATA,                          // DIRMAG, SPEEDBB, SPEEDSB , IP , IR , SUBACCUV, SUBACCUP
     SUBACCU,                          // V,P accu voltage, accu percentage
     MDIR,                             // magnetic direction
     GDIR,                             // gps dir
@@ -75,7 +75,7 @@ typedef enum
     TOPID,                            // mac[unsigned long]
     SUBID,                            // mac[unsigned long]
     REMOTEID,                         // mac[unsigned long]
-    TOPDATA,                          // ?
+    TOPDATA,                          // DirMag,dirGps,dirTg,distTg,windDir,windStd,speedBb,speedSb,ip,ir,subAccuV,subAccuP
     SPBBSPSB,                         // SpeedBb,SpeedSb
     ROUTTOPOINT,                      // route to point data
     CALCRUDDER,                       // tgDir,tgDist,Speed
@@ -137,6 +137,7 @@ struct RoboStruct
     double lastErrs = 0;
     double Kps, Kis, Kds; // PID parameters speed
     double Kpr, Kir, Kdr; // PID parameters rudder
+    double ip, ir;
     int minOfsetDist = 2;
     int maxOfsetDist = 20;
     int minSpeed = 0;

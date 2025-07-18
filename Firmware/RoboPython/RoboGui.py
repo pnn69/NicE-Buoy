@@ -1,0 +1,487 @@
+import sys
+import os
+import json
+import socket
+import serial
+import serial.tools.list_ports
+import tempfile
+import message_utils
+from PyQt5.QtCore import QThread
+from serial_handler import SerialWorker
+from PyQt5.QtCore import Qt
+from PyQt5.QtCore import QObject, pyqtSignal, QTimer, QThread
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QGroupBox, QRadioButton, QButtonGroup, QSlider, QTextEdit
+from message_utils import open_serial_port, read_serial_line, list_serial_ports
+from message_utils import parse_serial_line
+from message_utils import read_serial_line, list_serial_ports
+
+# Constants
+UDP_PORT = 1001
+com_port = "COM60"  # or whatever port your device is on
+BROADCAST_IP = '255.255.255.255'
+SETTINGS_FILE = "RobobuoyConfig.json"
+# COMPORT = "COM60"
+# COMPORT = "COM40"
+PIDRUDDERSET = 56
+PIDSPEEDSET = 58
+LOCKING = 12
+IDELING = 8
+IDLE = 7
+DOCKING = 15
+REMOTE = 25
+BUOYIDALL = 0xb7a5b58c
+ME = 0x99
+LORAGETACK = 3
+LORAINF = 6
+STORE_DECLINATION = 31
+MAXMINPWR = 68
+MAXMINPWRSET = 69
+DIRDIST = 47
+# data
+
+
+def float_to_str(f):
+    return format(f, '.10g')
+
+
+def save_values(group_values):
+    try:
+        with tempfile.NamedTemporaryFile('w', delete=False, dir='.') as tf:
+            json.dump(group_values, tf, indent=4)
+            temp_name = tf.name
+        os.replace(temp_name, SETTINGS_FILE)
+    except Exception as e:
+        print("Error saving values:", e)
+
+
+def load_values():
+    if not os.path.isfile(SETTINGS_FILE):
+        return {}
+    try:
+        with open(SETTINGS_FILE, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        print("Error loading saved values:", e)
+        return {}
+
+
+class PIDSender(QWidget):
+    def __init__(self, com_port=None):
+        super().__init__()  # important to call base constructor first
+        self.serial_port = open_serial_port(com_port) if com_port else None
+        self.serial_timer = QTimer()
+        self.serial_timer.timeout.connect(self.read_serial_data)
+        self.serial_timer.start(200)
+        self.com_port = com_port
+        self.last_rudder_value = None
+        self.last_speed_value = None
+        self.debounce_timer = QTimer()
+        self.debounce_timer.setSingleShot(True)
+        self.debounce_timer.timeout.connect(self.send_control_update)
+
+        self.serial_buffer = ""
+        self.setWindowTitle("PID UDP Broadcaster")
+
+        # Screen setup
+        screen = QApplication.primaryScreen()
+        screen_rect = screen.availableGeometry()
+        half_width = screen_rect.width() // 2
+        height = screen_rect.height() // 2
+        self.resize(half_width, height)
+
+        self.saved_values = load_values()
+        self.serial_port = None
+
+        # Main layout
+        layout = QVBoxLayout()
+
+        # Top horizontal layout for PID groups + IP/IR inputs
+        top_layout = QHBoxLayout()
+
+        # PID input groups
+        self.SpeedPid_inputs = self.create_pid_input_group(
+            "Speed (Kp, Ki, Kd)", ["Kps", "Kis", "Kds"], self.send_SpeedPid)
+        top_layout.addWidget(self.SpeedPid_inputs["box"])
+
+        self.RudderPid_inputs = self.create_pid_input_group(
+            "Rudder (Kp, Ki, Kd)", ["Kpr", "Kir", "Kdr"], self.send_RudderPid)
+        top_layout.addWidget(self.RudderPid_inputs["box"])
+
+        # IP/IR inputs group
+        ip_ir_group = QGroupBox("IP / IR Values")
+        ip_ir_layout = QVBoxLayout()
+
+        ip_layout = QHBoxLayout()
+        ip_ir_layout.addWidget(QLabel("IP:"))
+        self.ip_display = QLabel("0.0")
+        ip_ir_layout.addWidget(self.ip_display)
+
+        ip_ir_layout.addSpacing(20)
+
+        ip_ir_layout.addWidget(QLabel("IR:"))
+        self.ir_display = QLabel("0.0")
+        ip_ir_layout.addWidget(self.ir_display)
+
+        ip_ir_group.setLayout(ip_ir_layout)
+        top_layout.addWidget(ip_ir_group)
+
+        layout.addLayout(top_layout)
+
+        self.restore_values()
+
+        # Power and Declination layout
+        power_declination_layout = QHBoxLayout()
+
+        power_declination_layout.addWidget(QLabel("Max Power (-100 to 100):"))
+        self.max_power_input = QLineEdit()
+        self.max_power_input.setPlaceholderText("Enter max power")
+        power_declination_layout.addWidget(self.max_power_input)
+
+        power_declination_layout.addSpacing(20)
+
+        power_declination_layout.addWidget(QLabel("Min Power (-100 to 100):"))
+        self.min_power_input = QLineEdit()
+        self.min_power_input.setPlaceholderText("Enter min power")
+        power_declination_layout.addWidget(self.min_power_input)
+
+        power_declination_layout.addSpacing(20)
+
+        power_declination_layout.addWidget(QLabel("Declination (°):"))
+        self.declination_input = QLineEdit()
+        self.declination_input.setPlaceholderText("Enter declination float")
+        power_declination_layout.addWidget(self.declination_input)
+
+        layout.addLayout(power_declination_layout)
+
+        # Load saved values
+        self.max_power_input.setText(
+            str(self.saved_values.get("MaxPower", 0.0)))
+        self.min_power_input.setText(
+            str(self.saved_values.get("MinPower", 0.0)))
+        self.declination_input.setText(
+            str(self.saved_values.get("Declination", 0.0)))
+
+        # Buttons layout for Send Power Limits and Send Declination buttons
+        buttons_layout = QHBoxLayout()
+
+        self.send_power_button = QPushButton("Send Power Limits")
+        self.send_power_button.clicked.connect(self.send_power_limits)
+        buttons_layout.addWidget(
+            self.send_power_button, alignment=Qt.AlignLeft)
+
+        buttons_layout.addStretch(1)
+
+        self.send_declination_button = QPushButton("Send Declination")
+        self.send_declination_button.clicked.connect(self.send_declination)
+        buttons_layout.addWidget(
+            self.send_declination_button, alignment=Qt.AlignRight)
+
+        layout.addLayout(buttons_layout)
+
+        # Serial display
+        layout.addWidget(QLabel("Incoming Serial Data:"))
+        self.serial_display = QTextEdit(readOnly=True)
+        self.serial_display.setMinimumHeight(150)
+        layout.addWidget(self.serial_display)
+
+        # Rudder slider
+        layout.addWidget(QLabel("Rudder Control:"))
+        self.rudder_slider_layout, self.rudder_label, self.rudder_slider = self.create_slider(
+            "Rudder", self.on_slider_change)
+        layout.addLayout(self.rudder_slider_layout)
+
+        # Speed slider
+        layout.addWidget(QLabel("Speed Control:"))
+        self.speed_slider_layout, self.speed_label, self.speed_slider = self.create_slider(
+            "Speed", self.on_slider_change)
+        layout.addLayout(self.speed_slider_layout)
+
+        # Distance and Direction inputs with send button
+        distance_direction_layout = QHBoxLayout()
+
+        distance_direction_layout.addWidget(QLabel("Distance:"))
+        self.distance_input = QLineEdit("10")  # Default value
+        distance_direction_layout.addWidget(self.distance_input)
+
+        distance_direction_layout.addWidget(QLabel("Direction:"))
+        self.direction_input = QLineEdit("180")  # Default value
+        distance_direction_layout.addWidget(self.direction_input)
+
+        self.send_distance_direction_button = QPushButton(
+            "Send Distance/Direction")
+        self.send_distance_direction_button.clicked.connect(
+            self.send_distance_direction)
+        distance_direction_layout.addWidget(
+            self.send_distance_direction_button)
+
+        layout.addLayout(distance_direction_layout)
+
+        # Control mode radio buttons
+        layout.addWidget(self.create_mode_radio_buttons())
+
+        self.setLayout(layout)
+
+        if com_port is not None:
+            self.setup_serial_port(com_port)
+
+        self.setup_serial_port(com_port)
+        # Create and start serial worker in a thread
+        self.serial_thread = QThread()
+        self.serial_worker = SerialWorker(com_port)
+        self.serial_worker.moveToThread(self.serial_thread)
+        self.serial_thread.started.connect(self.serial_worker.start)
+        # Connect signals to update display
+        self.serial_worker.data_received.connect(self.update_serial_display)
+        self.serial_worker.ip_ir_updated.connect(self.update_ip_ir_display)
+        self.serial_thread.start()
+
+        ports = list(serial.tools.list_ports.comports())
+        for p in ports:
+            print(p.device)
+
+        self.serial_timer = QTimer()
+        self.serial_timer.timeout.connect(self.read_serial_data)
+        self.serial_timer.start(200)
+
+    def update_serial_display(self, text):
+        self.serial_display.append(text)
+
+    def update_ip_ir_display(self, ip, ir):
+        self.ip_display.setText(f"{ip:.2f}")
+        self.ir_display.setText(f"{ir:.2f}")
+
+    def create_pid_input_group(self, title, var_names, callback):
+        box = QGroupBox(title)
+        vbox = QVBoxLayout()
+        inputs = {}
+
+        for var in var_names:
+            hbox = QHBoxLayout()
+            hbox.addWidget(QLabel(var))
+            field = QLineEdit()
+            field.setPlaceholderText("Enter float")
+            hbox.addWidget(field)
+            vbox.addLayout(hbox)
+            inputs[var] = field
+
+        send_button = QPushButton("Send")
+        send_button.clicked.connect(callback)
+        vbox.addWidget(send_button, alignment=Qt.AlignRight)
+
+        box.setLayout(vbox)
+        return {"box": box, "inputs": inputs}
+
+    def create_slider(self, name, on_change):
+        def format_slider_value(val):
+            if val < 0:
+                return f"-{abs(val):02d}"
+            else:
+                return f"{val:02d}"
+
+        layout = QHBoxLayout()
+        label = QLabel("00")  # default as two digits
+        slider = QSlider(Qt.Horizontal)
+        slider.setRange(-100, 100)
+        slider.setValue(0)
+        slider.setTickInterval(10)
+        slider.setTickPosition(QSlider.TicksBelow)
+
+        slider.valueChanged.connect(lambda val: (
+            label.setText(format_slider_value(val)),
+            on_change(name, val)
+        ))
+
+        layout.addWidget(slider)
+        layout.addWidget(label)
+        return layout, label, slider
+
+    def on_slider_change(self, name, value):
+        if name == "Rudder":
+            if value != self.last_rudder_value:
+                self.last_rudder_value = value
+                self.debounce_timer.start(200)  # Reset debounce timer
+        elif name == "Speed":
+            if value != self.last_speed_value:
+                self.last_speed_value = value
+                self.debounce_timer.start(200)  # Reset debounce timer
+
+    def create_mode_radio_buttons(self):
+        box = QGroupBox("Control Mode")
+        layout = QHBoxLayout()
+
+        self.lock_radio = QRadioButton("Lock")
+        self.remote_radio = QRadioButton("Remote")
+        self.idle_radio = QRadioButton("Idle")
+        self.docking_radio = QRadioButton("Docking")
+        self.idle_radio.setChecked(True)
+
+        self.mode_button_group = QButtonGroup(self)
+        self.mode_button_group.addButton(self.lock_radio)
+        self.mode_button_group.addButton(self.remote_radio)
+        self.mode_button_group.addButton(self.idle_radio)
+        self.mode_button_group.addButton(self.docking_radio)
+
+        layout.addWidget(self.lock_radio)
+        layout.addWidget(self.remote_radio)
+        layout.addWidget(self.idle_radio)
+        layout.addWidget(self.docking_radio)
+
+        # Connect only once here
+        self.mode_button_group.buttonClicked.connect(
+            self.on_mode_button_clicked)
+
+        box.setLayout(layout)
+        return box
+
+    def get_selected_mode(self):
+        if self.lock_radio.isChecked():
+            return "Lock"
+        elif self.remote_radio.isChecked():
+            return "Remote"
+        elif self.idle_radio.isChecked():
+            return "Idle"
+        return None
+
+    def restore_values(self):
+        for group, fields in [("SpeedPid", self.SpeedPid_inputs["inputs"]), ("RudderPid", self.RudderPid_inputs["inputs"])]:
+            values = self.saved_values.get(group, {})
+            for key, field in fields.items():
+                if key in values:
+                    field.setText(str(values[key]))
+
+    def get_values(self, inputs):
+        return {k: float(v.text()) if v.text() else 0.0 for k, v in inputs.items()}
+
+    def send_SpeedPid(self):
+        values = self.get_values(self.SpeedPid_inputs["inputs"])
+        message_utils.send_udp_broadcast(
+            values, PIDSPEEDSET, "SpeedPid", self.serial_port)
+        self.saved_values["SpeedPid"] = values
+        save_values(self.saved_values)
+
+    def send_RudderPid(self):
+        values = self.get_values(self.RudderPid_inputs["inputs"])
+        message_utils.send_udp_broadcast(
+            values, PIDRUDDERSET, "RudderPid", self.serial_port)
+        self.saved_values["RudderPid"] = values
+        save_values(self.saved_values)
+
+    def setup_serial_port(self, port_name):
+        try:
+            self.serial_port = serial.Serial(
+                port=port_name, baudrate=115200, timeout=0.1)
+            print(f"Serial port {port_name} opened.")
+        except serial.SerialException as e:
+            print(f"Failed to open serial port {port_name}: {e}")
+            self.serial_port = None
+
+    def send_control_update(self):
+        if not self.remote_radio.isChecked():
+            print("Control update skipped: mode is not Remote.")
+            return
+
+        rudder = self.last_rudder_value if self.last_rudder_value is not None else 0
+        speed = self.last_speed_value if self.last_speed_value is not None else 0
+        speedBb = speed+rudder
+        if speedBb > 100:
+            speedBb = 100
+        elif speedBb < -100:
+            speedBb = -100
+        speedSb = speed-rudder
+        if speedSb > 100:
+            speedSb = 100
+        elif speedSb < -100:
+            speedSb = -100
+        base_message = f"{LORAINF},{REMOTE},{speedBb},{speedSb}"
+        full_message = message_utils.generate_nmea_message(base_message)
+        message_utils.send_message(full_message, self.serial_port)
+
+    def send_power_limits(self):
+        try:
+            max_power = int(self.max_power_input.text())
+            min_power = int(self.min_power_input.text())
+        except ValueError:
+            print("Invalid max or min power value.")
+            return
+
+        # Clamp values between -100 and 100
+        max_power = max(-100, min(100, max_power))
+        min_power = max(-100, min(100, min_power))
+
+        # Save to config
+        self.saved_values["MaxPower"] = max_power
+        self.saved_values["MinPower"] = min_power
+        save_values(self.saved_values)
+
+        # Prepare message and send
+        base_message = f"{LORAINF},{MAXMINPWRSET},0,{max_power},{min_power},0,0"
+        full_message = message_utils.generate_nmea_message(base_message)
+        message_utils.send_message(full_message, self.serial_port)
+
+    def send_declination(self):
+        try:
+            declination = float(self.declination_input.text())
+        except ValueError:
+            print("Invalid declination value.")
+            return
+
+        self.saved_values["Declination"] = declination
+        save_values(self.saved_values)
+
+        base_message = f"{LORAINF},{STORE_DECLINATION},{IDLE},{float_to_str(declination)}"
+        full_message = message_utils.generate_nmea_message(base_message)
+        message_utils.send_message(full_message, self.serial_port)
+        print(f"Declination sent: {declination}")
+
+    def on_mode_button_clicked(self, button):
+        # button is the QRadioButton clicked
+        if button == self.lock_radio:
+            base_message = f"{LORAGETACK},{LOCKING},{IDLE}"
+        elif button == self.idle_radio:
+            base_message = f"{LORAGETACK},{IDELING},{IDLE}"
+        elif button == self.docking_radio:
+            base_message = f"{LORAGETACK},{DOCKING},{IDLE}"
+        else:
+            return  # No action for other buttons (like Remote)
+
+        full_message = message_utils.generate_nmea_message(base_message)
+        message_utils.send_message(full_message, self.serial_port)
+
+    def send_distance_direction(self):
+        try:
+            distance = float(self.distance_input.text())
+            direction = float(self.direction_input.text())
+        except ValueError:
+            print("Invalid distance or direction input.")
+            return
+
+        # Construct and send the message
+        base_message = f"{LORAINF},{DIRDIST},{IDLE},{direction},{distance}"
+        full_message = message_utils.generate_nmea_message(base_message)
+        message_utils.send_message(full_message, self.serial_port)
+        print(f"Distance & Direction sent: {direction},{distance}")
+
+    def read_serial_data(self):
+        line = read_serial_line(self.serial_port)
+        if line:
+            # You can parse or handle the line here
+            print(f"Received serial: {line}")
+            parsed = parse_serial_line(line)
+            if parsed:
+                # update your UI or internal state
+                pass
+
+    def closeEvent(self, event):
+        if self.serial_worker:
+            self.serial_worker.stop()
+        if self.serial_thread:
+            self.serial_thread.quit()
+            self.serial_thread.wait()
+        event.accept()
+
+
+if __name__ == "__main__":
+    test_line = "$b7a5b58c,99,6,31,7,5*17"
+    print(parse_serial_line(test_line))
+    parsed = parse_serial_line(test_line)
+    print(f"IDr hex: {parsed['IDr']:08x}")

@@ -18,7 +18,7 @@ void RoboDecode(String data, RoboStruct *dataStore)
 {
     dataStore->cmd = -1;
 
-    String numbers[15]; // Array to hold the decoded numbers
+    String numbers[20]; // Array to hold the decoded numbers
     int count = 0;
     String substring = data;
 
@@ -115,6 +115,14 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->subAccuV = numbers[6].toFloat();
         break;
 
+    case TOPPWR:
+        dataStore->speedSet = numbers[2].toDouble();
+        dataStore->speed = numbers[3].toInt();
+        dataStore->speedBb = numbers[4].toInt();
+        dataStore->speedSb = numbers[5].toInt();
+        dataStore->topAccuV = numbers[6].toFloat();
+        break;
+
     case BUOYPOS:
         dataStore->lat = numbers[2].toDouble();
         dataStore->lng = numbers[3].toDouble();
@@ -163,16 +171,40 @@ void RoboDecode(String data, RoboStruct *dataStore)
 
     case DIRMDIRTGDIRG:
         dataStore->dirMag = numbers[2].toDouble();
-        dataStore->tgDir = numbers[2].toDouble();
-        dataStore->gpsDir = numbers[2].toInt();
+        dataStore->tgDir = numbers[3].toDouble();
+        dataStore->gpsDir = numbers[4].toInt();
         break;
 
     case SET_DECLINATION:
         dataStore->status = SET_DECLINATION;
         break;
 
+    case SUBDATA:
+        dataStore->dirMag = numbers[2].toDouble();
+        dataStore->speedBb = numbers[3].toInt();
+        dataStore->speedSb = numbers[4].toInt();
+        dataStore->ip = numbers[5].toDouble();
+        dataStore->ir = numbers[6].toDouble();
+        dataStore->subAccuV = numbers[7].toDouble();
+        dataStore->subAccuP = numbers[8].toInt();
+        break;
     case TOPDATA:
-        Serial.println("TOPDATA not implemented yet");
+        dataStore->dirMag = numbers[2].toDouble();
+        dataStore->gpsDir = numbers[3].toInt();
+        dataStore->tgDir = numbers[4].toInt();
+        dataStore->tgDist = numbers[5].toDouble();
+        dataStore->wDir = numbers[6].toInt();
+        dataStore->wStd = numbers[7].toDouble();
+        dataStore->speedBb = numbers[8].toInt();
+        dataStore->speedSb = numbers[9].toInt();
+        dataStore->ip = numbers[10].toDouble();
+        dataStore->ir = numbers[11].toDouble();
+        dataStore->subAccuV = numbers[12].toDouble();
+        dataStore->subAccuP = numbers[13].toInt();
+        dataStore->lat = numbers[14].toDouble();
+        dataStore->lng = numbers[15].toDouble();
+        dataStore->gpsFix = (bool)numbers[16].toInt();
+        dataStore->gpsSat = numbers[17].toInt();
         break;
 
     case ROUTTOPOINT:
@@ -233,10 +265,29 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->dirMag, 2);
         out += "," + String(dataOut->speedBb);
         out += "," + String(dataOut->speedSb);
+        out += "," + String(dataOut->ip, 2);
+        out += "," + String(dataOut->ir, 2);
         out += "," + String(dataOut->subAccuV, 2);
         out += "," + String(dataOut->subAccuP);
         break;
-
+    case TOPDATA:
+        out += "," + String(dataOut->dirMag, 0);
+        out += "," + String(dataOut->gpsDir, 0);
+        out += "," + String(dataOut->tgDir, 0);
+        out += "," + String(dataOut->tgDist, 1);
+        out += "," + String(dataOut->wDir, 0);
+        out += "," + String(dataOut->wStd, 0);
+        out += "," + String(dataOut->speedBb);
+        out += "," + String(dataOut->speedSb);
+        out += "," + String(dataOut->ip, 2);
+        out += "," + String(dataOut->ir, 2);
+        out += "," + String(dataOut->subAccuV, 1);
+        out += "," + String(dataOut->subAccuP, 1);
+        out += "," + String(dataOut->lat, 8);
+        out += "," + String(dataOut->lng, 8);
+        out += "," + String(dataOut->gpsFix);
+        out += "," + String(dataOut->gpsSat);
+        break;
     case MDIR:
         out += "," + String(dataOut->dirMag, 2);
         break;
@@ -315,6 +366,14 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->speedBb);
         out += "," + String(dataOut->speedSb);
         out += "," + String(dataOut->subAccuV, 2);
+        break;
+
+    case TOPPWR:
+        out += "," + String(dataOut->speedSet, 0);
+        out += "," + String(dataOut->speed);
+        out += "," + String(dataOut->speedBb);
+        out += "," + String(dataOut->speedSb);
+        out += "," + String(dataOut->topAccuV, 2);
         break;
 
     case SPBBSPSB:

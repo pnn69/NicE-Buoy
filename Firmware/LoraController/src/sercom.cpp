@@ -32,7 +32,8 @@ void SercomTask(void *arg)
                 serStringIn += (char)Serial.read();
             }
             xQueueSend(loraOutSerial, (void *)&serStringIn, 10); // send to lora
-            RoboStruct serDataIn = rfDeCode(serStringIn);
+            RoboStruct serDataIn;
+            rfDeCode(serStringIn,&serDataIn);
             if (serDataIn.IDs != -1)
             {
                 xQueueSend(serIn, (void *)&serDataIn, 10); // notify main there is new data

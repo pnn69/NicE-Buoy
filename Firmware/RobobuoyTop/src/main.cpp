@@ -432,7 +432,7 @@ void handleTimerRoutines(RoboStruct *timer)
             timer->cmd = DIRDIST;
             xQueueSend(serOut, (void *)timer, 0); // send course and distance to sub
             // timer->cmd = DIRMDIRTGDIRG;
-            // xQueueSend(udpOut, (void *)timer, 0);  // send course and distance to sub
+            xQueueSend(udpOut, (void *)timer, 0); // send course and distance to sub
         }
         else if (timer->status == REMOTE) // Remote controlled
         {
@@ -448,36 +448,16 @@ void handleTimerRoutines(RoboStruct *timer)
     //***************************************************************************************************
     if (timer->loralstmsg < millis())
     {
-        if (timer->status == IDLE)
-        {
-            timer->loralstmsg = millis() + 5000 + random(0, 150);
-        }
-        else
-        {
-            timer->loralstmsg = millis() + 1000 + random(0, 150);
-        }
-        timer->cmd = SUBPWR;
-        xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
-        xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
-        timer->cmd = DIRSPEED;
-        xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
-        xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
-
         if ((timer->status == LOCKED || timer->status == DOCKED))
         {
-            timer->cmd = LOCKPOS;
+            timer->loralstmsg = millis() + 500;
+            timer->cmd = TOPDATA;
             xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
             xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
-            //  IDr,IDs,MSG,ACK,tgDir,tgDist
-            timer->cmd = DIRDIST;
-            xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
-            xQueueSend(udpOut, (void *)timer, 10);
-            timer->cmd = WINDDATA;
-            xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
-            xQueueSend(udpOut, (void *)timer, 10);
         }
         if (timer->status == REMOTE)
         {
+            timer->loralstmsg = millis() + 1000 + random(0, 150);
             timer->cmd = REMOTE;
             xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
             xQueueSend(udpOut, (void *)timer, 10);
@@ -492,15 +472,21 @@ void handleTimerRoutines(RoboStruct *timer)
         deviationWindRose(&wind);
         timer->wStd = wind.wStd;
         timer->wDir = wind.wDir; // averige wind dir
+        timer->cmd = TOPDATA;
+        // xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
+        xQueueSend(udpOut, (void *)timer, 10); // send out trough wifi
 
         // RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
         // printf("Status:%d Lat: %.0f Lon:%.0f tgLat: %.0f tgLon:%.0f tgDist:%.2f tgDir:%.0f mDir:%.0f wDir:%.0f wStd:%.2f ", timer->status, timer->lat, timer->lng, timer->tgLat, timer->tgLng, timer->tgDist, timer->tgDir, timer->dirMag, timer->wDir, timer->wStd);
         // printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %d%% BB:%02d SB:%02d\r\n", timer->topAccuV, timer->topAccuP, timer->subAccuV, timer->subAccuP, timer->speedBb, timer->speedSb);
     }
-    if (udpTimerOut + 5000 < millis())
+    if (udpTimerOut + 10000 < millis() && !((timer->status == LOCKED || timer->status == DOCKED)))
     {
         udpTimerOut = millis() + random(0, 150);
         timer->cmd = BUOYPOS;
+        xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
+        xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
+        timer->cmd = TOPDATA;
         xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
         xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
     }
@@ -553,7 +539,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 break;
             case PIDRUDDERSET:
                 pidRudderParameters(RfIn, SET);
-                printf("#PIDRUDDERSET: %05.2f %05.2f %05.2f\r\n", RfIn.pr, RfIn.ir, RfIn.dr);
+                printf("#PIDRUDDERSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kpr, RfIn.Kir, RfIn.Kdr);
                 RfIn.ack = LORAGETACK;
                 xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 break;
@@ -569,7 +555,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
             case PIDSPEEDSET:
                 pidSpeedParameters(RfIn, SET);
-                printf("#PIDSPEEDSET: %05.2f %05.2f %05.2f\r\n", RfIn.ps, RfIn.is, RfIn.ds);
+                printf("#PIDSPEEDSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kps, RfIn.Kis, RfIn.Kds);
                 RfOut->cmd = PIDSPEEDSET;
                 RfIn.ack = LORAGETACK;
                 xQueueSend(serOut, (void *)&RfIn, 0); // update sub
@@ -712,6 +698,15 @@ void handelSerialData(RoboStruct *ser)
         }
         switch (serDataIn.cmd)
         {
+        case SUBDATA:
+            ser->dirMag = serDataIn.dirMag;
+            ser->speedBb = serDataIn.speedBb;
+            ser->speedSb = serDataIn.speedSb;
+            ser->ip = serDataIn.ip;
+            ser->ir = serDataIn.ir;
+            ser->subAccuV = serDataIn.subAccuV;
+            ser->subAccuP = serDataIn.subAccuP;
+            break;
         case PONG:
             break;
         case DIRSPEED:
@@ -726,8 +721,11 @@ void handelSerialData(RoboStruct *ser)
             ser->subAccuP = serDataIn.subAccuP;
             break;
         case IDELING:
-            printf("#Status set to IDELING (by serial input)\r\n");
-            ser->status = IDELING;
+            if (ser->status != IDELING || ser->status != IDLE)
+            {
+                printf("#Status set to IDELING (by serial input)\r\n");
+                ser->status = IDELING;
+            }
             break;
         case IDLE:
             ser->status = IDLE;

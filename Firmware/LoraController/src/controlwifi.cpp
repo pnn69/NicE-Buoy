@@ -261,7 +261,7 @@ void WiFiTask(void *arg)
         {
             msgIdOut.IDr = msgIdOut.mac;
             msgIdOut.IDs = msgIdOut.mac;
-            String out = rfCode(msgIdOut);
+            String out = rfCode(&msgIdOut);
             udp.broadcast(out.c_str());
         }
         delay(1);

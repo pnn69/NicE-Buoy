@@ -8,10 +8,10 @@
 #include "leds.h"
 #include "io_sub.h"
 
-#define NUM_LEDS 3
-#define LEDBB 0
+#define NUM_LEDS 3 + 20
+#define LEDBB 2
 #define LEDSTATUS 1
-#define LEDSB 2
+#define LEDSB 0
 
 CRGB ledData;
 CRGB leds[NUM_LEDS];
@@ -61,6 +61,37 @@ void LedTask(void *arg)
         {
             leds[LEDBB] = ledPwrData.sb;
             leds[LEDSB] = ledPwrData.bb;
+            for (int i = 1; i < 11; i++)
+            {
+                if (ledPwrData.ledBb > 9)
+                {
+                    leds[2 + i] = CRGB::Green;
+                    ledPwrData.ledBb -= 10;
+                }
+                else if (ledPwrData.ledBb < -9)
+                {
+                    leds[2 + i] = CRGB::Red;
+                    ledPwrData.ledBb += 10;
+                }
+                else
+                {
+                    leds[2 + i] = CRGB::Black;
+                }
+                if (ledPwrData.ledSb > 9)
+                {
+                    leds[2 + 10 + i] = CRGB::Green;
+                    ledPwrData.ledSb -= 10;
+                }
+                else if (ledPwrData.ledSb < -9)
+                {
+                    leds[2 + 10 + i] = CRGB::Red;
+                    ledPwrData.ledSb += 10;
+                }
+                else
+                {
+                    leds[2 + 10 + i] = CRGB::Black;
+                }
+            }
             FastLED.show();
         }
         /*

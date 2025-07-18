@@ -13,6 +13,8 @@
 #include "adc.h"
 #include "sercom.h"
 #include "pidrudspeed.h"
+// #include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h" // needed to disable brownout detector
 
 #define HOST_NAME "RoboBuoySub"
 
@@ -25,6 +27,7 @@ static RoboStruct compassInData;
 static Message escOut;
 static unsigned long buoyId;
 static unsigned long PwrOff;
+static unsigned long pidTimer = 0;
 static int subStatus = IDLE;
 static LedData mainLedStatus;
 static PwrData mainPwrData;
@@ -179,30 +182,36 @@ void handleTimerRoutines(RoboStruct *in)
     case LOCKED:
     case DOCKED:
     case DIRDIST:
-        if (in->tgDist > 1.5)
+        if (pidTimer < millis())
         {
-            speedPid(in);
-            if (in->tgSpeed < 0) // do not go backwards
+            pidTimer = millis() + 50; // 50ms
+            if (in->tgDist > 1.5)
+            {
+                speedPid(in);
+                // Serial.printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f\r\n", in->tgDist, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag));
+                if (in->tgSpeed < 0) // do not go backwards
+                {
+                    in->tgSpeed = 0;
+                }
+                rudderPid(in);
+            }
+            else if (in->tgDist > 0.5)
             {
                 in->tgSpeed = 0;
+                rudderPid(in);
+                in->speedSb = constrain(in->speedSb, -10, 10); //take it easy
+                in->speedBb = constrain(in->speedBb, -10, 10); //take it easy
             }
-            // Serial.printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f\r\n", in->tgDist, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag));
-            rudderPid(in);
+            else
+            {
+                in->tgSpeed = 0;
+                in->speedBb = 0;
+                in->speedSb = 0;
+            }
+            escOut.speedbb = in->speedBb;
+            escOut.speedsb = in->speedSb;
+            xQueueSend(escspeed, (void *)&escOut, 10);
         }
-        else if (in->tgDist > 0.5)
-        {
-            in->tgSpeed = 0;
-            rudderPid(in);
-        }
-        else
-        {
-            in->tgSpeed = 0;
-            in->speedBb = 0;
-            in->speedSb = 0;
-        }
-        escOut.speedbb = in->speedBb;
-        escOut.speedsb = in->speedSb;
-        xQueueSend(escspeed, (void *)&escOut, 10);
         break;
     case REMOTE:
         rudderPid(in);
@@ -217,9 +226,13 @@ void handleTimerRoutines(RoboStruct *in)
         break;
     case IDLE:
     case IDELING:
-        escOut.speedbb = 0;
-        escOut.speedsb = 0;
-        xQueueSend(escspeed, (void *)&escOut, 10);
+        if (escOut.speedbb != 0 || escOut.speedsb != 0)
+        {
+
+            escOut.speedbb = 0;
+            escOut.speedsb = 0;
+            xQueueSend(escspeed, (void *)&escOut, 10);
+        }
         break;
     default:
         break;
@@ -228,18 +241,16 @@ void handleTimerRoutines(RoboStruct *in)
     if (nextSamp < millis())
     {
         nextSamp = 250 + millis();
-        printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", in->tgDist, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb);
-        printf("     RudderITerm: %03.0f\r\n", in->Kir, in->Kis);
-        in->cmd = DIRSPEED;
+        in->cmd = SUBDATA;
         xQueueSend(serOut, (void *)in, 10);
     }
 
     if (logtimer < millis())
     {
-        logtimer = millis() + 5010;
+        logtimer = millis() + 500;
         battVoltage(in->subAccuV, in->subAccuP);
-        in->cmd = SUBACCU;
-        xQueueSend(serOut, (void *)in, 10);
+        printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", in->tgDist - 2, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb);
+        printf("  ip: %05.3f ir: %05.3f\r\n", in->ip, in->ir);
     }
 }
 //***************************************************************************************************
@@ -382,7 +393,7 @@ void handelSerandRfdata(RoboStruct *ser)
             printf("New rudder PID settings pr:%0.2f ir:%0.2f dr:%0.2f\r\n", dataIn.Kpr, dataIn.Kir, dataIn.Kdr);
             pidRudderParameters(&dataIn, SET);
             pidRudderParameters(ser, GET);
-            rudderPID.SetTunings(ser->Kpr, ser->Kir, ser->Kdr, DIRECT);
+            initRudPid(ser);
             printf("Rudder PID stored pr:%0.2f ir:%0.2f dr:%0.2f\r\n", ser->Kpr, ser->Kir, ser->Kdr);
             break;
         case PIDSPEED:
@@ -395,8 +406,7 @@ void handelSerandRfdata(RoboStruct *ser)
         case PIDSPEEDSET:
             printf("New speed PID settings ps:%0.2f is:%0.2f ds:%0.2f\r\n", dataIn.Kps, dataIn.Kis, dataIn.Kds);
             pidSpeedParameters(&dataIn, SET);
-            pidSpeedParameters(ser, GET);
-            speedPID.SetTunings(ser->Kps, ser->Kis, ser->Kds, DIRECT);
+            initSpeedPid(ser);
             printf("Speed PID stored ps:%0.2f is:%0.2f ds:%0.2f\r\n", ser->Kps, ser->Kis, ser->Kds);
             break;
         case STORE_DECLINATION:
@@ -406,13 +416,17 @@ void handelSerandRfdata(RoboStruct *ser)
             break;
         case SET_DECLINATION:
             calibrateMagneticNorth();
-            ser->status = IDLE;
+            // ser->ack = LORAGETACK;
+            ser->status = IDELING;
             xQueueSend(serOut, (void *)ser, 10);
+            ser->status = IDLE;
             break;
         case CALIBRATE_MAGNETIC_COMPASS:
             calibrateParametersCompas();
-            ser->status = IDLE;
+            // ser->ack = LORAGETACK;
+            ser->status = IDELING;
             xQueueSend(serOut, (void *)ser, 10);
+            ser->status = IDLE;
             break;
         case MAXMINPWR:
             if (dataIn.ack == LORAGET)
@@ -454,21 +468,24 @@ void handelSerialTimeOut(RoboStruct *ser)
             mainLedStatus.color = CRGB::Red;
             mainLedStatus.blink = BLINK_SLOW;
             xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
+            delay(500);
             digitalWrite(ESC_SB_PWR_PIN, LOW);
             digitalWrite(ESC_BB_PWR_PIN, LOW);
             ser->status = IDELING;
         }
     }
     //***************************************************************************************************
-    //      Shutdown the system
+    //      Shutdown the system after 5 minutes of no serial communication
     //***************************************************************************************************
-    if (PwrOff + 1000 * 60 * 15 < millis())
-    // if (PwrOff + 1000 *  10 < millis())
+    if (PwrOff + 1000 * 60 * 5 < millis())
+    // if (PwrOff + 1000 * 10 < millis())
     {
+        WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // disable brownout detector
         PwrOff = millis();
         triggerESC();
         beep(-1, buzzer);
         printf("Power off now!\r\n");
+        delay(1000);
         digitalWrite(ESC_SB_PWR_PIN, LOW);
         digitalWrite(ESC_BB_PWR_PIN, LOW);
         digitalWrite(PWRENABLE, 0); // disable powersupply

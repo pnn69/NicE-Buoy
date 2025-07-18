@@ -140,9 +140,9 @@ void updateOled(RoboStruct *data)
     display.clearDisplay();
     display.setTextSize(2);
     display.setCursor(0, 0);
-    display.printf("BB%2d%\n\r", data->speedBb);
+    display.printf("BB %2d%\n\r", data->speedBb);
     display.setCursor(0, 15);
-    display.printf("SB%2d%\n\r", data->speedSb);
+    display.printf("SB %2d%\n\r", data->speedSb);
     display.setCursor(70, 0);
 
     int t = posID(data) + 1;
@@ -197,6 +197,9 @@ void updateOled(RoboStruct *data)
         display.fillRect(SCREEN_WIDTH - 10, SCREEN_HEIGHT / 2 - fill, 10, fill, WHITE);
     }
 
+    
+    
+    
     if (data->status == DOCKED || data->status == LOCKED)
     {
         display.setCursor(0, 30);

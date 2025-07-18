@@ -42,7 +42,7 @@ void readAdc(adcDataType *adc)
         tmp += analogRead(POT_RUDDER);
     }
     tmp = tmp / 10; // average over 20 samples
-    adc->heading = constrain(map(tmp, 0, 4095, 0, 360), 0, 360); // 4095;
+    adc->heading = constrain(map(tmp, 0, 4095, 0, 360), 360, 0); // 4095;
   
     //*************************************************************************************
     // Speed  
@@ -55,11 +55,11 @@ void readAdc(adcDataType *adc)
     tmp = tmp / 20; // average over 20 samples
     if (tmp < 4095/2 -700)
     {
-        newValue = map(tmp, 0,  4095/2 -700, -100, 0); // 4095;
+        newValue = map(tmp, 0,  4095/2 -700, 0, -100); // 4095;
     }
     else if (tmp >  4095/2 -200 + 700)
     {
-        newValue = map(tmp, 4095/2 +700,  4094, 0, 100); // 4095;
+        newValue = map(tmp, 4095/2 +700,  4094, 100, 0); // 4095;
     }
     else
     {

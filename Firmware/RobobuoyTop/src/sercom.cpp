@@ -11,8 +11,9 @@ static unsigned long mac;
 static RoboStruct serDataOut;
 static RoboStruct serDataIn;
 RoboStruct pendingMsg[10] = {};
-static unsigned long lastSerMsg;
+static unsigned long lastSerMsg = 0;
 static unsigned long retransmittReady = 0;
+static bool serialTimeout = true;
 
 void initserqueue(void)
 {
@@ -94,6 +95,8 @@ RoboStruct SerchkAckMsg(void)
 }
 void SercomTask(void *arg)
 {
+    unsigned long lastRx = millis();
+    mac = espMac();
     delay(2000);
     // Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // Half-duplex on same pin
     Serial1.begin(230400, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // Half-duplex on same pin
@@ -114,7 +117,6 @@ void SercomTask(void *arg)
             if (serDataIn.IDs != -1)
             {
                 xQueueSend(serIn, (void *)&serDataIn, 10); // notify main there is new data
-                lastSerMsg = millis();
             }
         }
         //***************************************************************************************************
@@ -127,11 +129,12 @@ void SercomTask(void *arg)
             {
                 serStringIn += (char)Serial1.read();
             }
-            // Serial.print("RxTop " + serStringIn);
             RoboStruct serDataIn;
             rfDeCode(serStringIn, &serDataIn);
             if (serDataIn.IDs != -1 && serDataIn.IDs != mac) // ignore own messages
             {
+                //Serial.print("RxTop " + serStringIn);
+                lastRx = millis();
                 if (serDataIn.ack == LORAACK) // A message form me so check if its a ACK message
                 {
                     printf("ack recieved removing cmd\r\n");
@@ -157,6 +160,18 @@ void SercomTask(void *arg)
         //***************************************************************************************************
         if (xQueueReceive(serOut, (void *)&serDataOut, 0) == pdTRUE) // send data to bottom
         {
+            while (lastRx + 20 > millis())
+                ;
+            if (lastSerMsg + 5000 < millis())
+            {
+                pinMode(COM_PIN_TX, OUTPUT);
+                digitalWrite(COM_PIN_TX, HIGH); // Pull low for enableling power on sub
+                Serial.println("No serial data for 5 seconds, enabeling sub power");
+                delay(1000);
+                Serial1.begin(230400, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // Half-duplex on same pin
+                lastSerMsg = millis();
+            }
+            serDataOut.IDs = mac;
             String out = rfCode(&serDataOut);
             Serial1.println(out);
             if (serDataOut.ack == LORAGETACK)
@@ -175,6 +190,8 @@ void SercomTask(void *arg)
             serDataOut = SerchkAckMsg();
             if (serDataOut.cmd != 0)
             {
+                while (lastRx + 20 > millis())
+                    ;
                 String out = rfCode(&serDataOut);
                 Serial1.println(out);
                 retransmittReady = millis() + random(1200, 750);

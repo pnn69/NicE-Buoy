@@ -66,9 +66,9 @@ void initloraqueue(void)
     loraOutSerial = xQueueCreate(10, sizeof(String));
     loraToMain = xQueueCreate(10, sizeof(RoboStruct));
     InitLora();
-    Serial.print("#BuoyId=");
-    Serial.println(espMac(), HEX);
     buoyId = espMac();
+    Serial.print("#BuoyId=");
+    Serial.println(buoyId, HEX);
 }
 
 //***************************************************************************************************
@@ -83,7 +83,7 @@ void storeAckMsg(RoboStruct ackBuffer)
         {
             memcpy(&pendingMsg[i], &ackBuffer, sizeof(ackBuffer));
             pendingMsg[i] = ackBuffer;
-            //Serial.println("message stored on pos:" + String(i) + " rettrys left:" + ackBuffer.retry + " for:" + String(ackBuffer.IDr, HEX) + " msg:" + ackBuffer.cmd);
+            // Serial.println("message stored on pos:" + String(i) + " rettrys left:" + ackBuffer.retry + " for:" + String(ackBuffer.IDr, HEX) + " msg:" + ackBuffer.cmd);
             return;
         }
         i++;
@@ -95,11 +95,11 @@ void storeAckMsg(RoboStruct ackBuffer)
 //***************************************************************************************************
 void removeAckMsg(RoboStruct ackBuffer)
 {
-    //Serial.println("looking for msg:" + String(ackBuffer.cmd) + " Id:" + String(ackBuffer.IDs, HEX));
+    // Serial.println("looking for msg:" + String(ackBuffer.cmd) + " Id:" + String(ackBuffer.IDs, HEX));
     int i = 0;
     while (i < 10)
     {
-        //Serial.println("Found:" + String(pendingMsg[i].cmd) + " Id:" + String(pendingMsg[i].IDr, HEX));
+        // Serial.println("Found:" + String(pendingMsg[i].cmd) + " Id:" + String(pendingMsg[i].IDr, HEX));
         if (pendingMsg[i].cmd == ackBuffer.cmd && pendingMsg[i].IDr == ackBuffer.IDs)
         {
             pendingMsg[i].ack = 0;
@@ -157,17 +157,18 @@ void onReceive(int packetSize)
     {
         incoming += (char)LoRa.read();
     }
-    digitalWrite(LED_PIN, LOW); // turn on led
+    digitalWrite(LED_PIN, LOW); // turn off led
     if (incomingLength != incoming.length())
     { // check length for error
         Serial.println("#error: message length does not match length");
         return; // skip rest of function
     }
-    RoboStruct in = rfDeCode(incoming);
+    RoboStruct in;
+    rfDeCode(incoming, &in);
     if ((in.IDr == buoyId || in.IDr == 0x99) && in.ack == LORAACK) // A message form me so check if its a ACK message
     {
         removeAckMsg(in);
-        //printf("#Lora Ack recieved buffer cleared\r\n");
+        // printf("#Lora Ack recieved buffer cleared\r\n");
         return;
     }
     Serial.println(incoming);
@@ -197,7 +198,7 @@ bool sendLora(String loraTransmitt)
             digitalWrite(LED_PIN, HIGH); // turn on led
             LoRa.write(loraTransmitt.length());
             LoRa.print(loraTransmitt);
-            LoRa.endPacket(); // finish packet and send it
+            LoRa.endPacket();           // finish packet and send it
             digitalWrite(LED_PIN, LOW); // turn on led
             transmittReady = millis() + 10;
             return true; // return true if success
@@ -223,19 +224,20 @@ void LoraTask(void *arg)
             {
                 vTaskDelay(pdTICKS_TO_MS(50));
             }
-            RoboStruct loraMsgin = rfDeCode(serDataOut);
+            RoboStruct loraMsgin;
+            rfDeCode(serDataOut, &loraMsgin);
             if (loraMsgin.ack == LORAGETACK)
             {
                 loraMsgin.retry = 5;
-                storeAckMsg(loraMsgin);                              // put data in buffer (will be removed on ack)
-                retransmittReady = millis() + 500 + random(0, 150); // give some time for ack
+                storeAckMsg(loraMsgin);                             // put data in buffer (will be removed on ack)
+                retransmittReady = millis() + 750 + random(0, 150); // give some time for ack
             }
         }
         // data to send from main
         if (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
         {
             loraMsgout.IDs = espMac();
-            String loraString = rfCode(loraMsgout);
+            String loraString = rfCode(&loraMsgout);
             while (sendLora(String(loraString)) != true)
             {
                 vTaskDelay(pdTICKS_TO_MS(150));
@@ -244,7 +246,7 @@ void LoraTask(void *arg)
             if (loraMsgout.ack == LORAGETACK)
             {
                 loraMsgout.retry = 5;
-                storeAckMsg(loraMsgout);                             // put data in buffer (will be removed on ack)
+                storeAckMsg(loraMsgout);                            // put data in buffer (will be removed on ack)
                 retransmittReady = millis() + 500 + random(0, 150); // give some time for ack
             }
         }
@@ -255,7 +257,7 @@ void LoraTask(void *arg)
             loraMsgout = chkAckMsg();
             if (loraMsgout.cmd != 0)
             {
-                String loraString = rfCode(loraMsgout);
+                String loraString = rfCode(&loraMsgout);
                 while (sendLora(loraString) != true)
                 {
                     vTaskDelay(pdTICKS_TO_MS(50));

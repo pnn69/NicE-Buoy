@@ -19,6 +19,8 @@ typedef struct LedPwrtruct
     CRGB sb;     // collor
     int blinkBb; // mode
     int blinkSb; // mode
+    int ledBb;
+    int ledSb;
 } PwrData;
 
 bool initledqueue(void);

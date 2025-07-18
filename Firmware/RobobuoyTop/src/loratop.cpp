@@ -172,7 +172,7 @@ void onReceive(int packetSize)
         printf("#Lora Ack recieved buffer cleared\r\n");
         return;
     }
-    if (in.IDr == buoyId || in.IDr == BUOYIDALL) // A message form me so check if its a ACK message
+    if (in.IDr == buoyId || in.IDr == BUOYIDALL) // A message form
     {
         if (in.ack == LORAGETACK) // on ack request send ack back
         {

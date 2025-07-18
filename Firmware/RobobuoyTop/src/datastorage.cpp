@@ -159,15 +159,15 @@ RoboStruct pidSpeedParameters(RoboStruct buoy, bool get)
     startMem();
     if (get)
     {
-        buoy.ps = storage.getDouble("ps", 20);
-        buoy.is = storage.getDouble("is", 0.4);
-        buoy.ds = storage.getDouble("ds", 0);
+        buoy.Kps = storage.getDouble("Kps", 20);
+        buoy.Kis = storage.getDouble("Kis", 0.4);
+        buoy.Kds = storage.getDouble("Kds", 0);
     }
     else
     {
-        storage.putDouble("ps", buoy.ps);
-        storage.putDouble("is", buoy.is);
-        storage.putDouble("ds", buoy.ds);
+        storage.putDouble("Kps", buoy.Kps);
+        storage.putDouble("Kis", buoy.Kis);
+        storage.putDouble("Kds", buoy.Kds);
     }
     stopMem();
     return buoy;
@@ -178,15 +178,15 @@ RoboStruct pidRudderParameters(RoboStruct buoy, bool get)
     startMem();
     if (get)
     {
-        buoy.pr = storage.getDouble("pr", 0.5);
-        buoy.ir = storage.getDouble("ir", 0.02);
-        buoy.dr = storage.getDouble("dr", 0);
+        buoy.Kpr = storage.getDouble("Kpr", 0.5);
+        buoy.Kir = storage.getDouble("Kir", 0.02);
+        buoy.Kdr = storage.getDouble("Kdr", 0);
     }
     else
     {
-        storage.putDouble("pr", buoy.pr);
-        storage.putDouble("ir", buoy.ir);
-        storage.putDouble("dr", buoy.dr);
+        storage.putDouble("Kpr", buoy.Kpr);
+        storage.putDouble("Kir", buoy.Kir);
+        storage.putDouble("Kdr", buoy.Kdr);
     }
     stopMem();
     return buoy;
@@ -219,16 +219,16 @@ RoboStruct defautls(RoboStruct buoy)
                              //***************************************************************************************************
                              //  PID rudder
                              //***************************************************************************************************
-    buoy.pr = 0.5;
-    buoy.ir = 0.02;
-    buoy.dr = 0;
+    buoy.Kpr = 0.5;
+    buoy.Kir = 0.02;
+    buoy.Kdr = 0;
     pidRudderParameters(buoy, false);
     //***************************************************************************************************
     //  PID speed
     //***************************************************************************************************
-    buoy.ps = 20;
-    buoy.is = 0.4;
-    buoy.ds = 0;
+    buoy.Kps = 20;
+    buoy.Kis = 0.4;
+    buoy.Kds = 0;
     pidSpeedParameters(buoy, false);
     return buoy;
 }

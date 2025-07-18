@@ -162,6 +162,7 @@ void startESC(void)
 void EscTask(void *arg)
 {
     unsigned long logStamp = 0;
+    unsigned long offStamp = 0;
     int spsb = 0, spbb = 0;
     int spsbAct = 0, spbbAct = 0;
     Message rcv_msg;
@@ -173,7 +174,10 @@ void EscTask(void *arg)
         {
             spbb = -rcv_msg.speedbb;
             spsb = -rcv_msg.speedsb;
+            // powerIndicator.ledBb = rcv_msg.speedbb;
+            // powerIndicator.ledSb = rcv_msg.speedsb;
             uint8_t r, g;
+
             if (rcv_msg.speedbb < 0)
             {
                 r = map(rcv_msg.speedbb, -100, 0, 255, 0);
@@ -205,6 +209,8 @@ void EscTask(void *arg)
         }
         if (spsb != 0 || spbb != 0)
         {
+            // offStamp = millis() + 1000 * 60 * 5; // 5 minutes
+            offStamp = millis() + 1000 * 30; // 30 seconds
             if (digitalRead(ESC_SB_PWR_PIN) == 0 || digitalRead(ESC_BB_PWR_PIN) == 0)
             {
                 startESC();
@@ -213,6 +219,19 @@ void EscTask(void *arg)
                 spbbAct = 0;
             }
         }
+        if (offStamp < millis())
+        {
+            if (digitalRead(ESC_SB_PWR_PIN) == HIGH || digitalRead(ESC_BB_PWR_PIN) == HIGH)
+            {
+                printf("ESC'S  OFF\r\n");
+                digitalWrite(ESC_SB_PWR_PIN, LOW);
+                digitalWrite(ESC_BB_PWR_PIN, LOW);
+            }
+            spsb = 0;
+            spbb = 0;
+            spsbAct = 0;
+            spbbAct = 0;
+        }
         if (logStamp + 100 < millis())
         {
             logStamp = millis();
@@ -220,7 +239,8 @@ void EscTask(void *arg)
         }
         if (escStamp < millis())
         {
-            escStamp = millis() + 30;
+            // escStamp = millis() + 10;
+            escStamp = millis();
             xQueueSend(ledPwr, (void *)&powerIndicator, 0);
             if (spsb > spsbAct)
             {
@@ -231,6 +251,7 @@ void EscTask(void *arg)
             {
                 spsbAct--;
             }
+            powerIndicator.ledSb = -spsbAct;
             ledcWrite(ESC_SB_CHANNEL, speedToPulse(spsbAct));
             if (spbb > spbbAct)
             {
@@ -240,6 +261,7 @@ void EscTask(void *arg)
             {
                 spbbAct--;
             }
+            powerIndicator.ledBb = -spbbAct;
             ledcWrite(ESC_BB_CHANNEL, speedToPulse(spbbAct));
         }
         delay(1);
