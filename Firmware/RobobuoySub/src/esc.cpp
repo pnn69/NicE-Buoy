@@ -219,7 +219,7 @@ void EscTask(void *arg)
                 spbbAct = 0;
             }
         }
-        if (offStamp < millis())
+        else if (offStamp < millis())
         {
             if (digitalRead(ESC_SB_PWR_PIN) == HIGH || digitalRead(ESC_BB_PWR_PIN) == HIGH)
             {
@@ -232,19 +232,13 @@ void EscTask(void *arg)
             spsbAct = 0;
             spbbAct = 0;
         }
-        if (logStamp + 100 < millis())
-        {
-            logStamp = millis();
-            // printf("ESC bb=%03d %03d    sb=%03d %03d\r\n", spbb, spbbAct, spsb, spsbAct);
-        }
         if (escStamp < millis())
         {
-            // escStamp = millis() + 10;
+            //escStamp = millis() + 2;
             escStamp = millis();
-            xQueueSend(ledPwr, (void *)&powerIndicator, 0);
             if (spsb > spsbAct)
             {
-
+                
                 spsbAct++;
             }
             else
@@ -263,7 +257,8 @@ void EscTask(void *arg)
             }
             powerIndicator.ledBb = -spbbAct;
             ledcWrite(ESC_BB_CHANNEL, speedToPulse(spbbAct));
+            xQueueSend(ledPwr, (void *)&powerIndicator, 0); //update ledbar
         }
-        delay(1);
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }

@@ -1,10 +1,7 @@
 #include "sercom.h"
-#include "io_sub.h"
 #include "main.h"
-#include "subwifi.h"
+#include "topwifi.h"
 #include <HardwareSerial.h>
-#include "compass.h"
-#include "datastorage.h"
 
 QueueHandle_t serOut;
 QueueHandle_t serIn;
@@ -13,8 +10,9 @@ static unsigned long mac;
 static RoboStruct serDataOut;
 static RoboStruct serDataIn;
 RoboStruct pendingMsg[10] = {};
-static unsigned long lastSerMsg;
+static unsigned long lastSerMsg = 0;
 static unsigned long retransmittReady = 0;
+static bool serialTimeout = true;
 
 void initserqueue(void)
 {
@@ -23,21 +21,10 @@ void initserqueue(void)
     mac = espMac();
 }
 
-void printMatrix()
-{
-    for (int i = 0; i < 3; i++)
-    {
-        for (int j = 0; j < 3; j++)
-        {
-            Serial.print(magSoft[i][j], 4);
-            Serial.print(j < 2 ? ", " : "\n");
-        }
-    }
-}
 //***************************************************************************************************
 //  Store to ack buffer
 //***************************************************************************************************
-void storeAckMsg(RoboStruct ackBuffer)
+void SerstoreAckMsg(RoboStruct ackBuffer)
 {
     int i = 0;
     while (i < 10)
@@ -56,7 +43,7 @@ void storeAckMsg(RoboStruct ackBuffer)
 //***************************************************************************************************
 //  Remove to ack buffer
 //***************************************************************************************************
-void removeAckMsg(RoboStruct ackBuffer)
+void SerremoveAckMsg(RoboStruct ackBuffer)
 {
     // Serial.println("looking for msg:" + String(ackBuffer.cmd) + " Id:" + String(ackBuffer.IDs, HEX));
     int i = 0;
@@ -80,7 +67,7 @@ void removeAckMsg(RoboStruct ackBuffer)
 //  check ack buffer
 //  remove data if more than n times has failed
 //***************************************************************************************************
-RoboStruct chkAckMsg(void)
+RoboStruct SerchkAckMsg(void)
 {
     RoboStruct in;
     in.ack = 0;
@@ -110,81 +97,29 @@ void SercomTask(void *arg)
     unsigned long lastRx = millis();
     mac = espMac();
     delay(2000);
-    // Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // Half-duplex on same pin
-    Serial1.begin(230400, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // Half-duplex on same pin
     while (1)
     {
         //***************************************************************************************************
         // Recieving data from PC
         //***************************************************************************************************
-        if (Serial.available()) // recieve data form pc
+        if (Serial.available()) // recieve data form top
         {
             String serStringIn = "";
-            serStringIn = Serial.readStringUntil('\n');
-            serStringIn.trim(); // Remove whitespace and \r\n
-            char buffer[100];   // Safe copy buffer
-            // SoftI:S11,S12,S13,S21,S22,S23,S31,S32,S33
-            // HardI:H1,H2,H3
-            serStringIn.trim(); // Remove leading/trailing whitespace
-
-            if (serStringIn.startsWith("SoftI:"))
+            while (Serial.available())
             {
-                serStringIn.remove(0, 6);                        // Remove prefix
-                serStringIn.toCharArray(buffer, sizeof(buffer)); // Copy to char array
-
-                int index = 0;
-                char *token = strtok(buffer, ",");
-
-                while (token != NULL && index < 9)
-                {
-                    int row = index / 3;
-                    int col = index % 3;
-                    serDataIn.magSoft[row][col] = atof(token);
-                    token = strtok(NULL, ",");
-                    index++;
-                }
-                if (index == 9) // 9 values for soft iron correction
-                {
-                    softIron(&serDataIn, SET);
-                    InitCompass();
-                }
+                serStringIn += (char)Serial.read();
             }
-            else if (serStringIn.startsWith("HardI:"))
+            RoboStruct serDataIn;
+            rfDeCode(serStringIn, &serDataIn);
+            if (serDataIn.IDs != -1)
             {
-                serStringIn.remove(0, 6);
-                serStringIn.toCharArray(buffer, sizeof(buffer));
-
-                int index = 0;
-                char *token = strtok(buffer, ",");
-
-                while (token != NULL && index < 3)
-                {
-                    serDataIn.magHard[index] = atof(token);
-                    token = strtok(NULL, ",");
-                    index++;
-                }
-                if (index == 3) // 3 values for hard iron correction
-                {
-                    hardIron(&serDataIn, SET);
-                    InitCompass();
-                }
-            }
-            else
-            {
-                RoboStruct serDataIn;
-                rfDeCode(serStringIn, &serDataIn);
-                mac = espMac();
-                if (serDataIn.IDs != -1 && serDataIn.IDs != mac) // ignore own messages
-                {
-                    xQueueSend(serIn, (void *)&serDataIn, 10); // notify main there is new data
-                    lastSerMsg = millis();
-                }
+                xQueueSend(serIn, (void *)&serDataIn, 10); // notify main there is new data
             }
         }
         //***************************************************************************************************
-        // Recieving data from Top
+        // Recieving data from Sub
         //***************************************************************************************************
-        if (Serial1.available()) // recieve data form top
+        if (Serial1.available()) // recieve data form sub
         {
             String serStringIn = "";
             while (Serial1.available())
@@ -193,15 +128,14 @@ void SercomTask(void *arg)
             }
             RoboStruct serDataIn;
             rfDeCode(serStringIn, &serDataIn);
-            mac = espMac();
             if (serDataIn.IDs != -1 && serDataIn.IDs != mac) // ignore own messages
             {
-                // Serial.print("RxSub " + serStringIn);
+                //Serial.print("RxTop " + serStringIn);
                 lastRx = millis();
                 if (serDataIn.ack == LORAACK) // A message form me so check if its a ACK message
                 {
                     printf("ack recieved removing cmd\r\n");
-                    removeAckMsg(serDataIn);
+                    SerremoveAckMsg(serDataIn);
                 }
                 else
                 {
@@ -211,29 +145,11 @@ void SercomTask(void *arg)
             }
             if (serDataIn.ack == LORAGETACK) // on ack request send ack back
             {
-                // IDr,IDs,ACK,MSG
                 serDataIn.IDr = serDataIn.IDs;
-                serDataIn.IDs = mac = espMac();
+                serDataIn.IDs = mac;
                 serDataIn.ack = LORAACK;
                 xQueueSend(serOut, (void *)&serDataIn, 10); // send ACK out
                 printf("sending ack\r\n");
-            }
-        }
-        //***************************************************************************************************
-        // Sending data to Top
-        //***************************************************************************************************
-        if (xQueueReceive(serOut, (void *)&serDataOut, 0) == pdTRUE) // send data to bottom
-        {
-            while (lastRx + 20 > millis())
-                ;
-            serDataOut.IDs = espMac();
-            String out = rfCode(&serDataOut);
-            Serial1.println(out);
-            if (serDataOut.ack == LORAGETACK)
-            {
-                serDataOut.retry = 5;
-                storeAckMsg(serDataOut);                            // put data in buffer (will be removed on ack)
-                retransmittReady = millis() + 750 + random(0, 150); // give some time for ack
             }
         }
 
@@ -242,7 +158,7 @@ void SercomTask(void *arg)
         //***************************************************************************************************
         if (retransmittReady < millis())
         {
-            serDataOut = chkAckMsg();
+            serDataOut = SerchkAckMsg();
             if (serDataOut.cmd != 0)
             {
                 while (lastRx + 20 > millis())

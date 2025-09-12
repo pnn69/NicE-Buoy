@@ -95,6 +95,12 @@ typedef enum
     MAXMINPWR,                        // max power, min power
     MAXMINPWRSET,                     // max power, min power set
     DIRMDIRTGDIRG,                    // dir Magnetic dir Target dir Gps
+    SOFTIRONCALIBRATION,              // Soft Iron Calibration
+    HARDIRONFACTORS,                  // Soft Iron Factors [3]
+    SOFTIRONFACTORS,                  // Soft Iron Factors [3][3]
+    RAWCOMPASSDATA,                   // Raw Compass Data acc xyz gyro xyz mag xyz
+    STORE_COMPASS_OFFSET,             // Store compass Offset
+    CALC_COMPASS_OFFSET,              // compute compass Offset tov magnetic north
 } msg_t;
 
 struct RoboStruct
@@ -143,6 +149,7 @@ struct RoboStruct
     int minSpeed = 0;
     int maxSpeed = 80;
     double declination = 0;
+    double compassOffset = 0; // compass offset
     unsigned long buoyId = 0;
     unsigned long lastLoraIn = 0;  // last external communicatong
     unsigned long lastLoraOut = 0; // last external communicatong
@@ -151,6 +158,8 @@ struct RoboStruct
     unsigned long lastSerIn = 0;   // last external communicatong
     unsigned long lastUdpIn = 0;   // last external communicatong
     unsigned char retry = 0;
+    double magHard[3] = {0};    // Hard Iron Factors
+    double magSoft[3][3] = {0}; // Soft Iron Factors
 };
 
 struct RoboStructGps

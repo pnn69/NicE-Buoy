@@ -3173,9 +3173,9 @@
 		)
 		(uuid "8df5dd6a-2d12-4a77-808e-31641ee9cc47")
 	)
-	(text "1K"
+	(text "must be 1K "
 		(exclude_from_sim no)
-		(at 84.836 92.456 0)
+		(at 82.804 91.694 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3192,6 +3192,16 @@
 			)
 		)
 		(uuid "bb355289-743e-45b4-992c-597f07731240")
+	)
+	(text "New"
+		(exclude_from_sim no)
+		(at 94.996 81.788 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "cb24d819-3da5-413c-8686-21501ec18bfe")
 	)
 	(junction
 		(at 191.77 147.32)
@@ -3270,6 +3280,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "42a6fe31-f8ea-4734-9445-67248e2076dc")
+	)
+	(junction
+		(at 99.06 85.09)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "44e87e06-aad7-4b85-a3d1-91e21a8503c4")
 	)
 	(junction
 		(at 90.17 177.8)
@@ -3583,6 +3599,12 @@
 		(color 0 0 0 0)
 		(uuid "fcc8a9df-74aa-445c-8e4a-081e737fc5c9")
 	)
+	(junction
+		(at 91.44 74.93)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "feb555ec-858c-416f-8551-bf541429dbc2")
+	)
 	(no_connect
 		(at 121.92 133.35)
 		(uuid "e7fa43fe-9ba8-4ca5-9551-0f35ffead911")
@@ -3619,7 +3641,7 @@
 	)
 	(wire
 		(pts
-			(xy 88.9 74.93) (xy 91.44 74.93)
+			(xy 86.36 74.93) (xy 91.44 74.93)
 		)
 		(stroke
 			(width 0)
@@ -4039,16 +4061,6 @@
 	)
 	(wire
 		(pts
-			(xy 99.06 96.52) (xy 99.06 80.01)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "4435488c-0d58-4846-9910-8b3ce8739402")
-	)
-	(wire
-		(pts
 			(xy 217.17 125.73) (xy 226.06 125.73)
 		)
 		(stroke
@@ -4076,6 +4088,16 @@
 			(type default)
 		)
 		(uuid "48a009dc-edfd-44ab-9f2a-8c5e746777a4")
+	)
+	(wire
+		(pts
+			(xy 91.44 74.93) (xy 91.44 77.47)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4aa34bb7-42c8-4130-b5c9-8bc3af13013c")
 	)
 	(wire
 		(pts
@@ -4119,7 +4141,7 @@
 	)
 	(wire
 		(pts
-			(xy 81.28 88.9) (xy 77.47 88.9)
+			(xy 78.74 88.9) (xy 77.47 88.9)
 		)
 		(stroke
 			(width 0)
@@ -4569,7 +4591,7 @@
 	)
 	(wire
 		(pts
-			(xy 69.85 74.93) (xy 81.28 74.93)
+			(xy 69.85 74.93) (xy 78.74 74.93)
 		)
 		(stroke
 			(width 0)
@@ -4929,7 +4951,7 @@
 	)
 	(wire
 		(pts
-			(xy 88.9 88.9) (xy 115.57 88.9)
+			(xy 86.36 88.9) (xy 115.57 88.9)
 		)
 		(stroke
 			(width 0)
@@ -5069,6 +5091,16 @@
 	)
 	(wire
 		(pts
+			(xy 99.06 80.01) (xy 99.06 85.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "eaedb59d-b0b4-4fdf-8330-26c640ee0faa")
+	)
+	(wire
+		(pts
 			(xy 102.87 172.72) (xy 102.87 177.8)
 		)
 		(stroke
@@ -5096,6 +5128,16 @@
 			(type default)
 		)
 		(uuid "ee0fbe4c-931c-4419-99b3-cf72a89d965b")
+	)
+	(wire
+		(pts
+			(xy 99.06 85.09) (xy 99.06 96.52)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ef322df0-e22c-4c3b-bbd8-284f9974dc43")
 	)
 	(wire
 		(pts
@@ -5219,6 +5261,16 @@
 	)
 	(wire
 		(pts
+			(xy 91.44 85.09) (xy 99.06 85.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fe8afbb4-a8d3-462e-bad2-b4b5b67aa2d8")
+	)
+	(wire
+		(pts
 			(xy 167.64 125.73) (xy 167.64 137.16)
 		)
 		(stroke
@@ -5283,7 +5335,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 85.09 88.9 90)
+		(at 82.55 88.9 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -5291,7 +5343,7 @@
 		(dnp no)
 		(uuid "05b93d31-e4ce-4af0-863f-9d9573936e59")
 		(property "Reference" "R111"
-			(at 85.09 87.63 0)
+			(at 82.55 87.63 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5300,7 +5352,7 @@
 			)
 		)
 		(property "Value" "10K"
-			(at 85.09 88.9 90)
+			(at 82.55 88.9 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5308,7 +5360,7 @@
 			)
 		)
 		(property "Footprint" "A_Device:R_0603"
-			(at 85.09 90.678 90)
+			(at 82.55 90.678 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5317,7 +5369,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 85.09 88.9 0)
+			(at 82.55 88.9 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5326,7 +5378,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 85.09 88.9 0)
+			(at 82.55 88.9 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5335,7 +5387,7 @@
 			)
 		)
 		(property "Farnell" "2331736"
-			(at 85.09 88.9 0)
+			(at 82.55 88.9 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5344,7 +5396,7 @@
 			)
 		)
 		(property "MF" "TE CONNECTIVITY"
-			(at 85.09 88.9 0)
+			(at 82.55 88.9 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5353,7 +5405,7 @@
 			)
 		)
 		(property "MFN" "CRGH0603F10K"
-			(at 85.09 88.9 0)
+			(at 82.55 88.9 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5362,7 +5414,7 @@
 			)
 		)
 		(property "Octopart" ""
-			(at 85.09 88.9 0)
+			(at 82.55 88.9 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5371,7 +5423,7 @@
 			)
 		)
 		(property "LCSC" "C25804"
-			(at 85.09 88.9 0)
+			(at 82.55 88.9 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5380,7 +5432,7 @@
 			)
 		)
 		(property "JLCS" ""
-			(at 85.09 88.9 0)
+			(at 82.55 88.9 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5389,7 +5441,7 @@
 			)
 		)
 		(property "Field5" ""
-			(at 85.09 88.9 0)
+			(at 82.55 88.9 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5398,7 +5450,7 @@
 			)
 		)
 		(property "Type" ""
-			(at 85.09 88.9 0)
+			(at 82.55 88.9 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5407,7 +5459,7 @@
 			)
 		)
 		(property "Height" ""
-			(at 85.09 88.9 0)
+			(at 82.55 88.9 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5416,7 +5468,7 @@
 			)
 		)
 		(property "Manufacturer_Name" ""
-			(at 85.09 88.9 0)
+			(at 82.55 88.9 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5425,7 +5477,7 @@
 			)
 		)
 		(property "Manufacturer_Part_Number" ""
-			(at 85.09 88.9 0)
+			(at 82.55 88.9 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5434,7 +5486,7 @@
 			)
 		)
 		(property "Sim.Type" ""
-			(at 85.09 88.9 0)
+			(at 82.55 88.9 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10680,6 +10732,182 @@
 		)
 	)
 	(symbol
+		(lib_id "Device:R")
+		(at 91.44 81.28 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "943fce25-164b-446a-8c92-432aae8c917e")
+		(property "Reference" "R207"
+			(at 90.17 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "1K"
+			(at 91.44 81.28 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 93.218 81.28 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 91.44 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 91.44 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Farnell" "2331736"
+			(at 91.44 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MF" "TE CONNECTIVITY"
+			(at 91.44 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MFN" "CRGH0603F10K"
+			(at 91.44 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Octopart" ""
+			(at 91.44 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C25804"
+			(at 91.44 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "JLCS" ""
+			(at 91.44 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 91.44 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Type" ""
+			(at 91.44 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Height" ""
+			(at 91.44 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer_Name" ""
+			(at 91.44 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer_Part_Number" ""
+			(at 91.44 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Sim.Type" ""
+			(at 91.44 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "cf7e96e7-5f7d-4186-9fd3-c91eae0b879d")
+		)
+		(pin "2"
+			(uuid "309848b9-67d8-4a14-9c2d-e2e24b5dd601")
+		)
+		(instances
+			(project "Robobuoy-Top-v2_1"
+				(path "/77bea089-a6ae-4a6f-b95b-7a9010ad7c5d/b4716c37-6296-4cc3-83d4-c08b9373ace7"
+					(reference "R207")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Transistor_FET:2N7002")
 		(at 177.8 40.64 0)
 		(unit 1)
@@ -12055,7 +12283,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 85.09 74.93 90)
+		(at 82.55 74.93 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -12063,7 +12291,7 @@
 		(dnp no)
 		(uuid "ba2a51f1-c922-4cf1-b251-04abe51ec634")
 		(property "Reference" "R109"
-			(at 85.09 73.66 0)
+			(at 82.55 73.66 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12072,7 +12300,7 @@
 			)
 		)
 		(property "Value" "10K"
-			(at 85.09 74.93 90)
+			(at 82.55 74.93 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12080,7 +12308,7 @@
 			)
 		)
 		(property "Footprint" "A_Device:R_0603"
-			(at 85.09 76.708 90)
+			(at 82.55 76.708 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12089,7 +12317,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 85.09 74.93 0)
+			(at 82.55 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12098,7 +12326,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 85.09 74.93 0)
+			(at 82.55 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12107,7 +12335,7 @@
 			)
 		)
 		(property "Farnell" "2331736"
-			(at 85.09 74.93 0)
+			(at 82.55 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12116,7 +12344,7 @@
 			)
 		)
 		(property "MF" "TE CONNECTIVITY"
-			(at 85.09 74.93 0)
+			(at 82.55 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12125,7 +12353,7 @@
 			)
 		)
 		(property "MFN" "CRGH0603F10K"
-			(at 85.09 74.93 0)
+			(at 82.55 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12134,7 +12362,7 @@
 			)
 		)
 		(property "Octopart" ""
-			(at 85.09 74.93 0)
+			(at 82.55 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12143,7 +12371,7 @@
 			)
 		)
 		(property "LCSC" "C25804"
-			(at 85.09 74.93 0)
+			(at 82.55 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12152,7 +12380,7 @@
 			)
 		)
 		(property "JLCS" ""
-			(at 85.09 74.93 0)
+			(at 82.55 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12161,7 +12389,7 @@
 			)
 		)
 		(property "Field5" ""
-			(at 85.09 74.93 0)
+			(at 82.55 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12170,7 +12398,7 @@
 			)
 		)
 		(property "Type" ""
-			(at 85.09 74.93 0)
+			(at 82.55 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12179,7 +12407,7 @@
 			)
 		)
 		(property "Height" ""
-			(at 85.09 74.93 0)
+			(at 82.55 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12188,7 +12416,7 @@
 			)
 		)
 		(property "Manufacturer_Name" ""
-			(at 85.09 74.93 0)
+			(at 82.55 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12197,7 +12425,7 @@
 			)
 		)
 		(property "Manufacturer_Part_Number" ""
-			(at 85.09 74.93 0)
+			(at 82.55 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12206,7 +12434,7 @@
 			)
 		)
 		(property "Sim.Type" ""
-			(at 85.09 74.93 0)
+			(at 82.55 74.93 0)
 			(effects
 				(font
 					(size 1.27 1.27)

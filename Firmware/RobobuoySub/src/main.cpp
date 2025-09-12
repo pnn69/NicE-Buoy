@@ -17,6 +17,7 @@
 #include "soc/rtc_cntl_reg.h" // needed to disable brownout detector
 
 #define HOST_NAME "RoboBuoySub"
+TaskHandle_t compassTaskHandle = NULL; // Task handle for compass task
 
 // pid subparameter;
 static RoboStruct mainData;
@@ -88,7 +89,7 @@ void setup()
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 1000, NULL, 1, NULL, 1);
     xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 5, NULL, 1);
     xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
-    xTaskCreatePinnedToCore(CompassTask, "CompasaTask", 2000, NULL, configMAX_PRIORITIES - 1, NULL, 0);
+    xTaskCreatePinnedToCore(CompassTask, "CompasaTask", 2000, NULL, configMAX_PRIORITIES - 1, &compassTaskHandle, 0); //&compassTaskHandle is used to suspend/resume the task
     xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 3, NULL, 0);
     Serial.println("Setup done!");
 }
@@ -158,6 +159,13 @@ void handelKeyPress(void)
             calibrateMagneticNorth();
             presses = -1;
         }
+        if (presses == 1) // Calibrate compas
+        {
+            beep(1, buzzer);
+            presses = CALIBRATE_MAGNETIC_COMPASS;
+            xQueueSend(compassIn, (void *)&presses, 10); // Start compass calibration
+            presses = -1;
+        }
         if (presses == 10) // Calibrate compas
         {
             beep(1, buzzer);
@@ -172,87 +180,6 @@ void handelKeyPress(void)
     }
 }
 
-//***************************************************************************************************
-// Timer routines
-//***************************************************************************************************
-void handleTimerRoutines(RoboStruct *in)
-{
-    switch (in->status)
-    {
-    case LOCKED:
-    case DOCKED:
-    case DIRDIST:
-        if (pidTimer < millis())
-        {
-            pidTimer = millis() + 50; // 50ms
-            if (in->tgDist > 1.5)
-            {
-                speedPid(in);
-                // Serial.printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f\r\n", in->tgDist, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag));
-                if (in->tgSpeed < 0) // do not go backwards
-                {
-                    in->tgSpeed = 0;
-                }
-                rudderPid(in);
-            }
-            else if (in->tgDist > 0.5)
-            {
-                in->tgSpeed = 0;
-                rudderPid(in);
-                in->speedSb = constrain(in->speedSb, -10, 10); //take it easy
-                in->speedBb = constrain(in->speedBb, -10, 10); //take it easy
-            }
-            else
-            {
-                in->tgSpeed = 0;
-                in->speedBb = 0;
-                in->speedSb = 0;
-            }
-            escOut.speedbb = in->speedBb;
-            escOut.speedsb = in->speedSb;
-            xQueueSend(escspeed, (void *)&escOut, 10);
-        }
-        break;
-    case REMOTE:
-        rudderPid(in);
-        escOut.speedbb = in->speedBb;
-        escOut.speedsb = in->speedSb;
-        xQueueSend(escspeed, (void *)&escOut, 10);
-        break;
-    case SPBBSPSB: // SpeedBb,SpeedSb
-        escOut.speedbb = in->speedBb;
-        escOut.speedsb = in->speedSb;
-        xQueueSend(escspeed, (void *)&escOut, 10);
-        break;
-    case IDLE:
-    case IDELING:
-        if (escOut.speedbb != 0 || escOut.speedsb != 0)
-        {
-
-            escOut.speedbb = 0;
-            escOut.speedsb = 0;
-            xQueueSend(escspeed, (void *)&escOut, 10);
-        }
-        break;
-    default:
-        break;
-    }
-
-    if (nextSamp < millis())
-    {
-        nextSamp = 250 + millis();
-        in->cmd = SUBDATA;
-        xQueueSend(serOut, (void *)in, 10);
-    }
-
-    if (logtimer < millis())
-    {
-        logtimer = millis() + 500;
-        battVoltage(in->subAccuV, in->subAccuP);
-        printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", in->tgDist - 2, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb);
-        printf("  ip: %05.3f ir: %05.3f\r\n", in->ip, in->ir);
-    }
-}
 //***************************************************************************************************
 //      status actions
 //***************************************************************************************************
@@ -411,18 +338,28 @@ void handelSerandRfdata(RoboStruct *ser)
             break;
         case STORE_DECLINATION:
             printf("Declinaton set to: %f\r\n", dataIn.declination);
-            Declination(&dataIn.declination, SET);
-            Declination(&ser->declination, GET);
+            Declination(&dataIn, SET);
+            Declination(ser, GET);
+            InitCompass();
             break;
-        case SET_DECLINATION:
+        case STORE_COMPASS_OFFSET:
+            printf("Compass offset: %f\r\n", dataIn.compassOffset);
+            CompasOffset(&dataIn, SET);
+            CompasOffset(ser, GET);
+            InitCompass();
+            break;
+        case CALC_COMPASS_OFFSET:
+            vTaskSuspend(compassTaskHandle);
             calibrateMagneticNorth();
-            // ser->ack = LORAGETACK;
+            vTaskResume(compassTaskHandle);
             ser->status = IDELING;
             xQueueSend(serOut, (void *)ser, 10);
             ser->status = IDLE;
             break;
         case CALIBRATE_MAGNETIC_COMPASS:
+            vTaskSuspend(compassTaskHandle);
             calibrateParametersCompas();
+            vTaskResume(compassTaskHandle);
             // ser->ack = LORAGETACK;
             ser->status = IDELING;
             xQueueSend(serOut, (void *)ser, 10);
@@ -443,6 +380,17 @@ void handelSerandRfdata(RoboStruct *ser)
             initSpeedPid(ser);
             printf("Max speed %d Min speed %d\r\n", ser->maxSpeed, ser->minSpeed);
             break;
+        case HARDIRONFACTORS:
+            dataIn.mac = espMac();
+            hardIron(&dataIn, SET);
+            InitCompass();
+            break;
+        case SOFTIRONFACTORS:
+            dataIn.mac = espMac();
+            softIron(&dataIn, SET);
+            InitCompass();
+            break;
+
         case PING:
             ser->cmd = DIRSPEED;
             xQueueSend(serOut, (void *)ser, 10);
@@ -493,6 +441,82 @@ void handelSerialTimeOut(RoboStruct *ser)
         PwrOff = millis();
     }
 }
+
+//***************************************************************************************************
+// Timer routines
+//***************************************************************************************************
+void handleTimerRoutines(RoboStruct *in)
+{
+    switch (in->status)
+    {
+    case LOCKED:
+    case DOCKED:
+    case DIRDIST:
+        if (pidTimer < millis())
+        {
+            pidTimer = millis() + 50; // 50ms
+            if (in->tgDist > 1.5)
+            {
+                speedPid(in);
+                // Serial.printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f\r\n", in->tgDist, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag));
+                if (in->tgSpeed < 0) // do not go backwards
+                {
+                    in->tgSpeed = 0;
+                }
+                rudderPid(in);
+            }
+            else
+            {
+                in->tgSpeed = 0;
+                in->speedBb = 0;
+                in->speedSb = 0;
+            }
+            escOut.speedbb = in->speedBb;
+            escOut.speedsb = in->speedSb;
+            xQueueSend(escspeed, (void *)&escOut, 10);
+        }
+        break;
+    case REMOTE:
+        rudderPid(in);
+        escOut.speedbb = in->speedBb;
+        escOut.speedsb = in->speedSb;
+        xQueueSend(escspeed, (void *)&escOut, 10);
+        break;
+    case SPBBSPSB: // SpeedBb,SpeedSb
+        escOut.speedbb = in->speedBb;
+        escOut.speedsb = in->speedSb;
+        xQueueSend(escspeed, (void *)&escOut, 10);
+        break;
+    case IDLE:
+    case IDELING:
+        if (escOut.speedbb != 0 || escOut.speedsb != 0)
+        {
+
+            escOut.speedbb = 0;
+            escOut.speedsb = 0;
+            xQueueSend(escspeed, (void *)&escOut, 10);
+        }
+        break;
+    default:
+        break;
+    }
+
+    if (nextSamp < millis())
+    {
+        nextSamp = 250 + millis();
+        in->cmd = SUBDATA;
+        xQueueSend(serOut, (void *)in, 10);
+    }
+
+    if (logtimer < millis())
+    {
+        logtimer = millis() + 500;
+        battVoltage(in->subAccuV, in->subAccuP);
+        printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", in->tgDist - 2, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb);
+        printf("  ip: %05.3f ir: %05.3f\r\n", in->ip, in->ir);
+    }
+}
+
 //***************************************************************************************************
 //  Main loop
 //***************************************************************************************************
@@ -504,6 +528,7 @@ void loop(void)
     xQueueSend(ledStatus, (void *)&mainPwrData, 0); // update GPS led
     xQueueSend(ledPwr, (void *)&mainPwrData, 0);    // update util led
     PwrOff = millis();
+    mainData.status = IDLE;
     while (true)
     {
         //***************************************************************************************************
@@ -530,6 +555,6 @@ void loop(void)
         //      Serial watchdog
         //***************************************************************************************************
         handelSerialTimeOut(&mainData);
-        vTaskDelay(1);
+        vTaskDelay(pdMS_TO_TICKS(5));
     }
 }

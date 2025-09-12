@@ -1,6 +1,7 @@
 // https://github.com/espressif/arduino-esp32/blob/master/libraries/Preferences/src/Preferences.cpp
 #include <Preferences.h>
 #include <main.h>
+#include <RoboCompute.h>
 Preferences storage;
 
 void initMemory(void)
@@ -16,9 +17,10 @@ void initMemory(void)
     {
         Serial.printf("Configuring Non-volatile memory now!\n\r");
         storage.putChar("NicE_BuoyID", 100);
-        Serial.printf("Storing data Bouy ID to 100\r\n");
         storage.putDouble("Doclat", 52.29308075283747);
         storage.putDouble("Doclon", 4.932570409845357);
+        storage.putDouble("declination", 2.6666666666);
+
         // tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
         Serial.printf("Storing data Target position \r\nWSVOP landing stage tglatitude = 52.29308075283747, tglongitude = 4.932570409845357 ");
         Serial.printf("Buoy Memory configured\r\n");
@@ -76,58 +78,29 @@ void memDockPos(RoboStruct *buoy, bool get)
     stopMem();
 }
 
-/*
-    Defaut callibration factors determed earyer
-    compass.m_min = (LSM303::vector<int16_t>){-535, -645, -382};
-    compass.m_max = (LSM303::vector<int16_t>){+576, +466, +754};
-*/
-void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, float *MinX, float *MinY, float *MinZ, bool get)
+void Declination(RoboStruct *buoy, bool get)
 {
     startMem();
     if (get)
     {
-        *MaxX = storage.getFloat("MaxX", 576);
-        *MaxY = storage.getFloat("MaxY", 466);
-        *MaxZ = storage.getFloat("MaxZ", 754);
-        *MinX = storage.getFloat("MinX", -535);
-        *MinY = storage.getFloat("MinY", -645);
-        *MinZ = storage.getFloat("MinZ", -382);
+        buoy->declination = storage.getDouble("declination", 2.66666666); // amsterdam 2025
     }
     else
     {
-        storage.putFloat("MaxX", *MaxX);
-        storage.putFloat("MaxY", *MaxY);
-        storage.putFloat("MaxZ", *MaxZ);
-        storage.putFloat("MinX", *MinX);
-        storage.putFloat("MinY", *MinY);
-        storage.putFloat("MinZ", *MinZ);
+        storage.putDouble("declination", buoy->declination);
     }
     stopMem();
 }
-
-void Declination(double *declination, bool get)
+void CompasOffset(RoboStruct *buoy, bool get)
 {
     startMem();
     if (get)
     {
-        *declination = storage.getDouble("declination", 1.5);
+        buoy->compassOffset = storage.getDouble("CompasOffset", 0);
     }
     else
     {
-        storage.putDouble("declination", *declination);
-    }
-    stopMem();
-}
-void MechanicalCorrection(double *delta, bool get)
-{
-    startMem();
-    if (get)
-    {
-        *delta = storage.getDouble("Mecanic", 0);
-    }
-    else
-    {
-        storage.putDouble("Mecanic", *delta);
+        storage.putDouble("CompasOffset", buoy->compassOffset);
     }
     stopMem();
 }
@@ -211,6 +184,81 @@ void apParameters(String *ap, String *ww, bool get)
     {
         storage.putString("ap", *ap);
         storage.putString("ww", *ww);
+    }
+    stopMem();
+}
+
+void hardIron(RoboStruct *buoy, bool get)
+{
+    startMem();
+    String key = "";
+    for (int i = 0; i < 3; i++)
+    {
+        String key = "mH" + String(buoy->mac, HEX) + String(i);
+        if (get)
+        {
+            buoy->magHard[i] = storage.getDouble(key.c_str(), 0.0);
+        }
+        else
+        {
+            storage.putDouble(key.c_str(), buoy->magHard[i]);
+        }
+    }
+    stopMem();
+}
+
+void softIron(RoboStruct *buoy, bool get)
+{
+    startMem();
+    String key = "";
+    for (int i = 0; i < 3; ++i)
+    {
+        for (int j = 0; j < 3; ++j)
+        {
+            // Key includes MAC address to separate buoy data
+            key = "mS" + String(buoy->mac, HEX) + String(i) + String(j);
+            if (get)
+            {
+                double defaultValue = (i == j) ? 1.0 : 0.0; // Identity matrix default
+                buoy->magSoft[i][j] = storage.getDouble(key.c_str(), defaultValue);
+            }
+            else
+            {
+                storage.putDouble(key.c_str(), buoy->magSoft[i][j]);
+            }
+        }
+    }
+
+    stopMem();
+}
+void CompassCallibrationFactors(RoboStruct *buoy, bool get)
+{
+    softIron(buoy, get);
+    hardIron(buoy, get);
+    Declination(buoy, get);
+    CompasOffset(buoy, get);
+}
+
+void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, float *MinX, float *MinY, float *MinZ, bool get)
+{
+    startMem();
+    if (get)
+    {
+        *MaxX = storage.getFloat("MaxX", 576);
+        *MaxY = storage.getFloat("MaxY", 466);
+        *MaxZ = storage.getFloat("MaxZ", 754);
+        *MinX = storage.getFloat("MinX", -535);
+        *MinY = storage.getFloat("MinY", -645);
+        *MinZ = storage.getFloat("MinZ", -382);
+    }
+    else
+    {
+        storage.putFloat("MaxX", *MaxX);
+        storage.putFloat("MaxY", *MaxY);
+        storage.putFloat("MaxZ", *MaxZ);
+        storage.putFloat("MinX", *MinX);
+        storage.putFloat("MinY", *MinY);
+        storage.putFloat("MinZ", *MinZ);
     }
     stopMem();
 }

@@ -371,7 +371,7 @@ class PIDSender(QWidget):
     def __init__(self):
         super().__init__()
 
-
+        self.setStyleSheet("QPushButton { background-color: lightblue; }")
         self.last_rudder_value = None
         self.last_speed_value = None
         self.debounce_timer = QTimer()
@@ -408,24 +408,37 @@ class PIDSender(QWidget):
         # BB/SB Progress Bars with Labels
         self.bb_bar = VerticalCenteredProgressBar(height=self.SpeedPid_inputs["box"].sizeHint().height())
         self.sb_bar = VerticalCenteredProgressBar(height=self.SpeedPid_inputs["box"].sizeHint().height())
-        bb_label = QLabel("BB")
-        bb_label.setAlignment(Qt.AlignCenter)
-        sb_label = QLabel("SB")
-        sb_label.setAlignment(Qt.AlignCenter)
 
+        # Value labels above the bars
+        self.bb_value_label = QLabel("0.0")
+        self.bb_value_label.setAlignment(Qt.AlignCenter)
+        self.sb_value_label = QLabel("0.0")
+        self.sb_value_label.setAlignment(Qt.AlignCenter)
+
+        # BB layout
         bb_layout = QVBoxLayout()
+        bb_layout.addWidget(self.bb_value_label)         # Value above
         bb_layout.addWidget(self.bb_bar)
-        bb_layout.addWidget(bb_label)
+        bb_layout.addWidget(QLabel("BB", alignment=Qt.AlignCenter))
 
+        # SB layout
         sb_layout = QVBoxLayout()
+        sb_layout.addWidget(self.sb_value_label)         # Value above
         sb_layout.addWidget(self.sb_bar)
-        sb_layout.addWidget(sb_label)
+        sb_layout.addWidget(QLabel("SB", alignment=Qt.AlignCenter))
 
+        # Combine both bars
         bars_layout = QHBoxLayout()
         bars_layout.addLayout(bb_layout)
         bars_layout.addSpacing(10)
         bars_layout.addLayout(sb_layout)
 
+        font = QFont()
+        font.setPointSize(12)
+        self.bb_value_label.setFont(font)
+        self.sb_value_label.setFont(font)
+
+        # Add to top layout
         top_layout.addLayout(bars_layout)
 
         # Extra fields for Rudder PID inputs
@@ -464,14 +477,14 @@ class PIDSender(QWidget):
         # Power and Declination layout
         power_declination_layout = QHBoxLayout()
 
-        power_declination_layout.addWidget(QLabel("Max Power (-100 to 100):"))
+        power_declination_layout.addWidget(QLabel("Max Power (0 100):"))
         self.max_power_input = QLineEdit()
         self.max_power_input.setPlaceholderText("Enter max power")
         power_declination_layout.addWidget(self.max_power_input)
 
         power_declination_layout.addSpacing(20)
 
-        power_declination_layout.addWidget(QLabel("Min Power (-100 to 100):"))
+        power_declination_layout.addWidget(QLabel("Min Power (0 -100 :"))
         self.min_power_input = QLineEdit()
         self.min_power_input.setPlaceholderText("Enter min power")
         power_declination_layout.addWidget(self.min_power_input)
@@ -516,17 +529,6 @@ class PIDSender(QWidget):
         self.serial_display.setMinimumHeight(150)
         layout.addWidget(self.serial_display)
 
-        # Rudder slider
-        layout.addWidget(QLabel("Rudder Control:"))
-        self.rudder_slider_layout, self.rudder_label, self.rudder_slider = self.create_slider(
-            "Rudder", self.on_slider_change)
-        layout.addLayout(self.rudder_slider_layout)
-
-        # Speed slider
-        layout.addWidget(QLabel("Speed Control:"))
-        self.speed_slider_layout, self.speed_label, self.speed_slider = self.create_slider(
-            "Speed", self.on_slider_change)
-        layout.addLayout(self.speed_slider_layout)
 
         # Distance and Direction inputs with send button
         distance_direction_layout = QHBoxLayout()
@@ -575,6 +577,8 @@ class PIDSender(QWidget):
     def update_thruster_bars(self, bb_value: float, sb_value: float):
         self.bb_bar.setValue(int(bb_value))
         self.sb_bar.setValue(int(sb_value))
+        self.bb_value_label.setText(str(int(bb_value)))
+        self.sb_value_label.setText(str(int(sb_value)))
 
     def update_ip_ir_display(self, IDs):
         if IDs in telemetry_records:
@@ -597,74 +601,81 @@ class PIDSender(QWidget):
         self.ip_display.setText(f"{ip:.2f}")
         self.ir_display.setText(f"{ir:.2f}")
 
-    def create_pid_input_group(self, title, var_names, callback, extra_fields=None):
-        box = QGroupBox(title)
-        vbox = QVBoxLayout()
+
+
+
+
+
+    def create_pid_input_group(self, title, param_names, send_callback, extra_fields=None):
+        from PyQt5.QtWidgets import QGridLayout  # ensure it's imported
+
+        group_box = QGroupBox(title)
+        group_box.setAlignment(Qt.AlignHCenter)  # Center the title text
+        main_layout = QVBoxLayout()
+
+        font = QFont()
+        font.setPointSize(11)
+
+        grid_layout = QGridLayout()
         inputs = {}
 
-        for var in var_names:
-            hbox = QHBoxLayout()
-            hbox.addWidget(QLabel(var))
-            field = QLineEdit()
-            field.setPlaceholderText("Enter float")
-            hbox.addWidget(field)
-            vbox.addLayout(hbox)
-            inputs[var] = field
+        # Row 0: PID Labels
+        for col, name in enumerate(param_names):
+            label = QLabel(name)
+            label.setAlignment(Qt.AlignCenter)
+            grid_layout.addWidget(label, 0, col)
 
+        # Row 1: PID Input Fields
+        for col, name in enumerate(param_names):
+            edit = QLineEdit()
+            edit.setFixedWidth(150)
+            edit.setFont(font)
+            inputs[name] = edit
+            grid_layout.addWidget(edit, 1, col)
+
+        # Row 2: Send Button (spanning across all columns)
+        send_button = QPushButton("Send")
+        send_button_font = QFont()
+        send_button_font.setPointSize(20)
+        send_button.setFont(send_button_font)
+        send_button.setMinimumHeight(100)
+        send_button.setFont(font)
+        send_button.clicked.connect(send_callback)
+
+        grid_layout.addWidget(send_button, 2, 0, 1, len(param_names))  # span all columns
+
+        # Row 3–4: Extra fields like TGdist and Dir
         if extra_fields:
-            extra_hbox = QHBoxLayout()
-            for label, placeholder in extra_fields:
-                extra_hbox.addWidget(QLabel(label))
-                field = QLineEdit()
-                field.setPlaceholderText(placeholder)
-                extra_hbox.addWidget(field)
-                inputs[label] = field  # add to same dict
-            send_button = QPushButton("Send")
-            send_button.clicked.connect(callback)
-            extra_hbox.addWidget(send_button)
-            vbox.addLayout(extra_hbox)
-        else:
-            send_button = QPushButton("Send")
-            send_button.clicked.connect(callback)
-            vbox.addWidget(send_button, alignment=Qt.AlignRight)
+            for name, field_type in extra_fields:
+                # Assign columns logically
+                if name.lower().startswith("tg") or name.lower().startswith("mdir"):
+                    col = 0
+                elif name.lower().startswith("dir") or name.lower().startswith("vbatt"):
+                    col = 2
+                else:
+                    col = 1  # fallback center
 
-        box.setLayout(vbox)
-        return {"box": box, "inputs": inputs}
-    
+                label = QLabel(name)
+                label.setAlignment(Qt.AlignCenter)
+                edit = QLineEdit()
+                edit.setFixedWidth(100)
+                edit.setFont(font)
+                edit.setReadOnly(True)
+                edit.setStyleSheet("background-color: #f0f0f0;")  # visual cue for read-only
 
-    def create_slider(self, name, on_change):
-        def format_slider_value(val):
-            if val < 0:
-                return f"-{abs(val):02d}"
-            else:
-                return f"{val:02d}"
+                inputs[name] = edit
+                grid_layout.addWidget(label, 3, col)
+                grid_layout.addWidget(edit, 4, col)
+                main_layout.addLayout(grid_layout)
+                group_box.setLayout(main_layout)
 
-        layout = QHBoxLayout()
-        label = QLabel("00")  # default as two digits
-        slider = QSlider(Qt.Horizontal)
-        slider.setRange(-100, 100)
-        slider.setValue(0)
-        slider.setTickInterval(10)
-        slider.setTickPosition(QSlider.TicksBelow)
+        return {"box": group_box, "inputs": inputs, "button": send_button}
 
-        slider.valueChanged.connect(lambda val: (
-            label.setText(format_slider_value(val)),
-            on_change(name, val)
-        ))
 
-        layout.addWidget(slider)
-        layout.addWidget(label)
-        return layout, label, slider
 
-    def on_slider_change(self, name, value):
-        if name == "Rudder":
-            if value != self.last_rudder_value:
-                self.last_rudder_value = value
-                self.debounce_timer.start(200)  # Reset debounce timer
-        elif name == "Speed":
-            if value != self.last_speed_value:
-                self.last_speed_value = value
-                self.debounce_timer.start(200)  # Reset debounce timer
+
+
+
 
     def create_mode_radio_buttons(self):
         box = QGroupBox("Control Mode")
@@ -702,6 +713,16 @@ class PIDSender(QWidget):
         elif self.idle_radio.isChecked():
             return "Idle"
         return None
+
+    def set_mode(self, mode):
+        if mode == "Idle":
+            self.idle_radio.setChecked(True)
+        elif mode == "Remote":
+            self.remote_radio.setChecked(True)
+        elif mode == "Lock":
+            self.lock_radio.setChecked(True)
+        elif mode == "Docking":
+            self.docking_radio.setChecked(True)
 
     def restore_values(self):
         for group, fields in [("SpeedPid", self.SpeedPid_inputs["inputs"]), ("RudderPid", self.RudderPid_inputs["inputs"])]:
@@ -767,18 +788,6 @@ class PIDSender(QWidget):
             self.RudderPid_inputs["inputs"]["Vbatt"].setText(safe_float(bat, 1))
 
 
-
-
-
-
-
-
-
-
-
-
-
-
     def send_SpeedPid(self):
         values = self.get_values(self.SpeedPid_inputs["inputs"])
         send_udp_broadcast(values, PIDSPEEDSET, "SpeedPid", self.serial_port)
@@ -842,6 +851,12 @@ class PIDSender(QWidget):
                                         mdir=record.dirMag,          # Replace with actual field name
                                         bat=record.subAccuV             # Replace with actual field name
                                     )
+                                    if record.status == 7 and self.get_selected_mode() != "Idle":
+                                        self.set_mode("Idle")
+                                    if record.status == 16 and self.get_selected_mode() != "Docking":
+                                        self.set_mode("Docking")
+                                    if record.status == 13 and self.get_selected_mode() != "Lock":
+                                        self.set_mode("Lock")
 
 
             except Exception as e:

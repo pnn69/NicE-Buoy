@@ -206,7 +206,7 @@ void handelKeyPress(RoboStruct *key)
             key->status = STOREASDOC;
             break;
         case 10:
-            key->status = SET_DECLINATION;
+            key->status = CALC_COMPASS_OFFSET;
             break;
         case 110:
             key->status = START_CALIBRATE_MAGNETIC_COMPASS;
@@ -245,7 +245,7 @@ void buttonLight(RoboStruct sta)
                 {
                     mainCollorGps.color = CRGB::Green;
                     mainCollorGps.blink = BLINK_SLOW;
-                    xQueueSend(ledGps, (void *)&mainCollorGps, 0); // update WiFi
+                    xQueueSend(ledGps, (void *)&mainCollorGps, 0); //
                     blink = 1000;
                 }
             }
@@ -255,7 +255,7 @@ void buttonLight(RoboStruct sta)
                 {
                     mainCollorGps.color = CRGB::DarkRed;
                     mainCollorGps.blink = BLINK_FAST;
-                    xQueueSend(ledGps, (void *)&mainCollorGps, 0); // update WiFi
+                    xQueueSend(ledGps, (void *)&mainCollorGps, 0); //
                     blink = 100;
                 }
             }
@@ -388,10 +388,11 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         xQueueSend(serOut, (void *)&LoraTx, 10); // send out trough Lora
         stat->status = CALIBRATE_MAGNETIC_COMPASS;
         break;
-    case SET_DECLINATION:
-        LoraTx.cmd = SET_DECLINATION;
+    case CALC_COMPASS_OFFSET:
+        LoraTx.cmd = CALC_COMPASS_OFFSET;
         LoraTx.ack = LORAGETACK;
         xQueueSend(serOut, (void *)&LoraTx, 10); // send out trough Lora
+        stat->status = IDELING;
         break;
     case STOREASDOC:
         if (stat->gpsFix == true)
@@ -466,7 +467,7 @@ void handleTimerRoutines(RoboStruct *timer)
 
     if (logtimer < millis())
     {
-        logtimer = millis() + 1000 + random(0, 150);
+        logtimer = millis() + 1000;
         battVoltage(timer->topAccuV, timer->topAccuP);
         addNewSampleInBuffer(&wind, timer->dirMag); // add sample to buffer for wind direction calculation.
         deviationWindRose(&wind);
@@ -477,8 +478,8 @@ void handleTimerRoutines(RoboStruct *timer)
         xQueueSend(udpOut, (void *)timer, 10); // send out trough wifi
 
         // RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
-        // printf("Status:%d Lat: %.0f Lon:%.0f tgLat: %.0f tgLon:%.0f tgDist:%.2f tgDir:%.0f mDir:%.0f wDir:%.0f wStd:%.2f ", timer->status, timer->lat, timer->lng, timer->tgLat, timer->tgLng, timer->tgDist, timer->tgDir, timer->dirMag, timer->wDir, timer->wStd);
-        // printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %d%% BB:%02d SB:%02d\r\n", timer->topAccuV, timer->topAccuP, timer->subAccuV, timer->subAccuP, timer->speedBb, timer->speedSb);
+        printf("Status:%d Lat: %.0f Lon:%.0f tgLat: %.0f tgLon:%.0f tgDist:%.2f tgDir:%.0f mDir:%.0f wDir:%.0f wStd:%.2f ", timer->status, timer->lat, timer->lng, timer->tgLat, timer->tgLng, timer->tgDist, timer->tgDir, timer->dirMag, timer->wDir, timer->wStd);
+        printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %d%% BB:%02d SB:%02d\r\n", timer->topAccuV, timer->topAccuP, timer->subAccuV, timer->subAccuP, timer->speedBb, timer->speedSb);
     }
     if (udpTimerOut + 10000 < millis() && !((timer->status == LOCKED || timer->status == DOCKED)))
     {
@@ -650,6 +651,9 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfIn.ack = LORAGETACK;
                 xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 break;
+            case RAWCOMPASSDATA:
+                printf("Raw:0,0,0,0,0,0,%5.3f,%5.3f,%5.3f\r\n", RfIn.magHard[0], RfIn.magHard[1], RfIn.magHard[2]);
+                break;
             default:
                 break;
             }
@@ -737,6 +741,9 @@ void handelSerialData(RoboStruct *ser)
                 memDockPos(ser, SET);
             }
             ser->status = IDELING;
+            break;
+        case RAWCOMPASSDATA:
+            printf("Raw:0,0,0,0,0,0,%.0f,%.0f,%.0f\r\n", serDataIn.magHard[0], serDataIn.magHard[1], serDataIn.magHard[2]);
             break;
 
         default:

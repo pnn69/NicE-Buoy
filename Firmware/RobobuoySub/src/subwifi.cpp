@@ -247,7 +247,7 @@ void WiFiTask(void *arg)
     Serial.print(ssid);
     Serial.println("\"");
     setup_OTA();
-    // setupudp();
+    setupudp();
     Serial.print("WiFI task running!\r\n");
     //***************************************************************************************************
     //  WiFi main loop
@@ -255,13 +255,13 @@ void WiFiTask(void *arg)
     for (;;)
     {
         ArduinoOTA.handle();
-        if (xQueueReceive(udpOut, (void *)&subwifiData, 0) == pdTRUE)
+        if (xQueueReceive(udpOut, (void *)&subwifiData, 5) == pdTRUE)
         {
-            subwifiData.IDr = subwifiData.mac;
-            subwifiData.IDs = subwifiData.mac;
+            subwifiData.IDr = espMac();
+            subwifiData.IDs = espMac();
             String out = rfCode(&subwifiData);
             udp.broadcast(out.c_str());
         }
-        delay(1);
+        vTaskDelay(pdMS_TO_TICKS(10)); // 10 ms delay
     }
 }

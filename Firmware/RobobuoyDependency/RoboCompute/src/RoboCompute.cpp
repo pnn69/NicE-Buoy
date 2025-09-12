@@ -207,6 +207,35 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->gpsSat = numbers[17].toInt();
         break;
 
+    case RAWCOMPASSDATA:
+        dataStore->magHard[0] = numbers[2].toDouble();
+        dataStore->magHard[1] = numbers[3].toDouble();
+        dataStore->magHard[2] = numbers[4].toDouble();
+        // printf("Raw Compass Data: %f, %f, %f\n", dataStore->magHard[0], dataStore->magHard[1], dataStore->magHard[2]);
+        break;
+
+    case SOFTIRONFACTORS:
+        dataStore->magSoft[0][0] = numbers[2].toDouble();
+        dataStore->magSoft[0][1] = numbers[3].toDouble();
+        dataStore->magSoft[0][2] = numbers[4].toDouble();
+        dataStore->magSoft[1][0] = numbers[5].toDouble();
+        dataStore->magSoft[1][1] = numbers[6].toDouble();
+        dataStore->magSoft[1][2] = numbers[7].toDouble();
+        dataStore->magSoft[2][0] = numbers[8].toDouble();
+        dataStore->magSoft[2][1] = numbers[9].toDouble();
+        dataStore->magSoft[2][2] = numbers[10].toDouble();
+        break;
+
+    case HARDIRONFACTORS:
+        dataStore->magHard[0] = numbers[2].toDouble();
+        dataStore->magHard[1] = numbers[3].toDouble();
+        dataStore->magHard[2] = numbers[4].toDouble();
+        break;
+
+    case STORE_COMPASS_OFFSET:
+        dataStore->compassOffset = numbers[2].toDouble();
+        break;
+
     case ROUTTOPOINT:
     case DOCKING:
     case STOREASDOC:
@@ -415,6 +444,33 @@ String RoboCode(const RoboStruct *dataOut)
 
     case STORE_DECLINATION:
         out += "," + String(dataOut->declination, 2);
+        break;
+
+    case RAWCOMPASSDATA:
+        out += "," + String(dataOut->magHard[0], 5);
+        out += "," + String(dataOut->magHard[1], 5);
+        out += "," + String(dataOut->magHard[2], 5);
+        break;
+
+    case SOFTIRONFACTORS:
+        out += "," + String(dataOut->magSoft[0][0], 5);
+        out += "," + String(dataOut->magSoft[0][1], 5);
+        out += "," + String(dataOut->magSoft[0][2], 5);
+        out += "," + String(dataOut->magSoft[1][0], 5);
+        out += "," + String(dataOut->magSoft[1][1], 5);
+        out += "," + String(dataOut->magSoft[1][2], 5);
+        out += "," + String(dataOut->magSoft[2][0], 5);
+        out += "," + String(dataOut->magSoft[2][1], 5);
+        out += "," + String(dataOut->magSoft[2][2], 5);
+        break;
+
+    case HARDIRONFACTORS:
+        out += "," + String(dataOut->magHard[0], 2);
+        out += "," + String(dataOut->magHard[1], 2);
+        out += "," + String(dataOut->magHard[2], 2);
+        break;
+    case STORE_COMPASS_OFFSET:
+        out += "," + String(dataOut->compassOffset, 2);
         break;
 
     case PING:

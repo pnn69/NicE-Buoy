@@ -45,7 +45,7 @@ void initSpeedPid(RoboStruct *speed)
     pidSpeedParameters(speed, GET);
     speedPID.SetTunings(speed->Kps, speed->Kis, speed->Kds, P_ON_E);
     computeParameters(speed, GET);
-    speedPID.SetOutputLimits(0, speed->maxSpeed);
+    speedPID.SetOutputLimits(0, 100);
     speedPID.SetMode(MANUAL);
     speedInput = 0;
     speedSetpoint = 0;
@@ -55,8 +55,8 @@ void initSpeedPid(RoboStruct *speed)
     Serial.println("PID speed  used for calculations> ps:" + String(speed->Kps, 2) +
                    " is:" + String(speed->Kis, 2) +
                    " ds:" + String(speed->Kds, 2) +
-                   " minSpeed:" + String(speed->minSpeed) +
-                   " maxSpeed:" + String(speed->maxSpeed));
+                   " minSpeed: 0" +
+                   " maxSpeed: 100");
 }
 
 //***************************************************************************************************
@@ -68,37 +68,41 @@ void rudderPid(RoboStruct *rud)
     rudderSetpoint = 0;
     rudderPID.Compute();
 
+    // Constrain speed
     double s = constrain(rud->tgSpeed, rud->minSpeed, rud->maxSpeed);
-    int margin = abs(rudderOutput);
-    if (s < rud->minSpeed - margin)
-    {
-        s = rud->minSpeed - margin; // or some appropriate minimum correction
-    }
-    else if (s > rud->maxSpeed + margin)
-    {
-        s = rud->maxSpeed + margin; // clamp to upper limit
-    }
-    double bb = s - rudderOutput;
-    double sb = s + rudderOutput;
+
+    // Scale rudder effect based on speed
+    const double scale = 50.0;
+    const double baseGain = 50.0;
+
+    // Compute a dynamic gain that fades out at low speeds
+    double speedRatio = (s - rud->minSpeed) / (rud->maxSpeed - rud->minSpeed);
+    double dynamicGain = baseGain * speedRatio;
+
+    double rudderAdj = tanh(rudderOutput / scale) * dynamicGain;
+
+    // Apply the rudder adjustment
+    double bb = s - rudderAdj;
+    double sb = s + rudderAdj;
     rud->speedSb = constrain(sb, rud->minSpeed, rud->maxSpeed);
     rud->speedBb = constrain(bb, rud->minSpeed, rud->maxSpeed);
     rud->ir = rudderPID.GetITerm();
-
-    // printf("TD:%05.2f  tgSpeed: %05.2f angle: %03.0f output: %07.2f  Sb: %3d Bb: %3d\r\n", rud->tgDist, rud->tgSpeed, rudderInput, rudderOutput, rud->speedSb, rud->speedBb);
 }
+
 //***************************************************************************************************
 //  speedPID
 //***************************************************************************************************
 void speedPid(RoboStruct *dist)
 {
-    // speedInput = -(dist->tgDist - 2);
-    // speedSetpoint = 0;
-    speedInput = dist->tgDist - 2; // error input
-    speedSetpoint = 0;
+    speedInput = dist->tgDist; // Measured distance
+    speedSetpoint = 2.0;       // Target distance
     if (speedPID.Compute())
     {
+        // Prevent negative speed (no reversing)
+        if (speedOutput < 0)
+            speedOutput = 0;
+
         dist->tgSpeed = speedOutput;
         dist->ip = speedPID.GetITerm();
-        // Serial.printf("input:%05.2f output: %5.2f i ip: %0.2f \r\n", abs(dist->tgDist - 2), speedOutput, dist->ip);
     }
 }
