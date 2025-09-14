@@ -67,7 +67,7 @@ void memDockPos(RoboStruct *buoy, bool get)
     {
         buoy->tgLat = storage.getDouble("Docklat", 0);
         buoy->tgLng = storage.getDouble("Docklon", 0);
-        // Serial.printf("Get Doc pos form memory  %.8lf %.8lf\r\n", *lat, *lon);
+        Serial.printf("Get Doc pos form memory  %.8lf %.8lf\r\n", buoy->tgLat, buoy->tgLng);
     }
     else
     {
@@ -216,9 +216,9 @@ RoboStruct defautls(RoboStruct buoy)
     buoy.tgLat = 52.29308075283747;
     buoy.tgLng = 4.932570409845357;
     memDockPos(&buoy, false); // store default wsvop
-                             //***************************************************************************************************
-                             //  PID rudder
-                             //***************************************************************************************************
+                              //***************************************************************************************************
+                              //  PID rudder
+                              //***************************************************************************************************
     buoy.Kpr = 0.5;
     buoy.Kir = 0.02;
     buoy.Kdr = 0;

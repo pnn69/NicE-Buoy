@@ -293,9 +293,8 @@ void handelSerandRfdata(RoboStruct *ser)
                 ser->tgDist = 0;
                 initRudPid(ser);
                 initSpeedPid(ser);
-                ser->tgLat = dataIn.tgLat;
-                ser->tgLng = dataIn.tgLng;
                 ser->status = LOCKED;
+                ser->locked = false;
             }
             break;
         case DOCKED:
@@ -307,6 +306,7 @@ void handelSerandRfdata(RoboStruct *ser)
                 initSpeedPid(ser);
                 memDockPos(&dataIn, GET);
                 ser->status = DOCKED;
+                ser->locked = false;
             }
             break;
         case PIDRUDDER:
@@ -455,18 +455,30 @@ void handleTimerRoutines(RoboStruct *in)
         if (pidTimer < millis())
         {
             pidTimer = millis() + 50; // 50ms
-            if (in->tgDist > 1.5)
+            speedPid(in);
+            if (in->tgDist > 1.5 && in->tgDist < 1000 )
             {
-                speedPid(in);
+                if(in->locked == false)
+                {
+                    in->locked = true;
+                    resetSpeedPid();
+                    in->tgSpeed = 0;
+                }
                 // Serial.printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f\r\n", in->tgDist, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag));
                 if (in->tgSpeed < 0) // do not go backwards
                 {
                     in->tgSpeed = 0;
                 }
+                if (in->ip > in->maxSpeed)
+                {
+                    in->ip = in->maxSpeed;
+                }
                 rudderPid(in);
             }
             else
             {
+                in->locked = false;
+                in->ir = 0;
                 in->tgSpeed = 0;
                 in->speedBb = 0;
                 in->speedSb = 0;

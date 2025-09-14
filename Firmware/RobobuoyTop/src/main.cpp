@@ -100,9 +100,9 @@ void setup()
     // memDockPos(&mainData, SET);
     // mainData.tgLat = 0;
     // mainData.tgLng = 0;
-    // memDockPos(&mainData, GET);
-    // Serial.println("Dock position set to: ");
-    // Serial.printf("Lat: %.8lf, Lng: %.8lf\r\n", mainData.tgLat, mainData.tgLng);
+    memDockPos(&mainData, GET);
+    Serial.println("Dock position set to: ");
+    Serial.printf("Lat: %.8lf, Lng: %.8lf\r\n", mainData.tgLat, mainData.tgLng);
     Serial.println("Main task running!");
     // defautls(mainData);
 }
@@ -398,6 +398,8 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         if (stat->gpsFix == true)
         {
             printf("Storing docpositoin\r\n");
+            stat->tgLat = stat->lat;
+            stat->tgLng = stat->lng;
             memDockPos(stat, SET);
             beep(1000, buzzer);
         }
@@ -478,7 +480,7 @@ void handleTimerRoutines(RoboStruct *timer)
         xQueueSend(udpOut, (void *)timer, 10); // send out trough wifi
 
         // RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
-        printf("Status:%d Lat: %.0f Lon:%.0f tgLat: %.0f tgLon:%.0f tgDist:%.2f tgDir:%.0f mDir:%.0f wDir:%.0f wStd:%.2f ", timer->status, timer->lat, timer->lng, timer->tgLat, timer->tgLng, timer->tgDist, timer->tgDir, timer->dirMag, timer->wDir, timer->wStd);
+        printf("Status:%d Lat: %.8f Lon:%.8f tgDist:%.2f tgDir:%.0f mDir:%.0f wDir:%.0f wStd:%.2f ", timer->status, timer->lat, timer->lng, timer->tgDist, timer->tgDir, timer->dirMag, timer->wDir, timer->wStd);
         printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %d%% BB:%02d SB:%02d\r\n", timer->topAccuV, timer->topAccuP, timer->subAccuV, timer->subAccuP, timer->speedBb, timer->speedSb);
     }
     if (udpTimerOut + 10000 < millis() && !((timer->status == LOCKED || timer->status == DOCKED)))
@@ -560,6 +562,9 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfOut->cmd = PIDSPEEDSET;
                 RfIn.ack = LORAGETACK;
                 xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                RfOut->Kps = RfIn.Kps;
+                RfOut->Kis = RfIn.Kis;
+                RfOut->Kds = RfIn.Kds;
                 break;
             case DIRSPEED:
                 RfOut->tgDir = RfIn.tgDir;
@@ -664,27 +669,53 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
 // ***************************************************************************************************
 // handle new gps datainput
 // ***************************************************************************************************
+#define MAX_DIST_DEG 0.0005f // ~50 m depending on latitude; tune for your needs
 void handelGpsData(RoboStruct *gps)
 {
     RoboStruct gpsin, tx;
+
     if (xQueueReceive(gpsQue, (void *)&gpsin, 0) == pdTRUE) // New gps data
     {
-        gps->lat = gpsin.lat;
-        gps->lng = gpsin.lng;
-        gps->gpsSat = gpsin.gpsSat;
-        if (gpsin.gpsFix == true && gps->gpsFix == false)
+        // --- First valid fix initialization ---
+        if (!gps->gpsFix && gpsin.gpsFix)
         {
+            gps->lat = gpsin.lat;
+            gps->lng = gpsin.lng;
+            gps->gpsSat = gpsin.gpsSat;
+            gps->gpsFix = true;
+            // First time fix event
+            Serial.printf("First GPS fix acquired\r\n");
             beep(2000, buzzer);
             tx.IDr = BUOYIDALL;
             tx.cmd = BUOYPOS;
             tx.ack = LORAINF;
-            xQueueSend(loraOut, (void *)&tx, 10); // send out trough Lora
-            xQueueSend(udpOut, (void *)&tx, 10);  // send out trough Lora
+            xQueueSend(loraOut, (void *)&tx, 10);
+            xQueueSend(udpOut, (void *)&tx, 10);
+            return;
         }
+        if (gpsin.lat == gps->lat && gpsin.lng == gps->lng)
+        {
+            // No movement
+            return;
+        }
+
+        // --- Outlier check for subsequent updates ---
+        if (gps->gpsFix)
+        {
+            if (distanceBetween(gpsin.lat, gpsin.lat, gps->lat, gps->lng) < 5)
+            {
+                Serial.printf("Ignoring GPS Ignore outlier\r\n");
+                // Ignore outlier
+                return;
+            }
+        }
+        // --- Accept update ---
+        gps->lat = gpsin.lat;
+        gps->lng = gpsin.lng;
+        gps->gpsSat = gpsin.gpsSat;
         gps->gpsFix = gpsin.gpsFix;
     }
 }
-
 //***************************************************************************************************
 //      New serial data
 //***************************************************************************************************

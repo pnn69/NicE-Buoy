@@ -128,6 +128,7 @@ struct RoboStruct
     double dirMag = 0;
     double tgDir = 0;
     double tgSpeed = 0;
+    bool locked = false; // target locked
     int trackPos = 0;
     int speed = 0; // speed
     int speedBb = 0;

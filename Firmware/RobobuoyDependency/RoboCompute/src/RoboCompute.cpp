@@ -646,30 +646,31 @@ Structure buf[averige][deviation][data0][datan...]
 */
 void addNewSampleInBuffer(RoboWindStruct *wData, double nwdata)
 {
-    if (wData->ptr >= SAMPELS)
-    {
-        wData->ptr = 0;
-    }
     wData->data[wData->ptr] = nwdata;
-    wData->ptr++;
+    wData->ptr = (wData->ptr + 1) % SAMPELS;
 }
 
 void averageWindVector(RoboWindStruct *wData)
 {
     double sumX = 0, sumY = 0;
+    double sumSpeed = 0;
 
     for (int i = 0; i < SAMPELS; ++i)
     {
         double angleRad = radians(wData->data[i]);
         double speed = wData->speed[i];
 
-        sumX += cos(angleRad) * speed;
-        sumY += sin(angleRad) * speed;
+        sumX += cos(angleRad);
+        sumY += sin(angleRad);
+        sumSpeed += speed;
     }
 
+    // Average direction (vector method, unbiased by wraparound)
     double meanAngle = atan2(sumY, sumX);
-    wData->wDir = fmod((meanAngle * 180.0 / M_PI) + 360.0, 360.0); // degrees
-    wData->wSpeed = sqrt(sumX * sumX + sumY * sumY) / SAMPELS;
+    wData->wDir = fmod((meanAngle * 180.0 / M_PI) + 360.0, 360.0);
+
+    // Arithmetic mean of speeds (ignores direction cancellation)
+    wData->wSpeed = sumSpeed / SAMPELS;
 }
 
 /*
@@ -678,24 +679,27 @@ Structure buf[averige][deviation][data0][datan...]
 */
 void deviationWindRose(RoboWindStruct *wData)
 {
-    averageWindVector(wData); // Compute mean wind direction first
+    // Compute the mean wind direction first
+    averageWindVector(wData);
 
-    double sumSquaredCircularDiff = 0;
+    double sumSin = 0.0;
+    double sumCos = 0.0;
 
     for (int i = 0; i < SAMPELS; ++i)
     {
-        double diff = wData->data[i] - wData->wDir;
-
-        // Wrap difference to [-180, 180)
-        if (diff > 180.0)
-            diff -= 360.0;
-        else if (diff < -180.0)
-            diff += 360.0;
-
-        sumSquaredCircularDiff += diff * diff;
+        double angleRad = wData->data[i] * M_PI / 180.0; // convert to radians
+        sumCos += cos(angleRad);
+        sumSin += sin(angleRad);
     }
 
-    wData->wStd = sqrt(sumSquaredCircularDiff / SAMPELS); // Standard deviation in degrees
+    // Mean resultant length
+    double R = sqrt(sumCos * sumCos + sumSin * sumSin) / SAMPELS;
+
+    // Circular standard deviation (radians)
+    double circStdRad = sqrt(-2.0 * log(R));
+
+    // Convert to degrees
+    wData->wStd = circStdRad * 180.0 / M_PI;
 }
 
 void PidDecode(String data, int pid, RoboStruct buoy)

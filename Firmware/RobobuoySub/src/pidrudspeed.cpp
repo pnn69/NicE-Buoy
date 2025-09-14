@@ -16,6 +16,16 @@ double Kps = 0, Kis = 0, Kds = 0;
 PID rudderPID(&rudderInput, &rudderOutput, &rudderSetpoint, Kpr, Kir, Kdr, P_ON_E);
 PID speedPID(&speedInput, &speedOutput, &speedSetpoint, Kps, Kis, Kds, P_ON_E);
 
+void resetRudPid()
+{
+    rudderPID.SetMode(MANUAL); // Reset the PID
+    rudderOutput = 0;
+    rudderInput = 0;
+    rudderSetpoint = 0;
+    rudderOutput = 0;
+    rudderPID.SetMode(AUTOMATIC); // turn the PID on
+}
+
 void initRudPid(RoboStruct *rud)
 {
     speedMaxMin(rud, GET);
@@ -25,10 +35,7 @@ void initRudPid(RoboStruct *rud)
     rudderPID.SetTunings(rud->Kpr, rud->Kir, rud->Kdr, P_ON_E);
     rudderPID.SetOutputLimits(-100, 100);
     rudderPID.SetMode(MANUAL);
-    rudderOutput = 0;
-    rudderInput = 0;
-    rudderSetpoint = 0;
-    rudderOutput = 0;
+    resetRudPid();
     rudderPID.SetMode(AUTOMATIC); // turn the PID on
     rud->ir = rudderPID.GetITerm();
     Serial.println("PID rudder used for calculations> pr:" + String(rud->Kpr, 2) +
@@ -38,6 +45,15 @@ void initRudPid(RoboStruct *rud)
                    " maxSpeed:" + String(rud->maxSpeed));
 }
 
+void resetSpeedPid()
+{
+    speedPID.SetMode(MANUAL); // Reset the PID
+    speedOutput = 0;
+    speedInput = 0;
+    speedSetpoint = 0;
+    speedOutput = 0;
+    speedPID.SetMode(AUTOMATIC); // turn the PID on
+}
 void initSpeedPid(RoboStruct *speed)
 {
     speedMaxMin(speed, GET);
@@ -46,11 +62,7 @@ void initSpeedPid(RoboStruct *speed)
     speedPID.SetTunings(speed->Kps, speed->Kis, speed->Kds, P_ON_E);
     computeParameters(speed, GET);
     speedPID.SetOutputLimits(0, 100);
-    speedPID.SetMode(MANUAL);
-    speedInput = 0;
-    speedSetpoint = 0;
-    speedOutput = 0;
-    speedPID.SetMode(AUTOMATIC); // turn the PID on
+    resetSpeedPid();
     speed->ip = speedPID.GetITerm();
     Serial.println("PID speed  used for calculations> ps:" + String(speed->Kps, 2) +
                    " is:" + String(speed->Kis, 2) +
@@ -76,7 +88,8 @@ void rudderPid(RoboStruct *rud)
     const double baseGain = 50.0;
 
     // Compute a dynamic gain that fades out at low speeds
-    double speedRatio = (s - rud->minSpeed) / (rud->maxSpeed - rud->minSpeed);
+    double range = rud->maxSpeed - rud->minSpeed;
+    double speedRatio = (range > 0) ? (s - rud->minSpeed) / range : 0.0;
     double dynamicGain = baseGain * speedRatio;
 
     double rudderAdj = tanh(rudderOutput / scale) * dynamicGain;
