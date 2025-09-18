@@ -241,6 +241,9 @@ void RoboDecode(String data, RoboStruct *dataStore)
     case STOREASDOC:
     case IDELING:
     case LOCKING:
+    case RESET_RUDDER_PID:
+    case RESET_SPEED_PID:
+    case RESET_SPEED_RUD_PID:
     case PING:
     case PONG:
     case CALIBRATE_MAGNETIC_COMPASS:
@@ -483,6 +486,9 @@ String RoboCode(const RoboStruct *dataOut)
     case DOCKING:
     case IDELING:
     case STOREASDOC:
+    case RESET_RUDDER_PID:
+    case RESET_SPEED_PID:
+    case RESET_SPEED_RUD_PID:
     case CALIBRATE_MAGNETIC_COMPASS:
     case SET_DECLINATION:
         break;

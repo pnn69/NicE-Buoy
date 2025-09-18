@@ -4,7 +4,7 @@
 // #include <mat.h>
 
 /*some constans*/
-#define EARTH_MEAN_RADIUS 6372795
+#define EARTH_MEAN_RADIUS 6372795.0
 #define EARTH_RADIUS_KM 6371.0
 // #define radian(x) (x * M_PI / 180)
 // #define degre(x) (x * 180 / M_PI)
@@ -101,6 +101,10 @@ typedef enum
     RAWCOMPASSDATA,                   // Raw Compass Data acc xyz gyro xyz mag xyz
     STORE_COMPASS_OFFSET,             // Store compass Offset
     CALC_COMPASS_OFFSET,              // compute compass Offset tov magnetic north
+    RESET_RUDDER_PID,                 // reset rudder pid
+    RESET_SPEED_PID,                  // reset speed pid
+    RESET_SPEED_RUD_PID,              // reset speed and rudder pid
+
 } msg_t;
 
 struct RoboStruct

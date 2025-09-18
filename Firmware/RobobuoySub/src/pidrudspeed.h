@@ -7,6 +7,7 @@ extern PID rudderPID;
 extern PID speedPID;
 extern double rudderOutput;
 
+void resetRudPid(void);
 void resetSpeedPid(void);
 void initRudPid(RoboStruct *rud);
 void initSpeedPid(RoboStruct *speed);

@@ -390,7 +390,20 @@ void handelSerandRfdata(RoboStruct *ser)
             softIron(&dataIn, SET);
             InitCompass();
             break;
-
+        case RESET_RUDDER_PID:
+            resetRudPid();
+            printf("Resetting PID RUDDER!!\r\n");
+            break;
+        case RESET_SPEED_PID:
+            resetSpeedPid();
+            printf("Resetting PID SPEED!!\r\n");
+            break;
+        case RESET_SPEED_RUD_PID:
+            resetSpeedPid();
+            printf("Resetting PID SPEED!!\r\n");
+            resetRudPid();
+            printf("Resetting PID RUDDER!!\r\n");
+            break;
         case PING:
             ser->cmd = DIRSPEED;
             xQueueSend(serOut, (void *)ser, 10);
@@ -456,9 +469,9 @@ void handleTimerRoutines(RoboStruct *in)
         {
             pidTimer = millis() + 50; // 50ms
             speedPid(in);
-            if (in->tgDist > 1.5 && in->tgDist < 1000 )
+            if (in->tgDist > 1.5 && in->tgDist < 5000)
             {
-                if(in->locked == false)
+                if (in->locked == false)
                 {
                     in->locked = true;
                     resetSpeedPid();

@@ -37,6 +37,8 @@ static unsigned long buttonBlinkTimer = millis();
 static unsigned long logtimer = millis();
 static unsigned long remotetimer = millis();
 static unsigned long updateSubtimer = millis();
+static unsigned int gpsErrorCnt = 0;
+static unsigned int distErrorCnt = 0;
 
 bool debounce = false;
 bool buttonState = false;
@@ -297,6 +299,9 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
             xQueueSend(udpOut, (void *)stat, 0);   // update WiFi
             xQueueSend(loraOut, (void *)stat, 10); // send out trough Lora
             RouteToPoint(stat->lat, stat->lng, stat->tgLat, stat->tgLng, &stat->tgDist, &stat->tgDir);
+            stat->cmd = RESET_SPEED_RUD_PID;
+            xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
+            xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
             stat->cmd = DIRDIST;
             xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
             xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
@@ -314,6 +319,9 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         stat->status = DOCKED;
         printf("Retreved data for docking tgLat:%.8f tgLng:%.8f\r\n", stat->tgLat, stat->tgLng);
         RouteToPoint(stat->lat, stat->lng, stat->tgLat, stat->tgLng, &stat->tgDist, &stat->tgDir);
+        stat->cmd = RESET_SPEED_RUD_PID;
+        xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
+        xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
         stat->cmd = DIRDIST;
         xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
         xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
@@ -432,6 +440,17 @@ void handleTimerRoutines(RoboStruct *timer)
         {
             timer->lastSerOut = millis() + 250;
             RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
+            if (timer->tgDist > 10000)
+            {
+                distErrorCnt++;
+                if (distErrorCnt > 100)
+                {
+                    distErrorCnt = 0;
+                    timer->status = IDELING;
+                }
+                return;
+            }
+            distErrorCnt = 0;
             timer->cmd = DIRDIST;
             xQueueSend(serOut, (void *)timer, 0); // send course and distance to sub
             // timer->cmd = DIRMDIRTGDIRG;
@@ -585,10 +604,9 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 // printf("New cordinates: https://www.google.nl/maps/@%f,%f,14z\r\n", RfOut->tgLat, RfOut->tgLng);
                 RouteToPoint(RfOut->lat, RfOut->lng, RfOut->tgLat, RfOut->tgLng, &RfOut->tgDist, &RfOut->tgDir);
                 // printf("New dir: %f New distance %f\r\n", RfOut->tgDir, RfOut->tgDist);
-                if (RfOut->status != LOCKED)
-                {
-                    RfOut->status = LOCKING;
-                }
+                RfOut->status = LOCKED;
+                RfIn.cmd = RESET_SPEED_RUD_PID;
+                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 break;
             case LOCKING:
                 if (RfOut->gpsFix == true && RfOut->status != LOCKING)
@@ -602,6 +620,8 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             case STOREASDOC: // Store location as doc location
                 if (RfOut->gpsFix == true)
                 {
+                    RfOut->tgLat = RfOut->lat;
+                    RfOut->tgLng = RfOut->lng;
                     memDockPos(RfOut, SET);
                     beep(1000, buzzer);
                 }
@@ -676,40 +696,52 @@ void handelGpsData(RoboStruct *gps)
 
     if (xQueueReceive(gpsQue, (void *)&gpsin, 0) == pdTRUE) // New gps data
     {
-        // --- First valid fix initialization ---
-        if (!gps->gpsFix && gpsin.gpsFix)
+        if (gpsin.gpsFix)
         {
-            gps->lat = gpsin.lat;
-            gps->lng = gpsin.lng;
-            gps->gpsSat = gpsin.gpsSat;
-            gps->gpsFix = true;
-            // First time fix event
-            Serial.printf("First GPS fix acquired\r\n");
-            beep(2000, buzzer);
-            tx.IDr = BUOYIDALL;
-            tx.cmd = BUOYPOS;
-            tx.ack = LORAINF;
-            xQueueSend(loraOut, (void *)&tx, 10);
-            xQueueSend(udpOut, (void *)&tx, 10);
-            return;
-        }
-        if (gpsin.lat == gps->lat && gpsin.lng == gps->lng)
-        {
-            // No movement
-            return;
-        }
-
-        // --- Outlier check for subsequent updates ---
-        if (gps->gpsFix)
-        {
+            // --- First valid fix initialization ---
+            if (!gps->gpsFix)
+            {
+                gpsErrorCnt = 0;
+                gps->lat = gpsin.lat;
+                gps->lng = gpsin.lng;
+                gps->gpsSat = gpsin.gpsSat;
+                gps->gpsFix = true;
+                // First time fix event
+                Serial.printf("First GPS fix acquired\r\n");
+                beep(2000, buzzer);
+                tx.IDr = BUOYIDALL;
+                tx.cmd = BUOYPOS;
+                tx.ack = LORAINF;
+                xQueueSend(loraOut, (void *)&tx, 10);
+                xQueueSend(udpOut, (void *)&tx, 10);
+                return;
+            }
+            // No movement ?
+            if (gpsin.lat == gps->lat && gpsin.lng == gps->lng)
+            {
+                gpsErrorCnt++;
+                if (gpsErrorCnt > 100)
+                {
+                    Serial.printf("Movement outlier\r\n");
+                    gps->gpsFix = false;
+                }
+                return;
+            }
+            // --- Outlier check for subsequent updates ---
             if (distanceBetween(gpsin.lat, gpsin.lat, gps->lat, gps->lng) < 5)
             {
+                gpsErrorCnt++;
+                if (gpsErrorCnt > 100)
+                {
+                    gps->gpsFix = false;
+                }
                 Serial.printf("Ignoring GPS Ignore outlier\r\n");
                 // Ignore outlier
                 return;
             }
         }
         // --- Accept update ---
+        gpsErrorCnt = 0;
         gps->lat = gpsin.lat;
         gps->lng = gpsin.lng;
         gps->gpsSat = gpsin.gpsSat;
