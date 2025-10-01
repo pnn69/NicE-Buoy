@@ -92,6 +92,8 @@ void setup()
     xTaskCreatePinnedToCore(CompassTask, "CompasaTask", 2000, NULL, configMAX_PRIORITIES - 1, &compassTaskHandle, 0); //&compassTaskHandle is used to suspend/resume the task
     xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 3, NULL, 0);
     Serial.println("Setup done!");
+    // Disable brownout detector
+    WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
 }
 
 //***************************************************************************************************
@@ -446,7 +448,7 @@ void handelSerialTimeOut(RoboStruct *ser)
         triggerESC();
         beep(-1, buzzer);
         printf("Power off now!\r\n");
-        delay(1000);
+        delay(5000);
         digitalWrite(ESC_SB_PWR_PIN, LOW);
         digitalWrite(ESC_BB_PWR_PIN, LOW);
         digitalWrite(PWRENABLE, 0); // disable powersupply

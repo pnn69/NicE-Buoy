@@ -13,8 +13,14 @@
 #define PWRENABLE 26
 #define COM_PIN_TX 18
 #define COM_PIN_RX 5
-#define ESC_SB_PIN 14
-#define ESC_SB_PWR_PIN 4
-#define ESC_BB_PIN 25
-#define ESC_BB_PWR_PIN 16
+// #define ESC_SB_PIN 14
+// #define ESC_SB_PWR_PIN 4
+// #define ESC_BB_PIN 25
+// #define ESC_BB_PWR_PIN 16
+
+#define ESC_SB_PIN 25
+#define ESC_SB_PWR_PIN 16
+#define ESC_BB_PIN 14
+#define ESC_BB_PWR_PIN 4
+
 #endif /* IO_SUB_H_ */

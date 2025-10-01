@@ -118,9 +118,10 @@ void startESC(void)
 {
     digitalWrite(ESC_SB_PWR_PIN, HIGH);
     Serial.println("ESC BB ON");
-    delay(500);
+    delay(250);
     digitalWrite(ESC_BB_PWR_PIN, HIGH);
     Serial.println("ESC SB ON");
+    delay(250);
     // Set up PWM channels
     ledcSetup(ESC_BB_CHANNEL, ESC_FREQ, ESC_RESOLUTION);
     ledcSetup(ESC_SB_CHANNEL, ESC_FREQ, ESC_RESOLUTION);
@@ -234,11 +235,11 @@ void EscTask(void *arg)
         }
         if (escStamp < millis())
         {
-            //escStamp = millis() + 2;
+            // escStamp = millis() + 2;
             escStamp = millis();
             if (spsb > spsbAct)
             {
-                
+
                 spsbAct++;
             }
             else
@@ -257,7 +258,7 @@ void EscTask(void *arg)
             }
             powerIndicator.ledBb = -spbbAct;
             ledcWrite(ESC_BB_CHANNEL, speedToPulse(spbbAct));
-            xQueueSend(ledPwr, (void *)&powerIndicator, 0); //update ledbar
+            xQueueSend(ledPwr, (void *)&powerIndicator, 0); // update ledbar
         }
         vTaskDelay(pdMS_TO_TICKS(1));
     }

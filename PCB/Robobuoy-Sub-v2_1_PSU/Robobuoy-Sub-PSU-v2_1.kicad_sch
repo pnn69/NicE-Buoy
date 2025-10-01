@@ -3801,7 +3801,7 @@
 		)
 		(uuid "a8705544-687a-4eb4-8757-449e0d3ddfdd")
 	)
-	(text "Replace with: NCEP023N10LL\nLCSC: C2686686\nor: HYG025N04NA1C2\nLCSC: C2917677"
+	(text "Replace with: NCEP023N10LL\nLCSC: C2686686\nor: HYG025N04NA1C2\nLCSC: C2917677\nor 1: IQDH35N03LM5CGATMA1\nLCSC: C20191641"
 		(exclude_from_sim no)
 		(at 303.53 54.102 0)
 		(effects
