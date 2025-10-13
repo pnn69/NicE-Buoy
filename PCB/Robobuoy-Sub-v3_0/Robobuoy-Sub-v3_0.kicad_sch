@@ -1,0 +1,306 @@
+(kicad_sch
+	(version 20250114)
+	(generator "eeschema")
+	(generator_version "9.0")
+	(uuid "b4d50f7c-16b2-4c5a-bb6a-7ca43079286e")
+	(paper "A4")
+	(lib_symbols)
+	(wire
+		(pts
+			(xy 143.51 101.6) (xy 143.51 115.57)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "08761a95-2345-4b0c-864b-9b3cf2dd8e1b")
+	)
+	(wire
+		(pts
+			(xy 153.67 101.6) (xy 153.67 115.57)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5dfaedaa-663d-4d6d-bde8-c4d98e3e30a0")
+	)
+	(wire
+		(pts
+			(xy 156.21 101.6) (xy 156.21 115.57)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8fc79c65-c4c9-4518-b40d-a98cc9cbe1bf")
+	)
+	(wire
+		(pts
+			(xy 140.97 101.6) (xy 140.97 115.57)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9842c0a3-82df-4785-a40a-6b2a5f385c6c")
+	)
+	(wire
+		(pts
+			(xy 151.13 101.6) (xy 151.13 115.57)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d9474710-0601-4d5a-9f20-d66c0123a1ab")
+	)
+	(wire
+		(pts
+			(xy 146.05 101.6) (xy 146.05 115.57)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ea12b0ff-56d1-4723-b640-9cf9568510ad")
+	)
+	(wire
+		(pts
+			(xy 148.59 101.6) (xy 148.59 115.57)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f3d9625c-0c6f-4bc8-90d6-4e0b6f571937")
+	)
+	(sheet
+		(at 101.6 57.15)
+		(size 88.9 44.45)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "e351be3e-b038-437a-bd8d-55f566134198")
+		(property "Sheetname" "CPU"
+			(at 101.6 56.4384 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Robobuoy-Sub-CPU-v3_0.kicad_sch"
+			(at 105.41 73.66 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(pin "COM" bidirectional
+			(at 151.13 101.6 270)
+			(uuid "da709ce7-8e29-43c7-be2a-cb887aa7d6ed")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "ESC_BB" input
+			(at 148.59 101.6 270)
+			(uuid "82b8bd02-a857-4283-843b-3f1484e0da1b")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "ESC_BB_PWR" input
+			(at 146.05 101.6 270)
+			(uuid "37baf632-81de-4a55-b26c-d5a2f674de64")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "ESC_SB" input
+			(at 143.51 101.6 270)
+			(uuid "f2094155-debb-48e4-b2f1-ddc389518a4d")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "ESC_SB_PWR" input
+			(at 140.97 101.6 270)
+			(uuid "514efa3b-f315-4643-b8fa-d1752e3a8e7b")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "ON" input
+			(at 153.67 101.6 270)
+			(uuid "7db73e3b-72c0-4578-aefc-809b7d429d57")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "VSAMP" output
+			(at 156.21 101.6 270)
+			(uuid "46a1d5ee-1e10-437e-8334-5ab2e7df4559")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(instances
+			(project "Robobuoy-Sub-v3_0"
+				(path "/b4d50f7c-16b2-4c5a-bb6a-7ca43079286e"
+					(page "2")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 101.6 115.57)
+		(size 88.9 30.48)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "e8e88f69-617e-405f-9f66-88500cf97ba8")
+		(property "Sheetname" "Robobuoy-Sub-PSU-v3_0"
+			(at 101.6 114.8584 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Robobuoy-Sub-PSU-v3_0.kicad_sch"
+			(at 104.14 135.89 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(pin "COM" bidirectional
+			(at 151.13 115.57 90)
+			(uuid "ed698b7f-fb09-4acc-808f-74d0b4e4efc3")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "ESC_BB" output
+			(at 148.59 115.57 90)
+			(uuid "d6859b88-74b3-4452-9896-56e590e2e67f")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "ESC_BB_PWR" output
+			(at 146.05 115.57 90)
+			(uuid "a7c939b4-75ab-4e72-b2f6-a16a9ced62e3")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "ESC_SB" output
+			(at 143.51 115.57 90)
+			(uuid "203fd9d9-4823-4aa6-9a30-ee5f3cecefbf")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "ESC_SB_PWR" output
+			(at 140.97 115.57 90)
+			(uuid "2c6cf858-4fd5-4996-bbc5-08e6a393a371")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "ON" output
+			(at 153.67 115.57 90)
+			(uuid "f957aec6-9097-4338-9c43-4b6a178f4b86")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "VSAMP" input
+			(at 156.21 115.57 90)
+			(uuid "43c10e8b-4fc2-46ec-989a-585be326414c")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(instances
+			(project "Robobuoy-Sub-v3_0"
+				(path "/b4d50f7c-16b2-4c5a-bb6a-7ca43079286e"
+					(page "3")
+				)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+	(embedded_fonts no)
+)

@@ -2924,6 +2924,12 @@
 		(uuid "be0b798e-57f0-4ed8-8340-9b561fa26d84")
 	)
 	(junction
+		(at 140.97 24.13)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "0600eeec-0cdd-4cab-a276-aa13d8b35b7a")
+	)
+	(junction
 		(at 203.2 127)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -3408,6 +3414,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "9ff056c9-cf3d-418e-b50d-064e83c0b5e2")
+	)
+	(junction
+		(at 151.13 181.61)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "9ff3a782-5f5f-4645-862d-783be22dd63e")
 	)
 	(junction
 		(at 125.73 157.48)
@@ -6745,6 +6757,16 @@
 	)
 	(wire
 		(pts
+			(xy 151.13 181.61) (xy 161.29 181.61)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ba98d47f-4ea8-4b1f-914f-fa5a4a4efcf9")
+	)
+	(wire
+		(pts
 			(xy 143.51 55.88) (xy 175.26 55.88)
 		)
 		(stroke
@@ -7325,7 +7347,7 @@
 	)
 	(wire
 		(pts
-			(xy 143.51 181.61) (xy 161.29 181.61)
+			(xy 143.51 181.61) (xy 151.13 181.61)
 		)
 		(stroke
 			(width 0)
@@ -7892,6 +7914,16 @@
 			(type default)
 		)
 		(uuid "ff6222f1-d33f-46bd-9d29-bcd7766319b1")
+	)
+	(wire
+		(pts
+			(xy 138.43 24.13) (xy 140.97 24.13)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ffc87d5f-1510-4130-9bd4-ed19676f4ed2")
 	)
 	(label "VBATT-"
 		(at 165.1 181.61 0)
@@ -11342,7 +11374,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C2917677.pdf"
 			(at 137.16 205.74 0)
 			(effects
 				(font
@@ -11915,6 +11947,100 @@
 		)
 	)
 	(symbol
+		(lib_id "Connector:TestPoint_Small")
+		(at 138.43 24.13 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "34a2cb26-d914-4e58-acdc-974bc3a37ba8")
+		(property "Reference" "TP118"
+			(at 137.16 22.8599 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "P+"
+			(at 137.16 25.3999 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Misc:TestPad_7x8"
+			(at 133.35 24.13 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 133.35 24.13 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 138.43 24.13 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MF" ""
+			(at 138.43 24.13 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MFN" ""
+			(at 138.43 24.13 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "info" ""
+			(at 138.43 24.13 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "63f83b98-9e95-419f-8295-7f75ab4907e5")
+		)
+		(instances
+			(project "Robobuoy_BMS_S6_V1_0"
+				(path "/1f52533e-1c9e-4a55-ac43-3d9bafbde785"
+					(reference "TP118")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:C_Small")
 		(at 71.12 233.68 90)
 		(unit 1)
@@ -12380,6 +12506,99 @@
 			(project "Robobuoy_Sub_PSU_V3_0"
 				(path "/1f52533e-1c9e-4a55-ac43-3d9bafbde785"
 					(reference "#PWR0106")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint_Small")
+		(at 151.13 181.61 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "3e76a76e-7fc5-4826-b7c5-6e73da748504")
+		(property "Reference" "TP119"
+			(at 148.59 183.515 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "B-"
+			(at 150.495 179.705 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "A_Misc:TestPad_7x8"
+			(at 156.21 181.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 156.21 181.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 151.13 181.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MF" ""
+			(at 151.13 181.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MFN" ""
+			(at 151.13 181.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "info" ""
+			(at 151.13 181.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "0c798e1b-510a-4b00-9729-9a3666c9b4fe")
+		)
+		(instances
+			(project "Robobuoy_BMS_S6_V1_0"
+				(path "/1f52533e-1c9e-4a55-ac43-3d9bafbde785"
+					(reference "TP119")
 					(unit 1)
 				)
 			)
