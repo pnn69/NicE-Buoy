@@ -17,6 +17,16 @@
 	)
 	(wire
 		(pts
+			(xy 158.75 101.6) (xy 158.75 115.57)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "487fdd7c-1338-492e-b9a5-a3bf6e285f1f")
+	)
+	(wire
+		(pts
 			(xy 153.67 101.6) (xy 153.67 115.57)
 		)
 		(stroke
@@ -178,6 +188,16 @@
 				(justify left)
 			)
 		)
+		(pin "Imon" output
+			(at 158.75 101.6 270)
+			(uuid "fa9768d5-ccca-4a51-aacb-06adbdf4fcf2")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
 		(instances
 			(project "Robobuoy-Sub-v3_0"
 				(path "/b4d50f7c-16b2-4c5a-bb6a-7ca43079286e"
@@ -282,6 +302,16 @@
 		(pin "VSAMP" input
 			(at 156.21 115.57 90)
 			(uuid "43c10e8b-4fc2-46ec-989a-585be326414c")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "Imon" input
+			(at 158.75 115.57 90)
+			(uuid "d241ad79-5418-4f51-9d7a-a1991edad284")
 			(effects
 				(font
 					(size 1.27 1.27)
