@@ -794,6 +794,12 @@
           "label": "Collector-Emitter Breakdown Voltage (Vceo)",
           "name": "Collector-Emitter Breakdown Voltage (Vceo)",
           "show": false
+        },
+        {
+          "group_by": false,
+          "label": "lcsc",
+          "name": "lcsc",
+          "show": false
         }
       ],
       "filter_string": "",
@@ -855,6 +861,10 @@
     [
       "e8e88f69-617e-405f-9f66-88500cf97ba8",
       "Robobuoy-Sub-PSU-v3_0"
+    ],
+    [
+      "f2b5f57e-e799-48a3-ab6f-0c5d54658795",
+      "Compass"
     ]
   ],
   "text_variables": {}
