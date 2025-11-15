@@ -9982,7 +9982,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "Vcell"
+		(property "Value" "VSAMP"
 			(at 111.76 134.62 0)
 			(effects
 				(font
@@ -12384,7 +12384,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(fields_autoplaced yes)
 		(uuid "76762e42-98dd-428b-9a52-3e85cb32151f")
 		(property "Reference" "J302"
@@ -12864,7 +12864,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "7e1184b6-5c34-4e2b-b28e-84311b32b8b7")
 		(property "Reference" "SW301"
 			(at 87.884 253.238 0)
@@ -16896,7 +16896,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(fields_autoplaced yes)
 		(uuid "fc83eca3-36bf-47fb-89aa-e949800bcc52")
 		(property "Reference" "J303"
