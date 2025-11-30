@@ -250,7 +250,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "outputlimiter.kicad_pro",
+    "filename": "BMS Simulator.kicad_pro",
     "version": 3
   },
   "net_settings": {
@@ -396,6 +396,14 @@
       "version": 1
     },
     "net_format_name": "",
+    "ngspice": {
+      "fix_include_paths": true,
+      "meta": {
+        "version": 0
+      },
+      "model_mode": 4,
+      "workbook_filename": "BMS Simulator.wbk"
+    },
     "page_layout_descr_file": "",
     "plot_directory": "",
     "space_save_all_events": true,
@@ -410,7 +418,7 @@
   },
   "sheets": [
     [
-      "207e8be6-8e19-45e1-9e21-9c0ff64a947c",
+      "79691af6-006c-46c3-9422-d1fb98a73bfb",
       "Root"
     ]
   ],

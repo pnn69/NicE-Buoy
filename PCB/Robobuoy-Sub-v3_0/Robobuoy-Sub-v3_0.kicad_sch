@@ -4,7 +4,70 @@
 	(generator_version "9.0")
 	(uuid "b4d50f7c-16b2-4c5a-bb6a-7ca43079286e")
 	(paper "A4")
-	(lib_symbols)
+	(lib_symbols
+		(symbol "PCM_JLCPCB-Manufacturing:Part Number, PCM_JLCPCB, 0.8x0.15mm"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "PN"
+				(at 2.286 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "PCM_JLCPCB:Part_Num_JLCPCB"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "https://jlcpcb.com/help/article/How-to-remove-order-number-from-your-PCB"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "To indicate the location, simply add the text \"JLCJLCJLCJLC\" to the silk layer and select the \"Specify a location\" option when placing your order. Please note that if this option is not chosen, we may not notice that you have added the text.   Note: Use only \"JLCJLCJLCJLC\" without any additional characters. The font size should be larger than 0.8mm in height and 0.15mm in width."
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "Part Number, PCM_JLCPCB, 0.8x0.15mm_0_1"
+				(rectangle
+					(start 0 0.635)
+					(end 0.635 -0.635)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
 	(wire
 		(pts
 			(xy 143.51 101.6) (xy 143.51 115.57)
@@ -14,6 +77,16 @@
 			(type default)
 		)
 		(uuid "08761a95-2345-4b0c-864b-9b3cf2dd8e1b")
+	)
+	(wire
+		(pts
+			(xy 166.37 101.6) (xy 166.37 115.57)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "358077e9-6a3c-494e-8484-63d2d5d286ea")
 	)
 	(wire
 		(pts
@@ -57,13 +130,13 @@
 	)
 	(wire
 		(pts
-			(xy 151.13 101.6) (xy 151.13 115.57)
+			(xy 163.83 101.6) (xy 163.83 115.57)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "d9474710-0601-4d5a-9f20-d66c0123a1ab")
+		(uuid "9b590757-77aa-473d-afbf-0ca4ee9ce39b")
 	)
 	(wire
 		(pts
@@ -84,6 +157,70 @@
 			(type default)
 		)
 		(uuid "f3d9625c-0c6f-4bc8-90d6-4e0b6f571937")
+	)
+	(symbol
+		(lib_id "PCM_JLCPCB-Manufacturing:Part Number, PCM_JLCPCB, 0.8x0.15mm")
+		(at 134.62 182.88 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "b28a2fcc-9cb9-454f-9316-48dd6213e097")
+		(property "Reference" "PN101"
+			(at 135.89 181.6099 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "~"
+			(at 135.89 184.1499 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "PCM_JLCPCB:Part_Num_JLCPCB"
+			(at 134.62 182.88 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://jlcpcb.com/help/article/How-to-remove-order-number-from-your-PCB"
+			(at 134.62 182.88 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "To indicate the location, simply add the text \"JLCJLCJLCJLC\" to the silk layer and select the \"Specify a location\" option when placing your order. Please note that if this option is not chosen, we may not notice that you have added the text.   Note: Use only \"JLCJLCJLCJLC\" without any additional characters. The font size should be larger than 0.8mm in height and 0.15mm in width."
+			(at 134.62 182.88 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(instances
+			(project ""
+				(path "/b4d50f7c-16b2-4c5a-bb6a-7ca43079286e"
+					(reference "PN101")
+					(unit 1)
+				)
+			)
+		)
 	)
 	(sheet
 		(at 101.6 57.15)
@@ -116,16 +253,6 @@
 					(size 1.27 1.27)
 				)
 				(justify left top)
-			)
-		)
-		(pin "COM" bidirectional
-			(at 151.13 101.6 270)
-			(uuid "da709ce7-8e29-43c7-be2a-cb887aa7d6ed")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
 			)
 		)
 		(pin "ESC_BB" input
@@ -198,6 +325,26 @@
 				(justify left)
 			)
 		)
+		(pin "RX_SUB" output
+			(at 163.83 101.6 270)
+			(uuid "606c24b3-50d6-4f50-9563-eb6e7423e57a")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "TX_SUB" input
+			(at 166.37 101.6 270)
+			(uuid "2869d166-6135-40a0-ba38-633c72bcad3f")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
 		(instances
 			(project "Robobuoy-Sub-v3_0"
 				(path "/b4d50f7c-16b2-4c5a-bb6a-7ca43079286e"
@@ -237,16 +384,6 @@
 					(size 1.27 1.27)
 				)
 				(justify left top)
-			)
-		)
-		(pin "COM" bidirectional
-			(at 151.13 115.57 90)
-			(uuid "ed698b7f-fb09-4acc-808f-74d0b4e4efc3")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
 			)
 		)
 		(pin "ESC_BB" output
@@ -312,6 +449,26 @@
 		(pin "Imon" input
 			(at 158.75 115.57 90)
 			(uuid "d241ad79-5418-4f51-9d7a-a1991edad284")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "RX_SUB" output
+			(at 163.83 115.57 90)
+			(uuid "61659eb7-6ab8-4fd8-8e86-1fdac5d6be32")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "TX_SUB" input
+			(at 166.37 115.57 90)
+			(uuid "73dd631b-dbbc-417d-be08-98e13b3d12cd")
 			(effects
 				(font
 					(size 1.27 1.27)
