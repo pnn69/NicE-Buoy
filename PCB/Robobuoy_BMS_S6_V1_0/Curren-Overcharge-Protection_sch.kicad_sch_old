@@ -1451,6 +1451,16 @@
 			(embedded_fonts no)
 		)
 	)
+	(text "Charge / Load"
+		(exclude_from_sim no)
+		(at 156.21 34.29 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "69946cac-97e6-408d-92f5-660ccf7bc508")
+	)
 	(text "Trip 150mV"
 		(exclude_from_sim no)
 		(at 164.465 141.605 0)
@@ -1589,7 +1599,7 @@
 	)
 	(wire
 		(pts
-			(xy 129.54 59.69) (xy 142.24 59.69)
+			(xy 129.54 59.69) (xy 132.08 59.69)
 		)
 		(stroke
 			(width 0)
@@ -1719,7 +1729,17 @@
 	)
 	(wire
 		(pts
-			(xy 135.89 115.57) (xy 135.89 118.11)
+			(xy 120.65 157.48) (xy 120.65 156.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4d0bae50-ca44-48c5-a0b6-4eab02e52dd0")
+	)
+	(wire
+		(pts
+			(xy 135.89 114.3) (xy 135.89 118.11)
 		)
 		(stroke
 			(width 0)
@@ -1739,7 +1759,7 @@
 	)
 	(wire
 		(pts
-			(xy 104.14 33.02) (xy 104.14 35.56)
+			(xy 104.14 31.75) (xy 104.14 35.56)
 		)
 		(stroke
 			(width 0)
@@ -1776,6 +1796,16 @@
 			(type default)
 		)
 		(uuid "6d7db224-8ca1-4b95-8b60-d8d33d4f3b71")
+	)
+	(wire
+		(pts
+			(xy 139.7 59.69) (xy 142.24 59.69)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8bff3989-903f-44fa-a9a7-295da3c3ceaf")
 	)
 	(wire
 		(pts
@@ -1829,7 +1859,7 @@
 	)
 	(wire
 		(pts
-			(xy 90.17 72.39) (xy 90.17 74.93)
+			(xy 90.17 73.66) (xy 90.17 74.93)
 		)
 		(stroke
 			(width 0)
@@ -1879,6 +1909,16 @@
 	)
 	(wire
 		(pts
+			(xy 90.17 66.04) (xy 90.17 64.77)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "af734045-a5fc-4a14-bcc5-8f6aa90156f4")
+	)
+	(wire
+		(pts
 			(xy 142.24 49.53) (xy 142.24 59.69)
 		)
 		(stroke
@@ -1919,7 +1959,7 @@
 	)
 	(wire
 		(pts
-			(xy 104.14 22.86) (xy 104.14 25.4)
+			(xy 104.14 22.86) (xy 104.14 24.13)
 		)
 		(stroke
 			(width 0)
@@ -1979,7 +2019,7 @@
 	)
 	(wire
 		(pts
-			(xy 135.89 105.41) (xy 135.89 107.95)
+			(xy 135.89 105.41) (xy 135.89 106.68)
 		)
 		(stroke
 			(width 0)
@@ -1989,7 +2029,7 @@
 	)
 	(wire
 		(pts
-			(xy 120.65 163.83) (xy 120.65 166.37)
+			(xy 120.65 165.1) (xy 120.65 166.37)
 		)
 		(stroke
 			(width 0)
@@ -2029,7 +2069,7 @@
 	)
 	(wire
 		(pts
-			(xy 78.74 156.21) (xy 105.41 156.21)
+			(xy 72.39 156.21) (xy 105.41 156.21)
 		)
 		(stroke
 			(width 0)
@@ -2069,7 +2109,7 @@
 	)
 	(hierarchical_label "OC"
 		(shape output)
-		(at 78.74 156.21 180)
+		(at 72.39 156.21 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2273,7 +2313,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 120.65 160.02 180)
+		(at 120.65 161.29 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -2281,7 +2321,7 @@
 		(dnp no)
 		(uuid "07d827db-71ef-4ebb-b1be-10e36a0a107a")
 		(property "Reference" "R202"
-			(at 119.38 160.02 0)
+			(at 119.38 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2290,7 +2330,7 @@
 			)
 		)
 		(property "Value" "1M"
-			(at 120.65 160.02 90)
+			(at 120.65 161.29 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2298,7 +2338,7 @@
 			)
 		)
 		(property "Footprint" "A_Device:R_0603"
-			(at 122.428 160.02 90)
+			(at 122.428 161.29 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2307,7 +2347,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 120.65 160.02 0)
+			(at 120.65 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2316,7 +2356,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 120.65 160.02 0)
+			(at 120.65 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2325,7 +2365,7 @@
 			)
 		)
 		(property "LCSC" "C22935"
-			(at 120.65 160.02 0)
+			(at 120.65 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2334,7 +2374,7 @@
 			)
 		)
 		(property "MF" ""
-			(at 120.65 160.02 0)
+			(at 120.65 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2343,7 +2383,7 @@
 			)
 		)
 		(property "MFN" ""
-			(at 120.65 160.02 0)
+			(at 120.65 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2352,7 +2392,7 @@
 			)
 		)
 		(property "info" ""
-			(at 120.65 160.02 0)
+			(at 120.65 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2361,7 +2401,7 @@
 			)
 		)
 		(property "Collector Current (Ic)" ""
-			(at 120.65 160.02 0)
+			(at 120.65 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2370,7 +2410,7 @@
 			)
 		)
 		(property "Collector Cut-Off Current (Icbo)" ""
-			(at 120.65 160.02 0)
+			(at 120.65 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2379,7 +2419,7 @@
 			)
 		)
 		(property "Collector-Emitter Breakdown Voltage (Vceo)" ""
-			(at 120.65 160.02 0)
+			(at 120.65 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2388,7 +2428,7 @@
 			)
 		)
 		(property "Collector-Emitter Saturation Voltage (VCE(sat)@Ic,Ib)" ""
-			(at 120.65 160.02 0)
+			(at 120.65 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2397,7 +2437,7 @@
 			)
 		)
 		(property "DC Current Gain (hFE@Ic,Vce)" ""
-			(at 120.65 160.02 0)
+			(at 120.65 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2406,7 +2446,7 @@
 			)
 		)
 		(property "Sim.Device" ""
-			(at 120.65 160.02 0)
+			(at 120.65 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2415,7 +2455,7 @@
 			)
 		)
 		(property "Sim.Type" ""
-			(at 120.65 160.02 0)
+			(at 120.65 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2424,7 +2464,7 @@
 			)
 		)
 		(property "Transistor Type" ""
-			(at 120.65 160.02 0)
+			(at 120.65 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2433,7 +2473,7 @@
 			)
 		)
 		(property "Transition Frequency (fT)" ""
-			(at 120.65 160.02 0)
+			(at 120.65 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2766,7 +2806,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 104.14 29.21 180)
+		(at 104.14 27.94 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -2774,7 +2814,7 @@
 		(dnp no)
 		(uuid "1b1ea52f-6638-4239-934e-aa6e337e2670")
 		(property "Reference" "R203"
-			(at 102.87 29.21 0)
+			(at 102.87 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2783,7 +2823,7 @@
 			)
 		)
 		(property "Value" "22K"
-			(at 104.14 29.21 90)
+			(at 104.14 27.94 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2791,7 +2831,7 @@
 			)
 		)
 		(property "Footprint" "A_Device:R_0603"
-			(at 105.918 29.21 90)
+			(at 105.918 27.94 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2800,7 +2840,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 104.14 29.21 0)
+			(at 104.14 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2809,7 +2849,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 104.14 29.21 0)
+			(at 104.14 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2818,7 +2858,7 @@
 			)
 		)
 		(property "LCSC" "C31850"
-			(at 104.14 29.21 0)
+			(at 104.14 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2827,7 +2867,7 @@
 			)
 		)
 		(property "Collector Current (Ic)" ""
-			(at 104.14 29.21 0)
+			(at 104.14 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2836,7 +2876,7 @@
 			)
 		)
 		(property "Collector Cut-Off Current (Icbo)" ""
-			(at 104.14 29.21 0)
+			(at 104.14 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2845,7 +2885,7 @@
 			)
 		)
 		(property "Collector-Emitter Breakdown Voltage (Vceo)" ""
-			(at 104.14 29.21 0)
+			(at 104.14 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2854,7 +2894,7 @@
 			)
 		)
 		(property "Collector-Emitter Saturation Voltage (VCE(sat)@Ic,Ib)" ""
-			(at 104.14 29.21 0)
+			(at 104.14 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2863,7 +2903,7 @@
 			)
 		)
 		(property "DC Current Gain (hFE@Ic,Vce)" ""
-			(at 104.14 29.21 0)
+			(at 104.14 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2872,7 +2912,7 @@
 			)
 		)
 		(property "Sim.Device" ""
-			(at 104.14 29.21 0)
+			(at 104.14 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2881,7 +2921,7 @@
 			)
 		)
 		(property "Sim.Type" ""
-			(at 104.14 29.21 0)
+			(at 104.14 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2890,7 +2930,7 @@
 			)
 		)
 		(property "Transistor Type" ""
-			(at 104.14 29.21 0)
+			(at 104.14 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2899,7 +2939,7 @@
 			)
 		)
 		(property "Transition Frequency (fT)" ""
-			(at 104.14 29.21 0)
+			(at 104.14 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3132,7 +3172,7 @@
 		(dnp no)
 		(uuid "326dfff8-cbe1-45d8-98f8-5038478cf566")
 		(property "Reference" "R201"
-			(at 148.59 48.26 0)
+			(at 151.13 47.625 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4019,7 +4059,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "RED"
+		(property "Description" "OD"
 			(at 101.6 38.1 0)
 			(effects
 				(font
@@ -4689,6 +4729,164 @@
 			(project "Robobuoy_BMS_S6_V1_0_b"
 				(path "/1f52533e-1c9e-4a55-ac43-3d9bafbde785/56ee7f72-20af-47b1-badb-ded1b77856b8"
 					(reference "Q201")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 135.89 59.69 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "558c18b6-cfb1-4bcc-9bd6-802e6142435c")
+		(property "Reference" "R208"
+			(at 133.35 57.785 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10K"
+			(at 135.89 59.69 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "A_Device:R_0603"
+			(at 135.89 57.912 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 135.89 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 135.89 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" ""
+			(at 135.89 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Collector Current (Ic)" ""
+			(at 135.89 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Collector Cut-Off Current (Icbo)" ""
+			(at 135.89 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Collector-Emitter Breakdown Voltage (Vceo)" ""
+			(at 135.89 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Collector-Emitter Saturation Voltage (VCE(sat)@Ic,Ib)" ""
+			(at 135.89 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DC Current Gain (hFE@Ic,Vce)" ""
+			(at 135.89 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Sim.Device" ""
+			(at 135.89 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Sim.Type" ""
+			(at 135.89 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Transistor Type" ""
+			(at 135.89 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Transition Frequency (fT)" ""
+			(at 135.89 59.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "0f958a18-f0b3-4476-97b4-8134785d4c99")
+		)
+		(pin "2"
+			(uuid "29af2aad-8ec6-4637-a878-ce219a0c3e66")
+		)
+		(instances
+			(project "Robobuoy_BMS_S6_V1_0"
+				(path "/1f52533e-1c9e-4a55-ac43-3d9bafbde785/56ee7f72-20af-47b1-badb-ded1b77856b8"
+					(reference "R208")
 					(unit 1)
 				)
 			)
@@ -5668,7 +5866,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 90.17 68.58 180)
+		(at 90.17 69.85 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -5676,7 +5874,7 @@
 		(dnp no)
 		(uuid "b30c9f6d-ea66-446a-92db-37f21ef56653")
 		(property "Reference" "R206"
-			(at 88.9 68.58 0)
+			(at 88.9 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5685,7 +5883,7 @@
 			)
 		)
 		(property "Value" "1M"
-			(at 90.17 68.58 90)
+			(at 90.17 69.85 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5693,7 +5891,7 @@
 			)
 		)
 		(property "Footprint" "A_Device:R_0603"
-			(at 91.948 68.58 90)
+			(at 91.948 69.85 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5702,7 +5900,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 90.17 68.58 0)
+			(at 90.17 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5711,7 +5909,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 90.17 68.58 0)
+			(at 90.17 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5720,7 +5918,7 @@
 			)
 		)
 		(property "LCSC" "C22935"
-			(at 90.17 68.58 0)
+			(at 90.17 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5729,7 +5927,7 @@
 			)
 		)
 		(property "MF" ""
-			(at 90.17 68.58 0)
+			(at 90.17 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5738,7 +5936,7 @@
 			)
 		)
 		(property "MFN" ""
-			(at 90.17 68.58 0)
+			(at 90.17 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5747,7 +5945,7 @@
 			)
 		)
 		(property "info" ""
-			(at 90.17 68.58 0)
+			(at 90.17 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5756,7 +5954,7 @@
 			)
 		)
 		(property "Collector Current (Ic)" ""
-			(at 90.17 68.58 0)
+			(at 90.17 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5765,7 +5963,7 @@
 			)
 		)
 		(property "Collector Cut-Off Current (Icbo)" ""
-			(at 90.17 68.58 0)
+			(at 90.17 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5774,7 +5972,7 @@
 			)
 		)
 		(property "Collector-Emitter Breakdown Voltage (Vceo)" ""
-			(at 90.17 68.58 0)
+			(at 90.17 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5783,7 +5981,7 @@
 			)
 		)
 		(property "Collector-Emitter Saturation Voltage (VCE(sat)@Ic,Ib)" ""
-			(at 90.17 68.58 0)
+			(at 90.17 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5792,7 +5990,7 @@
 			)
 		)
 		(property "DC Current Gain (hFE@Ic,Vce)" ""
-			(at 90.17 68.58 0)
+			(at 90.17 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5801,7 +5999,7 @@
 			)
 		)
 		(property "Sim.Device" ""
-			(at 90.17 68.58 0)
+			(at 90.17 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5810,7 +6008,7 @@
 			)
 		)
 		(property "Sim.Type" ""
-			(at 90.17 68.58 0)
+			(at 90.17 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5819,7 +6017,7 @@
 			)
 		)
 		(property "Transistor Type" ""
-			(at 90.17 68.58 0)
+			(at 90.17 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5828,7 +6026,7 @@
 			)
 		)
 		(property "Transition Frequency (fT)" ""
-			(at 90.17 68.58 0)
+			(at 90.17 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6890,7 +7088,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 135.89 111.76 180)
+		(at 135.89 110.49 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -6898,7 +7096,7 @@
 		(dnp no)
 		(uuid "ffb2498d-15a1-4527-91d8-4791876781b3")
 		(property "Reference" "R113"
-			(at 134.62 111.76 0)
+			(at 134.62 110.49 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6907,7 +7105,7 @@
 			)
 		)
 		(property "Value" "22K"
-			(at 135.89 111.76 90)
+			(at 135.89 110.49 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6915,7 +7113,7 @@
 			)
 		)
 		(property "Footprint" "A_Device:R_0603"
-			(at 137.668 111.76 90)
+			(at 137.668 110.49 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6924,7 +7122,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 135.89 111.76 0)
+			(at 135.89 110.49 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6933,7 +7131,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 135.89 111.76 0)
+			(at 135.89 110.49 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6942,7 +7140,7 @@
 			)
 		)
 		(property "LCSC" "C31850"
-			(at 135.89 111.76 0)
+			(at 135.89 110.49 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6951,7 +7149,7 @@
 			)
 		)
 		(property "Collector Current (Ic)" ""
-			(at 135.89 111.76 0)
+			(at 135.89 110.49 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6960,7 +7158,7 @@
 			)
 		)
 		(property "Collector Cut-Off Current (Icbo)" ""
-			(at 135.89 111.76 0)
+			(at 135.89 110.49 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6969,7 +7167,7 @@
 			)
 		)
 		(property "Collector-Emitter Breakdown Voltage (Vceo)" ""
-			(at 135.89 111.76 0)
+			(at 135.89 110.49 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6978,7 +7176,7 @@
 			)
 		)
 		(property "Collector-Emitter Saturation Voltage (VCE(sat)@Ic,Ib)" ""
-			(at 135.89 111.76 0)
+			(at 135.89 110.49 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6987,7 +7185,7 @@
 			)
 		)
 		(property "DC Current Gain (hFE@Ic,Vce)" ""
-			(at 135.89 111.76 0)
+			(at 135.89 110.49 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6996,7 +7194,7 @@
 			)
 		)
 		(property "Sim.Device" ""
-			(at 135.89 111.76 0)
+			(at 135.89 110.49 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7005,7 +7203,7 @@
 			)
 		)
 		(property "Sim.Type" ""
-			(at 135.89 111.76 0)
+			(at 135.89 110.49 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7014,7 +7212,7 @@
 			)
 		)
 		(property "Transistor Type" ""
-			(at 135.89 111.76 0)
+			(at 135.89 110.49 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7023,7 +7221,7 @@
 			)
 		)
 		(property "Transition Frequency (fT)" ""
-			(at 135.89 111.76 0)
+			(at 135.89 110.49 0)
 			(effects
 				(font
 					(size 1.27 1.27)

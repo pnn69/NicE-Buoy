@@ -11820,8 +11820,8 @@
 		)
 	)
 	(sheet
-		(at 295.402 130.81)
-		(size 38.354 30.48)
+		(at 296.164 130.81)
+		(size 37.592 35.814)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
@@ -11834,9 +11834,9 @@
 		(fill
 			(color 0 0 0 0.0000)
 		)
-		(uuid "f2b5f57e-e799-48a3-ab6f-0c5d54658795")
+		(uuid "2070445f-f11c-4347-900d-6e95fda64c72")
 		(property "Sheetname" "Compass"
-			(at 295.402 130.0984 0)
+			(at 296.164 130.0984 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11844,8 +11844,8 @@
 				(justify left bottom)
 			)
 		)
-		(property "Sheetfile" "untitled.kicad_sch"
-			(at 295.402 161.8746 0)
+		(property "Sheetfile" "Robobuoy-Sub_Compass-v3_0.kicad_sch"
+			(at 296.164 167.2086 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11855,7 +11855,7 @@
 		)
 		(pin "SCL" output
 			(at 313.69 130.81 90)
-			(uuid "4cea916a-bec2-4274-84bc-b0ef2ace8e43")
+			(uuid "c81ea448-ad99-4e49-b464-82031cc81398")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11865,7 +11865,7 @@
 		)
 		(pin "SDA" bidirectional
 			(at 316.23 130.81 90)
-			(uuid "00954b1e-2606-4754-b193-9245b4292aba")
+			(uuid "c5b6ba0a-4d1b-48ee-bef9-f4fdec3c96f3")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11876,7 +11876,7 @@
 		(instances
 			(project "Robobuoy-Sub-v3_0"
 				(path "/b4d50f7c-16b2-4c5a-bb6a-7ca43079286e/e351be3e-b038-437a-bd8d-55f566134198"
-					(page "4")
+					(page "5")
 				)
 			)
 		)
