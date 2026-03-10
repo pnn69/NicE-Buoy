@@ -1451,6 +1451,16 @@
 			(embedded_fonts no)
 		)
 	)
+	(text "0.005OHM = 30A"
+		(exclude_from_sim no)
+		(at 167.64 146.05 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "0350ef5b-0a9f-4d59-96ba-ee23422e32e7")
+	)
 	(text "Charge / Load"
 		(exclude_from_sim no)
 		(at 156.21 34.29 0)
@@ -2086,16 +2096,6 @@
 			(type default)
 		)
 		(uuid "fcd2a7f9-2b06-4b74-ae0a-0be8d0d8b7ee")
-	)
-	(label "0.005OHM = 30A"
-		(at 158.75 146.05 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "569ed473-2732-4ea8-83c6-a3200e99e7a1")
 	)
 	(label "P-"
 		(at 156.21 44.45 0)
