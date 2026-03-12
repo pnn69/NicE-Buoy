@@ -153,7 +153,7 @@ bool udp_setup(int poort)
         Serial.println(poort);
         udp.onPacket([](AsyncUDPPacket packet)
                      {
-                        String stringUdpIn = (const char *)packet.data();
+                        String stringUdpIn((const char *)packet.data(), packet.length());
                         RoboStruct udpDataIn;
                         rfDeCode(stringUdpIn,&udpDataIn);
                         if (udpDataIn.IDs != -1 && udpDataIn.IDs != mac) // ignore own messages
@@ -188,10 +188,13 @@ void udpSend(String data)
 unsigned long espMac(void)
 {
     byte macarr[6];
-    WiFi.macAddress(macarr);
-    for (int i = 2; i < 6; i++)
+    if (mac == 0)
     {
-        mac = (mac << 8) | macarr[i];
+        WiFi.macAddress(macarr);
+        for (int i = 2; i < 6; i++)
+        {
+            mac = (mac << 8) | macarr[i];
+        }
     }
     return mac;
 }

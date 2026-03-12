@@ -219,7 +219,7 @@ void SercomTask(void *arg)
         if (xQueueReceive(serOut, (void *)&serDataOut, 0) == pdTRUE) // send data to bottom
         {
             while (lastRx + 20 > millis())
-                ;
+                delay(1);
             if (lastSerMsg + 5000 < millis())
             {
                 pinMode(COM_PIN_TX, OUTPUT);
@@ -249,10 +249,10 @@ void SercomTask(void *arg)
             if (serDataOut.cmd != 0)
             {
                 while (lastRx + 20 > millis())
-                    ;
+                    delay(1);
                 String out = rfCode(&serDataOut);
                 Serial1.println(out);
-                retransmittReady = millis() + random(1200, 750);
+                retransmittReady = millis() + random(750, 1200);
             }
         }
         delay(1);

@@ -106,7 +106,7 @@ void setup()
     Serial.println("Dock position set to: ");
     Serial.printf("Lat: %.8lf, Lng: %.8lf\r\n", mainData.tgLat, mainData.tgLng);
     Serial.println("Main task running!");
-    // defautls(mainData);
+    // defautls(&mainData);
 }
 
 //***************************************************************************************************
@@ -329,7 +329,7 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
 
     case COMPUTESTART:
         buoyPara[0].wDir = stat->wDir;
-        buoyPara[3] = calcTrackPos(buoyPara);
+        calcTrackPos(buoyPara);
         for (int i = 0; i < 3; i++)
         {
             trackPosPrint(buoyPara[i].trackPos);
@@ -546,7 +546,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case LOCKPOS: // store new data into position database
-                AddDataToBuoyBase(RfIn, &buoyPara[3]);
+                AddDataToBuoyBase(RfIn, buoyPara);
                 break;
             case PIDRUDDER:
                 if (RfIn.ack == LORAGET)
@@ -560,7 +560,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case PIDRUDDERSET:
-                pidRudderParameters(RfIn, SET);
+                pidRudderParameters(&RfIn, SET);
                 printf("#PIDRUDDERSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kpr, RfIn.Kir, RfIn.Kdr);
                 RfIn.ack = LORAGETACK;
                 xQueueSend(serOut, (void *)&RfIn, 0); // update sub
@@ -576,7 +576,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     xQueueSend(udpOut, (void *)&RfIn, 0);  // update sub
                 }
             case PIDSPEEDSET:
-                pidSpeedParameters(RfIn, SET);
+                pidSpeedParameters(&RfIn, SET);
                 printf("#PIDSPEEDSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kps, RfIn.Kis, RfIn.Kds);
                 RfOut->cmd = PIDSPEEDSET;
                 RfIn.ack = LORAGETACK;
@@ -634,7 +634,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfOut->tgLat = RfIn.tgLat;
                 RfOut->tgLng = RfIn.tgLng;
                 RfIn.IDs = RfOut->mac; // Put this Id in field for positioning
-                AddDataToBuoyBase(RfIn, &buoyPara[3]);
+                AddDataToBuoyBase(RfIn, buoyParaPtrs);
                 RfOut->status = LOCKED;
                 break;
             case IDELING:
@@ -728,7 +728,7 @@ void handelGpsData(RoboStruct *gps)
                 return;
             }
             // --- Outlier check for subsequent updates ---
-            if (distanceBetween(gpsin.lat, gpsin.lat, gps->lat, gps->lng) < 5)
+            if (distanceBetween(gpsin.lat, gpsin.lng, gps->lat, gps->lng) > 50)
             {
                 gpsErrorCnt++;
                 if (gpsErrorCnt > 100)
@@ -813,9 +813,9 @@ void handelSerialData(RoboStruct *ser)
             break;
         }
     }
-    if (mainData.lastSerIn + 2000 < millis())
+    if (ser->lastSerIn + 2000 < millis())
     {
-        mainData.lastSerIn = millis();
+        ser->lastSerIn = millis();
         if (mainCollorUtil.color != CRGB::Red)
         {
             mainCollorUtil.color = CRGB::Red;
@@ -870,7 +870,7 @@ void loop(void)
         //***************************************************************************************************
         //      Light button control
         //***************************************************************************************************
-        buttonLight(mainData);
+        buttonLight(&mainData);
         //***************************************************************************************************
         //      Serial watchdog
         //***************************************************************************************************

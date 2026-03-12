@@ -12,11 +12,12 @@ void initMemory(void)
     // Note: Namespace name is limited to 15 chars.
     storage.begin("NicE_Buoy_Data", false);
     unsigned long id = espMac();
+    uint64_t stored_id = storage.getULong64("NicE_BuoyID", 0);
     Serial.println(id, HEX);
-    if (id != storage.getLong64("NicE_BuoyID", 0))
+    if (id != stored_id)
     {
         Serial.printf("Configuring Non-volatile memory now!\n\r");
-        storage.putLong64("NicE_BuoyID", id);
+        storage.putULong64("NicE_BuoyID", id);
         Serial.printf("Storing data Bouy ID to 100\r\n");
         // tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
         storage.putDouble("Docklat", 52.29308075283747);
@@ -25,8 +26,8 @@ void initMemory(void)
         Serial.printf("Buoy Memory configured\r\n");
         delay(1000);
     }
-    id = storage.getChar("NicE_BuoyID", 0);
-    if (id != 0)
+    stored_id = storage.getULong64("NicE_BuoyID", 0);
+    if (stored_id != 0)
     {
         Serial.printf("Buoy Memory OK\r\n");
     }
@@ -43,16 +44,16 @@ void stopMem(void)
     storage.end();
 }
 
-void memBuoyId(int8_t *id, bool get)
+void memBuoyId(uint64_t *id, bool get)
 {
     startMem();
     if (get)
     {
-        *id = (storage.getChar("NicE_BuoyID", 0));
+        *id = storage.getULong64("NicE_BuoyID", 0);
     }
     else
     {
-        storage.putChar("NicE_BuoyID", *id);
+        storage.putULong64("NicE_BuoyID", *id);
     }
     stopMem();
 }
@@ -134,62 +135,59 @@ void MechanicalCorrection(int *delta, bool get)
     stopMem();
 }
 
-RoboStruct computeParameters(RoboStruct buoy, bool get)
+void computeParameters(RoboStruct *buoy, bool get)
 {
     startMem();
     if (get)
     {
-        buoy.minOfsetDist = storage.getInt("minOfsetDist", 1);
-        buoy.maxOfsetDist = storage.getInt("maxOfsetDist", 8);
-        buoy.minSpeed = storage.getInt("minSpeed", 0);
-        buoy.maxSpeed = storage.getInt("maxSpeed", 80);
+        buoy->minOfsetDist = storage.getInt("minOfsetDist", 1);
+        buoy->maxOfsetDist = storage.getInt("maxOfsetDist", 8);
+        buoy->minSpeed = storage.getInt("minSpeed", 0);
+        buoy->maxSpeed = storage.getInt("maxSpeed", 80);
     }
     else
     {
-        storage.putInt("minOfsetDist", buoy.minOfsetDist);
-        storage.putInt("maxOfsetDist", buoy.maxOfsetDist);
-        storage.putInt("minSpeed", buoy.minSpeed);
-        storage.putInt("maxSpeed", buoy.maxSpeed);
+        storage.putInt("minOfsetDist", buoy->minOfsetDist);
+        storage.putInt("maxOfsetDist", buoy->maxOfsetDist);
+        storage.putInt("minSpeed", buoy->minSpeed);
+        storage.putInt("maxSpeed", buoy->maxSpeed);
     }
     stopMem();
-    return buoy;
 }
-RoboStruct pidSpeedParameters(RoboStruct buoy, bool get)
+void pidSpeedParameters(RoboStruct *buoy, bool get)
 {
     startMem();
     if (get)
     {
-        buoy.Kps = storage.getDouble("Kps", 20);
-        buoy.Kis = storage.getDouble("Kis", 0.4);
-        buoy.Kds = storage.getDouble("Kds", 0);
+        buoy->Kps = storage.getDouble("Kps", 20);
+        buoy->Kis = storage.getDouble("Kis", 0.4);
+        buoy->Kds = storage.getDouble("Kds", 0);
     }
     else
     {
-        storage.putDouble("Kps", buoy.Kps);
-        storage.putDouble("Kis", buoy.Kis);
-        storage.putDouble("Kds", buoy.Kds);
+        storage.putDouble("Kps", buoy->Kps);
+        storage.putDouble("Kis", buoy->Kis);
+        storage.putDouble("Kds", buoy->Kds);
     }
     stopMem();
-    return buoy;
 }
 
-RoboStruct pidRudderParameters(RoboStruct buoy, bool get)
+void pidRudderParameters(RoboStruct *buoy, bool get)
 {
     startMem();
     if (get)
     {
-        buoy.Kpr = storage.getDouble("Kpr", 0.5);
-        buoy.Kir = storage.getDouble("Kir", 0.02);
-        buoy.Kdr = storage.getDouble("Kdr", 0);
+        buoy->Kpr = storage.getDouble("Kpr", 0.5);
+        buoy->Kir = storage.getDouble("Kir", 0.02);
+        buoy->Kdr = storage.getDouble("Kdr", 0);
     }
     else
     {
-        storage.putDouble("Kpr", buoy.Kpr);
-        storage.putDouble("Kir", buoy.Kir);
-        storage.putDouble("Kdr", buoy.Kdr);
+        storage.putDouble("Kpr", buoy->Kpr);
+        storage.putDouble("Kir", buoy->Kir);
+        storage.putDouble("Kdr", buoy->Kdr);
     }
     stopMem();
-    return buoy;
 }
 
 void apParameters(String *ap, String *ww, bool get)
@@ -208,27 +206,26 @@ void apParameters(String *ap, String *ww, bool get)
     stopMem();
 }
 
-RoboStruct defautls(RoboStruct buoy)
+void defautls(RoboStruct *buoy)
 {
     //***************************************************************************************************
     //  Postion Steiger WSOP as target
     //***************************************************************************************************
-    buoy.tgLat = 52.29308075283747;
-    buoy.tgLng = 4.932570409845357;
-    memDockPos(&buoy, false); // store default wsvop
+    buoy->tgLat = 52.29308075283747;
+    buoy->tgLng = 4.932570409845357;
+    memDockPos(buoy, false); // store default wsvop
                               //***************************************************************************************************
                               //  PID rudder
                               //***************************************************************************************************
-    buoy.Kpr = 0.5;
-    buoy.Kir = 0.02;
-    buoy.Kdr = 0;
+    buoy->Kpr = 0.5;
+    buoy->Kir = 0.02;
+    buoy->Kdr = 0;
     pidRudderParameters(buoy, false);
     //***************************************************************************************************
     //  PID speed
     //***************************************************************************************************
-    buoy.Kps = 20;
-    buoy.Kis = 0.4;
-    buoy.Kds = 0;
+    buoy->Kps = 20;
+    buoy->Kis = 0.4;
+    buoy->Kds = 0;
     pidSpeedParameters(buoy, false);
-    return buoy;
 }
