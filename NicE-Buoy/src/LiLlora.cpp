@@ -62,7 +62,7 @@ String removeWhitespace(String str)
  */
 bool sendLora(void)
 {
-    if (lasttransmission + 175 > millis())
+    if (millis() - lasttransmission < 175)
     { // prefend fast transmissions
         return 1;
     }

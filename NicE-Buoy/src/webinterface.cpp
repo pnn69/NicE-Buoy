@@ -26,7 +26,7 @@ AsyncUDP udp;
 void setup_OTA()
 {
     char ssidl[20];
-    char buf[30];
+    char buf[40];
     byte mac[6];
     WiFi.macAddress(mac);
     sprintf(ssidl, "NicE_Buoy_%d", buoyID);

@@ -379,7 +379,7 @@ int hooverPid(double dist)
         Output = 0;
     }
     /*Remember some variables for next time*/
-    speedpid.lastErr = dist;
+    speedpid.lastErr = error;
     speedpid.lastTime = now;
     return (int)constrain(Output, 0, buoy.maxSpeed);
 }

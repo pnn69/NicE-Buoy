@@ -159,7 +159,7 @@ bool GetNewGpsData()
                 }
         }
     }
-    if (gpsTimeOut + 5000 < millis())
+    if (millis() - gpsTimeOut > 5000)
     {
         gpsdata.fix = false;
         gpsvalid = false;

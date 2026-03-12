@@ -373,7 +373,7 @@ void loop(void)
     }
 
     // do stuff every 0.5 second
-    if (sec05stamp + 500 < millis())
+    if (millis() - sec05stamp > 500)
     {
         sec05stamp = millis() - 1;
         if (gpsdata.fix == true)
@@ -678,7 +678,7 @@ void loop(void)
     /*
     Send only updated changes
     */
-    if (gpsstamp + 900 < millis())
+    if (millis() - gpsstamp > 900)
     {
         gpsstamp = millis();
         if (status == LOCKED || status == DOCKED)
@@ -699,7 +699,7 @@ void loop(void)
      do stuff every 2,5 sec
      Send periodic status info
     */
-    if (sec5stamp + 2500 < millis())
+    if (millis() - sec5stamp > 2500)
     {
         sec5stamp = millis() - 1;
 

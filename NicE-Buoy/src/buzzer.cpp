@@ -17,7 +17,7 @@ void BuzzerTask(void *arg)
             {
                 Serial.println("BEEB");
                 bstamp = millis();
-                while (bstamp + msgBuzz.time > millis())
+                while (millis() - bstamp < msgBuzz.time)
                 {
                     digitalWrite(BUZZERPIN, BUZZERON);
                     delay(1);

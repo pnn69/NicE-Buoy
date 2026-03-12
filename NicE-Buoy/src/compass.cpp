@@ -107,13 +107,13 @@ bool InitCompass(void)
     if (!mag.begin())
     {
         Serial.println("Unable to initialize LSM303 magnetometer");
-        while (1)
-            ;
+        return false;
     }
 
     if (!accel.begin())
     {
         Serial.println("Unable to initialize LSM303 accelerometer");
+        return false;
     }
 
     accel.setRange(LSM303_RANGE_4G);
@@ -122,7 +122,7 @@ bool InitCompass(void)
     mag.getEvent(&event);
     CompassOffsetCorrection(&buoy.magneticCorrection, true);
     MechanicalCorrection(&buoy.mechanicCorrection, true);
-    return 0;
+    return true;
 }
 
 bool CalibrateCompass(void)
