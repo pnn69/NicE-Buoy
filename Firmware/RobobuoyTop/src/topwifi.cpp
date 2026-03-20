@@ -178,7 +178,6 @@ bool udp_setup(int poort)
 
 void udpSend(String data)
 {
-    data = addCRCToString(data);
     udp.broadcast(data.c_str());
 }
 

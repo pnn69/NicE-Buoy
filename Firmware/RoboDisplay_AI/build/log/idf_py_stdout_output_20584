@@ -1,0 +1,9 @@
+-- ccache will be used for faster recompilation
+-- Building ESP-IDF components for target esp32
+Manifest files have changed, solving dependencies.
+.................HINT: Please check manifest file of the following component(s): main
+-- Configuring incomplete, errors occurred!
+See also "C:/tmp/NicE-Buoy/Firmware/RoboDisplay_AI/build/CMakeFiles/CMakeOutput.log".
+[0/1] Re-running CMake...
+FAILED: build.ninja 
+C:\Users\Peter.d.Nijs\.espressif\tools\cmake\3.24.0\bin\cmake.exe --regenerate-during-build -SC:\tmp\NicE-Buoy\Firmware\RoboDisplay_AI -BC:\tmp\NicE-Buoy\Firmware\RoboDisplay_AI\build

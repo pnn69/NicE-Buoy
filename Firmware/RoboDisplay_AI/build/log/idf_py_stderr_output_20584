@@ -1,0 +1,14 @@
+CMake Error at C:/Users/Peter.d.Nijs/esp/v5.3/esp-idf/tools/cmake/build.cmake:552 (message):
+  WARNING: Component "espressif/esp_lcd_touch_xpt2046" not found
+
+  WARNING: Component "espressif/esp_lcd_touch_xpt2046" not found
+
+  ERROR: Because project depends on espressif/esp_lcd_touch_xpt2046 (*) which
+  doesn't match any versions, version solving failed.
+
+Call Stack (most recent call first):
+  C:/Users/Peter.d.Nijs/esp/v5.3/esp-idf/tools/cmake/project.cmake:710 (idf_build_process)
+  CMakeLists.txt:4 (project)
+
+
+ninja: error: rebuilding 'build.ninja': subcommand failed

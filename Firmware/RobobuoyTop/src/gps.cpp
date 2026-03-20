@@ -17,68 +17,66 @@ static bool newGpsData = false;
 
 void RouteToPoint(double lat1, double lon1, double lat2, double lon2, double *distance, double *direction)
 {
-    *distance = gps.distanceBetween(lat1, lon1, lat2, lon2);
-    *direction = gps.courseTo(lat1, lon1, lat2, lon2);
+    *distance = distanceBetween(lat1, lon1, lat2, lon2);
+    *direction = calculateBearing(lat1, lon1, lat2, lon2);
 }
 
 bool initgpsqueue(void)
 {
-    gpsQue = xQueueCreate(1, sizeof(gpsdata));
+    gpsQue = xQueueCreate(1, sizeof(RoboStruct));
+    Serial2.begin(GPSBAUD, SERIAL_8N1, GPSRX, GPSTX);
     return true;
 }
 
 void GpsTask(void *arg)
 {
-    Serial2.begin(GPSBAUD, SERIAL_8N1, GPSRX, GPSTX);
     Serial.println("Gps task running!");
     while (1)
     {
+        bool updated = false;
         while (Serial2.available() > 0)
         {
-            char c = Serial2.read();
-            // Serial.print(c);
-            if (gps.encode(c))
+            if (gps.encode(Serial2.read()))
             {
-                gpsTimeOut = millis();
-                if (gps.location.isUpdated() && gps.location.isValid())
-                {
-                    gpsdata.lat = gps.location.lat();
-                    gpsdata.lng = gps.location.lng();
-                }
-                if (gps.speed.isValid())
-                {
-                    gpsdata.speed = (int)gps.speed.kmph();
-                }
-                if (gps.course.isValid())
-                {
-                    gpsdata.gpsDir = (int)gps.course.deg();
-                }
-                gpsdata.gpsSat = (int)gps.satellites.value();
-                gpsdata.gpsFixAge = gps.location.age();
-                if (gpsdata.gpsFixAge < 1000)
-                {
-                    newGpsData = true;
-                    gpsdata.gpsFix = true;
-                }
-                else
-                {
-                    if (gpsdata.gpsFix == true)
-                    {
-                        newGpsData = true;
-                        gpsdata.gpsFix = false;
-                    }
-                }
+                updated = true;
             }
         }
-        if (gpsTimeOut + 5000 < millis())
+
+        if (updated)
         {
-            gpsdata.gpsFix = false;
+            gpsTimeOut = millis();
+            if (gps.location.isValid())
+            {
+                gpsdata.lat = gps.location.lat();
+                gpsdata.lng = gps.location.lng();
+            }
+            
+            if (gps.speed.isValid())
+            {
+                gpsdata.speed = (int)gps.speed.kmph();
+            }
+            if (gps.course.isValid())
+            {
+                gpsdata.gpsDir = (int)gps.course.deg();
+            }
+            
+            gpsdata.gpsSat = (int)gps.satellites.value();
+            gpsdata.gpsFixAge = gps.location.age();
+            
+            // A fix is valid if age is fresh and TinyGPS says it's valid
+            gpsdata.gpsFix = (gps.location.isValid() && gpsdata.gpsFixAge < 2000);
+            
+            xQueueOverwrite(gpsQue, (void *)&gpsdata);
         }
-        if (newGpsData == true) // only updat if position has been changed
+        else if (millis() - gpsTimeOut > 5000)
         {
-            xQueueSend(gpsQue, (void *)&gpsdata, 10);
-            newGpsData = false;
+            if (gpsdata.gpsFix)
+            {
+                gpsdata.gpsFix = false;
+                xQueueOverwrite(gpsQue, (void *)&gpsdata);
+            }
         }
-        delay(1);
+        
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }

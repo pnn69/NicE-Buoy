@@ -1,0 +1,69 @@
+[1/12] Linking CXX static library esp-idf\espressif__esp_lvgl_port\liblvgl_port_lib.a
+[2/12] Performing build step for 'bootloader'
+[1/1] cmd.exe /C "cd /D C:\tmp\NicE-Buoy\Firmware\RoboDisplay_AI\build\bootloader\esp-idf\esptool_py && C:\Users\Peter.d.Nijs\.espressif\python_env\idf5.3_py3.11_env\Scripts\python.exe C:/Users/Peter.d.Nijs/esp/v5.3/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x1000 C:/tmp/NicE-Buoy/Firmware/RoboDisplay_AI/build/bootloader/bootloader.bin"
+Bootloader binary size 0x6880 bytes. 0x780 bytes (7%) free.
+[3/10] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/main.c.obj
+[4/10] Linking C static library esp-idf\main\libmain.a
+[5/10] Generating ld/sections.ld
+[6/10] Building C object CMakeFiles/cyd_hello_world.elf.dir/project_elf_src_esp32.c.obj
+[7/10] Linking CXX executable cyd_hello_world.elf
+[8/10] Generating binary image from built executable
+esptool.py v4.8.dev5
+Creating esp32 image...
+Merged 2 ELF sections
+Successfully created esp32 image.
+Generated C:/tmp/NicE-Buoy/Firmware/RoboDisplay_AI/build/cyd_hello_world.bin
+[9/10] cmd.exe /C "cd /D C:\tmp\NicE-Buoy\Firmware\RoboDisplay_AI\build\esp-idf\esptool_py && C:\Users\Peter.d.Nijs\.espressif\python_env\idf5.3_py3.11_env\Scripts\python.exe C:/Users/Peter.d.Nijs/esp/v5.3/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app C:/tmp/NicE-Buoy/Firmware/RoboDisplay_AI/build/partition_table/partition-table.bin C:/tmp/NicE-Buoy/Firmware/RoboDisplay_AI/build/cyd_hello_world.bin"
+cyd_hello_world.bin binary size 0x7e1a0 bytes. Smallest app partition is 0x100000 bytes. 0x81e60 bytes (51%) free.
+[9/10] cmd.exe /C "cd /D C:\Users\Peter.d.Nijs\esp\v5.3\esp-idf\components\esptool_py && C:\Users\Peter.d.Nijs\.espressif\tools\cmake\3.24.0\bin\cmake.exe -D IDF_PATH=C:/Users/Peter.d.Nijs/esp/v5.3/esp-idf -D SERIAL_TOOL=C:/Users/Peter.d.Nijs/.espressif/python_env/idf5.3_py3.11_env/Scripts/python.exe;;C:/Users/Peter.d.Nijs/esp/v5.3/esp-idf/components/esptool_py/esptool/esptool.py;esptool.py --chip esp32 -p COM4 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 40m --flash_size 2MB 0x1000 bootloader/bootloader.bin 0x10000 cyd_hello_world.bin 0x8000 partition_table/partition-table.bin
+esptool.py v4.8.dev5
+Serial port COM4
+Connecting.....
+Chip is ESP32-D0WD-V3 (revision v3.1)
+Features: WiFi, BT, Dual Core, 240MHz, VRef calibration in efuse, Coding Scheme None
+Crystal is 40MHz
+MAC: d8:13:2a:7d:cd:38
+Uploading stub...
+Running stub...
+Stub running...
+Changing baud rate to 460800
+Changed.
+Configuring flash size...
+Flash will be erased from 0x00001000 to 0x00007fff...
+Flash will be erased from 0x00010000 to 0x0008efff...
+Flash will be erased from 0x00008000 to 0x00008fff...
+SHA digest in image updated
+Compressed 26752 bytes to 16352...
+Writing at 0x00001000... (100 %)
+Wrote 26752 bytes (16352 compressed) at 0x00001000 in 0.8 seconds (effective 273.8 kbit/s)...
+Hash of data verified.
+Compressed 516512 bytes to 299658...
+Writing at 0x00010000... (5 %)
+Writing at 0x0001c3ed... (10 %)
+Writing at 0x000253de... (15 %)
+Writing at 0x0002af91... (21 %)
+Writing at 0x000310bd... (26 %)
+Writing at 0x00036bc8... (31 %)
+Writing at 0x0003cbbf... (36 %)
+Writing at 0x000423fe... (42 %)
+Writing at 0x00048000... (47 %)
+Writing at 0x0004e9b5... (52 %)
+Writing at 0x00054309... (57 %)
+Writing at 0x00059e41... (63 %)
+Writing at 0x0005fe34... (68 %)
+Writing at 0x00065f38... (73 %)
+Writing at 0x0006dc39... (78 %)
+Writing at 0x000767fe... (84 %)
+Writing at 0x0007c957... (89 %)
+Writing at 0x00085bb0... (94 %)
+Writing at 0x0008c3ba... (100 %)
+Wrote 516512 bytes (299658 compressed) at 0x00010000 in 6.9 seconds (effective 599.4 kbit/s)...
+Hash of data verified.
+Compressed 3072 bytes to 103...
+Writing at 0x00008000... (100 %)
+Wrote 3072 bytes (103 compressed) at 0x00008000 in 0.0 seconds (effective 498.4 kbit/s)...
+Hash of data verified.
+
+Leaving...
+Hard resetting via RTS pin...
+--chip;esp32 -D SERIAL_TOOL_ARGS=--before=default_reset;--after=hard_reset;write_flash;@flash_args -D WORKING_DIRECTORY=C:/tmp/NicE-Buoy/Firmware/RoboDisplay_AI/build -P C:/Users/Peter.d.Nijs/esp/v5.3/esp-idf/components/esptool_py/run_serial_tool.cmake"

@@ -78,7 +78,7 @@ void setup()
     initgpsqueue();
     initloraqueue();
     initserqueue();
-    xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 1000, NULL, 1, NULL, 1);
+    xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 2048, NULL, 1, NULL, 1);
     xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
     xTaskCreatePinnedToCore(GpsTask, "GpsTask", 2000, NULL, configMAX_PRIORITIES - 8, NULL, 1);
     if (digitalRead(BUTTON_PIN) == true)
@@ -223,17 +223,17 @@ void handelKeyPress(RoboStruct *key)
 //***************************************************************************************************
 //      Light button control
 //***************************************************************************************************
-void buttonLight(RoboStruct sta)
+void buttonLight(RoboStruct *sta)
 {
     if (buttonBlinkTimer < millis())
     {
         buttonBlinkTimer = millis() + blink;
-        if (sta.status == LOCKED || sta.status == DOCKED)
+        if (sta->status == LOCKED || sta->status == DOCKED)
         {
             digitalWrite(BUTTON_LIGHT_PIN, HIGH);
             blink = 2000;
         }
-        else if (sta.status == CALIBRATE_MAGNETIC_COMPASS)
+        else if (sta->status == CALIBRATE_MAGNETIC_COMPASS)
         {
             digitalWrite(BUTTON_LIGHT_PIN, !digitalRead(BUTTON_LIGHT_PIN));
             blink = 50;
@@ -241,7 +241,7 @@ void buttonLight(RoboStruct sta)
         else
         {
             digitalWrite(BUTTON_LIGHT_PIN, !digitalRead(BUTTON_LIGHT_PIN));
-            if (sta.gpsFix == true)
+            if (sta->gpsFix == true)
             {
                 if (blink != 1000)
                 {
@@ -539,14 +539,14 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             switch (RfIn.cmd)
             {
             case DOCKING:
-                if (RfOut->status != DOCKING || RfOut->status != DOCKED)
+                if (RfOut->status != DOCKING && RfOut->status != DOCKED)
                 {
                     printf("#Status set to DOCKING\r\n");
                     RfOut->status = DOCKING;
                 }
                 break;
             case LOCKPOS: // store new data into position database
-                AddDataToBuoyBase(RfIn, buoyPara);
+                AddDataToBuoyBase(RfIn, buoyParaPtrs);
                 break;
             case PIDRUDDER:
                 if (RfIn.ack == LORAGET)
@@ -575,6 +575,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     xQueueSend(loraOut, (void *)&RfIn, 0); // update sub
                     xQueueSend(udpOut, (void *)&RfIn, 0);  // update sub
                 }
+                break;
             case PIDSPEEDSET:
                 pidSpeedParameters(&RfIn, SET);
                 printf("#PIDSPEEDSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kps, RfIn.Kis, RfIn.Kds);
@@ -617,6 +618,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 break;
             case DOCKPOS: // Get the positon to dock
                 memDockPos(RfOut, GET);
+                break;
             case STOREASDOC: // Store location as doc location
                 if (RfOut->gpsFix == true)
                 {
@@ -639,7 +641,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 break;
             case IDELING:
             case IDLE:
-                if (RfOut->status != IDELING || RfOut->status != IDLE)
+                if (RfOut->status != IDELING && RfOut->status != IDLE)
                 {
                     printf("#Status set to IDLE (by lora input)\r\n");
                     RfOut->status = IDELING;
@@ -689,10 +691,9 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
 // ***************************************************************************************************
 // handle new gps datainput
 // ***************************************************************************************************
-#define MAX_DIST_DEG 0.0005f // ~50 m depending on latitude; tune for your needs
 void handelGpsData(RoboStruct *gps)
 {
-    RoboStruct gpsin, tx;
+    RoboStruct gpsin;
 
     if (xQueueReceive(gpsQue, (void *)&gpsin, 0) == pdTRUE) // New gps data
     {
@@ -709,43 +710,43 @@ void handelGpsData(RoboStruct *gps)
                 // First time fix event
                 Serial.printf("First GPS fix acquired\r\n");
                 beep(2000, buzzer);
-                tx.IDr = BUOYIDALL;
-                tx.cmd = BUOYPOS;
-                tx.ack = LORAINF;
-                xQueueSend(loraOut, (void *)&tx, 10);
-                xQueueSend(udpOut, (void *)&tx, 10);
                 return;
             }
-            // No movement ?
-            if (gpsin.lat == gps->lat && gpsin.lng == gps->lng)
+
+            // --- Accept small movements immediately ---
+            double dist = distanceBetween(gpsin.lat, gpsin.lng, gps->lat, gps->lng);
+            if (dist < 50)
             {
-                gpsErrorCnt++;
-                if (gpsErrorCnt > 100)
-                {
-                    Serial.printf("Movement outlier\r\n");
-                    gps->gpsFix = false;
-                }
-                return;
+                gpsErrorCnt = 0;
+                gps->lat = gpsin.lat;
+                gps->lng = gpsin.lng;
+                gps->gpsSat = gpsin.gpsSat;
+                gps->gpsFix = true;
             }
-            // --- Outlier check for subsequent updates ---
-            if (distanceBetween(gpsin.lat, gpsin.lng, gps->lat, gps->lng) > 50)
+            else
             {
+                // Large jump: might be an outlier OR the buoy was moved
                 gpsErrorCnt++;
-                if (gpsErrorCnt > 100)
+                Serial.printf("Potential GPS outlier (dist: %.2f m), count: %u\r\n", dist, gpsErrorCnt);
+                
+                // If we get many consecutive outliers, accept the new position
+                if (gpsErrorCnt > 30) 
                 {
-                    gps->gpsFix = false;
+                    Serial.println("Accepting new GPS position after persistent outliers.");
+                    gpsErrorCnt = 0;
+                    gps->lat = gpsin.lat;
+                    gps->lng = gpsin.lng;
+                    gps->gpsSat = gpsin.gpsSat;
+                    gps->gpsFix = true;
                 }
-                Serial.printf("Ignoring GPS Ignore outlier\r\n");
-                // Ignore outlier
-                return;
             }
         }
-        // --- Accept update ---
-        gpsErrorCnt = 0;
-        gps->lat = gpsin.lat;
-        gps->lng = gpsin.lng;
-        gps->gpsSat = gpsin.gpsSat;
-        gps->gpsFix = gpsin.gpsFix;
+        else
+        {
+            // Fix lost
+            gps->gpsFix = false;
+            gps->gpsSat = gpsin.gpsSat;
+        }
     }
 }
 //***************************************************************************************************

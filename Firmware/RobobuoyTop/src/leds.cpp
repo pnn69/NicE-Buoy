@@ -51,152 +51,74 @@ void LedTask(void *arg)
 {
     initLed();
     Serial.println("Led task running!");
+    unsigned long lastUpdate = millis();
+    
     while (1)
     {
+        bool changed = false;
 
         if (xQueueReceive(ledStatus, (void *)&ledDataStatus, 0) == pdTRUE)
         {
             leds[LEDSTATUS] = ledDataStatus.color;
-            if (ledDataStatus.blink == 0 || ledDataStatus.blink == BLINK_OFF)
-            {
-                FastLED.show();
-            }
+            changed = true;
         }
         if (xQueueReceive(ledUtil, (void *)&ledDataUtil, 0) == pdTRUE)
         {
             leds[LEDUTIL] = ledDataUtil.color;
-            if (ledDataUtil.blink == 0 || ledDataUtil.blink == BLINK_OFF)
-            {
-                FastLED.show();
-            }
+            changed = true;
         }
         if (xQueueReceive(ledGps, (void *)&ledDataGps, 0) == pdTRUE)
         {
             leds[LEDGPS] = ledDataGps.color;
-            if (ledDataGps.blink == 0 || ledDataGps.blink == BLINK_OFF)
-            {
-                FastLED.show();
-            }
+            changed = true;
         }
-        /*
-            Blink stuff
-        */
-        if (blinktimer + 100 < millis())
+
+        if (millis() - lastUpdate >= 50) // Update animations at 20Hz
         {
-            blinktimer = millis();
+            lastUpdate = millis();
             blinkcnt++;
             blinkFast = !blinkFast;
-            if (ledDataGps.blink == BLINK_FAST)
-            {
-                if (blinkFast == true)
-                {
-                    leds[LEDGPS] = ledDataGps.color;
-                }
-                else
-                {
-                    leds[LEDGPS] = CRGB ::Black;
-                }
-                FastLED.show();
-            }
-            if (ledDataStatus.blink == BLINK_FAST)
-            {
-                if (blinkFast == true)
-                {
-                    leds[LEDSTATUS] = ledDataStatus.color;
-                }
-                else
-                {
-                    leds[LEDSTATUS] = CRGB ::Black;
-                }
-                FastLED.show();
-            }
-            if (ledDataUtil.blink == BLINK_FAST)
-            {
-                if (blinkFast == true)
-                {
-                    leds[LEDUTIL] = ledDataUtil.color;
-                }
-                else
-                {
-                    leds[LEDUTIL] = CRGB ::Black;
-                }
-                FastLED.show();
-            }
-            if (blinkcnt >= 10)
-            {
+            if (blinkcnt >= 10) {
                 blinkcnt = 0;
                 blink = !blink;
-                if (ledDataGps.blink == BLINK_SLOW)
-                {
-                    if (blink == true)
-                    {
-                        leds[LEDGPS] = ledDataGps.color;
-                    }
-                    else
-                    {
-                        leds[LEDGPS] = CRGB ::Black;
-                    }
-                    FastLED.show();
-                }
-                if (ledDataStatus.blink == BLINK_SLOW)
-                {
-                    if (blink == true)
-                    {
-                        leds[LEDSTATUS] = ledDataStatus.color;
-                    }
-                    else
-                    {
-                        leds[LEDSTATUS] = CRGB ::Black;
-                    }
-                    FastLED.show();
-                }
-                if (ledDataUtil.blink == BLINK_SLOW)
-                {
-                    if (blink == true)
-                    {
-                        leds[LEDUTIL] = ledDataUtil.color;
-                    }
-                    else
-                    {
-                        leds[LEDUTIL] = CRGB ::Black;
-                    }
-                    FastLED.show();
-                }
-                if (ledDataStatus.blink == FADE_ON)
-                {
-                    leds[LEDSTATUS] = ledDataStatus.color;
-                    leds[LEDSTATUS].nscale8(ledDataStatus.brightness);
-                    ledDataStatus.brightness += ledDataStatus.fadeAmount;
-                    if (ledDataStatus.brightness == 0 || ledDataStatus.brightness == 255)
-                    {
-                        ledDataStatus.fadeAmount = -ledDataStatus.fadeAmount;
-                    }
-                    FastLED.show();
-                }
-                if (ledDataUtil.blink == FADE_ON)
-                {
-                    leds[LEDUTIL] = ledDataUtil.color;
-                    leds[LEDUTIL].nscale8(ledDataUtil.brightness);
-                    ledDataUtil.brightness += ledDataUtil.fadeAmount;
-                    if (ledDataUtil.brightness == 0 || ledDataUtil.brightness == 255)
-                    {
-                        ledDataUtil.fadeAmount = -ledDataUtil.fadeAmount;
-                    }
-                    FastLED.show();
-                }
-                if (ledDataGps.blink == FADE_ON)
-                {
-                    leds[LEDGPS] = ledDataGps.color;
-                    leds[LEDGPS].nscale8(ledDataGps.brightness);
-                    ledDataGps.brightness += ledDataGps.fadeAmount;
-                    if (ledDataGps.brightness == 0 || ledDataGps.brightness == 255)
-                    {
-                        ledDataGps.fadeAmount = -ledDataGps.fadeAmount;
-                    }
-                    FastLED.show();
-                }
             }
+
+            // --- Status LED ---
+            if (ledDataStatus.blink == BLINK_FAST) leds[LEDSTATUS] = blinkFast ? ledDataStatus.color : CRGB::Black;
+            else if (ledDataStatus.blink == BLINK_SLOW) leds[LEDSTATUS] = blink ? ledDataStatus.color : CRGB::Black;
+            else if (ledDataStatus.blink == FADE_ON) {
+                leds[LEDSTATUS] = ledDataStatus.color;
+                leds[LEDSTATUS].nscale8(ledDataStatus.brightness);
+                ledDataStatus.brightness += ledDataStatus.fadeAmount;
+                if (ledDataStatus.brightness <= 10 || ledDataStatus.brightness >= 245) ledDataStatus.fadeAmount = -ledDataStatus.fadeAmount;
+            }
+            
+            // --- Util LED ---
+            if (ledDataUtil.blink == BLINK_FAST) leds[LEDUTIL] = blinkFast ? ledDataUtil.color : CRGB::Black;
+            else if (ledDataUtil.blink == BLINK_SLOW) leds[LEDUTIL] = blink ? ledDataUtil.color : CRGB::Black;
+            else if (ledDataUtil.blink == FADE_ON) {
+                leds[LEDUTIL] = ledDataUtil.color;
+                leds[LEDUTIL].nscale8(ledDataUtil.brightness);
+                ledDataUtil.brightness += ledDataUtil.fadeAmount;
+                if (ledDataUtil.brightness <= 10 || ledDataUtil.brightness >= 245) ledDataUtil.fadeAmount = -ledDataUtil.fadeAmount;
+            }
+
+            // --- GPS LED ---
+            if (ledDataGps.blink == BLINK_FAST) leds[LEDGPS] = blinkFast ? ledDataGps.color : CRGB::Black;
+            else if (ledDataGps.blink == BLINK_SLOW) leds[LEDGPS] = blink ? ledDataGps.color : CRGB::Black;
+            else if (ledDataGps.blink == FADE_ON) {
+                leds[LEDGPS] = ledDataGps.color;
+                leds[LEDGPS].nscale8(ledDataGps.brightness);
+                ledDataGps.brightness += ledDataGps.fadeAmount;
+                if (ledDataGps.brightness <= 10 || ledDataGps.brightness >= 245) ledDataGps.fadeAmount = -ledDataGps.fadeAmount;
+            }
+            changed = true;
         }
-        vTaskDelay(1);
+
+        if (changed)
+        {
+            FastLED.show();
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }

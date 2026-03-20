@@ -86,10 +86,10 @@ void setup()
         }
     }
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
-    xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 1000, NULL, 1, NULL, 1);
+    xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 2048, NULL, 1, NULL, 1);
     xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 5, NULL, 1);
     xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
-    xTaskCreatePinnedToCore(CompassTask, "CompasaTask", 2000, NULL, configMAX_PRIORITIES - 1, &compassTaskHandle, 0); //&compassTaskHandle is used to suspend/resume the task
+    xTaskCreatePinnedToCore(CompassTask, "CompassTask", 2000, NULL, configMAX_PRIORITIES - 1, &compassTaskHandle, 0); //&compassTaskHandle is used to suspend/resume the task
     xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 3, NULL, 0);
     Serial.println("Setup done!");
     // Disable brownout detector
@@ -242,19 +242,18 @@ void handelSerandRfdata(RoboStruct *ser)
         case IDLE:
         case IDELING:
             if (ser->status != IDELING)
-                if (ser->status != IDELING)
-                {
-                    escOut.speedbb = 0;
-                    escOut.speedsb = 0;
-                    xQueueSend(escspeed, (void *)&escOut, 10);
-                    ser->tgDist = 0;
-                    ser->tgSpeed = 0;
-                    ser->tgDir = 0;
-                    ser->status = IDELING;
-                    initRudPid(ser);
-                    initSpeedPid(ser);
-                    printf("IDLE command recieved!\r\n");
-                }
+            {
+                escOut.speedbb = 0;
+                escOut.speedsb = 0;
+                xQueueSend(escspeed, (void *)&escOut, 10);
+                ser->tgDist = 0;
+                ser->tgSpeed = 0;
+                ser->tgDir = 0;
+                ser->status = IDELING;
+                initRudPid(ser);
+                initSpeedPid(ser);
+                printf("IDLE command recieved!\r\n");
+            }
             break;
         case DIRDIST:
             if (ser->status != LOCKED)
@@ -550,10 +549,12 @@ void handleTimerRoutines(RoboStruct *in)
 void loop(void)
 {
 
+    mainLedStatus.color = CRGB::Yellow;
+    mainLedStatus.blink = BLINK_OFF;
     mainPwrData.sb = CRGB::Yellow;
     mainPwrData.bb = CRGB::Yellow;
-    xQueueSend(ledStatus, (void *)&mainPwrData, 0); // update GPS led
-    xQueueSend(ledPwr, (void *)&mainPwrData, 0);    // update util led
+    xQueueSend(ledStatus, (void *)&mainLedStatus, 0); // update status led
+    xQueueSend(ledPwr, (void *)&mainPwrData, 0);    // update power led
     PwrOff = millis();
     mainData.status = IDLE;
     while (true)

@@ -5,31 +5,48 @@ Preferences storage;
 
 void initMemory(void)
 {
-
-    // Open Preferences with my-app namespace. Each application module, library, etc
-    // has to use a namespace name to prevent key name collisions. We will open storage in
-    // RW-mode (second parameter has to be false).
-    // Note: Namespace name is limited to 15 chars.
     storage.begin("NicE_Buoy_Data", false);
+    
+    // 1. Check for legacy typo migration
+    if (storage.isKey("Doclat") && !storage.isKey("Docklat")) {
+        double lat = storage.getDouble("Doclat");
+        double lon = storage.getDouble("Doclon");
+        storage.putDouble("Docklat", lat);
+        storage.putDouble("Docklon", lon);
+        storage.remove("Doclat");
+        storage.remove("Doclon");
+        Serial.println("# Migrated legacy Dock keys.");
+    }
+
+    // 2. Check if this is a fresh processor
     unsigned long id = espMac();
     uint64_t stored_id = storage.getULong64("NicE_BuoyID", 0);
-    Serial.println(id, HEX);
+    
     if (id != stored_id)
     {
-        Serial.printf("Configuring Non-volatile memory now!\n\r");
+        Serial.printf("# Configuring Fresh Processor Memory...\n\r");
         storage.putULong64("NicE_BuoyID", id);
-        Serial.printf("Storing data Bouy ID to 100\r\n");
-        // tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
+        
+        // Factory Default Dock: WSVOP landing stage
         storage.putDouble("Docklat", 52.29308075283747);
         storage.putDouble("Docklon", 4.932570409845357);
-        Serial.printf("Storing data Target position \r\nWSVOP landing stage tglatitude = 52.29308075283747, tglongitude = 4.932570409845357 ");
-        Serial.printf("Buoy Memory configured\r\n");
-        delay(1000);
+        
+        // Initial PID Defaults (if not already set by factory)
+        if (!storage.isKey("Kps")) {
+            storage.putDouble("Kps", 20.0);
+            storage.putDouble("Kis", 0.4);
+            storage.putDouble("Kds", 0.0);
+            storage.putDouble("Kpr", 0.5);
+            storage.putDouble("Kir", 0.02);
+            storage.putDouble("Kdr", 0.0);
+        }
+
+        Serial.printf("# Buoy Memory initialized for MAC: %08X\r\n", id);
+        delay(500);
     }
-    stored_id = storage.getULong64("NicE_BuoyID", 0);
-    if (stored_id != 0)
+    else
     {
-        Serial.printf("Buoy Memory OK\r\n");
+        Serial.printf("# Buoy Memory OK (MAC: %08X)\r\n", id);
     }
 }
 /*

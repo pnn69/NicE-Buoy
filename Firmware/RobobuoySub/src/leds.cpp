@@ -46,142 +46,70 @@ void LedTask(void *arg)
 {
     initLed();
     Serial.println("Led task running!");
+    unsigned long lastUpdate = millis();
+    
     while (1)
     {
+        bool changed = false;
 
         if (xQueueReceive(ledStatus, (void *)&ledStatusData, 0) == pdTRUE)
         {
             leds[LEDSTATUS] = ledStatusData.color;
-            if (ledStatusData.blink == 0 || ledStatusData.blink == BLINK_OFF)
-            {
-                FastLED.show();
-            }
+            changed = true;
         }
+        
         if (xQueueReceive(ledPwr, (void *)&ledPwrData, 0) == pdTRUE)
         {
-            leds[LEDBB] = ledPwrData.sb;
-            leds[LEDSB] = ledPwrData.bb;
+            leds[LEDBB] = ledPwrData.bb;
+            leds[LEDSB] = ledPwrData.sb;
+            
+            int bbVal = ledPwrData.ledBb;
+            int sbVal = ledPwrData.ledSb;
+
             for (int i = 1; i < 11; i++)
             {
-                if (ledPwrData.ledBb > 9)
-                {
-                    leds[2 + i] = CRGB::Green;
-                    ledPwrData.ledBb -= 10;
-                }
-                else if (ledPwrData.ledBb < -9)
-                {
-                    leds[2 + i] = CRGB::Red;
-                    ledPwrData.ledBb += 10;
-                }
-                else
-                {
-                    leds[2 + i] = CRGB::Black;
-                }
-                if (ledPwrData.ledSb > 9)
-                {
-                    leds[2 + 10 + i] = CRGB::Green;
-                    ledPwrData.ledSb -= 10;
-                }
-                else if (ledPwrData.ledSb < -9)
-                {
-                    leds[2 + 10 + i] = CRGB::Red;
-                    ledPwrData.ledSb += 10;
-                }
-                else
-                {
-                    leds[2 + 10 + i] = CRGB::Black;
-                }
+                // BB Motor Bar
+                if (bbVal >= 10) { leds[2 + i] = CRGB::Green; bbVal -= 10; }
+                else if (bbVal <= -10) { leds[2 + i] = CRGB::Red; bbVal += 10; }
+                else { leds[2 + i] = CRGB::Black; }
+
+                // SB Motor Bar
+                if (sbVal >= 10) { leds[2 + 10 + i] = CRGB::Green; sbVal -= 10; }
+                else if (sbVal <= -10) { leds[2 + 10 + i] = CRGB::Red; sbVal += 10; }
+                else { leds[2 + 10 + i] = CRGB::Black; }
             }
-            FastLED.show();
+            changed = true;
         }
-        /*
-            Blink stuff
-        */
-        if (blinktimer + 100 < millis())
+
+        if (millis() - lastUpdate >= 50) // Update animations at 20Hz
         {
-            blinktimer = millis();
+            lastUpdate = millis();
             blinkcnt++;
             blinkFast = !blinkFast;
-            if (ledStatusData.blink == BLINK_FAST)
-            {
-                if (blinkFast == true)
-                {
-                    leds[LEDSTATUS] = ledStatusData.color;
-                }
-                else
-                {
-                    leds[LEDSTATUS] = CRGB ::Black;
-                }
-                FastLED.show();
-            }
-            if (ledPwrData.blinkBb == BLINK_FAST)
-            {
-                if (blinkFast == true)
-                {
-                    leds[LEDBB] = ledPwrData.bb;
-                }
-                else
-                {
-                    leds[LEDBB] = CRGB ::Black;
-                }
-                FastLED.show();
-            }
-            if (ledPwrData.blinkSb == BLINK_FAST)
-            {
-                if (blinkFast == true)
-                {
-                    leds[LEDSB] = ledPwrData.sb;
-                }
-                else
-                {
-                    leds[LEDSB] = CRGB ::Black;
-                }
-                FastLED.show();
-            }
-            if (blinkcnt >= 10)
-            {
+            if (blinkcnt >= 10) {
                 blinkcnt = 0;
                 blink = !blink;
-                if (ledStatusData.blink == BLINK_SLOW)
-                {
-                    if (blink == true)
-                    {
-                        // printf("led on\r\n");
-                        leds[LEDSTATUS] = ledStatusData.color;
-                    }
-                    else
-                    {
-                        // printf("led off\r\n");
-                        leds[LEDSTATUS] = CRGB ::Black;
-                    }
-                    FastLED.show();
-                }
-                if (ledPwrData.blinkBb == BLINK_SLOW)
-                {
-                    if (blink == true)
-                    {
-                        leds[LEDBB] = ledPwrData.bb;
-                    }
-                    else
-                    {
-                        leds[LEDBB] = CRGB ::Black;
-                    }
-                    FastLED.show();
-                }
-                if (ledPwrData.blinkSb == BLINK_SLOW)
-                {
-                    if (blink == true)
-                    {
-                        leds[LEDSB] = ledPwrData.sb;
-                    }
-                    else
-                    {
-                        leds[LEDSB] = CRGB ::Black;
-                    }
-                    FastLED.show();
-                }
             }
+
+            // --- Status LED ---
+            if (ledStatusData.blink == BLINK_FAST) leds[LEDSTATUS] = blinkFast ? ledStatusData.color : CRGB::Black;
+            else if (ledStatusData.blink == BLINK_SLOW) leds[LEDSTATUS] = blink ? ledStatusData.color : CRGB::Black;
+            
+            // --- BB Motor LED ---
+            if (ledPwrData.blinkBb == BLINK_FAST) leds[LEDBB] = blinkFast ? ledPwrData.bb : CRGB::Black;
+            else if (ledPwrData.blinkBb == BLINK_SLOW) leds[LEDBB] = blink ? ledPwrData.bb : CRGB::Black;
+
+            // --- SB Motor LED ---
+            if (ledPwrData.blinkSb == BLINK_FAST) leds[LEDSB] = blinkFast ? ledPwrData.sb : CRGB::Black;
+            else if (ledPwrData.blinkSb == BLINK_SLOW) leds[LEDSB] = blink ? ledPwrData.sb : CRGB::Black;
+
+            changed = true;
         }
-        vTaskDelay(1);
+
+        if (changed)
+        {
+            FastLED.show();
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }

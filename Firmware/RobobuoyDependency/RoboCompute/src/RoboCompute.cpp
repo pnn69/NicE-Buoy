@@ -156,7 +156,7 @@ void RoboDecode(String data, RoboStruct *dataStore)
 
     case WINDDATA:
         dataStore->wDir = numbers[2].toDouble();
-        dataStore->wStd = numbers[2].toDouble(); // NOTE: This might be a bug (same index twice)
+        dataStore->wStd = numbers[3].toDouble();
         break;
 
     case STORE_DECLINATION:
@@ -193,7 +193,7 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->gpsDir = numbers[3].toInt();
         dataStore->tgDir = numbers[4].toInt();
         dataStore->tgDist = numbers[5].toDouble();
-        dataStore->wDir = numbers[6].toInt();
+        dataStore->wDir = numbers[6].toDouble();
         dataStore->wStd = numbers[7].toDouble();
         dataStore->speedBb = numbers[8].toInt();
         dataStore->speedSb = numbers[9].toInt();
@@ -710,60 +710,60 @@ void deviationWindRose(RoboWindStruct *wData)
     wData->wStd = circStdRad * 180.0 / M_PI;
 }
 
-void PidDecode(String data, int pid, RoboStruct buoy)
+void PidDecode(String data, int pid, RoboStruct *buoy)
 {
-    int numbers[15]; // Array to hold the decoded numbers (adjust size as needed)
+    String numbers[15]; // Array to hold the decoded strings
     int count = 0;   // Keep track of the number of extracted numbers
     int cmd = -1;
     int startIndex = data.indexOf('$') + 1; // Start after the '$'
     int endIndex = data.indexOf('*');       // End at the '*'
                                             // Split the substring by commas
     String substring = data.substring(startIndex, endIndex);
-    while (substring.length() > 0)
+    while (substring.length() > 0 && count < 15)
     {
         int commaIndex = substring.indexOf(',');
 
         // If there's no more comma, this is the last number
         if (commaIndex == -1)
         {
-            numbers[count++] = substring.toInt(); // Convert the last part to an integer
+            numbers[count++] = substring; 
             break;
         }
         // Extract the number before the comma
         String numStr = substring.substring(0, commaIndex);
-        numbers[count++] = numStr.toInt(); // Convert to integer
+        numbers[count++] = numStr; 
 
         // Remove the extracted number and the comma from the substring
         substring = substring.substring(commaIndex + 1);
     }
     if (pid == PIDSPEED)
     {
-        buoy.Kps = numbers[1];
-        buoy.Kis = numbers[2];
-        buoy.Kis = numbers[3];
+        buoy->Kps = numbers[1].toDouble();
+        buoy->Kis = numbers[2].toDouble();
+        buoy->Kds = numbers[3].toDouble();
     }
     if (pid == PIDRUDDER)
     {
-        buoy.Kpr = numbers[1];
-        buoy.Kir = numbers[2];
-        buoy.Kir = numbers[3];
+        buoy->Kpr = numbers[1].toDouble();
+        buoy->Kir = numbers[2].toDouble();
+        buoy->Kdr = numbers[3].toDouble();
     }
 }
 
-String PidEncode(int pid, RoboStruct buoy)
+String PidEncode(int pid, const RoboStruct *buoy)
 {
     String out = "";
     if (pid == PIDSPEED)
     {
-        out = String(buoy.Kps);
-        out += "," + String(buoy.Kis);
-        out += "," + String(buoy.Kds);
+        out = String(buoy->Kps);
+        out += "," + String(buoy->Kis);
+        out += "," + String(buoy->Kds);
     }
     if (pid == PIDRUDDER)
     {
-        out = String(buoy.Kpr);
-        out += "," + String(buoy.Kir);
-        out += "," + String(buoy.Kdr);
+        out = String(buoy->Kpr);
+        out += "," + String(buoy->Kir);
+        out += "," + String(buoy->Kdr);
     }
     return out;
 }
@@ -840,30 +840,30 @@ double approxRollingAverage(double avg, double input)
 /*
 change parematers for speed calculation
 */
-void checkparameters(RoboStruct buoy)
+void checkparameters(RoboStruct *buoy)
 {
     /*
     sanety check
     */
-    if (buoy.minOfsetDist < 0)
+    if (buoy->minOfsetDist < 0)
     {
-        buoy.minOfsetDist = 2;
+        buoy->minOfsetDist = 2;
     }
-    if (buoy.maxOfsetDist > 100)
+    if (buoy->maxOfsetDist > 100)
     {
-        buoy.maxOfsetDist = 20;
+        buoy->maxOfsetDist = 20;
     }
-    if (buoy.minSpeed < 0)
+    if (buoy->minSpeed < 0)
     {
-        buoy.minSpeed = 0;
+        buoy->minSpeed = 0;
     }
-    if (buoy.maxSpeed > 80)
+    if (buoy->maxSpeed > 80)
     {
-        buoy.maxSpeed = 80;
+        buoy->maxSpeed = 80;
     }
-    if (buoy.minOfsetDist >= buoy.maxOfsetDist)
+    if (buoy->minOfsetDist >= buoy->maxOfsetDist)
     {
-        buoy.maxOfsetDist = buoy.minOfsetDist + 2;
+        buoy->maxOfsetDist = buoy->minOfsetDist + 2;
     }
 }
 
@@ -948,81 +948,110 @@ double CalcDocSpeed(double tgdistance)
 /*
 Compute power to trusters
 */
-RoboStruct CalcRemoteRudderBuoy(RoboStruct buoy)
+void CalcRemoteRudderBuoy(RoboStruct *buoy)
 {
-    double error = smallestAngle(buoy.dirMag, buoy.tgDir);
+    double error = smallestAngle(buoy->dirMag, buoy->tgDir);
     double corr = Angle2SpeedFactor(abs(error));
     double tbb, tsb;
     if (error > 0)
     {
-        tbb = buoy.speedSet + buoy.speedSet * (1 - corr);
-        tsb = buoy.speedSet * corr;
+        tbb = buoy->speedSet + buoy->speedSet * (1 - corr);
+        tsb = buoy->speedSet * corr;
     }
     else
     {
-        tbb = buoy.speedSet * corr;
-        tsb = buoy.speedSet + buoy.speedSet * (1 - corr);
+        tbb = buoy->speedSet * corr;
+        tsb = buoy->speedSet + buoy->speedSet * (1 - corr);
     }
 
-    tbb = (int)(buoy.speedSet * cos(radians(error)) * (1 - sin(radians(error))));
-    tsb = (int)(buoy.speedSet * cos(radians(error)) * (1 - sin(radians(error)) * -1));
-    buoy.speedBb = (int)constrain(tbb, -60, 100);
-    buoy.speedSb = (int)constrain(tsb, -60, 100);
-    Serial.printf("Error=%lf BB=%d SB=%d\r\n\r\n", error, buoy.speedBb, buoy.speedSb);
-    return buoy;
+    tbb = (int)(buoy->speedSet * cos(radians(error)) * (1 - sin(radians(error))));
+    tsb = (int)(buoy->speedSet * cos(radians(error)) * (1 - sin(radians(error)) * -1));
+    buoy->speedBb = (int)constrain(tbb, -60, 100);
+    buoy->speedSb = (int)constrain(tsb, -60, 100);
+    Serial.printf("Error=%lf BB=%d SB=%d\r\n\r\n", error, buoy->speedBb, buoy->speedSb);
 }
 
 /*
-Only used PID if the distancs is less than buoy.maxOfsetDist return BUOYMAXSPEED otherwise.
+Only used PID if the distancs is less than buoy->maxOfsetDist return BUOYMAXSPEED otherwise.
 */
-RoboStruct hooverPid(RoboStruct buoy)
+/*
+    Calculates the speed required to hold station at a waypoint (Hover Mode).
+    
+    Adaptive Logic: "I-Driven Gain Stiffening"
+    - The function uses the Integral (I) term as a proxy for wind speed.
+    - If the I-term is high (meaning the buoy is fighting strong wind), the 
+      Proportional (P) gain is automatically increased (up to 2x).
+    - This "stiffens" the control response in stormy conditions while keeping it 
+      gentle and battery-efficient in calm weather.
+    - Adaptive scaling only applies within a 5-meter radius of the target.
+*/
+void hooverPid(RoboStruct *buoy)
 {
-
     /*How long since we last calculated*/
     double Output = 0;
     unsigned long now = millis();
-    if (now > buoy.lastTimes + 1000) // reset afterlong time
+    if (now > buoy->lastTimes + 1000) // reset after long time
     {
-        buoy.lastErrs = 0;
-        buoy.lastTimes = now;
+        buoy->lastErrs = 0;
+        buoy->lastTimes = now;
     }
-    double timeChange = (double)(now - buoy.lastTimes);
-    /*Compute all the working error variables*/
-    // double error = (buoy.tgDist - buoy.minOfsetDist);
-    double error = (buoy.tgDist - 2);
-    buoy.errSums += (error * timeChange);
-    double dErr = (error - buoy.lastErrs) / timeChange;
-    /* Do not sail backwards*/
-    // if (buoy.iintergrates < 0)
-    if (buoy.Kis * buoy.errSums < 0)
+    double timeChange = (double)(now - buoy->lastTimes);
+    
+    /*Compute the error variable (distance from target)*/
+    double error = (buoy->tgDist - 2.0); // 2 meter station-keeping threshold
+    
+    buoy->errSums += (error * timeChange);
+    double dErr = (error - buoy->lastErrs) / timeChange;
+
+    /* Anti-Windup Logic */
+    // Do not accumulate I-term if we are trying to sail backwards
+    if (buoy->Kis * buoy->errSums < 0)
     {
-        buoy.errSums = 0;
+        buoy->errSums = 0;
     }
-    // /*max 70% I correction*/
-    if (buoy.Kis * buoy.errSums > 70)
+    // Max 70% I-term contribution to prevent massive overshoots
+    if (buoy->Kis * buoy->errSums > 70)
     {
-        buoy.errSums = 70 / buoy.Kis;
+        buoy->errSums = 70 / buoy->Kis;
     }
-    /*Compute PID Output*/
-    buoy.Kps = buoy.Kps * error;
-    buoy.Kis = buoy.Kis * buoy.errSums;
-    buoy.Kds = buoy.Kds * dErr;
-    Output = buoy.Kps + buoy.Kis + buoy.Kds;
-    /* Do not sail backwards*/
+
+    /* ADAPTIVE GAIN SCALING (The "Stiffener") */
+    // Determine wind severity based on the current I-term effort.
+    // If the I-term is providing significant thrust, we increase the P-gain to react faster.
+    double iContribution = buoy->Kis * buoy->errSums;
+    double windSeverity = abs(iContribution) / 50.0; // Normalize severity (0.0 to 1.0 based on 50% thrust)
+    windSeverity = constrain(windSeverity, 0.0, 1.0);
+
+    // Scaling factor: 1.0 (calm) to 2.0 (stormy)
+    double gainScalar = 1.0 + windSeverity; 
+
+    // Only apply the stiffener if we are within range of the waypoint (On-Station)
+    if (buoy->tgDist > 5.0) {
+        gainScalar = 1.0; // Use base gains for transit
+    }
+
+    /* Compute PID Output */
+    double pTerm = (buoy->Kps * gainScalar) * error;
+    double iTerm = buoy->Kis * buoy->errSums;
+    double dTerm = buoy->Kds * dErr;
+
+    Output = pTerm + iTerm + dTerm;
+
+    /* Safety Constraints */
     if (Output < 0)
     {
-        Output = 0;
+        Output = 0; // Do not sail backwards in hover mode
     }
-    /*Remember some variables for next time*/
-    buoy.lastErrs = error;
-    buoy.lastTimes = now;
-    if (Output > buoy.maxSpeed)
+    if (Output > buoy->maxSpeed)
     {
-        Output = buoy.maxSpeed;
+        Output = buoy->maxSpeed;
     }
-    buoy.speedSet = Output;
-    // printf("Output:%f error%f buoy.iintergrates:%f p:%.0f i:%.4f ", Output, error, buoy.errSums, buoy.ps, buoy.is);
-    return buoy;
+
+    /* Remember variables for next iteration */
+    buoy->lastErrs = error;
+    buoy->lastTimes = now;
+    buoy->speedSet = Output;
+    buoy->ip = iTerm; // Update telemetry field
 }
 
 /*
@@ -1097,71 +1126,89 @@ double computeWindAngle(double windDegrees, double lat, double lon, double centr
 /************************************************************************************************************************************************************************* */
 #define INVALID_POINT(p) ((p).tgLat == 0.0 || (p).tgLng == 0.0)
 
+/*
+    Recalculates the target positions for the Start Line buoys.
+    
+    Logic:
+    - If 2 buoys are present: They are positioned symmetrically around their existing 
+      midpoint, oriented perpendicular to the wind direction.
+    - If 3 buoys are present: 
+        1. Identifies the most UPWIND buoy as the HEAD mark (stays in place).
+        2. Identifies the other 2 as the DOWNWIND pair.
+        3. Positions the downwind pair symmetrically around their own shared midpoint, 
+           oriented perpendicular to the wind.
+    
+    This ensures a perfectly aligned starting gate or finish line relative to the wind.
+*/
 void recalcStartLine(struct RoboStruct rsl[3])
 {
-    double d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng);
-    double d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng);
-    double d2 = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+    int presentCount = 0;
+    int indices[3];
+    
+    // Count buoys with valid coordinates
+    for (int i = 0; i < 3; i++) {
+        if (!INVALID_POINT(rsl[i])) {
+            indices[presentCount++] = i;
+        }
+    }
 
+    if (presentCount < 2)
+    {
+        printf("# Start line calculation aborted: At least 2 buoys required (found %d)\r\n", presentCount);
+        for (int i = 0; i < 3; i++) rsl[i].trackPos = 0;
+        return;
+    }
+
+    int p1, p2;
+    double windDir = rsl[indices[0]].wDir;
+
+    if (presentCount == 2) {
+        p1 = indices[0];
+        p2 = indices[1];
+        printf("# Calculating start line for 2 buoys (%d, %d)\r\n", p1, p2);
+    } 
+    else {
+        // 3 buoys: Find the two most downwind buoys
+        double lat3gem, lng3gem;
+        threePointAverage(rsl, &lat3gem, &lng3gem);
+        
+        double windDiffs[3];
+        for (int i = 0; i < 3; i++) {
+            windDiffs[i] = computeWindAngle(windDir, rsl[i].tgLat, rsl[i].tgLng, lat3gem, lng3gem);
+        }
+
+        // The buoy with the SMALLEST windDiff is the most UPWIND (HEAD)
+        int headIdx = 0;
+        if (windDiffs[1] < windDiffs[headIdx]) headIdx = 1;
+        if (windDiffs[2] < windDiffs[headIdx]) headIdx = 2;
+
+        rsl[headIdx].trackPos = HEAD;
+        
+        // The other two are the start line buoys
+        int activeIdx = 0;
+        int startIndices[2];
+        for (int i = 0; i < 3; i++) {
+            if (i != headIdx) startIndices[activeIdx++] = i;
+        }
+        p1 = startIndices[0];
+        p2 = startIndices[1];
+        printf("# Calculating start line for 3 buoys. Head is %d, Downwind are %d and %d\r\n", headIdx, p1, p2);
+    }
+
+    double d = distanceBetween(rsl[p1].tgLat, rsl[p1].tgLng, rsl[p2].tgLat, rsl[p2].tgLng);
     double midLat, midLng;
     double angleSb, angleBb;
 
-    printf("# Winddir 0:%.2f 1:%.3f 2:%.2f \r\n", rsl[0].wDir, rsl[1].wDir, rsl[2].wDir);
+    twoPointAverage(rsl[p1].tgLat, rsl[p1].tgLng, rsl[p2].tgLat, rsl[p2].tgLng, &midLat, &midLng);
+    
+    angleSb = fmod(windDir + 90.0, 360.0);
+    angleBb = fmod(angleSb + 180.0, 360.0);
 
-    if (d0 < d1 && d0 < d2)
-    {
-        if (INVALID_POINT(rsl[0]) || INVALID_POINT(rsl[1]))
-        {
-            printf("# No data to compute with (0-1)\r\n");
-            return;
-        }
+    adjustPositionDirDist(angleBb, d / 2, midLat, midLng, &rsl[p1].tgLat, &rsl[p1].tgLng); // PORT
+    adjustPositionDirDist(angleSb, d / 2, midLat, midLng, &rsl[p2].tgLat, &rsl[p2].tgLng); // STARBOARD
 
-        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng, &midLat, &midLng);
-        angleSb = fmod(rsl[0].wDir + 90.0, 360.0);
-        angleBb = fmod(angleSb + 180.0, 360.0);
-
-        adjustPositionDirDist(angleBb, d0 / 2, midLat, midLng, &rsl[0].tgLat, &rsl[0].tgLng); // PORT
-        adjustPositionDirDist(angleSb, d0 / 2, midLat, midLng, &rsl[1].tgLat, &rsl[1].tgLng); // STARBOARD
-
-        rsl[0].trackPos = PORT;
-        rsl[1].trackPos = STARBOARD;
-    }
-    else if (d1 < d0 && d1 < d2)
-    {
-        if (INVALID_POINT(rsl[0]) || INVALID_POINT(rsl[2]))
-        {
-            printf("# No data to compute with (0-2)\r\n");
-            return;
-        }
-
-        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &midLat, &midLng);
-        angleSb = fmod(rsl[0].wDir + 90.0, 360.0);
-        angleBb = fmod(angleSb + 180.0, 360.0);
-
-        adjustPositionDirDist(angleBb, d1 / 2, midLat, midLng, &rsl[0].tgLat, &rsl[0].tgLng); // PORT
-        adjustPositionDirDist(angleSb, d1 / 2, midLat, midLng, &rsl[2].tgLat, &rsl[2].tgLng); // STARBOARD
-
-        rsl[0].trackPos = PORT;
-        rsl[2].trackPos = STARBOARD;
-    }
-    else if (d2 < d0 && d2 < d1)
-    {
-        if (INVALID_POINT(rsl[1]) || INVALID_POINT(rsl[2]))
-        {
-            printf("# No data to compute with (1-2)\r\n");
-            return;
-        }
-
-        twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &midLat, &midLng);
-        angleSb = fmod(rsl[1].wDir + 90.0, 360.0);
-        angleBb = fmod(angleSb + 180.0, 360.0);
-
-        adjustPositionDirDist(angleBb, d2 / 2, midLat, midLng, &rsl[1].tgLat, &rsl[1].tgLng); // PORT
-        adjustPositionDirDist(angleSb, d2 / 2, midLat, midLng, &rsl[2].tgLat, &rsl[2].tgLng); // STARBOARD
-
-        rsl[1].trackPos = PORT;
-        rsl[2].trackPos = STARBOARD;
-    }
+    rsl[p1].trackPos = PORT;
+    rsl[p2].trackPos = STARBOARD;
 }
 
 /*
@@ -1359,7 +1406,7 @@ RoboStruct calcTrackPos(RoboStruct rsl[3])
         }
     }
     printf("# dir= %.0f\r\n", dir);
-    return rsl[3];
+    return rsl[0];
 }
 
 /************************************************************************************************************************************************************************* */

@@ -160,7 +160,7 @@
 	)
 	(symbol
 		(lib_id "PCM_JLCPCB-Manufacturing:Part Number, PCM_JLCPCB, 0.8x0.15mm")
-		(at 134.62 182.88 0)
+		(at 153.67 191.77 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -169,7 +169,7 @@
 		(fields_autoplaced yes)
 		(uuid "b28a2fcc-9cb9-454f-9316-48dd6213e097")
 		(property "Reference" "PN101"
-			(at 135.89 181.6099 0)
+			(at 154.94 190.4999 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -177,8 +177,8 @@
 				(justify left)
 			)
 		)
-		(property "Value" "~"
-			(at 135.89 184.1499 0)
+		(property "Value" "Partnumber JLCPCB"
+			(at 154.94 193.0399 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -187,7 +187,7 @@
 			)
 		)
 		(property "Footprint" "PCM_JLCPCB:Part_Num_JLCPCB"
-			(at 134.62 182.88 0)
+			(at 153.67 191.77 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -196,7 +196,7 @@
 			)
 		)
 		(property "Datasheet" "https://jlcpcb.com/help/article/How-to-remove-order-number-from-your-PCB"
-			(at 134.62 182.88 0)
+			(at 153.67 191.77 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -205,7 +205,7 @@
 			)
 		)
 		(property "Description" "To indicate the location, simply add the text \"JLCJLCJLCJLC\" to the silk layer and select the \"Specify a location\" option when placing your order. Please note that if this option is not chosen, we may not notice that you have added the text.   Note: Use only \"JLCJLCJLCJLC\" without any additional characters. The font size should be larger than 0.8mm in height and 0.15mm in width."
-			(at 134.62 182.88 0)
+			(at 153.67 191.77 0)
 			(effects
 				(font
 					(size 1.27 1.27)

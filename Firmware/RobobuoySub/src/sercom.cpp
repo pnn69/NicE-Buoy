@@ -112,6 +112,8 @@ void SercomTask(void *arg)
     delay(2000);
     // Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // Half-duplex on same pin
     Serial1.begin(230400, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // Half-duplex on same pin
+    Serial1.setTimeout(100);
+    Serial.setTimeout(100);
     while (1)
     {
         //***************************************************************************************************
@@ -186,37 +188,37 @@ void SercomTask(void *arg)
         //***************************************************************************************************
         if (Serial1.available()) // recieve data form top
         {
-            String serStringIn = "";
-            while (Serial1.available())
+            String serStringIn = Serial1.readStringUntil('\n');
+            serStringIn.trim();
+            if (serStringIn.length() > 0)
             {
-                serStringIn += (char)Serial1.read();
-            }
-            RoboStruct serDataIn;
-            rfDeCode(serStringIn, &serDataIn);
-            mac = espMac();
-            if (serDataIn.IDs != -1 && serDataIn.IDs != mac) // ignore own messages
-            {
-                // Serial.print("RxSub " + serStringIn);
-                lastRx = millis();
-                if (serDataIn.ack == LORAACK) // A message form me so check if its a ACK message
+                RoboStruct serDataIn;
+                rfDeCode(serStringIn, &serDataIn);
+                mac = espMac();
+                if (serDataIn.IDs != -1 && serDataIn.IDs != mac) // ignore own messages
                 {
-                    printf("ack recieved removing cmd\r\n");
-                    removeAckMsg(serDataIn);
+                    // Serial.print("RxSub " + serStringIn);
+                    lastRx = millis();
+                    if (serDataIn.ack == LORAACK) // A message form me so check if its a ACK message
+                    {
+                        printf("ack recieved removing cmd\r\n");
+                        removeAckMsg(serDataIn);
+                    }
+                    else
+                    {
+                        xQueueSend(serIn, (void *)&serDataIn, 10); // notify main there is new data
+                        lastSerMsg = millis();
+                    }
                 }
-                else
+                if (serDataIn.ack == LORAGETACK) // on ack request send ack back
                 {
-                    xQueueSend(serIn, (void *)&serDataIn, 10); // notify main there is new data
-                    lastSerMsg = millis();
+                    // IDr,IDs,ACK,MSG
+                    serDataIn.IDr = serDataIn.IDs;
+                    serDataIn.IDs = mac = espMac();
+                    serDataIn.ack = LORAACK;
+                    xQueueSend(serOut, (void *)&serDataIn, 10); // send ACK out
+                    printf("sending ack\r\n");
                 }
-            }
-            if (serDataIn.ack == LORAGETACK) // on ack request send ack back
-            {
-                // IDr,IDs,ACK,MSG
-                serDataIn.IDr = serDataIn.IDs;
-                serDataIn.IDs = mac = espMac();
-                serDataIn.ack = LORAACK;
-                xQueueSend(serOut, (void *)&serDataIn, 10); // send ACK out
-                printf("sending ack\r\n");
             }
         }
         //***************************************************************************************************
@@ -225,7 +227,7 @@ void SercomTask(void *arg)
         if (xQueueReceive(serOut, (void *)&serDataOut, 0) == pdTRUE) // send data to bottom
         {
             while (lastRx + 20 > millis())
-                ;
+                vTaskDelay(pdMS_TO_TICKS(1));
             serDataOut.IDs = espMac();
             String out = rfCode(&serDataOut);
             Serial1.println(out);
@@ -246,12 +248,12 @@ void SercomTask(void *arg)
             if (serDataOut.cmd != 0)
             {
                 while (lastRx + 20 > millis())
-                    ;
+                    vTaskDelay(pdMS_TO_TICKS(1));
                 String out = rfCode(&serDataOut);
                 Serial1.println(out);
-                retransmittReady = millis() + random(1200, 750);
+                retransmittReady = millis() + random(750, 1200);
             }
         }
-        delay(1);
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }

@@ -54,28 +54,22 @@ uint16_t speedToPulse(int speed)
 
 void triggerESC(void)
 {
-    unsigned long now;
     Serial.println("Trigger ESC");
     ledcWrite(ESC_BB_CHANNEL, speedToPulse(5));
     ledcWrite(ESC_SB_CHANNEL, speedToPulse(5));
-    now = millis();
-    while (millis() < now + ESC_ARM_TIME)
-        ;
+    vTaskDelay(pdMS_TO_TICKS(ESC_ARM_TIME));
+    
     ledcWrite(ESC_BB_CHANNEL, speedToPulse(0));
     ledcWrite(ESC_SB_CHANNEL, speedToPulse(0));
-    now = millis();
-    while (millis() < now + ESC_ARM_TIME)
-        ;
+    vTaskDelay(pdMS_TO_TICKS(ESC_ARM_TIME));
+    
     ledcWrite(ESC_BB_CHANNEL, speedToPulse(-5));
     ledcWrite(ESC_SB_CHANNEL, speedToPulse(-5));
-    now = millis();
-    while (millis() < now + ESC_ARM_TIME)
-        ;
+    vTaskDelay(pdMS_TO_TICKS(ESC_ARM_TIME));
+    
     ledcWrite(ESC_BB_CHANNEL, speedToPulse(0));
     ledcWrite(ESC_SB_CHANNEL, speedToPulse(0));
-    now = millis();
-    while (millis() < now + ESC_ARM_TIME)
-        ;
+    vTaskDelay(pdMS_TO_TICKS(ESC_ARM_TIME));
 }
 
 void playTone(int frequency)
@@ -95,9 +89,9 @@ void beepESC(void)
 {
     Serial.println("Beep ESC");
     playTone(880); // A5    delay(500);
-    delay(1000);   // Wait for 1 second
+    vTaskDelay(pdMS_TO_TICKS(1000));   // Wait for 1 second
     playTone(660); // E5
-    delay(1000);   // Wait for 1 second
+    vTaskDelay(pdMS_TO_TICKS(1000));   // Wait for 1 second
     ledcSetup(ESC_BB_CHANNEL, ESC_FREQ, ESC_RESOLUTION);
     ledcSetup(ESC_SB_CHANNEL, ESC_FREQ, ESC_RESOLUTION);
     ledcAttachPin(ESC_BB_PIN, ESC_BB_CHANNEL); // e.g., GPIO 25
@@ -118,10 +112,10 @@ void startESC(void)
 {
     digitalWrite(ESC_SB_PWR_PIN, HIGH);
     Serial.println("ESC BB ON");
-    delay(250);
+    vTaskDelay(pdMS_TO_TICKS(250));
     digitalWrite(ESC_BB_PWR_PIN, HIGH);
     Serial.println("ESC SB ON");
-    delay(250);
+    vTaskDelay(pdMS_TO_TICKS(250));
     // Set up PWM channels
     ledcSetup(ESC_BB_CHANNEL, ESC_FREQ, ESC_RESOLUTION);
     ledcSetup(ESC_SB_CHANNEL, ESC_FREQ, ESC_RESOLUTION);
@@ -132,28 +126,7 @@ void startESC(void)
     { // 2 seconds at 20ms
         ledcWrite(ESC_BB_CHANNEL, neutral);
         ledcWrite(ESC_SB_CHANNEL, neutral);
-        delay(20);
-    }
-    for (int i = 0; i < 2; i++)
-    {
-        neutral = speedToPulse(i);
-        ledcWrite(ESC_BB_CHANNEL, neutral);
-        ledcWrite(ESC_SB_CHANNEL, neutral);
-        delay(50);
-    }
-    for (int i = 2; i > -2; i--)
-    {
-        neutral = speedToPulse(i);
-        ledcWrite(ESC_BB_CHANNEL, neutral);
-        ledcWrite(ESC_SB_CHANNEL, neutral);
-        delay(50);
-    }
-    for (int i = -2; i < 0; i++)
-    {
-        neutral = speedToPulse(i);
-        ledcWrite(ESC_BB_CHANNEL, neutral);
-        ledcWrite(ESC_SB_CHANNEL, neutral);
-        delay(50);
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
 }
 
@@ -162,8 +135,8 @@ void startESC(void)
 //***************************************************************************************************
 void EscTask(void *arg)
 {
-    unsigned long logStamp = 0;
     unsigned long offStamp = 0;
+    unsigned long ledUpdateStamp = 0;
     int spsb = 0, spbb = 0;
     int spsbAct = 0, spbbAct = 0;
     Message rcv_msg;
@@ -175,42 +148,31 @@ void EscTask(void *arg)
         {
             spbb = -rcv_msg.speedbb;
             spsb = -rcv_msg.speedsb;
-            // powerIndicator.ledBb = rcv_msg.speedbb;
-            // powerIndicator.ledSb = rcv_msg.speedsb;
+            
             uint8_t r, g;
-
-            if (rcv_msg.speedbb < 0)
-            {
+            if (rcv_msg.speedbb < 0) {
                 r = map(rcv_msg.speedbb, -100, 0, 255, 0);
                 g = 0;
-            }
-            else
-            {
+            } else {
                 r = 0;
                 g = map(rcv_msg.speedbb, 100, 0, 255, 0);
             }
-            powerIndicator.bb[0] = r;
-            powerIndicator.bb[1] = g;
-            powerIndicator.bb[2] = 0;
+            powerIndicator.bb[0] = r; powerIndicator.bb[1] = g; powerIndicator.bb[2] = 0;
             powerIndicator.blinkBb = BLINK_OFF;
-            if (rcv_msg.speedsb < 0)
-            {
+
+            if (rcv_msg.speedsb < 0) {
                 r = map(rcv_msg.speedsb, -100, 0, 255, 0);
                 g = 0;
-            }
-            else
-            {
+            } else {
                 r = 0;
                 g = map(rcv_msg.speedsb, 100, 0, 255, 0);
             }
-            powerIndicator.sb[0] = r;
-            powerIndicator.sb[1] = g;
-            powerIndicator.sb[2] = 0;
+            powerIndicator.sb[0] = r; powerIndicator.sb[1] = g; powerIndicator.sb[2] = 0;
             powerIndicator.blinkSb = BLINK_OFF;
         }
+
         if (spsb != 0 || spbb != 0)
         {
-            // offStamp = millis() + 1000 * 60 * 5; // 5 minutes
             offStamp = millis() + 1000 * 30; // 30 seconds
             if (digitalRead(ESC_SB_PWR_PIN) == 0 || digitalRead(ESC_BB_PWR_PIN) == 0)
             {
@@ -220,7 +182,7 @@ void EscTask(void *arg)
                 spbbAct = 0;
             }
         }
-        else if (offStamp < millis())
+        else if (millis() > offStamp)
         {
             if (digitalRead(ESC_SB_PWR_PIN) == HIGH || digitalRead(ESC_BB_PWR_PIN) == HIGH)
             {
@@ -228,38 +190,35 @@ void EscTask(void *arg)
                 digitalWrite(ESC_SB_PWR_PIN, LOW);
                 digitalWrite(ESC_BB_PWR_PIN, LOW);
             }
-            spsb = 0;
-            spbb = 0;
-            spsbAct = 0;
-            spbbAct = 0;
+            spsb = 0; spbb = 0; spsbAct = 0; spbbAct = 0;
         }
-        if (escStamp < millis())
-        {
-            // escStamp = millis() + 2;
-            escStamp = millis();
-            if (spsb > spsbAct)
-            {
 
-                spsbAct++;
+        // Ramping logic (every 20ms for smooth transition)
+        if (millis() >= escStamp)
+        {
+            escStamp = millis() + 20;
+            bool changed = false;
+
+            if (spsb > spsbAct) { spsbAct++; changed = true; }
+            else if (spsb < spsbAct) { spsbAct--; changed = true; }
+
+            if (spbb > spbbAct) { spbbAct++; changed = true; }
+            else if (spbb < spbbAct) { spbbAct--; changed = true; }
+
+            if (changed) {
+                ledcWrite(ESC_SB_CHANNEL, speedToPulse(spsbAct));
+                ledcWrite(ESC_BB_CHANNEL, speedToPulse(spbbAct));
+                powerIndicator.ledSb = -spsbAct;
+                powerIndicator.ledBb = -spbbAct;
             }
-            else
-            {
-                spsbAct--;
-            }
-            powerIndicator.ledSb = -spsbAct;
-            ledcWrite(ESC_SB_CHANNEL, speedToPulse(spsbAct));
-            if (spbb > spbbAct)
-            {
-                spbbAct++;
-            }
-            else
-            {
-                spbbAct--;
-            }
-            powerIndicator.ledBb = -spbbAct;
-            ledcWrite(ESC_BB_CHANNEL, speedToPulse(spbbAct));
-            xQueueSend(ledPwr, (void *)&powerIndicator, 0); // update ledbar
         }
-        vTaskDelay(pdMS_TO_TICKS(1));
+
+        // Throttle LED updates to 10Hz
+        if (millis() >= ledUpdateStamp) {
+            ledUpdateStamp = millis() + 100;
+            xQueueOverwrite(ledPwr, (void *)&powerIndicator);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(5));
     }
 }

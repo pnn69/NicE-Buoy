@@ -18,25 +18,21 @@ PID speedPID(&speedInput, &speedOutput, &speedSetpoint, Kps, Kis, Kds, P_ON_E);
 
 void resetRudPid()
 {
-    rudderPID.SetMode(MANUAL); // Reset the PID
+    rudderPID.SetMode(MANUAL);
     rudderOutput = 0;
     rudderInput = 0;
     rudderSetpoint = 0;
-    rudderOutput = 0;
-    rudderPID.SetMode(AUTOMATIC); // turn the PID on
+    rudderPID.SetMode(AUTOMATIC);
 }
 
 void initRudPid(RoboStruct *rud)
 {
     speedMaxMin(rud, GET);
     pidRudderParameters(rud, GET);
-    // computeParameters(rud, GET);
-    rudderPID.SetSampleTime(100); // milliseconds
+    rudderPID.SetSampleTime(100);
     rudderPID.SetTunings(rud->Kpr, rud->Kir, rud->Kdr, P_ON_E);
     rudderPID.SetOutputLimits(-100, 100);
-    rudderPID.SetMode(MANUAL);
     resetRudPid();
-    rudderPID.SetMode(AUTOMATIC); // turn the PID on
     rud->ir = rudderPID.GetITerm();
     Serial.println("PID rudder used for calculations> pr:" + String(rud->Kpr, 2) +
                    " ir:" + String(rud->Kir, 2) +
@@ -47,28 +43,27 @@ void initRudPid(RoboStruct *rud)
 
 void resetSpeedPid()
 {
-    speedPID.SetMode(MANUAL); // Reset the PID
+    speedPID.SetMode(MANUAL);
     speedOutput = 0;
     speedInput = 0;
     speedSetpoint = 0;
-    speedOutput = 0;
-    speedPID.SetMode(AUTOMATIC); // turn the PID on
+    speedPID.SetMode(AUTOMATIC);
 }
 void initSpeedPid(RoboStruct *speed)
 {
     speedMaxMin(speed, GET);
-    speedPID.SetSampleTime(100); // milliseconds
+    speedPID.SetSampleTime(100);
     pidSpeedParameters(speed, GET);
     speedPID.SetTunings(speed->Kps, speed->Kis, speed->Kds, P_ON_E);
     computeParameters(speed, GET);
-    speedPID.SetOutputLimits(0, 100);
+    speedPID.SetOutputLimits(0, speed->maxSpeed); // Use actual maxSpeed limit
     resetSpeedPid();
     speed->ip = speedPID.GetITerm();
     Serial.println("PID speed  used for calculations> ps:" + String(speed->Kps, 2) +
                    " is:" + String(speed->Kis, 2) +
                    " ds:" + String(speed->Kds, 2) +
-                   " minSpeed: 0" +
-                   " maxSpeed: 100");
+                   " minSpeed:" + String(speed->minSpeed) +
+                   " maxSpeed:" + String(speed->maxSpeed));
 }
 
 //***************************************************************************************************
@@ -86,19 +81,24 @@ void rudderPid(RoboStruct *rud)
     // Scale rudder effect based on speed
     const double scale = 50.0;
     const double baseGain = 50.0;
+    const double minTurningAuthority = 10.0; // Ensure some turning even when stationary
 
-    // Compute a dynamic gain that fades out at low speeds
+    // Compute a dynamic gain that decreases at high speeds but has a floor
     double range = rud->maxSpeed - rud->minSpeed;
     double speedRatio = (range > 0) ? (s - rud->minSpeed) / range : 0.0;
-    double dynamicGain = baseGain * speedRatio;
+    
+    // Provide turning authority even if speed is 0
+    double dynamicGain = baseGain * (0.3 + 0.7 * speedRatio); 
 
     double rudderAdj = tanh(rudderOutput / scale) * dynamicGain;
 
-    // Apply the rudder adjustment
+    // Apply the rudder adjustment (differential thrust)
     double bb = s - rudderAdj;
     double sb = s + rudderAdj;
-    rud->speedSb = constrain(sb, rud->minSpeed, rud->maxSpeed);
-    rud->speedBb = constrain(bb, rud->minSpeed, rud->maxSpeed);
+    
+    // Allow speed to slightly exceed min/max for turning if necessary, but keep safe
+    rud->speedSb = constrain(sb, -rud->maxSpeed, rud->maxSpeed);
+    rud->speedBb = constrain(bb, -rud->maxSpeed, rud->maxSpeed);
     rud->ir = rudderPID.GetITerm();
 }
 
@@ -108,10 +108,10 @@ void rudderPid(RoboStruct *rud)
 void speedPid(RoboStruct *dist)
 {
     speedInput = dist->tgDist; // Measured distance
-    speedSetpoint = 2.0;       // Target distance
+    speedSetpoint = dist->minOfsetDist; // Use configured target distance
     if (speedPID.Compute())
     {
-        // Prevent negative speed (no reversing)
+        // Prevent sailing backwards in speed PID mode
         if (speedOutput < 0)
             speedOutput = 0;
 

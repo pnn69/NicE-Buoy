@@ -6,29 +6,39 @@ Preferences storage;
 
 void initMemory(void)
 {
-    // Open Preferences with my-app namespace. Each application module, library, etc
-    // has to use a namespace name to prevent key name collisions. We will open storage in
-    // RW-mode (second parameter has to be false).
-    // Note: Namespace name is limited to 15 chars.
     storage.begin("NicE_Buoy_Data", false);
-    char id = storage.getChar("NicE_BuoyID", 0);
-    // id = 0;
-    if (id == 0)
-    {
-        Serial.printf("Configuring Non-volatile memory now!\n\r");
-        storage.putChar("NicE_BuoyID", 100);
-        storage.putDouble("Doclat", 52.29308075283747);
-        storage.putDouble("Doclon", 4.932570409845357);
-        storage.putDouble("declination", 2.6666666666);
 
-        // tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
-        Serial.printf("Storing data Target position \r\nWSVOP landing stage tglatitude = 52.29308075283747, tglongitude = 4.932570409845357 ");
-        Serial.printf("Buoy Memory configured\r\n");
-        delay(1000);
+    // 1. Check for legacy typo migration
+    if (storage.isKey("Doclat") && !storage.isKey("Docklat")) {
+        double lat = storage.getDouble("Doclat");
+        double lon = storage.getDouble("Doclon");
+        storage.putDouble("Docklat", lat);
+        storage.putDouble("Docklon", lon);
+        storage.remove("Doclat");
+        storage.remove("Doclon");
+        Serial.println("# Migrated legacy Dock keys.");
+    }
+
+    // 2. Check if this is a fresh processor
+    unsigned long id = espMac();
+    uint64_t stored_id = storage.getULong64("NicE_BuoyID", 0);
+
+    if (id != stored_id)
+    {
+        Serial.printf("# Configuring Fresh Processor Memory...\n\r");
+        storage.putULong64("NicE_BuoyID", id);
+        
+        // Factory Default Dock: WSVOP landing stage
+        storage.putDouble("Docklat", 52.29308075283747);
+        storage.putDouble("Docklon", 4.932570409845357);
+        storage.putDouble("declination", 2.6666666666); // Amsterdam default
+
+        Serial.printf("# Buoy Memory initialized for MAC: %08X\r\n", id);
+        delay(500);
     }
     else
     {
-        Serial.printf("Buoy Memory OK\r\n");
+        Serial.printf("# Buoy Memory OK (MAC: %08X)\r\n", id);
     }
 }
 /*

@@ -26,30 +26,38 @@ void setSquareWaveFrequency(int frequency)
 
 void buzzerTask(void *arg)
 {
-    unsigned long timeStamp;
+    unsigned long nextActionTime = 0;
+    int remainingRepeats = 0;
+    bool isOn = false;
 
     while (true)
     {
-        if ((xQueueReceive(buzzer, (void *)&buzzerData, 0) == pdTRUE))
+        // Check for new buzzer commands
+        if (xQueueReceive(buzzer, (void *)&buzzerData, remainingRepeats > 0 ? 0 : 10) == pdTRUE)
         {
-            if (buzzerData.hz == 0)
-            {
-                buzzerData.hz = 1000;
-            }
-            if (buzzerData.duration == 0)
-            {
-                buzzerData.duration = 500;
-            }
-            buzzerData.repeat++;
-            timeStamp = millis() + buzzerData.duration;
-            while (buzzerData.repeat--)
+            if (buzzerData.hz == 0) buzzerData.hz = 1000;
+            if (buzzerData.duration == 0) buzzerData.duration = 500;
+            remainingRepeats = buzzerData.repeat + 1;
+            nextActionTime = millis();
+            isOn = false;
+        }
+
+        if (remainingRepeats > 0 && millis() >= nextActionTime)
+        {
+            if (!isOn)
             {
                 setSquareWaveFrequency(buzzerData.hz);
-                vTaskDelay(pdMS_TO_TICKS(buzzerData.duration));
+                nextActionTime = millis() + buzzerData.duration;
+                isOn = true;
+            }
+            else
+            {
                 ledcDetachPin(BUZZER_PIN);
-                vTaskDelay(pdMS_TO_TICKS(buzzerData.pause));
+                nextActionTime = millis() + buzzerData.pause;
+                isOn = false;
+                remainingRepeats--;
             }
         }
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
-    vTaskDelay(1);
 }
