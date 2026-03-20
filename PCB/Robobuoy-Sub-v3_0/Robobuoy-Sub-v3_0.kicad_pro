@@ -800,6 +800,12 @@
           "label": "lcsc",
           "name": "lcsc",
           "show": false
+        },
+        {
+          "group_by": false,
+          "label": "Text",
+          "name": "Text",
+          "show": false
         }
       ],
       "filter_string": "",
