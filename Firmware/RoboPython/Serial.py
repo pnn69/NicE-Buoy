@@ -155,8 +155,8 @@ def parse_serial_line(line):
         return None
 
     try:
-        IDr = int(fields[0])
-        IDs = fields[1]
+        IDr = int(fields[0], 16)
+        IDs = int(fields[1], 16)
         ACK = int(fields[2])
         command = int(fields[3])
         status = int(fields[4])

@@ -83,6 +83,22 @@ float heading_corrected(const Vec3 &from)
     if (!accel.getEvent(&event)) return -1;
     Vec3 a = {event.acceleration.x, event.acceleration.y, event.acceleration.z};
 
+    // Sanity check: if magSoft is corrupted (NaN), reset it to identity matrix
+    bool soft_corrupted = false;
+    for (int i=0; i<3; i++) {
+        for (int j=0; j<3; j++) {
+            if (std::isnan(compassCalc.magSoft[i][j]) || std::isinf(compassCalc.magSoft[i][j])) soft_corrupted = true;
+        }
+        if (std::isnan(compassCalc.magHard[i]) || std::isinf(compassCalc.magHard[i])) compassCalc.magHard[i] = 0.0f;
+    }
+    if (soft_corrupted) {
+        for (int i=0; i<3; i++) {
+            for (int j=0; j<3; j++) {
+                compassCalc.magSoft[i][j] = (i == j) ? 1.0f : 0.0f;
+            }
+        }
+    }
+
     temp_m.x -= compassCalc.magHard[0];
     temp_m.y -= compassCalc.magHard[1];
     temp_m.z -= compassCalc.magHard[2];
@@ -92,17 +108,33 @@ float heading_corrected(const Vec3 &from)
     corrected_m.y = compassCalc.magSoft[1][0] * temp_m.x + compassCalc.magSoft[1][1] * temp_m.y + compassCalc.magSoft[1][2] * temp_m.z;
     corrected_m.z = compassCalc.magSoft[2][0] * temp_m.x + compassCalc.magSoft[2][1] * temp_m.y + compassCalc.magSoft[2][2] * temp_m.z;
 
-    Vec3 east, north;
     vector_normalize(a);
-    east = vector_cross(corrected_m, a);
+    vector_normalize(corrected_m); // Also normalize m to prevent extremely large or zero values
+
+    Vec3 east = vector_cross(corrected_m, a);
     vector_normalize(east);
 
-    north = vector_cross(a, east);
+    Vec3 north = vector_cross(a, east);
     vector_normalize(north);
 
-    float heading = atan2(vector_dot(east, from), vector_dot(north, from)) * 180.0f / M_PI;
+    float dot_east = vector_dot(east, from);
+    float dot_north = vector_dot(north, from);
+    
+    if (std::isnan(dot_east) || std::isnan(dot_north)) return -1.0f;
+    if (dot_east == 0.0f && dot_north == 0.0f) return -1.0f;
+
+    float heading = atan2(dot_east, dot_north) * 180.0f / M_PI;
+    
+    if (std::isnan(compassCalc.declination)) compassCalc.declination = 0.0f;
+    if (std::isnan(compassCalc.compassOffset)) compassCalc.compassOffset = 0.0f;
+    
     heading = heading + compassCalc.declination - compassCalc.compassOffset;
-    return fmodf(heading + 360.0f, 360.0f);
+    if (std::isnan(heading)) return -1.0f;
+    
+    while (heading < 0.0f) heading += 360.0f;
+    while (heading >= 360.0f) heading -= 360.0f;
+    
+    return heading;
 }
 
 void InitCompass(void)

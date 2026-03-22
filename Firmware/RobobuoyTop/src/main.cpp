@@ -461,7 +461,7 @@ void handleTimerRoutines(RoboStruct *timer)
             timer->lastSerOut = millis() + 500;
             timer->cmd = REMOTE;
             xQueueSend(serOut, (void *)timer, 0);
-            timer->cmd = DIRSPEED;
+            timer->cmd = TGDIRSPEED;
             xQueueSend(udpOut, (void *)timer, 10); // send out trough wifi
         }
     }
@@ -586,10 +586,10 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfOut->Kis = RfIn.Kis;
                 RfOut->Kds = RfIn.Kds;
                 break;
-            case DIRSPEED:
+            case TGDIRSPEED:
                 RfOut->tgDir = RfIn.tgDir;
                 RfOut->speedSet = RfIn.speedSet;
-                RfOut->status = DIRSPEED;
+                RfOut->status = TGDIRSPEED;
                 break;
             case REMOTE:
                 RfOut->status = RfIn.cmd;

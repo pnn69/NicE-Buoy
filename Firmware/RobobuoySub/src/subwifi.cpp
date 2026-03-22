@@ -153,6 +153,7 @@ bool setupudp(void)
 //***************************************************************************************************
 void initwifi(void)
 {
+    subwifiData.mac = espMac();
     udpOut = xQueueCreate(10, sizeof(RoboStruct));
     udpIn = xQueueCreate(10, sizeof(RoboStruct));
 }
@@ -255,11 +256,11 @@ void WiFiTask(void *arg)
     for (;;)
     {
         ArduinoOTA.handle();
-        if (xQueueReceive(udpOut, (void *)&subwifiData, 5) == pdTRUE)
+        if (xQueueReceive(udpOut, (void *)&subWifiOut, 5) == pdTRUE)
         {
-            subwifiData.IDr = espMac();
-            subwifiData.IDs = espMac();
-            String out = rfCode(&subwifiData);
+            subWifiOut.IDr = espMac();
+            subWifiOut.IDs = espMac();
+            String out = rfCode(&subWifiOut);
             udp.broadcast(out.c_str());
         }
         vTaskDelay(pdMS_TO_TICKS(10)); // 10 ms delay

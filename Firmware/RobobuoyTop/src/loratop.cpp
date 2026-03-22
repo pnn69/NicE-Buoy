@@ -223,7 +223,7 @@ void LoraTask(void *arg)
             String loraString = rfCode(&loraMsgout);
             while (sendLora(String(loraString)) != true)
             {
-                vTaskDelay(pdTICKS_TO_MS(50));
+                vTaskDelay(pdMS_TO_TICKS(50));
             }
             if (loraMsgout.ack == LORAGETACK)
             {
@@ -241,7 +241,7 @@ void LoraTask(void *arg)
                 String loraString = rfCode(&loraMsgout);
                 while (sendLora(loraString) != true)
                 {
-                    vTaskDelay(pdTICKS_TO_MS(50));
+                    vTaskDelay(pdMS_TO_TICKS(50));
                 }
                 retransmittReady = millis() + 1500 + random(0, 150);
             }

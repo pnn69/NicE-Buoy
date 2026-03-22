@@ -2,6 +2,7 @@
 #include <Preferences.h>
 #include <main.h>
 #include <RoboCompute.h>
+#include "subwifi.h"
 Preferences storage;
 
 void initMemory(void)

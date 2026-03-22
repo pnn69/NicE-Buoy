@@ -222,7 +222,7 @@ void LoraTask(void *arg)
         {
             while (sendLora(serDataOut) != true)
             {
-                vTaskDelay(pdTICKS_TO_MS(50));
+                vTaskDelay(pdMS_TO_TICKS(50));
             }
             RoboStruct loraMsgin;
             rfDeCode(serDataOut, &loraMsgin);
@@ -240,7 +240,7 @@ void LoraTask(void *arg)
             String loraString = rfCode(&loraMsgout);
             while (sendLora(String(loraString)) != true)
             {
-                vTaskDelay(pdTICKS_TO_MS(150));
+                vTaskDelay(pdMS_TO_TICKS(150));
             }
             Serial.println(loraString);
             if (loraMsgout.ack == LORAGETACK)
@@ -260,7 +260,7 @@ void LoraTask(void *arg)
                 String loraString = rfCode(&loraMsgout);
                 while (sendLora(loraString) != true)
                 {
-                    vTaskDelay(pdTICKS_TO_MS(50));
+                    vTaskDelay(pdMS_TO_TICKS(50));
                 }
                 retransmittReady = millis() + 900 + random(0, 150);
             }

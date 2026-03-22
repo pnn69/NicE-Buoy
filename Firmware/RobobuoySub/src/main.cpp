@@ -266,17 +266,18 @@ void handelSerandRfdata(RoboStruct *ser)
             ser->tgDir = dataIn.tgDir;
             ser->tgDist = dataIn.tgDist;
             break;
-        case DIRSPEED:
-            if (ser->status != DIRSPEED)
+        case TGDIRSPEED:
+            if (ser->status != TGDIRSPEED)
             {
-                printf("DIRSPEED command recieved!\r\n");
+                printf("TGDIRSPEED command recieved!\r\n");
                 ser->tgDist = 0;
                 initRudPid(ser);
                 initSpeedPid(ser);
-                ser->status = DIRSPEED;
+                ser->status = TGDIRSPEED;
             }
             ser->tgDir = dataIn.tgDir;
             ser->speedSet = dataIn.speedSet;
+            ser->tgSpeed = dataIn.speedSet; // Important: update tgSpeed so PID uses it
             break;
         case REMOTE:
             if (ser->status != REMOTE)
@@ -503,6 +504,7 @@ void handleTimerRoutines(RoboStruct *in)
         }
         break;
     case REMOTE:
+    case TGDIRSPEED:
         rudderPid(in);
         escOut.speedbb = in->speedBb;
         escOut.speedsb = in->speedSb;

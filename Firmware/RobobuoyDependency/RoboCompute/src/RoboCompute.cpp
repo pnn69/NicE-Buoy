@@ -67,6 +67,11 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->speedSb = numbers[5].toInt();
         break;
 
+    case TGDIRSPEED:
+        dataStore->tgDir = numbers[2].toDouble();
+        dataStore->speedSet = numbers[3].toDouble();
+        break;
+
     case SPBBSPSB:
         dataStore->speedBb = numbers[2].toInt();
         dataStore->speedSb = numbers[3].toInt();
@@ -702,6 +707,10 @@ void deviationWindRose(RoboWindStruct *wData)
 
     // Mean resultant length
     double R = sqrt(sumCos * sumCos + sumSin * sumSin) / SAMPELS;
+
+    // Clamp R to avoid domain errors in log() (NaNs) due to floating point inaccuracies
+    if (R > 1.0) R = 1.0;
+    if (R < 0.000001) R = 0.000001;
 
     // Circular standard deviation (radians)
     double circStdRad = sqrt(-2.0 * log(R));
