@@ -314,6 +314,7 @@ void handelSerandRfdata(RoboStruct *ser)
         case PIDRUDDER:
             if (dataIn.ack == LORAGET)
             {
+                ser->cmd = PIDRUDDER;
                 ser->ack = LORAINF;
                 xQueueSend(serOut, (void *)ser, 10);
             }
@@ -328,6 +329,7 @@ void handelSerandRfdata(RoboStruct *ser)
         case PIDSPEED:
             if (dataIn.ack == LORAGET)
             {
+                ser->cmd = PIDSPEED;
                 ser->ack = LORAINF;
                 xQueueSend(serOut, (void *)ser, 10);
             }

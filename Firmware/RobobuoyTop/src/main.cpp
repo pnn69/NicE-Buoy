@@ -809,6 +809,13 @@ void handelSerialData(RoboStruct *ser)
         case RAWCOMPASSDATA:
             printf("Raw:0,0,0,0,0,0,%.0f,%.0f,%.0f\r\n", serDataIn.magHard[0], serDataIn.magHard[1], serDataIn.magHard[2]);
             break;
+        case PIDRUDDER:
+        case PIDSPEED:
+            printf("Received PID data from sub. CMD: %d\r\n", serDataIn.cmd);
+            serDataIn.mac = mainData.mac; // FIX: ensure mac is set to Top's mac before sending out!
+            xQueueSend(udpOut, (void *)&serDataIn, 0);
+            xQueueSend(loraOut, (void *)&serDataIn, 0);
+            break;
 
         default:
             break;
