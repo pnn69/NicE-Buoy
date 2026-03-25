@@ -93,3 +93,5 @@ fp-info-cache
 # Exported BOM files
 *.xml
 *.csv
+.gemini/
+gha-creds-*.json
