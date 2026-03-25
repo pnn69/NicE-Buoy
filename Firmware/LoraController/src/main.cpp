@@ -213,8 +213,8 @@ void getNextValidID(RoboStruct *IDin)
                 *IDin = IDs[i];
                 return;
             }
-            return;
         }
+        return;
     }
 
     // Normal case: find current ID's index

@@ -6,7 +6,7 @@ https://github.com/sandeepmistry/arduino-LoRa/blob/master/examples/LoRaDuplex/Lo
 #include <LoRa.h>
 #include "io.h"
 #include "LiLlora.h"
-#include "RoboCompute.h"
+#include <RoboCompute.h>
 #include "oled_ssd1306.h"
 #include "sercom.h"
 #include "controlwifi.h"
