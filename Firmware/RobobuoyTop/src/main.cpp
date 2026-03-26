@@ -501,7 +501,7 @@ void handleInfieldOffsetCalibration(RoboStruct *timer)
 {
     static unsigned long calibStartTime = 0;
     static int calibPhase = 0;
-    static double lat0, lon0, lat1, lon1, lat2, lon2, lat2_stable, lon2_stable, lat3, lon3;
+    static double lat0, lon0, lat1, lon1, lat2, lon2, lat3, lon3;
     static unsigned long lastUpdate = 0;
 
     if (timer->status != INFIELD_OFFSET_CALIBRATE)
@@ -586,46 +586,31 @@ void handleInfieldOffsetCalibration(RoboStruct *timer)
             
             calibPhase = 4;
         }
-        else if (calibPhase == 4 && elapsed < 140000)
+        else if (calibPhase == 4 && elapsed < 250000)
         {
-            // Phase 4: Return Leg Stabilization (wait for buoy to turn around)
+            // Phase 4: Return Leg
             cmdMsg.tgDir = 0.0;
             cmdMsg.speedSet = 50;
             xQueueSend(serOut, (void *)&cmdMsg, 0);
         }
-        else if (calibPhase == 4 && elapsed >= 140000)
+        else if (calibPhase == 4 && elapsed >= 250000)
         {
-            // Phase 5: Record Stable Return Start Point
-            lat2_stable = timer->lat;
-            lon2_stable = timer->lng;
-            calibPhase = 6;
-            printf("#INFIELD_OFFSET: Phase 5 (P2_stable recorded for return leg: %f, %f)\r\n", lat2_stable, lon2_stable);
-        }
-        else if (calibPhase == 6 && elapsed < 260000)
-        {
-            // Phase 6: Return Leg Sailing
-            cmdMsg.tgDir = 0.0;
-            cmdMsg.speedSet = 50;
-            xQueueSend(serOut, (void *)&cmdMsg, 0);
-        }
-        else if (calibPhase == 6 && elapsed >= 260000)
-        {
-            // Phase 7: Record Final Point P3 and Validate
+            // Phase 5: Record Final Point P3 and Validate
             lat3 = timer->lat;
             lon3 = timer->lng;
             
-            double gpsCourse2 = calculateAngle(lat2_stable, lon2_stable, lat3, lon3);
+            double gpsCourse2 = calculateAngle(lat2, lon2, lat3, lon3);
             double validationError = abs(gpsCourse2 - 0.0);
             while (validationError > 180.0) validationError -= 360.0;
             
-            printf("#INFIELD_OFFSET: Phase 7 (P3 recorded). GPS Course: %.2f. Error: %.2f\r\n", gpsCourse2, abs(validationError));
+            printf("#INFIELD_OFFSET: Phase 5 (P3 recorded). GPS Course: %.2f. Error: %.2f\r\n", gpsCourse2, abs(validationError));
             
             // Stop motors
             cmdMsg.tgDir = 0.0;
             cmdMsg.speedSet = 0;
             xQueueSend(serOut, (void *)&cmdMsg, 0);
             
-            // Phase 8: Return Home
+            // Phase 6: Return Home
             timer->tgLat = lat0;
             timer->tgLng = lon0;
             timer->status = LOCKED;
