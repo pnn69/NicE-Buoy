@@ -30,13 +30,15 @@ Implement an autonomous "In-Field Offset Calibration" routine to align the magne
         *   **IMMEDIATE CALCULATION**: Calculate the GPS course from P1 to P2. Calculate the error vs 180.0°.
         *   **APPLY & STORE**: Update `compassCalc.compassOffset` and call `CompasOffset(&compassCalc, SET)`.
         *   **RE-INITIALIZE**: Call `InitCompass()` to ensure the new offset is active.
-    *   **Phase 4 (130s - 250s) - Return Leg (Verification)**:
+    *   **Phase 4 (130s - 260s) - Return Leg (Verification)**:
         *   Set `target_heading = 0.0` (Magnetic North) to return towards the starting point.
         *   Use the **newly calibrated `compassOffset`**.
-        *   Sail for 120 seconds using only the compass.
-    *   **Phase 5 (at 250s) - Record Final Point (P3)**:
+        *   **STABILIZATION (130s - 140s)**: Allow the buoy 10 seconds to turn around and stabilize its speed and rudder.
+        *   **RECORD RETURN START (P2_stable)**: At 140s, record `Lat2_stable, Lon2_stable` to use for the return calculation.
+        *   Sail for another 120 seconds (140s - 260s) using only the compass.
+    *   **Phase 5 (at 260s) - Record Final Point (P3)**:
         *   Record `Lat3, Lon3`.
-        *   **VALIDATE**: Calculate the GPS track from P2 to P3. 
+        *   **VALIDATE**: Calculate the GPS track from `P2_stable` to `P3`. 
     *   **Phase 6 (Final) - Return Home**:
         *   If the validation error is within a reasonable range (informative), the buoy should now engage its standard navigation logic.
         *   Set `targetLat = Lat0, targetLon = Lon0` (The Home position).
