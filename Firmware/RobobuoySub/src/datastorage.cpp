@@ -202,6 +202,8 @@ void apParameters(String *ap, String *ww, bool get)
     stopMem();
 }
 
+// NOTE: ESP32 Preferences (NVS) has a strict limit of 15 characters for keys.
+// Do not include long strings like MAC addresses in keys to avoid silent failures.
 void hardIron(RoboStruct *buoy, bool get)
 {
     startMem();
