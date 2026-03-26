@@ -16,19 +16,20 @@ Implement an autonomous "In-Field Calibration" routine that runs while the buoy 
 ## 3. Sub Firmware State Machine (RobobuoySub)
 *   **Trigger Handling (`main.cpp`)**: When `ser->cmd == INFIELD_CALIBRATE` is received, change the buoy's internal status to `CALIBRATING` and trigger the calibration sequence.
 *   **Non-Blocking Sequence (`compass.cpp` or `esc.cpp`)**: Implement a timer-based state machine that prevents the `loop()` from blocking while the buoy moves.
-*   **Proposed Maneuver Sequence (Total ~60 seconds)**:
-    *   **Phase 1 (0-15s) - Wide Right Turn**: Set `bb = 20%`, `sb = 5%`.
-    *   **Phase 2 (15-30s) - Tight Right Turn**: Set `bb = 25%`, `sb = -5%`.
-    *   **Phase 3 (30-45s) - Wide Left Turn**: Set `bb = 5%`, `sb = 20%`.
-    *   **Phase 4 (45-60s) - Tight Left Turn**: Set `bb = -5%`, `sb = 25%`.
-    *   *Note: These values should scale with `rud->maxSpeed` to ensure they are safe but effective.*
+*   **Proposed Smart Maneuver Sequence**:
+    *   Since the buoy moves slowly, simple fixed timers (like 15 seconds) are insufficient. The calibration routine should ideally run for **at least 2-3 minutes total**.
+    *   **Phase 1 (~60s) - Wide Right Turn**: Set `bb = 20%`, `sb = 5%`.
+    *   **Phase 2 (~60s) - Wide Left Turn**: Set `bb = 5%`, `sb = 20%`.
+    *   **Phase 3 (~30s) - Pivot Right**: Set `bb = 25%`, `sb = -25%`.
+    *   **Alternative (Smart Rotation Detection)**: Instead of rigid timers, integrate a gyro/compass check to count complete 360° rotations. For example, instruct the buoy to turn right until it has completed two full rotations, then turn left for two full rotations. This ensures comprehensive data collection regardless of wind/current resistance.
+    *   *Note: Thrust values should scale with `rud->maxSpeed` to ensure they are safe but effective.*
 *   **Data Collection**:
     *   Continuously sample the raw magnetometer values (`event.magnetic.x`, `y`, `z`).
     *   Track the absolute minimums and maximums (`min_mag[3]`, `max_mag[3]`).
-    *   *(Optional Enhancement)*: Stream this raw data back to the Python script (using the `RAWCOMPASSDATA` command) so the user can see a live scatter plot.
+    *   *(Optional Enhancement)*: Stream this raw data back to the Python script (using the `RAWCOMPASSDATA` command) so the user can see a live scatter plot of the calibration circle filling in.
 
 ## 4. Calculation & Storage
-*   **End of Sequence**: Once the 60 seconds expire, stop the thrusters (`bb = 0`, `sb = 0`).
+*   **End of Sequence**: Once the time expires (or rotations are complete), stop the thrusters (`bb = 0`, `sb = 0`).
 *   **Hard-Iron Calculation**: 
     ```cpp
     compassCalc.magHard[0] = (max_mag[0] + min_mag[0]) / 2.0f;
