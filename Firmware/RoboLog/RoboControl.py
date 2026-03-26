@@ -674,7 +674,7 @@ class RoboMonitor:
             "Target Dir", "Magnetic Dir",
             "Wind Dir", "Wind StdDev",
             "PID I-term", "PID R-term",
-            "Sub Battery V",
+            "Battery",
             "GPS Fix", "GPS Satellites"
         ]
         for i, name in enumerate(param_names):
@@ -957,8 +957,14 @@ class RoboMonitor:
                 # ---------------------------------------------------------------
 
                 for name, label_widget in labels.items():
-                    if name == "Sub Battery V":
-                        label_widget.config(text=volt_val)
+                    if name == "Battery":
+                        if volt_val != "N/A":
+                            try:
+                                label_widget.config(text=f"{float(volt_val):.1f}V")
+                            except ValueError:
+                                label_widget.config(text=f"{volt_val}V")
+                        else:
+                            label_widget.config(text="N/A")
                     elif name in ["Target Dir", "Magnetic Dir", "GPS Dir", "Wind Dir"]:
                         val = data.get(name, "N/A")
                         if val != "N/A":
