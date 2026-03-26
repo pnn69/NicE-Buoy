@@ -41,6 +41,7 @@ void initMemory(void)
     {
         Serial.printf("# Buoy Memory OK (MAC: %08X)\r\n", id);
     }
+    storage.end();
 }
 /*
     ID of the buoy
@@ -54,16 +55,16 @@ void stopMem(void)
     storage.end();
 }
 
-void memBuoyId(int8_t *id, bool get)
+void memBuoyId(uint64_t *id, bool get)
 {
     startMem();
     if (get)
     {
-        *id = (storage.getChar("NicE_BuoyID", 0));
+        *id = storage.getULong64("NicE_BuoyID", 0);
     }
     else
     {
-        storage.putChar("NicE_BuoyID", *id);
+        storage.putULong64("NicE_BuoyID", *id);
     }
     stopMem();
 }
@@ -207,7 +208,7 @@ void hardIron(RoboStruct *buoy, bool get)
     String key = "";
     for (int i = 0; i < 3; i++)
     {
-        String key = "mH" + String(buoy->mac, HEX) + String(i);
+        key = "mH0" + String(i);
         if (get)
         {
             buoy->magHard[i] = storage.getDouble(key.c_str(), 0.0);
@@ -228,8 +229,7 @@ void softIron(RoboStruct *buoy, bool get)
     {
         for (int j = 0; j < 3; ++j)
         {
-            // Key includes MAC address to separate buoy data
-            key = "mS" + String(buoy->mac, HEX) + String(i) + String(j);
+            key = "mS0" + String(i) + String(j);
             if (get)
             {
                 double defaultValue = (i == j) ? 1.0 : 0.0; // Identity matrix default

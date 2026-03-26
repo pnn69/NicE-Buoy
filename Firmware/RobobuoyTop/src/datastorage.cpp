@@ -48,6 +48,7 @@ void initMemory(void)
     {
         Serial.printf("# Buoy Memory OK (MAC: %08X)\r\n", id);
     }
+    storage.end();
 }
 /*
     ID of the buoy
