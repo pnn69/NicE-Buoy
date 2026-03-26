@@ -24,6 +24,7 @@ static RoboWindStruct wind;
 static LedData mainCollorStatus;
 static LedData mainCollorUtil;
 static LedData mainCollorGps;
+static PwrData mainPwrData;
 static Buzz mainBuzzerData;
 static int wifiConfig = 0;
 static int msg;
@@ -270,6 +271,15 @@ void buttonLight(RoboStruct *sta)
 //***************************************************************************************************
 void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
 {
+    static int lastStatus = IDLE;
+    if (lastStatus == IDLE && stat->status != IDLE && stat->status != IDELING)
+    {
+        RoboStruct wakeupMsg;
+        wakeupMsg.cmd = WAKEUP;
+        xQueueSend(serOut, (void *)&wakeupMsg, 0);
+    }
+    lastStatus = stat->status;
+
     RoboStruct LoraTx;
     stat->IDs = stat->buoyId;
     LoraTx = *stat;
@@ -549,14 +559,14 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 AddDataToBuoyBase(RfIn, buoyParaPtrs);
                 break;
             case PIDRUDDER:
-                if (RfIn.ack == LORAGET)
+                if (RfIn.ack == LORAGET || RfIn.ack == LORAGETACK)
                 {
                     xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 }
                 else
                 {
-                    xQueueSend(loraOut, (void *)&RfIn, 0); // update sub
-                    xQueueSend(udpOut, (void *)&RfIn, 0);  // update sub
+                    // For status updates from other buoys, only forward to UDP for local display
+                    xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             case PIDRUDDERSET:
@@ -566,14 +576,14 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 break;
             case PIDSPEED:
-                if (RfIn.ack == LORAGET)
+                if (RfIn.ack == LORAGET || RfIn.ack == LORAGETACK)
                 {
                     xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 }
                 else
                 {
-                    xQueueSend(loraOut, (void *)&RfIn, 0); // update sub
-                    xQueueSend(udpOut, (void *)&RfIn, 0);  // update sub
+                    // For status updates from other buoys, only forward to UDP for local display
+                    xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             case PIDSPEEDSET:
@@ -663,16 +673,15 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 break;
             case MAXMINPWR:
-                if (RfIn.ack == LORAGET)
+                if (RfIn.ack == LORAGET || RfIn.ack == LORAGETACK)
                 {
                     xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 }
                 else
                 {
-                    xQueueSend(loraOut, (void *)&RfIn, 0); // update
-                    xQueueSend(udpOut, (void *)&RfIn, 0);  // update
+                    // For status updates from other buoys, only forward to UDP for local display
+                    xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
-                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 break;
             case MAXMINPWRSET:
                 RfIn.ack = LORAGETACK;
@@ -774,6 +783,11 @@ void handelSerialData(RoboStruct *ser)
             ser->ir = serDataIn.ir;
             ser->subAccuV = serDataIn.subAccuV;
             ser->subAccuP = serDataIn.subAccuP;
+            ser->escHeartbeat = serDataIn.escHeartbeat; // Store ESC heartbeat from Sub
+            
+            mainPwrData.ledBb = -ser->speedBb;
+            mainPwrData.ledSb = -ser->speedSb;
+            xQueueSend(ledPwr, (void *)&mainPwrData, 0);
             break;
         case PONG:
             break;
@@ -782,7 +796,10 @@ void handelSerialData(RoboStruct *ser)
             ser->speedBb = serDataIn.speedBb;
             ser->speedSb = serDataIn.speedSb;
             printf("M:%03.0f T:%03.0f D:%03.1f   BB:%d SB:%d\r\n", ser->dirMag, ser->tgDir, ser->tgDist, ser->speedBb, ser->speedSb);
-
+            
+            mainPwrData.ledBb = -ser->speedBb;
+            mainPwrData.ledSb = -ser->speedSb;
+            xQueueSend(ledPwr, (void *)&mainPwrData, 0);
             break;
         case SUBACCU:
             ser->subAccuV = serDataIn.subAccuV;
@@ -811,7 +828,10 @@ void handelSerialData(RoboStruct *ser)
             break;
         case PIDRUDDER:
         case PIDSPEED:
-            printf("Received PID data from sub. CMD: %d\r\n", serDataIn.cmd);
+        case MAXMINPWR:
+        case MAXMINPWRSET:
+            printf("Received PID/PWR data from sub. CMD: %d\r\n", serDataIn.cmd);
+            serDataIn.IDs = mainData.IDs; // FIX: ensure IDs is set to Top's IDs for consistent buoy identification!
             serDataIn.mac = mainData.mac; // FIX: ensure mac is set to Top's mac before sending out!
             xQueueSend(udpOut, (void *)&serDataIn, 0);
             xQueueSend(loraOut, (void *)&serDataIn, 0);
@@ -846,7 +866,7 @@ void loop(void)
     mainCollorGps.blink = BLINK_FAST;
     xQueueSend(ledGps, (void *)&mainCollorGps, 0); // update GPS led
     mainCollorUtil.blink = BLINK_SLOW;
-    beep(1000, buzzer);
+    beep(1, buzzer);
     mainData.lastLoraOut = millis();
     while (true)
     {

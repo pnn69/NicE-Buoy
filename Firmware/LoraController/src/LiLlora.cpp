@@ -32,7 +32,6 @@ byte destination = 0x01;  // destination to send to
 QueueHandle_t loraOut;
 QueueHandle_t loraIn;
 QueueHandle_t loraToMain;
-QueueHandle_t loraOutSerial; // Queue for serial output
 
 static unsigned long buoyId = 0;
 // struct loraDataType loraIn;
@@ -63,7 +62,6 @@ void initloraqueue(void)
 {
     loraIn = xQueueCreate(10, sizeof(RoboStruct));
     loraOut = xQueueCreate(10, sizeof(RoboStruct));
-    loraOutSerial = xQueueCreate(10, sizeof(String));
     loraToMain = xQueueCreate(10, sizeof(RoboStruct));
     InitLora();
     buoyId = espMac();
@@ -172,7 +170,7 @@ void onReceive(int packetSize)
         return;
     }
     Serial.println(incoming);
-    if (in.IDr == buoyId || in.IDr == BUOYIDALL) // A message form me so check if its a ACK message
+    if (in.IDr == buoyId || in.IDr == BUOYIDALL || in.IDr == 0x99) // A message form me so check if its a ACK message
     {
         if (in.ack == LORAGETACK) // on ack request send ack back
         {
@@ -212,27 +210,11 @@ bool sendLora(String loraTransmitt)
 void LoraTask(void *arg)
 {
     unsigned long retransmittReady = 0;
-    String serDataOut = "";
     delay(500);
     while (1)
     {
         onReceive(LoRa.parsePacket()); // check if there is new data availeble
-        // data to send from serial
-        if (xQueueReceive(loraOutSerial, (void *)&serDataOut, 0) == pdTRUE) // send data from serial to lora
-        {
-            while (sendLora(serDataOut) != true)
-            {
-                vTaskDelay(pdMS_TO_TICKS(50));
-            }
-            RoboStruct loraMsgin;
-            rfDeCode(serDataOut, &loraMsgin);
-            if (loraMsgin.ack == LORAGETACK)
-            {
-                loraMsgin.retry = 5;
-                storeAckMsg(loraMsgin);                             // put data in buffer (will be removed on ack)
-                retransmittReady = millis() + 750 + random(0, 150); // give some time for ack
-            }
-        }
+        
         // data to send from main
         if (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
         {

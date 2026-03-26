@@ -312,8 +312,9 @@ void handelSerandRfdata(RoboStruct *ser)
             }
             break;
         case PIDRUDDER:
-            if (dataIn.ack == LORAGET)
+            if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
             {
+                ser->IDr = dataIn.IDs;
                 ser->cmd = PIDRUDDER;
                 ser->ack = LORAINF;
                 xQueueSend(serOut, (void *)ser, 10);
@@ -327,8 +328,9 @@ void handelSerandRfdata(RoboStruct *ser)
             printf("Rudder PID stored pr:%0.2f ir:%0.2f dr:%0.2f\r\n", ser->Kpr, ser->Kir, ser->Kdr);
             break;
         case PIDSPEED:
-            if (dataIn.ack == LORAGET)
+            if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
             {
+                ser->IDr = dataIn.IDs;
                 ser->cmd = PIDSPEED;
                 ser->ack = LORAINF;
                 xQueueSend(serOut, (void *)ser, 10);
@@ -337,6 +339,7 @@ void handelSerandRfdata(RoboStruct *ser)
         case PIDSPEEDSET:
             printf("New speed PID settings ps:%0.2f is:%0.2f ds:%0.2f\r\n", dataIn.Kps, dataIn.Kis, dataIn.Kds);
             pidSpeedParameters(&dataIn, SET);
+            pidSpeedParameters(ser, GET);
             initSpeedPid(ser);
             printf("Speed PID stored ps:%0.2f is:%0.2f ds:%0.2f\r\n", ser->Kps, ser->Kis, ser->Kds);
             break;
@@ -370,8 +373,10 @@ void handelSerandRfdata(RoboStruct *ser)
             ser->status = IDLE;
             break;
         case MAXMINPWR:
-            if (dataIn.ack == LORAGET)
+            if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
             {
+                ser->IDr = dataIn.IDs;
+                ser->cmd = MAXMINPWR;
                 ser->ack = LORAINF;
                 xQueueSend(serOut, (void *)ser, 10);
             }
@@ -429,6 +434,8 @@ void handelSerialTimeOut(RoboStruct *ser)
         if (mainLedStatus.color != CRGB::Red)
         {
             Serial.println("Set light to Red");
+            printf("Serial timeout! ESC Heartbeat: %lu, ESC Task Alive: %s\r\n", 
+                   getEscHeartbeat(), isEscTaskAlive() ? "YES" : "NO");
             ser->lastSerIn = millis();
             mainLedStatus.color = CRGB::Red;
             mainLedStatus.blink = BLINK_SLOW;
@@ -473,7 +480,7 @@ void handleTimerRoutines(RoboStruct *in)
         {
             pidTimer = millis() + 50; // 50ms
             speedPid(in);
-            if (in->tgDist > 1.5 && in->tgDist < 5000)
+            if (in->tgDist > 1.0 && in->tgDist < 5000)
             {
                 if (in->locked == false)
                 {
@@ -526,6 +533,10 @@ void handleTimerRoutines(RoboStruct *in)
             escOut.speedsb = 0;
             xQueueSend(escspeed, (void *)&escOut, 10);
         }
+        in->speedBb = 0;
+        in->speedSb = 0;
+        in->ip = 0;
+        in->ir = 0;
         break;
     default:
         break;
@@ -535,6 +546,7 @@ void handleTimerRoutines(RoboStruct *in)
     {
         nextSamp = 250 + millis();
         in->cmd = SUBDATA;
+        in->escHeartbeat = getEscHeartbeat(); // Include ESC heartbeat in SUBDATA
         xQueueSend(serOut, (void *)in, 10);
     }
 
@@ -561,6 +573,7 @@ void loop(void)
     xQueueSend(ledPwr, (void *)&mainPwrData, 0);    // update power led
     PwrOff = millis();
     mainData.status = IDLE;
+    beep(1, buzzer);
     while (true)
     {
         //***************************************************************************************************

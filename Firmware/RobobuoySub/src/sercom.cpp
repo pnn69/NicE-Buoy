@@ -228,7 +228,10 @@ void SercomTask(void *arg)
         {
             while (lastRx + 20 > millis())
                 vTaskDelay(pdMS_TO_TICKS(1));
-            serDataOut.IDs = espMac();
+            if (serDataOut.IDs == 0)
+            {
+                serDataOut.IDs = espMac();
+            }
             String out = rfCode(&serDataOut);
             Serial1.println(out);
             if (serDataOut.ack == LORAGETACK)

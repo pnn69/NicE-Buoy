@@ -219,17 +219,34 @@ void SercomTask(void *arg)
         //***************************************************************************************************
         if (xQueueReceive(serOut, (void *)&serDataOut, 0) == pdTRUE) // send data to bottom
         {
-            while (lastRx + 20 > millis())
-                vTaskDelay(pdMS_TO_TICKS(1));
-            
-            serDataOut.IDs = mac;
-            String out = rfCode(&serDataOut);
-            Serial1.println(out);
-            if (serDataOut.ack == LORAGETACK)
+            if (serDataOut.cmd == WAKEUP)
             {
-                serDataOut.retry = 5;
-                SerstoreAckMsg(serDataOut);                         // put data in buffer (will be removed on ack)
-                retransmittReady = millis() + 750 + random(0, 150); // give some time for ack
+                Serial.println("Waking up Sub...");
+                Serial1.end();
+                pinMode(COM_PIN_TX, OUTPUT);
+                // Based on LEVEL=true (inverted), Active state is HIGH
+                digitalWrite(COM_PIN_TX, HIGH);
+                vTaskDelay(pdMS_TO_TICKS(500));
+                digitalWrite(COM_PIN_TX, LOW);
+                Serial1.begin(230400, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL);
+            }
+            else
+            {
+                while (lastRx + 20 > millis())
+                    vTaskDelay(pdMS_TO_TICKS(1));
+                
+                if (serDataOut.IDs == 0)
+                {
+                    serDataOut.IDs = mac;
+                }
+                String out = rfCode(&serDataOut);
+                Serial1.println(out);
+                if (serDataOut.ack == LORAGETACK)
+                {
+                    serDataOut.retry = 5;
+                    SerstoreAckMsg(serDataOut);                         // put data in buffer (will be removed on ack)
+                    retransmittReady = millis() + 750 + random(0, 150); // give some time for ack
+                }
             }
         }
 
