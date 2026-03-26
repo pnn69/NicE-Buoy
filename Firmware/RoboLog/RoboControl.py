@@ -671,11 +671,11 @@ class RoboMonitor:
         labels = {}
         param_names = [
             "Timestamp",
-            "Target Dir (tgDir)", "Magnetic Dir (mDir)",
-            "Wind Dir (wDir)", "Wind StdDev (wStd)",
-            "PID I-term (IP)", "PID R-term (IR)",
+            "Target Dir", "Magnetic Dir",
+            "Wind Dir", "Wind StdDev",
+            "PID I-term", "PID R-term",
             "Sub Battery V",
-            "GPS Fix", "GPS Satellites (GpsSat)"
+            "GPS Fix", "GPS Satellites"
         ]
         for i, name in enumerate(param_names):
             ttk.Label(frame, text=f"{name}:").grid(row=i, column=0, sticky="w", padx=2, pady=1)
@@ -744,21 +744,21 @@ class RoboMonitor:
             if cmd == "51" and len(fields) >= 21: # TOPDATA
                 data.update({
                     "IDr": fields[0], "IDs": fields[1], "ACK": fields[2], "CMD": fields[3], "Status": fields[4],
-                    "Magnetic Dir (mDir)": fields[5], "GPS Dir (gpsDir)": fields[6],
-                    "Target Dir (tgDir)": fields[7], "Target Dist (tgDist)": fields[8],
-                    "Wind Dir (wDir)": fields[9], "Wind StdDev (wStd)": fields[10],
+                    "Magnetic Dir": fields[5], "GPS Dir": fields[6],
+                    "Target Dir": fields[7], "Target Dist": fields[8],
+                    "Wind Dir": fields[9], "Wind StdDev": fields[10],
                     "Bow Thruster (BB)": fields[11], "Stern Thruster (SB)": fields[12],
-                    "PID I-term (IP)": fields[13], "PID R-term (IR)": fields[14],
+                    "PID I-term": fields[13], "PID R-term": fields[14],
                     "Sub Battery V": fields[15], "Sub Battery %": fields[16],
                     "Latitude (Lat)": fields[17], "Longitude (Lon)": fields[18],
-                    "GPS Fix": fields[19], "GPS Satellites (GpsSat)": fields[20]
+                    "GPS Fix": fields[19], "GPS Satellites": fields[20]
                 })
                 self.update_buoy_data(buoy_id, data)
                 
             elif cmd == "47" and len(fields) >= 7: # DIRDIST
                 data.update({
                     "IDr": fields[0], "IDs": fields[1], "ACK": fields[2], "CMD": fields[3], "Status": fields[4],
-                    "Target Dir (tgDir)": fields[5], "Target Dist (tgDist)": fields[6]
+                    "Target Dir": fields[5], "Target Dist": fields[6]
                 })
                 self.update_buoy_data(buoy_id, data)
                 
@@ -773,9 +773,9 @@ class RoboMonitor:
                 data.update({
                     "IDr": fields[0], "IDs": fields[1], "ACK": fields[2], "CMD": fields[3], "Status": fields[4],
                     "Latitude (Lat)": fields[5], "Longitude (Lon)": fields[6],
-                    "Magnetic Dir (mDir)": fields[7], "Wind Dir (wDir)": fields[8], "Wind StdDev (wStd)": fields[9],
+                    "Magnetic Dir": fields[7], "Wind Dir": fields[8], "Wind StdDev": fields[9],
                     "Bow Thruster (BB)": fields[10], "Stern Thruster (SB)": fields[11],
-                    "GPS Fix": fields[12], "GPS Satellites (GpsSat)": fields[13]
+                    "GPS Fix": fields[12], "GPS Satellites": fields[13]
                 })
                 self.update_buoy_data(buoy_id, data)
                 
@@ -834,7 +834,7 @@ class RoboMonitor:
                 b['windrose_canvas'].itemconfig(b['dist_text'], text="-")
                 b['windrose_canvas'].itemconfig(b['pid_i_text'], text="*")
             else:
-                dist_val = data.get("Target Dist (tgDist)", "N/A")
+                dist_val = data.get("Target Dist", "N/A")
                 if dist_val != "N/A" and dist_val != "nan" and dist_val != "":
                     try:
                         dist_val = f"{float(dist_val):.2f}m"
@@ -844,7 +844,7 @@ class RoboMonitor:
                     dist_val = "0.00m"
                 b['windrose_canvas'].itemconfig(b['dist_text'], text=dist_val)
                 
-                pid_i_val = data.get("PID I-term (IP)", "N/A")
+                pid_i_val = data.get("PID I-term", "N/A")
                 if pid_i_val != "N/A" and pid_i_val != "nan" and pid_i_val != "":
                     try:
                         pid_i_val = f"{float(pid_i_val):.2f}"
@@ -896,13 +896,13 @@ class RoboMonitor:
                 else:
                     b['dirdist_send_btn'].config(state="disabled")
                 
-                tg_dir = data.get("Target Dir (tgDir)", "N/A")
-                w_dir = data.get("Wind Dir (wDir)", "N/A")
+                tg_dir = data.get("Target Dir", "N/A")
+                w_dir = data.get("Wind Dir", "N/A")
                 if current_status == "7": # Hide in IDLE
                     tg_dir = "N/A"
                     w_dir = "N/A"
                 
-                gps_dir = data.get("GPS Dir (gpsDir)", "N/A")
+                gps_dir = data.get("GPS Dir", "N/A")
                 if gps_dir not in ["N/A", "nan", ""]:
                     if b.get("gps_dir_first_seen") is None:
                         b["gps_dir_first_seen"] = time.time()
@@ -915,7 +915,7 @@ class RoboMonitor:
                     b["gps_dir_first_seen"] = None
                     gps_dir_to_show = "N/A"
                 
-                self.update_windrose(b, w_dir, tg_dir, data.get("Magnetic Dir (mDir)", "N/A"), gps_dir_to_show)
+                self.update_windrose(b, w_dir, tg_dir, data.get("Magnetic Dir", "N/A"), gps_dir_to_show)
                 
                 # Update Setup Window entries if open
                 if b.get('setup_entries'):
@@ -959,7 +959,7 @@ class RoboMonitor:
                 for name, label_widget in labels.items():
                     if name == "Sub Battery V":
                         label_widget.config(text=volt_val)
-                    elif name in ["Target Dir (tgDir)", "Magnetic Dir (mDir)", "GPS Dir (gpsDir)", "Wind Dir (wDir)"]:
+                    elif name in ["Target Dir", "Magnetic Dir", "GPS Dir", "Wind Dir"]:
                         val = data.get(name, "N/A")
                         if val != "N/A":
                             try:
