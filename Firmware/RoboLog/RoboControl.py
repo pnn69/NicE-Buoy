@@ -308,7 +308,7 @@ class RoboMonitor:
             
             has_rudder = all(k in b['data'] for k in ["Kpr", "Kir", "Kdr"])
             has_speed = all(k in b['data'] for k in ["Kps", "Kis", "Kds"])
-            has_maxmin = all(k in b['data'] for k in ["maxSpeed", "minSpeed"])
+            has_maxmin = all(k in b['data'] for k in ["maxSpeed", "minSpeed", "pivotSpeed"])
             
             if has_rudder and has_speed and has_maxmin:
                 loading_win.destroy()
@@ -419,23 +419,29 @@ class RoboMonitor:
         ttk.Label(main_setup_frame, text="Min Speed:").grid(row=12, column=0, sticky="e", padx=10, pady=5)
         min_speed_entry = ttk.Entry(main_setup_frame, width=15)
         min_speed_entry.grid(row=12, column=1, sticky="w", pady=5)
+
+        ttk.Label(main_setup_frame, text="Pivot Speed:").grid(row=13, column=0, sticky="e", padx=10, pady=5)
+        pivot_speed_entry = ttk.Entry(main_setup_frame, width=15)
+        pivot_speed_entry.grid(row=13, column=1, sticky="w", pady=5)
         
         def send_speed_limits():
             try:
                 max_s = int(max_speed_entry.get() or 0)
                 min_s = int(min_speed_entry.get() or 0)
-                val_str = f"{max_s},{min_s}"
+                piv_s = float(pivot_speed_entry.get() or 0.2)
+                val_str = f"{max_s},{min_s},{format(piv_s, '.2f')}"
                 base_msg = f"{b['id']},99,6,69,0,{val_str},0,0,0,0,0"
                 self.send_custom_udp_command(b['id'], base_msg)
             except ValueError:
                 pass
 
-        ttk.Button(main_setup_frame, text="Send Speed Limits", command=send_speed_limits).grid(row=13, column=0, columnspan=2, pady=(10, 5))
+        ttk.Button(main_setup_frame, text="Send Speed Limits", command=send_speed_limits).grid(row=14, column=0, columnspan=2, pady=(10, 5))
         
         b['setup_entries'] = {
             "Kpr": kpr_entry, "Kir": kir_entry, "Kdr": kdr_entry,
             "Kps": kps_entry, "Kis": kis_entry, "Kds": kds_entry,
-            "maxSpeed": max_speed_entry, "minSpeed": min_speed_entry
+            "maxSpeed": max_speed_entry, "minSpeed": min_speed_entry,
+            "pivotSpeed": pivot_speed_entry
         }
         # Pre-fill if we have data already
         for key, entry in b['setup_entries'].items():
@@ -748,8 +754,11 @@ class RoboMonitor:
                 self.update_buoy_data(buoy_id, data)
                 
             elif cmd == "68" and len(fields) >= 7: # MAXMINPWR
+                piv_s = "0.2"
+                if len(fields) >= 8:
+                    piv_s = fields[7]
                 data.update({
-                    "maxSpeed": fields[5], "minSpeed": fields[6]
+                    "maxSpeed": fields[5], "minSpeed": fields[6], "pivotSpeed": piv_s
                 })
                 self.update_buoy_data(buoy_id, data)
                 

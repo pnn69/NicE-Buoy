@@ -139,11 +139,13 @@ void speedMaxMin(RoboStruct *buoy, bool get)
     {
         buoy->minSpeed = storage.getInt("minSpeed", -73);
         buoy->maxSpeed = storage.getInt("maxSpeed", 73);
+        buoy->pivotSpeed = storage.getDouble("pivotSpeed", 0.2);
     }
     else
     {
         storage.putInt("minSpeed", buoy->minSpeed);
         storage.putInt("maxSpeed", buoy->maxSpeed);
+        storage.putDouble("pivotSpeed", buoy->pivotSpeed);
     }
     stopMem();
 }

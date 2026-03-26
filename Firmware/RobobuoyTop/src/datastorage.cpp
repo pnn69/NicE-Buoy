@@ -161,6 +161,7 @@ void computeParameters(RoboStruct *buoy, bool get)
         buoy->maxOfsetDist = storage.getInt("maxOfsetDist", 8);
         buoy->minSpeed = storage.getInt("minSpeed", 0);
         buoy->maxSpeed = storage.getInt("maxSpeed", 80);
+        buoy->pivotSpeed = storage.getDouble("pivotSpeed", 0.2);
     }
     else
     {
@@ -168,6 +169,7 @@ void computeParameters(RoboStruct *buoy, bool get)
         storage.putInt("maxOfsetDist", buoy->maxOfsetDist);
         storage.putInt("minSpeed", buoy->minSpeed);
         storage.putInt("maxSpeed", buoy->maxSpeed);
+        storage.putDouble("pivotSpeed", buoy->pivotSpeed);
     }
     stopMem();
 }

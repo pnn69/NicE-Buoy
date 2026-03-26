@@ -172,6 +172,9 @@ void RoboDecode(String data, RoboStruct *dataStore)
     case MAXMINPWRSET:
         dataStore->maxSpeed = numbers[2].toInt();
         dataStore->minSpeed = numbers[3].toInt();
+        if (count > 4) {
+            dataStore->pivotSpeed = numbers[4].toDouble();
+        }
         break;
 
     case DIRMDIRTGDIRG:
@@ -210,6 +213,9 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->lng = numbers[15].toDouble();
         dataStore->gpsFix = (bool)numbers[16].toInt();
         dataStore->gpsSat = numbers[17].toInt();
+        if (count > 18) { // Backward compatibility - check if field 18 exists
+            dataStore->escHeartbeat = numbers[18].toInt();
+        }
         break;
 
     case RAWCOMPASSDATA:
@@ -325,6 +331,7 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->lng, 8);
         out += "," + String(dataOut->gpsFix);
         out += "," + String(dataOut->gpsSat);
+        out += "," + String(dataOut->escHeartbeat); // ESC heartbeat counter
         break;
     case MDIR:
         out += "," + String(dataOut->dirMag, 2);
@@ -442,6 +449,7 @@ String RoboCode(const RoboStruct *dataOut)
     case MAXMINPWR:
         out += "," + String(dataOut->maxSpeed);
         out += "," + String(dataOut->minSpeed);
+        out += "," + String(dataOut->pivotSpeed, 2);
         break;
 
     case DIRMDIRTGDIRG:
@@ -869,6 +877,14 @@ void checkparameters(RoboStruct *buoy)
     if (buoy->maxSpeed > 80)
     {
         buoy->maxSpeed = 80;
+    }
+    if (buoy->pivotSpeed < 0.05)
+    {
+        buoy->pivotSpeed = 0.2;
+    }
+    if (buoy->pivotSpeed > 1.0)
+    {
+        buoy->pivotSpeed = 1.0;
     }
     if (buoy->minOfsetDist >= buoy->maxOfsetDist)
     {

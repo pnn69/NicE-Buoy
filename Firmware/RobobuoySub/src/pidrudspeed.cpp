@@ -71,34 +71,62 @@ void initSpeedPid(RoboStruct *speed)
 //***************************************************************************************************
 void rudderPid(RoboStruct *rud)
 {
-    rudderInput = smallestAngle(rud->tgDir, rud->dirMag);
+    // 3.2 Heading PID
+    // heading_error = desired_heading - current_heading
+    double heading_error = smallestAngle(rud->tgDir, rud->dirMag);
+
+    // Wave Filtering (Low-pass) on heading error
+    static double filtered_heading_error = 0;
+    // Low pass filter, cutoff ~0.3-0.5 Hz (alpha ~0.1 at 50ms dt)
+    filtered_heading_error = 0.90 * filtered_heading_error + 0.10 * heading_error;
+
+    rudderInput = filtered_heading_error;
     rudderSetpoint = 0;
     rudderPID.Compute();
 
-    // Constrain speed
-    double s = constrain(rud->tgSpeed, rud->minSpeed, rud->maxSpeed);
+    double rotation_power = rudderOutput;
 
-    // Scale rudder effect based on speed
-    const double scale = 50.0;
-    const double baseGain = 50.0;
-    const double minTurningAuthority = 10.0; // Ensure some turning even when stationary
+    // 3.3 Position PID (forward_power is calculated by speedPid and passed via tgSpeed)
+    double forward_power = rud->tgSpeed;
 
-    // Compute a dynamic gain that decreases at high speeds but has a floor
-    double range = rud->maxSpeed - rud->minSpeed;
-    double speedRatio = (range > 0) ? (s - rud->minSpeed) / range : 0.0;
-    
-    // Provide turning authority even if speed is 0
-    double dynamicGain = baseGain * (0.3 + 0.7 * speedRatio); 
+    // 🚫 3.4 IMPORTANT: ±30° Heading Lockout
+    // Prevents sideways drifting:
+    if (abs(filtered_heading_error) > 30.0) {
+        forward_power = 0;
+        // Limit rotation speed during stationary turns to prevent aggressive spinning
+        rotation_power = constrain(rotation_power, -rud->maxSpeed * rud->pivotSpeed, rud->maxSpeed * rud->pivotSpeed);
+    }
 
-    double rudderAdj = tanh(rudderOutput / scale) * dynamicGain;
+    // 3.6 Thruster Mixer
+    // left (bb) = forward_power + rotation_power
+    // right (sb) = forward_power - rotation_power
+    double left = forward_power + rotation_power;
+    double right = forward_power - rotation_power;
 
-    // Apply the rudder adjustment (differential thrust)
-    double bb = s - rudderAdj;
-    double sb = s + rudderAdj;
-    
-    // Allow speed to slightly exceed min/max for turning if necessary, but keep safe
-    rud->speedSb = constrain(sb, -rud->maxSpeed, rud->maxSpeed);
-    rud->speedBb = constrain(bb, -rud->maxSpeed, rud->maxSpeed);
+    // Preserve turning moment if we overshoot max speed
+    if (left > rud->maxSpeed) {
+        double overshoot = left - rud->maxSpeed;
+        left = rud->maxSpeed;
+        right -= overshoot;
+    } else if (left < -rud->maxSpeed) {
+        double overshoot = -rud->maxSpeed - left;
+        left = -rud->maxSpeed;
+        right += overshoot;
+    }
+
+    if (right > rud->maxSpeed) {
+        double overshoot = right - rud->maxSpeed;
+        right = rud->maxSpeed;
+        left -= overshoot;
+    } else if (right < -rud->maxSpeed) {
+        double overshoot = -rud->maxSpeed - right;
+        right = -rud->maxSpeed;
+        left += overshoot;
+    }
+
+    // Clamped to ±100% (or maxSpeed bounds)
+    rud->speedBb = constrain(left, -rud->maxSpeed, rud->maxSpeed);
+    rud->speedSb = constrain(right, -rud->maxSpeed, rud->maxSpeed);
     rud->ir = rudderPID.GetITerm();
 }
 
@@ -107,15 +135,37 @@ void rudderPid(RoboStruct *rud)
 //***************************************************************************************************
 void speedPid(RoboStruct *dist)
 {
-    speedInput = dist->tgDist; // Measured distance
+    // Wave Filtering (Low-pass) on distance
+    static double filtered_distance = 0;
+    if (filtered_distance == 0) filtered_distance = dist->tgDist;
+    filtered_distance = 0.90 * filtered_distance + 0.10 * dist->tgDist;
+
+    speedInput = filtered_distance; // Measured distance
     speedSetpoint = dist->minOfsetDist; // Use configured target distance
+
     if (speedPID.Compute())
     {
-        // Prevent sailing backwards in speed PID mode
-        if (speedOutput < 0)
-            speedOutput = 0;
+        double forward_power = speedOutput;
 
-        dist->tgSpeed = speedOutput;
+        // Prevent sailing backwards in speed PID mode
+        if (forward_power < 0) {
+            forward_power = 0;
+        }
+
+        // 3.5 Dead Zones
+        if (filtered_distance < 1.0) {
+            forward_power = 0; // 0-1m -> no thrust
+        }
+        else if (filtered_distance < 3.0) {
+            // 1-3 m -> soft corrections
+            forward_power = constrain(forward_power, 0, (double)dist->maxSpeed * 0.3);
+        }
+        else {
+            // > 3 m -> strong corrections
+            forward_power = constrain(forward_power, 0, dist->maxSpeed);
+        }
+
+        dist->tgSpeed = forward_power;
         dist->ip = speedPID.GetITerm();
     }
 }

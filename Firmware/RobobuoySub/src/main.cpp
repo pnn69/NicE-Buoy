@@ -371,19 +371,21 @@ void handelSerandRfdata(RoboStruct *ser)
             ser->status = IDELING;
             xQueueSend(serOut, (void *)ser, 10);
             ser->status = IDLE;
-            break;
-        case MAXMINPWR:
-            if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
-            {
-                ser->IDr = dataIn.IDs;
-                ser->cmd = MAXMINPWR;
-                ser->ack = LORAINF;
-                xQueueSend(serOut, (void *)ser, 10);
-            }
-            break;
-        case MAXMINPWRSET:
-            printf("Max speed %d Min speed %d\r\n", dataIn.maxSpeed, dataIn.minSpeed);
-            speedMaxMin(&dataIn, SET);
+            case MAXMINPWR:
+                if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
+                {
+                    ser->IDr = dataIn.IDs;
+                    ser->cmd = MAXMINPWR;
+                    ser->ack = LORAINF;
+                    speedMaxMin(ser, GET);
+                    xQueueSend(serOut, (void *)ser, 10);
+                }
+                break;
+            case MAXMINPWRSET:
+                printf("New Speed settings Max:%d Min:%d Pivot:%0.2f\r\n", dataIn.maxSpeed, dataIn.minSpeed, dataIn.pivotSpeed);
+                speedMaxMin(&dataIn, SET);
+                speedMaxMin(ser, GET);
+                break;
             speedMaxMin(ser, GET);
             initRudPid(ser);
             initSpeedPid(ser);
