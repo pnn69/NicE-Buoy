@@ -17,6 +17,8 @@ Implement an autonomous "In-Field Calibration" routine that runs while the buoy 
 *   **Trigger Handling (`main.cpp`)**: When `ser->cmd == INFIELD_CALIBRATE` is received, change the buoy's internal status to `CALIBRATING` and trigger the calibration sequence.
 *   **Non-Blocking Sequence (`compass.cpp` or `esc.cpp`)**: Implement a timer-based state machine that prevents the `loop()` from blocking while the buoy moves.
 *   **Proposed Smart Maneuver Sequence**:
+    *   **Phase 0 - Initialization & Home**: 
+        *   **RECORD HOME (P0)**: Log the current GPS coordinates (`Lat0, Lon0`) as the starting point to return to later.
     *   Since the buoy moves slowly, simple fixed timers (like 15 seconds) are insufficient. The calibration routine should ideally run for **at least 2-3 minutes total**.
     *   **Phase 1 (~60s) - Wide Right Turn**: Set `bb = 20%`, `sb = 5%`.
     *   **Phase 2 (~60s) - Wide Left Turn**: Set `bb = 5%`, `sb = 20%`.
@@ -38,7 +40,11 @@ Implement an autonomous "In-Field Calibration" routine that runs while the buoy 
     ```
 *   **Soft-Iron Calculation (Simple Approach)**: Reset the soft-iron matrix to the identity matrix (`1.0` on the diagonal, `0.0` elsewhere) unless a more advanced least-squares fitting algorithm is implemented.
 *   **Storage**: Call the existing `hardIron(&compassCalc, SET)` and `softIron(&compassCalc, SET)` functions to persist the data to the ESP32 Preferences (NVS).
-*   **Feedback**: Play a success tone on the buzzer and return the buoy status to `IDLE` (7).
+*   **Feedback**: Play a success tone on the buzzer.
+*   **Return Home**: 
+    *   After the calibration is successfully stored and active, set the target coordinates to `Lat0, Lon0` (the Home point recorded in Phase 0).
+    *   Engage standard GPS/Compass autonomous navigation logic.
+    *   Once the buoy is back within range (e.g., 2m of P0), stop thrusters and return the status to `IDLE` (7).
 
 ## 5. Safety & Edge Cases
 *   **Abort Mechanism**: If the user sends an `IDLE` (8) or `LOCK` (12) command while the calibration is running, the sequence must immediately abort, stop the motors, and discard the collected data.
