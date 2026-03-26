@@ -15,33 +15,42 @@ Implement an autonomous "In-Field Offset Calibration" routine to align the magne
 
 ## 3. Sub Firmware State Machine (RobobuoySub)
 *   **Trigger Handling**: When `CMD 71` is received, set buoy status to `71` and start the sequence.
-*   **Calibration Sequence (Total ~130 seconds)**:
+*   **Calibration Sequence (Total ~260 seconds)**:
     *   **Phase 0 (0-10s) - Stabilization**: 
         *   Set `target_heading = 180.0` (Magnetic South).
-        *   Engage thrusters at `50%` speed (using standard PID navigation logic, but locked to 180°).
-        *   Wait for the buoy to stabilize its course.
-    *   **Phase 1 (at 10s) - Start Point**:
-        *   Record the current GPS coordinates (`Lat1`, `Lon1`).
-    *   **Phase 2 (10s - 130s) - Sailing**:
-        *   Continue sailing at `50%` speed, maintaining a magnetic heading of exactly `180.0°`.
-        *   Crucially, **do not** use GPS for course corrections during this time; use only the compass.
-    *   **Phase 3 (at 130s) - End Point**:
-        *   Record the final GPS coordinates (`Lat2`, `Lon2`).
+        *   Engage thrusters at `50%` speed.
+    *   **Phase 1 (at 10s) - Record Start Point (P1)**:
+        *   Record `Lat1, Lon1`.
+    *   **Phase 2 (10s - 130s) - Calibration Leg**:
+        *   Sail at `50%` speed maintaining magnetic `180.0°`.
+        *   Navigation: **Compass only**.
+    *   **Phase 3 (at 130s) - Record Calibration End Point (P2)**:
+        *   Record `Lat2, Lon2`.
+        *   **IMMEDIATE CALCULATION**: Calculate the GPS course from P1 to P2. Calculate the error vs 180.0°.
+        *   **APPLY & STORE**: Update `compassCalc.compassOffset` and call `CompasOffset(&compassCalc, SET)`.
+        *   **RE-INITIALIZE**: Call `InitCompass()` to ensure the new offset is active in the heading math.
+    *   **Phase 4 (130s - 250s) - Validation Leg (Return Trip)**:
+        *   Set `target_heading = 0.0` (Magnetic North) to sail back towards the start.
+        *   Sail for another 120 seconds using the **newly calibrated compass parameters**.
+    *   **Phase 5 (at 250s) - Record Validation End Point (P3)**:
+        *   Record `Lat3, Lon3`.
         *   Stop the thrusters (`bb = 0`, `sb = 0`).
 
-## 4. Calculation & Storage
-*   **Calculate GPS Course**:
-    *   Use the `calculateAngle(Lat1, Lon1, Lat2, Lon2)` function from `RoboCompute` to determine the true heading traveled according to GPS.
-*   **Compute Offset**:
-    *   The difference between the intended magnetic course (`180.0°`) and the actual GPS course is the offset.
-    *   `offset = GPS_Course - 180.0` (normalized to -180 to +180).
+## 4. Calculation & Validation
+*   **Protocol Note**: Since the buoy moves too slowly for reliable real-time GPS Course-Over-Ground (COG), all validation must be done using point-to-point coordinate math.
+*   **Leg 1 Analysis (Calibration)**:
+    *   `GPS_Course_1 = calculateAngle(Lat1, Lon1, Lat2, Lon2)`.
+    *   `New_Offset = GPS_Course_1 - 180.0`.
+*   **Leg 2 Analysis (Validation)**:
+    *   `GPS_Course_2 = calculateAngle(Lat2, Lon2, Lat3, Lon3)`.
+    *   `Validation_Error = abs(GPS_Course_2 - 0.0)` (normalized).
 *   **Verification**:
-    *   If the distance traveled is too short (e.g., < 10 meters), abort and log an error; the data is unreliable.
+    *   If `Validation_Error < 5.0°`, play a "Success" double-beep.
+    *   If `Validation_Error > 5.0°`, play a "Warning" descending tone; the offset may still be inaccurate due to drift or current.
 *   **Persistence**:
-    *   Update `compassCalc.compassOffset += offset` (accumulative) or set it directly.
-    *   Call `CompasOffset(&compassCalc, SET)` to store the new value in NVS.
+    *   The `compassOffset` is stored at the end of Phase 3, ensuring it is saved even if Phase 4 is interrupted.
 *   **Completion**:
-    *   Play a completion tone, log the new offset to Serial, and return status to `IDLE` (7).
+    *   Log both `GPS_Course_1` and `GPS_Course_2` to Serial for debugging, and return status to `IDLE` (7).
 
 ## 5. Safety
 *   **Abort**: Any `IDLE` or `LOCK` command from the user must instantly terminate the calibration and stop the motors.
