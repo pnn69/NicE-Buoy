@@ -2,7 +2,7 @@
 #include "RoboTone.h"
 
 // Input sequence for the first 20 notes of Chopin's "Funeral March" with rounded frequencies
-Buzz melody[20] = {
+Buzz melody_funeral[20] = {
     {117, 500, 0, 0}, // B♭2 (116.54 Hz rounded to 117)
     {117, 500, 0, 0}, // B♭2 (116.54 Hz rounded to 117)
     {117, 500, 0, 0}, // B♭2 (116.54 Hz rounded to 117)
@@ -23,6 +23,24 @@ Buzz melody[20] = {
     {185, 500, 0, 0}, // F♯3 (185.00 Hz rounded to 185)
     {117, 500, 0, 0}, // B♭2 (116.54 Hz rounded to 117)
     {175, 500, 0, 0}  // F3 (174.61 Hz rounded to 175)
+};
+
+// PI2NOS timeout melody (commonly reproduced approximation)
+// No pause between notes
+Buzz melody_pi2nos[13] = {
+    {392, 200, 0, 0}, // G4 (392.00 Hz)
+    {440, 200, 0, 0}, // A4 (440.00 Hz)
+    {523, 200, 0, 0}, // C5 (523.25 Hz -> 523)
+    {440, 200, 0, 0}, // A4 (440.00 Hz)
+    {392, 200, 0, 0}, // G4 (392.00 Hz)
+    {330, 200, 0, 0}, // E4 (329.63 Hz -> 330)
+    {294, 200, 0, 0}, // D4 (293.66 Hz -> 294)
+    {330, 200, 0, 0}, // E4
+    {392, 200, 0, 0}, // G4
+    {440, 200, 0, 0}, // A4
+    {392, 200, 0, 0}, // G4
+    {330, 220, 0, 0}, // E4
+    {262, 320, 0, 0}  // C4 (261.63 Hz -> 262) final tone
 };
 
 // Hz, duration, repeat ,pauze

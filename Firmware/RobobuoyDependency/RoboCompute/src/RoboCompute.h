@@ -101,8 +101,8 @@ typedef enum
     RAWCOMPASSDATA,                   // Raw Compass Data acc xyz gyro xyz mag xyz
     STORE_COMPASS_OFFSET,             // Store compass Offset
     CALC_COMPASS_OFFSET,              // compute compass Offset tov magnetic north
-    INFIELD_CALIBRATE = 70,           // In-field compass calibration
-    INFIELD_OFFSET_CALIBRATE = 71,    // In-field compass offset calibration
+    INFIELD_CALIBRATE,                // In-field compass calibration
+    INFIELD_OFFSET_CALIBRATE,         // In-field compass offset calibration
     RESET_RUDDER_PID,                 // reset rudder pid
     RESET_SPEED_PID,                  // reset speed pid
     RESET_SPEED_RUD_PID,              // reset speed and rudder pid

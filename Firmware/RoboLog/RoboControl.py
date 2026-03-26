@@ -143,8 +143,8 @@ class RoboMonitor:
             legend_frame.pack(fill="x", padx=5, pady=(0, 5))
             tk.Label(legend_frame, text="■ Target", fg="red", font=("Arial", 8)).pack(side="left", expand=True)
             tk.Label(legend_frame, text="■ Mag", fg="green", font=("Arial", 8)).pack(side="left", expand=True)
-            tk.Label(legend_frame, text="■ GPS", fg="black", font=("Arial", 8)).pack(side="left", expand=True)
             tk.Label(legend_frame, text="■ Wind", fg="blue", font=("Arial", 8)).pack(side="left", expand=True)
+            tk.Label(legend_frame, text="■ GPS", fg="black", font=("Arial", 8)).pack(side="left", expand=True)
             
             # Control Buttons
             btn_frame = ttk.Frame(frame)
@@ -293,12 +293,29 @@ class RoboMonitor:
             b['data'].pop(key, None)
             
         loading_win = tk.Toplevel(self.master)
-        loading_win.title("Loading...")
-        loading_win.geometry("250x100")
+        loading_win.title("Loading Setup...")
+        loading_win.geometry("300x200")
         loading_win.resizable(False, False)
         
-        ttk.Label(loading_win, text=f"Getting PID info for Buoy {b['id']}", font=("Arial", 10, "bold")).pack(pady=(20, 5))
-        ttk.Label(loading_win, text="Please wait...").pack()
+        ttk.Label(loading_win, text=f"Getting Setup info for Buoy {b['id']}", font=("Arial", 10, "bold")).pack(pady=(15, 10))
+        
+        status_frame = ttk.Frame(loading_win)
+        status_frame.pack(fill="x", padx=20)
+        
+        ttk.Label(status_frame, text="Rudder PID:").grid(row=0, column=0, sticky="w", pady=2)
+        rudder_status_lbl = tk.Label(status_frame, text="Waiting...", fg="red", font=("Arial", 9))
+        rudder_status_lbl.grid(row=0, column=1, sticky="w", padx=10, pady=2)
+        
+        ttk.Label(status_frame, text="Speed PID:").grid(row=1, column=0, sticky="w", pady=2)
+        speed_status_lbl = tk.Label(status_frame, text="Waiting...", fg="red", font=("Arial", 9))
+        speed_status_lbl.grid(row=1, column=1, sticky="w", padx=10, pady=2)
+        
+        ttk.Label(status_frame, text="Speed Limits:").grid(row=2, column=0, sticky="w", pady=2)
+        limits_status_lbl = tk.Label(status_frame, text="Waiting...", fg="red", font=("Arial", 9))
+        limits_status_lbl.grid(row=2, column=1, sticky="w", padx=10, pady=2)
+
+        info_lbl = ttk.Label(loading_win, text="Please wait...", font=("Arial", 8, "italic"))
+        info_lbl.pack(pady=(15, 0))
         
         current_t = time.time()
         udp_active = b['last_udp_time'] > 0 and (current_t - b['last_udp_time'] < 5)
@@ -311,32 +328,45 @@ class RoboMonitor:
             has_speed = all(k in b['data'] for k in ["Kps", "Kis", "Kds"])
             has_maxmin = all(k in b['data'] for k in ["maxSpeed", "minSpeed", "pivotSpeed"])
             
+            if has_rudder:
+                rudder_status_lbl.config(text="Received ✓", fg="green")
+            if has_speed:
+                speed_status_lbl.config(text="Received ✓", fg="green")
+            if has_maxmin:
+                limits_status_lbl.config(text="Received ✓", fg="green")
+            
             if has_rudder and has_speed and has_maxmin:
                 loading_win.destroy()
                 self.open_setup_window(b)
             else:
-                if retries >= 12: # 6 seconds total (1s UDP + 5s LoRa, or just 6s LoRa)
+                if retries >= 30: # 15 seconds total max
                     self.log_message(f"Timeout: Could not retrieve PID data for Buoy {b['id']}")
-                    loading_win.destroy()
+                    info_lbl.config(text="Timeout occurred.", foreground="red")
+                    loading_win.after(2000, loading_win.destroy)
                     return
 
                 if udp_active:
                     if retries == 0:
-                        # Initial attempt: UDP only
+                        # Initial attempt: UDP only. Use ACK=0 (LORAGET) to ask Sub for real data.
                         self.send_custom_udp_command(b['id'], f"{b['id']},99,1,55,0,0,0,0,0,0,0", use_udp=True, use_lora=False)
                         self.send_custom_udp_command(b['id'], f"{b['id']},99,1,57,0,0,0,0,0,0,0", use_udp=True, use_lora=False)
                         self.send_custom_udp_command(b['id'], f"{b['id']},99,1,68,0,0,0,0,0,0,0", use_udp=True, use_lora=False)
-                    elif retries >= 2 and (retries - 2) % 4 == 0:
-                        # After 1 second (retries >= 2) and every 2 seconds thereafter: LoRa with LORAGETACK
-                        self.send_custom_udp_command(b['id'], f"{b['id']},99,3,55,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
-                        self.send_custom_udp_command(b['id'], f"{b['id']},99,3,57,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
-                        self.send_custom_udp_command(b['id'], f"{b['id']},99,3,68,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
+                    elif retries >= 2:
+                        # Fallback to LoRa, spaced out. Use ACK=1 (LORAGET) to avoid ACK storms.
+                        if not has_rudder and retries % 6 == 2:
+                            self.send_custom_udp_command(b['id'], f"{b['id']},99,1,55,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
+                        if not has_speed and retries % 6 == 4:
+                            self.send_custom_udp_command(b['id'], f"{b['id']},99,1,57,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
+                        if not has_maxmin and retries % 6 == 0:
+                            self.send_custom_udp_command(b['id'], f"{b['id']},99,1,68,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
                 else:
-                    if retries % 4 == 0:
-                        # Immediately use LoRa and repeat every 2 seconds
-                        self.send_custom_udp_command(b['id'], f"{b['id']},99,3,55,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
-                        self.send_custom_udp_command(b['id'], f"{b['id']},99,3,57,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
-                        self.send_custom_udp_command(b['id'], f"{b['id']},99,3,68,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
+                    # LoRa only, space them out to prevent half-duplex collisions
+                    if not has_rudder and retries % 6 == 0:
+                        self.send_custom_udp_command(b['id'], f"{b['id']},99,1,55,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
+                    if not has_speed and retries % 6 == 2:
+                        self.send_custom_udp_command(b['id'], f"{b['id']},99,1,57,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
+                    if not has_maxmin and retries % 6 == 4:
+                        self.send_custom_udp_command(b['id'], f"{b['id']},99,1,68,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
                 
                 self.master.after(500, check_data_and_open, retries + 1)
 
@@ -345,17 +375,34 @@ class RoboMonitor:
     def open_setup_window(self, b):
         setup_win = tk.Toplevel(self.master)
         setup_win.title(f"Setup Buoy {b['id']}")
-        setup_win.geometry("350x600")
-        setup_win.resizable(False, False)
+        setup_win.geometry("350x850")
+        setup_win.resizable(True, True)
         
         def on_setup_close():
             b['setup_entries'] = None
             setup_win.destroy()
         setup_win.protocol("WM_DELETE_WINDOW", on_setup_close)
-        
-        # Main container with padding
-        main_setup_frame = ttk.Frame(setup_win, padding="20")
-        main_setup_frame.pack(expand=True, fill="both")
+
+        # Create a canvas and a scrollbar for scrolling
+        canvas = tk.Canvas(setup_win)
+        scrollbar = ttk.Scrollbar(setup_win, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas, padding="20")
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Main container (now inside the scrollable_frame)
+        main_setup_frame = scrollable_frame
 
         ttk.Label(main_setup_frame, text="Rudder PID", font=("Arial", 11, "bold")).grid(row=0, column=0, columnspan=2, pady=(0, 10))
         
