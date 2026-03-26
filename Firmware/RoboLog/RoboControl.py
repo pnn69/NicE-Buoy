@@ -608,8 +608,7 @@ class RoboMonitor:
         param_names = [
             "Timestamp",
             "Target Dir (tgDir)", "Magnetic Dir (mDir)",
-            "GPS Dir (gpsDir)", "Wind Dir (wDir)", "Wind StdDev (wStd)",
-            "Bow Thruster (BB)", "Stern Thruster (SB)",
+            "Wind Dir (wDir)", "Wind StdDev (wStd)",
             "PID I-term (IP)", "PID R-term (IR)",
             "Sub Battery V",
             "GPS Fix", "GPS Satellites (GpsSat)"
@@ -855,40 +854,40 @@ class RoboMonitor:
                         if val and not entry.get():
                             entry.insert(0, val)
 
+                # --- Update visual indicators independently of the labels list ---
+                for thrust_name in ["Bow Thruster (BB)", "Stern Thruster (SB)"]:
+                    val = data.get(thrust_name, "N/A")
+                    if current_status == "7":
+                        val = "0"
+                        
+                    canvas = b['bb_bar'] if thrust_name == "Bow Thruster (BB)" else b['sb_bar']
+                    bar_label = b['bb_val_label'] if thrust_name == "Bow Thruster (BB)" else b['sb_val_label']
+                    
+                    canvas.delete("bar")
+                    if val != "N/A":
+                        try:
+                            v = float(val)
+                            bar_height = abs(v) * 0.9
+                            if v >= 0:
+                                canvas.create_rectangle(0, 90 - bar_height, 20, 90, fill="green", outline="green", tags="bar")
+                            else:
+                                canvas.create_rectangle(0, 90, 20, 90 + bar_height, fill="red", outline="red", tags="bar")
+                            bar_label.config(text=f"{val}%")
+                        except ValueError: pass
+                    else:
+                        bar_label.config(text="N/A")
+
+                volt_val = data.get("Sub Battery V", "N/A")
+                if volt_val != "N/A":
+                    try:
+                        v = float(volt_val)
+                        b['volt_bar']['value'] = max(0, min(8.2, v - 17.0))
+                    except ValueError: pass
+                # ---------------------------------------------------------------
+
                 for name, label_widget in labels.items():
-                    if name in ["Bow Thruster (BB)", "Stern Thruster (SB)"]:
-                        val = data.get(name, "N/A")
-                        
-                        # Force visual bars to 0 if IDLE
-                        if current_status == "7":
-                            val = "0"
-                            
-                        canvas = b['bb_bar'] if name == "Bow Thruster (BB)" else b['sb_bar']
-                        label = b['bb_val_label'] if name == "Bow Thruster (BB)" else b['sb_val_label']
-                        
-                        canvas.delete("bar")
-                        if val != "N/A":
-                            try:
-                                v = float(val)
-                                bar_height = abs(v) * 0.9
-                                if v >= 0:
-                                    canvas.create_rectangle(0, 90 - bar_height, 20, 90, fill="green", outline="green", tags="bar")
-                                else:
-                                    canvas.create_rectangle(0, 90, 20, 90 + bar_height, fill="red", outline="red", tags="bar")
-                                label.config(text=f"{val}%")
-                            except ValueError: pass
-                        else:
-                            label.config(text="N/A")
-                            
-                        label_widget.config(text=f"{val}%" if val != "N/A" else val)
-                    elif name == "Sub Battery V":
-                        val = data.get(name, "N/A")
-                        if val != "N/A":
-                            try:
-                                v = float(val)
-                                b['volt_bar']['value'] = max(0, min(8.2, v - 17.0))
-                            except ValueError: pass
-                        label_widget.config(text=val)
+                    if name == "Sub Battery V":
+                        label_widget.config(text=volt_val)
                     elif name in ["Target Dir (tgDir)", "Magnetic Dir (mDir)", "GPS Dir (gpsDir)", "Wind Dir (wDir)"]:
                         val = data.get(name, "N/A")
                         if val != "N/A":
