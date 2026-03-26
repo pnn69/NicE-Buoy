@@ -15,10 +15,11 @@ Implement an autonomous "In-Field Offset Calibration" routine to align the magne
 
 ## 3. Sub Firmware State Machine (RobobuoySub)
 *   **Trigger Handling**: When `CMD 71` is received, set buoy status to `71` and start the sequence.
-*   **Calibration Sequence (Total ~260 seconds)**:
-    *   **Phase 0 (0-10s) - Stabilization**: 
+*   **Calibration Sequence (Total ~300+ seconds)**:
+    *   **Phase 0 (0-10s) - Initialization & Home**:
+        *   **RECORD HOME (P0)**: Record current `Lat0, Lon0`. This is the point we want to return to.
         *   Set `target_heading = 180.0` (Magnetic South).
-        *   Engage thrusters at `50%` speed.
+        *   Engage thrusters at `50%` speed to stabilize.
     *   **Phase 1 (at 10s) - Record Start Point (P1)**:
         *   Record `Lat1, Lon1`.
     *   **Phase 2 (10s - 130s) - Calibration Leg**:
@@ -28,29 +29,32 @@ Implement an autonomous "In-Field Offset Calibration" routine to align the magne
         *   Record `Lat2, Lon2`.
         *   **IMMEDIATE CALCULATION**: Calculate the GPS course from P1 to P2. Calculate the error vs 180.0°.
         *   **APPLY & STORE**: Update `compassCalc.compassOffset` and call `CompasOffset(&compassCalc, SET)`.
-        *   **RE-INITIALIZE**: Call `InitCompass()` to ensure the new offset is active in the heading math.
-    *   **Phase 4 (130s - 250s) - Return Leg (Sailing back to P1)**:
+        *   **RE-INITIALIZE**: Call `InitCompass()` to ensure the new offset is active.
+    *   **Phase 4 (130s - 250s) - Return Leg (Verification)**:
         *   Set `target_heading = 0.0` (Magnetic North) to return towards the starting point.
-        *   **CRITICAL**: This leg MUST use the **newly calibrated `compassOffset`** calculated in Phase 3. 
-        *   Sail for another 120 seconds using only the compass to maintain the 0.0° heading.
+        *   Use the **newly calibrated `compassOffset`**.
+        *   Sail for 120 seconds using only the compass.
     *   **Phase 5 (at 250s) - Record Final Point (P3)**:
         *   Record `Lat3, Lon3`.
-        *   Stop the thrusters (`bb = 0`, `sb = 0`).
-        *   Play a completion tone and return status to `IDLE` (7).
+        *   **VALIDATE**: Calculate the GPS track from P2 to P3. 
+    *   **Phase 6 (Final) - Return Home**:
+        *   If the validation error is within a reasonable range (informative), the buoy should now engage its standard navigation logic.
+        *   Set `targetLat = Lat0, targetLon = Lon0` (The Home position).
+        *   Navigate back to the starting point using the fully calibrated GPS + Compass system.
+        *   Once within range (e.g., 2m), stop thrusters and return to `IDLE` (7).
 
 ## 4. Calculation & Validation
 *   **Protocol Note**: Since the buoy moves too slowly for reliable real-time GPS Course-Over-Ground (COG), all validation must be done using point-to-point coordinate math.
 *   **Leg 1 Analysis (Calibration)**:
     *   `GPS_Course_1 = calculateAngle(Lat1, Lon1, Lat2, Lon2)`.
     *   `New_Offset = GPS_Course_1 - 180.0`. This aligns the 180° Magnetic heading with the actual GPS path taken.
-*   **Leg 2 Analysis (Verification of New Settings)**:
+*   **Leg 2 Analysis (Verification)**:
     *   `GPS_Course_2 = calculateAngle(Lat2, Lon2, Lat3, Lon3)`.
     *   `Validation_Error = abs(GPS_Course_2 - 0.0)` (normalized). 
-    *   **Verification Logic**: If the new offset is correct, sailing at Magnetic 0.0° should now result in an actual GPS track of 0.0° True North. 
-*   **Persistence**:
-    *   The `compassOffset` is stored at the end of Phase 3, ensuring it is saved even if Phase 4 is interrupted.
+*   **Leg 3 (Navigation)**: 
+    *   The final leg back to P0 serves as the real-world test of the autonomous station-keeping capability with the fresh calibration.
 *   **Completion**:
-    *   Log both `GPS_Course_1` (the path that generated the offset) and `GPS_Course_2` (the path that verified the offset) to Serial. If `GPS_Course_2` is near 0.0°, the calibration is confirmed.
+    *   Log `GPS_Course_1`, `GPS_Course_2`, and `New_Offset` to Serial. Play a completion tone once the buoy is back at P0.
 
 ## 5. Safety
 *   **Abort**: Any `IDLE` or `LOCK` command from the user must instantly terminate the calibration and stop the motors.
