@@ -306,6 +306,11 @@ class RoboMonitor:
                 loading_win.destroy()
                 self.open_setup_window(b)
             else:
+                if retries >= 12: # 6 seconds total (1s UDP + 5s LoRa)
+                    self.log_message(f"Timeout: Could not retrieve PID data for Buoy {b['id']}")
+                    loading_win.destroy()
+                    return
+
                 if retries == 0:
                     # Initial attempt: UDP only
                     self.send_custom_udp_command(b['id'], f"{b['id']},99,1,55,0,0,0,0,0,0,0", use_udp=True, use_lora=False)
