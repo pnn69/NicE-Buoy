@@ -306,10 +306,17 @@ class RoboMonitor:
                 loading_win.destroy()
                 self.open_setup_window(b)
             else:
-                if retries % 4 == 0: # Send request initially and every 2 seconds
-                    self.send_custom_udp_command(b['id'], f"{b['id']},99,3,55,0,0,0,0,0,0,0")
-                    self.send_custom_udp_command(b['id'], f"{b['id']},99,3,57,0,0,0,0,0,0,0")
-                    self.send_custom_udp_command(b['id'], f"{b['id']},99,3,68,0,0,0,0,0,0,0")
+                if retries == 0:
+                    # Initial attempt: UDP only
+                    self.send_custom_udp_command(b['id'], f"{b['id']},99,1,55,0,0,0,0,0,0,0", use_udp=True, use_lora=False)
+                    self.send_custom_udp_command(b['id'], f"{b['id']},99,1,57,0,0,0,0,0,0,0", use_udp=True, use_lora=False)
+                    self.send_custom_udp_command(b['id'], f"{b['id']},99,1,68,0,0,0,0,0,0,0", use_udp=True, use_lora=False)
+                elif retries >= 2 and (retries - 2) % 4 == 0:
+                    # After 1 second (retries >= 2) and every 2 seconds thereafter: LoRa with LORAGETACK
+                    self.send_custom_udp_command(b['id'], f"{b['id']},99,3,55,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
+                    self.send_custom_udp_command(b['id'], f"{b['id']},99,3,57,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
+                    self.send_custom_udp_command(b['id'], f"{b['id']},99,3,68,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
+                
                 self.master.after(500, check_data_and_open, retries + 1)
 
         check_data_and_open()
@@ -417,39 +424,39 @@ class RoboMonitor:
                 entry.delete(0, tk.END)
                 entry.insert(0, val)
 
-    def send_custom_udp_command(self, target_id, base_msg):
+    def send_custom_udp_command(self, target_id, base_msg, use_udp=True, use_lora=True):
         crc = 0
         for char in base_msg:
             crc ^= ord(char)
         full_msg = f"${base_msg}*{crc:02X}"
         
-        # --- UDP DISABLED FOR LORA TESTING ---
-        # target_ip = "255.255.255.255"
-        # for b in self.buoy_frames:
-        #     if b['id'] == target_id and b['data'].get("IP"):
-        #         target_ip = b['data']["IP"]
-        #         break
-        # 
-        # try:
-        #     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        #         s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        #         s.sendto(full_msg.encode(), (target_ip, 1001))
-        #     self.log_message(f"SENT UDP TO {target_id} ({target_ip}): {full_msg}")
-        # except Exception as e:
-        #     self.log_message(f"UDP SEND ERROR: {e}")
-        # -------------------------------------
+        if use_udp:
+            target_ip = "255.255.255.255"
+            for b in self.buoy_frames:
+                if b['id'] == target_id and b['data'].get("IP"):
+                    target_ip = b['data']["IP"]
+                    break
             
-        # Send via Serial (LoRa)
-        if self.serial_conn and self.serial_conn.is_open:
             try:
-                self.serial_conn.write((full_msg + "\n").encode())
-                self.log_message(f"SENT LORA TO {target_id}: {full_msg}")
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                    s.sendto(full_msg.encode(), (target_ip, 1001))
+                self.log_message(f"SENT UDP TO {target_id} ({target_ip}): {full_msg}")
             except Exception as e:
-                self.log_message(f"LORA SEND ERROR: {e}")
-        else:
-            self.log_message("LORA NOT CONNECTED - COMMAND DROPPED")
+                self.log_message(f"UDP SEND ERROR: {e}")
+            
+        if use_lora:
+            # Send via Serial (LoRa)
+            if self.serial_conn and self.serial_conn.is_open:
+                try:
+                    self.serial_conn.write((full_msg + "\n").encode())
+                    self.log_message(f"SENT LORA TO {target_id}: {full_msg}")
+                except Exception as e:
+                    self.log_message(f"LORA SEND ERROR: {e}")
+            else:
+                self.log_message("LORA NOT CONNECTED - COMMAND DROPPED")
 
-    def send_udp_command(self, target_id, cmd_id):
+    def send_udp_command(self, target_id, cmd_id, use_udp=True, use_lora=True):
         if target_id is None:
             target_id = "1"
         
@@ -459,31 +466,31 @@ class RoboMonitor:
             crc ^= ord(char)
         full_msg = f"${base_msg}*{crc:02X}"
         
-        # --- UDP DISABLED FOR LORA TESTING ---
-        # target_ip = "255.255.255.255"
-        # for b in self.buoy_frames:
-        #     if b['id'] == target_id and b['data'].get("IP"):
-        #         target_ip = b['data']["IP"]
-        #         break
-        # 
-        # try:
-        #     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        #         s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        #         s.sendto(full_msg.encode(), (target_ip, 1001))
-        #     self.log_message(f"SENT UDP TO {target_id} ({target_ip}): {full_msg}")
-        # except Exception as e:
-        #     self.log_message(f"UDP SEND ERROR: {e}")
-        # -------------------------------------
+        if use_udp:
+            target_ip = "255.255.255.255"
+            for b in self.buoy_frames:
+                if b['id'] == target_id and b['data'].get("IP"):
+                    target_ip = b['data']["IP"]
+                    break
             
-        # Send via Serial (LoRa)
-        if self.serial_conn and self.serial_conn.is_open:
             try:
-                self.serial_conn.write((full_msg + "\n").encode())
-                self.log_message(f"SENT LORA TO {target_id}: {full_msg}")
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                    s.sendto(full_msg.encode(), (target_ip, 1001))
+                self.log_message(f"SENT UDP TO {target_id} ({target_ip}): {full_msg}")
             except Exception as e:
-                self.log_message(f"LORA SEND ERROR: {e}")
-        else:
-            self.log_message("LORA NOT CONNECTED - COMMAND DROPPED")
+                self.log_message(f"UDP SEND ERROR: {e}")
+            
+        if use_lora:
+            # Send via Serial (LoRa)
+            if self.serial_conn and self.serial_conn.is_open:
+                try:
+                    self.serial_conn.write((full_msg + "\n").encode())
+                    self.log_message(f"SENT LORA TO {target_id}: {full_msg}")
+                except Exception as e:
+                    self.log_message(f"LORA SEND ERROR: {e}")
+            else:
+                self.log_message("LORA NOT CONNECTED - COMMAND DROPPED")
 
     def refresh_ports(self):
         ports = [port.device for port in serial.tools.list_ports.comports()]
