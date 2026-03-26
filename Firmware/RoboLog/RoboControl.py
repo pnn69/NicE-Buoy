@@ -180,16 +180,6 @@ class RoboMonitor:
             map_btn = ttk.Button(dirdist_frame, text="Map", width=6, command=lambda idx=i: self.on_map_click(idx))
             map_btn.pack(side="left", padx=2)
 
-            # Calibration Buttons
-            calib_frame = ttk.Frame(frame)
-            calib_frame.pack(fill="x", padx=5, pady=2)
-            
-            calib_comp_btn = ttk.Button(calib_frame, text="In-Field Calib", command=lambda idx=i: self.on_infield_calib_click(idx))
-            calib_comp_btn.pack(side="left", expand=True, fill="x", padx=1)
-            
-            calib_off_btn = ttk.Button(calib_frame, text="In-Field Offset", command=lambda idx=i: self.on_infield_offset_click(idx))
-            calib_off_btn.pack(side="left", expand=True, fill="x", padx=1)
-
             # Parameters below
             params_frame = ttk.Frame(frame)
             params_frame.pack(expand=True, fill="both", padx=5, pady=5)
@@ -448,6 +438,17 @@ class RoboMonitor:
 
         ttk.Button(main_setup_frame, text="Send Speed Limits", command=send_speed_limits).grid(row=14, column=0, columnspan=2, pady=(10, 5))
         
+        # --- In-Field Calibration Section ---
+        calib_frame = ttk.LabelFrame(main_setup_frame, text="In-Field Calibration", padding="10")
+        calib_frame.grid(row=15, column=0, columnspan=2, sticky="ew", pady=(15, 0))
+        
+        calib_comp_btn = ttk.Button(calib_frame, text="Compass Calibration", command=lambda: self.on_infield_calib_click(b))
+        calib_comp_btn.pack(fill="x", pady=2)
+        
+        calib_off_btn = ttk.Button(calib_frame, text="Offset Calibration", command=lambda: self.on_infield_offset_click(b))
+        calib_off_btn.pack(fill="x", pady=2)
+        # ------------------------------------
+        
         b['setup_entries'] = {
             "Kpr": kpr_entry, "Kir": kir_entry, "Kdr": kdr_entry,
             "Kps": kps_entry, "Kis": kis_entry, "Kds": kds_entry,
@@ -461,8 +462,7 @@ class RoboMonitor:
                 entry.delete(0, tk.END)
                 entry.insert(0, val)
 
-    def on_infield_calib_click(self, idx):
-        b = self.buoy_frames[idx]
+    def on_infield_calib_click(self, b):
         if not b['id']: return
         
         response = messagebox.askyesno(
@@ -475,8 +475,7 @@ class RoboMonitor:
             self.send_custom_udp_command(b['id'], base_msg)
             self.log_message(f"Triggered In-Field Compass Calibration for Buoy {b['id']}")
 
-    def on_infield_offset_click(self, idx):
-        b = self.buoy_frames[idx]
+    def on_infield_offset_click(self, b):
         if not b['id']: return
         
         response = messagebox.askyesno(
