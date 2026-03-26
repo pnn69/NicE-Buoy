@@ -607,7 +607,7 @@ class RoboMonitor:
         labels = {}
         param_names = [
             "Timestamp",
-            "Target Dist (tgDist)", "Target Dir (tgDir)", "Magnetic Dir (mDir)",
+            "Target Dir (tgDir)", "Magnetic Dir (mDir)",
             "GPS Dir (gpsDir)", "Wind Dir (wDir)", "Wind StdDev (wStd)",
             "Bow Thruster (BB)", "Stern Thruster (SB)",
             "PID I-term (IP)", "PID R-term (IR)",
@@ -894,13 +894,6 @@ class RoboMonitor:
                         if val != "N/A":
                             try:
                                 val = f"{float(val):.0f}"
-                            except ValueError: pass
-                        label_widget.config(text=val)
-                    elif name == "Target Dist (tgDist)":
-                        val = data.get(name, "N/A")
-                        if val != "N/A":
-                            try:
-                                val = f"{float(val):.2f}"
                             except ValueError: pass
                         label_widget.config(text=val)
                     else:
