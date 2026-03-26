@@ -140,6 +140,7 @@ float heading_corrected(const Vec3 &from)
 void InitCompass(void)
 {
     Wire.begin();
+    Wire.setClock(400000); // Set I2C to 400kHz
     if (!accel.begin()) Serial.println("Unable to initialize LSM303 accelerometer");
     if (!mag.begin()) {
         Serial.println("Unable to initialize LSM303 magnetometer");
@@ -195,12 +196,12 @@ bool CalibrateCompass(void)
     {
         if (mag.getEvent(&event)) {
             if (abs(event.magnetic.x) < 200 && abs(event.magnetic.y) < 200 && abs(event.magnetic.z) < 200) {
-                min_mag[0] = min(min_mag[0], event.magnetic.x);
-                max_mag[0] = max(max_mag[0], event.magnetic.x);
-                min_mag[1] = min(min_mag[1], event.magnetic.y);
-                max_mag[1] = max(max_mag[1], event.magnetic.y);
-                min_mag[2] = min(min_mag[2], event.magnetic.z);
-                max_mag[2] = max(max_mag[2], event.magnetic.z);
+                min_mag[0] = std::min(min_mag[0], event.magnetic.x);
+                max_mag[0] = std::max(max_mag[0], event.magnetic.x);
+                min_mag[1] = std::min(min_mag[1], event.magnetic.y);
+                max_mag[1] = std::max(max_mag[1], event.magnetic.y);
+                min_mag[2] = std::min(min_mag[2], event.magnetic.z);
+                max_mag[2] = std::max(max_mag[2], event.magnetic.z);
                 
                 compassCalc.magHard[0] = event.magnetic.x;
                 compassCalc.magHard[1] = event.magnetic.y;
