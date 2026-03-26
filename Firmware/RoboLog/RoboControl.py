@@ -439,7 +439,17 @@ class RoboMonitor:
                 entry.delete(0, tk.END)
                 entry.insert(0, val)
 
-    def send_custom_udp_command(self, target_id, base_msg, use_udp=True, use_lora=True):
+    def send_custom_udp_command(self, target_id, base_msg, use_udp=True, use_lora=None):
+        # If use_lora is None, treat LoRa as a backup: only use if UDP is inactive
+        if use_lora is None:
+            use_lora = True # Default to True
+            for b in self.buoy_frames:
+                if b['id'] == target_id:
+                    current_t = time.time()
+                    if b['last_udp_time'] > 0 and (current_t - b['last_udp_time'] < 5):
+                        use_lora = False # UDP is healthy, don't use backup LoRa
+                    break
+
         crc = 0
         for char in base_msg:
             crc ^= ord(char)
@@ -469,11 +479,21 @@ class RoboMonitor:
                 except Exception as e:
                     self.log_message(f"LORA SEND ERROR: {e}")
             else:
-                self.log_message("LORA NOT CONNECTED - COMMAND DROPPED")
+                self.log_message(f"LORA BACKUP SKIPPED (NOT CONNECTED) - {target_id}")
 
-    def send_udp_command(self, target_id, cmd_id, use_udp=True, use_lora=True):
+    def send_udp_command(self, target_id, cmd_id, use_udp=True, use_lora=None):
         if target_id is None:
             target_id = "1"
+
+        # If use_lora is None, treat LoRa as a backup: only use if UDP is inactive
+        if use_lora is None:
+            use_lora = True 
+            for b in self.buoy_frames:
+                if b['id'] == target_id:
+                    current_t = time.time()
+                    if b['last_udp_time'] > 0 and (current_t - b['last_udp_time'] < 5):
+                        use_lora = False 
+                    break
         
         base_msg = f"{target_id},99,3,{cmd_id},7"
         crc = 0
@@ -505,7 +525,7 @@ class RoboMonitor:
                 except Exception as e:
                     self.log_message(f"LORA SEND ERROR: {e}")
             else:
-                self.log_message("LORA NOT CONNECTED - COMMAND DROPPED")
+                self.log_message(f"LORA BACKUP SKIPPED (NOT CONNECTED) - {target_id}")
 
     def refresh_ports(self):
         ports = [port.device for port in serial.tools.list_ports.comports()]
