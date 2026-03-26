@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox
 import socket
 import threading
 import time
@@ -178,6 +179,16 @@ class RoboMonitor:
             
             map_btn = ttk.Button(dirdist_frame, text="Map", width=6, command=lambda idx=i: self.on_map_click(idx))
             map_btn.pack(side="left", padx=2)
+
+            # Calibration Buttons
+            calib_frame = ttk.Frame(frame)
+            calib_frame.pack(fill="x", padx=5, pady=2)
+            
+            calib_comp_btn = ttk.Button(calib_frame, text="In-Field Calib", command=lambda idx=i: self.on_infield_calib_click(idx))
+            calib_comp_btn.pack(side="left", expand=True, fill="x", padx=1)
+            
+            calib_off_btn = ttk.Button(calib_frame, text="In-Field Offset", command=lambda idx=i: self.on_infield_offset_click(idx))
+            calib_off_btn.pack(side="left", expand=True, fill="x", padx=1)
 
             # Parameters below
             params_frame = ttk.Frame(frame)
@@ -449,6 +460,34 @@ class RoboMonitor:
             if val:
                 entry.delete(0, tk.END)
                 entry.insert(0, val)
+
+    def on_infield_calib_click(self, idx):
+        b = self.buoy_frames[idx]
+        if not b['id']: return
+        
+        response = messagebox.askyesno(
+            "Confirm In-Field Compass Calibration",
+            f"Deploying In-Field Compass Calibration will cause Buoy {b['id']} to move autonomously in circles for ~3 minutes.\n\nEnsure the area is clear. Continue?"
+        )
+        if response:
+            # CMD=70, STATUS=0
+            base_msg = f"{b['id']},99,0,70,0,0,0,0,0,0,0"
+            self.send_custom_udp_command(b['id'], base_msg)
+            self.log_message(f"Triggered In-Field Compass Calibration for Buoy {b['id']}")
+
+    def on_infield_offset_click(self, idx):
+        b = self.buoy_frames[idx]
+        if not b['id']: return
+        
+        response = messagebox.askyesno(
+            "Confirm In-Field Offset Calibration",
+            f"Deploying In-Field Offset Calibration will cause Buoy {b['id']} to sail South for ~2 minutes, then return North.\n\nEnsure you have enough open water to the South. Continue?"
+        )
+        if response:
+            # CMD=71, STATUS=0
+            base_msg = f"{b['id']},99,0,71,0,0,0,0,0,0,0"
+            self.send_custom_udp_command(b['id'], base_msg)
+            self.log_message(f"Triggered In-Field Offset Calibration for Buoy {b['id']}")
 
     def send_custom_udp_command(self, target_id, base_msg, use_udp=True, use_lora=None):
         # Determine if UDP is allowed for this target

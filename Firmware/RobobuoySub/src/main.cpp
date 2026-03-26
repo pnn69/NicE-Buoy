@@ -371,7 +371,16 @@ void handelSerandRfdata(RoboStruct *ser)
             ser->status = IDELING;
             xQueueSend(serOut, (void *)ser, 10);
             ser->status = IDLE;
-            case MAXMINPWR:
+            break;
+        case INFIELD_CALIBRATE:
+            printf("Starting In-Field Compass Calibration...\r\n");
+            ser->status = INFIELD_CALIBRATE;
+            {
+                int cmd = INFIELD_CALIBRATE;
+                xQueueSend(compassIn, (void *)&cmd, 10);
+            }
+            break;
+        case MAXMINPWR:
                 if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
                 {
                     ser->IDr = dataIn.IDs;

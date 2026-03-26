@@ -255,6 +255,89 @@ void calibrateParametersCompas(void)
     xQueueSend(ledStatus, (void *)&compassLedStatus, 10);
 }
 
+void infieldCompassCalibration(void)
+{
+    sensors_event_t event;
+    Serial.println("Starting In-Field Compass Calibration (3 mins)...");
+    
+    compassLedStatus.color = CRGB::Purple; compassLedStatus.blink = BLINK_FAST;
+    xQueueSend(ledStatus, (void *)&compassLedStatus, 10);
+    compassBuzzerData.hz = 1500; compassBuzzerData.repeat = 5; compassBuzzerData.pause = 50; compassBuzzerData.duration = 100;
+    xQueueSend(buzzer, (void *)&compassBuzzerData, 10);
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    for (int i = 0; i < 3; i++) {
+        min_mag[i] = FLT_MAX;
+        max_mag[i] = -FLT_MAX;
+    }
+
+    auto sampleMag = [&]() {
+        if (mag.getEvent(&event)) {
+            if (abs(event.magnetic.x) < 200 && abs(event.magnetic.y) < 200 && abs(event.magnetic.z) < 200) {
+                min_mag[0] = std::min(min_mag[0], event.magnetic.x);
+                max_mag[0] = std::max(max_mag[0], event.magnetic.x);
+                min_mag[1] = std::min(min_mag[1], event.magnetic.y);
+                max_mag[1] = std::max(max_mag[1], event.magnetic.y);
+                min_mag[2] = std::min(min_mag[2], event.magnetic.z);
+                max_mag[2] = std::max(max_mag[2], event.magnetic.z);
+                
+                compassCalc.magHard[0] = event.magnetic.x;
+                compassCalc.magHard[1] = event.magnetic.y;
+                compassCalc.magHard[2] = event.magnetic.z;
+                compassCalc.cmd = RAWCOMPASSDATA;
+                xQueueOverwrite(serOut, (void *)&compassCalc);
+            }
+        }
+    };
+
+    // Phase 1 (~60s) - Wide Right Turn
+    escOut.speedbb = compassCalc.maxSpeed * 0.20; 
+    escOut.speedsb = compassCalc.maxSpeed * 0.05;
+    xQueueSend(escspeed, (void *)&escOut, 10);
+    unsigned long calstamp = millis();
+    while (millis() - calstamp < 60000) { sampleMag(); vTaskDelay(pdMS_TO_TICKS(50)); }
+
+    // Phase 2 (~60s) - Wide Left Turn
+    escOut.speedbb = compassCalc.maxSpeed * 0.05; 
+    escOut.speedsb = compassCalc.maxSpeed * 0.20;
+    xQueueSend(escspeed, (void *)&escOut, 10);
+    calstamp = millis();
+    while (millis() - calstamp < 60000) { sampleMag(); vTaskDelay(pdMS_TO_TICKS(50)); }
+
+    // Phase 3 (~30s) - Pivot Right
+    escOut.speedbb = compassCalc.maxSpeed * 0.25; 
+    escOut.speedsb = -compassCalc.maxSpeed * 0.25;
+    xQueueSend(escspeed, (void *)&escOut, 10);
+    calstamp = millis();
+    while (millis() - calstamp < 30000) { sampleMag(); vTaskDelay(pdMS_TO_TICKS(50)); }
+
+    // End maneuvers
+    escOut.speedbb = 0; escOut.speedsb = 0;
+    xQueueSend(escspeed, (void *)&escOut, 10);
+
+    compassCalc.magHard[0] = (max_mag[0] + min_mag[0]) / 2.0f;
+    compassCalc.magHard[1] = (max_mag[1] + min_mag[1]) / 2.0f;
+    compassCalc.magHard[2] = (max_mag[2] + min_mag[2]) / 2.0f;
+    
+    for(int i=0; i<3; i++) for(int j=0; j<3; j++) compassCalc.magSoft[i][j] = (i==j) ? 1.0f : 0.0f;
+
+    hardIron(&compassCalc, SET);
+    softIron(&compassCalc, SET);
+    
+    printf("In-Field Calibration done. Hard iron: %.2f, %.2f, %.2f\r\n", compassCalc.magHard[0], compassCalc.magHard[1], compassCalc.magHard[2]);
+
+    compassBuzzerData.hz = 1000; compassBuzzerData.repeat = 2; compassBuzzerData.pause = 100; compassBuzzerData.duration = 200;
+    xQueueSend(buzzer, (void *)&compassBuzzerData, 10);
+    
+    compassLedStatus.color = CRGB::Black; compassLedStatus.blink = BLINK_OFF;
+    xQueueSend(ledStatus, (void *)&compassLedStatus, 10);
+    
+    // Tell top we are done! We signal it by sending an IDLE command back to Top
+    compassCalc.cmd = IDLE;
+    compassCalc.ack = LORAINF;
+    xQueueSend(serOut, (void *)&compassCalc, 10);
+}
+
 void initcompassQueue(void)
 {
     compass = xQueueCreate(1, sizeof(double));
@@ -275,6 +358,7 @@ void CompassTask(void *arg)
         }
         if (xQueueReceive(compassIn, (void *)&cmd, 0) == pdTRUE) {
             if (cmd == CALIBRATE_MAGNETIC_COMPASS) calibrateParametersCompas();
+            else if (cmd == INFIELD_CALIBRATE) infieldCompassCalibration();
         }
         vTaskDelay(pdMS_TO_TICKS(20));
     }

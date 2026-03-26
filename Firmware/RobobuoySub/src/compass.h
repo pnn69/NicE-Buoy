@@ -12,6 +12,7 @@ void InitCompass(void);
 void initcompassQueue(void);
 void calibrateNorthCompas(void);
 void calibrateParametersCompas(void);
+void infieldCompassCalibration(void);
 bool CalibrateCompass(void);
 double GetHeadingRaw(void);
 double CompassAverage(double);

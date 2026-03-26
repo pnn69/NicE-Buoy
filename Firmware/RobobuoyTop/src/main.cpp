@@ -433,10 +433,202 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
 }
 
 //***************************************************************************************************
+//  In-Field Compass Calibration State Machine
+//***************************************************************************************************
+void handleInfieldCompassCalibration(RoboStruct *timer)
+{
+    static unsigned long calibStartTime = 0;
+    static int calibPhase = 0;
+    static double lat0, lon0;
+
+    if (timer->status != INFIELD_CALIBRATE)
+    {
+        calibPhase = 0;
+        return;
+    }
+
+    if (calibPhase == 0)
+    {
+        if (timer->gpsFix)
+        {
+            lat0 = timer->lat;
+            lon0 = timer->lng;
+            calibStartTime = millis();
+            calibPhase = 1;
+            printf("#INFIELD_COMPASS: Phase 0 (Home recorded: %f, %f)\r\n", lat0, lon0);
+            
+            // Trigger sub to do the spins
+            RoboStruct cmdMsg;
+            cmdMsg.cmd = INFIELD_CALIBRATE;
+            cmdMsg.IDs = timer->mac;
+            cmdMsg.ack = LORAINF;
+            xQueueSend(serOut, (void *)&cmdMsg, 0);
+        }
+        else
+        {
+            printf("#INFIELD_COMPASS: Waiting for GPS fix...\r\n");
+            delay(1000);
+            return;
+        }
+    }
+    else if (calibPhase == 1)
+    {
+        // Waiting for sub to finish (takes ~3 mins). Sub will send IDLE command when done.
+        // We catch IDLE in handelRfData / handelSerialData which resets timer->status to IDELING/IDLE.
+        // Wait, if timer->status becomes IDLE, this function exits!
+        // To catch the end, we need to know it finished.
+        // We'll just wait for the timeout (~190s) here as a backup if IDLE isn't caught,
+        // or actually, if we let `handelSerialData` change `status` to `IDLE`, this state machine breaks before returning home!
+        // We should intercept `IDLE` inside handelSerialData, or better, we just check if elapsed time > 160000ms
+        
+        unsigned long elapsed = millis() - calibStartTime;
+        if (elapsed >= 165000) // 165 seconds = 2 mins 45 seconds (3 phases = 60+60+30 + 15 buffer)
+        {
+            printf("#INFIELD_COMPASS: Calibration time complete. Returning to Home (P0).\r\n");
+            timer->tgLat = lat0;
+            timer->tgLng = lon0;
+            timer->status = LOCKED;
+            calibPhase = 0;
+            beep(1000, buzzer);
+        }
+    }
+}
+
+//***************************************************************************************************
+//  In-Field Offset Calibration State Machine
+//***************************************************************************************************
+void handleInfieldOffsetCalibration(RoboStruct *timer)
+{
+    static unsigned long calibStartTime = 0;
+    static int calibPhase = 0;
+    static double lat0, lon0, lat1, lon1, lat2, lon2, lat3, lon3;
+    static unsigned long lastUpdate = 0;
+
+    if (timer->status != INFIELD_OFFSET_CALIBRATE)
+    {
+        calibPhase = 0;
+        return;
+    }
+
+    if (calibPhase == 0)
+    {
+        if (timer->gpsFix)
+        {
+            lat0 = timer->lat;
+            lon0 = timer->lng;
+            calibStartTime = millis();
+            calibPhase = 1;
+            printf("#INFIELD_OFFSET: Phase 0 (Home recorded: %f, %f)\r\n", lat0, lon0);
+        }
+        else
+        {
+            printf("#INFIELD_OFFSET: Waiting for GPS fix...\r\n");
+            delay(1000);
+            return;
+        }
+    }
+
+    unsigned long elapsed = millis() - calibStartTime;
+
+    if (millis() - lastUpdate > 500)
+    {
+        lastUpdate = millis();
+        RoboStruct cmdMsg;
+        cmdMsg.cmd = TGDIRSPEED;
+        cmdMsg.IDs = timer->mac;
+        cmdMsg.ack = LORAINF;
+
+        if (elapsed < 10000)
+        {
+            // Phase 0: Stabilization
+            cmdMsg.tgDir = 180.0;
+            cmdMsg.speedSet = 50;
+            xQueueSend(serOut, (void *)&cmdMsg, 0);
+        }
+        else if (calibPhase == 1 && elapsed >= 10000)
+        {
+            // Phase 1: Record Start Point P1
+            lat1 = timer->lat;
+            lon1 = timer->lng;
+            calibPhase = 2;
+            printf("#INFIELD_OFFSET: Phase 1 (P1 recorded: %f, %f)\r\n", lat1, lon1);
+        }
+        else if (calibPhase == 2 && elapsed < 130000)
+        {
+            // Phase 2: Calibration Leg
+            cmdMsg.tgDir = 180.0;
+            cmdMsg.speedSet = 50;
+            xQueueSend(serOut, (void *)&cmdMsg, 0);
+        }
+        else if (calibPhase == 2 && elapsed >= 130000)
+        {
+            // Phase 3: Record End Point P2 and Calculate Offset
+            lat2 = timer->lat;
+            lon2 = timer->lng;
+            
+            double gpsCourse1 = calculateAngle(lat1, lon1, lat2, lon2);
+            double newOffset = gpsCourse1 - 180.0;
+            
+            while (newOffset > 180.0) newOffset -= 360.0;
+            while (newOffset < -180.0) newOffset += 360.0;
+
+            timer->compassOffset += newOffset;
+            
+            printf("#INFIELD_OFFSET: Phase 3 (P2 recorded: %f, %f). GPS Course: %.2f. New Offset: %.2f\r\n", lat2, lon2, gpsCourse1, newOffset);
+            
+            // Send new offset to Sub
+            RoboStruct offsetMsg;
+            offsetMsg.cmd = STORE_COMPASS_OFFSET;
+            offsetMsg.IDs = timer->mac;
+            offsetMsg.ack = LORAINF;
+            offsetMsg.compassOffset = timer->compassOffset;
+            xQueueSend(serOut, (void *)&offsetMsg, 0);
+            
+            calibPhase = 4;
+        }
+        else if (calibPhase == 4 && elapsed < 250000)
+        {
+            // Phase 4: Return Leg
+            cmdMsg.tgDir = 0.0;
+            cmdMsg.speedSet = 50;
+            xQueueSend(serOut, (void *)&cmdMsg, 0);
+        }
+        else if (calibPhase == 4 && elapsed >= 250000)
+        {
+            // Phase 5: Record Final Point P3 and Validate
+            lat3 = timer->lat;
+            lon3 = timer->lng;
+            
+            double gpsCourse2 = calculateAngle(lat2, lon2, lat3, lon3);
+            double validationError = abs(gpsCourse2 - 0.0);
+            while (validationError > 180.0) validationError -= 360.0;
+            
+            printf("#INFIELD_OFFSET: Phase 5 (P3 recorded). GPS Course: %.2f. Error: %.2f\r\n", gpsCourse2, abs(validationError));
+            
+            // Stop motors
+            cmdMsg.tgDir = 0.0;
+            cmdMsg.speedSet = 0;
+            xQueueSend(serOut, (void *)&cmdMsg, 0);
+            
+            // Phase 6: Return Home
+            timer->tgLat = lat0;
+            timer->tgLng = lon0;
+            timer->status = LOCKED;
+            calibPhase = 0;
+            printf("#INFIELD_OFFSET: Complete. Returning to Home (P0).\r\n");
+            beep(1000, buzzer);
+        }
+    }
+}
+
+//***************************************************************************************************
 //  Timer routines
 //***************************************************************************************************
 void handleTimerRoutines(RoboStruct *timer)
 {
+    handleInfieldCompassCalibration(timer);
+    handleInfieldOffsetCalibration(timer);
+
     timer->IDs = timer->mac;
     timer->IDr = BUOYIDALL;
     timer->ack = LORAINF;
@@ -557,6 +749,17 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 break;
             case LOCKPOS: // store new data into position database
                 AddDataToBuoyBase(RfIn, buoyParaPtrs);
+                break;
+            case INFIELD_CALIBRATE:
+            case INFIELD_OFFSET_CALIBRATE:
+                if (RfIn.ack == LORAGET || RfIn.ack == LORAGETACK)
+                {
+                    xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                }
+                else
+                {
+                    xQueueSend(udpOut, (void *)&RfIn, 0); // For status updates from other buoys
+                }
                 break;
             case PIDRUDDER:
                 if (RfIn.ack == LORAGET || RfIn.ack == LORAGETACK)
