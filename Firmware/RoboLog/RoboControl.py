@@ -294,6 +294,9 @@ class RoboMonitor:
         ttk.Label(loading_win, text=f"Getting PID info for Buoy {b['id']}", font=("Arial", 10, "bold")).pack(pady=(20, 5))
         ttk.Label(loading_win, text="Please wait...").pack()
         
+        current_t = time.time()
+        udp_active = b['last_udp_time'] > 0 and (current_t - b['last_udp_time'] < 5)
+        
         def check_data_and_open(retries=0):
             if not loading_win.winfo_exists():
                 return # User closed the loading window
@@ -306,21 +309,28 @@ class RoboMonitor:
                 loading_win.destroy()
                 self.open_setup_window(b)
             else:
-                if retries >= 12: # 6 seconds total (1s UDP + 5s LoRa)
+                if retries >= 12: # 6 seconds total (1s UDP + 5s LoRa, or just 6s LoRa)
                     self.log_message(f"Timeout: Could not retrieve PID data for Buoy {b['id']}")
                     loading_win.destroy()
                     return
 
-                if retries == 0:
-                    # Initial attempt: UDP only
-                    self.send_custom_udp_command(b['id'], f"{b['id']},99,1,55,0,0,0,0,0,0,0", use_udp=True, use_lora=False)
-                    self.send_custom_udp_command(b['id'], f"{b['id']},99,1,57,0,0,0,0,0,0,0", use_udp=True, use_lora=False)
-                    self.send_custom_udp_command(b['id'], f"{b['id']},99,1,68,0,0,0,0,0,0,0", use_udp=True, use_lora=False)
-                elif retries >= 2 and (retries - 2) % 4 == 0:
-                    # After 1 second (retries >= 2) and every 2 seconds thereafter: LoRa with LORAGETACK
-                    self.send_custom_udp_command(b['id'], f"{b['id']},99,3,55,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
-                    self.send_custom_udp_command(b['id'], f"{b['id']},99,3,57,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
-                    self.send_custom_udp_command(b['id'], f"{b['id']},99,3,68,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
+                if udp_active:
+                    if retries == 0:
+                        # Initial attempt: UDP only
+                        self.send_custom_udp_command(b['id'], f"{b['id']},99,1,55,0,0,0,0,0,0,0", use_udp=True, use_lora=False)
+                        self.send_custom_udp_command(b['id'], f"{b['id']},99,1,57,0,0,0,0,0,0,0", use_udp=True, use_lora=False)
+                        self.send_custom_udp_command(b['id'], f"{b['id']},99,1,68,0,0,0,0,0,0,0", use_udp=True, use_lora=False)
+                    elif retries >= 2 and (retries - 2) % 4 == 0:
+                        # After 1 second (retries >= 2) and every 2 seconds thereafter: LoRa with LORAGETACK
+                        self.send_custom_udp_command(b['id'], f"{b['id']},99,3,55,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
+                        self.send_custom_udp_command(b['id'], f"{b['id']},99,3,57,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
+                        self.send_custom_udp_command(b['id'], f"{b['id']},99,3,68,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
+                else:
+                    if retries % 4 == 0:
+                        # Immediately use LoRa and repeat every 2 seconds
+                        self.send_custom_udp_command(b['id'], f"{b['id']},99,3,55,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
+                        self.send_custom_udp_command(b['id'], f"{b['id']},99,3,57,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
+                        self.send_custom_udp_command(b['id'], f"{b['id']},99,3,68,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
                 
                 self.master.after(500, check_data_and_open, retries + 1)
 
