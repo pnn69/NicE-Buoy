@@ -29,10 +29,11 @@ Implement an autonomous "In-Field Offset Calibration" routine to align the magne
         *   **IMMEDIATE CALCULATION**: Calculate the GPS course from P1 to P2. Calculate the error vs 180.0°.
         *   **APPLY & STORE**: Update `compassCalc.compassOffset` and call `CompasOffset(&compassCalc, SET)`.
         *   **RE-INITIALIZE**: Call `InitCompass()` to ensure the new offset is active in the heading math.
-    *   **Phase 4 (130s - 250s) - Validation Leg (Return Trip)**:
-        *   Set `target_heading = 0.0` (Magnetic North) to sail back towards the start.
-        *   Sail for another 120 seconds using the **newly calibrated compass parameters**.
-    *   **Phase 5 (at 250s) - Record Validation End Point (P3)**:
+    *   **Phase 4 (130s - 250s) - Return Leg (Sailing back to P1)**:
+        *   Set `target_heading = 0.0` (Magnetic North) to return towards the starting point.
+        *   **CRITICAL**: This leg MUST use the **newly calibrated `compassOffset`** calculated in Phase 3. 
+        *   Sail for another 120 seconds using only the compass to maintain the 0.0° heading.
+    *   **Phase 5 (at 250s) - Record Final Point (P3)**:
         *   Record `Lat3, Lon3`.
         *   Stop the thrusters (`bb = 0`, `sb = 0`).
         *   Play a completion tone and return status to `IDLE` (7).
@@ -41,14 +42,15 @@ Implement an autonomous "In-Field Offset Calibration" routine to align the magne
 *   **Protocol Note**: Since the buoy moves too slowly for reliable real-time GPS Course-Over-Ground (COG), all validation must be done using point-to-point coordinate math.
 *   **Leg 1 Analysis (Calibration)**:
     *   `GPS_Course_1 = calculateAngle(Lat1, Lon1, Lat2, Lon2)`.
-    *   `New_Offset = GPS_Course_1 - 180.0`.
-*   **Leg 2 Analysis (Informative)**:
+    *   `New_Offset = GPS_Course_1 - 180.0`. This aligns the 180° Magnetic heading with the actual GPS path taken.
+*   **Leg 2 Analysis (Verification of New Settings)**:
     *   `GPS_Course_2 = calculateAngle(Lat2, Lon2, Lat3, Lon3)`.
-    *   `Validation_Error = abs(GPS_Course_2 - 0.0)` (normalized).
+    *   `Validation_Error = abs(GPS_Course_2 - 0.0)` (normalized). 
+    *   **Verification Logic**: If the new offset is correct, sailing at Magnetic 0.0° should now result in an actual GPS track of 0.0° True North. 
 *   **Persistence**:
     *   The `compassOffset` is stored at the end of Phase 3, ensuring it is saved even if Phase 4 is interrupted.
 *   **Completion**:
-    *   Log both `GPS_Course_1` and `GPS_Course_2` to Serial for debugging. The `Validation_Error` provides feedback on the quality of the calibration under current water/wind conditions.
+    *   Log both `GPS_Course_1` (the path that generated the offset) and `GPS_Course_2` (the path that verified the offset) to Serial. If `GPS_Course_2` is near 0.0°, the calibration is confirmed.
 
 ## 5. Safety
 *   **Abort**: Any `IDLE` or `LOCK` command from the user must instantly terminate the calibration and stop the motors.
