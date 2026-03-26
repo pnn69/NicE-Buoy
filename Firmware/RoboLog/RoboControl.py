@@ -179,6 +179,10 @@ class RoboMonitor:
             map_btn = ttk.Button(dirdist_frame, text="Map", width=6, command=lambda idx=i: self.on_map_click(idx))
             map_btn.pack(side="left", padx=2)
 
+            udp_enabled_var = tk.BooleanVar(value=True)
+            udp_toggle = ttk.Checkbutton(dirdist_frame, text="UDP En", variable=udp_enabled_var)
+            udp_toggle.pack(side="left", padx=5)
+
             # Parameters below
             params_frame = ttk.Frame(frame)
             params_frame.pack(expand=True, fill="both", padx=5, pady=5)
@@ -206,6 +210,7 @@ class RoboMonitor:
                 'dock_btn': dock_btn,
                 'dirdist_send_btn': dirdist_send_btn,
                 'map_btn': map_btn,
+                'udp_enabled_var': udp_enabled_var,
                 'dist_text': dist_text,
                 'pid_i_text': pid_i_text,
                 'wind_arrow': None,
@@ -440,27 +445,33 @@ class RoboMonitor:
                 entry.insert(0, val)
 
     def send_custom_udp_command(self, target_id, base_msg, use_udp=True, use_lora=None):
-        # If use_lora is None, treat LoRa as a backup: only use if UDP is inactive
+        # Determine if UDP is allowed for this target
+        udp_allowed = True
+        target_buoy = None
+        for b in self.buoy_frames:
+            if b['id'] == target_id:
+                target_buoy = b
+                udp_allowed = b['udp_enabled_var'].get()
+                break
+
+        # If use_lora is None, treat LoRa as a backup: only use if UDP is inactive or disabled
         if use_lora is None:
             use_lora = True # Default to True
-            for b in self.buoy_frames:
-                if b['id'] == target_id:
-                    current_t = time.time()
-                    if b['last_udp_time'] > 0 and (current_t - b['last_udp_time'] < 5):
-                        use_lora = False # UDP is healthy, don't use backup LoRa
-                    break
+            if target_buoy:
+                current_t = time.time()
+                # If UDP is healthy AND enabled, we don't need LoRa backup
+                if udp_allowed and target_buoy['last_udp_time'] > 0 and (current_t - target_buoy['last_udp_time'] < 5):
+                    use_lora = False
 
         crc = 0
         for char in base_msg:
             crc ^= ord(char)
         full_msg = f"${base_msg}*{crc:02X}"
         
-        if use_udp:
+        if use_udp and udp_allowed:
             target_ip = "255.255.255.255"
-            for b in self.buoy_frames:
-                if b['id'] == target_id and b['data'].get("IP"):
-                    target_ip = b['data']["IP"]
-                    break
+            if target_buoy and target_buoy['data'].get("IP"):
+                target_ip = target_buoy['data']["IP"]
             
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -469,6 +480,8 @@ class RoboMonitor:
                 self.log_message(f"SENT UDP TO {target_id} ({target_ip}): {full_msg}")
             except Exception as e:
                 self.log_message(f"UDP SEND ERROR: {e}")
+        elif use_udp and not udp_allowed:
+            self.log_message(f"UDP SEND SKIPPED (DISABLED) - {target_id}")
             
         if use_lora:
             # Send via Serial (LoRa)
@@ -485,15 +498,22 @@ class RoboMonitor:
         if target_id is None:
             target_id = "1"
 
-        # If use_lora is None, treat LoRa as a backup: only use if UDP is inactive
+        # Determine if UDP is allowed for this target
+        udp_allowed = True
+        target_buoy = None
+        for b in self.buoy_frames:
+            if b['id'] == target_id:
+                target_buoy = b
+                udp_allowed = b['udp_enabled_var'].get()
+                break
+
+        # If use_lora is None, treat LoRa as a backup: only use if UDP is inactive or disabled
         if use_lora is None:
             use_lora = True 
-            for b in self.buoy_frames:
-                if b['id'] == target_id:
-                    current_t = time.time()
-                    if b['last_udp_time'] > 0 and (current_t - b['last_udp_time'] < 5):
-                        use_lora = False 
-                    break
+            if target_buoy:
+                current_t = time.time()
+                if udp_allowed and target_buoy['last_udp_time'] > 0 and (current_t - target_buoy['last_udp_time'] < 5):
+                    use_lora = False
         
         base_msg = f"{target_id},99,3,{cmd_id},7"
         crc = 0
@@ -501,12 +521,10 @@ class RoboMonitor:
             crc ^= ord(char)
         full_msg = f"${base_msg}*{crc:02X}"
         
-        if use_udp:
+        if use_udp and udp_allowed:
             target_ip = "255.255.255.255"
-            for b in self.buoy_frames:
-                if b['id'] == target_id and b['data'].get("IP"):
-                    target_ip = b['data']["IP"]
-                    break
+            if target_buoy and target_buoy['data'].get("IP"):
+                target_ip = target_buoy['data']["IP"]
             
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -515,6 +533,8 @@ class RoboMonitor:
                 self.log_message(f"SENT UDP TO {target_id} ({target_ip}): {full_msg}")
             except Exception as e:
                 self.log_message(f"UDP SEND ERROR: {e}")
+        elif use_udp and not udp_allowed:
+            self.log_message(f"UDP SEND SKIPPED (DISABLED) - {target_id}")
             
         if use_lora:
             # Send via Serial (LoRa)
@@ -661,9 +681,13 @@ class RoboMonitor:
             buoy_id = fields[1]
             data = {"Timestamp": current_timestamp, "IP": sender_ip}
             
-            # --- Network Monitor Logic ---
+            # --- Network Monitor and Filtering Logic ---
             for b in self.buoy_frames:
                 if b['id'] == buoy_id or b['id'] is None:
+                    # If this is UDP data but UDP is disabled for this buoy, ignore it
+                    if sender_ip != "LoRa" and not b['udp_enabled_var'].get():
+                        return
+                        
                     if sender_ip == "LoRa":
                         b['last_lora_time'] = time.time()
                         b['last_lora_content'] = content
@@ -671,7 +695,7 @@ class RoboMonitor:
                         b['last_udp_time'] = time.time()
                         b['last_udp_content'] = content
                     break
-            # -----------------------------
+            # --------------------------------------------
             
             if cmd == "51" and len(fields) >= 21: # TOPDATA
                 data.update({
