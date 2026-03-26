@@ -35,22 +35,20 @@ Implement an autonomous "In-Field Offset Calibration" routine to align the magne
     *   **Phase 5 (at 250s) - Record Validation End Point (P3)**:
         *   Record `Lat3, Lon3`.
         *   Stop the thrusters (`bb = 0`, `sb = 0`).
+        *   Play a completion tone and return status to `IDLE` (7).
 
 ## 4. Calculation & Validation
 *   **Protocol Note**: Since the buoy moves too slowly for reliable real-time GPS Course-Over-Ground (COG), all validation must be done using point-to-point coordinate math.
 *   **Leg 1 Analysis (Calibration)**:
     *   `GPS_Course_1 = calculateAngle(Lat1, Lon1, Lat2, Lon2)`.
     *   `New_Offset = GPS_Course_1 - 180.0`.
-*   **Leg 2 Analysis (Validation)**:
+*   **Leg 2 Analysis (Informative)**:
     *   `GPS_Course_2 = calculateAngle(Lat2, Lon2, Lat3, Lon3)`.
     *   `Validation_Error = abs(GPS_Course_2 - 0.0)` (normalized).
-*   **Verification**:
-    *   If `Validation_Error < 5.0°`, play a "Success" double-beep.
-    *   If `Validation_Error > 5.0°`, play a "Warning" descending tone; the offset may still be inaccurate due to drift or current.
 *   **Persistence**:
     *   The `compassOffset` is stored at the end of Phase 3, ensuring it is saved even if Phase 4 is interrupted.
 *   **Completion**:
-    *   Log both `GPS_Course_1` and `GPS_Course_2` to Serial for debugging, and return status to `IDLE` (7).
+    *   Log both `GPS_Course_1` and `GPS_Course_2` to Serial for debugging. The `Validation_Error` provides feedback on the quality of the calibration under current water/wind conditions.
 
 ## 5. Safety
 *   **Abort**: Any `IDLE` or `LOCK` command from the user must instantly terminate the calibration and stop the motors.
