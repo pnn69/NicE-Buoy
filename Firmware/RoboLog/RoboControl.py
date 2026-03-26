@@ -179,15 +179,15 @@ class RoboMonitor:
             map_btn = ttk.Button(dirdist_frame, text="Map", width=6, command=lambda idx=i: self.on_map_click(idx))
             map_btn.pack(side="left", padx=2)
 
-            udp_enabled_var = tk.BooleanVar(value=True)
-            udp_toggle = ttk.Checkbutton(dirdist_frame, text="UDP En", variable=udp_enabled_var)
-            udp_toggle.pack(side="left", padx=5)
-
             # Parameters below
             params_frame = ttk.Frame(frame)
             params_frame.pack(expand=True, fill="both", padx=5, pady=5)
             
             labels = self.create_params_widgets(params_frame)
+            
+            udp_enabled_var = tk.BooleanVar(value=True)
+            udp_toggle = ttk.Checkbutton(frame, text="UDP Enabled", variable=udp_enabled_var)
+            udp_toggle.pack(anchor="w", padx=10, pady=(0, 5))
             
             self.buoy_frames.append({
                 'frame': frame,
