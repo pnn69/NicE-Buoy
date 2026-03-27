@@ -25,6 +25,7 @@
 
 typedef enum
 {
+    NOCMD = -1,                       // No command / Passive heartbeat
     LORAGET = 1,                      // info request
     LORASET,                          // info to store
     LORAGETACK,                       // ack requerd

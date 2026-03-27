@@ -148,20 +148,16 @@ bool udp_setup(int poort)
         Serial.print("Udp port: ");
         Serial.println(poort);
         udp.onPacket([](AsyncUDPPacket packet)
-                     {
-                        String stringUdpIn = (const char *)packet.data();
-                        //RoboStruct udpDataIn = rfDeCode(stringUdpIn);
-                        RoboStruct udpDataIn;
-                        if (udpDataIn.IDs != -1 )
-                        {
-                            xQueueSend(udpIn, (void *)&udpDataIn, 10); // notify main there is new data
-                            lastUpdMsg = millis();
-                        }
-                        else
-                        {
-                            Serial.println("crc error: " + stringUdpIn);
-                        } });
-        return true;
+                      {
+                         String stringUdpIn = (const char *)packet.data();
+                         RoboStruct udpDataIn;
+                         rfDeCode(stringUdpIn, &udpDataIn);
+                         if (udpDataIn.IDs != -1 && udpDataIn.IDs != 0)
+                         {
+                             xQueueSend(udpIn, (void *)&udpDataIn, 10); // notify main there is new data
+                             lastUpdMsg = millis();
+                         }
+                      });        return true;
     }
     return false;
 }
@@ -259,9 +255,10 @@ void WiFiTask(void *arg)
 
         if (xQueueReceive(udpOut, (void *)&msgIdOut, 1) == pdTRUE)
         {
-            msgIdOut.IDr = msgIdOut.mac;
-            msgIdOut.IDs = msgIdOut.mac;
+            msgIdOut.IDs = 0x99; // Set sender ID to 99 to match Python UI logic
             String out = rfCode(&msgIdOut);
+            Serial.print("UDP BROADCAST: ");
+            Serial.println(out);
             udp.broadcast(out.c_str());
         }
         delay(1);

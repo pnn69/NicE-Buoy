@@ -7,7 +7,6 @@ https://github.com/sandeepmistry/arduino-LoRa/blob/master/examples/LoRaDuplex/Lo
 #include "io.h"
 #include "LiLlora.h"
 #include <RoboCompute.h>
-#include "oled_ssd1306.h"
 #include "sercom.h"
 #include "controlwifi.h"
 
@@ -225,7 +224,7 @@ void LoraTask(void *arg)
                 vTaskDelay(pdMS_TO_TICKS(150));
             }
             Serial.println(loraString);
-            if (loraMsgout.ack == LORAGETACK)
+            if (loraMsgout.ack == LORAGETACK || loraMsgout.ack == 3) // 3 is Python's LORAGETACK
             {
                 loraMsgout.retry = 5;
                 storeAckMsg(loraMsgout);                            // put data in buffer (will be removed on ack)

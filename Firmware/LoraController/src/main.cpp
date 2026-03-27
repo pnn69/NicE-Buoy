@@ -6,12 +6,9 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 433MHz is SX1278
 */
 #include <Arduino.h>
-// #include <WiFi.h>
-// #include "freertos/task.h"
 #include <math.h>
 #include <Wire.h>
 #include "io.h"
-#include "oled_ssd1306.h"
 #include "LiLlora.h"
 #include "sercom.h"
 #include "controlwifi.h"
@@ -21,46 +18,133 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #define STRUCTLEN 5
 RoboStruct IDs[STRUCTLEN];
 RoboStruct mainData = {};
-RoboStruct displayData = {};
 static adcDataType adcmain = {0, 0, 0, 0, false}; // adc data
-bool newLoraDataOut = false;
-int lastWsPos = 0;
+static int lastPhysicalSwitchPos = -1;
+
 // Button stuff
-bool debounce = false;
-bool buttonState = false;
 bool lastButtonState = false;
 bool longPressReported = false;
 unsigned long lastPressTime = 0;
 unsigned long debounceDelay = 0;
 int pressCount = 0;
 
+static int wifiConfig = 0;
+
+// Forward declarations
+int countKeyPressesWithTimeoutAndLongPressDetecton();
+void getNextValidID(RoboStruct *IDin);
+void getBuoyArr(RoboStruct *IDin);
+bool handelRfData(void);
+void handelKeyPress(RoboStruct *key);
+void dispatchCommand(RoboStruct *data, adcDataType *adc);
+
+//***************************************************************************************************
+//  Command Dispatcher
+//***************************************************************************************************
+void dispatchCommand(RoboStruct *data, adcDataType *adc)
+{
+    bool forceSend = false;
+
+    // 1. Detect Switch Change (Edge-Triggered)
+    if (adc->swPos != lastPhysicalSwitchPos)
+    {
+        lastPhysicalSwitchPos = adc->swPos;
+        forceSend = true;
+        
+        data->ack = LORAGETACK; // 3
+        data->status = IDLE;    // 7
+        
+        switch (adc->swPos)
+        {
+        case SW_LEFT:  data->cmd = REMOTE;  break; // 25
+        case SW_MID:   data->cmd = IDELING; break; // 8
+        case SW_RIGHT: data->cmd = LOCKING; break; // 12
+        }
+        printf("Switch moved! New Cmd: %d\n", data->cmd);
+
+        int pos = posID(data);
+        if (pos >= 0) IDs[pos].status = data->cmd; // locally save the real intent
+    }
+
+    // 2. Handle Continuous Remote Data (Direction/Speed)
+    if (data->status == REMOTE || data->cmd == REMOTE)
+    {
+        data->tgDir = adc->heading;
+        data->tgSpeed = adc->speed;
+        data->speed = adc->speed;
+        
+        if (adc->newdata)
+        {
+            data->cmd = REMOTE; // 25
+            forceSend = true;
+            data->ack = LORAINF; // 6 (Continuous data update)
+            data->status = IDLE; // 7
+            adc->newdata = false;
+        }
+    }
+
+    // 3. Dispatch to Queues ONLY if an event occurred (Physical move or Pot change)
+    if (forceSend)
+    {
+        data->IDr = data->IDs; // Ensure target is set to the selected buoy
+        
+        static int lastSentCmd = -1;
+        static int lastSentStatus = -1;
+        static unsigned long lastSendTime = 0;
+
+        // Filter duplicates if it's NOT a continuous REMOTE stream
+        if (data->ack == LORAGETACK) 
+        {
+            if (data->cmd == lastSentCmd && data->status == lastSentStatus && (millis() - lastSendTime < 3000))
+            {
+                // Already sent this exact mode command recently, skip re-queueing to avoid UDP/LoRa loop bounces
+                data->cmd = NOCMD;
+                data->ack = 0;
+                return;
+            }
+            lastSentCmd = data->cmd;
+            lastSentStatus = data->status;
+            lastSendTime = millis();
+        }
+
+        printf("dispatchCommand: target IDr = %08x, CMD = %d, STATUS = %d\n", data->IDr, data->cmd, data->status);
+
+        if (loraOut != NULL) xQueueSend(loraOut, (void *)data, 10);
+        if (udpOut != NULL) xQueueSend(udpOut, (void *)data, 10);
+        
+        // Clear command to avoid re-sending same packet
+        data->cmd = NOCMD;
+        data->ack = 0;
+    }
+}
+
 //***************************************************************************************************
 //  Setup
 //***************************************************************************************************
 void setup()
 {
-    // SerialBT.begin("NicE_Buoy_Control"); // Bluetooth device name
     Serial.begin(115200);
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, false);
     pinMode(SW_P_1, INPUT_PULLUP);
     pinMode(SW_P_2, OUTPUT);
     digitalWrite(SW_P_2, false);
-    initSSD1306();
     Wire.begin();
     initloraqueue();
     initserqueue();
-    printf("Robobuoy Sub Version: %0.1f Sub Build: %s %s\r\n", SUBVERSION, __DATE__, __TIME__);
+    initwifiqueue();
+    printf("Robobuoy Lora Version: %0.1f Sub Build: %s %s\r\n", SUBVERSION, __DATE__, __TIME__);
+
     printf("Robobuoy ID: %08x\r\n", espMac());
     xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 1);
     xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
+    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, (void *)&wifiConfig, configMAX_PRIORITIES - 2, NULL, 0);
     mainData.IDs = 0;
     mainData.IDr = 0;
     mainData.status = IDLE;
-    mainData.cmd = IDLE;
-    mainData.cmd = -1;
-    readAdc(&adcmain); // get adc data
-    lastWsPos = adcmain.swPos;
+    mainData.cmd = NOCMD;
+    readAdc(&adcmain);
+    lastPhysicalSwitchPos = adcmain.swPos;
 }
 
 //***************************************************************************************************
@@ -69,58 +153,37 @@ void setup()
 int countKeyPressesWithTimeoutAndLongPressDetecton()
 {
     unsigned long currentTime = millis();
-    buttonState = !digitalRead(SW_P_1); // Active HIGH
+    bool pressed = !digitalRead(SW_P_1);
+    int result = -1;
 
-    // Debounce
-    if (currentTime < debounceDelay)
-        return -1;
-
-    // Start of a new press
-    if (buttonState == HIGH && lastButtonState == LOW)
-    {
+    if (pressed && !lastButtonState) {
         lastPressTime = currentTime;
-        debounce = true;
         longPressReported = false;
+    } 
+    else if (!pressed && lastButtonState) {
+        if (!longPressReported) {
+            pressCount++;
+            debounceDelay = currentTime + 500;
+        }
     }
 
-    // Long press detection
-    if (buttonState == HIGH && (currentTime - lastPressTime > 3000) && !longPressReported)
-    {
-        int result = 101 + pressCount; // 100 + short press count
+    if (pressed && !longPressReported && (currentTime - lastPressTime > 3000)) {
+        result = 101 + pressCount;
         pressCount = 0;
         longPressReported = true;
-        return result;
     }
 
-    // Count short presses on release
-    if (buttonState == LOW && lastButtonState == HIGH && debounce)
-    {
-        if (!longPressReported)
-        {
-            pressCount++;
-        }
-        debounce = false;
-        debounceDelay = currentTime + 50;
-    }
-
-    // Timeout for short press sequence (500 ms)
-    if ((currentTime - lastPressTime) > 500 && pressCount > 0 && buttonState == LOW && !longPressReported)
-    {
-        int result = pressCount;
+    if (!pressed && pressCount > 0 && (currentTime > debounceDelay)) {
+        result = pressCount;
         pressCount = 0;
-        return result;
     }
 
-    lastButtonState = buttonState;
-    return -1;
+    lastButtonState = pressed;
+    return result;
 }
+
 //***************************************************************************************************
-//      key press stuff
-//      One press: lock/unlock
-//      Two press: start computation
-//      Three press: compute track
-//      Five press: sail to dock position
-//      Ten press: store as doc
+//      key press handler
 //***************************************************************************************************
 void handelKeyPress(RoboStruct *key)
 {
@@ -128,338 +191,169 @@ void handelKeyPress(RoboStruct *key)
     if (presses > 0)
     {
         Serial.printf("Key pressed %d times status %d\r\n", presses, key->status);
+        
+        if (presses == 1) // 1 Click: Cycle Buoy
+        {
+            getNextValidID(key);
+            lastPhysicalSwitchPos = adcmain.swPos; // Latch
+            Serial.printf("Switched to Buoy: %08x\n", key->IDs);
+            return;
+        }
+
         switch (presses)
         {
-        case 1: // lock / unlock
-            if ((key->status == LOCKED) || (key->status == DOCKED))
-            {
-                key->cmd = IDELING;
-            }
-            else
-            {
-                key->cmd = LOCKING;
+        case 5: 
+            if (key->status != REMOTE) {
+                key->cmd = DOCKING;
+                key->ack = LORAGETACK;
             }
             break;
-        case 5:
-            key->cmd = DOCKING;
+        case 101: 
+            key->cmd = STOREASDOC; 
+            key->ack = LORAGETACK;
+            break; // Long press
+        case 105: 
+            key->cmd = STOREASDOC; 
+            key->ack = LORAGETACK;
+            break; // 4 clicks + Long
+        case 102: 
+            if (key->status == LOCKED) {
+                key->cmd = COMPUTESTART;
+                key->ack = LORAGETACK;
+            }
+            break; // 1 click + Long
+        case 10: 
+            key->cmd = STORE_DECLINATION; 
+            key->ack = LORAGETACK;
             break;
-        case 105:
-            key->cmd = STOREASDOC;
-            break;
-        case 10:
-            key->cmd = STORE_DECLINATION;
-            break;
-        case 110:
-            key->cmd = CALIBRATE_MAGNETIC_COMPASS;
-            break;
-        // case 0x0100:
-        //     key->cmd = STOREASDOC;
-        //     break;
-        default:
+        case 110: 
+            key->cmd = CALIBRATE_MAGNETIC_COMPASS; 
+            key->ack = LORAGETACK;
             break;
         }
+        
+        // Signal to dispatchCommand that a button event occurred
+        if (loraOut != NULL) xQueueSend(loraOut, (void *)key, 10);
+        if (udpOut != NULL) xQueueSend(udpOut, (void *)key, 10);
+        key->cmd = NOCMD;
     }
 }
 
 // ***************************************************************************************************
-// Add buoyID to list
+// Buoy Management Functions
 // ***************************************************************************************************
 void fillBuoyArr(RoboStruct *IDin)
 {
     for (int i = 0; i < STRUCTLEN; i++)
     {
-        if (IDin->IDs == IDs[i].IDs)
-        {
-            return;
-        }
-        if (IDs[i].IDs == 0)
-        {
-            Serial.print("added:");
-            Serial.print(IDin->IDs, HEX);
-            Serial.printf("on pos: %d\r\n", i);
-            IDs[i] = *IDin;
-            return;
-        }
+        if (IDin->IDs == IDs[i].IDs) return;
+        if (IDs[i].IDs == 0) { IDs[i] = *IDin; return; }
     }
 }
 
-// ***************************************************************************************************
-// get data
-// ***************************************************************************************************
 void getBuoyArr(RoboStruct *IDin)
 {
     for (int i = 0; i < STRUCTLEN; i++)
     {
-        if (IDin->IDs == IDs[i].IDs)
-        {
-            *IDin = IDs[i];
-            return;
-        }
+        if (IDin->IDs == IDs[i].IDs) { *IDin = IDs[i]; return; }
     }
-    Serial.print("No data!");
 }
 
-// ***************************************************************************************************
-// Select Next IDs
-// ***************************************************************************************************
 void getNextValidID(RoboStruct *IDin)
 {
-    if (IDin->IDs == 1 || IDin->IDs == 0 || IDin->IDs == -1)
-    {
-        for (int i = 0; i < STRUCTLEN; i++)
-        {
-            if (IDs[i].IDs != 0)
-            {
-                *IDin = IDs[i];
-                return;
-            }
-        }
-        return;
-    }
-
-    // Normal case: find current ID's index
     int start = -1;
-    for (int i = 0; i < STRUCTLEN; i++)
-    {
-        if (IDs[i].IDs == IDin->IDs)
-        {
-            start = i;
-            break;
-        }
-    }
-
-    if (start == -1)
-    {
-        return; // Value not found
-    }
-
-    // Circular search for next non-zero ID
-    for (int i = 1; i < STRUCTLEN; i++)
-    {
-        int idx = (start + i) % 5;
-        if (IDs[idx].IDs != 0)
-        {
-            *IDin = IDs[idx];
-            return; // ✅ Ensure to return immediately after finding the next valid one
-        }
+    for (int i = 0; i < STRUCTLEN; i++) { if (IDs[i].IDs == IDin->IDs) { start = i; break; } }
+    if (start == -1 && IDin->IDs != 0) return;
+    for (int i = 1; i <= STRUCTLEN; i++) {
+        int idx = (start + i) % STRUCTLEN;
+        if (IDs[idx].IDs != 0) { *IDin = IDs[idx]; return; }
     }
 }
 
-// ***************************************************************************************************
-// Return the position of te data in the struct arry
-// ***************************************************************************************************
 int posID(RoboStruct *IDin)
 {
-    if (IDin->IDs == 1 || IDin->IDs == 0 || IDin->IDs == -1)
-    {
-        return -1;
-    }
-    // Find the first occurrence of the input value
-    for (int i = 0; i < STRUCTLEN; i++)
-    {
-        if (IDs[i].IDs == IDin->IDs)
-        {
-            return i;
-        }
-    }
-    Serial.println("Pos not Found");
+    for (int i = 0; i < STRUCTLEN; i++) { if (IDs[i].IDs == IDin->IDs) return i; }
     return -1;
 }
 
-// ***************************************************************************************************
-// handle external data input
-// ***************************************************************************************************
-bool handelRfData(void)
+void processData(RoboStruct *RfIn)
 {
-    RoboStruct RfIn, RfStore;
-    bool updd = false; // update data
-    if (xQueueReceive(loraToMain, (void *)&RfIn, 0) == pdTRUE)
+    int pos = posID(RfIn);
+    if (pos < 0) { fillBuoyArr(RfIn); pos = posID(RfIn); }
+    if (pos < 0) return;
+
+    // 1. Update status and handle IDLE state forcing
+    if (RfIn->cmd == SUBDATA || RfIn->cmd == TOPDATA || RfIn->cmd == BUOYPOS || 
+        RfIn->cmd == LOCKED || RfIn->cmd == DOCKED || RfIn->cmd == IDELING || 
+        RfIn->cmd == REMOTE || RfIn->cmd == NOCMD)
     {
-        int pos = posID(&RfIn);
-        if (pos < 0)
-        {
-            pos = 0;
-        }
-        if (IDs[pos].status == IDLE)
-        {
+        IDs[pos].status = RfIn->status;
+        
+        // If buoy is IDLE, force bars to zero immediately
+        if (RfIn->status == IDLE || RfIn->status == IDELING) {
             IDs[pos].speedBb = 0;
             IDs[pos].speedSb = 0;
-            IDs[pos].tgDir = 0;  // set target direction
-            IDs[pos].tgDist = 0; // set target distance
-        }
-        IDs[pos].IDs = RfIn.IDs;
-        IDs[pos].status = RfIn.status;
-        switch (RfIn.cmd)
-        {
-        case DIRDIST:
-            IDs[pos].tgDir = RfIn.tgDir;   // set target direction
-            IDs[pos].tgDist = RfIn.tgDist; // set target distance
-            updd = true;                   // data is updated
-            break;
-        case SUBPWR:
-            IDs[pos].speedBb = RfIn.speedBb;   // set speed for bow
-            IDs[pos].speedSb = RfIn.speedSb;   // set speed for stern
-            IDs[pos].subAccuV = RfIn.subAccuV; // set sub accu voltage
-            updd = true;                       // data is updated
-            break;
-        case TOPPWR:
-            IDs[pos].speedBb = RfIn.speedBb;   // set speed for bow
-            IDs[pos].speedSb = RfIn.speedSb;   // set speed for stern
-            IDs[pos].subAccuV = RfIn.topAccuV; // set sub accu voltage
-            updd = true;                       // data is updated
-            break;
-        case DIRSPEED:
-            IDs[pos].dirMag = RfIn.dirMag;   // set speed for bow
-            IDs[pos].speedBb = RfIn.speedBb; // set speed for bow
-            IDs[pos].speedSb = RfIn.speedSb; // set speed for stern
-            IDs[pos].speed = RfIn.speed;     // set sub accu voltage
-            updd = true;                     // data is updated
-            break;
-        case DIRMDIRTGDIRG:
-            IDs[pos].dirMag = RfIn.dirMag; // set target direction
-            IDs[pos].tgDir = RfIn.tgDir;   // set target direction
-            IDs[pos].gpsDir = RfIn.gpsDir; // set target distance
-            updd = true;                   // data is updated
-            break;
-        case TOPDATA:                          // DirMag,dirGps,dirTg,distTg,windDir,windStd,speedBb,speedSb,ip,ir,subAccuV,subAccuP
-            IDs[pos].dirMag = RfIn.dirMag;     // target direction
-            IDs[pos].gpsDir = RfIn.gpsDir;     // gps direction
-            IDs[pos].tgDir = RfIn.tgDir;       // target direction
-            IDs[pos].tgDist = RfIn.tgDist;     // target distance
-            IDs[pos].wDir = RfIn.wDir;         // wind direction
-            IDs[pos].wStd = RfIn.wStd;         // wind standard deviation
-            IDs[pos].speedBb = RfIn.speedBb;   // speed for bow
-            IDs[pos].speedSb = RfIn.speedSb;   // speed for stern
-            IDs[pos].ip = RfIn.ip;             // integrator speed
-            IDs[pos].ir = RfIn.ir;             // irtegrator rudder
-            IDs[pos].subAccuV = RfIn.subAccuV; // top accu voltage
-            IDs[pos].subAccuP = RfIn.subAccuP; // top accu percentage
-            updd = true;                   // data is updated
         }
     }
-    return updd; // return true if data is updated
+
+    // 2. Motor Power: ONLY update from commands that actually contain Bb/Sb fields in RoboDecode
+    if (RfIn->cmd == SUBDATA || RfIn->cmd == TOPDATA || RfIn->cmd == SPBBSPSB)
+    {
+        IDs[pos].speedBb = RfIn->speedBb;
+        IDs[pos].speedSb = RfIn->speedSb;
+    }
+
+    // 3. Heading
+    if (RfIn->cmd == SUBDATA || RfIn->cmd == TOPDATA || RfIn->cmd == BUOYPOS || RfIn->cmd == DIRSPEED || RfIn->cmd == MDIR)
+    {
+        IDs[pos].dirMag = RfIn->dirMag;
+    }
+
+    // 4. GPS info: ONLY update from commands that carry GPS fields
+    if (RfIn->cmd == TOPDATA || RfIn->cmd == BUOYPOS)
+    {
+        IDs[pos].gpsFix = RfIn->gpsFix;
+        IDs[pos].gpsSat = RfIn->gpsSat;
+        IDs[pos].lat = RfIn->lat;
+        IDs[pos].lng = RfIn->lng;
+    }
+
+    // 5. Targets
+    if (RfIn->cmd == TOPDATA || RfIn->cmd == LOCKED || RfIn->cmd == DOCKED || 
+        RfIn->cmd == DIRDIST || RfIn->cmd == CALCRUDDER || RfIn->cmd == TGDIRSPEED)
+    {
+        IDs[pos].tgDir = RfIn->tgDir;
+        IDs[pos].tgDist = RfIn->tgDist;
+    }
+
+    // 6. Battery: Update only if command carries power data
+    if (RfIn->cmd == SUBDATA || RfIn->cmd == TOPDATA || RfIn->cmd == SUBACCU || RfIn->cmd == SUBPWR)
+    {
+        IDs[pos].subAccuV = RfIn->subAccuV;
+        IDs[pos].subAccuP = RfIn->subAccuP;
+    }
+}
+
+bool handelRfData(void)
+{
+    RoboStruct RfIn;
+    bool updd = false;
+    if (xQueueReceive(loraToMain, (void *)&RfIn, 0) == pdTRUE) { processData(&RfIn); updd = true; }
+    if (xQueueReceive(udpIn, (void *)&RfIn, 0) == pdTRUE) { processData(&RfIn); updd = true; }
+    return updd;
 }
 
 //***************************************************************************************************
 //  Main loop
 //***************************************************************************************************
-unsigned long remoteTimer = millis();
 void loop()
 {
+    if (mainData.IDs == 0) getNextValidID(&mainData);
 
-    if (mainData.IDs == -1 || mainData.IDs == 0 || mainData.IDs == 1)
-    {
-        getNextValidID(&mainData);
-    }
-    readAdc(&adcmain); // get adc data
-    switch (adcmain.swPos)
-    {
-    case SW_LEFT:
-        if (mainData.tgDir != adcmain.heading || mainData.tgSpeed != adcmain.speed)
-        {
-            if (remoteTimer < millis())
-            {
-                remoteTimer = 500 + millis();
-                mainData.tgDir = adcmain.heading;
-                mainData.tgSpeed = adcmain.speed;
-                mainData.cmd = REMOTE;
-                newLoraDataOut = true; // set flag to send data out
-            }
-        }
-        if (adcmain.swPos != lastWsPos) //
-        {                               // Prevent extreem data changes
-            lastWsPos = adcmain.swPos;  //
-            mainData.tgSpeed = 0;       // set speed
-            mainData.cmd = REMOTE;
-            newLoraDataOut = true;     // set flag to send data out
-            lastWsPos = adcmain.swPos; //
-        }
-        // Serial.printf("Remote control mode: tgDir: %f tgSpeed: %f\r\n", mainData.tgDir, mainData.tgSpeed);
-        break;
-    case SW_MID: // Remote control mode
+    readAdc(&adcmain);
+    handelKeyPress(&mainData);
+    if (handelRfData()) getBuoyArr(&mainData);
+    dispatchCommand(&mainData, &adcmain);
 
-        if (adcmain.swPos != lastWsPos) //
-        {
-            if (lastWsPos != SW_RIGHT)
-            {
-                mainData.cmd = IDELING;    //
-                mainData.ack = LORAGETACK; // ack needed
-                newLoraDataOut = true;     // set flag to send data out
-            }
-            lastWsPos = adcmain.swPos; //
-        }
-        else
-        {
-            mainData.cmd = -1; //
-            int presses = countKeyPressesWithTimeoutAndLongPressDetecton();
-            if (presses == 1)
-            {
-                getNextValidID(&mainData);
-            }
-        }
-        break;
-    case SW_RIGHT:                      // Select mode
-        if (adcmain.swPos != lastWsPos) //
-        {
-            lastWsPos = adcmain.swPos; //                           //
-            mainData.cmd = IDELING;    //
-            mainData.ack = LORAGETACK; // ack needed
-            newLoraDataOut = true;     // set flag to send data out
-        }
-        //***************************************************************************************************
-        //      Check front key
-        //***************************************************************************************************
-        handelKeyPress(&mainData);
-        break;
-    default:
-        newLoraDataOut = false; // set flag to send data out
-        break;
-    }
-
-    //***************************************************************************************************
-    //      Take care of last command
-    //***************************************************************************************************
-    switch (mainData.cmd)
-    {
-    case DOCKING:
-        mainData.ack = LORAGETACK; // ack needed
-        newLoraDataOut = true;     // set flag to send data out
-        break;
-    case LOCKING:
-        mainData.ack = LORAGETACK; // ack needed
-        newLoraDataOut = true;     // set flag to send data out
-        break;
-    case IDELING:
-        mainData.ack = LORAGETACK; // ack needed
-        newLoraDataOut = true;     // set flag to send data out
-        break;
-    case STOREASDOC:
-        mainData.ack = LORAGETACK; // ack needed
-        newLoraDataOut = true;     // set flag to send data out
-        break;
-    case CALIBRATE_MAGNETIC_COMPASS:
-        mainData.ack = LORAGETACK; // ack needed
-        newLoraDataOut = true;     // set flag to send data out
-        break;
-    default:
-        break;
-    }
-    if (newLoraDataOut == true)
-    {
-        mainData.IDr = mainData.IDs;
-        xQueueSend(loraOut, (void *)&mainData, 10); // send to lora
-        newLoraDataOut = false;
-        mainData.cmd = -1;
-    }
-    if (handelRfData())
-    {
-        double tg = mainData.tgDir;
-        getBuoyArr(&mainData);
-        if (adcmain.swPos == SW_LEFT)
-        {
-            mainData.tgDir = tg;
-        }
-        updateOled(&mainData);
-    }
-    delay(1);
+    vTaskDelay(pdMS_TO_TICKS(50));
 }

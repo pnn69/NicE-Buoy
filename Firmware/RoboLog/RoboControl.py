@@ -346,19 +346,14 @@ class RoboMonitor:
                     return
 
                 if udp_active:
-                    if retries == 0:
-                        # Initial attempt: UDP only. Use ACK=0 (LORAGET) to ask Sub for real data.
-                        self.send_custom_udp_command(b['id'], f"{b['id']},99,1,55,0,0,0,0,0,0,0", use_udp=True, use_lora=False)
-                        self.send_custom_udp_command(b['id'], f"{b['id']},99,1,57,0,0,0,0,0,0,0", use_udp=True, use_lora=False)
-                        self.send_custom_udp_command(b['id'], f"{b['id']},99,1,68,0,0,0,0,0,0,0", use_udp=True, use_lora=False)
-                    elif retries >= 2:
-                        # Fallback to LoRa, spaced out. Use ACK=1 (LORAGET) to avoid ACK storms.
-                        if not has_rudder and retries % 6 == 2:
-                            self.send_custom_udp_command(b['id'], f"{b['id']},99,1,55,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
-                        if not has_speed and retries % 6 == 4:
-                            self.send_custom_udp_command(b['id'], f"{b['id']},99,1,57,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
-                        if not has_maxmin and retries % 6 == 0:
-                            self.send_custom_udp_command(b['id'], f"{b['id']},99,1,68,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
+                    if retries == 0 or retries % 6 == 0: # Try every 3 seconds (6 * 500ms)
+                        # Stagger the requests by 150ms to prevent overwhelming the ESP32 AsyncUDP buffer
+                        if not has_rudder:
+                            self.master.after(0, lambda: self.send_custom_udp_command(b['id'], f"{b['id']},99,1,55,0,0,0,0,0,0,0", use_udp=True, use_lora=False))
+                        if not has_speed:
+                            self.master.after(150, lambda: self.send_custom_udp_command(b['id'], f"{b['id']},99,1,57,0,0,0,0,0,0,0", use_udp=True, use_lora=False))
+                        if not has_maxmin:
+                            self.master.after(300, lambda: self.send_custom_udp_command(b['id'], f"{b['id']},99,1,68,0,0,0,0,0,0,0", use_udp=True, use_lora=False))
                 else:
                     # LoRa only, space them out to prevent half-duplex collisions
                     if not has_rudder and retries % 6 == 0:
@@ -916,6 +911,8 @@ class RoboMonitor:
                     status_text = "LOCKED"
                 elif current_status in ["15", "16", "17"]:
                     status_text = "DOCKING"
+                elif current_status == "25":
+                    status_text = "REMOTE"
                 elif current_status == "49":
                     status_text = "SETUP"
                 else:
@@ -1043,6 +1040,9 @@ class RoboMonitor:
 
     def on_closing(self):
         self.running = False
+        self.running_serial = False
+        if self.serial_conn and self.serial_conn.is_open:
+            self.serial_conn.close()
         self.sock.close()
         self.udp_thread.join()
         self.master.destroy()

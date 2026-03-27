@@ -32,58 +32,56 @@ uint32_t readADC_Cal(int ADC_Raw)
 */
 void readAdc(adcDataType *adc)
 {
-    //*************************************************************************************
-    // Course
-    //************************************************************************************* 
-    int tmp, newValue;
-    tmp = 0;
-    for (int i = 0; i < 10; i++)
-    {
-        tmp += analogRead(POT_RUDDER);
-    }
-    tmp = tmp / 10; // average over 20 samples
-    adc->heading = constrain(map(tmp, 0, 4095, 0, 360), 360, 0); // 4095;
+    static float smoothedRudder = 2048;
+    static float smoothedSpeed = 2048;
+    const float alpha = 0.2; // Smoothing factor (0.0 to 1.0)
+
+    // EMA Filtering for Rudder/Heading
+    smoothedRudder = (alpha * analogRead(POT_RUDDER)) + ((1.0 - alpha) * smoothedRudder);
+    adc->heading = map((int)smoothedRudder, 0, 4095, 360, 0);
   
-    //*************************************************************************************
-    // Speed  
-    //************************************************************************************* 
-    tmp = 0;
-    for (int i = 0; i < 20; i++)
-    {
-        tmp += analogRead(POT_SPEED);
-    }
-    tmp = tmp / 20; // average over 20 samples
-    if (tmp < 4095/2 -700)
-    {
-        newValue = map(tmp, 0,  4095/2 -700, 0, -100); // 4095;
-    }
-    else if (tmp >  4095/2 -200 + 700)
-    {
-        newValue = map(tmp, 4095/2 +700,  4094, 100, 0); // 4095;
-    }
-    else
-    {
-        newValue = 0;
+    // EMA Filtering for Speed
+    int rawSpeed = analogRead(POT_SPEED);
+    smoothedSpeed = (alpha * rawSpeed) + ((1.0 - alpha) * smoothedSpeed);
+    
+    int val = (int)smoothedSpeed;
+    int newValue = 0;
+    int center = 2048;
+    int deadzone = 700;
+
+    if (val < center - deadzone) {
+        newValue = map(val, 0, center - deadzone, -100, 0);
+    } else if (val > center + deadzone) {
+        newValue = map(val, center + deadzone, 4095, 0, 100);
     }
 
-    if (adc->raws - JITTER > tmp || adc->raws + JITTER < tmp)
+    if (abs((int)adc->raws - val) > JITTER)
     {
-        adc->raws = tmp;
+        adc->raws = val;
         adc->speed = newValue;
         adc->newdata = true;
     }
-    tmp = analogRead(SWITCH_PIN_REMOTE_IDLE_LOCK);
-    if (tmp < 1500)
-    {
-        adc->swPos = SW_LEFT;
+
+    // Mode Switch
+    int swRaw = analogRead(SWITCH_PIN_REMOTE_IDLE_LOCK);
+    int newSwPos = adc->swPos;
+
+    if (swRaw < 1300) newSwPos = SW_LEFT;
+    else if (swRaw > 1700 && swRaw < 2800) newSwPos = SW_MID;
+    else if (swRaw > 3200) newSwPos = SW_RIGHT;
+    
+    // Simple software debounce
+    static int debouncedSwPos = SW_MID;
+    static int swPosStableCount = 0;
+    
+    if (newSwPos != debouncedSwPos) {
+        swPosStableCount++;
+        if (swPosStableCount > 3) { // Require 3 stable readings (approx 150ms)
+            debouncedSwPos = newSwPos;
+            adc->swPos = debouncedSwPos;
+            swPosStableCount = 0;
+        }
+    } else {
+        swPosStableCount = 0;
     }
-    else if (tmp > 3000)
-    {
-        adc->swPos = SW_RIGHT;
-    }
-    else
-    {
-        adc->swPos = SW_MID;
-    }
-    //Serial.printf("Dir raw:%04d converted:%04d,Speed Raw:%04d converted:%04d\r\n", adc->rawr, adc->rudder, adc->raws, adc->speed);
 }
