@@ -279,7 +279,7 @@ class RoboMonitor:
             dist = float(dist_val)
             # CMD=47 (DIRDIST), STATUS=7 (IDLE)
             val_str = f"{format(d, '.2f')},{format(dist, '.2f')}"
-            base_msg = f"{b['id']},99,0,47,7,{val_str}"
+            base_msg = f"{b['id']},99,,47,7,{val_str}"
             self.send_custom_udp_command(b['id'], base_msg)
         except ValueError:
             pass
@@ -289,7 +289,7 @@ class RoboMonitor:
         if not b['id']: return
         
         # Clear existing PID data to ensure we fetch fresh values
-        for key in ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed"]:
+        for key in ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "compassOffset"]:
             b['data'].pop(key, None)
             
         loading_win = tk.Toplevel(self.master)
@@ -327,43 +327,31 @@ class RoboMonitor:
             has_rudder = all(k in b['data'] for k in ["Kpr", "Kir", "Kdr"])
             has_speed = all(k in b['data'] for k in ["Kps", "Kis", "Kds"])
             has_maxmin = all(k in b['data'] for k in ["maxSpeed", "minSpeed", "pivotSpeed"])
+            has_compass = "compassOffset" in b['data']
             
-            if has_rudder:
-                rudder_status_lbl.config(text="Received ✓", fg="green")
-            if has_speed:
-                speed_status_lbl.config(text="Received ✓", fg="green")
-            if has_maxmin:
-                limits_status_lbl.config(text="Received ✓", fg="green")
-            
-            if has_rudder and has_speed and has_maxmin:
+            if has_rudder and has_speed and has_maxmin and has_compass:
                 loading_win.destroy()
                 self.open_setup_window(b)
             else:
-                if retries >= 30: # 15 seconds total max
-                    self.log_message(f"Timeout: Could not retrieve PID data for Buoy {b['id']}")
+                if retries >= 75: # 15 seconds total max (75 * 200ms)
+                    self.log_message(f"Timeout: Could not retrieve setup data for Buoy {b['id']}")
                     info_lbl.config(text="Timeout occurred.", foreground="red")
                     loading_win.after(2000, loading_win.destroy)
                     return
 
+                # Dynamically check UDP status
+                current_t = time.time()
+                udp_active = b['last_udp_time'] > 0 and (current_t - b['last_udp_time'] < 5) and b['udp_enabled_var'].get()
+
+                # Request ALL data via new SETUPDATA command (CMD 83)
                 if udp_active:
-                    if retries == 0 or retries % 6 == 0: # Try every 3 seconds (6 * 500ms)
-                        # Stagger the requests by 150ms to prevent overwhelming the ESP32 AsyncUDP buffer
-                        if not has_rudder:
-                            self.master.after(0, lambda: self.send_custom_udp_command(b['id'], f"{b['id']},99,1,55,0,0,0,0,0,0,0", use_udp=True, use_lora=False))
-                        if not has_speed:
-                            self.master.after(150, lambda: self.send_custom_udp_command(b['id'], f"{b['id']},99,1,57,0,0,0,0,0,0,0", use_udp=True, use_lora=False))
-                        if not has_maxmin:
-                            self.master.after(300, lambda: self.send_custom_udp_command(b['id'], f"{b['id']},99,1,68,0,0,0,0,0,0,0", use_udp=True, use_lora=False))
+                    if retries % 5 == 0: # Every 1.0 second for UDP
+                        self.master.after(0, lambda: self.send_custom_udp_command(b['id'], f"{b['id']},99,1,83,,,,,,,", use_udp=True, use_lora=False))
                 else:
-                    # LoRa only, space them out to prevent half-duplex collisions
-                    if not has_rudder and retries % 6 == 0:
-                        self.send_custom_udp_command(b['id'], f"{b['id']},99,1,55,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
-                    if not has_speed and retries % 6 == 2:
-                        self.send_custom_udp_command(b['id'], f"{b['id']},99,1,57,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
-                    if not has_maxmin and retries % 6 == 4:
-                        self.send_custom_udp_command(b['id'], f"{b['id']},99,1,68,0,0,0,0,0,0,0", use_udp=False, use_lora=True)
+                    if retries % 15 == 0: # Every 3.0 seconds for LoRa
+                        self.send_custom_udp_command(b['id'], f"{b['id']},99,1,83,,,,,,,", use_udp=False, use_lora=True)
                 
-                self.master.after(500, check_data_and_open, retries + 1)
+                self.master.after(200, check_data_and_open, retries + 1)
 
         check_data_and_open()
 
@@ -419,7 +407,7 @@ class RoboMonitor:
                 kir = float(kir_entry.get() or 0)
                 kdr = float(kdr_entry.get() or 0)
                 val_str = f"{format(kpr, '.10g')},{format(kir, '.10g')},{format(kdr, '.10g')}"
-                base_msg = f"{b['id']},99,6,56,0,{val_str},0,0,0"
+                base_msg = f"{b['id']},99,6,56,,{val_str},,,"
                 self.send_custom_udp_command(b['id'], base_msg)
             except ValueError:
                 pass
@@ -446,7 +434,7 @@ class RoboMonitor:
                 kis = float(kis_entry.get() or 0)
                 kds = float(kds_entry.get() or 0)
                 val_str = f"{format(kps, '.10g')},{format(kis, '.10g')},{format(kds, '.10g')}"
-                base_msg = f"{b['id']},99,6,58,0,{val_str},0,0,0"
+                base_msg = f"{b['id']},99,6,58,,{val_str},,,"
                 self.send_custom_udp_command(b['id'], base_msg)
             except ValueError:
                 pass
@@ -473,16 +461,34 @@ class RoboMonitor:
                 min_s = int(min_speed_entry.get() or 0)
                 piv_s = float(pivot_speed_entry.get() or 0.2)
                 val_str = f"{max_s},{min_s},{format(piv_s, '.2f')}"
-                base_msg = f"{b['id']},99,6,69,0,{val_str},0,0,0,0,0"
+                base_msg = f"{b['id']},99,6,69,,{val_str},,,,,"
                 self.send_custom_udp_command(b['id'], base_msg)
             except ValueError:
                 pass
 
         ttk.Button(main_setup_frame, text="Send Speed Limits", command=send_speed_limits).grid(row=14, column=0, columnspan=2, pady=(10, 5))
+
+        ttk.Label(main_setup_frame, text="Compass Configuration", font=("Arial", 11, "bold")).grid(row=15, column=0, columnspan=2, pady=(10, 10))
+        
+        ttk.Label(main_setup_frame, text="Compass Offset:").grid(row=16, column=0, sticky="e", padx=10, pady=5)
+        compass_offset_entry = ttk.Entry(main_setup_frame, width=15)
+        compass_offset_entry.grid(row=16, column=1, sticky="w", pady=5)
+        
+        def send_compass_offset():
+            try:
+                coff = float(compass_offset_entry.get() or 0)
+                val_str = f"{format(coff, '.2f')}"
+                # CMD 76 is STORE_COMPASS_OFFSET
+                base_msg = f"{b['id']},99,6,76,,{val_str},,,,,"
+                self.send_custom_udp_command(b['id'], base_msg)
+            except ValueError:
+                pass
+
+        ttk.Button(main_setup_frame, text="Send Compass Offset", command=send_compass_offset).grid(row=17, column=0, columnspan=2, pady=(10, 5))
         
         # --- In-Field Calibration Section ---
         calib_frame = ttk.LabelFrame(main_setup_frame, text="In-Field Calibration", padding="10")
-        calib_frame.grid(row=15, column=0, columnspan=2, sticky="ew", pady=(15, 0))
+        calib_frame.grid(row=18, column=0, columnspan=2, sticky="ew", pady=(15, 0))
         
         calib_comp_btn = ttk.Button(calib_frame, text="Compass Calibration", command=lambda: self.on_infield_calib_click(b))
         calib_comp_btn.pack(fill="x", pady=2)
@@ -495,7 +501,7 @@ class RoboMonitor:
             "Kpr": kpr_entry, "Kir": kir_entry, "Kdr": kdr_entry,
             "Kps": kps_entry, "Kis": kis_entry, "Kds": kds_entry,
             "maxSpeed": max_speed_entry, "minSpeed": min_speed_entry,
-            "pivotSpeed": pivot_speed_entry
+            "pivotSpeed": pivot_speed_entry, "compassOffset": compass_offset_entry
         }
         # Pre-fill if we have data already
         for key, entry in b['setup_entries'].items():
@@ -513,7 +519,7 @@ class RoboMonitor:
         )
         if response:
             # CMD=70, STATUS=0
-            base_msg = f"{b['id']},99,0,70,0,0,0,0,0,0,0"
+            base_msg = f"{b['id']},99,,70,,,,,,,"
             self.send_custom_udp_command(b['id'], base_msg)
             self.log_message(f"Triggered In-Field Compass Calibration for Buoy {b['id']}")
 
@@ -526,7 +532,7 @@ class RoboMonitor:
         )
         if response:
             # CMD=71, STATUS=0
-            base_msg = f"{b['id']},99,0,71,0,0,0,0,0,0,0"
+            base_msg = f"{b['id']},99,,71,,,,,,,"
             self.send_custom_udp_command(b['id'], base_msg)
             self.log_message(f"Triggered In-Field Offset Calibration for Buoy {b['id']}")
 
@@ -760,6 +766,9 @@ class RoboMonitor:
             content, crc = message[1:].split('*', 1)
             fields = content.split(',')
             
+            # Normalize empty fields to "0" (supports compressed zero-value transmission)
+            fields = [f if f != "" else "0" for f in fields]
+            
             if len(fields) < 5:
                 return
                 
@@ -786,14 +795,14 @@ class RoboMonitor:
             if cmd == "51" and len(fields) >= 21: # TOPDATA
                 data.update({
                     "IDr": fields[0], "IDs": fields[1], "ACK": fields[2], "CMD": fields[3], "Status": fields[4],
-                    "Magnetic Dir": fields[5], "GPS Dir": fields[6],
-                    "Target Dir": fields[7], "Target Dist": fields[8],
-                    "Wind Dir": fields[9], "Wind StdDev": fields[10],
-                    "Bow Thruster (BB)": fields[11], "Stern Thruster (SB)": fields[12],
-                    "PID I-term": fields[13], "PID R-term": fields[14],
-                    "Sub Battery V": fields[15], "Sub Battery %": fields[16],
-                    "Latitude (Lat)": fields[17], "Longitude (Lon)": fields[18],
-                    "GPS Fix": fields[19], "GPS Satellites": fields[20]
+                    "Magnetic Dir": fields[5] or "0", "GPS Dir": fields[6] or "0",
+                    "Target Dir": fields[7] or "0", "Target Dist": fields[8] or "0",
+                    "Wind Dir": fields[9] or "0", "Wind StdDev": fields[10] or "0",
+                    "Bow Thruster (BB)": fields[11] or "0", "Stern Thruster (SB)": fields[12] or "0",
+                    "PID I-term": fields[13] or "0", "PID R-term": fields[14] or "0",
+                    "Sub Battery V": fields[15] or "0", "Sub Battery %": fields[16] or "0",
+                    "Latitude (Lat)": fields[17] or "0", "Longitude (Lon)": fields[18] or "0",
+                    "GPS Fix": fields[19] or "0", "GPS Satellites": fields[20] or "0"
                 })
                 self.update_buoy_data(buoy_id, data)
                 
@@ -839,6 +848,22 @@ class RoboMonitor:
                     piv_s = fields[7]
                 data.update({
                     "maxSpeed": fields[5], "minSpeed": fields[6], "pivotSpeed": piv_s
+                })
+                self.update_buoy_data(buoy_id, data)
+
+            elif cmd == "83" and len(fields) >= 14: # SETUPDATA
+                piv_s = "0.2"
+                comp_off = "0.0"
+                if len(fields) >= 14:
+                    piv_s = fields[13]
+                if len(fields) >= 15:
+                    comp_off = fields[14]
+                data.update({
+                    "IDr": fields[0], "IDs": fields[1], "ACK": fields[2], "CMD": fields[3], "Status": fields[4],
+                    "Kpr": fields[5], "Kir": fields[6], "Kdr": fields[7],
+                    "Kps": fields[8], "Kis": fields[9], "Kds": fields[10],
+                    "maxSpeed": fields[11], "minSpeed": fields[12], "pivotSpeed": piv_s,
+                    "compassOffset": comp_off
                 })
                 self.update_buoy_data(buoy_id, data)
                 
@@ -947,18 +972,28 @@ class RoboMonitor:
                     w_dir = "N/A"
                 
                 gps_dir = data.get("GPS Dir", "N/A")
-                if gps_dir not in ["N/A", "nan", ""]:
+                dist_val = data.get("Target Dist", "0")
+
+                show_gps_vector = False
+                try:
+                    dist_ok = float(dist_val) > 5.0
+                except:
+                    dist_ok = False
+
+                status_ok = current_status in ["12", "13", "14", "15", "16", "17"]  # LOCKED or DOCKING
+
+                if gps_dir not in ["N/A", "nan", ""] and status_ok and dist_ok:
                     if b.get("gps_dir_first_seen") is None:
                         b["gps_dir_first_seen"] = time.time()
-                    
+
                     if time.time() - b["gps_dir_first_seen"] >= 5.0:
                         gps_dir_to_show = gps_dir
+                        show_gps_vector = True
                     else:
                         gps_dir_to_show = "N/A"
                 else:
                     b["gps_dir_first_seen"] = None
-                    gps_dir_to_show = "N/A"
-                
+                    gps_dir_to_show = "N/A"                
                 self.update_windrose(b, w_dir, tg_dir, data.get("Magnetic Dir", "N/A"), gps_dir_to_show)
                 
                 # Update Setup Window entries if open

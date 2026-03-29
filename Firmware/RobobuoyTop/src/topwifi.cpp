@@ -277,8 +277,8 @@ void WiFiTask(void *arg)
 
         if (xQueueReceive(udpOut, (void *)&msgIdOut, 1) == pdTRUE)
         {
-            msgIdOut.IDr = msgIdOut.mac;
-            msgIdOut.IDs = msgIdOut.mac;
+            if (msgIdOut.IDs == 0) msgIdOut.IDs = espMac();
+            if (msgIdOut.IDr == 0) msgIdOut.IDr = ROBOBASE; 
             String out = rfCode(&msgIdOut);
             udp.broadcast(out.c_str());
         }

@@ -9,6 +9,7 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include <math.h>
 #include <Wire.h>
 #include "io.h"
+#include "oled_ssd1306.h"
 #include "LiLlora.h"
 #include "sercom.h"
 #include "controlwifi.h"
@@ -78,7 +79,6 @@ void dispatchCommand(RoboStruct *data, adcDataType *adc)
             data->cmd = REMOTE; // 25
             forceSend = true;
             data->ack = LORAINF; // 6 (Continuous data update)
-            data->status = IDLE; // 7
             adc->newdata = false;
         }
     }
@@ -130,6 +130,7 @@ void setup()
     pinMode(SW_P_2, OUTPUT);
     digitalWrite(SW_P_2, false);
     Wire.begin();
+    initSSD1306();
     initloraqueue();
     initserqueue();
     initwifiqueue();
@@ -354,6 +355,7 @@ void loop()
     handelKeyPress(&mainData);
     if (handelRfData()) getBuoyArr(&mainData);
     dispatchCommand(&mainData, &adcmain);
+    updateOled(&mainData, &adcmain);
 
     vTaskDelay(pdMS_TO_TICKS(50));
 }

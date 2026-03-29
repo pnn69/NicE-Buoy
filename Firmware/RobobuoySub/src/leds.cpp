@@ -26,8 +26,8 @@ static bool blink, blinkFast;
 
 bool initledqueue(void)
 {
-    ledStatus = xQueueCreate(10, sizeof(LedData));
-    ledPwr = xQueueCreate(10, sizeof(PwrData));
+    ledStatus = xQueueCreate(1, sizeof(LedData));
+    ledPwr = xQueueCreate(1, sizeof(PwrData));
     return true;
 }
 
@@ -91,19 +91,23 @@ void LedTask(void *arg)
                 blink = !blink;
             }
 
+            bool anyBlink = false;
+
             // --- Status LED ---
-            if (ledStatusData.blink == BLINK_FAST) leds[LEDSTATUS] = blinkFast ? ledStatusData.color : CRGB::Black;
-            else if (ledStatusData.blink == BLINK_SLOW) leds[LEDSTATUS] = blink ? ledStatusData.color : CRGB::Black;
+            if (ledStatusData.blink == BLINK_FAST) { leds[LEDSTATUS] = blinkFast ? ledStatusData.color : CRGB::Black; anyBlink = true; }
+            else if (ledStatusData.blink == BLINK_SLOW) { leds[LEDSTATUS] = blink ? ledStatusData.color : CRGB::Black; anyBlink = true; }
             
             // --- BB Motor LED ---
-            if (ledPwrData.blinkBb == BLINK_FAST) leds[LEDBB] = blinkFast ? ledPwrData.bb : CRGB::Black;
-            else if (ledPwrData.blinkBb == BLINK_SLOW) leds[LEDBB] = blink ? ledPwrData.bb : CRGB::Black;
+            if (ledPwrData.blinkBb == BLINK_FAST) { leds[LEDBB] = blinkFast ? ledPwrData.bb : CRGB::Black; anyBlink = true; }
+            else if (ledPwrData.blinkBb == BLINK_SLOW) { leds[LEDBB] = blink ? ledPwrData.bb : CRGB::Black; anyBlink = true; }
 
             // --- SB Motor LED ---
-            if (ledPwrData.blinkSb == BLINK_FAST) leds[LEDSB] = blinkFast ? ledPwrData.sb : CRGB::Black;
-            else if (ledPwrData.blinkSb == BLINK_SLOW) leds[LEDSB] = blink ? ledPwrData.sb : CRGB::Black;
+            if (ledPwrData.blinkSb == BLINK_FAST) { leds[LEDSB] = blinkFast ? ledPwrData.sb : CRGB::Black; anyBlink = true; }
+            else if (ledPwrData.blinkSb == BLINK_SLOW) { leds[LEDSB] = blink ? ledPwrData.sb : CRGB::Black; anyBlink = true; }
 
-            changed = true;
+            if (anyBlink) {
+                changed = true;
+            }
         }
 
         if (changed)

@@ -72,6 +72,8 @@ void setup()
     delay(100);
     printf("\r\nSetup running!\r\n");
     printf("Robobuoy Top Version: %0.1f\r\n", TOPVERSION);
+    printf("Command ID SETUPDATA: %d\r\n", SETUPDATA);
+
     initMemory();
     initbuzzerqueue();
     initledqueue();
@@ -793,6 +795,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 else
                 {
                     xQueueSend(udpOut, (void *)&RfIn, 0); // For status updates from other buoys
+                    xQueueSend(loraOut, (void *)&RfIn, 0); // For status updates from other buoys
                 }
                 break;
             case PIDRUDDER:
@@ -804,6 +807,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     // For status updates from other buoys, only forward to UDP for local display
                     xQueueSend(udpOut, (void *)&RfIn, 0);
+                    xQueueSend(loraOut, (void *)&RfIn, 0); // For status updates from other buoys
                 }
                 break;
             case PIDRUDDERSET:
@@ -821,6 +825,19 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     // For status updates from other buoys, only forward to UDP for local display
                     xQueueSend(udpOut, (void *)&RfIn, 0);
+                    xQueueSend(loraOut, (void *)&RfIn, 0); // For status updates from other buoys
+                }
+                break;
+            case SETUPDATA:
+                if (RfIn.ack == LORAGET || RfIn.ack == LORAGETACK)
+                {
+                    xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                }
+                else
+                {
+                    // For status updates from other buoys, only forward to UDP for local display
+                    xQueueSend(udpOut, (void *)&RfIn, 0);
+                    xQueueSend(loraOut, (void *)&RfIn, 0); // For status updates from other buoys
                 }
                 break;
             case PIDSPEEDSET:
@@ -918,6 +935,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     // For status updates from other buoys, only forward to UDP for local display
                     xQueueSend(udpOut, (void *)&RfIn, 0);
+                    xQueueSend(loraOut, (void *)&RfIn, 0); // For status updates from other buoys
                 }
                 break;
             case MAXMINPWRSET:
@@ -1020,11 +1038,18 @@ void handelSerialData(RoboStruct *ser)
             ser->ir = serDataIn.ir;
             ser->subAccuV = serDataIn.subAccuV;
             ser->subAccuP = serDataIn.subAccuP;
-            ser->escHeartbeat = serDataIn.escHeartbeat; // Store ESC heartbeat from Sub
             
             mainPwrData.ledBb = -ser->speedBb;
             mainPwrData.ledSb = -ser->speedSb;
             xQueueSend(ledPwr, (void *)&mainPwrData, 0);
+            break;
+        case SETUPDATA:
+            serDataIn.IDs = mainData.IDs; // FIX: ensure IDs is set to Top's IDs for consistent buoy identification!
+            serDataIn.mac = mainData.mac; // FIX: ensure mac is set to Top's mac before sending out!
+            serDataIn.IDr = BUOYIDALL;    // FIX: ensure response is broadcasted to all (ID 1) just like BUOYPOS
+            xQueueSend(udpOut, (void *)&serDataIn, 0);
+            xQueueSend(loraOut, (void *)&serDataIn, 0);
+            printf("Setup data PID and Compass sent\r\n");
             break;
         case PONG:
             break;
@@ -1067,11 +1092,24 @@ void handelSerialData(RoboStruct *ser)
         case PIDSPEED:
         case MAXMINPWR:
         case MAXMINPWRSET:
-            printf("Received PID/PWR data from sub. CMD: %d\r\n", serDataIn.cmd);
-            serDataIn.IDs = mainData.IDs; // FIX: ensure IDs is set to Top's IDs for consistent buoy identification!
-            serDataIn.mac = mainData.mac; // FIX: ensure mac is set to Top's mac before sending out!
-            xQueueSend(udpOut, (void *)&serDataIn, 0);
-            xQueueSend(loraOut, (void *)&serDataIn, 0);
+            if (serDataIn.ack == LORAGET || serDataIn.ack == LORAGETACK)
+            {
+                // This is a request from PC (Serial) -> Forward to Sub
+                xQueueSend(serOut, (void *)&serDataIn, 0);
+            }
+            else
+            {
+                // This is a response from Sub -> Forward to PC/LoRa/UDP
+                printf("Received PID/PWR data from sub. CMD: %d\r\n", serDataIn.cmd);
+                serDataIn.IDs = mainData.IDs; // FIX: ensure IDs is set to Top's IDs for consistent buoy identification!
+                serDataIn.mac = mainData.mac; // FIX: ensure mac is set to Top's mac before sending out!
+                
+                // IMPORTANT: Send the actual protocol string to the PC via Serial so RoboControl.py sees it!
+                Serial.println(rfCode(&serDataIn));
+
+                xQueueSend(udpOut, (void *)&serDataIn, 0);
+                xQueueSend(loraOut, (void *)&serDataIn, 0);
+            }
             break;
 
         default:

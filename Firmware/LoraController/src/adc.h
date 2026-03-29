@@ -12,6 +12,7 @@ struct adcDataType
     float vbat;
     float vcc;
     int swPos;
+    bool speedLocked;
 };
 
 typedef enum

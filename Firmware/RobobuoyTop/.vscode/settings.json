@@ -12,5 +12,6 @@
         "tuple": "cpp",
         "type_traits": "cpp",
         "utility": "cpp"
-    }
+    },
+    "idf.currentSetup": "C:\\Users\\Peter.d.Nijs\\esp\\v5.3\\esp-idf"
 }

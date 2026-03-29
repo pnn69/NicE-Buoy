@@ -42,14 +42,17 @@ void buzzerTask(void *arg)
 
     while (true)
     {
-        // Check for new buzzer commands
-        if (xQueueReceive(buzzer, (void *)&buzzerData, remainingRepeats > 0 ? 0 : 10) == pdTRUE)
+        // Only pull a new beep command from the queue if the current sequence has finished
+        if (remainingRepeats == 0)
         {
-            if (buzzerData.hz == 0) buzzerData.hz = 1000;
-            if (buzzerData.duration == 0) buzzerData.duration = 500;
-            remainingRepeats = buzzerData.repeat + 1;
-            nextActionTime = millis();
-            isOn = false;
+            if (xQueueReceive(buzzer, (void *)&buzzerData, 10) == pdTRUE)
+            {
+                if (buzzerData.hz == 0) buzzerData.hz = 1000;
+                if (buzzerData.duration == 0) buzzerData.duration = 500;
+                remainingRepeats = buzzerData.repeat + 1;
+                nextActionTime = millis();
+                isOn = false;
+            }
         }
 
         if (remainingRepeats > 0 && millis() >= nextActionTime)
@@ -63,6 +66,8 @@ void buzzerTask(void *arg)
             else
             {
                 ledcDetachPin(BUZZER_PIN);
+                pinMode(BUZZER_PIN, OUTPUT);
+                digitalWrite(BUZZER_PIN, LOW); // Drive pin low to prevent DC static voltage
                 nextActionTime = millis() + buzzerData.pause;
                 isOn = false;
                 remainingRepeats--;

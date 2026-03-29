@@ -2,6 +2,41 @@
 
 This document summarizes the changes made to the Robobuoy firmware ecosystem to improve stability, communication integrity, and memory safety.
 
+## Recent Changes (March 25, 2026)
+
+### 1. ESC & Motor Control (Sub)
+- **LED Optimization**: Optimized the `EscTask` to only update the `ledPwr` queue when speeds or colors actually change, reducing unnecessary task context switching.
+- **Dynamic LED Feedback**: Refactored LED color mapping into a unified `calculateLedColor` function, providing real-time visual feedback of motor thrust (Green for forward, Red for reverse).
+
+### 2. Buzzer System Improvements (Top & Sub)
+- **Sequence Integrity**: Updated `buzzerTask` to only pull new commands from the queue once the current beep sequence (including repeats) has fully completed.
+- **Hardware Safety**: Explicitly set the buzzer pin to `LOW` after detaching the PWM signal. This prevents potential DC static voltage and audible "hum" when the buzzer is idle.
+- **Startup Feedback**: Added distinctive startup beeps to both Top and Sub units for immediate audio confirmation of system boot.
+
+### 3. Communication & Protocols
+- **Sub Wakeup Logic**: Implemented a `WAKEUP` command. The Top unit now automatically sends a wakeup signal when transitioning from `IDLE` to an active state, ensuring the Sub is ready for commands.
+- **Power Limit Configuration**: Added support for `MAXMINPWR` and `MAXMINPWRSET` commands, allowing for remote retrieval and configuration of motor power limits.
+- **Enhanced Diagnostics**: Added detailed serial timeout logging on the Sub, reporting ESC heartbeat and task status when communication is lost.
+
+### 4. Navigation & Logic (Sub)
+- **Precision Locking**: Reduced the `tgDist` (target distance) threshold for automatic station-keeping lock from 1.5m to 1.0m, improving position hold accuracy.
+
+### 5. Display & Touch (RoboDisplay_AI)
+- **Touchscreen Fix**: Corrected XPT2046 touchscreen SPI bus sharing and coordinate mapping for improved UI reliability on AI-enabled display modules.
+
+### 6. UDP Monitor (Python Tooling)
+- **Visual Overlays**: Added real-time Target Distance and PID I-term (Wind Proxy) text overlays directly on the windrose canvas for at-a-glance monitoring.
+- **GPS Vector Support**: Implemented a new "GPS Direction" vector (black arrow) with a 5-second stabilization filter to visualize GPS-derived heading.
+- **Speed Limit Configuration**: Added a "Speed Limits" section to the setup window, allowing remote configuration of `maxSpeed` and `minSpeed`.
+- **UI Polish**: 
+    - Displaying buoy IP addresses in the frame headers.
+    - Improved vector legend and color-coding for better clarity.
+    - Thread-safe logging and automated log cleanup to prevent UI lag.
+
+### 7. LoraController Standardisation
+- **Library Consistency**: Updated `LoraController` to use standard `<RoboCompute.h>` includes, aligning with the centralized dependency model.
+- **ID Selection Fix**: Resolved a logic error in `getNextValidID` where the iteration would return prematurely during buoy ID cycling.
+
 ## 1. Architectural Changes: Centralized Dependency
 - **Direct Source Compilation**: Updated `platformio.ini` for all projects (`Top`, `Sub`, `Base`, `Remote`, `LoraController`) to use `lib_extra_dirs` pointing to `../RobobuoyDependency`.
 - **Benefit**: This ensures that all projects compile against the master version of `RoboCompute` and `RoboTone` directly. Changes made to the central library are immediately reflected across all projects without manual copying.
@@ -32,7 +67,8 @@ This document summarizes the changes made to the Robobuoy firmware ecosystem to 
 
 ## 5. Task Performance & Stability
 - **Serial Robustness**: 
-  - Implemented `Serial.readStringUntil('\n')` with a 100ms timeout in both projects.
+  - Implemented `Serial.readStringUntil('
+')` with a 100ms timeout in both projects.
   - **Benefit**: Prevents tasks from stalling if a character is missed or a packet is malformed.
 - **Non-Blocking State Machines**: Refactored `buzzerTask` and `CompassTask`.
   - **Fix**: Replaced long `vTaskDelay` and hardware busy-waits with state-machine logic.
@@ -88,4 +124,3 @@ Minimize "hunting" (oscillating around the course) and ensure the buoy arrives a
 
 ---
 **Status**: All projects are now compiling correctly and are functionally robust.
-

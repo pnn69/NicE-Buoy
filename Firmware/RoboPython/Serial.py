@@ -949,6 +949,8 @@ class PIDSender(QWidget):
         print(f"Distance & Direction sent: {direction},{distance}")
 
     def closeEvent(self, event):
+        if self.serial_port and self.serial_port.is_open:
+            self.serial_port.close()
         if self.serial_worker:
             self.serial_worker.stop()
         if self.serial_thread:

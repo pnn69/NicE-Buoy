@@ -45,3 +45,8 @@ class PIDSender(QWidget):
         message = f"Kp:{kp},Ki:{ki},Kd:{kd},Rudder:{rudder},Speed:{speed}"
         self.sender.send(message)
         self.serial_sender.send(message)
+
+    def closeEvent(self, event):
+        if self.serial_sender:
+            self.serial_sender.close()
+        event.accept()

@@ -2,7 +2,6 @@
 #include "main.h"
 #include <HardwareSerial.h>
 #include "LoRa.h"
-#include "oled_ssd1306.h"
 #include "LiLlora.h"
 
 QueueHandle_t serOut;
@@ -20,26 +19,30 @@ void initserqueue(void)
 
 void SercomTask(void *arg)
 {
-    char buff[50];
-    String serStringIn = "";
     while (1)
     {
-        if (Serial.available()) // recieve data form top
+        if (Serial.available()) // receive data from PC/RoboControl
         {
-            serStringIn = "";
-            while (Serial.available())
+            String serStringIn = Serial.readStringUntil('\n');
+            serStringIn.trim(); // Clean up any trailing whitespace
+            
+            if (serStringIn.length() > 0)
             {
-                serStringIn += (char)Serial.read();
-            }
-            xQueueSend(loraOutSerial, (void *)&serStringIn, 10); // send to lora
-            RoboStruct serDataIn;
-            rfDeCode(serStringIn,&serDataIn);
-            if (serDataIn.IDs != -1)
-            {
-                xQueueSend(serIn, (void *)&serDataIn, 10); // notify main there is new data
-                lastSerMsg = millis();
+                // Decode the string immediately to avoid passing String objects via Queue
+                RoboStruct serDataIn;
+                rfDeCode(serStringIn, &serDataIn);
+                
+                if (serDataIn.IDs != -1)
+                {
+                    // Route to LoRa transmitter queue
+                    xQueueSend(loraOut, (void *)&serDataIn, 10);
+                    
+                    // Also route to main task for local monitoring/display
+                    xQueueSend(serIn, (void *)&serDataIn, 10);
+                    lastSerMsg = millis();
+                }
             }
         }
-        delay(1);
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }

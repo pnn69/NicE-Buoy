@@ -162,13 +162,13 @@ void onReceive(int packetSize)
     }
     RoboStruct in;
     rfDeCode(incoming, &in);
+    Serial.println(incoming);
     if ((in.IDr == buoyId || in.IDr == 0x99) && in.ack == LORAACK) // A message form me so check if its a ACK message
     {
         removeAckMsg(in);
         // printf("#Lora Ack recieved buffer cleared\r\n");
         return;
     }
-    Serial.println(incoming);
     if (in.IDr == buoyId || in.IDr == BUOYIDALL || in.IDr == 0x99) // A message form me so check if its a ACK message
     {
         if (in.ack == LORAGETACK) // on ack request send ack back

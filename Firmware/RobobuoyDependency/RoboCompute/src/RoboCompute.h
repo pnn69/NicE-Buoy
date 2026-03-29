@@ -107,7 +107,8 @@ typedef enum
     RESET_RUDDER_PID,                 // reset rudder pid
     RESET_SPEED_PID,                  // reset speed pid
     RESET_SPEED_RUD_PID,              // reset speed and rudder pid
-    WAKEUP                            // wakeup sub
+    WAKEUP,                           // wakeup sub
+    SETUPDATA                         // Combined PID and Limits data                         // Combined PID and Limits data
 
     } msg_t;
 
@@ -167,7 +168,6 @@ struct RoboStruct
     unsigned long lastSerOut = 0;  // last external communicatong
     unsigned long lastSerIn = 0;   // last external communicatong
     unsigned long lastUdpIn = 0;   // last external communicatong
-    unsigned long escHeartbeat = 0; // ESC task heartbeat counter
     unsigned char retry = 0;
     double magHard[3] = {0};    // Hard Iron Factors
     double magSoft[3][3] = {0}; // Soft Iron Factors

@@ -8,7 +8,7 @@
 #include "leds.h"
 #include "io_top.h"
 
-#define NUM_LEDS 3
+#define NUM_LEDS 3 + 20
 #define LEDSTATUS 0
 #define LEDUTIL 1
 #define LEDGPS 2
@@ -19,11 +19,14 @@ CRGB leds[NUM_LEDS];
 QueueHandle_t ledStatus; // speed status bb,sb
 QueueHandle_t ledUtil;   // Accu status
 QueueHandle_t ledGps;    // Accu status
+QueueHandle_t ledPwr;    // power bar
+
 static uint8_t blinkcnt = 0;
 static unsigned long blinktimer = millis();
 static LedData ledDataStatus;
 static LedData ledDataUtil;
 static LedData ledDataGps;
+static PwrData ledPwrData;
 static bool blink, blinkFast;
 
 bool initledqueue(void)
@@ -32,6 +35,7 @@ bool initledqueue(void)
     ledStatus = xQueueCreate(10, sizeof(LedData));
     ledUtil = xQueueCreate(10, sizeof(LedData));
     ledGps = xQueueCreate(10, sizeof(LedData));
+    ledPwr = xQueueCreate(10, sizeof(PwrData));
     Serial.println("Led queue created!");
     return true;
 }
@@ -70,6 +74,25 @@ void LedTask(void *arg)
         if (xQueueReceive(ledGps, (void *)&ledDataGps, 0) == pdTRUE)
         {
             leds[LEDGPS] = ledDataGps.color;
+            changed = true;
+        }
+        if (xQueueReceive(ledPwr, (void *)&ledPwrData, 0) == pdTRUE)
+        {
+            int bbVal = ledPwrData.ledBb;
+            int sbVal = ledPwrData.ledSb;
+
+            for (int i = 1; i < 11; i++)
+            {
+                // BB Motor Bar (LEDs 3 to 12)
+                if (bbVal >= 10) { leds[2 + i] = CRGB::Red; bbVal -= 10; }
+                else if (bbVal <= -10) { leds[2 + i] = CRGB::Green; bbVal += 10; }
+                else { leds[2 + i] = CRGB::Black; }
+
+                // SB Motor Bar (LEDs 13 to 22)
+                if (sbVal >= 10) { leds[2 + 10 + i] = CRGB::Red; sbVal -= 10; }
+                else if (sbVal <= -10) { leds[2 + 10 + i] = CRGB::Green; sbVal += 10; }
+                else { leds[2 + 10 + i] = CRGB::Black; }
+            }
             changed = true;
         }
 

@@ -6,3 +6,7 @@ class SerialSender:
 
     def send(self, message):
         self.ser.write(message.encode())
+
+    def close(self):
+        if self.ser and self.ser.is_open:
+            self.ser.close()

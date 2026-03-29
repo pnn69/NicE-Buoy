@@ -156,6 +156,10 @@ void lv_create_main_gui(void) {
 }
 
 void setup() {
+  // CYD Backlight
+  pinMode(21, OUTPUT);
+  digitalWrite(21, HIGH);
+
   String LVGL_Arduino = String("LVGL Library Version: ") + lv_version_major() + "." + lv_version_minor() + "." + lv_version_patch();
   Serial.begin(115200);
   Serial.println(LVGL_Arduino);

@@ -1,0 +1,4 @@
+# KiCad project files should use LF line endings
+*.kicad_pro text eol=lf
+*.kicad_sch text eol=lf
+*.kicad_pcb text eol=lf

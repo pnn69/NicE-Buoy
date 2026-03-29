@@ -1,0 +1,9 @@
+{
+    "idf.currentSetup": "C:\\Users\\Peter.d.Nijs\\esp\\v5.3\\esp-idf",
+    "cmake.sourceDirectory": "C:/tmp/NicE-Buoy/Firmware/RoboDisplay_AI/managed_components/espressif__esp_lcd_touch",
+    "idf.portWin": "COM41",
+    "idf.openOcdConfigs": [
+        "interface/ftdi/esp32_devkitj_v1.cfg",
+        "target/esp32.cfg"
+    ]
+}

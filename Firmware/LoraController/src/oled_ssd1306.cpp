@@ -1,226 +1,194 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include "main.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include "oled_ssd1306.h"
 #include "main.h"
 
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
-// // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
-#define OLED_RESET -1 // Reset pin # (or -1 if sharing Arduino reset pin)
-
-bool displayOK = false;
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
+#define THRUST_BAR_WIDTH 8
+#define THRUST_BAR_GAP 0
+#define RIGHT_MARGIN (2 * THRUST_BAR_WIDTH)
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+bool displayOK = false;
 
-bool initSSD1306(void)
-{
-    //     // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
-    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
-    {
+// Forward declarations of helper functions
+void drawCommonHeader(RoboStruct *buoy);
+void drawThrustBars(int bb, int sb);
+void drawBatteryBar(float voltage);
+
+bool initSSD1306(void) {
+    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
         Serial.println(F("SSD1306 allocation failed"));
         return false;
     }
     displayOK = true;
-    Serial.println(F("SSD1306 allocation OK"));
     display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+    
+    // Boot Screen
     display.setTextSize(2);
-    display.setTextColor(WHITE);
-    display.print(" Robobuoy\n\r\n\r Sailing\n\rfor you!!!");
+    display.setCursor(10, 8);
+    display.println(F("NICE BUOY"));
+    display.setCursor(22, 28);
+    display.println(F("SAILING"));
+    display.setCursor(22, 44);
+    display.println(F("FOR YOU"));
     display.display();
-    display.setTextSize(1);
-
+    
+    delay(5000);
     return true;
 }
 
-void speedbars(int bb, int sb)
-{
-#define barwide 10
-    if (sb == 0)
-        sb = 1;
-    if (bb == 0)
-        bb = 1;
-    display.drawRect(0, 0, barwide, 64, WHITE);
-    display.drawRect(128 - barwide, 0, barwide, 64, WHITE);
-    if (bb <= 0)
-    {
-        display.fillRect(0, 32, barwide, 32 * -bb / 100, WHITE);
-    }
-    else
-    {
-        display.fillRect(0, 32 + 32 * -bb / 100, barwide, 32 * bb / 100, WHITE);
-    }
+// ----------------------------------------------------------------------------------
+// HELPERS
+// ----------------------------------------------------------------------------------
 
-    if (sb <= 0)
-    {
-        display.fillRect(SCREEN_WIDTH - barwide, 32, barwide, 32 * -sb / 100, WHITE);
-    }
-    else
-    {
-        display.fillRect(SCREEN_WIDTH - barwide, 32 + 32 * -sb / 100, barwide, 32 * sb / 100, WHITE);
-    }
+void drawCommonHeader(RoboStruct *buoy) {
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.printf("ID:%04X", (uint16_t)(buoy->IDs & 0xFFFF));
 }
 
-void BatPowerBarr(float perc)
-{
-    int fill = 0;
-    fill = (SCREEN_WIDTH - barwide * 2 - 12) * perc / 100;
-    display.drawRect(barwide + 7, 54, SCREEN_WIDTH - barwide * 2 - 12, 10, WHITE);
-    display.fillRect(barwide + 7, 54, fill, 10, WHITE);
+void drawThrustBars(int bb, int sb) {
+    int midY = 32;
+    int maxBarH = 32;
+    int sbX = SCREEN_WIDTH - THRUST_BAR_WIDTH;
+    int bbX = sbX - THRUST_BAR_WIDTH;
+
+    display.drawRect(bbX, 0, THRUST_BAR_WIDTH, 64, SSD1306_WHITE);
+    int bbH = (constrain(abs(bb), 0, 100) * maxBarH) / 100;
+    if (bb > 0) display.fillRect(bbX + 1, midY - bbH, THRUST_BAR_WIDTH - 2, bbH, SSD1306_WHITE);
+    else if (bb < 0) display.fillRect(bbX + 1, midY, THRUST_BAR_WIDTH - 2, bbH, SSD1306_WHITE);
+
+    display.drawRect(sbX, 0, THRUST_BAR_WIDTH, 64, SSD1306_WHITE);
+    int sbH = (constrain(abs(sb), 0, 100) * maxBarH) / 100;
+    if (sb > 0) display.fillRect(sbX + 1, midY - sbH, THRUST_BAR_WIDTH - 2, sbH, SSD1306_WHITE);
+    else if (sb < 0) display.fillRect(sbX + 1, midY, THRUST_BAR_WIDTH - 2, sbH, SSD1306_WHITE);
 }
 
-void ShowBuoyData(int buoyID)
-{
+void drawBatteryBar(float voltage) {
+    float minV = 19.0;
+    float maxV = 25.2;
+    int barW = 112; // As per spec 4.2
+    int fillW = (int)((constrain(voltage, minV, maxV) - minV) * barW / (maxV - minV));
+    display.drawRect(0, 60, barW, 4, SSD1306_WHITE);
+    if (fillW > 0) display.fillRect(0, 60, fillW, 4, SSD1306_WHITE);
+}
+
+// ----------------------------------------------------------------------------------
+// INDIVIDUAL SCREENS
+// ----------------------------------------------------------------------------------
+
+void drawIdleScreen(RoboStruct *buoy, adcDataType *adc) {
+    drawCommonHeader(buoy);
+    
+    display.setTextSize(2);
+    display.setCursor(0, 10);
+    display.printf("MAG: %03.0f", buoy->dirMag);
+
+    display.setTextSize(1);
+    display.setCursor(0, 28);
+    display.printf("SAT:%02d %s", buoy->gpsSat, buoy->gpsFix ? "FIX" : "No FIX");
+
+    // Fixed Mode Indicator
+    display.setTextSize(2);
+    display.setCursor(96, 0);
+    display.print("I");
+
+    display.setTextSize(1);
+    display.setCursor(0, 42);
+    display.printf("Lat: %2.6f", buoy->lat);
+    display.setCursor(0, 50);
+    display.printf("Lon: %2.6f", buoy->lng);
+    
+    drawBatteryBar(buoy->subAccuV);
+    drawThrustBars(buoy->speedBb, buoy->speedSb);
+}
+
+void drawLockScreen(RoboStruct *buoy, adcDataType *adc) {
+    drawCommonHeader(buoy);
+    
+    display.setTextSize(2);
+    display.setCursor(0, 16);
+    display.printf("%03.0f: %03.0f", buoy->tgDir, buoy->dirMag);
+
+    display.setCursor(0, 36);
+    if (buoy->tgDist < 1000) display.printf("D: %3.1fm", buoy->tgDist);
+    else display.printf("D: %3.1fKm", buoy->tgDist / 1000.0);
+
+    // Fixed Mode Indicator
+    display.setTextSize(2);
+    display.setCursor(96, 0);
+    char m = (buoy->status == DOCKED || buoy->status == DOCKING) ? 'D' : 'L';
+    display.printf("%c", m);
+
+    drawBatteryBar(buoy->subAccuV);
+    drawThrustBars(buoy->speedBb, buoy->speedSb);
+}
+
+void drawRemoteScreen(RoboStruct *buoy, adcDataType *adc) {
+    drawCommonHeader(buoy);
+    
+    display.setTextSize(2);
+    display.setCursor(0, 16);
+    display.printf("%03.0f: %03.0f", buoy->tgDir, buoy->dirMag);
+
+    display.setCursor(0, 36);
+    display.printf("SPD: %d%%", buoy->speed);
+
+    // Fixed Mode Indicator
+    display.setTextSize(2);
+    display.setCursor(96, 0);
+    display.print("R");
+
+    drawBatteryBar(buoy->subAccuV);
+    drawThrustBars(buoy->speedBb, buoy->speedSb);
+}
+
+// ----------------------------------------------------------------------------------
+// MAIN UPDATE ROUTE
+// ----------------------------------------------------------------------------------
+
+void updateOled(RoboStruct *buoy, adcDataType *adc) {
+    if (!displayOK) return;
+
     display.clearDisplay();
-    // putchar(x & (1u << i) ? '1' : '0');
-    display.setCursor(barwide + 7, 0);
-    display.printf("NicE BUOY %d", buoyID);
-    display.setCursor(128 - barwide - 7 * 3 - 2, 0);
-    // display.printf("%d", buoy[buoyID].nrsats);
-    display.setCursor(128 - barwide - 7 - 2, 0);
-    display.setCursor(barwide + 7, 10);
-    // display.print(st);
-    display.setCursor(128 - barwide - 7 * 8 - 1, 10);
-    // display.printf("Rssi:%04d", (int)buoy[buoyID].rssi);
-    // display.printf("Ki:%2.2lf", buoy[buoyID].ki);
-    display.setCursor(barwide + 7, 20);
-    // if (buoy[buoyID].status == LOCKED || buoy[buoyID].status == DOCKED)
-    // {
-    //     display.printf("Dist:%5.1lfM", buoy[buoyID].tgdistance);
-    // }
-    // else
-    // {
-    //     display.printf("KI:%1.1lf", buoy[buoyID].i);
-    //     display.setCursor(128 - barwide - 7 * 8 - 1, 20);
-    //     display.printf("Rssi:%04d", (int)buoy[buoyID].rssi);
-    // }
-    display.setCursor(barwide + 7, 30);
-    // display.printf("Dir:%03.0lf  HDG:%03d", buoy[buoyID].tgdir, buoy[buoyID].mdir);
-    display.setCursor(barwide + 7, 40);
-    // buoy[buoyID].speedbb = constrain(buoy[buoyID].speedbb, -100, 100);
-    // display.printf("%4d%%", buoy[buoyID].speedbb);
-    // display.printf(" D %d", buoy[buoyID].gpscource);
-    display.setCursor(128 / 2, 40);
-    display.setCursor(128 - barwide - 5 * 7, 40);
-    // buoy[buoyID].speedsb = constrain(buoy[buoyID].speedsb, -100, 100);
-    // display.printf("%4d%%", buoy[buoyID].speedsb);
-    // speedbars(buoy[buoyID].speedbb, buoy[buoyID].speedsb);
-    // BatPowerBarr(buoy[buoyID].percentage);
+    display.setTextColor(SSD1306_WHITE);
+
+    switch (buoy->status) {
+        case IDLE:
+        case IDELING:
+            drawIdleScreen(buoy, adc);
+            break;
+
+        case LOCKED:
+        case LOCKING:
+        case DOCKED:
+        case DOCKING:
+            drawLockScreen(buoy, adc);
+            break;
+
+        case REMOTE:
+            drawRemoteScreen(buoy, adc);
+            break;
+
+        default:
+            drawIdleScreen(buoy, adc);
+            break;
+    }
+
     display.display();
 }
 
-void showDip(char s, String p)
-{
+void showDip(char s, String p) {
+    if (!displayOK) return;
     display.clearDisplay();
     display.setTextSize(s);
     display.setCursor(0, 0);
-    char pout[100];
-    p.toCharArray(pout, p.length() + 1);
-    display.println(pout);
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
-    display.display();
-}
-
-void updateDisplay(String showdata)
-{
-    display.clearDisplay();
-    display.setCursor(0, 0);
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
-    char pout[100];
-    showdata.toCharArray(pout, showdata.length() + 1);
-    display.println(pout);
-    display.display();
-}
-
-void updateOled(RoboStruct *data)
-{
-    display.clearDisplay();
-    display.setTextSize(2);
-    display.setCursor(0, 0);
-    display.printf("BB %2d%\n\r", data->speedBb);
-    display.setCursor(0, 15);
-    display.printf("SB %2d%\n\r", data->speedSb);
-    display.setCursor(70, 0);
-
-    int t = posID(data) + 1;
-    display.printf("%d ", t);
-    display.setCursor(90, 0);
-    if (data->status == IDLE)
-    {
-        display.printf("I");
-    }
-    if (data->status == LOCKED)
-    {
-        display.printf("L");
-    }
-    if (data->status == DOCKED)
-    {
-        display.printf("D");
-    }
-    if (data->status == REMOTE)
-    {
-        display.printf("R");
-    }
-    display.setCursor(70, 15);
-    display.printf("%3.0f", data->dirMag);
-
-    int fill = 0;
-    int tmp = (int)map(data->subAccuV, 19, 25.2, 0, 100); // 4095;
-    tmp = constrain(tmp, 0, 100);
-    fill = (SCREEN_WIDTH - 20) * tmp / 100;
-    display.drawRect(0, 54, SCREEN_WIDTH - 20, 10, WHITE);
-    display.fillRect(0, 54, fill, 10, WHITE);
-
-    display.drawRect(SCREEN_WIDTH - 19, 0, 10, 64, WHITE);
-    fill = (data->speedBb / 100.0) * (SCREEN_HEIGHT / 2);
-    if (fill < 0)
-    {
-        display.fillRect(SCREEN_WIDTH - 19, SCREEN_HEIGHT / 2, 10, fill, WHITE);
-    }
-    else
-    {
-        display.fillRect(SCREEN_WIDTH - 19, SCREEN_HEIGHT / 2 - fill, 10, fill, WHITE);
-    }
-    display.fillRect(SCREEN_WIDTH - 19, SCREEN_HEIGHT / 2, 10, -fill, WHITE);
-
-    display.drawRect(SCREEN_WIDTH - 10, 0, 10, 64, WHITE);
-    fill = (data->speedSb / 100.0) * (SCREEN_HEIGHT / 2);
-    if (fill < 0)
-    {
-        display.fillRect(SCREEN_WIDTH - 10, SCREEN_HEIGHT / 2, 10, -fill, WHITE);
-    }
-    else
-    {
-        display.fillRect(SCREEN_WIDTH - 10, SCREEN_HEIGHT / 2 - fill, 10, fill, WHITE);
-    }
-
-    
-    
-    
-    if (data->status == DOCKED || data->status == LOCKED)
-    {
-        display.setCursor(0, 30);
-        if (data->tgDist < 100)
-        {
-            display.printf("%3.1f%M %3.0f", data->tgDist, data->tgDir);
-        }
-        else if (data->tgDist < 1000)
-        {
-            display.printf("%3.0f%M %3.0f", data->tgDist, data->tgDir);
-        }
-        else
-        {
-            display.printf("%3.1f%KM %3.0f", data->tgDist / 1000, data->tgDir);
-        }
-    }
-    else if (data->status == REMOTE)
-    {
-        display.setCursor(70, 30);
-        display.printf("%3.0f", data->tgDir);
-    }
-
+    display.println(p);
     display.display();
 }

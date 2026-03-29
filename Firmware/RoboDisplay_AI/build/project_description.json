@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "cyd_hello_world",
-    "project_version":    "6127e46-dirty",
+    "project_version":    "a8c3806-dirty",
     "project_path":       "C:/tmp/NicE-Buoy/Firmware/RoboDisplay_AI",
     "idf_path":           "C:/Users/Peter.d.Nijs/esp/v5.3/esp-idf",
     "build_dir":          "C:/tmp/NicE-Buoy/Firmware/RoboDisplay_AI/build",

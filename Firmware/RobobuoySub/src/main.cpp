@@ -62,10 +62,10 @@ void setup()
     pinMode(PWRENABLE, OUTPUT);
     digitalWrite(PWRENABLE, 1); // enable batery sample signal
     digitalWrite(PWRENABLE, true);
-    printf("\r\n\r\n\r\nSetup running!\r\n");
-    printf("Robobuoy Sub Version: %0.1f Sub Build: %s %s\r\n", SUBVERSION, __DATE__, __TIME__);
+    printf("Setup running!");
+    printf("Robobuoy Sub Version: %0.1f Sub Build: %s %s", SUBVERSION, __DATE__, __TIME__);
     mainData.mac = espMac();
-    printf("Robobuoy ID: %08x\r\n", mainData.mac);
+    printf("Robobuoy ID: %08x", mainData.mac);
     initwifi(); // buoyID is mac adress esp32
     initMemory();
     InitCompass();
@@ -197,7 +197,7 @@ void handelStatus(RoboStruct *stat)
         escOut.speedsb = 0;
         xQueueSend(escspeed, (void *)&escOut, 10);
         xQueueSend(serOut, (void *)stat, 10);
-        printf("Idle\r\n");
+        printf("Idle");
     }
 }
 //***************************************************************************************************
@@ -252,13 +252,13 @@ void handelSerandRfdata(RoboStruct *ser)
                 ser->status = IDELING;
                 initRudPid(ser);
                 initSpeedPid(ser);
-                printf("IDLE command recieved!\r\n");
+                printf("IDLE command recieved!");
             }
             break;
         case DIRDIST:
             if (ser->status != LOCKED)
             {
-                printf("DIRDIST command recieved!\r\n");
+                printf("DIRDIST command recieved!");
                 initRudPid(ser);
                 initSpeedPid(ser);
                 ser->status = LOCKED;
@@ -269,7 +269,7 @@ void handelSerandRfdata(RoboStruct *ser)
         case TGDIRSPEED:
             if (ser->status != TGDIRSPEED)
             {
-                printf("TGDIRSPEED command recieved!\r\n");
+                printf("TGDIRSPEED command recieved!");
                 ser->tgDist = 0;
                 initRudPid(ser);
                 initSpeedPid(ser);
@@ -282,7 +282,7 @@ void handelSerandRfdata(RoboStruct *ser)
         case REMOTE:
             if (ser->status != REMOTE)
             {
-                printf("REMOTE command recieved!\r\n");
+                printf("REMOTE command recieved!");
                 ser->status = REMOTE;
             }
             ser->tgDir = dataIn.tgDir;
@@ -291,7 +291,7 @@ void handelSerandRfdata(RoboStruct *ser)
         case LOCKED:
             if (ser->status != LOCKED)
             {
-                printf("LOCKED command recieved!\r\n");
+                printf("LOCKED command recieved!");
                 ser->tgDist = 0;
                 initRudPid(ser);
                 initSpeedPid(ser);
@@ -302,7 +302,7 @@ void handelSerandRfdata(RoboStruct *ser)
         case DOCKED:
             if (ser->status != DOCKED)
             {
-                printf("DOCKED command recieved!\r\n");
+                printf("DOCKED command recieved!");
                 ser->tgDist = 0;
                 initRudPid(ser);
                 initSpeedPid(ser);
@@ -344,13 +344,13 @@ void handelSerandRfdata(RoboStruct *ser)
             printf("Speed PID stored ps:%0.2f is:%0.2f ds:%0.2f\r\n", ser->Kps, ser->Kis, ser->Kds);
             break;
         case STORE_DECLINATION:
-            printf("Declinaton set to: %f\r\n", dataIn.declination);
+            printf("Declinaton set to: %f", dataIn.declination);
             Declination(&dataIn, SET);
             Declination(ser, GET);
             InitCompass();
             break;
         case STORE_COMPASS_OFFSET:
-            printf("Compass offset: %f\r\n", dataIn.compassOffset);
+            printf("Compass offset: %f", dataIn.compassOffset);
             CompasOffset(&dataIn, SET);
             CompasOffset(ser, GET);
             InitCompass();
@@ -373,7 +373,7 @@ void handelSerandRfdata(RoboStruct *ser)
             ser->status = IDLE;
             break;
         case INFIELD_CALIBRATE:
-            printf("Starting In-Field Compass Calibration...\r\n");
+            printf("Starting In-Field Compass Calibration...");
             ser->status = INFIELD_CALIBRATE;
             {
                 int cmd = INFIELD_CALIBRATE;
@@ -391,14 +391,27 @@ void handelSerandRfdata(RoboStruct *ser)
                 }
                 break;
             case MAXMINPWRSET:
-                printf("New Speed settings Max:%d Min:%d Pivot:%0.2f\r\n", dataIn.maxSpeed, dataIn.minSpeed, dataIn.pivotSpeed);
-                speedMaxMin(&dataIn, SET);
-                speedMaxMin(ser, GET);
-                break;
+            printf("New Speed settings Max:%d Min:%d Pivot:%0.2f\r\n", dataIn.maxSpeed, dataIn.minSpeed, dataIn.pivotSpeed);
+            speedMaxMin(&dataIn, SET);
             speedMaxMin(ser, GET);
             initRudPid(ser);
             initSpeedPid(ser);
             printf("Max speed %d Min speed %d\r\n", ser->maxSpeed, ser->minSpeed);
+            break;
+        case SETUPDATA:
+            if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
+            {
+                ser->IDr = dataIn.IDs;
+                ser->cmd = SETUPDATA;
+                ser->ack = LORAINF;
+                // Fetch all data before sending
+                pidRudderParameters(ser, GET);
+                pidSpeedParameters(ser, GET);
+                speedMaxMin(ser, GET);
+                CompasOffset(ser, GET);
+                xQueueSend(serOut, (void *)ser, 10);
+                printf("Sent SETUPDATA back\r\n");
+            }
             break;
         case HARDIRONFACTORS:
             dataIn.mac = espMac();
@@ -445,8 +458,7 @@ void handelSerialTimeOut(RoboStruct *ser)
         if (mainLedStatus.color != CRGB::Red)
         {
             Serial.println("Set light to Red");
-            printf("Serial timeout! ESC Heartbeat: %lu, ESC Task Alive: %s\r\n", 
-                   getEscHeartbeat(), isEscTaskAlive() ? "YES" : "NO");
+            printf("Serial timeout!\r\n");
             ser->lastSerIn = millis();
             mainLedStatus.color = CRGB::Red;
             mainLedStatus.blink = BLINK_SLOW;
@@ -499,7 +511,7 @@ void handleTimerRoutines(RoboStruct *in)
                     resetSpeedPid();
                     in->tgSpeed = 0;
                 }
-                // Serial.printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f\r\n", in->tgDist, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag));
+                // Serial.printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f", in->tgDist, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag));
                 if (in->tgSpeed < 0) // do not go backwards
                 {
                     in->tgSpeed = 0;
@@ -557,7 +569,6 @@ void handleTimerRoutines(RoboStruct *in)
     {
         nextSamp = 250 + millis();
         in->cmd = SUBDATA;
-        in->escHeartbeat = getEscHeartbeat(); // Include ESC heartbeat in SUBDATA
         xQueueSend(serOut, (void *)in, 10);
     }
 

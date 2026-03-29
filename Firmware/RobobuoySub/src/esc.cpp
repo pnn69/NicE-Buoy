@@ -22,6 +22,7 @@ QueueHandle_t escspeed;
 #define ESC_RES 16
 #define ESC_ARM_TIME 200 // 2 seconds
 
+// Heartbeat monitoring
 unsigned long escStamp = 0;
 
 //************************************************************************************
@@ -131,6 +132,22 @@ void startESC(void)
 }
 
 //***************************************************************************************************
+//* Calculate LED color based on speed
+//***************************************************************************************************
+void calculateLedColor(int speed, uint8_t& r, uint8_t& g) {
+    if (speed < 0) {
+        r = map(speed, -100, 0, 255, 0);
+        g = 0;
+    } else if (speed > 0) {
+        r = 0;
+        g = map(speed, 0, 100, 0, 255);
+    } else {
+        r = 0;
+        g = 0;
+    }
+}
+
+//***************************************************************************************************
 //* ESC task
 //***************************************************************************************************
 void EscTask(void *arg)
@@ -139,36 +156,17 @@ void EscTask(void *arg)
     unsigned long ledUpdateStamp = 0;
     int spsb = 0, spbb = 0;
     int spsbAct = 0, spbbAct = 0;
+    bool ledChanged = false;
     Message rcv_msg;
     startESC();
-    printf("ESC task running!\r\n");
+    printf("ESC task running!");
     while (1)
     {
         if (xQueueReceive(escspeed, (void *)&rcv_msg, 0) == pdTRUE)
         {
             spbb = -rcv_msg.speedbb;
             spsb = -rcv_msg.speedsb;
-            
-            uint8_t r, g;
-            if (rcv_msg.speedbb < 0) {
-                r = map(rcv_msg.speedbb, -100, 0, 255, 0);
-                g = 0;
-            } else {
-                r = 0;
-                g = map(rcv_msg.speedbb, 100, 0, 255, 0);
-            }
-            powerIndicator.bb[0] = r; powerIndicator.bb[1] = g; powerIndicator.bb[2] = 0;
-            powerIndicator.blinkBb = BLINK_OFF;
-
-            if (rcv_msg.speedsb < 0) {
-                r = map(rcv_msg.speedsb, -100, 0, 255, 0);
-                g = 0;
-            } else {
-                r = 0;
-                g = map(rcv_msg.speedsb, 100, 0, 255, 0);
-            }
-            powerIndicator.sb[0] = r; powerIndicator.sb[1] = g; powerIndicator.sb[2] = 0;
-            powerIndicator.blinkSb = BLINK_OFF;
+            ledChanged = true;
         }
 
         if (spsb != 0 || spbb != 0)
@@ -177,7 +175,7 @@ void EscTask(void *arg)
             if (digitalRead(ESC_SB_PWR_PIN) == 0 || digitalRead(ESC_BB_PWR_PIN) == 0)
             {
                 startESC();
-                printf("ESC'S  ON\r\n");
+                printf("ESC'S  ON");
                 spsbAct = 0;
                 spbbAct = 0;
             }
@@ -186,7 +184,7 @@ void EscTask(void *arg)
         {
             if (digitalRead(ESC_SB_PWR_PIN) == HIGH || digitalRead(ESC_BB_PWR_PIN) == HIGH)
             {
-                printf("ESC'S  OFF\r\n");
+                printf("ESC'S  OFF");
                 digitalWrite(ESC_SB_PWR_PIN, LOW);
                 digitalWrite(ESC_BB_PWR_PIN, LOW);
             }
@@ -208,15 +206,35 @@ void EscTask(void *arg)
             if (changed) {
                 ledcWrite(ESC_SB_CHANNEL, speedToPulse(spsbAct));
                 ledcWrite(ESC_BB_CHANNEL, speedToPulse(spbbAct));
-                powerIndicator.ledSb = -spsbAct;
-                powerIndicator.ledBb = -spbbAct;
+                ledChanged = true;
             }
         }
 
-        // Throttle LED updates to 10Hz
-        if (millis() >= ledUpdateStamp) {
+        // Update LED data and send to queue only when changed
+        if (ledChanged && millis() >= ledUpdateStamp) {
             ledUpdateStamp = millis() + 100;
+            
+            // Update BB LED color based on actual speed
+            uint8_t r, g;
+            calculateLedColor(spbbAct, r, g);
+            powerIndicator.bb[0] = r;
+            powerIndicator.bb[1] = g;
+            powerIndicator.bb[2] = 0;
+            powerIndicator.blinkBb = BLINK_OFF;
+
+            // Update SB LED color based on actual speed
+            calculateLedColor(spsbAct, r, g);
+            powerIndicator.sb[0] = r;
+            powerIndicator.sb[1] = g;
+            powerIndicator.sb[2] = 0;
+            powerIndicator.blinkSb = BLINK_OFF;
+            
+            // Update bar graph values
+            powerIndicator.ledSb = -spsbAct;
+            powerIndicator.ledBb = -spbbAct;
+            
             xQueueOverwrite(ledPwr, (void *)&powerIndicator);
+            ledChanged = false;  // Clear flag after successful update
         }
 
         vTaskDelay(pdMS_TO_TICKS(5));

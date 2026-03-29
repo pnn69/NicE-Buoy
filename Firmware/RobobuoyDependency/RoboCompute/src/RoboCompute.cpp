@@ -23,7 +23,7 @@ void RoboDecode(String data, RoboStruct *dataStore)
     String substring = data;
 
     // Split the string by commas
-    while (substring.length() > 0 && count < 15)
+    while (count < 20)
     {
         int commaIndex = substring.indexOf(',');
         if (commaIndex == -1)
@@ -213,9 +213,6 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->lng = numbers[15].toDouble();
         dataStore->gpsFix = (bool)numbers[16].toInt();
         dataStore->gpsSat = numbers[17].toInt();
-        if (count > 18) { // Backward compatibility - check if field 18 exists
-            dataStore->escHeartbeat = numbers[18].toInt();
-        }
         break;
 
     case RAWCOMPASSDATA:
@@ -245,6 +242,20 @@ void RoboDecode(String data, RoboStruct *dataStore)
 
     case STORE_COMPASS_OFFSET:
         dataStore->compassOffset = numbers[2].toDouble();
+        break;
+
+    case SETUPDATA:
+        dataStore->Kpr = numbers[2].toDouble();
+        dataStore->Kir = numbers[3].toDouble();
+        dataStore->Kdr = numbers[4].toDouble();
+        dataStore->Kps = numbers[5].toDouble();
+        dataStore->Kis = numbers[6].toDouble();
+        dataStore->Kds = numbers[7].toDouble();
+        dataStore->maxSpeed = numbers[8].toInt();
+        dataStore->minSpeed = numbers[9].toInt();
+        dataStore->pivotSpeed = numbers[10].toDouble();
+        dataStore->compassOffset = numbers[11].toDouble();
+        dataStore->minOfsetDist = numbers[12].toInt();
         break;
 
     case ROUTTOPOINT:
@@ -316,7 +327,7 @@ String RoboCode(const RoboStruct *dataOut)
         break;
     case TOPDATA:
         out += "," + String(dataOut->dirMag, 0);
-        out += "," + String(dataOut->gpsDir, 0);
+        out += "," + String(dataOut->gpsDir);
         out += "," + String(dataOut->tgDir, 0);
         out += "," + String(dataOut->tgDist, 1);
         out += "," + String(dataOut->wDir, 0);
@@ -326,19 +337,18 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->ip, 2);
         out += "," + String(dataOut->ir, 2);
         out += "," + String(dataOut->subAccuV, 1);
-        out += "," + String(dataOut->subAccuP, 1);
+        out += "," + String(dataOut->subAccuP);
         out += "," + String(dataOut->lat, 8);
         out += "," + String(dataOut->lng, 8);
         out += "," + String(dataOut->gpsFix);
         out += "," + String(dataOut->gpsSat);
-        out += "," + String(dataOut->escHeartbeat); // ESC heartbeat counter
         break;
     case MDIR:
         out += "," + String(dataOut->dirMag, 2);
         break;
 
     case GDIR:
-        out += "," + String(dataOut->gpsDir, 2);
+        out += "," + String(dataOut->gpsDir);
         break;
 
     case TDIR:
@@ -486,6 +496,24 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->magHard[1], 2);
         out += "," + String(dataOut->magHard[2], 2);
         break;
+
+    case SETUPDATA:
+        out += "," + String(dataOut->Kpr, 5);
+        out += "," + String(dataOut->Kir, 5);
+        out += "," + String(dataOut->Kdr ,5);
+        out += "," + String(dataOut->Kps ,5);
+        out += "," + String(dataOut->Kis ,5);
+        out += "," + String(dataOut->Kds ,5);
+        out += "," + String(dataOut->maxSpeed);
+        out += "," + String(dataOut->minSpeed);
+        out += "," + String(dataOut->pivotSpeed,2);
+        out += "," + String(dataOut->compassOffset,2);
+        out += "," + String(dataOut->minOfsetDist);
+        break;
+
+
+
+
     case STORE_COMPASS_OFFSET:
         out += "," + String(dataOut->compassOffset, 2);
         break;
@@ -513,7 +541,30 @@ String RoboCode(const RoboStruct *dataOut)
         break;
     }
 
-    return out;
+    // Compress zeros to empty strings to save bandwidth
+    String optimized = "";
+    int lastComma = -1;
+    for (unsigned int i = 0; i <= out.length(); i++) {
+        if (i == out.length() || out[i] == ',') {
+            String token = out.substring(lastComma + 1, i);
+            if (token.length() > 0) {
+                bool isZero = true;
+                for (unsigned int j = 0; j < token.length(); j++) {
+                    if (token[j] != '0' && token[j] != '.' && token[j] != '-') {
+                        isZero = false;
+                        break;
+                    }
+                }
+                if (isZero && token != "-" && token != "." && token != "-.") {
+                    token = "";
+                }
+            }
+            if (lastComma != -1) optimized += ",";
+            optimized += token;
+            lastComma = i;
+        }
+    }
+    return optimized;
 }
 
 //***************************************************************************************************
@@ -736,7 +787,7 @@ void PidDecode(String data, int pid, RoboStruct *buoy)
     int endIndex = data.indexOf('*');       // End at the '*'
                                             // Split the substring by commas
     String substring = data.substring(startIndex, endIndex);
-    while (substring.length() > 0 && count < 15)
+    while (count < 20)
     {
         int commaIndex = substring.indexOf(',');
 
@@ -870,13 +921,13 @@ void checkparameters(RoboStruct *buoy)
     {
         buoy->maxOfsetDist = 20;
     }
-    if (buoy->minSpeed < 0)
+    if (buoy->minSpeed < -100)
     {
-        buoy->minSpeed = 0;
+        buoy->minSpeed = -100;
     }
-    if (buoy->maxSpeed > 80)
+    if (buoy->maxSpeed > 100)
     {
-        buoy->maxSpeed = 80;
+        buoy->maxSpeed = 100;
     }
     if (buoy->pivotSpeed < 0.05)
     {
@@ -1467,3 +1518,4 @@ int GetDataPosFromBuoyBase(uint64_t id, RoboStruct buoyPara[3])
     printf("# No data found! :( \r\n");
     return -1;
 }
+

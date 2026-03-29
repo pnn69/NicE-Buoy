@@ -99,6 +99,12 @@ void beep(int sound, QueueHandle_t buzzer)
             xQueueSend(buzzer, (void *)&tones[i], 10);
         }
         break;
+    case 4:
+        for (int i = 0; i < 13; i++)
+        {
+            xQueueSend(buzzer, (void *)&melody_pi2nos[i], 10);
+        }
+        break;
     case 10:
         xQueueSend(buzzer, (void *)&tones[10], 5);
         break;

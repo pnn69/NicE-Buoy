@@ -32,37 +32,10 @@ uint32_t readADC_Cal(int ADC_Raw)
 */
 void readAdc(adcDataType *adc)
 {
-    static float smoothedRudder = 2048;
-    static float smoothedSpeed = 2048;
-    const float alpha = 0.2; // Smoothing factor (0.0 to 1.0)
+    static int debouncedSwPos = SW_MID;
+    static int swPosStableCount = 0;
 
-    // EMA Filtering for Rudder/Heading
-    smoothedRudder = (alpha * analogRead(POT_RUDDER)) + ((1.0 - alpha) * smoothedRudder);
-    adc->heading = map((int)smoothedRudder, 0, 4095, 360, 0);
-  
-    // EMA Filtering for Speed
-    int rawSpeed = analogRead(POT_SPEED);
-    smoothedSpeed = (alpha * rawSpeed) + ((1.0 - alpha) * smoothedSpeed);
-    
-    int val = (int)smoothedSpeed;
-    int newValue = 0;
-    int center = 2048;
-    int deadzone = 700;
-
-    if (val < center - deadzone) {
-        newValue = map(val, 0, center - deadzone, -100, 0);
-    } else if (val > center + deadzone) {
-        newValue = map(val, center + deadzone, 4095, 0, 100);
-    }
-
-    if (abs((int)adc->raws - val) > JITTER)
-    {
-        adc->raws = val;
-        adc->speed = newValue;
-        adc->newdata = true;
-    }
-
-    // Mode Switch
+    // 1. Mode Switch
     int swRaw = analogRead(SWITCH_PIN_REMOTE_IDLE_LOCK);
     int newSwPos = adc->swPos;
 
@@ -70,18 +43,55 @@ void readAdc(adcDataType *adc)
     else if (swRaw > 1700 && swRaw < 2800) newSwPos = SW_MID;
     else if (swRaw > 3200) newSwPos = SW_RIGHT;
     
-    // Simple software debounce
-    static int debouncedSwPos = SW_MID;
-    static int swPosStableCount = 0;
-    
     if (newSwPos != debouncedSwPos) {
         swPosStableCount++;
         if (swPosStableCount > 3) { // Require 3 stable readings (approx 150ms)
+            if (newSwPos == SW_LEFT && debouncedSwPos != SW_LEFT) {
+                // Just switched to REMOTE mode; lock speed to prevent jumpstarts
+                adc->speedLocked = true;
+            }
             debouncedSwPos = newSwPos;
             adc->swPos = debouncedSwPos;
             swPosStableCount = 0;
         }
     } else {
         swPosStableCount = 0;
+    }
+
+    // 2. Direct reading, no slow EMA filtering to ensure immediate response
+    int rawRudder = analogRead(POT_RUDDER);
+    adc->heading = map(rawRudder, 0, 4095, 360, 0);
+  
+    int rawSpeed = analogRead(POT_SPEED);
+    
+    int val = 4095 - rawSpeed; // Reversed potentiometer direction
+    int newValue = 0;
+    int center = 2048;
+    int deadzone = 100; // Drastically smaller deadzone (was 700)
+
+    if (val < center - deadzone) {
+        newValue = map(val, 0, center - deadzone, -100, 0);
+    } else if (val > center + deadzone) {
+        newValue = map(val, center + deadzone, 4095, 0, 100);
+    }
+
+    static int lastHeading = -1;
+    bool speedChanged = abs((int)adc->raws - val) > JITTER;
+    bool headingChanged = abs(adc->heading - lastHeading) > 2; // Trigger on >2 degrees of change
+
+    if (speedChanged) {
+        adc->speedLocked = false; // Unlock speed once the potentiometer is moved
+    }
+
+    if (speedChanged || headingChanged)
+    {
+        adc->raws = val;
+        adc->speed = adc->speedLocked ? 0 : newValue;
+        lastHeading = adc->heading;
+        adc->newdata = true;
+    }
+    
+    if (adc->speedLocked) {
+        adc->speed = 0; // Ensure it stays 0 while locked
     }
 }
