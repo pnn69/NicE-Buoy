@@ -26,6 +26,114 @@ QueueHandle_t udpIn;
 // static unsigned long tstart, tstop;
 static unsigned long lastUpdMsg = 0;
 
+WebServer server(80);
+
+const char INDEX_HTML[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+<title>Robobuoy Dashboard</title>
+<style>
+body {font-family: Arial, sans-serif; background-color: #f4f4f4;}
+.tab {overflow: hidden; border: 1px solid #ccc; background-color: #e0e0e0;}
+.tab button {background-color: inherit; float: left; border: none; outline: none; cursor: pointer; padding: 14px 16px; transition: 0.3s; font-size: 17px;}
+.tab button:hover {background-color: #ccc;}
+.tab button.active {background-color: #fff;}
+.tabcontent {display: none; padding: 20px; border: 1px solid #ccc; border-top: none; background-color: #fff;}
+.card {padding: 15px; margin: 10px 0; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
+</style>
+<script>
+function openTab(evt, tabName) {
+  var i, tabcontent, tablinks;
+  tabcontent = document.getElementsByClassName("tabcontent");
+  for (i = 0; i < tabcontent.length; i++) tabcontent[i].style.display = "none";
+  tablinks = document.getElementsByClassName("tablinks");
+  for (i = 0; i < tablinks.length; i++) tablinks[i].className = tablinks[i].className.replace(" active", "");
+  document.getElementById(tabName).style.display = "block";
+  if(evt) evt.currentTarget.className += " active";
+}
+function fetchUpdate() {
+  fetch('/data').then(response => response.json()).then(data => {
+    for (let i = 0; i < 3; i++) {
+        let buoy = data.buoys[i];
+        let bid = i + 1;
+        if(buoy.ID && buoy.ID !== "0") {
+            document.getElementById('b'+bid+'_id').innerText = buoy.ID;
+            document.getElementById('b'+bid+'_status').innerText = buoy.Status;
+            document.getElementById('b'+bid+'_speed').innerText = buoy.Speed;
+            document.getElementById('b'+bid+'_bb').innerText = buoy.BB;
+            document.getElementById('b'+bid+'_sb').innerText = buoy.SB;
+            document.getElementById('b'+bid+'_magdir').innerText = buoy.MagDir;
+            document.getElementById('b'+bid+'_tgdir').innerText = buoy.TgDir;
+            document.getElementById('b'+bid+'_tgdist').innerText = buoy.TgDist;
+            document.getElementById('b'+bid+'_gpsdir').innerText = buoy.GpsDir;
+            document.getElementById('b'+bid+'_wdir').innerText = buoy.WDir;
+            document.getElementById('b'+bid+'_wstd').innerText = buoy.WStd;
+        }
+    }
+  });
+}
+setInterval(fetchUpdate, 2000);
+window.onload = () => { fetchUpdate(); };
+</script>
+</head>
+<body>
+<h2>Robobuoy Dashboard</h2>
+<div class="tab">
+  <button class="tablinks active" onclick="openTab(event, 'Buoy1')">Top Buoy</button>
+  <button class="tablinks" onclick="openTab(event, 'Buoy2')">Sub Buoy 1</button>
+  <button class="tablinks" onclick="openTab(event, 'Buoy3')">Sub Buoy 2</button>
+</div>
+
+<div id="Buoy1" class="tabcontent" style="display:block;">
+  <div class="card">
+    <h3>Buoy ID: <span id="b1_id">Waiting...</span></h3>
+    <p>Status: <span id="b1_status"></span></p>
+    <p>Speed Set: <span id="b1_speed"></span></p>
+    <p>BB Thruster: <span id="b1_bb"></span>%</p>
+    <p>SB Thruster: <span id="b1_sb"></span>%</p>
+    <p>Magnetic Dir: <span id="b1_magdir"></span>&deg;</p>
+    <p>Target Dir: <span id="b1_tgdir"></span>&deg;</p>
+    <p>Target Dist: <span id="b1_tgdist"></span>m</p>
+    <p>GPS Dir: <span id="b1_gpsdir"></span>&deg;</p>
+    <p>Wind Dir: <span id="b1_wdir"></span>&deg;</p>
+    <p>Wind StdDev: <span id="b1_wstd"></span></p>
+  </div>
+</div>
+<div id="Buoy2" class="tabcontent">
+  <div class="card">
+    <h3>Buoy ID: <span id="b2_id">Waiting...</span></h3>
+    <p>Status: <span id="b2_status"></span></p>
+    <p>Speed Set: <span id="b2_speed"></span></p>
+    <p>BB Thruster: <span id="b2_bb"></span>%</p>
+    <p>SB Thruster: <span id="b2_sb"></span>%</p>
+    <p>Magnetic Dir: <span id="b2_magdir"></span>&deg;</p>
+    <p>Target Dir: <span id="b2_tgdir"></span>&deg;</p>
+    <p>Target Dist: <span id="b2_tgdist"></span>m</p>
+    <p>GPS Dir: <span id="b2_gpsdir"></span>&deg;</p>
+    <p>Wind Dir: <span id="b2_wdir"></span>&deg;</p>
+    <p>Wind StdDev: <span id="b2_wstd"></span></p>
+  </div>
+</div>
+<div id="Buoy3" class="tabcontent">
+  <div class="card">
+    <h3>Buoy ID: <span id="b3_id">Waiting...</span></h3>
+    <p>Status: <span id="b3_status"></span></p>
+    <p>Speed Set: <span id="b3_speed"></span></p>
+    <p>BB Thruster: <span id="b3_bb"></span>%</p>
+    <p>SB Thruster: <span id="b3_sb"></span>%</p>
+    <p>Magnetic Dir: <span id="b3_magdir"></span>&deg;</p>
+    <p>Target Dir: <span id="b3_tgdir"></span>&deg;</p>
+    <p>Target Dist: <span id="b3_tgdist"></span>m</p>
+    <p>GPS Dir: <span id="b3_gpsdir"></span>&deg;</p>
+    <p>Wind Dir: <span id="b3_wdir"></span>&deg;</p>
+    <p>Wind StdDev: <span id="b3_wstd"></span></p>
+  </div>
+</div>
+</body>
+</html>
+)rawliteral";
+
 /*
     Setup OTA
 */
@@ -252,12 +360,58 @@ void WiFiTask(void *arg)
     wifiCollorUtil.color = CRGB::Black;
     wifiCollorUtil.blink = BLINK_OFF;
     xQueueSend(ledStatus, (void *)&wifiCollorUtil, 10); // update util led
+
+    server.on("/", HTTP_GET, []() {
+        server.send(200, "text/html", INDEX_HTML);
+    });
+
+    server.on("/data", HTTP_GET, []() {
+        String json = "{\"buoys\":[";
+        
+        // Buoy 1 (Top Buoy local data)
+        json += "{";
+        json += "\"ID\":\"" + String(espMac(), HEX) + "\",";
+        json += "\"Status\":" + String(mainData.status) + ",";
+        json += "\"Speed\":\"" + String(mainData.speedSet, 2) + "\",";
+        json += "\"BB\":\"" + String(mainData.speedBb) + "\",";
+        json += "\"SB\":\"" + String(mainData.speedSb) + "\",";
+        json += "\"MagDir\":\"" + String(mainData.dirMag, 2) + "\",";
+        json += "\"TgDir\":\"" + String(mainData.tgDir, 2) + "\",";
+        json += "\"TgDist\":\"" + String(mainData.tgDist, 2) + "\",";
+        json += "\"GpsDir\":\"" + String(mainData.gpsDir) + "\",";
+        json += "\"WDir\":\"" + String(mainData.wDir, 2) + "\",";
+        json += "\"WStd\":\"" + String(mainData.wStd, 2) + "\"";
+        json += "},";
+
+        // Buoy 2 and 3 (from buoyPara placeholders)
+        for (int i = 1; i < 3; i++) {
+            json += "{";
+            json += "\"ID\":\"" + String(buoyPara[i].IDs, HEX) + "\",";
+            json += "\"Status\":" + String(buoyPara[i].status) + ",";
+            json += "\"Speed\":\"" + String(buoyPara[i].speedSet, 2) + "\",";
+            json += "\"BB\":\"" + String(buoyPara[i].speedBb) + "\",";
+            json += "\"SB\":\"" + String(buoyPara[i].speedSb) + "\",";
+            json += "\"MagDir\":\"" + String(buoyPara[i].dirMag, 2) + "\",";
+            json += "\"TgDir\":\"" + String(buoyPara[i].tgDir, 2) + "\",";
+            json += "\"TgDist\":\"" + String(buoyPara[i].tgDist, 2) + "\",";
+            json += "\"GpsDir\":\"" + String(buoyPara[i].gpsDir) + "\",";
+            json += "\"WDir\":\"" + String(buoyPara[i].wDir, 2) + "\",";
+            json += "\"WStd\":\"" + String(buoyPara[i].wStd, 2) + "\"";
+            json += "}";
+            if (i < 2) json += ",";
+        }
+        json += "]}";
+        server.send(200, "application/json", json);
+    });
+
+    server.begin();
     printf("WiFI task running!\r\n");
     /*
         WiFI loop
     */
     for (;;)
     {
+        server.handleClient();
         if (ota == true)
         {
             ArduinoOTA.handle();

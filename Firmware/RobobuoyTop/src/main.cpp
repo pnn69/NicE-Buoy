@@ -14,7 +14,7 @@
 #include "calibrate.h"
 
 // #define BUFLENMHRG 60 // one sampel each sec so 60 sec for stabilisation
-static RoboStruct mainData;
+RoboStruct mainData;
 // RoboStruct b0, b1, b2;
 // RoboStruct *buoyPara[4] = {&b0, &b1, &b2};
 RoboStruct buoyPara[3] = {};

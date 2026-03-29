@@ -1,8 +1,13 @@
 #ifndef TOPWIFI_H_
 #define TOPWIFI_H_
 #include "main.h"
+#include <WebServer.h>
+
 extern QueueHandle_t udpOut;
 extern QueueHandle_t udpIn;
+extern WebServer server;
+extern RoboStruct mainData;
+extern RoboStruct buoyPara[3];
 
 unsigned long espMac(void);
 unsigned long initwifiqueue(void);
