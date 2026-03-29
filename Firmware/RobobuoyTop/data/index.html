@@ -1,36 +1,175 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+<meta charset="UTF-8">
 <title>Robobuoy Dashboard</title>
 <style>
-body {font-family: Arial, sans-serif; background-color: #f4f4f4;}
-.tab {overflow: hidden; border: 1px solid #ccc; background-color: #e0e0e0;}
-.tab button {background-color: inherit; float: left; border: none; outline: none; cursor: pointer; padding: 14px 16px; transition: 0.3s; font-size: 17px;}
-.tab button:hover {background-color: #ccc;}
-.tab button.active {background-color: #fff;}
-.tabcontent {display: none; padding: 20px; border: 1px solid #ccc; border-top: none; background-color: #fff;}
-.card {padding: 15px; margin: 10px 0; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
-.visual-container { display: flex; align-items: center; justify-content: center; gap: 5px; margin-top: 10px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
-.bar-container { display: flex; flex-direction: column; align-items: center; }
-.bar-label { font-size: 10px; font-weight: bold; }
-canvas.bar { background: #eee; border: 1px solid #ccc; }
-canvas.windrose { background: #fff; border: 1px solid #ccc; border-radius: 50%; }
-.volt-container { width: 100%; display: flex; align-items: center; justify-content: center; font-size: 10px; margin-top: 5px; }
-.progress-bg { width: 120px; height: 10px; background: #eee; border: 1px solid #ccc; margin: 0 5px; position: relative; }
-.progress-fill { height: 100%; background: #4caf50; width: 0%; }
+    body {
+        font-family: Arial, sans-serif;
+        background: #e6e6e6;
+        margin: 0;
+        padding: 15px;
+        text-align: center;
+    }
+    .top-bar {
+        display: flex;
+        justify-content: space-between;
+        font-size: 14px;
+        margin-bottom: 5px;
+        padding: 0 10px;
+    }
+    .status-title {
+        font-size: 28px;
+        font-weight: bold;
+        color: #003366;
+        margin-bottom: 10px;
+    }
+    .container {
+        display: flex;
+        justify-content: center;
+        gap: 30px;
+        margin-bottom: 10px;
+    }
+    .side-panel {
+        width: 80px;
+        background: #f2f2f2;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+    }
+    .side-bar {
+        width: 30px;
+        height: 220px;
+        margin: 0 auto;
+        background: #ccc;
+        border-radius: 4px;
+        border: 1px solid #999;
+        position: relative;
+    }
+    .side-fill {
+        width: 100%;
+        background: green;
+        position: absolute;
+        bottom: 0;
+        height: 50%; /* Default */
+        border-radius: 4px;
+    }
+    .center-panel {
+        width: 330px;
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #bbb;
+    }
+    .distance {
+        font-size: 28px;
+        font-weight: bold;
+        color: red;
+        float: left;
+    }
+    .pid-i {
+        font-size: 28px;
+        font-weight: bold;
+        color: purple;
+        float: right;
+    }
+    .compass-container {
+        width: 250px;
+        height: 250px;
+        border: 3px solid black;
+        border-radius: 50%;
+        margin: 55px auto 5px auto;
+        position: relative;
+        overflow: hidden; /* To keep arrows within bounds */
+    }
+    .compass-container .dir-label {
+        position: absolute;
+        font-weight: bold;
+        font-size: 18px;
+        color: #000;
+    }
+    .dir-label.n { top: -5px; left: 50%; transform: translateX(-50%); }
+    .dir-label.s { bottom: -5px; left: 50%; transform: translateX(-50%); }
+    .dir-label.e { right: -5px; top: 50%; transform: translateY(-50%); }
+    .dir-label.w { left: -5px; top: 50%; transform: translateY(-50%); }
+
+    .battery-bar-container {
+        width: 200px;
+        height: 20px;
+        background: #ccc;
+        border-radius: 5px;
+        border: 1px solid #777;
+        margin: 15px auto;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 5px;
+    }
+    .battery-fill {
+        height: 100%;
+        width: 70%; /* Default */
+        background: green;
+        border-radius: 5px;
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+
+    .legend {
+        margin-top: 10px;
+        font-size: 14px;
+    }
+    .legend span {
+        margin-right: 15px;
+    }
+
+    .buttons {
+        margin-top: 10px;
+    }
+    .buttons button {
+        width: 100px;
+        padding: 10px;
+        margin: 5px;
+        font-size: 16px;
+        border-radius: 6px;
+        border: 1px solid #888;
+        background: #eee;
+        cursor: pointer;
+    }
+    .buttons button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
 </style>
+</head>
+<body>
+
+<div class="tab">
+  <button class="tablinks active" onclick="openTab(event, 'Buoy1')" id="btn_buoy1">Buoy 1</button>
+  <button class="tablinks" onclick="openTab(event, 'Buoy2')" id="btn_buoy2">Buoy 2</button>
+  <button class="tablinks" onclick="openTab(event, 'Buoy3')" id="btn_buoy3">Buoy 3</button>
+</div>
+
+<div id="BuoyDisplay">
+  <!-- Content for the currently selected buoy will be injected here by JavaScript -->
+</div>
+
 <script>
-function openTab(evt, tabName) {
-  var i, tabcontent, tablinks;
-  tabcontent = document.getElementsByClassName("tabcontent");
-  for (i = 0; i < tabcontent.length; i++) tabcontent[i].style.display = "none";
-  tablinks = document.getElementsByClassName("tablinks");
-  for (i = 0; i < tablinks.length; i++) tablinks[i].className = tablinks[i].className.replace(" active", "");
-  document.getElementById(tabName).style.display = "block";
+let currentBuoyData = {}; // Store data for all buoys
+let currentActiveBuoyId = 1; // Default to showing Buoy 1
+
+function openTab(evt, buoyId) {
+  currentActiveBuoyId = parseInt(buoyId.replace('Buoy',''));
+  updateBuoyDisplay();
+
+  // Update active button styling
+  let tablinks = document.getElementsByClassName("tablinks");
+  for (let i = 0; i < tablinks.length; i++) tablinks[i].className = tablinks[i].className.replace(" active", "");
   if(evt) evt.currentTarget.className += " active";
 }
 
-function drawWindrose(canvasId, mag, tg, wind, gps, distVal, pidIVal) {
+function drawWindrose(canvasId, mag, tg, wind, gps) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -40,8 +179,9 @@ function drawWindrose(canvasId, mag, tg, wind, gps, distVal, pidIVal) {
     const cy = ch / 2;
     const r = cx * 0.75;
 
-    ctx.clearRect(0, 0, cw, ch);
-    
+    ctx.clearRect(0, 0, cw, ch); // Clear previous drawings
+
+    // Main circle
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, 2 * Math.PI);
     ctx.strokeStyle = '#ccc';
@@ -78,19 +218,9 @@ function drawWindrose(canvasId, mag, tg, wind, gps, distVal, pidIVal) {
     ctx.fillText('S', cx, cy + r + 15);
     ctx.fillText('E', cx + r + 10, cy + 5);
     ctx.fillText('W', cx - r - 10, cy + 5);
-
-    // Info overlay
-    ctx.fillStyle = 'red';
-    ctx.font = 'bold 12px Arial';
-    ctx.textAlign = 'left';
-    ctx.fillText(distVal || "", 5, 15);
-
-    ctx.fillStyle = 'purple';
-    ctx.textAlign = 'right';
-    ctx.fillText(pidIVal || "", cw - 5, 15);
 }
 
-function drawBar(canvasId, value) {
+function drawBar(canvasId, value, fillColor, showPercentage = true) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -98,10 +228,11 @@ function drawBar(canvasId, value) {
     const ch = canvas.height;
     const mid = ch / 2;
 
-    ctx.clearRect(0, 0, cw, ch);
+    ctx.clearRect(0, 0, cw, ch); // Clear previous drawings
     ctx.fillStyle = '#eee';
-    ctx.fillRect(0, 0, cw, ch);
+    ctx.fillRect(0, 0, cw, ch); // Draw background
     
+    // Center line
     ctx.beginPath();
     ctx.moveTo(0, mid);
     ctx.lineTo(cw, mid);
@@ -111,11 +242,11 @@ function drawBar(canvasId, value) {
 
     if (value !== undefined && value !== null && value !== "" && !isNaN(parseFloat(value))) {
         const val = parseFloat(value);
-        const h = (Math.abs(val) / 100) * mid;
-        ctx.fillStyle = val >= 0 ? '#4caf50' : '#f44336';
-        if (val >= 0) {
+        const h = (Math.abs(val) / 100) * mid; // Max height is half the bar for 100%
+        ctx.fillStyle = fillColor; // Use passed fill color
+        if (val > 0) {
             ctx.fillRect(0, mid - h, cw, h);
-        } else {
+        } else if (val < 0) {
             ctx.fillRect(0, mid, cw, h);
         }
     }
@@ -131,202 +262,176 @@ function getStatusText(status) {
     return "STATUS " + s;
 }
 
-function fetchUpdate() {
-  fetch('/data').then(response => response.json()).then(data => {
-    updateBuoys(data);
-  });
+function sendCommand(buoyId, commandType) {
+    console.log(`Sending command: ${commandType} to Buoy ${buoyId}`);
+    // In a real scenario, this would send an HTTP request to the ESP32
+    // For example:
+    // fetch(`/command?id=${buoyId}&type=${commandType}`);
+    // For local testing, we just log the action.
 }
 
-function updateBuoys(data) {
-    for (let i = 0; i < 3; i++) {
-        let buoy = data.buoys[i];
-        let bid = i + 1;
-        if(buoy.ID && buoy.ID !== "0") {
-            document.getElementById('b'+bid+'_id').innerText = buoy.ID;
-            let statusText = getStatusText(buoy.Status);
-            document.getElementById('b'+bid+'_status').innerText = statusText;
-            document.getElementById('b'+bid+'_status_lbl').innerText = statusText;
-            document.getElementById('b'+bid+'_speed').innerText = buoy.Speed;
-            document.getElementById('b'+bid+'_bb_val').innerText = buoy.BB + '%';
-            document.getElementById('b'+bid+'_sb_val').innerText = buoy.SB + '%';
-            document.getElementById('b'+bid+'_magdir').innerText = buoy.MagDir;
-            document.getElementById('b'+bid+'_tgdir').innerText = buoy.TgDir;
-            document.getElementById('b'+bid+'_tgdist').innerText = buoy.TgDist;
-            document.getElementById('b'+bid+'_gpsdir').innerText = buoy.GpsDir;
-            document.getElementById('b'+bid+'_wdir').innerText = buoy.WDir;
-            document.getElementById('b'+bid+'_wstd').innerText = buoy.WStd;
-            
-            drawBar('b'+bid+'_bb_canvas', buoy.BB);
-            drawBar('b'+bid+'_sb_canvas', buoy.SB);
+// Function to update the main display for the currently active buoy
+function updateBuoyDisplay() {
+    const bid = currentActiveBuoyId;
+    const buoy = currentBuoyData[bid];
+    const displayDiv = document.getElementById('BuoyDisplay');
 
-            // --- Conditional Visibility Logic ---
-            const p_tgdir = document.getElementById('p_b' + bid + '_tgdir');
-            const p_wdir = document.getElementById('p_b' + bid + '_wdir');
-            const p_gpsdir = document.getElementById('p_b' + bid + '_gpsdir');
+    if (!buoy) {
+        displayDiv.innerHTML = `<div class="card"><h3>Buoy ${bid} (Waiting for data...)</h3></div>`;
+        return;
+    }
 
-            const isIdle = String(buoy.Status).trim() === "7";
-            const isLocked = ["12", "13", "14"].includes(String(buoy.Status).trim());
-            const tgDist = parseFloat(buoy.TgDist);
-            const isFar = tgDist > 5.0;
-            const isClose = tgDist <= 5.0;
+    const statusText = getStatusText(buoy.Status);
+    const tgDist = parseFloat(buoy.TgDist);
+    const pidI = parseFloat(buoy.PIDI);
 
-            p_tgdir.style.display = isIdle ? 'none' : '';
-            p_wdir.style.display = isIdle ? 'none' : '';
-            p_gpsdir.style.display = !isIdle && isFar ? '' : 'none';
+    // Determine button states
+    const isIdle = String(buoy.Status).trim() === "7";
+    const isLocked = ["12", "13", "14"].includes(String(buoy.Status).trim());
+    const isDocking = ["15", "16", "17"].includes(String(buoy.Status).trim());
+    const isFar = tgDist > 5.0;
+    const isClose = tgDist <= 5.0;
 
-            let distStr = isIdle ? "-" : tgDist.toFixed(2) + "m";
-            let pidStr = isIdle ? "*" : "I:" + parseFloat(buoy.PIDI).toFixed(2);
-            
-            let tgDirForVector = isIdle ? null : buoy.TgDir;
-            let windDirForVector = (isLocked && isClose) ? buoy.WDir : null;
-            let gpsDirForVector = (!isIdle && isFar) ? buoy.GpsDir : null;
+    // Generate HTML for the buoy
+    displayDiv.innerHTML = `
+        <div class="card">
+            <div class="top-bar">
+                <div>Buoy: ${buoy.ID}</div>
+                <div>${buoy.IP || 'N/A'}</div> <!-- Assuming IP comes with data -->
+            </div>
 
-            drawWindrose('b'+bid+'_windrose', buoy.MagDir, tgDirForVector, windDirForVector, gpsDirForVector, distStr, pidStr);
-            
-            if (buoy.SubVolt) {
-                let v = parseFloat(buoy.SubVolt);
-                let pct = Math.max(0, Math.min(100, ((v - 17.0) / 8.2) * 100));
-                document.getElementById('b'+bid+'_volt_fill').style.width = pct + '%';
-            }
-            document.getElementById('b'+bid+'_index_label').innerText = `Buoy ${bid}`;
+            <div class="status-title">${statusText}</div>
+
+            <div class="container">
+                <!-- Left Panel -->
+                <div class="side-panel">
+                    <div>BB</div>
+                    <canvas id="bb_bar_canvas_${bid}" class="side-bar" width="30" height="220"></canvas>
+                    <div id="bb_perc_label_${bid}">0%</div>
+                </div>
+
+                <!-- Center Panel -->
+                <div class="center-panel">
+                    <div style="overflow: auto; margin-bottom: 10px;">
+                        <div class="distance">${!isNaN(tgDist) && tgDist !== 0 ? tgDist.toFixed(2) + 'm' : '-'}</div>
+                        <div class="pid-i">${!isNaN(pidI) && pidI !== 0 ? 'I:' + pidI.toFixed(2) : ''}</div>
+                    </div>
+
+                    <div id="compass_container_${bid}" class="compass-container">
+                        <canvas id="compass_canvas_${bid}" width="250" height="250" style="background:white;"></canvas>
+                         <div class="dir-label n">N</div>
+                         <div class="dir-label s">S</div>
+                         <div class="dir-label e">E</div>
+                         <div class="dir-label w">W</div>
+                    </div>
+
+                    <div class="battery-bar-container">
+                        <span>17V</span>
+                        <div style="flex-grow:1; height:100%; position:relative;">
+                            <div id="battery_fill_${bid}" class="battery-fill" style="width:${buoy.SubPerc || 0}%; background:${buoy.SubPerc > 20 ? 'green' : 'red'}"></div>
+                        </div>
+                        <span>25V</span>
+                    </div>
+
+                    <div class="legend">
+                        <span style="color:red;">&#9632; Target</span>
+                        <span style="color:green;">&#9632; Mag</span>
+                        <span style="color:blue;">&#9632; Wind</span>
+                        <span style="color:black;">&#9632; GPS</span>
+                    </div>
+                </div>
+
+                <!-- Right Panel -->
+                <div class="side-panel">
+                    <div>SB</div>
+                    <canvas id="sb_bar_canvas_${bid}" class="side-bar" width="30" height="220"></canvas>
+                    <div id="sb_perc_label_${bid}">0%</div>
+                </div>
+            </div>
+
+            <div class="buttons">
+                <button id="lock_btn_${bid}" onclick="sendCommand(${bid}, 'LOCK')">LOCK</button>
+                <button id="dock_btn_${bid}" onclick="sendCommand(${bid}, 'DOCK')">DOCK</button>
+                <button id="setup_btn_${bid}" onclick="sendCommand(${bid}, 'SETUP')">SETUP</button>
+            </div>
+        </div>
+    `;
+
+    // Update bar percentages and colors
+    const bbPerc = parseFloat(buoy.BB || 0);
+    const sbPerc = parseFloat(buoy.SB || 0);
+    document.getElementById(`bb_perc_label_${bid}`).innerText = `${bbPerc}%`;
+    document.getElementById(`sb_perc_label_${bid}`).innerText = `${sbPerc}%`;
+    drawBar(`bb_bar_canvas_${bid}`, bbPerc, bbPerc >= 0 ? 'green' : 'red');
+    drawBar(`sb_bar_canvas_${bid}`, sbPerc, sbPerc >= 0 ? 'green' : 'red');
+
+    // Update battery bar
+    const batteryFill = document.getElementById(`battery_fill_${bid}`);
+    if (batteryFill) {
+        const subVolt = parseFloat(buoy.SubVolt);
+        if (!isNaN(subVolt)) {
+            const pct = Math.max(0, Math.min(100, ((subVolt - 17.0) / 8.2) * 100)); // Adjusted to 17V-25V range
+            batteryFill.style.width = `${pct}%`;
+            batteryFill.style.background = pct > 20 ? 'green' : 'red';
         }
     }
+
+    // Draw windrose arrows
+    let tgDirForVector = isIdle ? null : buoy.TgDir;
+    let windDirForVector = (isLocked && isClose) ? buoy.WDir : null;
+    let gpsDirForVector = (!isIdle && isFar) ? buoy.GpsDir : null;
+
+    drawWindrose(`compass_canvas_${bid}`, buoy.MagDir, tgDirForVector, windDirForVector, gpsDirForVector);
+
+    // Update button states and text
+    const lockBtn = document.getElementById(`lock_btn_${bid}`);
+    const dockBtn = document.getElementById(`dock_btn_${bid}`);
+
+    if (isLocked) {
+        lockBtn.innerText = "IDLE";
+        lockBtn.disabled = false;
+        dockBtn.innerText = "DOCK";
+        dockBtn.disabled = true;
+    } else if (isDocking) { 
+        lockBtn.innerText = "LOCK";
+        lockBtn.disabled = true;
+        dockBtn.innerText = "IDLE";
+        dockBtn.disabled = false;
+    } else if (isIdle) {
+        lockBtn.innerText = "LOCK";
+        lockBtn.disabled = false;
+        dockBtn.innerText = "DOCK";
+        dockBtn.disabled = false;
+    } else { // Other states, disable both
+        lockBtn.innerText = "LOCK";
+        lockBtn.disabled = true;
+        dockBtn.innerText = "DOCK";
+        dockBtn.disabled = true;
+    }
+
+    // Re-highlight active tab button
+    document.getElementById(`btn_buoy${bid}`).classList.add('active');
 }
 
-setInterval(fetchUpdate, 2000);
-window.onload = () => { openTab(null, 'Buoy1'); fetchUpdate(); };
-</script>
-</head>
-<body>
-<h2>Robobuoy Dashboard</h2>
-<div class="tab">
-  <button class="tablinks active" onclick="openTab(event, 'Buoy1')">Bouy 1</button>
-  <button class="tablinks" onclick="openTab(event, 'Buoy2')">Bouy 2</button>
-  <button class="tablinks" onclick="openTab(event, 'Buoy3')">Bouy 3</button>
-</div>
+// Main data fetching logic
+function fetchAndRenderData() {
+  fetch('/data')
+    .then(response => response.json())
+    .then(data => {
+        // Store data for all buoys
+        data.buoys.forEach((buoy, index) => {
+            currentBuoyData[index + 1] = buoy;
+        });
+        updateBuoyDisplay(); // Update display for the currently active buoy
+    })
+    .catch(error => console.error('Error fetching data:', error));
+}
 
-<div id="Buoy1" class="tabcontent" style="display:block;">
-  <div class="card">
-    <h3>Bouy 1 ID: <span id="b1_id">Waiting...</span></h3>
-    <div class="visual-container">
-      <div class="bar-container">
-        <span class="bar-label">BB</span>
-        <canvas id="b1_bb_canvas" class="bar" width="20" height="150"></canvas>
-        <span id="b1_bb_val" class="bar-label">0%</span>
-      </div>
-      <div class="bar-container">
-        <span id="b1_status_lbl" style="font-weight:bold; color:darkblue; margin-bottom:5px;">UNKNOWN</span>
-        <canvas id="b1_windrose" class="windrose" width="180" height="180"></canvas>
-        <div class="volt-container">
-          <span>17V</span>
-          <div class="progress-bg"><div id="b1_volt_fill" class="progress-fill"></div></div>
-          <span>25V</span>
-        </div>
-        <div id="b1_index_label" style="text-align: center; font-size: 10px; font-weight: bold; margin-top: 5px;"></div>
-        <div id="b1_legend_container" style="display: flex; justify-content: space-around; width: 100%; margin-top: 10px; font-size: 9px;">
-          <span style="color:red;">&#9632; Target</span>
-          <span style="color:green;">&#9632; Mag</span>
-          <span style="color:blue;">&#9632; Wind</span>
-          <span style="color:black;">&#9632; GPS</span>
-        </div>
-      </div>
-      <div class="bar-container">
-        <span class="bar-label">SB</span>
-        <canvas id="b1_sb_canvas" class="bar" width="20" height="150"></canvas>
-        <span id="b1_sb_val" class="bar-label">0%</span>
-      </div>
-    </div>
-    <p>Status: <span id="b1_status"></span></p>
-    <p>Speed Set: <span id="b1_speed"></span></p>
-    <p>Magnetic Dir: <span id="b1_magdir"></span>&deg;</p>
-    <p id="p_b1_tgdir">Target Dir: <span id="b1_tgdir"></span>&deg;</p>
-    <p>Target Dist: <span id="b1_tgdist"></span>m</p>
-    <p id="p_b1_gpsdir">GPS Dir: <span id="b1_gpsdir"></span>&deg;</p>
-    <p id="p_b1_wdir">Wind Dir: <span id="b1_wdir"></span>&deg;</p>
-    <p>Wind StdDev: <span id="b1_wstd"></span></p>
-  </div>
-</div>
-<div id="Buoy2" class="tabcontent">
-  <div class="card">
-    <h3>Bouy 2 ID: <span id="b2_id">Waiting...</span></h3>
-    <div class="visual-container">
-      <div class="bar-container">
-        <span class="bar-label">BB</span>
-        <canvas id="b2_bb_canvas" class="bar" width="20" height="150"></canvas>
-        <span id="b2_bb_val" class="bar-label">0%</span>
-      </div>
-      <div class="bar-container">
-        <span id="b2_status_lbl" style="font-weight:bold; color:darkblue; margin-bottom:5px;">UNKNOWN</span>
-        <canvas id="b2_windrose" class="windrose" width="180" height="180"></canvas>
-        <div class="volt-container">
-          <span>17V</span>
-          <div class="progress-bg"><div id="b2_volt_fill" class="progress-fill"></div></div>
-          <span>25V</span>
-        </div>
-        <div id="b2_index_label" style="text-align: center; font-size: 10px; font-weight: bold; margin-top: 5px;"></div>
-        <div id="b2_legend_container" style="display: flex; justify-content: space-around; width: 100%; margin-top: 10px; font-size: 9px;">
-          <span style="color:red;">&#9632; Target</span>
-          <span style="color:green;">&#9632; Mag</span>
-          <span style="color:blue;">&#9632; Wind</span>
-          <span style="color:black;">&#9632; GPS</span>
-        </div>
-      </div>
-      <div class="bar-container">
-        <span class="bar-label">SB</span>
-        <canvas id="b2_sb_canvas" class="bar" width="20" height="150"></canvas>
-        <span id="b2_sb_val" class="bar-label">0%</span>
-      </div>
-    </div>
-    <p>Status: <span id="b2_status"></span></p>
-    <p>Speed Set: <span id="b2_speed"></span></p>
-    <p>Magnetic Dir: <span id="b2_magdir"></span>&deg;</p>
-    <p id="p_b2_tgdir">Target Dir: <span id="b2_tgdir"></span>&deg;</p>
-    <p>Target Dist: <span id="b2_tgdist"></span>m</p>
-    <p id="p_b2_gpsdir">GPS Dir: <span id="b2_gpsdir"></span>&deg;</p>
-    <p id="p_b2_wdir">Wind Dir: <span id="b2_wdir"></span>&deg;</p>
-    <p>Wind StdDev: <span id="b2_wstd"></span></p>
-  </div>
-</div>
-<div id="Buoy3" class="tabcontent">
-  <div class="card">
-    <h3>Bouy 3 ID: <span id="b3_id">Waiting...</span></h3>
-    <div class="visual-container">
-      <div class="bar-container">
-        <span class="bar-label">BB</span>
-        <canvas id="b3_bb_canvas" class="bar" width="20" height="150"></canvas>
-        <span id="b3_bb_val" class="bar-label">0%</span>
-      </div>
-      <div class="bar-container">
-        <span id="b3_status_lbl" style="font-weight:bold; color:darkblue; margin-bottom:5px;">UNKNOWN</span>
-        <canvas id="b3_windrose" class="windrose" width="180" height="180"></canvas>
-        <div class="volt-container">
-          <span>17V</span>
-          <div class="progress-bg"><div id="b3_volt_fill" class="progress-fill"></div></div>
-          <span>25V</span>
-        </div>
-        <div id="b3_index_label" style="text-align: center; font-size: 10px; font-weight: bold; margin-top: 5px;"></div>
-        <div id="b3_legend_container" style="display: flex; justify-content: space-around; width: 100%; margin-top: 10px; font-size: 9px;">
-          <span style="color:red;">&#9632; Target</span>
-          <span style="color:green;">&#9632; Mag</span>
-          <span style="color:blue;">&#9632; Wind</span>
-          <span style="color:black;">&#9632; GPS</span>
-        </div>
-      </div>
-      <div class="bar-container">
-        <span class="bar-label">SB</span>
-        <canvas id="b3_sb_canvas" class="bar" width="20" height="150"></canvas>
-        <span id="b3_sb_val" class="bar-label">0%</span>
-      </div>
-    </div>
-    <p>Status: <span id="b3_status"></span></p>
-    <p>Speed Set: <span id="b3_speed"></span></p>
-    <p>Magnetic Dir: <span id="b3_magdir"></span>&deg;</p>
-    <p id="p_b3_tgdir">Target Dir: <span id="b3_tgdir"></span>&deg;</p>
-    <p>Target Dist: <span id="b3_tgdist"></span>m</p>
-    <p id="p_b3_gpsdir">GPS Dir: <span id="b3_gpsdir"></span>&deg;</p>
-    <p id="p_b3_wdir">Wind Dir: <span id="b3_wdir"></span>&deg;</p>
-    <p>Wind StdDev: <span id="b3_wstd"></span></p>
-  </div>
-</div>
+setInterval(fetchAndRenderData, 2000);
+window.onload = () => { 
+    openTab(null, 'Buoy1'); // Initialize with Buoy 1 active
+    fetchAndRenderData(); 
+}; // Fetch and render data on load
+</script>
 </body>
 </html>
