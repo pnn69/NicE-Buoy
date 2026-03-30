@@ -1,5 +1,5 @@
 #include <WiFi.h>
-
+#include <SPIFFS.h>
 #include <WebServer.h>
 #include <ArduinoOTA.h>
 #include <AsyncUDP.h>
@@ -28,112 +28,6 @@ static unsigned long lastUpdMsg = 0;
 
 WebServer server(80);
 
-const char INDEX_HTML[] PROGMEM = R"rawliteral(
-<!DOCTYPE html>
-<html>
-<head>
-<title>Robobuoy Dashboard</title>
-<style>
-body {font-family: Arial, sans-serif; background-color: #f4f4f4;}
-.tab {overflow: hidden; border: 1px solid #ccc; background-color: #e0e0e0;}
-.tab button {background-color: inherit; float: left; border: none; outline: none; cursor: pointer; padding: 14px 16px; transition: 0.3s; font-size: 17px;}
-.tab button:hover {background-color: #ccc;}
-.tab button.active {background-color: #fff;}
-.tabcontent {display: none; padding: 20px; border: 1px solid #ccc; border-top: none; background-color: #fff;}
-.card {padding: 15px; margin: 10px 0; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
-</style>
-<script>
-function openTab(evt, tabName) {
-  var i, tabcontent, tablinks;
-  tabcontent = document.getElementsByClassName("tabcontent");
-  for (i = 0; i < tabcontent.length; i++) tabcontent[i].style.display = "none";
-  tablinks = document.getElementsByClassName("tablinks");
-  for (i = 0; i < tablinks.length; i++) tablinks[i].className = tablinks[i].className.replace(" active", "");
-  document.getElementById(tabName).style.display = "block";
-  if(evt) evt.currentTarget.className += " active";
-}
-function fetchUpdate() {
-  fetch('/data').then(response => response.json()).then(data => {
-    for (let i = 0; i < 3; i++) {
-        let buoy = data.buoys[i];
-        let bid = i + 1;
-        if(buoy.ID && buoy.ID !== "0") {
-            document.getElementById('b'+bid+'_id').innerText = buoy.ID;
-            document.getElementById('b'+bid+'_status').innerText = buoy.Status;
-            document.getElementById('b'+bid+'_speed').innerText = buoy.Speed;
-            document.getElementById('b'+bid+'_bb').innerText = buoy.BB;
-            document.getElementById('b'+bid+'_sb').innerText = buoy.SB;
-            document.getElementById('b'+bid+'_magdir').innerText = buoy.MagDir;
-            document.getElementById('b'+bid+'_tgdir').innerText = buoy.TgDir;
-            document.getElementById('b'+bid+'_tgdist').innerText = buoy.TgDist;
-            document.getElementById('b'+bid+'_gpsdir').innerText = buoy.GpsDir;
-            document.getElementById('b'+bid+'_wdir').innerText = buoy.WDir;
-            document.getElementById('b'+bid+'_wstd').innerText = buoy.WStd;
-        }
-    }
-  });
-}
-setInterval(fetchUpdate, 2000);
-window.onload = () => { fetchUpdate(); };
-</script>
-</head>
-<body>
-<h2>Robobuoy Dashboard</h2>
-<div class="tab">
-  <button class="tablinks active" onclick="openTab(event, 'Buoy1')">Top Buoy</button>
-  <button class="tablinks" onclick="openTab(event, 'Buoy2')">Sub Buoy 1</button>
-  <button class="tablinks" onclick="openTab(event, 'Buoy3')">Sub Buoy 2</button>
-</div>
-
-<div id="Buoy1" class="tabcontent" style="display:block;">
-  <div class="card">
-    <h3>Buoy ID: <span id="b1_id">Waiting...</span></h3>
-    <p>Status: <span id="b1_status"></span></p>
-    <p>Speed Set: <span id="b1_speed"></span></p>
-    <p>BB Thruster: <span id="b1_bb"></span>%</p>
-    <p>SB Thruster: <span id="b1_sb"></span>%</p>
-    <p>Magnetic Dir: <span id="b1_magdir"></span>&deg;</p>
-    <p>Target Dir: <span id="b1_tgdir"></span>&deg;</p>
-    <p>Target Dist: <span id="b1_tgdist"></span>m</p>
-    <p>GPS Dir: <span id="b1_gpsdir"></span>&deg;</p>
-    <p>Wind Dir: <span id="b1_wdir"></span>&deg;</p>
-    <p>Wind StdDev: <span id="b1_wstd"></span></p>
-  </div>
-</div>
-<div id="Buoy2" class="tabcontent">
-  <div class="card">
-    <h3>Buoy ID: <span id="b2_id">Waiting...</span></h3>
-    <p>Status: <span id="b2_status"></span></p>
-    <p>Speed Set: <span id="b2_speed"></span></p>
-    <p>BB Thruster: <span id="b2_bb"></span>%</p>
-    <p>SB Thruster: <span id="b2_sb"></span>%</p>
-    <p>Magnetic Dir: <span id="b2_magdir"></span>&deg;</p>
-    <p>Target Dir: <span id="b2_tgdir"></span>&deg;</p>
-    <p>Target Dist: <span id="b2_tgdist"></span>m</p>
-    <p>GPS Dir: <span id="b2_gpsdir"></span>&deg;</p>
-    <p>Wind Dir: <span id="b2_wdir"></span>&deg;</p>
-    <p>Wind StdDev: <span id="b2_wstd"></span></p>
-  </div>
-</div>
-<div id="Buoy3" class="tabcontent">
-  <div class="card">
-    <h3>Buoy ID: <span id="b3_id">Waiting...</span></h3>
-    <p>Status: <span id="b3_status"></span></p>
-    <p>Speed Set: <span id="b3_speed"></span></p>
-    <p>BB Thruster: <span id="b3_bb"></span>%</p>
-    <p>SB Thruster: <span id="b3_sb"></span>%</p>
-    <p>Magnetic Dir: <span id="b3_magdir"></span>&deg;</p>
-    <p>Target Dir: <span id="b3_tgdir"></span>&deg;</p>
-    <p>Target Dist: <span id="b3_tgdist"></span>m</p>
-    <p>GPS Dir: <span id="b3_gpsdir"></span>&deg;</p>
-    <p>Wind Dir: <span id="b3_wdir"></span>&deg;</p>
-    <p>Wind StdDev: <span id="b3_wstd"></span></p>
-  </div>
-</div>
-</body>
-</html>
-)rawliteral";
-
 /*
     Setup OTA
 */
@@ -150,15 +44,16 @@ bool setup_OTA()
                        {
     /* switch off all processes here!!!!! */
     Serial.println();
-    Serial.println("Recieving new firmware now!"); });
+    Serial.println("Receiving new firmware now!"); });
     ArduinoOTA.onEnd([]()
                      {
     /* do stuff after update here!! */
-    Serial.println("\nRecieving done!");
+    Serial.println("
+Receiving done!");
     Serial.println("Storing in memory and reboot!");
     Serial.println(); });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
-                          { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); });
+", (progress / (total / 100))); });
     ArduinoOTA.onError([](ota_error_t error)
                        { ESP.restart(); });
     /* setup the OTA server */
@@ -191,7 +86,7 @@ bool scan_for_wifi_ap(String ssipap, String ww, IPAddress *tmp)
         {
             if (WiFi.SSID(i) == ssipap.c_str())
             {
-                Serial.print("Acces point foud, logging in...");
+                Serial.print("Access point found, logging in...");
                 WiFi.begin(ssipap.c_str(), ww.c_str());
                 while (WiFi.status() != WL_CONNECTED)
                 {
@@ -202,8 +97,9 @@ bool scan_for_wifi_ap(String ssipap, String ww, IPAddress *tmp)
                         esp_restart();
                     }
                 }
-                Serial.print(".\r\n");
-                Serial.print("Loggend in to SSIS: ");
+                Serial.print(".
+");
+                Serial.print("Logend in to SSID: ");
                 Serial.println(ssipap);
                 *tmp = (WiFi.localIP());
                 return true;
@@ -361,42 +257,87 @@ void WiFiTask(void *arg)
     wifiCollorUtil.blink = BLINK_OFF;
     xQueueSend(ledStatus, (void *)&wifiCollorUtil, 10); // update util led
 
-    server.on("/", HTTP_GET, []() {
-        server.send(200, "text/html", INDEX_HTML);
+    if(!SPIFFS.begin(true)){
+        Serial.println("An Error has occurred while mounting SPIFFS");
+        return;
+    }
+
+    server.on("/", HTTP_GET, [](){
+        File file = SPIFFS.open("/index.html", "r");
+        if(!file){
+            server.send(404, "text/plain", "File not found");
+            return;
+        }
+        server.streamFile(file, "text/html");
+        file.close();
     });
 
     server.on("/data", HTTP_GET, []() {
-        String json = "{\"buoys\":[";
+        String json = "{"buoys":[";
         
         // Buoy 1 (Top Buoy local data)
         json += "{";
-        json += "\"ID\":\"" + String(espMac(), HEX) + "\",";
-        json += "\"Status\":" + String(mainData.status) + ",";
-        json += "\"Speed\":\"" + String(mainData.speedSet, 2) + "\",";
-        json += "\"BB\":\"" + String(mainData.speedBb) + "\",";
-        json += "\"SB\":\"" + String(mainData.speedSb) + "\",";
-        json += "\"MagDir\":\"" + String(mainData.dirMag, 2) + "\",";
-        json += "\"TgDir\":\"" + String(mainData.tgDir, 2) + "\",";
-        json += "\"TgDist\":\"" + String(mainData.tgDist, 2) + "\",";
-        json += "\"GpsDir\":\"" + String(mainData.gpsDir) + "\",";
-        json += "\"WDir\":\"" + String(mainData.wDir, 2) + "\",";
-        json += "\"WStd\":\"" + String(mainData.wStd, 2) + "\"";
+        json += ""ID":"" + String(espMac(), HEX) + "",";
+        json += ""Status":" + String(mainData.status) + ",";
+        json += ""Speed":"" + String(mainData.speedSet, 2) + "",";
+        json += ""BB":"" + String(mainData.speedBb) + "",";
+        json += ""SB":"" + String(mainData.speedSb) + "",";
+        json += ""MagDir":"" + String(mainData.dirMag, 2) + "",";
+        json += ""TgDir":"" + String(mainData.tgDir, 2) + "",";
+        json += ""TgDist":"" + String(mainData.tgDist, 2) + "",";
+        json += ""GpsDir":"" + String(mainData.gpsDir) + "",";
+        json += ""WDir":"" + String(mainData.wDir, 2) + "",";
+        json += ""WStd":"" + String(mainData.wStd, 2) + "",";
+        json += ""SubVolt":"" + String(mainData.subAccuV, 2) + "",";
+        json += ""SubPerc":"" + String(mainData.subAccuP) + "",";
+        json += "\"PIDI\":\"" + String(mainData.ip, 2) + "\",";
+        json += "\"PIDR\":\"" + String(mainData.ir, 2) + "\",";
+        json += "\"Kpr\":\"" + String(mainData.Kpr, 4) + "\",";
+        json += "\"Kir\":\"" + String(mainData.Kir, 4) + "\",";
+        json += "\"Kdr\":\"" + String(mainData.Kdr, 4) + "\",";
+        json += "\"Kps\":\"" + String(mainData.Kps, 4) + "\",";
+        json += "\"Kis\":\"" + String(mainData.Kis, 4) + "\",";
+        json += "\"Kds\":\"" + String(mainData.Kds, 4) + "\",";
+        json += "\"maxSpeed\":\"" + String(mainData.maxSpeed) + "\",";
+        json += "\"minSpeed\":\"" + String(mainData.minSpeed) + "\",";
+        json += "\"pivotSpeed\":\"" + String(mainData.pivotSpeed, 2) + "\",";
+        json += "\"compassOffset\":\"" + String(mainData.compassOffset, 2) + "\",";
+        json += "\"Lat\":\"" + String(mainData.lat, 6) + "\",";
+        json += "\"Lng\":\"" + String(mainData.lng, 6) + "\",";
+        json += "\"GpsFix\":\"" + String(mainData.gpsFix) + "\"";
         json += "},";
 
         // Buoy 2 and 3 (from buoyPara placeholders)
         for (int i = 1; i < 3; i++) {
             json += "{";
-            json += "\"ID\":\"" + String(buoyPara[i].IDs, HEX) + "\",";
-            json += "\"Status\":" + String(buoyPara[i].status) + ",";
-            json += "\"Speed\":\"" + String(buoyPara[i].speedSet, 2) + "\",";
-            json += "\"BB\":\"" + String(buoyPara[i].speedBb) + "\",";
-            json += "\"SB\":\"" + String(buoyPara[i].speedSb) + "\",";
-            json += "\"MagDir\":\"" + String(buoyPara[i].dirMag, 2) + "\",";
-            json += "\"TgDir\":\"" + String(buoyPara[i].tgDir, 2) + "\",";
-            json += "\"TgDist\":\"" + String(buoyPara[i].tgDist, 2) + "\",";
-            json += "\"GpsDir\":\"" + String(buoyPara[i].gpsDir) + "\",";
-            json += "\"WDir\":\"" + String(buoyPara[i].wDir, 2) + "\",";
-            json += "\"WStd\":\"" + String(buoyPara[i].wStd, 2) + "\"";
+            json += ""ID":"" + String(buoyPara[i].IDs, HEX) + "",";
+            json += ""Status":" + String(buoyPara[i].status) + ",";
+            json += ""Speed":"" + String(buoyPara[i].speedSet, 2) + "",";
+            json += ""BB":"" + String(buoyPara[i].speedBb) + "",";
+            json += ""SB":"" + String(buoyPara[i].speedSb) + "",";
+            json += ""MagDir":"" + String(buoyPara[i].dirMag, 2) + "",";
+            json += ""TgDir":"" + String(buoyPara[i].tgDir, 2) + "",";
+            json += ""TgDist":"" + String(buoyPara[i].tgDist, 2) + "",";
+            json += ""GpsDir":"" + String(buoyPara[i].gpsDir) + "",";
+            json += ""WDir":"" + String(buoyPara[i].wDir, 2) + "",";
+            json += ""WStd":"" + String(buoyPara[i].wStd, 2) + "",";
+            json += ""SubVolt":"" + String(buoyPara[i].subAccuV, 2) + "",";
+            json += ""SubPerc":"" + String(buoyPara[i].subAccuP) + "",";
+            json += "\"PIDI\":\"" + String(buoyPara[i].ip, 2) + "\",";
+            json += "\"PIDR\":\"" + String(buoyPara[i].ir, 2) + "\",";
+            json += "\"Kpr\":\"" + String(buoyPara[i].Kpr, 4) + "\",";
+            json += "\"Kir\":\"" + String(buoyPara[i].Kir, 4) + "\",";
+            json += "\"Kdr\":\"" + String(buoyPara[i].Kdr, 4) + "\",";
+            json += "\"Kps\":\"" + String(buoyPara[i].Kps, 4) + "\",";
+            json += "\"Kis\":\"" + String(buoyPara[i].Kis, 4) + "\",";
+            json += "\"Kds\":\"" + String(buoyPara[i].Kds, 4) + "\",";
+            json += "\"maxSpeed\":\"" + String(buoyPara[i].maxSpeed) + "\",";
+            json += "\"minSpeed\":\"" + String(buoyPara[i].minSpeed) + "\",";
+            json += "\"pivotSpeed\":\"" + String(buoyPara[i].pivotSpeed, 2) + "\",";
+            json += "\"compassOffset\":\"" + String(buoyPara[i].compassOffset, 2) + "\",";
+            json += "\"Lat\":\"" + String(buoyPara[i].lat, 6) + "\",";
+            json += "\"Lng\":\"" + String(buoyPara[i].lng, 6) + "\",";
+            json += "\"GpsFix\":\"" + String(buoyPara[i].gpsFix) + "\"";
             json += "}";
             if (i < 2) json += ",";
         }
@@ -404,8 +345,111 @@ void WiFiTask(void *arg)
         server.send(200, "application/json", json);
     });
 
+    server.on("/command", HTTP_GET, []() {
+        if (!server.hasArg("bid") || !server.hasArg("cmd")) {
+            server.send(400, "text/plain", "Missing bid or cmd");
+            return;
+        }
+
+        int bid = server.arg("bid").toInt();
+        String cmdStr = server.arg("cmd");
+        int cmdEnum = NOCMD;
+        int statusEnum = -1;
+
+        if (cmdStr == "LOCK") {
+            if (bid == 1 && (mainData.status == LOCKED || mainData.status == DOCKED)) statusEnum = IDELING;
+            else if (bid != 1 && (buoyPara[bid-1].status == LOCKED || buoyPara[bid-1].status == DOCKED)) cmdEnum = IDLE;
+            else { cmdEnum = LOCKPOS; statusEnum = LOCKING; }
+        }
+        else if (cmdStr == "DOCK") {
+            if (bid == 1 && mainData.status == DOCKING) statusEnum = IDELING;
+            else if (bid != 1 && buoyPara[bid-1].status == DOCKED) cmdEnum = IDLE;
+            else { cmdEnum = DOCKPOS; statusEnum = DOCKING; }
+        }
+        else if (cmdStr == "SETUP") cmdEnum = SETUPDATA;
+        else if (cmdStr == "IDLE") { cmdEnum = IDLE; statusEnum = IDELING; }
+        else if (cmdStr == "DIRDIST") cmdEnum = DIRDIST;
+        else if (cmdStr == "MAP") cmdEnum = NEWBUOYPOS;
+        else if (cmdStr == "PIDRUDDER") cmdEnum = PIDRUDDERSET;
+        else if (cmdStr == "PIDSPEED") cmdEnum = PIDSPEEDSET;
+        else if (cmdStr == "LIMITS") cmdEnum = MAXMINPWRSET;
+        else if (cmdStr == "COMPASSOFFSET") cmdEnum = STORE_COMPASS_OFFSET;
+        else if (cmdStr == "CALIB_COMPASS") cmdEnum = INFIELD_CALIBRATE;
+        else if (cmdStr == "CALIB_OFFSET") cmdEnum = INFIELD_OFFSET_CALIBRATE;
+
+        if (bid == 1) {
+            if (statusEnum != -1) mainData.status = (msg_t)statusEnum;
+            if (cmdEnum == DIRDIST) {
+                mainData.tgDir = server.arg("dir").toFloat();
+                mainData.tgDist = server.arg("dist").toFloat();
+            }
+            else if (cmdEnum == PIDRUDDERSET) {
+                mainData.Kpr = server.arg("p").toFloat();
+                mainData.Kir = server.arg("i").toFloat();
+                mainData.Kdr = server.arg("d").toFloat();
+            }
+            else if (cmdEnum == PIDSPEEDSET) {
+                mainData.Kps = server.arg("p").toFloat();
+                mainData.Kis = server.arg("i").toFloat();
+                mainData.Kds = server.arg("d").toFloat();
+            }
+            else if (cmdEnum == MAXMINPWRSET) {
+                mainData.maxSpeed = server.arg("max").toInt();
+                mainData.minSpeed = server.arg("min").toInt();
+                mainData.pivotSpeed = server.arg("pivot").toFloat();
+            }
+            else if (cmdEnum == STORE_COMPASS_OFFSET) {
+                mainData.compassOffset = server.arg("offset").toFloat();
+            }
+            if (cmdEnum != NOCMD) {
+                mainData.cmd = (msg_t)cmdEnum;
+                if (cmdEnum == SETUPDATA) mainData.ack = LORAGET;
+            }
+        } else if (bid >= 2 && bid <= 3) {
+            RoboStruct msg;
+            msg.IDs = espMac();
+            msg.IDr = buoyPara[bid - 1].IDs;
+            msg.cmd = (cmdEnum != NOCMD) ? cmdEnum : statusEnum;
+            
+            if (cmdEnum == DIRDIST) {
+                msg.tgDir = server.arg("dir").toFloat();
+                msg.tgDist = server.arg("dist").toFloat();
+            }
+            else if (cmdEnum == PIDRUDDERSET) {
+                msg.Kpr = server.arg("p").toFloat();
+                msg.Kir = server.arg("i").toFloat();
+                msg.Kdr = server.arg("d").toFloat();
+            }
+            else if (cmdEnum == PIDSPEEDSET) {
+                msg.Kps = server.arg("p").toFloat();
+                msg.Kis = server.arg("i").toFloat();
+                msg.Kds = server.arg("d").toFloat();
+            }
+            else if (cmdEnum == MAXMINPWRSET) {
+                msg.maxSpeed = server.arg("max").toInt();
+                msg.minSpeed = server.arg("min").toInt();
+                msg.pivotSpeed = server.arg("pivot").toFloat();
+            }
+            else if (cmdEnum == STORE_COMPASS_OFFSET) {
+                msg.compassOffset = server.arg("offset").toFloat();
+            }
+
+            if (msg.IDr != 0) {
+                xQueueSend(udpOut, (void *)&msg, 10);
+                xQueueSend(loraOut, (void *)&msg, 10);
+            }
+        }
+
+        server.send(200, "text/plain", "OK");
+    });
+
+    server.onNotFound([](){
+        server.send(404, "text/plain", "File not found");
+    });
+
     server.begin();
-    printf("WiFI task running!\r\n");
+    printf("WiFI task running!
+");
     /*
         WiFI loop
     */
@@ -420,7 +464,8 @@ void WiFiTask(void *arg)
         if (WiFi.softAPgetStationNum() != numClients)
         {
             numClients = WiFi.softAPgetStationNum();
-            Serial.print("You found me!\r\n");
+            Serial.print("You found me!
+");
             if (ap.indexOf("PAIR_ME_") != -1) // reboot if in pairing mode only
             {
                 Serial.println("Rebooting in 5 seconds");

@@ -2,436 +2,623 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Robobuoy Dashboard</title>
+
 <style>
-    body {
-        font-family: Arial, sans-serif;
-        background: #e6e6e6;
-        margin: 0;
-        padding: 15px;
-        text-align: center;
-    }
-    .top-bar {
-        display: flex;
-        justify-content: space-between;
-        font-size: 14px;
-        margin-bottom: 5px;
-        padding: 0 10px;
-    }
-    .status-title {
-        font-size: 28px;
-        font-weight: bold;
-        color: #003366;
-        margin-bottom: 10px;
-    }
-    .container {
-        display: flex;
-        justify-content: center;
-        gap: 30px;
-        margin-bottom: 10px;
+body {
+    font-family: Arial, sans-serif;
+    background: #e6e6e6;
+    text-align: center;
+    margin: 10px;
+}
+
+/* Tabs */
+.tab {
+  overflow: hidden;
+  border: 1px solid #ccc;
+  background-color: #f1f1f1;
+  margin-bottom: 15px;
+  display: flex;
+}
+
+.tab button {
+  flex: 1;
+  border: none;
+  padding: 12px 5px;
+  cursor: pointer;
+  background: inherit;
+  font-size: 16px;
+  transition: 0.3s;
+}
+
+.tab button:hover {
+  background-color: #ddd;
+}
+
+.tab button.active {
+  background: #ccc;
+}
+
+/* Layout */
+.wrapper {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+/* Side panels */
+.side-panel {
+    width: 100px;
+    padding: 8px;
+    background: #f4f4f4;
+    border: 1px solid #999;
+    border-radius: 10px;
+}
+
+.side-bar {
+    width: 35px;
+    height: 250px;
+    margin: 5px auto;
+    background: #dcdcdc;
+    border: 1px solid #777;
+    border-radius: 6px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* On mobile, stack side panels or shrink them */
+@media screen and (max-width: 600px) {
+    .wrapper {
+        gap: 10px;
     }
     .side-panel {
         width: 80px;
-        background: #f2f2f2;
-        padding: 10px;
-        border-radius: 8px;
-        border: 1px solid #ccc;
     }
     .side-bar {
-        width: 30px;
-        height: 220px;
-        margin: 0 auto;
-        background: #ccc;
-        border-radius: 4px;
-        border: 1px solid #999;
-        position: relative;
+        height: 180px;
     }
-    .side-fill {
-        width: 100%;
-        background: green;
-        position: absolute;
-        bottom: 0;
-        height: 50%; /* Default */
-        border-radius: 4px;
+    .compassCircle {
+        width: 220px !important;
+        height: 220px !important;
     }
-    .center-panel {
-        width: 330px;
-        background: white;
-        padding: 15px;
-        border-radius: 10px;
-        border: 1px solid #bbb;
+    canvas {
+        width: 220px !important;
+        height: 220px !important;
     }
-    .distance {
-        font-size: 28px;
-        font-weight: bold;
-        color: red;
-        float: left;
+    .dirLabel {
+        font-size: 14px !important;
     }
-    .pid-i {
-        font-size: 28px;
-        font-weight: bold;
-        color: purple;
-        float: right;
-    }
-    .compass-container {
-        width: 250px;
-        height: 250px;
-        border: 3px solid black;
-        border-radius: 50%;
-        margin: 55px auto 5px auto;
-        position: relative;
-        overflow: hidden; /* To keep arrows within bounds */
-    }
-    .compass-container .dir-label {
-        position: absolute;
-        font-weight: bold;
-        font-size: 18px;
-        color: #000;
-    }
-    .dir-label.n { top: -5px; left: 50%; transform: translateX(-50%); }
-    .dir-label.s { bottom: -5px; left: 50%; transform: translateX(-50%); }
-    .dir-label.e { right: -5px; top: 50%; transform: translateY(-50%); }
-    .dir-label.w { left: -5px; top: 50%; transform: translateY(-50%); }
+}
 
-    .battery-bar-container {
-        width: 200px;
-        height: 20px;
-        background: #ccc;
-        border-radius: 5px;
-        border: 1px solid #777;
-        margin: 15px auto;
-        position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 5px;
-    }
-    .battery-fill {
-        height: 100%;
-        width: 70%; /* Default */
-        background: green;
-        border-radius: 5px;
-        position: absolute;
-        left: 0;
-        top: 0;
-    }
+.zero-line {
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background: black;
+    top: 50%;
+}
 
-    .legend {
-        margin-top: 10px;
-        font-size: 14px;
-    }
-    .legend span {
-        margin-right: 15px;
-    }
+.bar-positive {
+    position: absolute;
+    width: 100%;
+    background: green;
+    bottom: 50%;
+}
 
-    .buttons {
-        margin-top: 10px;
-    }
-    .buttons button {
-        width: 100px;
-        padding: 10px;
-        margin: 5px;
-        font-size: 16px;
-        border-radius: 6px;
-        border: 1px solid #888;
-        background: #eee;
-        cursor: pointer;
-    }
-    .buttons button:disabled {
-        background: #ccc;
-        cursor: not-allowed;
-    }
+.bar-negative {
+    position: absolute;
+    width: 100%;
+    background: red;
+    top: 50%;
+}
+
+.valueText {
+    font-size: 18px;
+    font-weight: bold;
+    margin-top: 6px;
+}
+
+/* Compass */
+.compassCircle {
+    width: 250px;
+    height: 250px;
+    border: 3px solid black;
+    border-radius: 50%;
+    margin: auto;
+    position: relative;
+}
+
+.dirLabel {
+    position: absolute;
+    font-weight: bold;
+    font-size: 18px;
+}
+.n { top:5px; left:50%; transform:translateX(-50%); }
+.s { bottom:5px; left:50%; transform:translateX(-50%); }
+.e { right:5px; top:50%; transform:translateY(-50%); }
+.w { left:5px; top:50%; transform:translateY(-50%); }
+
+/* Battery */
+.battery {
+    width: 200px;
+    height: 20px;
+    background: #ccc;
+    border-radius: 6px;
+    border: 1px solid #777;
+    margin: auto;
+    position: relative;
+}
+
+.batteryFill {
+    position: absolute;
+    height: 100%;
+    background: green;
+}
+
+/* Buttons */
+button {
+    padding: 8px 20px;
+    margin: 5px;
+    font-size: 16px;
+    border-radius: 8px;
+    border: 1px solid #777;
+    cursor: pointer;
+    background: #eee;
+}
+
+button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.lock-btn-active {
+    background: green;
+    color: white;
+    border: 2px solid darkgreen;
+}
+.dock-btn-active {
+    background: #2196f3;
+    color: white;
+    border: 2px solid #0069d9;
+}
+
+/* Inputs */
+.inputRow {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 12px;
+    gap: 8px;
+}
+
+input {
+    width: 70px;
+    padding: 4px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+#title {
+    font-size: 28px;
+    font-weight: bold;
+    color: #003366;
+    margin-bottom: 10px;
+}
 </style>
 </head>
+
 <body>
 
 <div class="tab">
-  <button class="tablinks active" onclick="openTab(event, 'Buoy1')" id="btn_buoy1">Buoy 1</button>
-  <button class="tablinks" onclick="openTab(event, 'Buoy2')" id="btn_buoy2">Buoy 2</button>
-  <button class="tablinks" onclick="openTab(event, 'Buoy3')" id="btn_buoy3">Buoy 3</button>
+  <button onclick="openTab(1)" id="btn_buoy1">Buoy 1</button>
+  <button onclick="openTab(2)" id="btn_buoy2">Buoy 2</button>
+  <button onclick="openTab(3)" id="btn_buoy3">Buoy 3</button>
 </div>
 
-<div id="BuoyDisplay">
-  <!-- Content for the currently selected buoy will be injected here by JavaScript -->
+<h1 id="title">WAITING...</h1>
+
+<div id="mainWrapper" class="wrapper" style="display: none;">
+    <div class="side-panel">
+        <div>BB</div>
+        <div class="side-bar" id="barBB"><div class="zero-line"></div></div>
+        <div id="bbValue" class="valueText">0%</div>
+    </div>
+
+    <div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+            <span id="distanceText" style="font-size:28px;color:red;font-weight:bold;">0m</span>
+            <span id="intervalText" style="font-size:28px;color:purple;font-weight:bold;">I:0</span>
+        </div>
+
+        <div class="compassCircle">
+            <canvas id="compassCanvas" width="250" height="250"></canvas>
+            <div class="dirLabel n">N</div>
+            <div class="dirLabel s">S</div>
+            <div class="dirLabel e">E</div>
+            <div class="dirLabel w">W</div>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;justify-content:center;margin-top:10px;">
+            <span>17V</span>
+            <div class="battery"><div id="batteryFill" class="batteryFill"></div></div>
+            <span>25V</span>
+        </div>
+
+        <div style="margin-top:10px;">
+            <span style="color:red;">■ Target</span>
+            <span style="color:green;">■ Mag</span>
+            <span style="color:blue;">■ Wind</span>
+            <span style="color:black;">■ GPS</span>
+        </div>
+    </div>
+
+    <div class="side-panel">
+        <div>SB</div>
+        <div class="side-bar" id="barSB"><div class="zero-line"></div></div>
+        <div id="sbValue" class="valueText">0%</div>
+    </div>
+</div>
+
+<div id="controls" style="display: none;">
+    <div style="margin-top:20px;">
+        <button id="btnLock" onclick="sendCommand('LOCK')">LOCK</button>
+        <button id="btnDock" onclick="sendCommand('DOCK')">DOCK</button>
+        <button id="btnSetup" onclick="openSetup()">SETUP</button>
+    </div>
+
+    <div class="inputRow">
+        Dir <input id="inDir" type="number">
+        Dist <input id="inDist" type="number">
+        <button id="btnSend" onclick="sendCommand('DIRDIST')">Send</button>
+        <button id="btnMap" onclick="openMap()">Map</button>
+    </div>
+</div>
+
+<!-- Setup Modal -->
+<div id="setupModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; overflow-y:auto;">
+    <div style="background:#fff; margin: 5% auto; padding:20px; width:90%; max-width:400px; border-radius:10px; text-align:left;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2 style="margin:0;">Setup Buoy <span id="setupBuoyId"></span></h2>
+            <button onclick="closeSetup()" style="margin:0; background:red; color:white;">X</button>
+        </div>
+        <hr style="margin: 8px 0;">
+        
+        <h4 style="margin: 5px 0 2px 0;">Rudder PID</h4>
+        <div class="inputRow" style="margin-top: 0;">P <input id="Kpr" type="number" step="0.001"> I <input id="Kir" type="number" step="0.001"> D <input id="Kdr" type="number" step="0.001"></div>
+        <button onclick="sendSetupCommand('PIDRUDDER')" style="width:100%; margin: 4px 0 8px 0;">Send Rudder PID</button>
+
+        <h4 style="margin: 5px 0 2px 0;">Speed PID</h4>
+        <div class="inputRow" style="margin-top: 0;">P <input id="Kps" type="number" step="0.001"> I <input id="Kis" type="number" step="0.001"> D <input id="Kds" type="number" step="0.001"></div>
+        <button onclick="sendSetupCommand('PIDSPEED')" style="width:100%; margin: 4px 0 8px 0;">Send Speed PID</button>
+
+        <h4 style="margin: 5px 0 2px 0;">Speed Limits</h4>
+        <div class="inputRow" style="margin-top: 0;">Max <input id="maxSpeed" type="number" style="width:50px;"> Min <input id="minSpeed" type="number" style="width:50px;"> Pivot <input id="pivotSpeed" type="number" step="0.1" style="width:50px;"></div>
+        <button onclick="sendSetupCommand('LIMITS')" style="width:100%; margin: 4px 0 8px 0;">Send Speed Limits</button>
+
+        <h4 style="margin: 5px 0 2px 0;">Compass</h4>
+        <div class="inputRow" style="margin-top: 0;">Offset <input id="compassOffset" type="number" step="0.1"></div>
+        <button onclick="sendSetupCommand('COMPASSOFFSET')" style="width:100%; margin: 4px 0 8px 0;">Send Compass Offset</button>
+
+        <hr style="margin: 8px 0;">
+        <h4 style="margin: 5px 0;">In-Field Calibration</h4>
+        <button onclick="sendSetupCommand('CALIB_COMPASS')" style="width:100%; background:#f0ad4e; color:white; margin-bottom: 4px;">Compass Calibration (Circles)</button>
+        <button onclick="sendSetupCommand('CALIB_OFFSET')" style="width:100%; background:#5bc0de; color:white; margin: 0;">Offset Calibration (South->North)</button>
+    </div>
 </div>
 
 <script>
-let currentBuoyData = {}; // Store data for all buoys
-let currentActiveBuoyId = 1; // Default to showing Buoy 1
+let currentBuoy = 1;
+let buoyData = {
+    1: { ID: "TEST_TOP", Status: 13, BB: 65, SB: -40, TgDist: 3.2, PIDI: 0.45, SubPerc: 85, MagDir: 45, TgDir: 50, WDir: 10, GpsDir: 40, GpsFix: "true", Lat: "52.3731", Lng: "4.8926" },
+    2: { ID: "TEST_SUB1", Status: 7, BB: 0, SB: 0, TgDist: 0, PIDI: 0, SubPerc: 42, MagDir: 180, TgDir: null, WDir: null, GpsDir: null, GpsFix: "false", Lat: "52.3580", Lng: "4.8686" },
+    3: { ID: "TEST_SUB2", Status: 16, BB: -15, SB: 15, TgDist: 15.5, PIDI: -0.12, SubPerc: 18, MagDir: 275, TgDir: 285, WDir: null, GpsDir: 265, GpsFix: "true", Lat: "52.3563", Lng: "4.8811" }
+};
 
-function openTab(evt, buoyId) {
-  currentActiveBuoyId = parseInt(buoyId.replace('Buoy',''));
-  updateBuoyDisplay();
-
-  // Update active button styling
-  let tablinks = document.getElementsByClassName("tablinks");
-  for (let i = 0; i < tablinks.length; i++) tablinks[i].className = tablinks[i].className.replace(" active", "");
-  if(evt) evt.currentTarget.className += " active";
+function getStatusText(status) {
+    const s = parseInt(status);
+    switch(s) {
+        case 7: return "IDLE";
+        case 8: return "IDELING";
+        case 12: return "LOCKING";
+        case 13: return "LOCKED";
+        case 14: return "LOCK POS";
+        case 15: return "DOCKING";
+        case 16: return "DOCKED";
+        case 17: return "DOC";
+        default: return "STATUS: " + s;
+    }
 }
 
-function drawWindrose(canvasId, mag, tg, wind, gps) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const cw = canvas.width;
-    const ch = canvas.height;
-    const cx = cw / 2;
-    const cy = ch / 2;
-    const r = cx * 0.75;
+function sendCommand(cmd) {
+    let url = `/command?bid=${currentBuoy}&cmd=${cmd}`;
+    if (cmd === 'DIRDIST') {
+        const dir = document.getElementById('inDir').value || 0;
+        const dist = document.getElementById('inDist').value || 0;
+        url += `&dir=${dir}&dist=${dist}`;
+    }
+    fetch(url)
+        .then(response => response.text())
+        .then(data => console.log("Command response:", data))
+        .catch(error => console.error('Error sending command:', error));
+}
 
-    ctx.clearRect(0, 0, cw, ch); // Clear previous drawings
+function openMap() {
+    const b = buoyData[currentBuoy];
+    if (b && b.Lat && b.Lng && !isNaN(parseFloat(b.Lat)) && !isNaN(parseFloat(b.Lng))) {
+        const url = `https://www.openstreetmap.org/?mlat=${b.Lat}&mlon=${b.Lng}#map=18/${b.Lat}/${b.Lng}`;
+        window.open(url, '_blank');
+    } else {
+        alert("GPS coordinates not available for this buoy.");
+    }
+}
 
-    // Main circle
+function openSetup() {
+    document.getElementById("setupBuoyId").innerText = currentBuoy;
+    document.getElementById("setupModal").style.display = "block";
+    sendCommand('SETUP'); // Trigger ESP to get fresh data via LoRa/UDP
+    updateSetupModal();   // Try to populate with existing data
+}
+
+function closeSetup() {
+    document.getElementById("setupModal").style.display = "none";
+}
+
+function updateSetupModal() {
+    if (document.getElementById("setupModal").style.display !== "block") return;
+    const b = buoyData[currentBuoy];
+    if (!b) return;
+
+    const setVal = (id, val) => {
+        if (val !== undefined && val !== null && !isNaN(parseFloat(val))) {
+            const el = document.getElementById(id);
+            if (document.activeElement !== el) { // Don't overwrite if user is typing
+                el.value = parseFloat(val);
+            }
+        }
+    };
+
+    setVal("Kpr", b.Kpr);
+    setVal("Kir", b.Kir);
+    setVal("Kdr", b.Kdr);
+    setVal("Kps", b.Kps);
+    setVal("Kis", b.Kis);
+    setVal("Kds", b.Kds);
+    setVal("maxSpeed", b.maxSpeed);
+    setVal("minSpeed", b.minSpeed);
+    setVal("pivotSpeed", b.pivotSpeed);
+    setVal("compassOffset", b.compassOffset);
+}
+
+function sendSetupCommand(cmd) {
+    let url = `/command?bid=${currentBuoy}&cmd=${cmd}`;
+    
+    if (cmd === 'PIDRUDDER') {
+        url += `&p=${document.getElementById('Kpr').value || 0}&i=${document.getElementById('Kir').value || 0}&d=${document.getElementById('Kdr').value || 0}`;
+    } else if (cmd === 'PIDSPEED') {
+        url += `&p=${document.getElementById('Kps').value || 0}&i=${document.getElementById('Kis').value || 0}&d=${document.getElementById('Kds').value || 0}`;
+    } else if (cmd === 'LIMITS') {
+        url += `&max=${document.getElementById('maxSpeed').value || 0}&min=${document.getElementById('minSpeed').value || 0}&pivot=${document.getElementById('pivotSpeed').value || 0.2}`;
+    } else if (cmd === 'COMPASSOFFSET') {
+        url += `&offset=${document.getElementById('compassOffset').value || 0}`;
+    } else if (cmd === 'CALIB_COMPASS') {
+        if (!confirm(`Deploying In-Field Compass Calibration will cause Buoy ${currentBuoy} to move autonomously in circles for ~3 minutes.\n\nEnsure the area is clear. Continue?`)) return;
+    } else if (cmd === 'CALIB_OFFSET') {
+        if (!confirm(`Deploying In-Field Offset Calibration will cause Buoy ${currentBuoy} to sail South for ~2 minutes, then return North.\n\nEnsure you have enough open water to the South. Continue?`)) return;
+    }
+
+    fetch(url)
+        .then(response => response.text())
+        .then(data => console.log("Setup Command response:", data))
+        .catch(error => console.error('Error sending setup command:', error));
+}
+
+/* Tabs */
+function openTab(id) {
+    currentBuoy = id;
+    document.querySelectorAll(".tab button").forEach(b => b.classList.remove("active"));
+    document.getElementById("btn_buoy" + id).classList.add("active");
+    updateUI();
+}
+
+/* Bars */
+function setBar(barId, value, textId) {
+    const bar = document.getElementById(barId);
+    bar.querySelectorAll('.bar-positive,.bar-negative').forEach(e => e.remove());
+
+    const half = 150; // Half of 300px height
+    let h = Math.min(Math.abs(value), 100) * (half / 100);
+
+    if (value > 0) {
+        let p = document.createElement("div");
+        p.className = "bar-positive";
+        p.style.height = h + "px";
+        bar.appendChild(p);
+    } else if (value < 0) {
+        let n = document.createElement("div");
+        n.className = "bar-negative";
+        n.style.height = h + "px";
+        bar.appendChild(n);
+    }
+
+    document.getElementById(textId).innerText = value + "%";
+}
+
+/* Compass */
+function drawCompass(mag, target, wind, gps) {
+    const canvas = document.getElementById("compassCanvas");
+    const ctx = canvas.getContext("2d");
+    const size = canvas.width;
+    const center = size / 2;
+    const radius = center * 0.8;
+
+    ctx.clearRect(0, 0, size, size);
+
     ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-    ctx.strokeStyle = '#ccc';
+    ctx.arc(center, center, radius, 0, 2 * Math.PI);
+    ctx.strokeStyle = "#bbb";
     ctx.stroke();
 
-    function drawArrow(angle, color, length, width) {
-        if (angle === undefined || angle === null || angle === "" || isNaN(parseFloat(angle))) {
-            return;
-        }
-        const rad = (parseFloat(angle) - 90) * Math.PI / 180;
+    function arrow(angle, color, length, width) {
+        if (angle === undefined || angle === null || angle === "" || isNaN(parseFloat(angle))) return;
+        let a = (parseFloat(angle) - 90) * Math.PI / 180;
+        let len = radius * length;
+        let endX = center + len * Math.cos(a);
+        let endY = center + len * Math.sin(a);
+
+        // Draw the line
         ctx.beginPath();
         ctx.lineWidth = width;
         ctx.strokeStyle = color;
-        ctx.moveTo(cx, cy);
-        ctx.lineTo(cx + length * Math.cos(rad), cy + length * Math.sin(rad));
+        ctx.moveTo(center, center);
+        ctx.lineTo(endX, endY);
         ctx.stroke();
-        // Arrow head
+
+        // Draw the filled arrow head
+        let headlen = width * 4 + 4; // scale head size by line width
         ctx.beginPath();
-        ctx.arc(cx + length * Math.cos(rad), cy + length * Math.sin(rad), width, 0, 2*Math.PI);
         ctx.fillStyle = color;
+        ctx.moveTo(endX, endY);
+        ctx.lineTo(endX - headlen * Math.cos(a - Math.PI / 6), endY - headlen * Math.sin(a - Math.PI / 6));
+        ctx.lineTo(endX - headlen * Math.cos(a + Math.PI / 6), endY - headlen * Math.sin(a + Math.PI / 6));
+        ctx.closePath();
         ctx.fill();
     }
 
-    drawArrow(tg, 'red', r, 4);
-    drawArrow(mag, 'green', r * 0.9, 3);
-    drawArrow(wind, 'blue', r * 0.7, 2);
-    drawArrow(gps, 'black', r * 0.8, 2);
-
-    // Cardinal labels (Drawn after arrows to stay on top)
-    ctx.fillStyle = '#000';
-    ctx.font = 'bold 12px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('N', cx, cy - r - 5);
-    ctx.fillText('S', cx, cy + r + 15);
-    ctx.fillText('E', cx + r + 10, cy + 5);
-    ctx.fillText('W', cx - r - 10, cy + 5);
+    arrow(mag, "green", 0.9, 3);
+    arrow(wind, "blue", 0.7, 2);
+    arrow(gps, "black", 0.8, 2);
+    arrow(target, "red", 1.0, 4);
 }
 
-function drawBar(canvasId, value, fillColor, showPercentage = true) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const cw = canvas.width;
-    const ch = canvas.height;
-    const mid = ch / 2;
+/* Update UI */
+function updateUI() {
+    const b = buoyData[currentBuoy];
+    const titleEl = document.getElementById("title");
+    const mainWrapper = document.getElementById("mainWrapper");
+    const controls = document.getElementById("controls");
 
-    ctx.clearRect(0, 0, cw, ch); // Clear previous drawings
-    ctx.fillStyle = '#eee';
-    ctx.fillRect(0, 0, cw, ch); // Draw background
-    
-    // Center line
-    ctx.beginPath();
-    ctx.moveTo(0, mid);
-    ctx.lineTo(cw, mid);
-    ctx.strokeStyle = '#999';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    if (value !== undefined && value !== null && value !== "" && !isNaN(parseFloat(value))) {
-        const val = parseFloat(value);
-        const h = (Math.abs(val) / 100) * mid; // Max height is half the bar for 100%
-        ctx.fillStyle = fillColor; // Use passed fill color
-        if (val > 0) {
-            ctx.fillRect(0, mid - h, cw, h);
-        } else if (val < 0) {
-            ctx.fillRect(0, mid, cw, h);
-        }
-    }
-}
-
-function getStatusText(status) {
-    const s = String(status).trim();
-    if (s === "7") return "IDLE";
-    if (["12", "13", "14"].includes(s)) return "LOCKED";
-    if (["15", "16", "17"].includes(s)) return "DOCKING";
-    if (s === "25") return "REMOTE";
-    if (s === "49") return "SETUP";
-    return "STATUS " + s;
-}
-
-function sendCommand(buoyId, commandType) {
-    console.log(`Sending command: ${commandType} to Buoy ${buoyId}`);
-    // In a real scenario, this would send an HTTP request to the ESP32
-    // For example:
-    // fetch(`/command?id=${buoyId}&type=${commandType}`);
-    // For local testing, we just log the action.
-}
-
-// Function to update the main display for the currently active buoy
-function updateBuoyDisplay() {
-    const bid = currentActiveBuoyId;
-    const buoy = currentBuoyData[bid];
-    const displayDiv = document.getElementById('BuoyDisplay');
-
-    if (!buoy) {
-        displayDiv.innerHTML = `<div class="card"><h3>Buoy ${bid} (Waiting for data...)</h3></div>`;
+    if (!b || b.ID === "0") {
+        titleEl.innerText = `Buoy ${currentBuoy} Not Connected`;
+        mainWrapper.style.display = 'none';
+        controls.style.display = 'none';
         return;
     }
 
-    const statusText = getStatusText(buoy.Status);
-    const tgDist = parseFloat(buoy.TgDist);
-    const pidI = parseFloat(buoy.PIDI);
+    mainWrapper.style.display = 'flex';
+    controls.style.display = 'block';
 
-    // Determine button states
-    const isIdle = String(buoy.Status).trim() === "7";
-    const isLocked = ["12", "13", "14"].includes(String(buoy.Status).trim());
-    const isDocking = ["15", "16", "17"].includes(String(buoy.Status).trim());
+    // Status and Strings
+    titleEl.innerText = getStatusText(b.Status);
+    const tgDist = parseFloat(b.TgDist || 0);
+    const pidI = parseFloat(b.PIDI || 0);
+
+    document.getElementById("distanceText").innerText = (!isNaN(tgDist) && tgDist !== 0) ? tgDist.toFixed(2) + "m" : "-";
+    document.getElementById("intervalText").innerText = (!isNaN(pidI) && pidI !== 0) ? "I:" + pidI.toFixed(2) : "";
+
+    // Bars
+    setBar("barBB", parseFloat(b.BB || 0), "bbValue");
+    setBar("barSB", parseFloat(b.SB || 0), "sbValue");
+
+    // Battery
+    const perc = parseFloat(b.SubPerc || 0);
+    const batteryFill = document.getElementById("batteryFill");
+    batteryFill.style.width = perc + "%";
+    batteryFill.style.background = perc > 20 ? 'green' : 'red';
+
+    // Compass Vector Logic
+    const isIdle = String(b.Status).trim() === "7";
+    const isLocked = ["12", "13", "14"].includes(String(b.Status).trim());
+    const isDocking = ["15", "16", "17"].includes(String(b.Status).trim());
     const isFar = tgDist > 5.0;
     const isClose = tgDist <= 5.0;
 
-    // Generate HTML for the buoy
-    displayDiv.innerHTML = `
-        <div class="card">
-            <div class="top-bar">
-                <div>Buoy: ${buoy.ID}</div>
-                <div>${buoy.IP || 'N/A'}</div> <!-- Assuming IP comes with data -->
-            </div>
+    let tgDirForVector = isIdle ? null : b.TgDir;
+    let windDirForVector = (isLocked && isClose) ? b.WDir : null;
+    let gpsDirForVector = (!isIdle && isFar) ? b.GpsDir : null;
 
-            <div class="status-title">${statusText}</div>
+    drawCompass(b.MagDir, tgDirForVector, windDirForVector, gpsDirForVector);
 
-            <div class="container">
-                <!-- Left Panel -->
-                <div class="side-panel">
-                    <div>BB</div>
-                    <canvas id="bb_bar_canvas_${bid}" class="side-bar" width="30" height="220"></canvas>
-                    <div id="bb_perc_label_${bid}">0%</div>
-                </div>
-
-                <!-- Center Panel -->
-                <div class="center-panel">
-                    <div style="overflow: auto; margin-bottom: 10px;">
-                        <div class="distance">${!isNaN(tgDist) && tgDist !== 0 ? tgDist.toFixed(2) + 'm' : '-'}</div>
-                        <div class="pid-i">${!isNaN(pidI) && pidI !== 0 ? 'I:' + pidI.toFixed(2) : ''}</div>
-                    </div>
-
-                    <div id="compass_container_${bid}" class="compass-container">
-                        <canvas id="compass_canvas_${bid}" width="250" height="250" style="background:white;"></canvas>
-                         <div class="dir-label n">N</div>
-                         <div class="dir-label s">S</div>
-                         <div class="dir-label e">E</div>
-                         <div class="dir-label w">W</div>
-                    </div>
-
-                    <div class="battery-bar-container">
-                        <span>17V</span>
-                        <div style="flex-grow:1; height:100%; position:relative;">
-                            <div id="battery_fill_${bid}" class="battery-fill" style="width:${buoy.SubPerc || 0}%; background:${buoy.SubPerc > 20 ? 'green' : 'red'}"></div>
-                        </div>
-                        <span>25V</span>
-                    </div>
-
-                    <div class="legend">
-                        <span style="color:red;">&#9632; Target</span>
-                        <span style="color:green;">&#9632; Mag</span>
-                        <span style="color:blue;">&#9632; Wind</span>
-                        <span style="color:black;">&#9632; GPS</span>
-                    </div>
-                </div>
-
-                <!-- Right Panel -->
-                <div class="side-panel">
-                    <div>SB</div>
-                    <canvas id="sb_bar_canvas_${bid}" class="side-bar" width="30" height="220"></canvas>
-                    <div id="sb_perc_label_${bid}">0%</div>
-                </div>
-            </div>
-
-            <div class="buttons">
-                <button id="lock_btn_${bid}" onclick="sendCommand(${bid}, 'LOCK')">LOCK</button>
-                <button id="dock_btn_${bid}" onclick="sendCommand(${bid}, 'DOCK')">DOCK</button>
-                <button id="setup_btn_${bid}" onclick="sendCommand(${bid}, 'SETUP')">SETUP</button>
-            </div>
-        </div>
-    `;
-
-    // Update bar percentages and colors
-    const bbPerc = parseFloat(buoy.BB || 0);
-    const sbPerc = parseFloat(buoy.SB || 0);
-    document.getElementById(`bb_perc_label_${bid}`).innerText = `${bbPerc}%`;
-    document.getElementById(`sb_perc_label_${bid}`).innerText = `${sbPerc}%`;
-    drawBar(`bb_bar_canvas_${bid}`, bbPerc, bbPerc >= 0 ? 'green' : 'red');
-    drawBar(`sb_bar_canvas_${bid}`, sbPerc, sbPerc >= 0 ? 'green' : 'red');
-
-    // Update battery bar
-    const batteryFill = document.getElementById(`battery_fill_${bid}`);
-    if (batteryFill) {
-        const subVolt = parseFloat(buoy.SubVolt);
-        if (!isNaN(subVolt)) {
-            const pct = Math.max(0, Math.min(100, ((subVolt - 17.0) / 8.2) * 100)); // Adjusted to 17V-25V range
-            batteryFill.style.width = `${pct}%`;
-            batteryFill.style.background = pct > 20 ? 'green' : 'red';
-        }
-    }
-
-    // Draw windrose arrows
-    let tgDirForVector = isIdle ? null : buoy.TgDir;
-    let windDirForVector = (isLocked && isClose) ? buoy.WDir : null;
-    let gpsDirForVector = (!isIdle && isFar) ? buoy.GpsDir : null;
-
-    drawWindrose(`compass_canvas_${bid}`, buoy.MagDir, tgDirForVector, windDirForVector, gpsDirForVector);
-
-    // Update button states and text
-    const lockBtn = document.getElementById(`lock_btn_${bid}`);
-    const dockBtn = document.getElementById(`dock_btn_${bid}`);
+    // Buttons Status
+    const lockBtn = document.getElementById("btnLock");
+    const dockBtn = document.getElementById("btnDock");
+    const btnSend = document.getElementById("btnSend");
+    const btnMap = document.getElementById("btnMap");
 
     if (isLocked) {
         lockBtn.innerText = "IDLE";
+        lockBtn.classList.add('lock-btn-active');
         lockBtn.disabled = false;
         dockBtn.innerText = "DOCK";
-        dockBtn.disabled = true;
-    } else if (isDocking) { 
+        dockBtn.classList.remove('dock-btn-active');
+        dockBtn.classList.remove('lock-btn-active');
+        dockBtn.disabled = false; // Enabled so you can transition to DOCK
+    } else if (isDocking) {
         lockBtn.innerText = "LOCK";
-        lockBtn.disabled = true;
+        lockBtn.classList.remove('lock-btn-active');
+        lockBtn.disabled = false; // Enabled so you can transition to LOCK
         dockBtn.innerText = "IDLE";
+        // Apply lock-btn-active (green) instead of dock-btn-active (blue)
+        dockBtn.classList.add('lock-btn-active');
+        dockBtn.classList.remove('dock-btn-active');
         dockBtn.disabled = false;
     } else if (isIdle) {
         lockBtn.innerText = "LOCK";
+        lockBtn.classList.remove('lock-btn-active');
         lockBtn.disabled = false;
         dockBtn.innerText = "DOCK";
+        dockBtn.classList.remove('dock-btn-active');
+        dockBtn.classList.remove('lock-btn-active');
         dockBtn.disabled = false;
-    } else { // Other states, disable both
+    } else {
         lockBtn.innerText = "LOCK";
+        lockBtn.classList.remove('lock-btn-active');
         lockBtn.disabled = true;
         dockBtn.innerText = "DOCK";
+        dockBtn.classList.remove('dock-btn-active');
+        dockBtn.classList.remove('lock-btn-active');
         dockBtn.disabled = true;
     }
 
-    // Re-highlight active tab button
-    document.getElementById(`btn_buoy${bid}`).classList.add('active');
+    const gpsFix = String(b.GpsFix || "0").trim();
+    const hasFix = (gpsFix === "1" || gpsFix.toLowerCase() === "true");
+    
+    if (!hasFix) {
+        btnSend.disabled = true;
+        btnMap.disabled = true;
+        lockBtn.disabled = true;
+        dockBtn.disabled = true;
+    } else {
+        btnSend.disabled = false;
+        btnMap.disabled = false;
+        // lockBtn and dockBtn enabled state is already handled by the status logic above
+    }
+
+    updateSetupModal();
 }
 
-// Main data fetching logic
-function fetchAndRenderData() {
-  fetch('/data')
-    .then(response => response.json())
-    .then(data => {
-        // Store data for all buoys
-        data.buoys.forEach((buoy, index) => {
-            currentBuoyData[index + 1] = buoy;
-        });
-        updateBuoyDisplay(); // Update display for the currently active buoy
-    })
-    .catch(error => console.error('Error fetching data:', error));
+/* Fetch data */
+function fetchData() {
+    fetch('/data')
+        .then(r => r.json())
+        .then(data => {
+            data.buoys.forEach((b, i) => {
+                buoyData[i + 1] = b;
+            });
+            updateUI();
+        })
+        .catch(err => console.log(err));
 }
 
-setInterval(fetchAndRenderData, 2000);
-window.onload = () => { 
-    openTab(null, 'Buoy1'); // Initialize with Buoy 1 active
-    fetchAndRenderData(); 
-}; // Fetch and render data on load
+setInterval(fetchData, 2000);
+
+window.onload = () => {
+    openTab(1);
+    fetchData();
+};
 </script>
+
 </body>
 </html>
