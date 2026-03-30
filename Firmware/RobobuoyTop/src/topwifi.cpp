@@ -8,6 +8,8 @@
 #include "leds.h"
 #include "datastorage.h"
 #include "buzzer.h"
+#include "loratop.h"
+#include "sercom.h"
 
 static int statik = IDLE;
 static RoboStruct msgIdOut;
@@ -48,14 +50,12 @@ bool setup_OTA()
     ArduinoOTA.onEnd([]()
                      {
     /* do stuff after update here!! */
-    Serial.println("
-Receiving done!");
+    Serial.println("Receiving done!");
     Serial.println("Storing in memory and reboot!");
     Serial.println(); });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
-", (progress / (total / 100))); });
-    ArduinoOTA.onError([](ota_error_t error)
-                       { ESP.restart(); });
+                          { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); });
+    ArduinoOTA.onError([](ota_error_t error){ ESP.restart(); });
     /* setup the OTA server */
     ArduinoOTA.begin();
     Serial.println("...done!");
@@ -97,8 +97,7 @@ bool scan_for_wifi_ap(String ssipap, String ww, IPAddress *tmp)
                         esp_restart();
                     }
                 }
-                Serial.print(".
-");
+                Serial.print(".");
                 Serial.print("Logend in to SSID: ");
                 Serial.println(ssipap);
                 *tmp = (WiFi.localIP());
@@ -263,6 +262,9 @@ void WiFiTask(void *arg)
     }
 
     server.on("/", HTTP_GET, [](){
+        server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        server.sendHeader("Pragma", "no-cache");
+        server.sendHeader("Expires", "-1");
         File file = SPIFFS.open("/index.html", "r");
         if(!file){
             server.send(404, "text/plain", "File not found");
@@ -273,23 +275,24 @@ void WiFiTask(void *arg)
     });
 
     server.on("/data", HTTP_GET, []() {
-        String json = "{"buoys":[";
+        server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        String json = "{\"buoys\":[";
         
         // Buoy 1 (Top Buoy local data)
         json += "{";
-        json += ""ID":"" + String(espMac(), HEX) + "",";
-        json += ""Status":" + String(mainData.status) + ",";
-        json += ""Speed":"" + String(mainData.speedSet, 2) + "",";
-        json += ""BB":"" + String(mainData.speedBb) + "",";
-        json += ""SB":"" + String(mainData.speedSb) + "",";
-        json += ""MagDir":"" + String(mainData.dirMag, 2) + "",";
-        json += ""TgDir":"" + String(mainData.tgDir, 2) + "",";
-        json += ""TgDist":"" + String(mainData.tgDist, 2) + "",";
-        json += ""GpsDir":"" + String(mainData.gpsDir) + "",";
-        json += ""WDir":"" + String(mainData.wDir, 2) + "",";
-        json += ""WStd":"" + String(mainData.wStd, 2) + "",";
-        json += ""SubVolt":"" + String(mainData.subAccuV, 2) + "",";
-        json += ""SubPerc":"" + String(mainData.subAccuP) + "",";
+        json += "\"ID\":\"" + String(espMac(), HEX) + "\",";
+        json += "\"Status\":" + String(mainData.status) + ",";
+        json += "\"Speed\":\"" + String(mainData.speedSet, 2) + "\",";
+        json += "\"BB\":\"" + String(mainData.speedBb) + "\",";
+        json += "\"SB\":\"" + String(mainData.speedSb) + "\",";
+        json += "\"MagDir\":\"" + String(mainData.dirMag, 2) + "\",";
+        json += "\"TgDir\":\"" + String(mainData.tgDir, 2) + "\",";
+        json += "\"TgDist\":\"" + String(mainData.tgDist, 2) + "\",";
+        json += "\"GpsDir\":\"" + String(mainData.gpsDir) + "\",";
+        json += "\"WDir\":\"" + String(mainData.wDir, 2) + "\",";
+        json += "\"WStd\":\"" + String(mainData.wStd, 2) + "\",";
+        json += "\"SubVolt\":\"" + String(mainData.subAccuV, 2) + "\",";
+        json += "\"SubPerc\":\"" + String(mainData.subAccuP) + "\",";
         json += "\"PIDI\":\"" + String(mainData.ip, 2) + "\",";
         json += "\"PIDR\":\"" + String(mainData.ir, 2) + "\",";
         json += "\"Kpr\":\"" + String(mainData.Kpr, 4) + "\",";
@@ -310,19 +313,19 @@ void WiFiTask(void *arg)
         // Buoy 2 and 3 (from buoyPara placeholders)
         for (int i = 1; i < 3; i++) {
             json += "{";
-            json += ""ID":"" + String(buoyPara[i].IDs, HEX) + "",";
-            json += ""Status":" + String(buoyPara[i].status) + ",";
-            json += ""Speed":"" + String(buoyPara[i].speedSet, 2) + "",";
-            json += ""BB":"" + String(buoyPara[i].speedBb) + "",";
-            json += ""SB":"" + String(buoyPara[i].speedSb) + "",";
-            json += ""MagDir":"" + String(buoyPara[i].dirMag, 2) + "",";
-            json += ""TgDir":"" + String(buoyPara[i].tgDir, 2) + "",";
-            json += ""TgDist":"" + String(buoyPara[i].tgDist, 2) + "",";
-            json += ""GpsDir":"" + String(buoyPara[i].gpsDir) + "",";
-            json += ""WDir":"" + String(buoyPara[i].wDir, 2) + "",";
-            json += ""WStd":"" + String(buoyPara[i].wStd, 2) + "",";
-            json += ""SubVolt":"" + String(buoyPara[i].subAccuV, 2) + "",";
-            json += ""SubPerc":"" + String(buoyPara[i].subAccuP) + "",";
+            json += "\"ID\":\"" + String(buoyPara[i].IDs, HEX) + "\",";
+            json += "\"Status\":" + String(buoyPara[i].status) + ",";
+            json += "\"Speed\":\"" + String(buoyPara[i].speedSet, 2) + "\",";
+            json += "\"BB\":\"" + String(buoyPara[i].speedBb) + "\",";
+            json += "\"SB\":\"" + String(buoyPara[i].speedSb) + "\",";
+            json += "\"MagDir\":\"" + String(buoyPara[i].dirMag, 2) + "\",";
+            json += "\"TgDir\":\"" + String(buoyPara[i].tgDir, 2) + "\",";
+            json += "\"TgDist\":\"" + String(buoyPara[i].tgDist, 2) + "\",";
+            json += "\"GpsDir\":\"" + String(buoyPara[i].gpsDir) + "\",";
+            json += "\"WDir\":\"" + String(buoyPara[i].wDir, 2) + "\",";
+            json += "\"WStd\":\"" + String(buoyPara[i].wStd, 2) + "\",";
+            json += "\"SubVolt\":\"" + String(buoyPara[i].subAccuV, 2) + "\",";
+            json += "\"SubPerc\":\"" + String(buoyPara[i].subAccuP) + "\",";
             json += "\"PIDI\":\"" + String(buoyPara[i].ip, 2) + "\",";
             json += "\"PIDR\":\"" + String(buoyPara[i].ir, 2) + "\",";
             json += "\"Kpr\":\"" + String(buoyPara[i].Kpr, 4) + "\",";
@@ -357,18 +360,18 @@ void WiFiTask(void *arg)
         int statusEnum = -1;
 
         if (cmdStr == "LOCK") {
-            if (bid == 1 && (mainData.status == LOCKED || mainData.status == DOCKED)) statusEnum = IDELING;
+            if (bid == 1 && (mainData.status == LOCKED || mainData.status == DOCKED)) { cmdEnum = IDELING; statusEnum = IDLE; }
             else if (bid != 1 && (buoyPara[bid-1].status == LOCKED || buoyPara[bid-1].status == DOCKED)) cmdEnum = IDLE;
-            else { cmdEnum = LOCKPOS; statusEnum = LOCKING; }
+            else { cmdEnum = LOCKING; statusEnum = IDLE; }
         }
         else if (cmdStr == "DOCK") {
-            if (bid == 1 && mainData.status == DOCKING) statusEnum = IDELING;
-            else if (bid != 1 && buoyPara[bid-1].status == DOCKED) cmdEnum = IDLE;
-            else { cmdEnum = DOCKPOS; statusEnum = DOCKING; }
+            if (bid == 1 && (mainData.status == DOCKING || mainData.status == DOCKED)) { cmdEnum = IDELING; statusEnum = IDLE; }
+            else if (bid != 1 && (buoyPara[bid-1].status == DOCKING || buoyPara[bid-1].status == DOCKED)) cmdEnum = IDLE;
+            else { cmdEnum = DOCKING; statusEnum = IDLE; }
         }
         else if (cmdStr == "SETUP") cmdEnum = SETUPDATA;
-        else if (cmdStr == "IDLE") { cmdEnum = IDLE; statusEnum = IDELING; }
-        else if (cmdStr == "DIRDIST") cmdEnum = DIRDIST;
+        else if (cmdStr == "IDLE") { cmdEnum = IDELING; statusEnum = IDLE; }
+        else if (cmdStr == "DIRDIST") { cmdEnum = DIRDIST; statusEnum = IDLE; }
         else if (cmdStr == "MAP") cmdEnum = NEWBUOYPOS;
         else if (cmdStr == "PIDRUDDER") cmdEnum = PIDRUDDERSET;
         else if (cmdStr == "PIDSPEED") cmdEnum = PIDSPEEDSET;
@@ -376,34 +379,63 @@ void WiFiTask(void *arg)
         else if (cmdStr == "COMPASSOFFSET") cmdEnum = STORE_COMPASS_OFFSET;
         else if (cmdStr == "CALIB_COMPASS") cmdEnum = INFIELD_CALIBRATE;
         else if (cmdStr == "CALIB_OFFSET") cmdEnum = INFIELD_OFFSET_CALIBRATE;
+        else if (cmdStr == "COMPUTESTART") cmdEnum = COMPUTESTART;
+        else if (cmdStr == "COMPUTETRACK") cmdEnum = COMPUTETRACK;
 
         if (bid == 1) {
-            if (statusEnum != -1) mainData.status = (msg_t)statusEnum;
-            if (cmdEnum == DIRDIST) {
-                mainData.tgDir = server.arg("dir").toFloat();
-                mainData.tgDist = server.arg("dist").toFloat();
+            // For movement commands, we inject an RF-like message into udpIn so main.cpp handles coordinate math
+            if (cmdEnum == DIRDIST || cmdEnum == LOCKING || cmdEnum == DOCKING || cmdEnum == IDELING) {
+                RoboStruct msg;
+                msg.IDs = 0x99; // Simulate an incoming command from Python UI
+                msg.IDr = espMac();
+                msg.cmd = (msg_t)cmdEnum;
+                msg.status = (msg_t)statusEnum;
+                msg.ack = LORAGETACK; // Python uses LORAGETACK(3) for these movement states, except DIRDIST which uses LORAINF(6)
+                if (cmdEnum == DIRDIST) msg.ack = LORAINF;
+                
+                if (cmdEnum == DIRDIST) {
+                    msg.tgDir = server.arg("dir").toFloat();
+                    msg.tgDist = server.arg("dist").toFloat();
+                }
+                
+                xQueueSend(udpIn, (void *)&msg, 10);
             }
-            else if (cmdEnum == PIDRUDDERSET) {
+            
+            // For setup commands, we still modify mainData directly and send to Sub
+            if (cmdEnum == PIDRUDDERSET) {
                 mainData.Kpr = server.arg("p").toFloat();
                 mainData.Kir = server.arg("i").toFloat();
                 mainData.Kdr = server.arg("d").toFloat();
+                mainData.ack = LORASET;
             }
             else if (cmdEnum == PIDSPEEDSET) {
                 mainData.Kps = server.arg("p").toFloat();
                 mainData.Kis = server.arg("i").toFloat();
                 mainData.Kds = server.arg("d").toFloat();
+                mainData.ack = LORASET;
             }
             else if (cmdEnum == MAXMINPWRSET) {
                 mainData.maxSpeed = server.arg("max").toInt();
                 mainData.minSpeed = server.arg("min").toInt();
                 mainData.pivotSpeed = server.arg("pivot").toFloat();
+                mainData.ack = LORASET;
             }
             else if (cmdEnum == STORE_COMPASS_OFFSET) {
                 mainData.compassOffset = server.arg("offset").toFloat();
+                mainData.ack = LORASET;
             }
-            if (cmdEnum != NOCMD) {
+            
+            if (cmdEnum == SETUPDATA || cmdEnum == PIDRUDDERSET || cmdEnum == PIDSPEEDSET || 
+                cmdEnum == MAXMINPWRSET || cmdEnum == STORE_COMPASS_OFFSET || 
+                cmdEnum == INFIELD_CALIBRATE || cmdEnum == INFIELD_OFFSET_CALIBRATE) {
+                
                 mainData.cmd = (msg_t)cmdEnum;
-                if (cmdEnum == SETUPDATA) mainData.ack = LORAGET;
+                if (cmdEnum == SETUPDATA) {
+                    mainData.ack = LORAGET;
+                    mainData.IDr = BUOYIDALL;
+                    mainData.IDs = espMac();
+                }
+                xQueueSend(serOut, (void *)&mainData, 10);
             }
         } else if (bid >= 2 && bid <= 3) {
             RoboStruct msg;
@@ -448,8 +480,7 @@ void WiFiTask(void *arg)
     });
 
     server.begin();
-    printf("WiFI task running!
-");
+    printf("WiFI task running!\r\n");
     /*
         WiFI loop
     */
@@ -464,8 +495,7 @@ void WiFiTask(void *arg)
         if (WiFi.softAPgetStationNum() != numClients)
         {
             numClients = WiFi.softAPgetStationNum();
-            Serial.print("You found me!
-");
+            Serial.print("You found me!\r\n");
             if (ap.indexOf("PAIR_ME_") != -1) // reboot if in pairing mode only
             {
                 Serial.println("Rebooting in 5 seconds");

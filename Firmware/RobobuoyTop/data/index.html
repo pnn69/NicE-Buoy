@@ -216,9 +216,20 @@ input {
   <button onclick="openTab(1)" id="btn_buoy1">Buoy 1</button>
   <button onclick="openTab(2)" id="btn_buoy2">Buoy 2</button>
   <button onclick="openTab(3)" id="btn_buoy3">Buoy 3</button>
+  <button onclick="openTab('Field')" id="btn_Field">Field</button>
 </div>
 
 <h1 id="title">WAITING...</h1>
+
+<div id="fieldWrapper" style="display:none; width:100%; max-width:800px; margin:0 auto; background:white; border:1px solid #ccc; border-radius:8px; overflow:hidden;">
+    <div style="height:400px; width:100%;">
+        <canvas id="fieldCanvas" style="width:100%; height:100%;"></canvas>
+    </div>
+    <div style="padding: 10px; background: #eee; border-top: 1px solid #ccc; display: flex; justify-content: center; gap: 10px;">
+        <button onclick="sendFieldCommand('COMPUTESTART')" style="background: #2196f3; color: white; font-weight: bold;">COMPUTE STARTLINE</button>
+        <button onclick="sendFieldCommand('COMPUTETRACK')" style="background: #4caf50; color: white; font-weight: bold;">COMPUTE TRACK</button>
+    </div>
+</div>
 
 <div id="mainWrapper" class="wrapper" style="display: none;">
     <div class="side-panel">
@@ -355,15 +366,26 @@ function openMap() {
     }
 }
 
+let waitingForSetupData = false;
+
 function openSetup() {
     document.getElementById("setupBuoyId").innerText = currentBuoy;
     document.getElementById("setupModal").style.display = "block";
+    
+    // Clear fields to indicate loading
+    const fields = ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "pivotSpeed", "compassOffset"];
+    fields.forEach(f => {
+        const el = document.getElementById(f);
+        if (el) el.value = "Wait...";
+    });
+    
+    waitingForSetupData = true;
     sendCommand('SETUP'); // Trigger ESP to get fresh data via LoRa/UDP
-    updateSetupModal();   // Try to populate with existing data
 }
 
 function closeSetup() {
     document.getElementById("setupModal").style.display = "none";
+    waitingForSetupData = false;
 }
 
 function updateSetupModal() {
@@ -371,10 +393,22 @@ function updateSetupModal() {
     const b = buoyData[currentBuoy];
     if (!b) return;
 
+    // Anti-Echo Logic: verify data is valid (not just zeros from an initial ACK echo) before populating
+    // We check maxSpeed since it should normally be non-zero (e.g. 50). 
+    // If waitingForSetupData is true, we only populate when maxSpeed isn't zero or "Wait..."
+    if (waitingForSetupData) {
+        if (!b.maxSpeed || parseFloat(b.maxSpeed) === 0) {
+            return; // Still waiting for the actual response from the sub
+        }
+        waitingForSetupData = false; // We got valid data!
+    }
+
     const setVal = (id, val) => {
         if (val !== undefined && val !== null && !isNaN(parseFloat(val))) {
             const el = document.getElementById(id);
-            if (document.activeElement !== el) { // Don't overwrite if user is typing
+            if (document.activeElement !== el && el.value === "Wait...") { // Don't overwrite if user is typing
+                el.value = parseFloat(val);
+            } else if (document.activeElement !== el && el.value !== "Wait...") {
                 el.value = parseFloat(val);
             }
         }
@@ -419,8 +453,186 @@ function sendSetupCommand(cmd) {
 function openTab(id) {
     currentBuoy = id;
     document.querySelectorAll(".tab button").forEach(b => b.classList.remove("active"));
-    document.getElementById("btn_buoy" + id).classList.add("active");
-    updateUI();
+    
+    if (id === 'Field') {
+        document.getElementById("btn_Field").classList.add("active");
+        document.getElementById("title").innerText = "Field View";
+        document.getElementById("mainWrapper").style.display = 'none';
+        document.getElementById("controls").style.display = 'none';
+        document.getElementById("fieldWrapper").style.display = 'block';
+        drawField();
+    } else {
+        document.getElementById("btn_buoy" + id).classList.add("active");
+        document.getElementById("fieldWrapper").style.display = 'none';
+        updateUI();
+    }
+}
+
+function sendFieldCommand(cmd) {
+    // Send command to Top Buoy (bid=1)
+    let url = `/command?bid=1&cmd=${cmd}`;
+    fetch(url)
+        .then(response => response.text())
+        .then(data => console.log("Field Command response:", data))
+        .catch(error => console.error('Error sending field command:', error));
+}
+
+function drawField() {
+    const canvas = document.getElementById("fieldCanvas");
+    const container = document.getElementById("fieldWrapper");
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight || 400;
+    const ctx = canvas.getContext("2d");
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    let validBuoys = [];
+    for (let i = 1; i <= 3; i++) {
+        let b = buoyData[i];
+        const hasFix = b && String(b.GpsFix || "0").trim().toLowerCase() === "true" || String(b.GpsFix || "0").trim() === "1";
+        if (b && b.ID !== "0" && hasFix && b.Lat && b.Lng && !isNaN(parseFloat(b.Lat)) && !isNaN(parseFloat(b.Lng))) {
+            validBuoys.push({
+                id: i,
+                lat: parseFloat(b.Lat),
+                lng: parseFloat(b.Lng),
+                wDir: parseFloat(b.WDir) || 0,
+                heading: parseFloat(b.MagDir) || 0
+            });
+        }
+    }
+
+    if (validBuoys.length === 0) {
+        ctx.fillStyle = "black";
+        ctx.font = "20px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("No GPS Data Available", canvas.width/2, canvas.height/2);
+        return;
+    }
+
+    // Reference point
+    const refWDir = validBuoys[0].wDir;
+    const refLat = validBuoys[0].lat;
+    const refLng = validBuoys[0].lng;
+    const deg2rad = Math.PI / 180;
+
+    let points = [];
+    validBuoys.forEach(b => {
+        let dx = (b.lng - refLng) * Math.cos(refLat * deg2rad) * 111320;
+        let dy = (b.lat - refLat) * 111000;
+        
+        let dist = Math.sqrt(dx*dx + dy*dy);
+        let bearing = Math.atan2(dx, dy); 
+
+        // Adjust bearing relative to wind
+        let relBearing = bearing - (refWDir * deg2rad);
+        let cx = dist * Math.sin(relBearing);
+        let cy = -dist * Math.cos(relBearing);
+
+        points.push({ ...b, cx, cy });
+    });
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    let sumX = 0, sumY = 0;
+    points.forEach(p => {
+        if (p.cx < minX) minX = p.cx;
+        if (p.cx > maxX) maxX = p.cx;
+        if (p.cy < minY) minY = p.cy;
+        if (p.cy > maxY) maxY = p.cy;
+        sumX += p.cx;
+        sumY += p.cy;
+    });
+
+    let centerX = sumX / points.length;
+    let centerY = sumY / points.length;
+
+    let maxDim = Math.max(maxX - minX, maxY - minY);
+    if (maxDim < 10) maxDim = 30; // default minimum span
+    let scale = Math.min(canvas.width, canvas.height) * 0.7 / maxDim;
+
+    ctx.save();
+    ctx.translate(canvas.width/2, canvas.height/2);
+
+    // Wind Arrow at center (points UP)
+    ctx.strokeStyle = "rgba(0,0,255,0.5)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, 30);
+    ctx.lineTo(0, -30);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.fillStyle = "rgba(0,0,255,0.5)";
+    ctx.moveTo(0, -40);
+    ctx.lineTo(-8, -20);
+    ctx.lineTo(8, -20);
+    ctx.fill();
+    ctx.fillStyle = "blue";
+    ctx.font = "14px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("Wind", 0, 45);
+
+    // Distance lines
+    ctx.strokeStyle = "rgba(0,0,0,0.3)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]);
+    for(let i=0; i<points.length; i++) {
+        for(let j=i+1; j<points.length; j++) {
+            let p1 = points[i];
+            let p2 = points[j];
+            let sx1 = (p1.cx - centerX) * scale;
+            let sy1 = (p1.cy - centerY) * scale;
+            let sx2 = (p2.cx - centerX) * scale;
+            let sy2 = (p2.cy - centerY) * scale;
+
+            ctx.beginPath();
+            ctx.moveTo(sx1, sy1);
+            ctx.lineTo(sx2, sy2);
+            ctx.stroke();
+
+            let dx = p1.cx - p2.cx;
+            let dy = p1.cy - p2.cy;
+            let dist = Math.sqrt(dx*dx + dy*dy).toFixed(1);
+            let mx = (sx1 + sx2) / 2;
+            let my = (sy1 + sy2) / 2;
+            ctx.fillStyle = "black";
+            ctx.font = "bold 12px Arial";
+            ctx.fillText(dist + "m", mx, my - 5);
+        }
+    }
+    ctx.setLineDash([]);
+
+    // Buoys
+    points.forEach(p => {
+        let sx = (p.cx - centerX) * scale;
+        let sy = (p.cy - centerY) * scale;
+
+        ctx.fillStyle = "red";
+        ctx.strokeStyle = "black"; // Reset stroke to black for the circle
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 8, 0, Math.PI*2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "black";
+        ctx.font = "bold 14px Arial";
+        // Move the text slightly further away from the circle (from sx + 15 to sx + 18, and sy + 6 to sy + 8)
+        ctx.fillText("B" + p.id, sx + 18, sy + 8);
+
+        // Heading relative to wind
+        let relHeading = p.heading - refWDir;
+        let hRad = relHeading * deg2rad;
+        let hx = sx + 20 * Math.sin(hRad);
+        let hy = sy - 20 * Math.cos(hRad);
+
+        ctx.strokeStyle = "green";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(hx, hy);
+        ctx.stroke();
+    });
+
+    ctx.restore();
 }
 
 /* Bars */
@@ -607,12 +819,16 @@ function fetchData() {
             data.buoys.forEach((b, i) => {
                 buoyData[i + 1] = b;
             });
-            updateUI();
+            if (currentBuoy === 'Field') {
+                drawField();
+            } else {
+                updateUI();
+            }
         })
         .catch(err => console.log(err));
 }
 
-setInterval(fetchData, 2000);
+setInterval(fetchData, 250);
 
 window.onload = () => {
     openTab(1);

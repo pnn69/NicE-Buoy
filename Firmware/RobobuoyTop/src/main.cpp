@@ -835,6 +835,13 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 else
                 {
+                    // Update buoyPara base so web interface shows correct remote setup
+                    for (int i = 0; i < 3; i++) {
+                        if (buoyPara[i]->IDs == RfIn.IDs || buoyPara[i]->IDs == 0) {
+                            *buoyPara[i] = RfIn;
+                            break;
+                        }
+                    }
                     // For status updates from other buoys, only forward to UDP for local display
                     xQueueSend(udpOut, (void *)&RfIn, 0);
                     xQueueSend(loraOut, (void *)&RfIn, 0); // For status updates from other buoys
@@ -1047,9 +1054,22 @@ void handelSerialData(RoboStruct *ser)
             serDataIn.IDs = mainData.IDs; // FIX: ensure IDs is set to Top's IDs for consistent buoy identification!
             serDataIn.mac = mainData.mac; // FIX: ensure mac is set to Top's mac before sending out!
             serDataIn.IDr = BUOYIDALL;    // FIX: ensure response is broadcasted to all (ID 1) just like BUOYPOS
+
+            // Update local mainData so web interface sees the correct values
+            mainData.Kpr = serDataIn.Kpr;
+            mainData.Kir = serDataIn.Kir;
+            mainData.Kdr = serDataIn.Kdr;
+            mainData.Kps = serDataIn.Kps;
+            mainData.Kis = serDataIn.Kis;
+            mainData.Kds = serDataIn.Kds;
+            mainData.maxSpeed = serDataIn.maxSpeed;
+            mainData.minSpeed = serDataIn.minSpeed;
+            mainData.pivotSpeed = serDataIn.pivotSpeed;
+            mainData.compassOffset = serDataIn.compassOffset;
+
             xQueueSend(udpOut, (void *)&serDataIn, 0);
             xQueueSend(loraOut, (void *)&serDataIn, 0);
-            printf("Setup data PID and Compass sent\r\n");
+            printf("Setup data PID and Compass sent and updated locally\r\n");
             break;
         case PONG:
             break;
