@@ -241,7 +241,12 @@ void RoboDecode(String data, RoboStruct *dataStore)
         break;
 
     case STORE_COMPASS_OFFSET:
-        dataStore->compassOffset = numbers[2].toDouble();
+        // Accommodate for Python sending ,,val (numbers[2]) and C++ sending ,val (numbers[1])
+        if (numbers[2].length() > 0) {
+            dataStore->compassOffset = numbers[2].toDouble();
+        } else {
+            dataStore->compassOffset = numbers[1].toDouble();
+        }
         break;
 
     case SETUPDATA:
