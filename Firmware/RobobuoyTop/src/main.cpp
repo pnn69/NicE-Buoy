@@ -99,12 +99,6 @@ void setup()
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 10, NULL, 0);
     xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
     xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 1);
-    // tglatitude = 52.29308075283747, tglongitude = 4.932570409845357; // steiger wsvop
-    // mainData.tgLat = 52.29308075283747;
-    // mainData.tgLng = 4.932570409845357;
-    // memDockPos(&mainData, SET);
-    // mainData.tgLat = 0;
-    // mainData.tgLng = 0;
     memDockPos(&mainData, GET);
     Serial.println("Dock position set to: ");
     Serial.printf("Lat: %.8lf, Lng: %.8lf\r\n", mainData.tgLat, mainData.tgLng);
@@ -755,12 +749,12 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
         static unsigned long lastInTime = 0;
 
         // Only filter mode-changing commands (DOCKING, LOCKING, IDLE, etc.)
-        // Do NOT filter REMOTE (25) or TGDIRSPEED (59) as they are continuous streams.
-        if (RfIn.cmd != REMOTE && RfIn.cmd != 25 && RfIn.cmd != TGDIRSPEED && RfIn.cmd != 59)
+        // Do NOT filter critical, single-shot action commands.
+        if (RfIn.cmd != REMOTE && RfIn.cmd != TGDIRSPEED && RfIn.cmd != DIRDIST && RfIn.cmd != LOCKING && RfIn.cmd != DOCKING && RfIn.cmd != IDELING)
         {
-            if (RfIn.cmd == lastInCmd && RfIn.status == lastInStatus && (millis() - lastInTime < 3000))
+            if (RfIn.cmd == lastInCmd && RfIn.status == lastInStatus && (millis() - lastInTime < 2000))
             {
-                // Duplicate command received within 3 seconds, ignore it
+                // Duplicate command received within 2 seconds, ignore it
                 return;
             }
             lastInCmd = RfIn.cmd;
@@ -948,6 +942,10 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             case MAXMINPWRSET:
                 RfIn.ack = LORAGETACK;
                 xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                break;
+            case STORE_COMPASS_OFFSET:
+                RfOut->compassOffset = RfIn.compassOffset; // Update Top Buoy's local data
+                xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
                 break;
             case RAWCOMPASSDATA:
                 printf("Raw:0,0,0,0,0,0,%5.3f,%5.3f,%5.3f\r\n", RfIn.magHard[0], RfIn.magHard[1], RfIn.magHard[2]);

@@ -29,9 +29,9 @@ void initMemory(void)
         Serial.printf("# Configuring Fresh Processor Memory...\n\r");
         storage.putULong64("NicE_BuoyID", id);
         
-        // Factory Default Dock: WSVOP landing stage
-        storage.putDouble("Docklat", 52.29308075283747);
-        storage.putDouble("Docklon", 4.932570409845357);
+        // Default Dock: User should set their own home/dock position via the UI or other means.
+        storage.putDouble("Docklat", 0.0);
+        storage.putDouble("Docklon", 0.0);
         storage.putDouble("declination", 2.6666666666); // Amsterdam default
 
         Serial.printf("# Buoy Memory initialized for MAC: %08X\r\n", id);

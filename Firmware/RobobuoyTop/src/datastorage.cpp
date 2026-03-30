@@ -27,9 +27,9 @@ void initMemory(void)
         Serial.printf("# Configuring Fresh Processor Memory...\n\r");
         storage.putULong64("NicE_BuoyID", id);
         
-        // Factory Default Dock: WSVOP landing stage
-        storage.putDouble("Docklat", 52.29308075283747);
-        storage.putDouble("Docklon", 4.932570409845357);
+        // Default Dock: User should set their own home/dock position via the UI or other means.
+        storage.putDouble("Docklat", 0.0);
+        storage.putDouble("Docklon", 0.0);
         
         // Initial PID Defaults (if not already set by factory)
         if (!storage.isKey("Kps")) {
@@ -229,11 +229,11 @@ void apParameters(String *ap, String *ww, bool get)
 void defautls(RoboStruct *buoy)
 {
     //***************************************************************************************************
-    //  Postion Steiger WSOP as target
+    //  Default to 0,0 - User must set a valid dock position
     //***************************************************************************************************
-    buoy->tgLat = 52.29308075283747;
-    buoy->tgLng = 4.932570409845357;
-    memDockPos(buoy, false); // store default wsvop
+    buoy->tgLat = 0.0;
+    buoy->tgLng = 0.0;
+    memDockPos(buoy, false); // store default
                               //***************************************************************************************************
                               //  PID rudder
                               //***************************************************************************************************
