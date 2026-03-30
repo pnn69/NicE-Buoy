@@ -328,10 +328,14 @@ class RoboMonitor:
             has_speed = all(k in b['data'] for k in ["Kps", "Kis", "Kds"])
             has_maxmin = all(k in b['data'] for k in ["maxSpeed", "minSpeed", "pivotSpeed"])
             has_compass = "compassOffset" in b['data']
-            
-            if has_rudder and has_speed and has_maxmin and has_compass:
+
+            # Anti-Echo Logic: ensure data is not just an empty/zero ACK from Top buoy
+            is_valid_data = b['data'].get("ACK") == "6" or (has_maxmin and b['data'].get("maxSpeed", "0") != "0")
+
+            if has_rudder and has_speed and has_maxmin and has_compass and is_valid_data:
                 loading_win.destroy()
                 self.open_setup_window(b)
+
             else:
                 if retries >= 75: # 15 seconds total max (75 * 200ms)
                     self.log_message(f"Timeout: Could not retrieve setup data for Buoy {b['id']}")
