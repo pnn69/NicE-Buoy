@@ -123,7 +123,8 @@ float heading_corrected(const Vec3 &from)
     if (std::isnan(dot_east) || std::isnan(dot_north)) return -1.0f;
     if (dot_east == 0.0f && dot_north == 0.0f) return -1.0f;
 
-    float heading = atan2(dot_east, dot_north) * 180.0f / M_PI;
+    // Flip East/West by negating dot_east
+    float heading = atan2(-dot_east, dot_north) * 180.0f / M_PI;
     
     if (std::isnan(compassCalc.declination)) compassCalc.declination = 0.0f;
     if (std::isnan(compassCalc.compassOffset)) compassCalc.compassOffset = 0.0f;
