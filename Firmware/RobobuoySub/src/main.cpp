@@ -350,10 +350,11 @@ void handelSerandRfdata(RoboStruct *ser)
             InitCompass();
             break;
         case STORE_COMPASS_OFFSET:
-            printf("Compass offset: %f", dataIn.compassOffset);
+            printf("New compass offset: %f", dataIn.compassOffset);
             CompasOffset(&dataIn, SET);
-            CompasOffset(ser, GET);
+            ser->compassOffset = dataIn.compassOffset; // Update running config
             InitCompass();
+            printf(" (Stored)\r\n");
             break;
         case CALC_COMPASS_OFFSET:
             vTaskSuspend(compassTaskHandle);
