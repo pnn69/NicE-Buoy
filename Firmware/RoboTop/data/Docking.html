@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Robobuoy Docking Dashboard</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #e6e6e6;
+    text-align: center;
+    margin: 20px;
+}
+
+/* Tabs */
+.tab {
+  overflow: hidden;
+  border: 1px solid #ccc;
+  background-color: #f1f1f1;
+  margin-bottom: 20px;
+}
+
+.tab button {
+  float: left;
+  border: none;
+  padding: 14px 16px;
+  cursor: pointer;
+  background: inherit;
+}
+
+.tab button.active {
+  background: #ccc;
+}
+
+/* Layout */
+.wrapper {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+}
+
+/* Side panels */
+.side-panel {
+    width: 120px;
+    padding: 10px;
+    background: #f4f4f4;
+    border: 1px solid #999;
+    border-radius: 10px;
+}
+
+.side-bar {
+    width: 40px;
+    height: 300px;
+    margin: 5px auto;
+    background: #dcdcdc;
+    border: 1px solid #777;
+    border-radius: 6px;
+    position: relative;
+    overflow: hidden;
+}
+
+.zero-line {
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background: black;
+    top: 50%;
+}
+
+.bar-positive {
+    position: absolute;
+    width: 100%;
+    background: green;
+    bottom: 50%;
+}
+
+.bar-negative {
+    position: absolute;
+    width: 100%;
+    background: red;
+    top: 50%;
+}
+
+.valueText {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+/* Compass */
+.compassCircle {
+    width: 250px;
+    height: 250px;
+    border: 3px solid black;
+    border-radius: 50%;
+    margin: auto;
+    position: relative;
+}
+
+.dirLabel {
+    position: absolute;
+    font-weight: bold;
+    font-size: 18px;
+}
+.n { top:-5px; left:50%; transform:translateX(-50%); }
+.s { bottom:-5px; left:50%; transform:translateX(-50%); }
+.e { right:-5px; top:50%; transform:translateY(-50%); }
+.w { left:-5px; top:50%; transform:translateY(-50%); }
+
+/* Battery */
+.battery {
+    width: 200px;
+    height: 20px;
+    background: #ccc;
+    border-radius: 6px;
+    border: 1px solid #777;
+    margin: auto;
+    position: relative;
+}
+
+.batteryFill {
+    position: absolute;
+    height: 100%;
+    background: green;
+}
+
+/* Buttons */
+button {
+    padding: 8px 20px;
+    margin: 5px;
+}
+
+/* Inputs */
+.inputRow {
+    margin-top: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="tab">
+  <button onclick="openTab(1)" id="btn_buoy1">Buoy 1</button>
+  <button onclick="openTab(2)" id="btn_buoy2">Buoy 2</button>
+  <button onclick="openTab(3)" id="btn_buoy3">Buoy 3</button>
+</div>
+
+<h1 id="title">WAITING...</h1>
+
+<div class="wrapper">
+
+<div class="side-panel">
+<div>BB</div>
+<div class="side-bar" id="barBB"><div class="zero-line"></div></div>
+<div id="bbValue" class="valueText">0%</div>
+</div>
+
+<div>
+
+<div style="display:flex; justify-content:space-between;">
+<span id="distanceText" style="font-size:28px;color:red;font-weight:bold;">0m</span>
+<span id="intervalText" style="font-size:28px;color:purple;font-weight:bold;">I:0</span>
+</div>
+
+<div class="compassCircle">
+<canvas id="compassCanvas" width="250" height="250"></canvas>
+<div class="dirLabel n">N</div>
+<div class="dirLabel s">S</div>
+<div class="dirLabel e">E</div>
+<div class="dirLabel w">W</div>
+</div>
+
+<div style="display:flex;gap:10px;align-items:center;justify-content:center;margin-top:10px;">
+<span>17V</span>
+<div class="battery"><div id="batteryFill" class="batteryFill"></div></div>
+<span>25V</span>
+</div>
+
+<div style="margin-top:10px;">
+<span style="color:red;">■ Target</span>
+<span style="color:green;">■ Mag</span>
+<span style="color:blue;">■ Wind</span>
+<span style="color:black;">■ GPS</span>
+</div>
+
+</div>
+
+<div class="side-panel">
+<div>SB</div>
+<div class="side-bar" id="barSB"><div class="zero-line"></div></div>
+<div id="sbValue" class="valueText">0%</div>
+</div>
+
+</div>
+
+<div style="margin-top:20px;">
+<button id="btnLock">LOCK</button>
+<button id="btnDock">DOCK</button>
+<button>SETUP</button>
+</div>
+
+<div class="inputRow">
+Dir <input id="inDir" type="number">
+Dist <input id="inDist" type="number">
+<button>Send</button>
+<button>Map</button>
+</div>
+
+<script>
+
+let currentBuoy = 1;
+let buoyData = {};
+
+/* Tabs */
+function openTab(id){
+currentBuoy = id;
+
+document.querySelectorAll(".tab button").forEach(b=>b.classList.remove("active"));
+document.getElementById("btn_buoy"+id).classList.add("active");
+
+updateUI();
+}
+
+/* Bars */
+function setBar(barId,value,textId){
+
+const bar=document.getElementById(barId);
+bar.querySelectorAll('.bar-positive,.bar-negative').forEach(e=>e.remove());
+
+const half=150;
+let h=Math.min(Math.abs(value),100)*(half/100);
+
+if(value>0){
+let p=document.createElement("div");
+p.className="bar-positive";
+p.style.height=h+"px";
+bar.appendChild(p);
+}
+else if(value<0){
+let n=document.createElement("div");
+n.className="bar-negative";
+n.style.height=h+"px";
+bar.appendChild(n);
+}
+
+document.getElementById(textId).innerText=value+"%";
+}
+
+/* Compass */
+function drawCompass(heading,target,mag,wind,gps){
+
+const canvas=document.getElementById("compassCanvas");
+const ctx=canvas.getContext("2d");
+
+const size=canvas.width;
+const center=size/2;
+const radius=center*0.8;
+
+ctx.clearRect(0,0,size,size);
+
+ctx.beginPath();
+ctx.arc(center,center,radius,0,2*Math.PI);
+ctx.strokeStyle="#bbb";
+ctx.stroke();
+
+function arrow(angle,color,length,width){
+
+if(angle===undefined || angle===null) return;
+
+let a=(angle-90)*Math.PI/180;
+let len=radius*length;
+
+ctx.beginPath();
+ctx.lineWidth=width;
+ctx.strokeStyle=color;
+ctx.moveTo(center,center);
+ctx.lineTo(center+len*Math.cos(a),center+len*Math.sin(a));
+ctx.stroke();
+
+ctx.beginPath();
+ctx.fillStyle=color;
+ctx.arc(center+len*Math.cos(a),center+len*Math.sin(a),width*1.5,0,2*Math.PI);
+ctx.fill();
+}
+
+arrow(mag,"green",0.9,3);
+arrow(wind,"blue",0.7,2);
+arrow(gps,"black",0.8,2);
+arrow(target,"red",1.0,4);
+}
+
+/* Update UI */
+function updateUI(){
+
+const b=buoyData[currentBuoy];
+if(!b) return;
+
+setBar("barBB",parseFloat(b.BB||0),"bbValue");
+setBar("barSB",parseFloat(b.SB||0),"sbValue");
+
+document.getElementById("distanceText").innerText=(b.TgDist||0)+"m";
+document.getElementById("intervalText").innerText="I:"+(b.PIDI||0);
+
+document.getElementById("batteryFill").style.width=(b.SubPerc||0)+"%";
+
+drawCompass(
+b.MagDir,
+b.TgDir,
+b.MagDir,
+b.WDir,
+b.GpsDir
+);
+}
+
+/* Fetch data */
+function fetchData(){
+fetch('/data')
+.then(r=>r.json())
+.then(data=>{
+data.buoys.forEach((b,i)=>{
+buoyData[i+1]=b;
+});
+updateUI();
+})
+.catch(err=>console.log(err));
+}
+
+setInterval(fetchData,2000);
+
+window.onload=()=>{
+openTab(1);
+fetchData();
+};
+
+</script>
+
+</body>
+</html>

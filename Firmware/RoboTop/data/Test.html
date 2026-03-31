@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Docking UI</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #e6e6e6;
+    text-align: center;
+    margin: 20px;
+}
+
+/* =====================================================
+   GENERAL LAYOUT
+===================================================== */
+
+.wrapper {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+}
+
+/* =====================================================
+   BB / SB SIDE PANELS
+===================================================== */
+.side-panel {
+    width: 120px;
+    padding: 10px;
+    background: #f4f4f4;
+    border: 1px solid #999;
+    border-radius: 10px;
+}
+
+.side-bar {
+    width: 40px;
+    height: 300px;
+    margin: 5px auto;
+    background: #dcdcdc;
+    border: 1px solid #777;
+    border-radius: 6px;
+    position: relative;
+}
+
+.zero-line {
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background: black;
+    top: 50%;
+}
+
+/* Corrected positive & negative bars */
+.bar-positive {
+    position: absolute;
+    width: 100%;
+    background: green;
+    bottom: 50%;
+    transform-origin: bottom;
+}
+
+.bar-negative {
+    position: absolute;
+    width: 100%;
+    background: red;
+    top: 50%;
+    transform-origin: top;
+}
+
+.valueText {
+    margin-top: 6px;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+/* =====================================================
+   COMPASS (WINDROSE)
+===================================================== */
+.compassWrapper {
+    width: 300px;
+    text-align:center;
+}
+
+.compassCircle {
+    width: 250px;
+    height: 250px;
+    border: 3px solid black;
+    border-radius: 50%;
+    margin: 0 auto;
+    position: relative;
+}
+
+.dirLabel {
+    position: absolute;
+    font-weight: bold;
+    font-size: 20px;
+}
+.n { top: -5px; left: 50%; transform: translateX(-50%); }
+.s { bottom: -5px; left: 50%; transform: translateX(-50%); }
+.e { right: -5px; top: 50%; transform: translateY(-50%); }
+.w { left: -5px; top: 50%; transform: translateY(-50%); }
+
+/* Vector arrows */
+.vector {
+    width: 4px;
+    height: 110px;
+    position: absolute;
+    left: 50%;
+    top: 25px;
+    transform-origin: bottom;
+}
+#vecHeading { background: black; }
+#vecTarget  { background: red; }
+#vecMag     { background: green; }
+#vecWind    { background: blue; }
+
+/* =====================================================
+   BATTERY BAR
+===================================================== */
+
+.battery {
+    width: 200px;
+    height: 20px;
+    background: #ccc;
+    border-radius: 6px;
+    border: 1px solid #777;
+    margin: 10px auto;
+}
+.batteryFill {
+    width: 70%;
+    height: 100%;
+    background: green;
+    border-radius: 6px;
+}
+
+/* =====================================================
+   BUTTONS
+===================================================== */
+
+button {
+    padding: 8px 20px;
+    margin: 5px;
+    font-size: 16px;
+    border-radius: 8px;
+    border: 1px solid #777;
+    cursor: pointer;
+}
+
+#btnLock.locked {
+    background: green;
+    color: white;
+    border: 2px solid darkgreen;
+}
+
+/* =====================================================
+   INPUT ROW
+===================================================== */
+
+.inputRow {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 12px;
+    gap: 8px;
+}
+
+input {
+    width: 70px;
+    padding: 4px;
+    font-size: 16px;
+}
+
+</style>
+</head>
+
+<body>
+
+<h1 style="color:#003366;">DOCKING</h1>
+
+<div class="wrapper">
+
+    <!-- ======================
+         BB BAR
+    ====================== -->
+    <div class="side-panel">
+        <div>BB</div>
+
+        <div class="side-bar" id="barBB">
+            <div class="zero-line"></div>
+        </div>
+
+        <div id="bbValue" class="valueText">0%</div>
+    </div>
+
+    <!-- ======================
+         COMPASS + CENTER DATA
+    ====================== -->
+    <div class="compassWrapper">
+
+        <!-- Distance & Interval -->
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+            <span id="distanceText" style="font-size:28px; color:red; font-weight:bold;">0m</span>
+            <span id="intervalText" style="font-size:28px; color:purple; font-weight:bold;">I:0</span>
+        </div>
+
+        <!-- Compass -->
+        <div class="compassCircle">
+
+            <div class="dirLabel n">N</div>
+            <div class="dirLabel s">S</div>
+            <div class="dirLabel e">E</div>
+            <div class="dirLabel w">W</div>
+
+            <div id="vecHeading" class="vector"></div>
+            <div id="vecTarget"  class="vector"></div>
+            <div id="vecMag"     class="vector"></div>
+            <div id="vecWind"    class="vector"></div>
+
+        </div>
+
+        <!-- Battery -->
+        <div style="margin-top:10px; display:flex; justify-content:center; gap:10px; align-items:center;">
+            <span>17V</span>
+            <div class="battery"><div class="batteryFill"></div></div>
+            <span>25V</span>
+        </div>
+
+        <!-- Legend -->
+        <div style="margin-top:10px;">
+            <span style="color:red;">■ Target</span>
+            <span style="color:green;">■ Mag</span>
+            <span style="color:blue;">■ Wind</span>
+            <span style="color:black;">■ GPS</span>
+        </div>
+    </div>
+
+    <!-- ======================
+         SB BAR
+    ====================== -->
+    <div class="side-panel">
+        <div>SB</div>
+
+        <div class="side-bar" id="barSB">
+            <div class="zero-line"></div>
+        </div>
+
+        <div id="sbValue" class="valueText">0%</div>
+    </div>
+
+</div>
+
+<!-- ======================
+     BUTTONS
+====================== -->
+<div style="margin-top:20px;">
+    <button id="btnLock">LOCK</button>
+    <button>IDLE</button>
+    <button>SETUP</button>
+</div>
+
+<!-- ======================
+     INPUT FIELDS
+====================== -->
+<div class="inputRow">
+    Dir: <input id="inDir" type="number" value="0">
+    Dist: <input id="inDist" type="number" value="0">
+    <button id="btnSend">Send</button>
+    <button id="btnMap">Map</button>
+</div>
+
+<script>
+/* =====================================================
+   VECTOR ANIMATION
+===================================================== */
+
+let lock = false;
+let aHeading = 0, aTarget = 0, aMag = 0, aWind = 0;
+
+function rotateVectors() {
+    if (!lock) {
+        aHeading += 0.20;
+        aTarget  += 0.75;
+        aMag     += 0.10;
+        aWind    += 0.60;
+    }
+
+    document.getElementById("vecHeading").style.transform = `translateX(-50%) rotate(${aHeading}deg)`;
+    document.getElementById("vecTarget").style.transform  = `translateX(-50%) rotate(${aTarget}deg)`;
+    document.getElementById("vecMag").style.transform     = `translateX(-50%) rotate(${aMag}deg)`;
+    document.getElementById("vecWind").style.transform    = `translateX(-50%) rotate(${aWind}deg)`;
+
+    requestAnimationFrame(rotateVectors);
+}
+rotateVectors();
+
+/* LOCK BUTTON */
+document.getElementById("btnLock").onclick = () => {
+    lock = !lock;
+    document.getElementById("btnLock").classList.toggle("locked");
+};
+
+/* =====================================================
+   BIDIRECTIONAL BB/SB BARS
+===================================================== */
+
+function setBar(elementId, value, textId) {
+
+    const bar = document.getElementById(elementId);
+    bar.innerHTML = '<div class="zero-line"></div>';
+
+    const full = 300;
+    const half = full / 2;
+    let h = Math.min(Math.abs(value), 100) * (half / 100);
+
+    if (value > 0) {
+        let p = document.createElement("div");
+        p.className = "bar-positive";
+        p.style.height = h + "px";
+        bar.appendChild(p);
+    }
+    else if (value < 0) {
+        let n = document.createElement("div");
+        n.className = "bar-negative";
+        n.style.height = h + "px";
+        bar.appendChild(n);
+    }
+
+    document.getElementById(textId).innerText = value + "%";
+}
+
+function setBB(v){ setBar("barBB", v, "bbValue"); }
+function setSB(v){ setBar("barSB", v, "sbValue"); }
+
+/* DEMO VALUES */
+setBB(-10);
+setSB(-10);
+
+/* =====================================================
+   INPUT HANDLING
+===================================================== */
+
+document.getElementById("btnSend").onclick = () => {
+    let d = Number(document.getElementById("inDist").value);
+    let dir = Number(document.getElementById("inDir").value);
+
+    document.getElementById("distanceText").innerText = d.toFixed(1) + "m";
+    document.getElementById("intervalText").innerText = "I:" + dir.toFixed(1);
+
+    alert("Sent: dir="+dir+" dist="+d);
+};
+
+document.getElementById("btnMap").onclick = () => {
+    alert("Map clicked.");
+};
+
+</script>
+
+</body>
+</html>

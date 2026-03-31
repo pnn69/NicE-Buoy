@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Robobuoy Dashboard</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #e6e6e6;
+    text-align: center;
+    margin: 10px;
+}
+
+/* Tabs */
+.tab {
+  overflow: hidden;
+  border: 1px solid #ccc;
+  background-color: #f1f1f1;
+  margin-bottom: 15px;
+  display: flex;
+}
+
+.tab button {
+  flex: 1;
+  border: none;
+  padding: 12px 5px;
+  cursor: pointer;
+  background: inherit;
+  font-size: 16px;
+  transition: 0.3s;
+}
+
+.tab button:hover {
+  background-color: #ddd;
+}
+
+.tab button.active {
+  background: #ccc;
+}
+
+/* Layout */
+.wrapper {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+/* Side panels */
+.side-panel {
+    width: 45px;
+    padding: 0;
+    background: transparent;
+    border: none;
+}
+
+.side-bar {
+    width: 25px;
+    height: 250px;
+    margin: 5px auto;
+    background: #dcdcdc;
+    border: 1px solid #777;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* On mobile, stack side panels or shrink them */
+@media screen and (max-width: 600px) {
+    .wrapper {
+        gap: 8px;
+    }
+    .side-panel {
+        width: 35px;
+    }
+    .side-bar {
+        height: 200px;
+    }
+    .compassCircle {
+        width: 220px !important;
+        height: 220px !important;
+    }
+    canvas {
+        width: 220px !important;
+        height: 220px !important;
+    }
+    .dirLabel {
+        font-size: 14px !important;
+    }
+}
+
+.zero-line {
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background: black;
+    top: 50%;
+}
+
+.bar-positive {
+    position: absolute;
+    width: 100%;
+    background: green;
+    bottom: 50%;
+}
+
+.bar-negative {
+    position: absolute;
+    width: 100%;
+    background: red;
+    top: 50%;
+}
+
+.valueText {
+    font-size: 18px;
+    font-weight: bold;
+    margin-top: 6px;
+}
+
+/* Compass */
+.compassCircle {
+    width: 250px;
+    height: 250px;
+    border: 3px solid black;
+    border-radius: 50%;
+    margin: auto;
+    position: relative;
+}
+
+.dirLabel {
+    position: absolute;
+    font-weight: bold;
+    font-size: 18px;
+}
+.n { top:5px; left:50%; transform:translateX(-50%); }
+.s { bottom:5px; left:50%; transform:translateX(-50%); }
+.e { right:5px; top:50%; transform:translateY(-50%); }
+.w { left:5px; top:50%; transform:translateY(-50%); }
+
+/* Battery */
+.battery {
+    width: 200px;
+    height: 20px;
+    background: #ccc;
+    border-radius: 6px;
+    border: 1px solid #777;
+    margin: auto;
+    position: relative;
+}
+
+.batteryFill {
+    position: absolute;
+    height: 100%;
+    background: green;
+}
+
+/* Buttons */
+button {
+    padding: 8px 20px;
+    margin: 5px;
+    font-size: 16px;
+    border-radius: 8px;
+    border: 1px solid #777;
+    cursor: pointer;
+    background: #eee;
+}
+
+button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.lock-btn-active {
+    background: green;
+    color: white;
+    border: 2px solid darkgreen;
+}
+.dock-btn-active {
+    background: #2196f3;
+    color: white;
+    border: 2px solid #0069d9;
+}
+
+/* Inputs */
+.inputRow {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 12px;
+    gap: 8px;
+}
+
+input {
+    width: 70px;
+    padding: 4px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+#title {
+    font-size: 28px;
+    font-weight: bold;
+    color: #003366;
+    margin-bottom: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="tab">
+  <button onclick="openTab(1)" id="btn_buoy1">Buoy 1</button>
+  <button onclick="openTab(2)" id="btn_buoy2">Buoy 2</button>
+  <button onclick="openTab(3)" id="btn_buoy3">Buoy 3</button>
+  <button onclick="openTab('Field')" id="btn_Field">Field</button>
+</div>
+
+<h1 id="title">WAITING...</h1>
+
+<div id="fieldWrapper" style="display:none; width:100%; max-width:800px; margin:0 auto; background:white; border:1px solid #ccc; border-radius:8px; overflow:hidden;">
+    <div style="height:400px; width:100%;">
+        <canvas id="fieldCanvas" style="width:100%; height:100%;"></canvas>
+    </div>
+    <div style="padding: 10px; background: #eee; border-top: 1px solid #ccc; display: flex; justify-content: center; gap: 10px;">
+        <button onclick="sendFieldCommand('COMPUTESTART')" style="background: #2196f3; color: white; font-weight: bold;">COMPUTE STARTLINE</button>
+        <button onclick="sendFieldCommand('COMPUTETRACK')" style="background: #4caf50; color: white; font-weight: bold;">COMPUTE TRACK</button>
+    </div>
+</div>
+
+<div id="mainWrapper" class="wrapper" style="display: none;">
+    <div class="side-panel">
+        <div>BB</div>
+        <div class="side-bar" id="barBB"><div class="zero-line"></div></div>
+        <div id="bbValue" class="valueText">0%</div>
+    </div>
+
+    <div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+            <span id="distanceText" style="font-size:28px;color:red;font-weight:bold;">0m</span>
+            <span id="intervalText" style="font-size:28px;color:purple;font-weight:bold;">I:0</span>
+        </div>
+
+        <div class="compassCircle">
+            <canvas id="compassCanvas" width="250" height="250"></canvas>
+            <div class="dirLabel n">N</div>
+            <div class="dirLabel s">S</div>
+            <div class="dirLabel e">E</div>
+            <div class="dirLabel w">W</div>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;justify-content:center;margin-top:10px;">
+            <span>17V</span>
+            <div class="battery"><div id="batteryFill" class="batteryFill"></div></div>
+            <span>25V</span>
+        </div>
+
+        <div style="margin-top:10px;">
+            <span style="color:red;">■ Target</span>
+            <span style="color:green;">■ Mag</span>
+            <span style="color:blue;">■ Wind</span>
+            <span style="color:black;">■ GPS</span>
+        </div>
+    </div>
+
+    <div class="side-panel">
+        <div>SB</div>
+        <div class="side-bar" id="barSB"><div class="zero-line"></div></div>
+        <div id="sbValue" class="valueText">0%</div>
+    </div>
+</div>
+
+<div id="controls" style="display: none;">
+    <div style="margin-top:20px;">
+        <button id="btnLock" onclick="sendCommand('LOCK')">LOCK</button>
+        <button id="btnDock" onclick="sendCommand('DOCK')">DOCK</button>
+        <button id="btnSetup" onclick="openSetup()">SETUP</button>
+    </div>
+
+    <div class="inputRow">
+        Dir <input id="inDir" type="number">
+        Dist <input id="inDist" type="number">
+        <button id="btnSend" onclick="sendCommand('DIRDIST')">Send</button>
+        <button id="btnMap" onclick="openMap()">Map</button>
+    </div>
+</div>
+
+<!-- Setup Modal -->
+<div id="setupModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; overflow-y:auto;">
+    <div style="background:#fff; margin: 5% auto; padding:20px; width:90%; max-width:400px; border-radius:10px; text-align:left;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2 style="margin:0;">Setup Buoy <span id="setupBuoyId"></span></h2>
+            <button onclick="closeSetup()" style="margin:0; background:red; color:white;">X</button>
+        </div>
+        <hr style="margin: 8px 0;">
+        
+        <h4 style="margin: 5px 0 2px 0;">Rudder PID</h4>
+        <div class="inputRow" style="margin-top: 0;">P <input id="Kpr" type="number" step="0.001"> I <input id="Kir" type="number" step="0.001"> D <input id="Kdr" type="number" step="0.001"></div>
+        <button onclick="sendSetupCommand('PIDRUDDER')" style="width:100%; margin: 4px 0 8px 0;">Send Rudder PID</button>
+
+        <h4 style="margin: 5px 0 2px 0;">Speed PID</h4>
+        <div class="inputRow" style="margin-top: 0;">P <input id="Kps" type="number" step="0.001"> I <input id="Kis" type="number" step="0.001"> D <input id="Kds" type="number" step="0.001"></div>
+        <button onclick="sendSetupCommand('PIDSPEED')" style="width:100%; margin: 4px 0 8px 0;">Send Speed PID</button>
+
+        <h4 style="margin: 5px 0 2px 0;">Speed Limits</h4>
+        <div class="inputRow" style="margin-top: 0;">Max <input id="maxSpeed" type="number" style="width:50px;"> Min <input id="minSpeed" type="number" style="width:50px;"> Pivot <input id="pivotSpeed" type="number" step="0.1" style="width:50px;"></div>
+        <button onclick="sendSetupCommand('LIMITS')" style="width:100%; margin: 4px 0 8px 0;">Send Speed Limits</button>
+
+        <h4 style="margin: 5px 0 2px 0;">Compass</h4>
+        <div class="inputRow" style="margin-top: 0;">Offset <input id="compassOffset" type="number" step="0.1"></div>
+        <button onclick="sendSetupCommand('COMPASSOFFSET')" style="width:100%; margin: 4px 0 8px 0;">Send Compass Offset</button>
+
+        <hr style="margin: 8px 0;">
+        <h4 style="margin: 5px 0;">In-Field Calibration</h4>
+        <button onclick="sendSetupCommand('CALIB_COMPASS')" style="width:100%; background:#f0ad4e; color:white; margin-bottom: 4px;">Compass Calibration (Circles)</button>
+        <button onclick="sendSetupCommand('CALIB_OFFSET')" style="width:100%; background:#5bc0de; color:white; margin: 0;">Offset Calibration (South->North)</button>
+    </div>
+</div>
+
+<script>
+let currentBuoy = 1;
+let buoyData = {
+    1: { ID: "TEST_TOP", Status: 13, BB: 65, SB: -40, TgDist: 3.2, PIDI: 0.45, SubPerc: 85, MagDir: 45, TgDir: 50, WDir: 10, GpsDir: 40, GpsFix: "true", Lat: "52.3731", Lng: "4.8926" },
+    2: { ID: "TEST_SUB1", Status: 7, BB: 0, SB: 0, TgDist: 0, PIDI: 0, SubPerc: 42, MagDir: 180, TgDir: null, WDir: null, GpsDir: null, GpsFix: "false", Lat: "52.3580", Lng: "4.8686" },
+    3: { ID: "TEST_SUB2", Status: 16, BB: -15, SB: 15, TgDist: 15.5, PIDI: -0.12, SubPerc: 18, MagDir: 275, TgDir: 285, WDir: null, GpsDir: 265, GpsFix: "true", Lat: "52.3563", Lng: "4.8811" }
+};
+
+function getStatusText(status) {
+    const s = parseInt(status);
+    switch(s) {
+        case 7: return "IDLE";
+        case 8: return "IDELING";
+        case 12: return "LOCKING";
+        case 13: return "LOCKED";
+        case 14: return "LOCK POS";
+        case 15: return "DOCKING";
+        case 16: return "DOCKED";
+        case 17: return "DOC";
+        default: return "STATUS: " + s;
+    }
+}
+
+function sendCommand(cmd) {
+    let url = `/command?bid=${currentBuoy}&cmd=${cmd}`;
+    if (cmd === 'DIRDIST') {
+        const dir = document.getElementById('inDir').value || 0;
+        const dist = document.getElementById('inDist').value || 0;
+        url += `&dir=${dir}&dist=${dist}`;
+    }
+    fetch(url)
+        .then(response => response.text())
+        .then(data => console.log("Command response:", data))
+        .catch(error => console.error('Error sending command:', error));
+}
+
+function openMap() {
+    const b = buoyData[currentBuoy];
+    if (b && b.Lat && b.Lng && !isNaN(parseFloat(b.Lat)) && !isNaN(parseFloat(b.Lng))) {
+        const url = `https://www.openstreetmap.org/?mlat=${b.Lat}&mlon=${b.Lng}#map=18/${b.Lat}/${b.Lng}`;
+        window.open(url, '_blank');
+    } else {
+        alert("GPS coordinates not available for this buoy.");
+    }
+}
+
+let waitingForSetupData = false;
+
+function openSetup() {
+    document.getElementById("setupBuoyId").innerText = currentBuoy;
+    document.getElementById("setupModal").style.display = "block";
+    
+    // Clear fields to indicate loading
+    const fields = ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "pivotSpeed", "compassOffset"];
+    fields.forEach(f => {
+        const el = document.getElementById(f);
+        if (el) el.value = "Wait...";
+    });
+    
+    waitingForSetupData = true;
+    sendCommand('SETUP'); // Trigger ESP to get fresh data via LoRa/UDP
+}
+
+function closeSetup() {
+    document.getElementById("setupModal").style.display = "none";
+    waitingForSetupData = false;
+}
+
+function updateSetupModal() {
+    if (document.getElementById("setupModal").style.display !== "block") return;
+    const b = buoyData[currentBuoy];
+    if (!b) return;
+
+    // Anti-Echo Logic: verify data is valid (not just zeros from an initial ACK echo) before populating
+    // We check maxSpeed since it should normally be non-zero (e.g. 50). 
+    // If waitingForSetupData is true, we only populate when maxSpeed isn't zero or "Wait..."
+    if (waitingForSetupData) {
+        if (!b.maxSpeed || parseFloat(b.maxSpeed) === 0) {
+            return; // Still waiting for the actual response from the sub
+        }
+        waitingForSetupData = false; // We got valid data!
+    }
+
+    const setVal = (id, val) => {
+        if (val !== undefined && val !== null && !isNaN(parseFloat(val))) {
+            const el = document.getElementById(id);
+            if (document.activeElement !== el && el.value === "Wait...") { // Don't overwrite if user is typing
+                el.value = parseFloat(val);
+            } else if (document.activeElement !== el && el.value !== "Wait...") {
+                el.value = parseFloat(val);
+            }
+        }
+    };
+
+    setVal("Kpr", b.Kpr);
+    setVal("Kir", b.Kir);
+    setVal("Kdr", b.Kdr);
+    setVal("Kps", b.Kps);
+    setVal("Kis", b.Kis);
+    setVal("Kds", b.Kds);
+    setVal("maxSpeed", b.maxSpeed);
+    setVal("minSpeed", b.minSpeed);
+    setVal("pivotSpeed", b.pivotSpeed);
+    setVal("compassOffset", b.compassOffset);
+}
+
+function sendSetupCommand(cmd) {
+    let url = `/command?bid=${currentBuoy}&cmd=${cmd}`;
+    
+    if (cmd === 'PIDRUDDER') {
+        url += `&p=${document.getElementById('Kpr').value || 0}&i=${document.getElementById('Kir').value || 0}&d=${document.getElementById('Kdr').value || 0}`;
+    } else if (cmd === 'PIDSPEED') {
+        url += `&p=${document.getElementById('Kps').value || 0}&i=${document.getElementById('Kis').value || 0}&d=${document.getElementById('Kds').value || 0}`;
+    } else if (cmd === 'LIMITS') {
+        url += `&max=${document.getElementById('maxSpeed').value || 0}&min=${document.getElementById('minSpeed').value || 0}&pivot=${document.getElementById('pivotSpeed').value || 0.2}`;
+    } else if (cmd === 'COMPASSOFFSET') {
+        url += `&offset=${document.getElementById('compassOffset').value || 0}`;
+    } else if (cmd === 'CALIB_COMPASS') {
+        if (!confirm(`Deploying In-Field Compass Calibration will cause Buoy ${currentBuoy} to move autonomously in circles for ~3 minutes.\n\nEnsure the area is clear. Continue?`)) return;
+    } else if (cmd === 'CALIB_OFFSET') {
+        if (!confirm(`Deploying In-Field Offset Calibration will cause Buoy ${currentBuoy} to sail South for ~2 minutes, then return North.\n\nEnsure you have enough open water to the South. Continue?`)) return;
+    }
+
+    fetch(url)
+        .then(response => response.text())
+        .then(data => console.log("Setup Command response:", data))
+        .catch(error => console.error('Error sending setup command:', error));
+}
+
+/* Tabs */
+function openTab(id) {
+    currentBuoy = id;
+    document.querySelectorAll(".tab button").forEach(b => b.classList.remove("active"));
+    
+    if (id === 'Field') {
+        document.getElementById("btn_Field").classList.add("active");
+        document.getElementById("title").innerText = "Field View";
+        document.getElementById("mainWrapper").style.display = 'none';
+        document.getElementById("controls").style.display = 'none';
+        document.getElementById("fieldWrapper").style.display = 'block';
+        drawField();
+    } else {
+        document.getElementById("btn_buoy" + id).classList.add("active");
+        document.getElementById("fieldWrapper").style.display = 'none';
+        updateUI();
+    }
+}
+
+function sendFieldCommand(cmd) {
+    // Send command to Top Buoy (bid=1)
+    let url = `/command?bid=1&cmd=${cmd}`;
+    fetch(url)
+        .then(response => response.text())
+        .then(data => console.log("Field Command response:", data))
+        .catch(error => console.error('Error sending field command:', error));
+}
+
+function drawField() {
+    const canvas = document.getElementById("fieldCanvas");
+    const container = document.getElementById("fieldWrapper");
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight || 400;
+    const ctx = canvas.getContext("2d");
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    let validBuoys = [];
+    for (let i = 1; i <= 3; i++) {
+        let b = buoyData[i];
+        const hasFix = b && String(b.GpsFix || "0").trim().toLowerCase() === "true" || String(b.GpsFix || "0").trim() === "1";
+        if (b && b.ID !== "0" && hasFix && b.Lat && b.Lng && !isNaN(parseFloat(b.Lat)) && !isNaN(parseFloat(b.Lng))) {
+            validBuoys.push({
+                id: i,
+                lat: parseFloat(b.Lat),
+                lng: parseFloat(b.Lng),
+                wDir: parseFloat(b.WDir) || 0,
+                heading: parseFloat(b.MagDir) || 0
+            });
+        }
+    }
+
+    if (validBuoys.length === 0) {
+        ctx.fillStyle = "black";
+        ctx.font = "20px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("No GPS Data Available", canvas.width/2, canvas.height/2);
+        return;
+    }
+
+    // Reference point
+    const refWDir = validBuoys[0].wDir;
+    const refLat = validBuoys[0].lat;
+    const refLng = validBuoys[0].lng;
+    const deg2rad = Math.PI / 180;
+
+    let points = [];
+    validBuoys.forEach(b => {
+        let dx = (b.lng - refLng) * Math.cos(refLat * deg2rad) * 111320;
+        let dy = (b.lat - refLat) * 111000;
+        
+        let dist = Math.sqrt(dx*dx + dy*dy);
+        let bearing = Math.atan2(dx, dy); 
+
+        // Adjust bearing relative to wind
+        let relBearing = bearing - (refWDir * deg2rad);
+        let cx = dist * Math.sin(relBearing);
+        let cy = -dist * Math.cos(relBearing);
+
+        points.push({ ...b, cx, cy });
+    });
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    let sumX = 0, sumY = 0;
+    points.forEach(p => {
+        if (p.cx < minX) minX = p.cx;
+        if (p.cx > maxX) maxX = p.cx;
+        if (p.cy < minY) minY = p.cy;
+        if (p.cy > maxY) maxY = p.cy;
+        sumX += p.cx;
+        sumY += p.cy;
+    });
+
+    let centerX = sumX / points.length;
+    let centerY = sumY / points.length;
+
+    let maxDim = Math.max(maxX - minX, maxY - minY);
+    if (maxDim < 10) maxDim = 30; // default minimum span
+    let scale = Math.min(canvas.width, canvas.height) * 0.7 / maxDim;
+
+    ctx.save();
+    ctx.translate(canvas.width/2, canvas.height/2);
+
+    // Wind Arrow at center (points UP)
+    ctx.strokeStyle = "rgba(0,0,255,0.5)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, 30);
+    ctx.lineTo(0, -30);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.fillStyle = "rgba(0,0,255,0.5)";
+    ctx.moveTo(0, -40);
+    ctx.lineTo(-8, -20);
+    ctx.lineTo(8, -20);
+    ctx.fill();
+    ctx.fillStyle = "blue";
+    ctx.font = "14px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("Wind", 0, 45);
+
+    // Distance lines
+    ctx.strokeStyle = "rgba(0,0,0,0.3)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]);
+    for(let i=0; i<points.length; i++) {
+        for(let j=i+1; j<points.length; j++) {
+            let p1 = points[i];
+            let p2 = points[j];
+            let sx1 = (p1.cx - centerX) * scale;
+            let sy1 = (p1.cy - centerY) * scale;
+            let sx2 = (p2.cx - centerX) * scale;
+            let sy2 = (p2.cy - centerY) * scale;
+
+            ctx.beginPath();
+            ctx.moveTo(sx1, sy1);
+            ctx.lineTo(sx2, sy2);
+            ctx.stroke();
+
+            let dx = p1.cx - p2.cx;
+            let dy = p1.cy - p2.cy;
+            let dist = Math.sqrt(dx*dx + dy*dy).toFixed(1);
+            let mx = (sx1 + sx2) / 2;
+            let my = (sy1 + sy2) / 2;
+            ctx.fillStyle = "black";
+            ctx.font = "bold 12px Arial";
+            ctx.fillText(dist + "m", mx, my - 5);
+        }
+    }
+    ctx.setLineDash([]);
+
+    // Buoys
+    points.forEach(p => {
+        let sx = (p.cx - centerX) * scale;
+        let sy = (p.cy - centerY) * scale;
+
+        ctx.fillStyle = "red";
+        ctx.strokeStyle = "black"; // Reset stroke to black for the circle
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 8, 0, Math.PI*2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "black";
+        ctx.font = "bold 14px Arial";
+        // Move the text slightly further away from the circle (from sx + 15 to sx + 18, and sy + 6 to sy + 8)
+        ctx.fillText("B" + p.id, sx + 18, sy + 8);
+
+        // Heading relative to wind
+        let relHeading = p.heading - refWDir;
+        let hRad = relHeading * deg2rad;
+        let hx = sx + 20 * Math.sin(hRad);
+        let hy = sy - 20 * Math.cos(hRad);
+
+        ctx.strokeStyle = "green";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(hx, hy);
+        ctx.stroke();
+    });
+
+    ctx.restore();
+}
+
+/* Bars */
+function setBar(barId, value, textId) {
+    const bar = document.getElementById(barId);
+    bar.querySelectorAll('.bar-positive,.bar-negative').forEach(e => e.remove());
+
+    const half = 150; // Half of 300px height
+    let h = Math.min(Math.abs(value), 100) * (half / 100);
+
+    if (value > 0) {
+        let p = document.createElement("div");
+        p.className = "bar-positive";
+        p.style.height = h + "px";
+        bar.appendChild(p);
+    } else if (value < 0) {
+        let n = document.createElement("div");
+        n.className = "bar-negative";
+        n.style.height = h + "px";
+        bar.appendChild(n);
+    }
+
+    document.getElementById(textId).innerText = value + "%";
+}
+
+/* Compass */
+function drawCompass(mag, target, wind, gps) {
+    const canvas = document.getElementById("compassCanvas");
+    const ctx = canvas.getContext("2d");
+    const size = canvas.width;
+    const center = size / 2;
+    const radius = center * 0.8;
+
+    ctx.clearRect(0, 0, size, size);
+
+    ctx.beginPath();
+    ctx.arc(center, center, radius, 0, 2 * Math.PI);
+    ctx.strokeStyle = "#bbb";
+    ctx.stroke();
+
+    function arrow(angle, color, length, width) {
+        if (angle === undefined || angle === null || angle === "" || isNaN(parseFloat(angle))) return;
+        let a = (parseFloat(angle) - 90) * Math.PI / 180;
+        let len = radius * length;
+        let endX = center + len * Math.cos(a);
+        let endY = center + len * Math.sin(a);
+
+        // Draw the line
+        ctx.beginPath();
+        ctx.lineWidth = width;
+        ctx.strokeStyle = color;
+        ctx.moveTo(center, center);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+
+        // Draw the filled arrow head
+        let headlen = width * 4 + 4; // scale head size by line width
+        ctx.beginPath();
+        ctx.fillStyle = color;
+        ctx.moveTo(endX, endY);
+        ctx.lineTo(endX - headlen * Math.cos(a - Math.PI / 6), endY - headlen * Math.sin(a - Math.PI / 6));
+        ctx.lineTo(endX - headlen * Math.cos(a + Math.PI / 6), endY - headlen * Math.sin(a + Math.PI / 6));
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    arrow(mag, "green", 0.9, 3);
+    arrow(wind, "blue", 0.7, 2);
+    arrow(gps, "black", 0.8, 2);
+    arrow(target, "red", 1.0, 4);
+}
+
+/* Update UI */
+function updateUI() {
+    const b = buoyData[currentBuoy];
+    const titleEl = document.getElementById("title");
+    const mainWrapper = document.getElementById("mainWrapper");
+    const controls = document.getElementById("controls");
+
+    if (!b || b.ID === "0") {
+        titleEl.innerText = `Buoy ${currentBuoy} Not Connected`;
+        mainWrapper.style.display = 'none';
+        controls.style.display = 'none';
+        return;
+    }
+
+    mainWrapper.style.display = 'flex';
+    controls.style.display = 'block';
+
+    // Status and Strings
+    titleEl.innerText = getStatusText(b.Status);
+    const tgDist = parseFloat(b.TgDist || 0);
+    const pidI = parseFloat(b.PIDI || 0);
+
+    document.getElementById("distanceText").innerText = (!isNaN(tgDist) && tgDist !== 0) ? tgDist.toFixed(2) + "m" : "-";
+    document.getElementById("intervalText").innerText = (!isNaN(pidI) && pidI !== 0) ? "I:" + pidI.toFixed(2) : "";
+
+    // Bars
+    setBar("barBB", parseFloat(b.BB || 0), "bbValue");
+    setBar("barSB", parseFloat(b.SB || 0), "sbValue");
+
+    // Battery
+    const perc = parseFloat(b.SubPerc || 0);
+    const batteryFill = document.getElementById("batteryFill");
+    batteryFill.style.width = perc + "%";
+    batteryFill.style.background = perc > 20 ? 'green' : 'red';
+
+    // Compass Vector Logic
+    const isIdle = String(b.Status).trim() === "7";
+    const isLocked = ["12", "13", "14"].includes(String(b.Status).trim());
+    const isDocking = ["15", "16", "17"].includes(String(b.Status).trim());
+    const isFar = tgDist > 5.0;
+    const isClose = tgDist <= 5.0;
+
+    let tgDirForVector = isIdle ? null : b.TgDir;
+    let windDirForVector = (isLocked && isClose) ? b.WDir : null;
+    let gpsDirForVector = (!isIdle && isFar) ? b.GpsDir : null;
+
+    drawCompass(b.MagDir, tgDirForVector, windDirForVector, gpsDirForVector);
+
+    // Buttons Status
+    const lockBtn = document.getElementById("btnLock");
+    const dockBtn = document.getElementById("btnDock");
+    const btnSend = document.getElementById("btnSend");
+    const btnMap = document.getElementById("btnMap");
+
+    if (isLocked) {
+        lockBtn.innerText = "IDLE";
+        lockBtn.classList.add('lock-btn-active');
+        lockBtn.disabled = false;
+        dockBtn.innerText = "DOCK";
+        dockBtn.classList.remove('dock-btn-active');
+        dockBtn.classList.remove('lock-btn-active');
+        dockBtn.disabled = false; // Enabled so you can transition to DOCK
+    } else if (isDocking) {
+        lockBtn.innerText = "LOCK";
+        lockBtn.classList.remove('lock-btn-active');
+        lockBtn.disabled = false; // Enabled so you can transition to LOCK
+        dockBtn.innerText = "IDLE";
+        // Apply lock-btn-active (green) instead of dock-btn-active (blue)
+        dockBtn.classList.add('lock-btn-active');
+        dockBtn.classList.remove('dock-btn-active');
+        dockBtn.disabled = false;
+    } else if (isIdle) {
+        lockBtn.innerText = "LOCK";
+        lockBtn.classList.remove('lock-btn-active');
+        lockBtn.disabled = false;
+        dockBtn.innerText = "DOCK";
+        dockBtn.classList.remove('dock-btn-active');
+        dockBtn.classList.remove('lock-btn-active');
+        dockBtn.disabled = false;
+    } else {
+        lockBtn.innerText = "LOCK";
+        lockBtn.classList.remove('lock-btn-active');
+        lockBtn.disabled = true;
+        dockBtn.innerText = "DOCK";
+        dockBtn.classList.remove('dock-btn-active');
+        dockBtn.classList.remove('lock-btn-active');
+        dockBtn.disabled = true;
+    }
+
+    const gpsFix = String(b.GpsFix || "0").trim();
+    const hasFix = (gpsFix === "1" || gpsFix.toLowerCase() === "true");
+    
+    if (!hasFix) {
+        btnSend.disabled = true;
+        btnMap.disabled = true;
+        lockBtn.disabled = true;
+        dockBtn.disabled = true;
+    } else {
+        btnSend.disabled = false;
+        btnMap.disabled = false;
+        // lockBtn and dockBtn enabled state is already handled by the status logic above
+    }
+
+    updateSetupModal();
+}
+
+/* Fetch data */
+function fetchData() {
+    fetch('/data')
+        .then(r => r.json())
+        .then(data => {
+            data.buoys.forEach((b, i) => {
+                buoyData[i + 1] = b;
+            });
+            if (currentBuoy === 'Field') {
+                drawField();
+            } else {
+                updateUI();
+            }
+        })
+        .catch(err => console.log(err));
+}
+
+setInterval(fetchData, 250);
+
+window.onload = () => {
+    openTab(1);
+    fetchData();
+};
+</script>
+
+</body>
+</html>
