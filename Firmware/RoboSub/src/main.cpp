@@ -465,6 +465,7 @@ void handelSerandRfdata(RoboStruct *ser)
             printf("Resetting PID SPEED!!\r\n");
             resetRudPid();
             printf("Resetting PID RUDDER!!\r\n");
+            ser->locked = false; // Reset the locked flag so speed target initializes properly
             break;
         case PING:
             ser->cmd = DIRSPEED;

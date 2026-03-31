@@ -52,7 +52,7 @@ Implement an autonomous "In-Field Calibration" routine that runs while the buoy 
 *   **Sensible Limits**: Reject calibration if the `max - min` range is suspiciously small (e.g., `< 10 µT`), which might indicate a broken sensor rather than a valid calibration circle.
 
 ## 6. Implementation Steps for the Developer (LLM)
-1. Add the `INFIELD_CALIBRATE` command to `RobobuoyDependency/RoboCompute`.
+1. Add the `INFIELD_CALIBRATE` command to `RoboDependency/RoboCompute`.
 2. Update `RobobuoyTop/src/main.cpp` to forward the command.
 3. In `RobobuoySub/src/compass.cpp`, write the `InFieldCalibrationTask` or state machine.
 4. Update `RoboLog/RoboControl.py` with the UI button and confirmation logic.

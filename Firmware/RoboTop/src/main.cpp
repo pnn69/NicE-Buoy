@@ -1156,14 +1156,27 @@ void handelSerialData(RoboStruct *ser)
             ser->subAccuP = serDataIn.subAccuP;
             break;
         case IDELING:
-            if (ser->status != IDELING || ser->status != IDLE)
+            if (ser->status != IDELING && ser->status != IDLE)
             {
                 printf("#Status set to IDELING (by serial input)\r\n");
                 ser->status = IDELING;
             }
             break;
         case IDLE:
-            ser->status = IDLE;
+            // Prevent delayed IDLE from Sub buoy from canceling an active state
+            if (ser->status == IDELING || ser->status == IDLE) {
+                ser->status = IDLE;
+            }
+            break;
+        case LOCKED:
+            if (ser->status != LOCKED && ser->status != LOCKING && ser->status != LOCKPOS) {
+                ser->status = LOCKED;
+            }
+            break;
+        case DOCKED:
+            if (ser->status != DOCKED && ser->status != DOCKING) {
+                ser->status = DOCKED;
+            }
             break;
         case STOREASDOC:
             if (ser->gpsFix == true)

@@ -401,8 +401,8 @@ void WiFiTask(void *arg)
         int statusEnum = -1;
 
         if (cmdStr == "LOCK") {
-            if (bid == 1 && (mainData.status == LOCKED || mainData.status == DOCKED)) { cmdEnum = IDELING; statusEnum = IDLE; }
-            else if (bid != 1 && (buoyPara[bid-1].status == LOCKED || buoyPara[bid-1].status == DOCKED)) cmdEnum = IDLE;
+            if (bid == 1 && (mainData.status == LOCKED || mainData.status == LOCKING)) { cmdEnum = IDELING; statusEnum = IDLE; }
+            else if (bid != 1 && (buoyPara[bid-1].status == LOCKED || buoyPara[bid-1].status == LOCKING)) cmdEnum = IDLE;
             else { cmdEnum = LOCKING; statusEnum = IDLE; }
         }
         else if (cmdStr == "DOCK") {

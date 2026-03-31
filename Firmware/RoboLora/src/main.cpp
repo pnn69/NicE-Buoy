@@ -14,7 +14,7 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #include "sercom.h"
 #include "controlwifi.h"
 #include "adc.h"
-#include "../../RobobuoyDependency\RobobuoyVersion.h"
+#include "../../RoboDependency\RobobuoyVersion.h"
 
 #define STRUCTLEN 5
 RoboStruct IDs[STRUCTLEN];

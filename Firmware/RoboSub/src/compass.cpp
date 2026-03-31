@@ -19,7 +19,7 @@
 #include "datastorage.h"
 #include "esc.h"
 #include "float.h"
-#include "../../RobobuoyDependency\RobobuoyVersion.h"
+#include "../../RoboDependency\RobobuoyVersion.h"
 #include "subwifi.h"
 #include "sercom.h"
 

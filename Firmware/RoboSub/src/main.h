@@ -3,6 +3,6 @@
 
 #include <RoboCompute.h>
 
-#include "../../RobobuoyDependency\RobobuoyVersion.h"
+#include "../../RoboDependency\RobobuoyVersion.h"
 
 #endif /* MAIN_H_ */

@@ -3,7 +3,7 @@
 #include "esp_log.h"
 #include <RoboCompute.h>
 #include <RoboTone.h>
-#include "../../RobobuoyDependency\RobobuoyVersion.h"
+#include "../../RoboDependency\RobobuoyVersion.h"
 #include "topwifi.h"
 
 #endif /* MAIN_H_ */

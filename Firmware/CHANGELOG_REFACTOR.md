@@ -38,7 +38,7 @@ This document summarizes the changes made to the Robobuoy firmware ecosystem to 
 - **ID Selection Fix**: Resolved a logic error in `getNextValidID` where the iteration would return prematurely during buoy ID cycling.
 
 ## 1. Architectural Changes: Centralized Dependency
-- **Direct Source Compilation**: Updated `platformio.ini` for all projects (`Top`, `Sub`, `Base`, `Remote`, `LoraController`) to use `lib_extra_dirs` pointing to `../RobobuoyDependency`.
+- **Direct Source Compilation**: Updated `platformio.ini` for all projects (`Top`, `Sub`, `Base`, `Remote`, `LoraController`) to use `lib_extra_dirs` pointing to `../RoboDependency`.
 - **Benefit**: This ensures that all projects compile against the master version of `RoboCompute` and `RoboTone` directly. Changes made to the central library are immediately reflected across all projects without manual copying.
 
 ## 2. Master Library Improvements (`RoboCompute`)

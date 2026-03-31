@@ -13,8 +13,6 @@ import serial.tools.list_ports
 
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'RoboPython')))
-from message_utils import generate_nmea_message, send_message
 
 class RoboMonitor:
     def __init__(self, master):
@@ -411,7 +409,7 @@ class RoboMonitor:
                 kir = float(kir_entry.get() or 0)
                 kdr = float(kdr_entry.get() or 0)
                 val_str = f"{format(kpr, '.10g')},{format(kir, '.10g')},{format(kdr, '.10g')}"
-                base_msg = f"{b['id']},99,6,56,,{val_str},,,"
+                base_msg = f"{b['id']},99,2,56,,{val_str},,,"
                 self.send_custom_udp_command(b['id'], base_msg)
             except ValueError:
                 pass
@@ -438,7 +436,7 @@ class RoboMonitor:
                 kis = float(kis_entry.get() or 0)
                 kds = float(kds_entry.get() or 0)
                 val_str = f"{format(kps, '.10g')},{format(kis, '.10g')},{format(kds, '.10g')}"
-                base_msg = f"{b['id']},99,6,58,,{val_str},,,"
+                base_msg = f"{b['id']},99,2,58,,{val_str},,,"
                 self.send_custom_udp_command(b['id'], base_msg)
             except ValueError:
                 pass
@@ -465,7 +463,7 @@ class RoboMonitor:
                 min_s = int(min_speed_entry.get() or 0)
                 piv_s = float(pivot_speed_entry.get() or 0.2)
                 val_str = f"{max_s},{min_s},{format(piv_s, '.2f')}"
-                base_msg = f"{b['id']},99,6,69,,{val_str},,,,,"
+                base_msg = f"{b['id']},99,2,69,,{val_str},,,,,"
                 self.send_custom_udp_command(b['id'], base_msg)
             except ValueError:
                 pass
@@ -482,8 +480,8 @@ class RoboMonitor:
             try:
                 coff = float(compass_offset_entry.get() or 0)
                 val_str = f"{format(coff, '.2f')}"
-                # CMD 76 is STORE_COMPASS_OFFSET
-                base_msg = f"{b['id']},99,6,76,,{val_str},,,,,"
+                # CMD 75 is STORE_COMPASS_OFFSET
+                base_msg = f"{b['id']},99,2,75,,{val_str},,,,,"
                 self.send_custom_udp_command(b['id'], base_msg)
             except ValueError:
                 pass
@@ -522,8 +520,8 @@ class RoboMonitor:
             f"Deploying In-Field Compass Calibration will cause Buoy {b['id']} to move autonomously in circles for ~3 minutes.\n\nEnsure the area is clear. Continue?"
         )
         if response:
-            # CMD=70, STATUS=0
-            base_msg = f"{b['id']},99,,70,,,,,,,"
+            # CMD=77, STATUS=0
+            base_msg = f"{b['id']},99,6,77,,,,,,,"
             self.send_custom_udp_command(b['id'], base_msg)
             self.log_message(f"Triggered In-Field Compass Calibration for Buoy {b['id']}")
 
@@ -535,8 +533,8 @@ class RoboMonitor:
             f"Deploying In-Field Offset Calibration will cause Buoy {b['id']} to sail South for ~2 minutes, then return North.\n\nEnsure you have enough open water to the South. Continue?"
         )
         if response:
-            # CMD=71, STATUS=0
-            base_msg = f"{b['id']},99,,71,,,,,,,"
+            # CMD=78, STATUS=0
+            base_msg = f"{b['id']},99,6,78,,,,,,,"
             self.send_custom_udp_command(b['id'], base_msg)
             self.log_message(f"Triggered In-Field Offset Calibration for Buoy {b['id']}")
 
@@ -953,15 +951,13 @@ class RoboMonitor:
                 
                 if current_status in ["12", "13", "14"]: # LOCKED
                     b['lock_btn'].config(text="IDLE")
-                elif current_status == "7": # IDLE
+                    b['dock_btn'].config(text="DOCK")
+                elif current_status in ["15", "16", "17"]: # DOCKING
                     b['lock_btn'].config(text="LOCK")
-                
-                # Update Dock Button Text
-                if current_status in ["15", "16", "17"]: # DOCKING
                     b['dock_btn'].config(text="IDLE")
                 else:
-                    b['dock_btn'].config(text="DOCK")
-                
+                    b['lock_btn'].config(text="LOCK")
+                    b['dock_btn'].config(text="DOCK")                
                 # Update DIRDIST Send Button state based on GPS Fix
                 gps_fix = str(data.get("GPS Fix", "0")).strip()
                 if gps_fix == "1" or gps_fix.lower() == "true":
