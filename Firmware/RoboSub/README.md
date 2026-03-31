@@ -1,28 +1,10 @@
- Supported Target | ESP32 |
-| ---------------- | ----- |
+# RoboSub (Underwater Unit Firmware)
 
-# Robouoy
+The `RoboSub` firmware runs on the submerged ESP32 unit of the NicE-Buoy system. It is responsible for the physical locomotion and orientation of the buoy.
 
-ToDo
-calculations of speed depending of angle to stear and distance
-Light indicators for viewing speed of engine
-Home button for storing GPS postition
-Log data trough lora
-Entering anchor point troug Lora
-Remote stearing trough lora
-setting anchor point troug Lora
-
-
-### Hardware Required
-
-* GPS 6900 baud
-* Lora 433MHz
-
-### Build and Flash
-
-Before compiling for the first time the following steps has te be done.
-if presend
-remove the .vscode dir.
-remove managed_components dir
-
-Commit to git.hub
+## Key Features
+- **Differential Thrust Control:** Drives two ESCs (Electronic Speed Controllers) for the port (BB) and starboard (SB) thrusters.
+- **PID Navigation:** Implements independent PID loops for Speed and Rudder (heading) to autonomously hold position (LOCKED) or navigate to a waypoint (DOCKING).
+- **Magnetometer (Compass):** Interfaces with an I2C compass (e.g., LIS2MDL/LSM303) for precise heading data, including hard/soft iron calibration and tilt compensation.
+- **Power Monitoring:** Reads battery voltage via ADC and reports power telemetry.
+- **Serial Tether:** Receives movement targets (Target Distance/Direction) and PID tuning parameters from the `RoboTop` via a robust serial connection.
