@@ -131,11 +131,60 @@ void rudderPid(RoboStruct *rud)
     }
     else {
         // Zone 3: Locked Mode (Active Holding at minOfsetDist)
+        static bool was_pivoting = false;
+        static double forward_ramp = 0;
+        static double rotation_ramp = 0;
+
         // 🚫 3.4 IMPORTANT: ±30° Heading Lockout for Safety
         // If knocked > 30 deg off, stop forward thrust and pivot stationary first.
         if (abs(filtered_heading_error) > 30.0) {
-            forward_power = 0;
-            rotation_power = constrain(rotation_power, -rud->maxSpeed * rud->pivotSpeed, rud->maxSpeed * rud->pivotSpeed);
+            was_pivoting = true;
+            
+            // Setpoints for pivot
+            double target_forward = 0;
+            double target_rotation = constrain(rotation_power, -rud->maxSpeed * rud->pivotSpeed, rud->maxSpeed * rud->pivotSpeed);
+            
+            // Ramp forward power down to 0
+            if (forward_ramp > target_forward) {
+                forward_ramp -= 10.0;
+                if (forward_ramp < target_forward) forward_ramp = target_forward;
+            } else if (forward_ramp < target_forward) {
+                forward_ramp += 10.0;
+                if (forward_ramp > target_forward) forward_ramp = target_forward;
+            }
+            
+            // Ramp rotation power to pivot setpoint
+            if (rotation_ramp < target_rotation) {
+                rotation_ramp += 10.0;
+                if (rotation_ramp > target_rotation) rotation_ramp = target_rotation;
+            } else if (rotation_ramp > target_rotation) {
+                rotation_ramp -= 10.0;
+                if (rotation_ramp < target_rotation) rotation_ramp = target_rotation;
+            }
+            
+            forward_power = forward_ramp;
+            rotation_power = rotation_ramp;
+            
+        } else {
+            if (was_pivoting) {
+                resetRudPid();
+                was_pivoting = false;
+                forward_ramp = 0; // Start forward ramp from 0
+                rotation_ramp = 0; // PID was reset, so start rotation ramp from 0
+            }
+            
+            // Ramp up forward power to prevent big sudden currents
+            if (forward_ramp < forward_power) {
+                forward_ramp += 2.0; // Adjust rate as needed (e.g., 2% per cycle)
+                if (forward_ramp > forward_power) {
+                    forward_ramp = forward_power;
+                }
+            } else {
+                forward_ramp = forward_power; // Track dropping power naturally
+            }
+            
+            forward_power = forward_ramp;
+            rotation_ramp = rotation_power; // Keep rotation ramp in sync with normal PID output
         }
     }
 

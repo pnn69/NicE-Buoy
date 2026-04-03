@@ -85,7 +85,7 @@ bool scan_for_wifi_ap(String ssipap, String ww, IPAddress *tmp)
                 {
                     delay(50);
                     Serial.print(".");
-                    if (timeout + 60 * 1000 < millis())
+                    if (timeout + 120 * 1000 < millis())
                     {
                         esp_restart();
                     }

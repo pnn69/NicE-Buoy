@@ -146,6 +146,8 @@ struct RoboStruct
     double tgDist = 0;
     float subAccuV = 0;
     float topAccuV = 0;
+    float subAccuI = 0;
+    float topAccuI = 0;
     int subAccuP = 0;
     int topAccuP = 0;
     unsigned long lastTimes = 0;
@@ -171,6 +173,9 @@ struct RoboStruct
     unsigned char retry = 0;
     double magHard[3] = {0};    // Hard Iron Factors
     double magSoft[3][3] = {0}; // Soft Iron Factors
+    double icmMagHard[3] = {0};    // ICM Hard Iron Factors
+    double icmMagSoft[3][3] = {0}; // ICM Soft Iron Factors
+    double icmCompassOffset = 0;   // ICM compass offset
 };
 
 struct RoboStructGps

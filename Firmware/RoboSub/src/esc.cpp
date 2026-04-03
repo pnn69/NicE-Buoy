@@ -177,7 +177,7 @@ void startESC(void)
 //***************************************************************************************************
 /**
  * @brief Calculates the RGB LED color representation based on motor speed.
- * Green for forward (positive), Red for reverse (negative).
+ * Green for forward (negative speed), Red for reverse (positive speed).
  * 
  * @param speed Current motor speed (-100 to 100).
  * @param r Output parameter for the red color component.
@@ -185,11 +185,13 @@ void startESC(void)
  */
 void calculateLedColor(int speed, uint8_t& r, uint8_t& g) {
     if (speed < 0) {
-        r = map(speed, -100, 0, 255, 0);
-        g = 0;
-    } else if (speed > 0) {
+        // Forward: Green
         r = 0;
-        g = map(speed, 0, 100, 0, 255);
+        g = map(speed, -100, 0, 255, 0);
+    } else if (speed > 0) {
+        // Reverse: Red
+        r = map(speed, 0, 100, 0, 255);
+        g = 0;
     } else {
         r = 0;
         g = 0;
@@ -289,8 +291,8 @@ void EscTask(void *arg)
             powerIndicator.blinkSb = BLINK_OFF;
             
             // Update bar graph values
-            powerIndicator.ledSb = -spsbAct;
-            powerIndicator.ledBb = -spbbAct;
+            powerIndicator.ledSb = spsbAct;
+            powerIndicator.ledBb = spbbAct;
             
             xQueueOverwrite(ledPwr, (void *)&powerIndicator);
             ledChanged = false;  // Clear flag after successful update

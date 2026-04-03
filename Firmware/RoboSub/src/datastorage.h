@@ -8,6 +8,9 @@
 void initMemory(void);
 void memDockPos(RoboStruct *buoy, bool get);
 void memBuoyId(uint64_t *id, bool get);
+void icmHardIron(RoboStruct *buoy, bool get);
+void icmSoftIron(RoboStruct *buoy, bool get);
+void icmCompassOffsetLoad(RoboStruct *buoy, bool get);
 void CompassCallibrationFactors(RoboStruct *buoy, bool get);
 void Declination(RoboStruct *buoy, bool get);
 void CompasOffset(RoboStruct *buoy, bool get);

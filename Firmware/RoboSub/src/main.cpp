@@ -87,10 +87,16 @@ void setup()
     initSpeedPid(&mainData);
     speedMaxMin(&mainData, GET);
     initescqueue();
-    if (digitalRead(BUTTON_PIN) == true)
+
+    // Temporary: Set WiFi credentials in memory
+    String ap = "NicE_WiFi";
+    String ww = "!Ni1001100110";
+    apParameters(&ap, &ww, false); // Store to NVS
+
+    if (digitalRead(BUTTON_PIN) == LOW)
     {
         delay(100);
-        if (digitalRead(BUTTON_PIN) == true)
+        if (digitalRead(BUTTON_PIN) == LOW)
         {
             wifiConfig = 1;
         }
@@ -620,8 +626,10 @@ void handleTimerRoutines(RoboStruct *in)
     {
         logtimer = millis() + 500;
         battVoltage(in->subAccuV, in->subAccuP);
-        printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", in->tgDist - 2, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb);
-        printf("  ip: %05.3f ir: %05.3f\r\n", in->ip, in->ir);
+        battCurrent(in->subAccuI);
+        // Temporarily suppressed telemetry plot for sensor comparison
+        // printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", in->tgDist - 2, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb);
+        // printf("  ip: %05.3f ir: %05.3f\r\n", in->ip, in->ir);
     }
 }
 

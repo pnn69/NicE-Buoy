@@ -82,39 +82,39 @@ bool scan_for_wifi_ap(String ssipap, String ww, IPAddress *tmp)
     unsigned long timeout = millis();
     Serial.print("scan for for ap:");
     Serial.println(ssipap);
-    int n = WiFi.scanNetworks();
-    Serial.println("scan done");
-    Serial.print(n);
-    Serial.println(" networks found");
-    if (n == 0)
+    
+    while (millis() - timeout < 120000)
     {
-        return false;
-    }
-    else
-    {
-        for (int i = 0; i < n; ++i)
+        int n = WiFi.scanNetworks();
+        if (n > 0)
         {
-            if (WiFi.SSID(i) == ssipap.c_str())
+            for (int i = 0; i < n; ++i)
             {
-                Serial.print("Access point found, logging in...");
-                WiFi.begin(ssipap.c_str(), ww.c_str());
-                while (WiFi.status() != WL_CONNECTED)
+                if (WiFi.SSID(i) == ssipap.c_str())
                 {
-                    delay(50);
-                    Serial.print(".");
-                    if (timeout + 60 * 1000 < millis())
+                    Serial.print("Access point found, logging in...");
+                    WiFi.begin(ssipap.c_str(), ww.c_str());
+                    while (WiFi.status() != WL_CONNECTED)
                     {
-                        esp_restart();
+                        delay(50);
+                        Serial.print(".");
+                        if (timeout + 120 * 1000 < millis())
+                        {
+                            esp_restart();
+                        }
                     }
+                    Serial.print(".");
+                    Serial.print("Logend in to SSID: ");
+                    Serial.println(ssipap);
+                    *tmp = (WiFi.localIP());
+                    return true;
                 }
-                Serial.print(".");
-                Serial.print("Logend in to SSID: ");
-                Serial.println(ssipap);
-                *tmp = (WiFi.localIP());
-                return true;
             }
         }
+        Serial.println("Access point not found, retrying...");
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
+    Serial.println("Access point not found after 2 minutes.");
     return false;
 }
 
@@ -346,6 +346,7 @@ void WiFiTask(void *arg)
         json += "\"minSpeed\":\"" + String(mainData.minSpeed) + "\",";
         json += "\"pivotSpeed\":\"" + String(mainData.pivotSpeed, 2) + "\",";
         json += "\"compassOffset\":\"" + String(mainData.compassOffset, 2) + "\",";
+        json += "\"icmCompassOffset\":\"" + String(mainData.icmCompassOffset, 2) + "\",";
         json += "\"Lat\":\"" + String(mainData.lat, 6) + "\",";
         json += "\"Lng\":\"" + String(mainData.lng, 6) + "\",";
         json += "\"GpsFix\":\"" + String(mainData.gpsFix) + "\"";
@@ -463,6 +464,7 @@ void WiFiTask(void *arg)
             }
             else if (cmdEnum == STORE_COMPASS_OFFSET) {
                 mainData.compassOffset = server.arg("offset").toFloat();
+                mainData.icmCompassOffset = server.arg("icmoffset").toFloat();
                 mainData.ack = LORASET;
             }
             

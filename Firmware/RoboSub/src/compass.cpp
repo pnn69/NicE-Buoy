@@ -11,6 +11,8 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_LIS2MDL.h>
 #include <Adafruit_LSM303_Accel.h>
+#include <Adafruit_ICM20X.h>
+#include <Adafruit_ICM20948.h>
 #include <math.h>
 #include <cmath>
 #include "leds.h"
@@ -43,7 +45,14 @@ static double declination = 2.56666666666;
 Adafruit_LIS2MDL mag = Adafruit_LIS2MDL(12345);
 Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
 
+// New ICM20948 sensor
+Adafruit_ICM20948 icm;
+Adafruit_Sensor *icm_mag = NULL;
+Adafruit_Sensor *icm_accel = NULL;
+bool icm_ready = false;
+
 float min_mag[3], max_mag[3];
+float icm_min_mag[3], icm_max_mag[3];
 
 struct Vec3
 {
@@ -91,6 +100,55 @@ inline void vector_normalize(Vec3 &v)
         v.y /= magnitude;
         v.z /= magnitude;
     }
+}
+
+/**
+ * @brief Calculates tilt-compensated heading using ICM-20948.
+ * 
+ * @param from The reference vector for North.
+ * @return float Tilt-compensated heading in degrees.
+ */
+float heading_icm(const Vec3 &from)
+{
+    if (!icm_ready) return -1.0f;
+    sensors_event_t accel_event, mag_event, gyro_event, temp_event;
+    icm.getEvent(&accel_event, &gyro_event, &temp_event, &mag_event);
+    
+    Vec3 temp_m = {mag_event.magnetic.x, mag_event.magnetic.y, mag_event.magnetic.z};
+    Vec3 a = {accel_event.acceleration.x, accel_event.acceleration.y, accel_event.acceleration.z};
+
+    // Apply the same hard/soft iron calibrations for comparison (assuming roughly same placement/scaling, 
+    // though in reality you'd want independent calibration matrices).
+    temp_m.x -= compassCalc.icmMagHard[0];
+    temp_m.y -= compassCalc.icmMagHard[1];
+    temp_m.z -= compassCalc.icmMagHard[2];
+
+    Vec3 corrected_m;
+    corrected_m.x = compassCalc.icmMagSoft[0][0] * temp_m.x + compassCalc.icmMagSoft[0][1] * temp_m.y + compassCalc.icmMagSoft[0][2] * temp_m.z;
+    corrected_m.y = compassCalc.icmMagSoft[1][0] * temp_m.x + compassCalc.icmMagSoft[1][1] * temp_m.y + compassCalc.icmMagSoft[1][2] * temp_m.z;
+    corrected_m.z = compassCalc.icmMagSoft[2][0] * temp_m.x + compassCalc.icmMagSoft[2][1] * temp_m.y + compassCalc.icmMagSoft[2][2] * temp_m.z;
+
+    vector_normalize(a);
+    vector_normalize(corrected_m);
+
+    Vec3 east = vector_cross(corrected_m, a);
+    vector_normalize(east);
+
+    Vec3 north = vector_cross(a, east);
+    vector_normalize(north);
+
+    float dot_east = vector_dot(east, from);
+    float dot_north = vector_dot(north, from);
+
+    float heading = std::atan2(dot_east, dot_north);
+    heading = heading * 180.0f / M_PI;
+    heading += declination;
+    heading += compassCalc.icmCompassOffset;
+
+    while (heading < 0) heading += 360;
+    while (heading >= 360) heading -= 360;
+
+    return heading;
 }
 
 /**
@@ -183,6 +241,17 @@ void InitCompass(void)
         vTaskDelay(pdMS_TO_TICKS(1000));
         esp_restart();
     }
+    
+    // Initialize ICM20948
+    if (!icm.begin_I2C()) {
+        Serial.println("Failed to find ICM20948 chip");
+    } else {
+        Serial.println("ICM20948 Found!");
+        icm_ready = true;
+        icm_mag = icm.getMagnetometerSensor();
+        icm_accel = icm.getAccelerometerSensor();
+    }
+
     accel.setRange(LSM303_RANGE_4G);
     accel.setMode(LSM303_MODE_NORMAL);
     CompassCallibrationFactors(&compassCalc, GET);
@@ -247,6 +316,8 @@ bool CalibrateCompass(void)
     for (int i = 0; i < 3; i++) {
         min_mag[i] = FLT_MAX;
         max_mag[i] = -FLT_MAX;
+        icm_min_mag[i] = FLT_MAX;
+        icm_max_mag[i] = -FLT_MAX;
     }
 
     while (millis() - calstamp < 60000)
@@ -267,6 +338,18 @@ bool CalibrateCompass(void)
                 xQueueOverwrite(serOut, (void *)&compassCalc);
             }
         }
+        if (icm_ready) {
+            sensors_event_t a_evt, m_evt, g_evt, t_evt;
+            icm.getEvent(&a_evt, &g_evt, &t_evt, &m_evt);
+            if (abs(m_evt.magnetic.x) < 2000 && abs(m_evt.magnetic.y) < 2000 && abs(m_evt.magnetic.z) < 2000) {
+                icm_min_mag[0] = std::min(icm_min_mag[0], m_evt.magnetic.x);
+                icm_max_mag[0] = std::max(icm_max_mag[0], m_evt.magnetic.x);
+                icm_min_mag[1] = std::min(icm_min_mag[1], m_evt.magnetic.y);
+                icm_max_mag[1] = std::max(icm_max_mag[1], m_evt.magnetic.y);
+                icm_min_mag[2] = std::min(icm_min_mag[2], m_evt.magnetic.z);
+                icm_max_mag[2] = std::max(icm_max_mag[2], m_evt.magnetic.z);
+            }
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     }
 
@@ -274,11 +357,24 @@ bool CalibrateCompass(void)
     compassCalc.magHard[1] = (max_mag[1] + min_mag[1]) / 2.0f;
     compassCalc.magHard[2] = (max_mag[2] + min_mag[2]) / 2.0f;
     
-    for(int i=0; i<3; i++) for(int j=0; j<3; j++) compassCalc.magSoft[i][j] = (i==j) ? 1.0f : 0.0f;
+    compassCalc.icmMagHard[0] = (icm_max_mag[0] + icm_min_mag[0]) / 2.0f;
+    compassCalc.icmMagHard[1] = (icm_max_mag[1] + icm_min_mag[1]) / 2.0f;
+    compassCalc.icmMagHard[2] = (icm_max_mag[2] + icm_min_mag[2]) / 2.0f;
+    
+    for(int i=0; i<3; i++) {
+        for(int j=0; j<3; j++) {
+            compassCalc.magSoft[i][j] = (i==j) ? 1.0f : 0.0f;
+            compassCalc.icmMagSoft[i][j] = (i==j) ? 1.0f : 0.0f;
+        }
+    }
 
     hardIron(&compassCalc, SET);
     softIron(&compassCalc, SET);
-    printf("Calibration done. Hard iron: %.2f, %.2f, %.2f\r\n", compassCalc.magHard[0], compassCalc.magHard[1], compassCalc.magHard[2]);
+    icmHardIron(&compassCalc, SET);
+    icmSoftIron(&compassCalc, SET);
+    printf("Calibration done. Hard iron: %.2f, %.2f, %.2f | ICM: %.2f, %.2f, %.2f\r\n", 
+            compassCalc.magHard[0], compassCalc.magHard[1], compassCalc.magHard[2],
+            compassCalc.icmMagHard[0], compassCalc.icmMagHard[1], compassCalc.icmMagHard[2]);
     return true;
 }
 
@@ -295,13 +391,22 @@ void calibrateMagneticNorth(void)
     xQueueSend(buzzer, (void *)&compassBuzzerData, 10);
     vTaskDelay(pdMS_TO_TICKS(1000));
     compassCalc.compassOffset = 0;
+    compassCalc.icmCompassOffset = 0;
+    
+    double sumIcmHdg = 0;
+    
     for (int i = 0; i < NUM_DIRECTIONS * 2; i++) {
         vTaskDelay(pdMS_TO_TICKS(20));
         GetHeadingAvg();
+        sumIcmHdg += heading_icm(Vec3{1.0f, 0.0f, 0.0f});
     }
+    
     compassCalc.compassOffset = GetHeadingAvg();
+    compassCalc.icmCompassOffset = sumIcmHdg / (NUM_DIRECTIONS * 2);
+    
     CompasOffset(&compassCalc, SET);
-    printf("Stored compassOffset: %.2f\r\n", compassCalc.compassOffset);
+    icmCompassOffsetLoad(&compassCalc, SET);
+    printf("Stored compassOffset: %.2f | icmCompassOffset: %.2f\r\n", compassCalc.compassOffset, compassCalc.icmCompassOffset);
     compassBuzzerData.hz = 1000; xQueueSend(buzzer, (void *)&compassBuzzerData, 10);
 }
 
@@ -361,6 +466,18 @@ void infieldCompassCalibration(void)
                 compassCalc.magHard[2] = event.magnetic.z;
                 compassCalc.cmd = RAWCOMPASSDATA;
                 xQueueOverwrite(serOut, (void *)&compassCalc);
+            }
+        }
+        if (icm_ready) {
+            sensors_event_t a_evt, m_evt, g_evt, t_evt;
+            icm.getEvent(&a_evt, &g_evt, &t_evt, &m_evt);
+            if (abs(m_evt.magnetic.x) < 2000 && abs(m_evt.magnetic.y) < 2000 && abs(m_evt.magnetic.z) < 2000) {
+                icm_min_mag[0] = std::min(icm_min_mag[0], m_evt.magnetic.x);
+                icm_max_mag[0] = std::max(icm_max_mag[0], m_evt.magnetic.x);
+                icm_min_mag[1] = std::min(icm_min_mag[1], m_evt.magnetic.y);
+                icm_max_mag[1] = std::max(icm_max_mag[1], m_evt.magnetic.y);
+                icm_min_mag[2] = std::min(icm_min_mag[2], m_evt.magnetic.z);
+                icm_max_mag[2] = std::max(icm_max_mag[2], m_evt.magnetic.z);
             }
         }
     };
@@ -433,15 +550,26 @@ void initcompassQueue(void)
 void CompassTask(void *arg)
 {
     double mHdg = 0;
+    double icmHdg = 0;
     int cmd = 0;
     unsigned long lastQueueSend = 0;
+    unsigned long lastPrintSend = 0;
+
     while (1)
     {
         mHdg = GetHeadingAvg();
+        icmHdg = heading_icm(Vec3{1.0f, 0.0f, 0.0f});
+
         if (millis() - lastQueueSend > 100) {
             xQueueOverwrite(compass, (void *)&mHdg);
             lastQueueSend = millis();
         }
+
+        if (millis() - lastPrintSend > 500) {
+            printf("LSM/LIS Heading: %03.2f | ICM-20948 Heading: %03.2f\r\n", mHdg, icmHdg);
+            lastPrintSend = millis();
+        }
+
         if (xQueueReceive(compassIn, (void *)&cmd, 0) == pdTRUE) {
             if (cmd == CALIBRATE_MAGNETIC_COMPASS) calibrateParametersCompas();
             else if (cmd == INFIELD_CALIBRATE) infieldCompassCalibration();

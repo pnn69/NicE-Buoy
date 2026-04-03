@@ -105,6 +105,20 @@ void beep(int sound, QueueHandle_t buzzer)
             xQueueSend(buzzer, (void *)&melody_pi2nos[i], 10);
         }
         break;
+    case 5: // Short happy tune (C5, E5, G5, C6)
+        Data.repeat = 0;
+        Data.pause = 50;
+        Data.duration = 100;
+        Data.hz = 523; // C5
+        xQueueSend(buzzer, (void *)&Data, 10);
+        Data.hz = 659; // E5
+        xQueueSend(buzzer, (void *)&Data, 10);
+        Data.hz = 784; // G5
+        xQueueSend(buzzer, (void *)&Data, 10);
+        Data.duration = 300;
+        Data.hz = 1046; // C6
+        xQueueSend(buzzer, (void *)&Data, 10);
+        break;
     case 10:
         xQueueSend(buzzer, (void *)&tones[10], 5);
         break;

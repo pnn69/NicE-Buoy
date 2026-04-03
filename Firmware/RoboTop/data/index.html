@@ -309,8 +309,9 @@ input {
         <button onclick="sendSetupCommand('LIMITS')" style="width:100%; margin: 4px 0 8px 0;">Send Speed Limits</button>
 
         <h4 style="margin: 5px 0 2px 0;">Compass</h4>
-        <div class="inputRow" style="margin-top: 0;">Offset <input id="compassOffset" type="number" step="0.1"></div>
-        <button onclick="sendSetupCommand('COMPASSOFFSET')" style="width:100%; margin: 4px 0 8px 0;">Send Compass Offset</button>
+        <div class="inputRow" style="margin-top: 0;">LSM Offset <input id="compassOffset" type="number" step="0.1"></div>
+        <div class="inputRow" style="margin-top: 0;">ICM Offset <input id="icmCompassOffset" type="number" step="0.1"></div>
+        <button onclick="sendSetupCommand('COMPASSOFFSET')" style="width:100%; margin: 4px 0 8px 0;">Send Compass Offsets</button>
 
         <hr style="margin: 8px 0;">
         <h4 style="margin: 5px 0;">In-Field Calibration</h4>
@@ -372,7 +373,7 @@ function openSetup() {
     document.getElementById("setupModal").style.display = "block";
     
     // Clear fields to indicate loading
-    const fields = ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "pivotSpeed", "compassOffset"];
+    const fields = ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "pivotSpeed", "compassOffset", "icmCompassOffset"];
     fields.forEach(f => {
         const el = document.getElementById(f);
         if (el) el.value = "Wait...";
@@ -423,6 +424,7 @@ function updateSetupModal() {
     setVal("minSpeed", b.minSpeed);
     setVal("pivotSpeed", b.pivotSpeed);
     setVal("compassOffset", b.compassOffset);
+    setVal("icmCompassOffset", b.icmCompassOffset);
 }
 
 function sendSetupCommand(cmd) {
@@ -435,7 +437,7 @@ function sendSetupCommand(cmd) {
     } else if (cmd === 'LIMITS') {
         url += `&max=${document.getElementById('maxSpeed').value || 0}&min=${document.getElementById('minSpeed').value || 0}&pivot=${document.getElementById('pivotSpeed').value || 0.2}`;
     } else if (cmd === 'COMPASSOFFSET') {
-        url += `&offset=${document.getElementById('compassOffset').value || 0}`;
+        url += `&offset=${document.getElementById('compassOffset').value || 0}&icmoffset=${document.getElementById('icmCompassOffset').value || 0}`;
     } else if (cmd === 'CALIB_COMPASS') {
         if (!confirm(`Deploying In-Field Compass Calibration will cause Buoy ${currentBuoy} to move autonomously in circles for ~3 minutes.\n\nEnsure the area is clear. Continue?`)) return;
     } else if (cmd === 'CALIB_OFFSET') {

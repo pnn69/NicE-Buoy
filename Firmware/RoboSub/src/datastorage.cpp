@@ -329,10 +329,66 @@ void softIron(RoboStruct *buoy, bool get)
     stopMem();
 }
 
+void icmHardIron(RoboStruct *buoy, bool get)
+{
+    startMem();
+    String key = "";
+    for (int i = 0; i < 3; i++)
+    {
+        key = "iH0" + String(i);
+        if (get)
+        {
+            buoy->icmMagHard[i] = storage.getDouble(key.c_str(), 0.0);
+        }
+        else
+        {
+            storage.putDouble(key.c_str(), buoy->icmMagHard[i]);
+        }
+    }
+    stopMem();
+}
+
+void icmSoftIron(RoboStruct *buoy, bool get)
+{
+    startMem();
+    String key = "";
+    for (int i = 0; i < 3; ++i)
+    {
+        for (int j = 0; j < 3; ++j)
+        {
+            key = "iS0" + String(i) + String(j);
+            if (get)
+            {
+                double defaultValue = (i == j) ? 1.0 : 0.0; // Identity matrix default
+                buoy->icmMagSoft[i][j] = storage.getDouble(key.c_str(), defaultValue);
+            }
+            else
+            {
+                storage.putDouble(key.c_str(), buoy->icmMagSoft[i][j]);
+            }
+        }
+    }
+    stopMem();
+}
+
+void icmCompassOffsetLoad(RoboStruct *buoy, bool get)
+{
+    startMem();
+    if (get)
+    {
+        buoy->icmCompassOffset = storage.getDouble("icm_c_off", 0.0);
+    }
+    else
+    {
+        storage.putDouble("icm_c_off", buoy->icmCompassOffset);
+    }
+    stopMem();
+}
+
 /**
  * @brief Aggregates reads or writes for all compass-related calibration factors.
  * Includes Soft Iron matrix, Hard Iron offsets, Declination, and user Offset.
- * 
+ *
  * @param buoy Pointer to the main state structure.
  * @param get True to read from memory, false to write to memory.
  */
@@ -342,8 +398,12 @@ void CompassCallibrationFactors(RoboStruct *buoy, bool get)
     hardIron(buoy, get);
     Declination(buoy, get);
     CompasOffset(buoy, get);
-}
 
+    // Also load the ICM-20948 parameters
+    icmSoftIron(buoy, get);
+    icmHardIron(buoy, get);
+    icmCompassOffsetLoad(buoy, get);
+}
 /**
  * @brief Reads or writes raw Min/Max magnetic float values (Legacy/Fallback).
  * 

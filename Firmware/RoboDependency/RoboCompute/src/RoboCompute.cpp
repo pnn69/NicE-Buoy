@@ -96,6 +96,7 @@ void RoboDecode(String data, RoboStruct *dataStore)
     case SUBACCU:
         dataStore->subAccuV = numbers[2].toFloat();
         dataStore->subAccuP = numbers[3].toInt();
+        if (count > 4) dataStore->subAccuI = numbers[4].toFloat();
         break;
 
     case PIDRUDDERSET:
@@ -118,6 +119,7 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->speedBb = numbers[4].toInt();
         dataStore->speedSb = numbers[5].toInt();
         dataStore->subAccuV = numbers[6].toFloat();
+        if (count > 7) dataStore->subAccuI = numbers[7].toFloat();
         break;
 
     case TOPPWR:
@@ -126,6 +128,7 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->speedBb = numbers[4].toInt();
         dataStore->speedSb = numbers[5].toInt();
         dataStore->topAccuV = numbers[6].toFloat();
+        if (count > 7) dataStore->topAccuI = numbers[7].toFloat();
         break;
 
     case BUOYPOS:
@@ -195,6 +198,7 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->ir = numbers[6].toDouble();
         dataStore->subAccuV = numbers[7].toDouble();
         dataStore->subAccuP = numbers[8].toInt();
+        if (count > 9) dataStore->subAccuI = numbers[9].toFloat();
         break;
     case TOPDATA:
         dataStore->dirMag = numbers[2].toDouble();
@@ -213,6 +217,7 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->lng = numbers[15].toDouble();
         dataStore->gpsFix = (bool)numbers[16].toInt();
         dataStore->gpsSat = numbers[17].toInt();
+        if (count > 18) dataStore->subAccuI = numbers[18].toFloat();
         break;
 
     case RAWCOMPASSDATA:
@@ -244,8 +249,10 @@ void RoboDecode(String data, RoboStruct *dataStore)
         // Accommodate for Python sending ,,val (numbers[2]) and C++ sending ,val (numbers[1])
         if (numbers[2].length() > 0) {
             dataStore->compassOffset = numbers[2].toDouble();
+            if (numbers[3].length() > 0) dataStore->icmCompassOffset = numbers[3].toDouble();
         } else {
             dataStore->compassOffset = numbers[1].toDouble();
+            if (numbers[2].length() > 0) dataStore->icmCompassOffset = numbers[2].toDouble();
         }
         break;
 
@@ -261,6 +268,7 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->pivotSpeed = numbers[10].toDouble();
         dataStore->compassOffset = numbers[11].toDouble();
         dataStore->minOfsetDist = numbers[12].toInt();
+        if (numbers[13].length() > 0) dataStore->icmCompassOffset = numbers[13].toDouble();
         break;
 
     case ROUTTOPOINT:

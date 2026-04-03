@@ -108,7 +108,7 @@ bool scan_for_wifi_ap(String *ssidap, String ww)
                 {
                     delay(50);
                     Serial.print(".");
-                    if (millis() - timeout > 60000) // 1 minute timeout
+                    if (millis() - timeout > 120000) // 2 minute timeout
                     {
                         Serial.println("\nConnection timed out. Restarting...");
                         delay(100);
@@ -214,19 +214,24 @@ bool scan_for_wifi_ap(String ssipap)
     Serial.print("scan for for ap \"");
     Serial.print(ssipap);
     Serial.println("\"");
-    int n = WiFi.scanNetworks();
-    Serial.println("scan done");
-    Serial.print(n);
-    Serial.println(" networks found");
-    for (int i = 0; i < n; ++i)
+    
+    // Try to find the AP for up to 120 seconds before giving up and setting up local AP
+    while (millis() - timeout < 120000) 
     {
-        if (WiFi.SSID(i) == ssipap.c_str())
+        int n = WiFi.scanNetworks();
+        for (int i = 0; i < n; ++i)
         {
-            Serial.println("Acces point foud!");
-            return true;
+            if (WiFi.SSID(i) == ssipap.c_str())
+            {
+                Serial.println("Access point found!");
+                return true;
+            }
         }
+        Serial.println("Access point not found, retrying...");
+        vTaskDelay(pdMS_TO_TICKS(1000)); // wait 1s between scans
     }
-    Serial.println("Acces point not foud.....");
+    
+    Serial.println("Access point not found after 2 minutes.");
     return false;
 }
 
@@ -279,6 +284,22 @@ void WiFiTask(void *arg)
     char macStr[25];
     WiFi.macAddress(mac);
     sprintf(macStr, "RoboSub_%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    
+    // Force Setup AP mode if button was pressed during startup
+    if (wifiConfig == 1) {
+        Serial.println("Force starting AP setup portal due to button press");
+        wm.resetSettings(); // clear any saved network so it is forced to AP mode
+        wm.setConnectTimeout(120);
+        wm.startConfigPortal(macStr); // block and start portal
+        ssid = wm.getWiFiSSID();
+        ww = wm.getWiFiPass();
+        Serial.println("New credentials saved!");
+        Serial.println("SSID:" + ssid + " WW:" + ww);
+        apParameters(&ssid, &ww, SET);
+        delay(500);
+        esp_restart(); // reboot with new settings
+    }
+    
     apParameters(&ssid, &ww, GET);
     bool ap = false; // indicator accespoint found
     if (ssid != "")
@@ -287,11 +308,8 @@ void WiFiTask(void *arg)
     }
     if (ap == false)
     {
-        // wm.resetSettings();
+        wm.setConnectTimeout(120);
         wm.autoConnect(macStr);
-        // wm.setConfigPortalTimeout(60 * 10);
-        // wm.setConfigPortalBlocking(true);
-        // wm.startConfigPortal("RoboSubConfigMe");
         ssid = wm.getWiFiSSID();
         ww = wm.getWiFiPass();
         Serial.println("SSID:" + ssid + " WW:" + ww);
@@ -300,7 +318,19 @@ void WiFiTask(void *arg)
     }
     else
     {
-        wm.autoConnect(ssid.c_str(), ww.c_str());
+        Serial.print("Connecting directly to ");
+        Serial.println(ssid);
+        WiFi.begin(ssid.c_str(), ww.c_str());
+        unsigned long startAttemptTime = millis();
+        while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 120000) {
+            delay(500);
+            Serial.print(".");
+        }
+        if (WiFi.status() != WL_CONNECTED) {
+            Serial.println("\nFailed to connect. Restarting...");
+            esp_restart();
+        }
+        Serial.println("\nConnected!");
     }
     Serial.print("Logged in to AP \"");
     Serial.print(ssid);
