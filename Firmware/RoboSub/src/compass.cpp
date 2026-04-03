@@ -114,15 +114,15 @@ float heading_icm(const Vec3 &from)
     sensors_event_t accel_event, mag_event, gyro_event, temp_event;
     icm.getEvent(&accel_event, &gyro_event, &temp_event, &mag_event);
 
-    // Invert Y and Z axes to match accelerometer's reference frame 
-    // (ICM20948 mag is X-forward, Y-right, Z-down. Accel is X-forward, Y-left, Z-up).
+    // Revert to original axis configuration that had correct N/S. 
+    // The E/W swap was actually due to a missing negative sign in the atan2 function!
     mag_event.magnetic.y = -mag_event.magnetic.y;
     mag_event.magnetic.z = -mag_event.magnetic.z;
 
-    Vec3 temp_m = {mag_event.magnetic.x, mag_event.magnetic.y, mag_event.magnetic.z};    Vec3 a = {accel_event.acceleration.x, accel_event.acceleration.y, accel_event.acceleration.z};
+    Vec3 temp_m = {mag_event.magnetic.x, mag_event.magnetic.y, mag_event.magnetic.z};
+    Vec3 a = {accel_event.acceleration.x, accel_event.acceleration.y, accel_event.acceleration.z};
 
-    // Apply the same hard/soft iron calibrations for comparison (assuming roughly same placement/scaling, 
-    // though in reality you'd want independent calibration matrices).
+    // Apply the same hard/soft iron calibrations for comparison
     temp_m.x -= compassCalc.icmMagHard[0];
     temp_m.y -= compassCalc.icmMagHard[1];
     temp_m.z -= compassCalc.icmMagHard[2];
@@ -143,15 +143,23 @@ float heading_icm(const Vec3 &from)
 
     float dot_east = vector_dot(east, from);
     float dot_north = vector_dot(north, from);
+    
+    if (std::isnan(dot_east) || std::isnan(dot_north)) return -1.0f;
+    if (dot_east == 0.0f && dot_north == 0.0f) return -1.0f;
 
-    float heading = std::atan2(dot_east, dot_north);
-    heading = heading * 180.0f / M_PI;
-    heading += declination;
-    heading += compassCalc.icmCompassOffset;
-
-    while (heading < 0) heading += 360;
-    while (heading >= 360) heading -= 360;
-
+    // Flip East/West by negating dot_east (matches heading_corrected perfectly)
+    float heading = atan2(-dot_east, dot_north) * 180.0f / M_PI;
+    
+    if (std::isnan(compassCalc.declination)) compassCalc.declination = 0.0f;
+    if (std::isnan(compassCalc.icmCompassOffset)) compassCalc.icmCompassOffset = 0.0f;
+    
+    // SUBTRACT the offset, matching heading_corrected
+    heading = heading + compassCalc.declination - compassCalc.icmCompassOffset;
+    if (std::isnan(heading)) return -1.0f;
+    
+    while (heading < 0.0f) heading += 360.0f;
+    while (heading >= 360.0f) heading -= 360.0f;
+    
     return heading;
 }
 
