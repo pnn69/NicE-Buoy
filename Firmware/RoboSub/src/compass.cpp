@@ -292,9 +292,14 @@ double CompassAverage(double in)
  */
 double GetHeadingAvg(void)
 {
-    double mHdg = heading_corrected(Vec3{1.0f, 0.0f, 0.0f});
-    if (mHdg < 0) return directions[cbufpointer > 0 ? cbufpointer-1 : NUM_DIRECTIONS-1];
-    return CompassAverage(mHdg);
+    double hdg = -1.0f;
+    if (icm_ready) {
+        hdg = heading_icm(Vec3{1.0f, 0.0f, 0.0f});
+    } else {
+        hdg = heading_corrected(Vec3{1.0f, 0.0f, 0.0f});
+    }
+    if (hdg < 0) return directions[cbufpointer > 0 ? cbufpointer-1 : NUM_DIRECTIONS-1];
+    return CompassAverage(hdg);
 }
 
 /**
@@ -506,21 +511,64 @@ void infieldCompassCalibration(void)
     escOut.speedsb = compassCalc.maxSpeed * 0.05;
     xQueueSend(escspeed, (void *)&escOut, 10);
     unsigned long calstamp = millis();
-    while (millis() - calstamp < 60000) { sampleMag(); vTaskDelay(pdMS_TO_TICKS(50)); }
+    while (millis() - calstamp < 60000) { 
+        sampleMag(); 
+        
+        float p_lmin[3], p_lmax[3], p_imin[3], p_imax[3];
+        for(int i=0; i<3; i++) {
+            p_lmin[i] = (min_mag[i] == FLT_MAX) ? 0 : min_mag[i];
+            p_lmax[i] = (max_mag[i] == -FLT_MAX) ? 0 : max_mag[i];
+            p_imin[i] = (icm_min_mag[i] == FLT_MAX) ? 0 : icm_min_mag[i];
+            p_imax[i] = (icm_max_mag[i] == -FLT_MAX) ? 0 : icm_max_mag[i];
+        }
+        printf("\r[PH 1] LSM X:%5.0f,%5.0f Y:%5.0f,%5.0f Z:%5.0f,%5.0f | ICM X:%5.0f,%5.0f Y:%5.0f,%5.0f Z:%5.0f,%5.0f   ", 
+               p_lmin[0], p_lmax[0], p_lmin[1], p_lmax[1], p_lmin[2], p_lmax[2],
+               p_imin[0], p_imax[0], p_imin[1], p_imax[1], p_imin[2], p_imax[2]);
+        vTaskDelay(pdMS_TO_TICKS(50)); 
+    }
 
     // Phase 2 (~60s) - Wide Left Turn
     escOut.speedbb = compassCalc.maxSpeed * 0.05; 
     escOut.speedsb = compassCalc.maxSpeed * 0.20;
     xQueueSend(escspeed, (void *)&escOut, 10);
     calstamp = millis();
-    while (millis() - calstamp < 60000) { sampleMag(); vTaskDelay(pdMS_TO_TICKS(50)); }
+    while (millis() - calstamp < 60000) { 
+        sampleMag(); 
+        
+        float p_lmin[3], p_lmax[3], p_imin[3], p_imax[3];
+        for(int i=0; i<3; i++) {
+            p_lmin[i] = (min_mag[i] == FLT_MAX) ? 0 : min_mag[i];
+            p_lmax[i] = (max_mag[i] == -FLT_MAX) ? 0 : max_mag[i];
+            p_imin[i] = (icm_min_mag[i] == FLT_MAX) ? 0 : icm_min_mag[i];
+            p_imax[i] = (icm_max_mag[i] == -FLT_MAX) ? 0 : icm_max_mag[i];
+        }
+        printf("\r[PH 2] LSM X:%5.0f,%5.0f Y:%5.0f,%5.0f Z:%5.0f,%5.0f | ICM X:%5.0f,%5.0f Y:%5.0f,%5.0f Z:%5.0f,%5.0f   ", 
+               p_lmin[0], p_lmax[0], p_lmin[1], p_lmax[1], p_lmin[2], p_lmax[2],
+               p_imin[0], p_imax[0], p_imin[1], p_imax[1], p_imin[2], p_imax[2]);
+        vTaskDelay(pdMS_TO_TICKS(50)); 
+    }
 
     // Phase 3 (~30s) - Pivot Right
     escOut.speedbb = compassCalc.maxSpeed * 0.25; 
     escOut.speedsb = -compassCalc.maxSpeed * 0.25;
     xQueueSend(escspeed, (void *)&escOut, 10);
     calstamp = millis();
-    while (millis() - calstamp < 30000) { sampleMag(); vTaskDelay(pdMS_TO_TICKS(50)); }
+    while (millis() - calstamp < 30000) { 
+        sampleMag(); 
+        
+        float p_lmin[3], p_lmax[3], p_imin[3], p_imax[3];
+        for(int i=0; i<3; i++) {
+            p_lmin[i] = (min_mag[i] == FLT_MAX) ? 0 : min_mag[i];
+            p_lmax[i] = (max_mag[i] == -FLT_MAX) ? 0 : max_mag[i];
+            p_imin[i] = (icm_min_mag[i] == FLT_MAX) ? 0 : icm_min_mag[i];
+            p_imax[i] = (icm_max_mag[i] == -FLT_MAX) ? 0 : icm_max_mag[i];
+        }
+        printf("\r[PH 3] LSM X:%5.0f,%5.0f Y:%5.0f,%5.0f Z:%5.0f,%5.0f | ICM X:%5.0f,%5.0f Y:%5.0f,%5.0f Z:%5.0f,%5.0f   ", 
+               p_lmin[0], p_lmax[0], p_lmin[1], p_lmax[1], p_lmin[2], p_lmax[2],
+               p_imin[0], p_imax[0], p_imin[1], p_imax[1], p_imin[2], p_imax[2]);
+        vTaskDelay(pdMS_TO_TICKS(50)); 
+    }
+    printf("\n"); // Clear line when finished
 
     // End maneuvers
     escOut.speedbb = 0; escOut.speedsb = 0;
@@ -530,12 +578,25 @@ void infieldCompassCalibration(void)
     compassCalc.magHard[1] = (max_mag[1] + min_mag[1]) / 2.0f;
     compassCalc.magHard[2] = (max_mag[2] + min_mag[2]) / 2.0f;
     
-    for(int i=0; i<3; i++) for(int j=0; j<3; j++) compassCalc.magSoft[i][j] = (i==j) ? 1.0f : 0.0f;
+    compassCalc.icmMagHard[0] = (icm_max_mag[0] + icm_min_mag[0]) / 2.0f;
+    compassCalc.icmMagHard[1] = (icm_max_mag[1] + icm_min_mag[1]) / 2.0f;
+    compassCalc.icmMagHard[2] = (icm_max_mag[2] + icm_min_mag[2]) / 2.0f;
+    
+    for(int i=0; i<3; i++) {
+        for(int j=0; j<3; j++) {
+            compassCalc.magSoft[i][j] = (i==j) ? 1.0f : 0.0f;
+            compassCalc.icmMagSoft[i][j] = (i==j) ? 1.0f : 0.0f;
+        }
+    }
 
     hardIron(&compassCalc, SET);
     softIron(&compassCalc, SET);
+    icmHardIron(&compassCalc, SET);
+    icmSoftIron(&compassCalc, SET);
     
-    printf("In-Field Calibration done. Hard iron: %.2f, %.2f, %.2f\r\n", compassCalc.magHard[0], compassCalc.magHard[1], compassCalc.magHard[2]);
+    printf("In-Field Calibration done. Hard iron: %.2f, %.2f, %.2f | ICM: %.2f, %.2f, %.2f\r\n", 
+            compassCalc.magHard[0], compassCalc.magHard[1], compassCalc.magHard[2],
+            compassCalc.icmMagHard[0], compassCalc.icmMagHard[1], compassCalc.icmMagHard[2]);
 
     compassBuzzerData.hz = 1000; compassBuzzerData.repeat = 2; compassBuzzerData.pause = 100; compassBuzzerData.duration = 200;
     xQueueSend(buzzer, (void *)&compassBuzzerData, 10);
@@ -568,7 +629,8 @@ void initcompassQueue(void)
  */
 void CompassTask(void *arg)
 {
-    double mHdg = 0;
+    double activeHdg = 0;
+    double lsmHdg = 0;
     double icmHdg = 0;
     int cmd = 0;
     unsigned long lastQueueSend = 0;
@@ -576,16 +638,20 @@ void CompassTask(void *arg)
 
     while (1)
     {
-        mHdg = GetHeadingAvg();
-        icmHdg = heading_icm(Vec3{1.0f, 0.0f, 0.0f});
+        activeHdg = GetHeadingAvg(); // This automatically uses ICM if available!
+        lsmHdg = heading_corrected(Vec3{1.0f, 0.0f, 0.0f});
+        if (icm_ready) {
+            icmHdg = heading_icm(Vec3{1.0f, 0.0f, 0.0f});
+        }
 
         if (millis() - lastQueueSend > 100) {
-            xQueueOverwrite(compass, (void *)&mHdg);
+            xQueueOverwrite(compass, (void *)&activeHdg);
             lastQueueSend = millis();
         }
 
         if (millis() - lastPrintSend > 500) {
-            printf("LSM/LIS Heading: %03.2f | ICM-20948 Heading: %03.2f\r\n", mHdg, icmHdg);
+            printf("Active Hdg (%s): %03.2f | Raw LSM: %03.2f | Raw ICM: %03.2f\r\n", 
+                   icm_ready ? "ICM20948" : "LSM303", activeHdg, lsmHdg, icm_ready ? icmHdg : -1.0);
             lastPrintSend = millis();
         }
 
