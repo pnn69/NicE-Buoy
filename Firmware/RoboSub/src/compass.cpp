@@ -113,9 +113,13 @@ float heading_icm(const Vec3 &from)
     if (!icm_ready) return -1.0f;
     sensors_event_t accel_event, mag_event, gyro_event, temp_event;
     icm.getEvent(&accel_event, &gyro_event, &temp_event, &mag_event);
-    
-    Vec3 temp_m = {mag_event.magnetic.x, mag_event.magnetic.y, mag_event.magnetic.z};
-    Vec3 a = {accel_event.acceleration.x, accel_event.acceleration.y, accel_event.acceleration.z};
+
+    // Invert Y and Z axes to match accelerometer's reference frame 
+    // (ICM20948 mag is X-forward, Y-right, Z-down. Accel is X-forward, Y-left, Z-up).
+    mag_event.magnetic.y = -mag_event.magnetic.y;
+    mag_event.magnetic.z = -mag_event.magnetic.z;
+
+    Vec3 temp_m = {mag_event.magnetic.x, mag_event.magnetic.y, mag_event.magnetic.z};    Vec3 a = {accel_event.acceleration.x, accel_event.acceleration.y, accel_event.acceleration.z};
 
     // Apply the same hard/soft iron calibrations for comparison (assuming roughly same placement/scaling, 
     // though in reality you'd want independent calibration matrices).

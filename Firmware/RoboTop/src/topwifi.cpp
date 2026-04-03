@@ -473,10 +473,13 @@ void WiFiTask(void *arg)
                 cmdEnum == MAXMINPWRSET || cmdEnum == STORE_COMPASS_OFFSET ||
                 cmdEnum == INFIELD_CALIBRATE || cmdEnum == INFIELD_OFFSET_CALIBRATE || cmdEnum == CALIBRATE_MAGNETIC_COMPASS) {
 
-                mainData.cmd = (msg_t)cmdEnum;                if (cmdEnum == SETUPDATA) {
+                mainData.cmd = (msg_t)cmdEnum;                
+                if (cmdEnum == SETUPDATA) {
                     mainData.ack = LORAGET;
                     mainData.IDr = BUOYIDALL;
                     mainData.IDs = espMac();
+                } else if (cmdEnum == CALIBRATE_MAGNETIC_COMPASS || cmdEnum == INFIELD_CALIBRATE || cmdEnum == INFIELD_OFFSET_CALIBRATE) {
+                    mainData.ack = LORAGETACK;
                 }
                 xQueueSend(serOut, (void *)&mainData, 10);
             }

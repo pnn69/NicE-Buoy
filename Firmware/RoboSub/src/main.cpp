@@ -394,13 +394,12 @@ void handelSerandRfdata(RoboStruct *ser)
             ser->status = IDLE;
             break;
         case CALIBRATE_MAGNETIC_COMPASS:
-            vTaskSuspend(compassTaskHandle);
-            calibrateParametersCompas();
-            vTaskResume(compassTaskHandle);
-            // ser->ack = LORAGETACK;
-            ser->status = IDELING;
-            xQueueSend(serOut, (void *)ser, 10);
-            ser->status = IDLE;
+            printf("Starting Desk Compass Calibration...");
+            ser->status = CALIBRATE_MAGNETIC_COMPASS;
+            {
+                int cmd = CALIBRATE_MAGNETIC_COMPASS;
+                xQueueSend(compassIn, (void *)&cmd, 10);
+            }
             break;
         case INFIELD_CALIBRATE:
             printf("Starting In-Field Compass Calibration...");
