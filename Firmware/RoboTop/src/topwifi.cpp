@@ -469,12 +469,11 @@ void WiFiTask(void *arg)
                 mainData.ack = LORASET;
             }
             
-            if (cmdEnum == SETUPDATA || cmdEnum == PIDRUDDERSET || cmdEnum == PIDSPEEDSET || 
-                cmdEnum == MAXMINPWRSET || cmdEnum == STORE_COMPASS_OFFSET || 
-                cmdEnum == INFIELD_CALIBRATE || cmdEnum == INFIELD_OFFSET_CALIBRATE) {
-                
-                mainData.cmd = (msg_t)cmdEnum;
-                if (cmdEnum == SETUPDATA) {
+            if (cmdEnum == SETUPDATA || cmdEnum == PIDRUDDERSET || cmdEnum == PIDSPEEDSET ||
+                cmdEnum == MAXMINPWRSET || cmdEnum == STORE_COMPASS_OFFSET ||
+                cmdEnum == INFIELD_CALIBRATE || cmdEnum == INFIELD_OFFSET_CALIBRATE || cmdEnum == CALIBRATE_MAGNETIC_COMPASS) {
+
+                mainData.cmd = (msg_t)cmdEnum;                if (cmdEnum == SETUPDATA) {
                     mainData.ack = LORAGET;
                     mainData.IDr = BUOYIDALL;
                     mainData.IDs = espMac();
