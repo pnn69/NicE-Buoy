@@ -420,6 +420,7 @@ void WiFiTask(void *arg)
         else if (cmdStr == "LIMITS") cmdEnum = MAXMINPWRSET;
         else if (cmdStr == "COMPASSOFFSET") cmdEnum = STORE_COMPASS_OFFSET;
         else if (cmdStr == "CALIB_COMPASS") cmdEnum = INFIELD_CALIBRATE;
+        else if (cmdStr == "MANUAL_CALIB") cmdEnum = CALIBRATE_MAGNETIC_COMPASS;
         else if (cmdStr == "CALIB_OFFSET") cmdEnum = INFIELD_OFFSET_CALIBRATE;
         else if (cmdStr == "COMPUTESTART") cmdEnum = COMPUTESTART;
         else if (cmdStr == "COMPUTETRACK") cmdEnum = COMPUTETRACK;
