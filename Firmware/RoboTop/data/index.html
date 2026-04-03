@@ -440,7 +440,9 @@ function sendSetupCommand(cmd) {
     } else if (cmd === 'COMPASSOFFSET') {
         url += `&offset=${document.getElementById('compassOffset').value || 0}&icmoffset=${document.getElementById('icmCompassOffset').value || 0}`;
     } else if (cmd === 'CALIB_COMPASS') {
-        if (!confirm(`Deploying In-Field Compass Calibration will cause Buoy ${currentBuoy} to move autonomously in circles for ~3 minutes.\n\nEnsure the area is clear. Continue?`)) return;
+        if (!confirm(`Deploying In-Water Calibration will cause Buoy ${currentBuoy} to move autonomously in circles for ~3 minutes.\n\nEnsure the area is clear. Continue?`)) return;
+    } else if (cmd === 'MANUAL_CALIB') {
+        if (!confirm(`Desk Calibration started for Buoy ${currentBuoy}!\n\nAs soon as you click OK, the buoy will record its compass bounds for 60 seconds.\n\nPlease pick it up and rotate it continuously in all 3D axes (Figure-8 motion). Ready?`)) return;
     } else if (cmd === 'CALIB_OFFSET') {
         if (!confirm(`Deploying In-Field Offset Calibration will cause Buoy ${currentBuoy} to sail South for ~2 minutes, then return North.\n\nEnsure you have enough open water to the South. Continue?`)) return;
     }
