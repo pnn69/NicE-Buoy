@@ -92,9 +92,15 @@ bool scan_for_wifi_ap(String ssipap, String ww, IPAddress *tmp)
             {
                 if (WiFi.SSID(i) == ssipap.c_str())
                 {
+<<<<<<< Updated upstream
                     Serial.print("Access point found, logging in...");
                     WiFi.begin(ssipap.c_str(), ww.c_str());
                     while (WiFi.status() != WL_CONNECTED)
+=======
+                    delay(50);
+                    Serial.print(".");
+                    if (timeout + 120 * 1000 < millis())
+>>>>>>> Stashed changes
                     {
                         delay(50);
                         Serial.print(".");

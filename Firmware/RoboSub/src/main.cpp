@@ -88,11 +88,6 @@ void setup()
     speedMaxMin(&mainData, GET);
     initescqueue();
 
-    // Temporary: Set WiFi credentials in memory
-    String ap = "NicE_WiFi";
-    String ww = "!Ni1001100110";
-    apParameters(&ap, &ww, false); // Store to NVS
-
     if (digitalRead(BUTTON_PIN) == LOW)
     {
         delay(100);
