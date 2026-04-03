@@ -307,6 +307,7 @@ double GetHeadingAvg(void)
 bool CalibrateCompass(void)
 {
     sensors_event_t event;
+    sensors_event_t a_evt, m_evt, g_evt, t_evt;
     unsigned long calstamp = millis();
     Serial.println("Calibrating compass now (60s)...");
     
@@ -339,7 +340,6 @@ bool CalibrateCompass(void)
             }
         }
         if (icm_ready) {
-            sensors_event_t a_evt, m_evt, g_evt, t_evt;
             icm.getEvent(&a_evt, &g_evt, &t_evt, &m_evt);
             if (abs(m_evt.magnetic.x) < 2000 && abs(m_evt.magnetic.y) < 2000 && abs(m_evt.magnetic.z) < 2000) {
                 icm_min_mag[0] = std::min(icm_min_mag[0], m_evt.magnetic.x);
@@ -350,8 +350,27 @@ bool CalibrateCompass(void)
                 icm_max_mag[2] = std::max(icm_max_mag[2], m_evt.magnetic.z);
             }
         }
+        
+        // Suppress FLT_MAX to avoid console spam initially
+        float p_lmin[3], p_lmax[3], p_imin[3], p_imax[3];
+        for(int i=0; i<3; i++) {
+            p_lmin[i] = (min_mag[i] == FLT_MAX) ? 0 : min_mag[i];
+            p_lmax[i] = (max_mag[i] == -FLT_MAX) ? 0 : max_mag[i];
+            p_imin[i] = (icm_min_mag[i] == FLT_MAX) ? 0 : icm_min_mag[i];
+            p_imax[i] = (icm_max_mag[i] == -FLT_MAX) ? 0 : icm_max_mag[i];
+        }
+
+        printf("\rLSM X:%5.0f,%5.0f(%5.0f) Y:%5.0f,%5.0f(%5.0f) Z:%5.0f,%5.0f(%5.0f) | ICM X:%5.0f,%5.0f(%5.0f) Y:%5.0f,%5.0f(%5.0f) Z:%5.0f,%5.0f(%5.0f)   ", 
+               p_lmin[0], p_lmax[0], event.magnetic.x,
+               p_lmin[1], p_lmax[1], event.magnetic.y,
+               p_lmin[2], p_lmax[2], event.magnetic.z,
+               p_imin[0], p_imax[0], m_evt.magnetic.x,
+               p_imin[1], p_imax[1], m_evt.magnetic.y,
+               p_imin[2], p_imax[2], m_evt.magnetic.z);
+
         vTaskDelay(pdMS_TO_TICKS(50));
     }
+    printf("\n"); // Clear line when finished
 
     compassCalc.magHard[0] = (max_mag[0] + min_mag[0]) / 2.0f;
     compassCalc.magHard[1] = (max_mag[1] + min_mag[1]) / 2.0f;
