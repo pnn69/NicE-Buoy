@@ -419,7 +419,16 @@ void WiFiTask(void *arg)
         subServer.send(200, "text/html", compass_html);
     });
     subServer.on("/data", []() {
-        String json = "{\"lsm\":" + String(global_lsmHdg, 2) + ", \"icm\":" + String(global_icmHdg, 2) + "}";
+        String json = "{";
+        json += "\"lsm\":" + String(global_lsmHdg, 2) + ", ";
+        json += "\"icm\":" + String(global_icmHdg, 2) + ", ";
+        json += "\"lsmHardX\":" + String(compassCalc.magHard[0], 2) + ", ";
+        json += "\"lsmHardY\":" + String(compassCalc.magHard[1], 2) + ", ";
+        json += "\"lsmHardZ\":" + String(compassCalc.magHard[2], 2) + ", ";
+        json += "\"icmHardX\":" + String(compassCalc.icmMagHard[0], 2) + ", ";
+        json += "\"icmHardY\":" + String(compassCalc.icmMagHard[1], 2) + ", ";
+        json += "\"icmHardZ\":" + String(compassCalc.icmMagHard[2], 2);
+        json += "}";
         subServer.send(200, "application/json", json);
     });
     subServer.begin();

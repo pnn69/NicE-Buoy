@@ -39,7 +39,8 @@ static double mDir = 0;
 
 QueueHandle_t compass;
 QueueHandle_t compassIn;
-static RoboStruct compassInData, compassCalc;
+static RoboStruct compassInData;
+RoboStruct compassCalc;
 static double declination = 2.56666666666;
 
 double global_lsmHdg = 0.0;
@@ -117,18 +118,18 @@ float heading_icm(const Vec3 &from)
     sensors_event_t accel_event, mag_event, gyro_event, temp_event;
     icm.getEvent(&accel_event, &gyro_event, &temp_event, &mag_event);
 
-    // Map ICM-20948 axes to match the LSM303 physical orientation (90-degree rotation + inverted Z)
+    // The Adafruit_ICM20948 driver natively maps the magnetometer to the accelerometer's frame.
+    // No manual axis swapping is required!
     Vec3 temp_m = {
+        mag_event.magnetic.x,
         mag_event.magnetic.y,
-        -mag_event.magnetic.x,
-        -mag_event.magnetic.z
+        mag_event.magnetic.z
     };
 
-    // Apply the exact same mapping to the accelerometer
     Vec3 a = {
+        accel_event.acceleration.x,
         accel_event.acceleration.y,
-        -accel_event.acceleration.x,
-        -accel_event.acceleration.z
+        accel_event.acceleration.z
     };
 
     // Apply the same hard/soft iron calibrations for comparison
@@ -156,7 +157,7 @@ float heading_icm(const Vec3 &from)
     if (std::isnan(dot_east) || std::isnan(dot_north)) return -1.0f;
     if (dot_east == 0.0f && dot_north == 0.0f) return -1.0f;
 
-    // Flip East/West by negating dot_east
+    // Flip East/West by negating dot_east to match standard compass output format
     float heading = atan2(-dot_east, dot_north) * 180.0f / M_PI;
     
     if (std::isnan(compassCalc.declination)) compassCalc.declination = 0.0f;

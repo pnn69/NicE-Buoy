@@ -1,5 +1,6 @@
 #ifndef COMPASS_H_
 #define COMPASS_H_
+#include <RoboCompute.h>
 
 extern QueueHandle_t compass;
 extern QueueHandle_t compassIn;
@@ -9,6 +10,8 @@ extern double magSoft[3][3];
 
 extern double global_lsmHdg;
 extern double global_icmHdg;
+
+extern RoboStruct compassCalc;
 
 void calibrateMagneticNorth(void);
 void InitCompass(void);
