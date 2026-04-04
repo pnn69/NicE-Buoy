@@ -510,6 +510,7 @@ void WiFiTask(void *arg)
             }
             else if (cmdEnum == STORE_COMPASS_OFFSET) {
                 msg.compassOffset = server.arg("offset").toFloat();
+                msg.icmCompassOffset = server.arg("icmoffset").toFloat();
             }
 
             if (msg.IDr != 0) {

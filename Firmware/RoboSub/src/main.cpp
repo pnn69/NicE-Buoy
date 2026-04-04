@@ -379,11 +379,18 @@ void handelSerandRfdata(RoboStruct *ser)
             InitCompass();
             break;
         case STORE_COMPASS_OFFSET:
-            printf("New compass offset: %f", dataIn.compassOffset);
+            printf("New compass offset: %f | %f", dataIn.compassOffset, dataIn.icmCompassOffset);
             CompasOffset(&dataIn, SET);
+            icmCompassOffsetLoad(&dataIn, SET);
             ser->compassOffset = dataIn.compassOffset; // Update running config
+            ser->icmCompassOffset = dataIn.icmCompassOffset; // Update running config
             InitCompass();
             printf(" (Stored)\r\n");
+            // Send an ACK back to the Top buoy so it stops retransmitting (if LORAGETACK is used)
+            if (dataIn.ack == LORAGETACK || dataIn.ack == LORASET) {
+                ser->status = IDELING; // Force a status sync back to Top
+                xQueueSend(serOut, (void *)ser, 10);
+            }
             break;
         case CALC_COMPASS_OFFSET:
             vTaskSuspend(compassTaskHandle);
@@ -438,6 +445,7 @@ void handelSerandRfdata(RoboStruct *ser)
                 pidSpeedParameters(ser, GET);
                 speedMaxMin(ser, GET);
                 CompasOffset(ser, GET);
+                icmCompassOffsetLoad(ser, GET);
                 xQueueSend(serOut, (void *)ser, 10);
                 printf("Sent SETUPDATA back\r\n");
             }
