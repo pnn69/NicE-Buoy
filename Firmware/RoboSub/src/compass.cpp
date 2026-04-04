@@ -371,13 +371,16 @@ bool CalibrateCompass(void)
         }
         if (icm_ready) {
             icm.getEvent(&a_evt, &g_evt, &t_evt, &m_evt);
-            if (abs(m_evt.magnetic.x) < 2000 && abs(m_evt.magnetic.y) < 2000 && abs(m_evt.magnetic.z) < 2000) {
-                icm_min_mag[0] = std::min(icm_min_mag[0], m_evt.magnetic.x);
-                icm_max_mag[0] = std::max(icm_max_mag[0], m_evt.magnetic.x);
-                icm_min_mag[1] = std::min(icm_min_mag[1], m_evt.magnetic.y);
-                icm_max_mag[1] = std::max(icm_max_mag[1], m_evt.magnetic.y);
-                icm_min_mag[2] = std::min(icm_min_mag[2], m_evt.magnetic.z);
-                icm_max_mag[2] = std::max(icm_max_mag[2], m_evt.magnetic.z);
+            float mx = m_evt.magnetic.y;
+            float my = -m_evt.magnetic.x;
+            float mz = -m_evt.magnetic.z;
+            if (abs(mx) < 2000 && abs(my) < 2000 && abs(mz) < 2000) {
+                icm_min_mag[0] = std::min(icm_min_mag[0], mx);
+                icm_max_mag[0] = std::max(icm_max_mag[0], mx);
+                icm_min_mag[1] = std::min(icm_min_mag[1], my);
+                icm_max_mag[1] = std::max(icm_max_mag[1], my);
+                icm_min_mag[2] = std::min(icm_min_mag[2], mz);
+                icm_max_mag[2] = std::max(icm_max_mag[2], mz);
             }
         }
         
@@ -679,19 +682,17 @@ void CompassTask(void *arg)
         }
 
         if (millis() - lastPrintSend > 500) {
-            // sensors_event_t a_icm, m_icm, g_icm, t_icm;
-            // if (icm_ready) icm.getEvent(&a_icm, &g_icm, &t_icm, &m_icm);
+            sensors_event_t a_icm, m_icm, g_icm, t_icm;
+            if (icm_ready) icm.getEvent(&a_icm, &g_icm, &t_icm, &m_icm);
             
-            // sensors_event_t a_lsm, m_lsm;
-            // accel.getEvent(&a_lsm);
-            // mag.getEvent(&m_lsm);
+            sensors_event_t a_lsm, m_lsm;
+            accel.getEvent(&a_lsm);
+            mag.getEvent(&m_lsm);
 
-            // printf("LSM A(%5.1f, %5.1f, %5.1f) M(%5.1f, %5.1f, %5.1f) | ICM A(%5.1f, %5.1f, %5.1f) M(%5.1f, %5.1f, %5.1f) | Hdgs: L:%.1f I:%.1f\r\n", 
-            //        a_lsm.acceleration.x, a_lsm.acceleration.y, a_lsm.acceleration.z,
-            //        m_lsm.magnetic.x, m_lsm.magnetic.y, m_lsm.magnetic.z,
-            //        icm_ready ? a_icm.acceleration.x : 0, icm_ready ? a_icm.acceleration.y : 0, icm_ready ? a_icm.acceleration.z : 0,
-            //        icm_ready ? m_icm.magnetic.x : 0, icm_ready ? m_icm.magnetic.y : 0, icm_ready ? m_icm.magnetic.z : 0,
-            //        lsmHdg, icmHdg);
+            printf("LSM M(%5.1f, %5.1f, %5.1f) | ICM M(%5.1f, %5.1f, %5.1f) | Hdgs: L:%.1f I:%.1f\r\n", 
+                   m_lsm.magnetic.x, m_lsm.magnetic.y, m_lsm.magnetic.z,
+                   icm_ready ? m_icm.magnetic.x : 0, icm_ready ? m_icm.magnetic.y : 0, icm_ready ? m_icm.magnetic.z : 0,
+                   lsmHdg, icmHdg);
             lastPrintSend = millis();
         }
 
