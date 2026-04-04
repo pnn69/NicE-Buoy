@@ -46,6 +46,14 @@ static double declination = 2.56666666666;
 double global_lsmHdg = 0.0;
 double global_icmHdg = 0.0;
 
+float global_lsm_x = 0;
+float global_lsm_y = 0;
+float global_lsm_z = 0;
+
+float global_icm_x = 0;
+float global_icm_y = 0;
+float global_icm_z = 0;
+
 Adafruit_LIS2MDL mag = Adafruit_LIS2MDL(12345);
 Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
 

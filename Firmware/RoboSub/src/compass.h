@@ -11,6 +11,14 @@ extern double magSoft[3][3];
 extern double global_lsmHdg;
 extern double global_icmHdg;
 
+extern float global_lsm_x;
+extern float global_lsm_y;
+extern float global_lsm_z;
+
+extern float global_icm_x;
+extern float global_icm_y;
+extern float global_icm_z;
+
 extern RoboStruct compassCalc;
 
 void calibrateMagneticNorth(void);
