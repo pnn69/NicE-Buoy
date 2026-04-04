@@ -117,18 +117,14 @@ float heading_icm(const Vec3 &from)
     sensors_event_t accel_event, mag_event, gyro_event, temp_event;
     icm.getEvent(&accel_event, &gyro_event, &temp_event, &mag_event);
 
-    // Map ICM-20948 Magnetometer axes to match the LSM303 physical orientation
-    // Empirically derived from live raw data comparison:
-    // LSM M( 19.4, -68.7, -41.1) | ICM M( 75.8, 77.8, 29.7)
+    // Feed raw data straight into the math. Do NOT swap axes before the Soft Iron Matrix!
     Vec3 temp_m = {
+        mag_event.magnetic.x,
         mag_event.magnetic.y,
-        -mag_event.magnetic.x,
-        -mag_event.magnetic.z
+        mag_event.magnetic.z
     };
 
     // Invert X and Y axes of the ICM accelerometer to match the LSM's physical orientation on the PCB
-    // Empirically derived from live raw data comparison:
-    // LSM A( 1.5, 0.2, 9.2) | ICM A( -1.9, -1.0, 8.9)
     accel_event.acceleration.x = -accel_event.acceleration.x;
     accel_event.acceleration.y = -accel_event.acceleration.y;
 
@@ -159,13 +155,14 @@ float heading_icm(const Vec3 &from)
     if (std::isnan(dot_east) || std::isnan(dot_north)) return -1.0f;
     if (dot_east == 0.0f && dot_north == 0.0f) return -1.0f;
 
-    // Use positive dot_east since the physical axes are now perfectly aligned with LSM
-    float heading = atan2(dot_east, dot_north) * 180.0f / M_PI;
+    // Because the ICM magnetometer is physically rotated 90 degrees relative to the LSM magnetometer,
+    // we swap the East and North dot products in the atan2 function to achieve the correct orientation.
+    // atan2(Y, X). LSM uses (-East, North). ICM uses (-North, -East).
+    float heading = atan2(-dot_north, -dot_east) * 180.0f / M_PI;
     
     if (std::isnan(compassCalc.declination)) compassCalc.declination = 0.0f;
     if (std::isnan(compassCalc.icmCompassOffset)) compassCalc.icmCompassOffset = 0.0f;
     
-    // SUBTRACT the offset, matching heading_corrected
     heading = heading + compassCalc.declination - compassCalc.icmCompassOffset;
     if (std::isnan(heading)) return -1.0f;
     
