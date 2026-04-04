@@ -1,10 +1,86 @@
 #include <WiFi.h>
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
 #include <AsyncUDP.h>
+#include <WebServer.h>
 #include <ArduinoOTA.h>
 #include <RoboCompute.h>
 #include "main.h"
 #include "io_sub.h"
+#include "compass.h"
+
+// Define the global web server on port 80
+WebServer subServer(80);
+
+const char* compass_html = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+<title>Compass Debug</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { font-family: Arial; text-align: center; background: #222; color: #fff; margin: 0; padding: 20px; }
+canvas { background: #333; border-radius: 50%; margin-top: 20px; border: 2px solid #555; max-width: 100%; height: auto; }
+h2 { margin-bottom: 5px; }
+.info { font-size: 1.2em; margin-top: 10px; display: flex; justify-content: center; gap: 20px; }
+.lsm { color: #f0ad4e; font-weight: bold; }
+.icm { color: #5bc0de; font-weight: bold; }
+</style>
+</head>
+<body>
+<h2>Dual Compass Debug</h2>
+<div class="info">
+    <span class="lsm">LSM303: <span id="lsmVal">0.0</span>&deg;</span>
+    <span class="icm">ICM20948: <span id="icmVal">0.0</span>&deg;</span>
+</div>
+<canvas id="compassCanvas" width="400" height="400"></canvas>
+<script>
+const ctx = document.getElementById('compassCanvas').getContext('2d');
+const cx = 200, cy = 200, r = 180;
+
+function drawRose(lsm, icm) {
+    ctx.clearRect(0, 0, 400, 400);
+    
+    // Draw background
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, 2*Math.PI); ctx.strokeStyle = '#555'; ctx.lineWidth = 2; ctx.stroke();
+    
+    // Draw N, E, S, W
+    ctx.fillStyle = '#aaa'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('N', cx, cy - r + 20); ctx.fillText('S', cx, cy + r - 20);
+    ctx.fillText('E', cx + r - 20, cy); ctx.fillText('W', cx - r + 20, cy);
+    
+    // Draw LSM Vector (Orange)
+    drawVector(lsm, '#f0ad4e', r - 30, 4);
+    
+    // Draw ICM Vector (Blue)
+    drawVector(icm, '#5bc0de', r - 40, 4);
+}
+
+function drawVector(angle, color, length, width) {
+    const rad = (angle - 90) * Math.PI / 180;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + length * Math.cos(rad), cy + length * Math.sin(rad));
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.stroke();
+}
+
+function fetchData() {
+    fetch('/data')
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('lsmVal').innerText = data.lsm.toFixed(1);
+        document.getElementById('icmVal').innerText = data.icm.toFixed(1);
+        drawRose(data.lsm, data.icm);
+    })
+    .catch(e => console.error(e));
+}
+setInterval(fetchData, 200);
+drawRose(0, 0);
+</script>
+</body>
+</html>
+)rawliteral";
 #include "datastorage.h"
 #include "subwifi.h"
 
@@ -337,12 +413,24 @@ void WiFiTask(void *arg)
     Serial.println("\"");
     setup_OTA();
     setupudp();
+    
+    // Set up Web Server
+    subServer.on("/", []() {
+        subServer.send(200, "text/html", compass_html);
+    });
+    subServer.on("/data", []() {
+        String json = "{\"lsm\":" + String(global_lsmHdg, 2) + ", \"icm\":" + String(global_icmHdg, 2) + "}";
+        subServer.send(200, "application/json", json);
+    });
+    subServer.begin();
+    
     Serial.print("WiFI task running!\r\n");
     //***************************************************************************************************
     //  WiFi main loop
     //***************************************************************************************************
     for (;;)
     {
+        subServer.handleClient();
         ArduinoOTA.handle();
         if (xQueueReceive(udpOut, (void *)&subWifiOut, 5) == pdTRUE)
         {

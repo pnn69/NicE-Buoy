@@ -42,6 +42,9 @@ QueueHandle_t compassIn;
 static RoboStruct compassInData, compassCalc;
 static double declination = 2.56666666666;
 
+double global_lsmHdg = 0.0;
+double global_icmHdg = 0.0;
+
 Adafruit_LIS2MDL mag = Adafruit_LIS2MDL(12345);
 Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
 
@@ -114,12 +117,21 @@ float heading_icm(const Vec3 &from)
     sensors_event_t accel_event, mag_event, gyro_event, temp_event;
     icm.getEvent(&accel_event, &gyro_event, &temp_event, &mag_event);
 
-    // Revert to original axis configuration that had correct N/S. 
-    // The E/W swap was actually due to a missing negative sign in the atan2 function!
-    mag_event.magnetic.y = -mag_event.magnetic.y;
-    mag_event.magnetic.z = -mag_event.magnetic.z;
+    // Map ICM-20948 Magnetometer axes to match the LSM303 physical orientation
+    // Empirically derived from live raw data comparison:
+    // LSM M( 19.4, -68.7, -41.1) | ICM M( 75.8, 77.8, 29.7)
+    Vec3 temp_m = {
+        mag_event.magnetic.y,
+        -mag_event.magnetic.x,
+        -mag_event.magnetic.z
+    };
 
-    Vec3 temp_m = {mag_event.magnetic.x, mag_event.magnetic.y, mag_event.magnetic.z};
+    // Invert X and Y axes of the ICM accelerometer to match the LSM's physical orientation on the PCB
+    // Empirically derived from live raw data comparison:
+    // LSM A( 1.5, 0.2, 9.2) | ICM A( -1.9, -1.0, 8.9)
+    accel_event.acceleration.x = -accel_event.acceleration.x;
+    accel_event.acceleration.y = -accel_event.acceleration.y;
+
     Vec3 a = {accel_event.acceleration.x, accel_event.acceleration.y, accel_event.acceleration.z};
 
     // Apply the same hard/soft iron calibrations for comparison
@@ -147,8 +159,8 @@ float heading_icm(const Vec3 &from)
     if (std::isnan(dot_east) || std::isnan(dot_north)) return -1.0f;
     if (dot_east == 0.0f && dot_north == 0.0f) return -1.0f;
 
-    // Flip East/West by negating dot_east (matches heading_corrected perfectly)
-    float heading = atan2(-dot_east, dot_north) * 180.0f / M_PI;
+    // Use positive dot_east since the physical axes are now perfectly aligned with LSM
+    float heading = atan2(dot_east, dot_north) * 180.0f / M_PI;
     
     if (std::isnan(compassCalc.declination)) compassCalc.declination = 0.0f;
     if (std::isnan(compassCalc.icmCompassOffset)) compassCalc.icmCompassOffset = 0.0f;
@@ -310,6 +322,7 @@ double GetHeadingAvg(void)
     } else {
         hdg = heading_corrected(Vec3{1.0f, 0.0f, 0.0f});
     }
+
     if (hdg < 0) return directions[cbufpointer > 0 ? cbufpointer-1 : NUM_DIRECTIONS-1];
     return CompassAverage(hdg);
 }
@@ -655,6 +668,10 @@ void CompassTask(void *arg)
         if (icm_ready) {
             icmHdg = heading_icm(Vec3{1.0f, 0.0f, 0.0f});
         }
+        
+        // Export values to global vars for sub webserver
+        global_lsmHdg = lsmHdg;
+        global_icmHdg = icmHdg;
 
         if (millis() - lastQueueSend > 100) {
             xQueueOverwrite(compass, (void *)&activeHdg);
@@ -662,8 +679,19 @@ void CompassTask(void *arg)
         }
 
         if (millis() - lastPrintSend > 500) {
-            printf("Active Hdg (%s): %03.2f | Raw LSM: %03.2f | Raw ICM: %03.2f\r\n", 
-                   icm_ready ? "ICM20948" : "LSM303", activeHdg, lsmHdg, icm_ready ? icmHdg : -1.0);
+            // sensors_event_t a_icm, m_icm, g_icm, t_icm;
+            // if (icm_ready) icm.getEvent(&a_icm, &g_icm, &t_icm, &m_icm);
+            
+            // sensors_event_t a_lsm, m_lsm;
+            // accel.getEvent(&a_lsm);
+            // mag.getEvent(&m_lsm);
+
+            // printf("LSM A(%5.1f, %5.1f, %5.1f) M(%5.1f, %5.1f, %5.1f) | ICM A(%5.1f, %5.1f, %5.1f) M(%5.1f, %5.1f, %5.1f) | Hdgs: L:%.1f I:%.1f\r\n", 
+            //        a_lsm.acceleration.x, a_lsm.acceleration.y, a_lsm.acceleration.z,
+            //        m_lsm.magnetic.x, m_lsm.magnetic.y, m_lsm.magnetic.z,
+            //        icm_ready ? a_icm.acceleration.x : 0, icm_ready ? a_icm.acceleration.y : 0, icm_ready ? a_icm.acceleration.z : 0,
+            //        icm_ready ? m_icm.magnetic.x : 0, icm_ready ? m_icm.magnetic.y : 0, icm_ready ? m_icm.magnetic.z : 0,
+            //        lsmHdg, icmHdg);
             lastPrintSend = millis();
         }
 

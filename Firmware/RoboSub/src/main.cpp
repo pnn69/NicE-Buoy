@@ -100,7 +100,7 @@ void setup()
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 2048, NULL, 1, NULL, 1);
     xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 5, NULL, 1);
     xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
-    xTaskCreatePinnedToCore(CompassTask, "CompassTask", 2000, NULL, configMAX_PRIORITIES - 1, &compassTaskHandle, 0); //&compassTaskHandle is used to suspend/resume the task
+    xTaskCreatePinnedToCore(CompassTask, "CompassTask", 4000, NULL, configMAX_PRIORITIES - 1, &compassTaskHandle, 0); //&compassTaskHandle is used to suspend/resume the task
     xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 3, NULL, 0);
     Serial.println("Setup done!");
     // Disable brownout detector
@@ -618,12 +618,11 @@ void handleTimerRoutines(RoboStruct *in)
 
     if (logtimer < millis())
     {
-        logtimer = millis() + 500;
+        logtimer = millis() + 1000;
         battVoltage(in->subAccuV, in->subAccuP);
         battCurrent(in->subAccuI);
-        // Temporarily suppressed telemetry plot for sensor comparison
-        // printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", in->tgDist - 2, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb);
-        // printf("  ip: %05.3f ir: %05.3f\r\n", in->ip, in->ir);
+        printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", in->tgDist - 2, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb);
+        printf("  ip: %05.3f ir: %05.3f\r\n", in->ip, in->ir);
     }
 }
 

@@ -7,6 +7,9 @@ extern QueueHandle_t compassIn;
 extern double magHard[3];
 extern double magSoft[3][3];
 
+extern double global_lsmHdg;
+extern double global_icmHdg;
+
 void calibrateMagneticNorth(void);
 void InitCompass(void);
 void initcompassQueue(void);
