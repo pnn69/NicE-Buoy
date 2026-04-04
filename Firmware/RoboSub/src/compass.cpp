@@ -260,7 +260,6 @@ void InitCompass(void)
     if (!mag.begin()) {
         Serial.println("Unable to initialize LSM303 magnetometer");
         vTaskDelay(pdMS_TO_TICKS(1000));
-        esp_restart();
     }
     
     // Initialize ICM20948
