@@ -117,18 +117,19 @@ float heading_icm(const Vec3 &from)
     sensors_event_t accel_event, mag_event, gyro_event, temp_event;
     icm.getEvent(&accel_event, &gyro_event, &temp_event, &mag_event);
 
-    // Feed raw data straight into the math. Do NOT swap axes before the Soft Iron Matrix!
+    // Map ICM-20948 axes to match the LSM303 physical orientation (90-degree rotation + inverted Z)
     Vec3 temp_m = {
-        mag_event.magnetic.x,
         mag_event.magnetic.y,
-        mag_event.magnetic.z
+        -mag_event.magnetic.x,
+        -mag_event.magnetic.z
     };
 
-    // Invert X and Y axes of the ICM accelerometer to match the LSM's physical orientation on the PCB
-    accel_event.acceleration.x = -accel_event.acceleration.x;
-    accel_event.acceleration.y = -accel_event.acceleration.y;
-
-    Vec3 a = {accel_event.acceleration.x, accel_event.acceleration.y, accel_event.acceleration.z};
+    // Apply the exact same mapping to the accelerometer
+    Vec3 a = {
+        accel_event.acceleration.y,
+        -accel_event.acceleration.x,
+        -accel_event.acceleration.z
+    };
 
     // Apply the same hard/soft iron calibrations for comparison
     temp_m.x -= compassCalc.icmMagHard[0];
@@ -155,10 +156,8 @@ float heading_icm(const Vec3 &from)
     if (std::isnan(dot_east) || std::isnan(dot_north)) return -1.0f;
     if (dot_east == 0.0f && dot_north == 0.0f) return -1.0f;
 
-    // Because the ICM magnetometer is physically rotated 90 degrees relative to the LSM magnetometer,
-    // we swap the East and North dot products in the atan2 function to achieve the correct orientation.
-    // atan2(Y, X). LSM uses (-East, North). ICM uses (-North, -East).
-    float heading = atan2(-dot_north, -dot_east) * 180.0f / M_PI;
+    // Flip East/West by negating dot_east
+    float heading = atan2(-dot_east, dot_north) * 180.0f / M_PI;
     
     if (std::isnan(compassCalc.declination)) compassCalc.declination = 0.0f;
     if (std::isnan(compassCalc.icmCompassOffset)) compassCalc.icmCompassOffset = 0.0f;
@@ -423,6 +422,15 @@ bool CalibrateCompass(void)
     printf("Calibration done. Hard iron: %.2f, %.2f, %.2f | ICM: %.2f, %.2f, %.2f\r\n", 
             compassCalc.magHard[0], compassCalc.magHard[1], compassCalc.magHard[2],
             compassCalc.icmMagHard[0], compassCalc.icmMagHard[1], compassCalc.icmMagHard[2]);
+            
+    // Send completion beep and return to IDLE
+    compassBuzzerData.hz = 1000; compassBuzzerData.repeat = 2; compassBuzzerData.pause = 100; compassBuzzerData.duration = 200;
+    xQueueSend(buzzer, (void *)&compassBuzzerData, 10);
+    
+    compassCalc.cmd = IDLE;
+    compassCalc.ack = LORAINF;
+    xQueueSend(serOut, (void *)&compassCalc, 10);
+    
     return true;
 }
 
