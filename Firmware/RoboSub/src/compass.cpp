@@ -498,6 +498,8 @@ void infieldCompassCalibration(void)
     for (int i = 0; i < 3; i++) {
         min_mag[i] = FLT_MAX;
         max_mag[i] = -FLT_MAX;
+        icm_min_mag[i] = FLT_MAX;
+        icm_max_mag[i] = -FLT_MAX;
     }
 
     auto sampleMag = [&]() {
@@ -520,13 +522,16 @@ void infieldCompassCalibration(void)
         if (icm_ready) {
             sensors_event_t a_evt, m_evt, g_evt, t_evt;
             icm.getEvent(&a_evt, &g_evt, &t_evt, &m_evt);
-            if (abs(m_evt.magnetic.x) < 2000 && abs(m_evt.magnetic.y) < 2000 && abs(m_evt.magnetic.z) < 2000) {
-                icm_min_mag[0] = std::min(icm_min_mag[0], m_evt.magnetic.x);
-                icm_max_mag[0] = std::max(icm_max_mag[0], m_evt.magnetic.x);
-                icm_min_mag[1] = std::min(icm_min_mag[1], m_evt.magnetic.y);
-                icm_max_mag[1] = std::max(icm_max_mag[1], m_evt.magnetic.y);
-                icm_min_mag[2] = std::min(icm_min_mag[2], m_evt.magnetic.z);
-                icm_max_mag[2] = std::max(icm_max_mag[2], m_evt.magnetic.z);
+            float mx = m_evt.magnetic.x;
+            float my = -m_evt.magnetic.y;
+            float mz = -m_evt.magnetic.z;
+            if (abs(mx) < 2000 && abs(my) < 2000 && abs(mz) < 2000) {
+                icm_min_mag[0] = std::min(icm_min_mag[0], mx);
+                icm_max_mag[0] = std::max(icm_max_mag[0], mx);
+                icm_min_mag[1] = std::min(icm_min_mag[1], my);
+                icm_max_mag[1] = std::max(icm_max_mag[1], my);
+                icm_min_mag[2] = std::min(icm_min_mag[2], mz);
+                icm_max_mag[2] = std::max(icm_max_mag[2], mz);
             }
         }
     };
