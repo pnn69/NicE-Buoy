@@ -367,8 +367,8 @@ bool CalibrateCompass(void)
         }
         if (icm_ready) {
             icm.getEvent(&a_evt, &g_evt, &t_evt, &m_evt);
-            float mx = m_evt.magnetic.y;
-            float my = -m_evt.magnetic.x;
+            float mx = m_evt.magnetic.x;
+            float my = -m_evt.magnetic.y;
             float mz = -m_evt.magnetic.z;
             if (abs(mx) < 2000 && abs(my) < 2000 && abs(mz) < 2000) {
                 icm_min_mag[0] = std::min(icm_min_mag[0], mx);
