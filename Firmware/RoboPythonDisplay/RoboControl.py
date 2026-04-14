@@ -24,7 +24,9 @@ class RoboMonitor:
         self.udp_ip = "0.0.0.0"  # Listen on all available interfaces
         self.udp_port = 1001     # Port RobobuoyTop sends UDP messages to
         
-        # Serial connection state
+        # Concurrency and Network state
+        self.data_lock = threading.Lock()
+        self.networking_ok = True
         self.serial_conn = None
         self.serial_thread = None
         self.running = True
@@ -33,16 +35,26 @@ class RoboMonitor:
         self.create_widgets()
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.settimeout(1.0) # Set timeout so recvfrom doesn't block forever
         try:
             self.sock.bind((self.udp_ip, self.udp_port))
         except Exception as e:
             print(f"Error binding UDP: {e}")
+            self.networking_ok = False
+            self.log_message(f"CRITICAL: Failed to bind UDP port {self.udp_port}. Check if another app is using it.")
 
-        self.udp_thread = threading.Thread(target=self.udp_listener)
-        self.udp_thread.daemon = True
-        self.udp_thread.start()
+        if self.networking_ok:
+            self.udp_thread = threading.Thread(target=self.udp_listener)
+            self.udp_thread.daemon = True
+            self.udp_thread.start()
 
         self.update_gui()
+
+    def calculate_crc(self, content):
+        crc = 0
+        for char in content:
+            crc ^= ord(char)
+        return crc
 
     def create_widgets(self):
         # Serial Control Bar at the very top
@@ -118,6 +130,8 @@ class RoboMonitor:
             # Info overlay on canvas (on the border of the windrose field)
             dist_text = windrose_canvas.create_text(2, 2, anchor="nw", text="-", font=("Arial", 12, "bold"), fill="red")
             pid_i_text = windrose_canvas.create_text(198, 2, anchor="ne", text="*", font=("Arial", 12, "bold"), fill="purple")
+            tg_dir_text = windrose_canvas.create_text(2, 198, anchor="sw", text="", font=("Arial", 12, "bold"), fill="red")
+            mag_dir_text = windrose_canvas.create_text(198, 198, anchor="se", text="-", font=("Arial", 12, "bold"), fill="green")
             
             volt_frame = tk.Frame(center_frame)
             volt_frame.pack(fill="x", pady=(5, 0))
@@ -188,6 +202,12 @@ class RoboMonitor:
             udp_toggle = ttk.Checkbutton(frame, text="UDP Enabled", variable=udp_enabled_var)
             udp_toggle.pack(anchor="w", padx=10, pady=(0, 5))
             
+            # Pre-create arrows (hidden initially)
+            tg_arrow = windrose_canvas.create_line(100, 100, 100, 100, arrow=tk.LAST, width=4, fill="red", state="hidden")
+            mag_arrow = windrose_canvas.create_line(100, 100, 100, 100, arrow=tk.LAST, width=3, fill="green", state="hidden")
+            wind_arrow = windrose_canvas.create_line(100, 100, 100, 100, arrow=tk.LAST, width=2, fill="blue", state="hidden")
+            gps_arrow = windrose_canvas.create_line(100, 100, 100, 100, arrow=tk.LAST, width=3, fill="black", state="hidden")
+
             self.buoy_frames.append({
                 'frame': frame,
                 'windrose_canvas': windrose_canvas,
@@ -212,10 +232,12 @@ class RoboMonitor:
                 'udp_enabled_var': udp_enabled_var,
                 'dist_text': dist_text,
                 'pid_i_text': pid_i_text,
-                'wind_arrow': None,
-                'tg_arrow': None,
-                'mag_arrow': None,
-                'gps_arrow': None,
+                'tg_dir_text': tg_dir_text,
+                'mag_dir_text': mag_dir_text,
+                'wind_arrow': wind_arrow,
+                'tg_arrow': tg_arrow,
+                'mag_arrow': mag_arrow,
+                'gps_arrow': gps_arrow,
                 'gps_dir_first_seen': None,
                 'params_frame': params_frame,
                 'labels': labels,
@@ -237,9 +259,10 @@ class RoboMonitor:
 
     def on_map_click(self, idx):
         b = self.buoy_frames[idx]
-        if not b['id']: return
-        lat = b['data'].get("Latitude (Lat)")
-        lon = b['data'].get("Longitude (Lon)")
+        with self.data_lock:
+            if not b['id']: return
+            lat = b['data'].get("Latitude (Lat)")
+            lon = b['data'].get("Longitude (Lon)")
         
         if lat and lon and lat not in ["N/A", "nan", ""] and lon not in ["N/A", "nan", ""]:
             try:
@@ -253,25 +276,28 @@ class RoboMonitor:
 
     def on_lock_click(self, idx):
         b = self.buoy_frames[idx]
-        if not b['id']: return
+        with self.data_lock:
+            if not b['id']: return
+            current_status = str(b['data'].get("Status", "0")).strip()
         
-        current_status = str(b['data'].get("Status", "0")).strip()
         # Action-oriented: if currently locked (12, 13, 14), send IDELING (8), otherwise send LOCKING (12)
         cmd = 8 if current_status in ["12", "13", "14"] else 12
         self.send_udp_command(b['id'], cmd)
 
     def on_dock_click(self, idx):
         b = self.buoy_frames[idx]
-        if not b['id']: return
+        with self.data_lock:
+            if not b['id']: return
+            current_status = str(b['data'].get("Status", "0")).strip()
         
-        current_status = str(b['data'].get("Status", "0")).strip()
         # Action-oriented: if currently docking (15, 16, 17), send IDELING (8), otherwise send DOCKING (15)
         cmd = 8 if current_status in ["15", "16", "17"] else 15
         self.send_udp_command(b['id'], cmd)
 
     def on_dirdist_click(self, idx, dir_val, dist_val):
         b = self.buoy_frames[idx]
-        if not b['id']: return
+        with self.data_lock:
+            if not b['id']: return
         try:
             d = float(dir_val)
             dist = float(dist_val)
@@ -284,11 +310,12 @@ class RoboMonitor:
 
     def on_setup_click(self, idx):
         b = self.buoy_frames[idx]
-        if not b['id']: return
-        
-        # Clear existing PID data to ensure we fetch fresh values
-        for key in ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "compassOffset"]:
-            b['data'].pop(key, None)
+        with self.data_lock:
+            if not b['id']: return
+            
+            # Clear existing PID data to ensure we fetch fresh values
+            for key in ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "compassOffset"]:
+                b['data'].pop(key, None)
             
         loading_win = tk.Toplevel(self.master)
         loading_win.title("Loading Setup...")
@@ -351,7 +378,8 @@ class RoboMonitor:
                         self.master.after(0, lambda: self.send_custom_udp_command(b['id'], f"{b['id']},99,1,83,,,,,,,", use_udp=True, use_lora=False))
                 else:
                     if retries % 15 == 0: # Every 3.0 seconds for LoRa
-                        self.send_custom_udp_command(b['id'], f"{b['id']},99,1,83,,,,,,,", use_udp=False, use_lora=True)
+                        # Use ACK=3 (LORAGETACK) for LoRa to trigger retries on RoboLora side
+                        self.send_custom_udp_command(b['id'], f"{b['id']},99,3,83,,,,,,,", use_udp=False, use_lora=True)
                 
                 self.master.after(200, check_data_and_open, retries + 1)
 
@@ -409,7 +437,7 @@ class RoboMonitor:
                 kir = float(kir_entry.get() or 0)
                 kdr = float(kdr_entry.get() or 0)
                 val_str = f"{format(kpr, '.10g')},{format(kir, '.10g')},{format(kdr, '.10g')}"
-                base_msg = f"{b['id']},99,2,56,,{val_str},,,"
+                base_msg = f"{b['id']},99,3,56,,{val_str},,,"
                 self.send_custom_udp_command(b['id'], base_msg)
             except ValueError:
                 pass
@@ -436,7 +464,7 @@ class RoboMonitor:
                 kis = float(kis_entry.get() or 0)
                 kds = float(kds_entry.get() or 0)
                 val_str = f"{format(kps, '.10g')},{format(kis, '.10g')},{format(kds, '.10g')}"
-                base_msg = f"{b['id']},99,2,58,,{val_str},,,"
+                base_msg = f"{b['id']},99,3,58,,{val_str},,,"
                 self.send_custom_udp_command(b['id'], base_msg)
             except ValueError:
                 pass
@@ -463,7 +491,7 @@ class RoboMonitor:
                 min_s = int(min_speed_entry.get() or 0)
                 piv_s = float(pivot_speed_entry.get() or 0.2)
                 val_str = f"{max_s},{min_s},{format(piv_s, '.2f')}"
-                base_msg = f"{b['id']},99,2,69,,{val_str},,,,,"
+                base_msg = f"{b['id']},99,3,69,,{val_str},,,,,"
                 self.send_custom_udp_command(b['id'], base_msg)
             except ValueError:
                 pass
@@ -481,7 +509,7 @@ class RoboMonitor:
                 coff = float(compass_offset_entry.get() or 0)
                 val_str = f"{format(coff, '.2f')}"
                 # CMD 75 is STORE_COMPASS_OFFSET
-                base_msg = f"{b['id']},99,2,75,,{val_str},,,,,"
+                base_msg = f"{b['id']},99,3,75,,{val_str},,,,,"
                 self.send_custom_udp_command(b['id'], base_msg)
             except ValueError:
                 pass
@@ -506,14 +534,16 @@ class RoboMonitor:
             "pivotSpeed": pivot_speed_entry, "compassOffset": compass_offset_entry
         }
         # Pre-fill if we have data already
-        for key, entry in b['setup_entries'].items():
-            val = b['data'].get(key, "")
-            if val:
-                entry.delete(0, tk.END)
-                entry.insert(0, val)
+        with self.data_lock:
+            for key, entry in b['setup_entries'].items():
+                val = b['data'].get(key, "")
+                if val:
+                    entry.delete(0, tk.END)
+                    entry.insert(0, val)
 
     def on_infield_calib_click(self, b):
-        if not b['id']: return
+        with self.data_lock:
+            if not b['id']: return
         
         response = messagebox.askyesno(
             "Confirm In-Field Compass Calibration",
@@ -526,7 +556,8 @@ class RoboMonitor:
             self.log_message(f"Triggered In-Field Compass Calibration for Buoy {b['id']}")
 
     def on_infield_offset_click(self, b):
-        if not b['id']: return
+        with self.data_lock:
+            if not b['id']: return
         
         response = messagebox.askyesno(
             "Confirm In-Field Offset Calibration",
@@ -542,20 +573,21 @@ class RoboMonitor:
         # Determine if UDP is allowed for this target
         udp_allowed = True
         target_buoy = None
-        for b in self.buoy_frames:
-            if b['id'] == target_id:
-                target_buoy = b
-                udp_allowed = b['udp_enabled_var'].get()
-                break
+        with self.data_lock:
+            for b in self.buoy_frames:
+                if b['id'] == target_id:
+                    target_buoy = b
+                    udp_allowed = b['udp_enabled_var'].get()
+                    break
 
-        # If use_lora is None, treat LoRa as a backup: only use if UDP is inactive or disabled
-        if use_lora is None:
-            use_lora = True # Default to True
-            if target_buoy:
-                current_t = time.time()
-                # If UDP is healthy AND enabled, we don't need LoRa backup
-                if udp_allowed and target_buoy['last_udp_time'] > 0 and (current_t - target_buoy['last_udp_time'] < 5):
-                    use_lora = False
+            # If use_lora is None, treat LoRa as a backup: only use if UDP is inactive or disabled
+            if use_lora is None:
+                use_lora = True # Default to True
+                if target_buoy:
+                    current_t = time.time()
+                    # If UDP is healthy AND enabled, we don't need LoRa backup
+                    if udp_allowed and target_buoy['last_udp_time'] > 0 and (current_t - target_buoy['last_udp_time'] < 5):
+                        use_lora = False
 
         crc = 0
         for char in base_msg:
@@ -564,8 +596,9 @@ class RoboMonitor:
         
         if use_udp and udp_allowed:
             target_ip = "255.255.255.255"
-            if target_buoy and target_buoy['data'].get("IP"):
-                target_ip = target_buoy['data']["IP"]
+            with self.data_lock:
+                if target_buoy and target_buoy['data'].get("IP"):
+                    target_ip = target_buoy['data']["IP"]
             
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -595,19 +628,20 @@ class RoboMonitor:
         # Determine if UDP is allowed for this target
         udp_allowed = True
         target_buoy = None
-        for b in self.buoy_frames:
-            if b['id'] == target_id:
-                target_buoy = b
-                udp_allowed = b['udp_enabled_var'].get()
-                break
+        with self.data_lock:
+            for b in self.buoy_frames:
+                if b['id'] == target_id:
+                    target_buoy = b
+                    udp_allowed = b['udp_enabled_var'].get()
+                    break
 
-        # If use_lora is None, treat LoRa as a backup: only use if UDP is inactive or disabled
-        if use_lora is None:
-            use_lora = True 
-            if target_buoy:
-                current_t = time.time()
-                if udp_allowed and target_buoy['last_udp_time'] > 0 and (current_t - target_buoy['last_udp_time'] < 5):
-                    use_lora = False
+            # If use_lora is None, treat LoRa as a backup: only use if UDP is inactive or disabled
+            if use_lora is None:
+                use_lora = True 
+                if target_buoy:
+                    current_t = time.time()
+                    if udp_allowed and target_buoy['last_udp_time'] > 0 and (current_t - target_buoy['last_udp_time'] < 5):
+                        use_lora = False
         
         base_msg = f"{target_id},99,3,{cmd_id},7"
         crc = 0
@@ -617,8 +651,9 @@ class RoboMonitor:
         
         if use_udp and udp_allowed:
             target_ip = "255.255.255.255"
-            if target_buoy and target_buoy['data'].get("IP"):
-                target_ip = target_buoy['data']["IP"]
+            with self.data_lock:
+                if target_buoy and target_buoy['data'].get("IP"):
+                    target_ip = target_buoy['data']["IP"]
             
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -721,7 +756,6 @@ class RoboMonitor:
         labels = {}
         param_names = [
             "Timestamp",
-            "Target Dir", "Magnetic Dir",
             "Wind Dir", "Wind StdDev",
             "PID I-term", "PID R-term",
             "Battery",
@@ -746,17 +780,18 @@ class RoboMonitor:
                 print(f"UDP Error: {e}")
 
     def update_buoy_data(self, buoy_id, data):
-        for b in self.buoy_frames:
-            if b['id'] == buoy_id:
-                b['data'].update(data)
-                return
-        
-        for b in self.buoy_frames:
-            if b['id'] is None:
-                b['id'] = buoy_id
-                b['frame'].config(text=f"Buoy: {buoy_id}")
-                b['data'].update(data)
-                return
+        with self.data_lock:
+            for b in self.buoy_frames:
+                if b['id'] == buoy_id:
+                    b['data'].update(data)
+                    return
+            
+            for b in self.buoy_frames:
+                if b['id'] is None:
+                    b['id'] = buoy_id
+                    b['frame'].config(text=f"Buoy: {buoy_id}")
+                    b['data'].update(data)
+                    return
 
     def parse_message(self, message, sender_ip):
         current_timestamp = datetime.now().strftime("%H:%M:%S")
@@ -765,7 +800,20 @@ class RoboMonitor:
             return
             
         try:
-            content, crc = message[1:].split('*', 1)
+            content, crc_str = message[1:].split('*', 1)
+            
+            # --- CRC Validation ---
+            try:
+                received_crc = int(crc_str, 16)
+                calculated_crc = self.calculate_crc(content)
+                if received_crc != calculated_crc:
+                    self.log_message(f"CRC ERROR: Expected {calculated_crc:02X}, got {received_crc:02X} in message: {message}")
+                    return
+            except ValueError:
+                self.log_message(f"CRC FORMAT ERROR in message: {message}")
+                return
+            # ----------------------
+
             fields = content.split(',')
             
             # Normalize empty fields to "0" (supports compressed zero-value transmission)
@@ -833,18 +881,21 @@ class RoboMonitor:
                 self.update_buoy_data(buoy_id, data)
                 
             elif cmd == "55" and len(fields) >= 8: # PIDRUDDER
+                if fields[2] == "4": return
                 data.update({
                     "Kpr": fields[5], "Kir": fields[6], "Kdr": fields[7]
                 })
                 self.update_buoy_data(buoy_id, data)
                 
             elif cmd == "57" and len(fields) >= 8: # PIDSPEED
+                if fields[2] == "4": return
                 data.update({
                     "Kps": fields[5], "Kis": fields[6], "Kds": fields[7]
                 })
                 self.update_buoy_data(buoy_id, data)
                 
             elif cmd == "68" and len(fields) >= 7: # MAXMINPWR
+                if fields[2] == "4": return
                 piv_s = "0.2"
                 if len(fields) >= 8:
                     piv_s = fields[7]
@@ -854,6 +905,8 @@ class RoboMonitor:
                 self.update_buoy_data(buoy_id, data)
 
             elif cmd == "83" and len(fields) >= 14: # SETUPDATA
+                if fields[2] == "4": return # Ignore LORAACK packets which contain empty structs
+                
                 piv_s = "0.2"
                 comp_off = "0.0"
                 if len(fields) >= 14:
@@ -874,204 +927,233 @@ class RoboMonitor:
 
     def update_gui(self):
         current_t = time.time()
-        for b in self.buoy_frames:
-            data = b['data']
-            current_status = str(data.get("Status", "0")).strip()
-            
-            # --- Network Monitor Update ---
-            if b['last_udp_time'] > 0 and (current_t - b['last_udp_time'] < 5):
-                b['udp_indicator'].config(text="UDP: OK", fg="green")
-            else:
-                b['udp_indicator'].config(text="UDP: --", fg="gray")
+        with self.data_lock:
+            for b in self.buoy_frames:
+                data = b['data']
+                current_status = str(data.get("Status", "0")).strip()
                 
-            if b['last_lora_time'] > 0 and (current_t - b['last_lora_time'] < 5):
-                b['lora_indicator'].config(text="LoRa: OK", fg="green")
-            else:
-                b['lora_indicator'].config(text="LoRa: --", fg="gray")
-                
-            if b['last_udp_content'] and b['last_lora_content']:
-                if b['last_udp_content'] == b['last_lora_content']:
-                    b['sync_indicator'].config(text="Data: SYNC", fg="green")
+                # --- Network Monitor Update ---
+                if b['last_udp_time'] > 0 and (current_t - b['last_udp_time'] < 5):
+                    b['udp_indicator'].config(text="UDP: OK", fg="green")
                 else:
-                    b['sync_indicator'].config(text="Data: DIFF", fg="red")
-            else:
-                b['sync_indicator'].config(text="Data: WAIT", fg="gray")
-            # ------------------------------
-            
-            # Update Canvas Texts (Always show, even if waiting for ID)
-            if current_status == "7": # IDLE
-                b['windrose_canvas'].itemconfig(b['dist_text'], text="-")
-                b['windrose_canvas'].itemconfig(b['pid_i_text'], text="*")
-            else:
-                dist_val = data.get("Target Dist", "N/A")
-                if dist_val != "N/A" and dist_val != "nan" and dist_val != "":
-                    try:
-                        dist_val = f"{float(dist_val):.2f}m"
-                    except ValueError: 
-                        dist_val = "0.00m"
-                else:
-                    dist_val = "0.00m"
-                b['windrose_canvas'].itemconfig(b['dist_text'], text=dist_val)
-                
-                pid_i_val = data.get("PID I-term", "N/A")
-                if pid_i_val != "N/A" and pid_i_val != "nan" and pid_i_val != "":
-                    try:
-                        pid_i_val = f"{float(pid_i_val):.2f}"
-                    except ValueError:
-                        pid_i_val = "0.00"
-                else:
-                    pid_i_val = "0.00"
-                b['windrose_canvas'].itemconfig(b['pid_i_text'], text=f"I:{pid_i_val}")
-            
-            # Ensure text stays on top of arrows
-            b['windrose_canvas'].tag_raise(b['dist_text'])
-            b['windrose_canvas'].tag_raise(b['pid_i_text'])
-
-            if b['id'] is not None:
-                labels = b['labels']
-                # Update Lock Button Text (Action-oriented)
-                
-                status_text = "UNKNOWN"
-                if current_status == "7":
-                    status_text = "IDLE"
-                elif current_status in ["12", "13", "14"]:
-                    status_text = "LOCKED"
-                elif current_status in ["15", "16", "17"]:
-                    status_text = "DOCKING"
-                elif current_status == "25":
-                    status_text = "REMOTE"
-                elif current_status == "49":
-                    status_text = "SETUP"
-                else:
-                    status_text = f"STATUS {current_status}"
-                b['status_label'].config(text=status_text)
-                
-                # Update IP Header Label
-                b['ip_header_label'].config(text=data.get("IP", ""))
-                
-                if current_status in ["12", "13", "14"]: # LOCKED
-                    b['lock_btn'].config(text="IDLE")
-                    b['dock_btn'].config(text="DOCK")
-                elif current_status in ["15", "16", "17"]: # DOCKING
-                    b['lock_btn'].config(text="LOCK")
-                    b['dock_btn'].config(text="IDLE")
-                else:
-                    b['lock_btn'].config(text="LOCK")
-                    b['dock_btn'].config(text="DOCK")                
-                # Update DIRDIST Send Button state based on GPS Fix
-                gps_fix = str(data.get("GPS Fix", "0")).strip()
-                if gps_fix == "1" or gps_fix.lower() == "true":
-                    b['dirdist_send_btn'].config(state="normal")
-                else:
-                    b['dirdist_send_btn'].config(state="disabled")
-                
-                tg_dir = data.get("Target Dir", "N/A")
-                w_dir = data.get("Wind Dir", "N/A")
-                if current_status == "7": # Hide in IDLE
-                    tg_dir = "N/A"
-                    w_dir = "N/A"
-                
-                gps_dir = data.get("GPS Dir", "N/A")
-                dist_val = data.get("Target Dist", "0")
-
-                show_gps_vector = False
-                try:
-                    dist_ok = float(dist_val) > 5.0
-                except:
-                    dist_ok = False
-
-                status_ok = current_status in ["12", "13", "14", "15", "16", "17"]  # LOCKED or DOCKING
-
-                if gps_dir not in ["N/A", "nan", ""] and status_ok and dist_ok:
-                    if b.get("gps_dir_first_seen") is None:
-                        b["gps_dir_first_seen"] = time.time()
-
-                    if time.time() - b["gps_dir_first_seen"] >= 5.0:
-                        gps_dir_to_show = gps_dir
-                        show_gps_vector = True
-                    else:
-                        gps_dir_to_show = "N/A"
-                else:
-                    b["gps_dir_first_seen"] = None
-                    gps_dir_to_show = "N/A"                
-                self.update_windrose(b, w_dir, tg_dir, data.get("Magnetic Dir", "N/A"), gps_dir_to_show)
-                
-                # Update Setup Window entries if open
-                if b.get('setup_entries'):
-                    for key, entry in b['setup_entries'].items():
-                        val = data.get(key, "")
-                        # Only update if the entry is empty (first time)
-                        if val and not entry.get():
-                            entry.insert(0, val)
-
-                # --- Update visual indicators independently of the labels list ---
-                for thrust_name in ["Bow Thruster (BB)", "Stern Thruster (SB)"]:
-                    val = data.get(thrust_name, "N/A")
-                    if current_status == "7":
-                        val = "0"
-                        
-                    canvas = b['bb_bar'] if thrust_name == "Bow Thruster (BB)" else b['sb_bar']
-                    bar_label = b['bb_val_label'] if thrust_name == "Bow Thruster (BB)" else b['sb_val_label']
+                    b['udp_indicator'].config(text="UDP: --", fg="gray")
                     
-                    canvas.delete("bar")
-                    if val != "N/A":
-                        try:
-                            v = float(val)
-                            bar_height = abs(v) * 0.9
-                            if v >= 0:
-                                canvas.create_rectangle(0, 90 - bar_height, 20, 90, fill="green", outline="green", tags="bar")
-                            else:
-                                canvas.create_rectangle(0, 90, 20, 90 + bar_height, fill="red", outline="red", tags="bar")
-                            bar_label.config(text=f"{val}%")
-                        except ValueError: pass
+                if b['last_lora_time'] > 0 and (current_t - b['last_lora_time'] < 5):
+                    b['lora_indicator'].config(text="LoRa: OK", fg="green")
+                else:
+                    b['lora_indicator'].config(text="LoRa: --", fg="gray")
+                    
+                if b['last_udp_content'] and b['last_lora_content']:
+                    if b['last_udp_content'] == b['last_lora_content']:
+                        b['sync_indicator'].config(text="Data: SYNC", fg="green")
                     else:
-                        bar_label.config(text="N/A")
-
-                volt_val = data.get("Sub Battery V", "N/A")
-                if volt_val != "N/A":
+                        b['sync_indicator'].config(text="Data: DIFF", fg="red")
+                else:
+                    b['sync_indicator'].config(text="Data: WAIT", fg="gray")
+                # ------------------------------
+                
+                # Update Canvas Texts (Always show, even if waiting for ID)
+                m_dir_val = data.get("Magnetic Dir", "N/A")
+                if m_dir_val != "N/A" and m_dir_val != "nan" and m_dir_val != "":
                     try:
-                        v = float(volt_val)
-                        b['volt_bar']['value'] = max(0, min(8.2, v - 17.0))
-                    except ValueError: pass
-                # ---------------------------------------------------------------
+                        m_dir_val = f"{float(m_dir_val):.0f}°"
+                    except ValueError:
+                        m_dir_val = "-"
+                else:
+                    m_dir_val = "-"
+                b['windrose_canvas'].itemconfig(b['mag_dir_text'], text=m_dir_val)
 
-                for name, label_widget in labels.items():
-                    if name == "Battery":
-                        if volt_val != "N/A":
+                if current_status == "7": # IDLE
+                    b['windrose_canvas'].itemconfig(b['dist_text'], text="-")
+                    b['windrose_canvas'].itemconfig(b['pid_i_text'], text="*")
+                    b['windrose_canvas'].itemconfig(b['tg_dir_text'], text="")
+                else:
+                    dist_val = data.get("Target Dist", "N/A")
+                    if dist_val != "N/A" and dist_val != "nan" and dist_val != "":
+                        try:
+                            dist_val = f"{float(dist_val):.2f}m"
+                        except ValueError: 
+                            dist_val = "0.00m"
+                    else:
+                        dist_val = "0.00m"
+                    b['windrose_canvas'].itemconfig(b['dist_text'], text=dist_val)
+                    
+                    pid_i_val = data.get("PID I-term", "N/A")
+                    if pid_i_val != "N/A" and pid_i_val != "nan" and pid_i_val != "":
+                        try:
+                            pid_i_val = f"{float(pid_i_val):.2f}"
+                        except ValueError:
+                            pid_i_val = "0.00"
+                    else:
+                        pid_i_val = "0.00"
+                    b['windrose_canvas'].itemconfig(b['pid_i_text'], text=f"I:{pid_i_val}")
+
+                    if current_status in ["12", "13", "14", "15", "16", "17"]: # LOCKED or DOCKING
+                        tg_dir_val = data.get("Target Dir", "N/A")
+                        if tg_dir_val != "N/A" and tg_dir_val != "nan" and tg_dir_val != "":
                             try:
-                                label_widget.config(text=f"{float(volt_val):.1f}V")
+                                tg_dir_val = f"{float(tg_dir_val):.0f}°"
                             except ValueError:
-                                label_widget.config(text=f"{volt_val}V")
+                                tg_dir_val = ""
                         else:
-                            label_widget.config(text="N/A")
-                    elif name in ["Target Dir", "Magnetic Dir", "GPS Dir", "Wind Dir"]:
-                        val = data.get(name, "N/A")
+                            tg_dir_val = ""
+                        b['windrose_canvas'].itemconfig(b['tg_dir_text'], text=tg_dir_val)
+                    else:
+                        b['windrose_canvas'].itemconfig(b['tg_dir_text'], text="")
+                
+                # Ensure text stays on top of arrows
+                b['windrose_canvas'].tag_raise(b['dist_text'])
+                b['windrose_canvas'].tag_raise(b['pid_i_text'])
+                b['windrose_canvas'].tag_raise(b['tg_dir_text'])
+                b['windrose_canvas'].tag_raise(b['mag_dir_text'])
+
+                if b['id'] is not None:
+                    labels = b['labels']
+                    # Update Lock Button Text (Action-oriented)
+                    
+                    status_text = "UNKNOWN"
+                    if current_status == "7":
+                        status_text = "IDLE"
+                    elif current_status in ["12", "13", "14"]:
+                        status_text = "LOCKED"
+                    elif current_status in ["15", "16", "17"]:
+                        status_text = "DOCKING"
+                    elif current_status == "25":
+                        status_text = "REMOTE"
+                    elif current_status == "49":
+                        status_text = "SETUP"
+                    else:
+                        status_text = f"STATUS {current_status}"
+                    b['status_label'].config(text=status_text)
+                    
+                    # Update IP Header Label
+                    b['ip_header_label'].config(text=data.get("IP", ""))
+                    
+                    if current_status in ["12", "13", "14"]: # LOCKED
+                        b['lock_btn'].config(text="IDLE")
+                        b['dock_btn'].config(text="DOCK")
+                    elif current_status in ["15", "16", "17"]: # DOCKING
+                        b['lock_btn'].config(text="LOCK")
+                        b['dock_btn'].config(text="IDLE")
+                    else:
+                        b['lock_btn'].config(text="LOCK")
+                        b['dock_btn'].config(text="DOCK")                
+                    # Update DIRDIST Send Button state based on GPS Fix
+                    gps_fix = str(data.get("GPS Fix", "0")).strip()
+                    if gps_fix == "1" or gps_fix.lower() == "true":
+                        b['dirdist_send_btn'].config(state="normal")
+                    else:
+                        b['dirdist_send_btn'].config(state="disabled")
+                    
+                    tg_dir = data.get("Target Dir", "N/A")
+                    w_dir = data.get("Wind Dir", "N/A")
+                    if current_status == "7": # Hide in IDLE
+                        tg_dir = "N/A"
+                        w_dir = "N/A"
+                    
+                    gps_dir = data.get("GPS Dir", "N/A")
+                    dist_val = data.get("Target Dist", "0")
+
+                    show_gps_vector = False
+                    try:
+                        dist_ok = float(dist_val) > 5.0
+                    except:
+                        dist_ok = False
+
+                    status_ok = current_status in ["12", "13", "14", "15", "16", "17"]  # LOCKED or DOCKING
+
+                    if gps_dir not in ["N/A", "nan", ""] and status_ok and dist_ok:
+                        if b.get("gps_dir_first_seen") is None:
+                            b["gps_dir_first_seen"] = time.time()
+
+                        if time.time() - b["gps_dir_first_seen"] >= 5.0:
+                            gps_dir_to_show = gps_dir
+                            show_gps_vector = True
+                        else:
+                            gps_dir_to_show = "N/A"
+                    else:
+                        b["gps_dir_first_seen"] = None
+                        gps_dir_to_show = "N/A"                
+                    self.update_windrose(b, w_dir, tg_dir, data.get("Magnetic Dir", "N/A"), gps_dir_to_show)
+                    
+                    # Update Setup Window entries if open
+                    if b.get('setup_entries'):
+                        for key, entry in b['setup_entries'].items():
+                            val = data.get(key, "")
+                            # Only update if the entry is empty (first time)
+                            if val and not entry.get():
+                                entry.insert(0, val)
+
+                    # --- Update visual indicators independently of the labels list ---
+                    for thrust_name in ["Bow Thruster (BB)", "Stern Thruster (SB)"]:
+                        val = data.get(thrust_name, "N/A")
+                        if current_status == "7":
+                            val = "0"
+
+                        canvas = b['bb_bar'] if thrust_name == "Bow Thruster (BB)" else b['sb_bar']
+                        bar_label = b['bb_val_label'] if thrust_name == "Bow Thruster (BB)" else b['sb_val_label']
+
+                        canvas.delete("bar")
                         if val != "N/A":
                             try:
-                                val = f"{float(val):.0f}"
+                                v = -float(val) # Invert to match physical orientation (same as sub website)
+                                bar_height = abs(v) * 0.9
+                                if v < 0:
+                                    canvas.create_rectangle(0, 90, 20, 90 + bar_height, fill="red", outline="red", tags="bar")
+                                else:
+                                    canvas.create_rectangle(0, 90 - bar_height, 20, 90, fill="green", outline="green", tags="bar")
+                                bar_label.config(text=f"{int(v)}%")
                             except ValueError: pass
-                        label_widget.config(text=val)
-                    else:
-                        label_widget.config(text=data.get(name, "N/A"))
+                        else:
+                            bar_label.config(text="N/A")
+                    volt_val = data.get("Sub Battery V", "N/A")
+                    if volt_val != "N/A":
+                        try:
+                            v = float(volt_val)
+                            b['volt_bar']['value'] = max(0, min(8.2, v - 17.0))
+                        except ValueError: pass
+                    # ---------------------------------------------------------------
+
+                    for name, label_widget in labels.items():
+                        if name == "Battery":
+                            if volt_val != "N/A":
+                                try:
+                                    label_widget.config(text=f"{float(volt_val):.1f}V")
+                                except ValueError:
+                                    label_widget.config(text=f"{volt_val}V")
+                            else:
+                                label_widget.config(text="N/A")
+                        elif name in ["GPS Dir", "Wind Dir"]:
+                            val = data.get(name, "N/A")
+                            if val != "N/A":
+                                try:
+                                    val = f"{float(val):.0f}"
+                                except ValueError: pass
+                            label_widget.config(text=val)
+                        else:
+                            label_widget.config(text=data.get(name, "N/A"))
 
         self.master.after(500, self.update_gui)
 
     def update_windrose(self, b, w_dir_str, tg_dir_str, m_dir_str, gps_dir_str="N/A"):
         canvas = b['windrose_canvas']
-        def draw_arrow(dir_str, arrow_key, color, length, width):
-            if b.get(arrow_key): canvas.delete(b[arrow_key])
-            b[arrow_key] = None
+        def draw_arrow(dir_str, arrow_id, length):
             if dir_str != "N/A" and dir_str != "nan":
                 try:
                     angle_rad = math.radians(float(dir_str) - 90)
                     end_x = 100 + length * math.cos(angle_rad)
                     end_y = 100 + length * math.sin(angle_rad)
-                    b[arrow_key] = canvas.create_line(100, 100, end_x, end_y, arrow=tk.LAST, width=width, fill=color)
-                except ValueError: pass
-        draw_arrow(tg_dir_str, 'tg_arrow', 'red', 80, 4)
-        draw_arrow(m_dir_str, 'mag_arrow', 'green', 70, 3)
-        draw_arrow(w_dir_str, 'wind_arrow', 'blue', 60, 2)
-        draw_arrow(gps_dir_str, 'gps_arrow', 'black', 50, 3)
+                    canvas.coords(arrow_id, 100, 100, end_x, end_y)
+                    canvas.itemconfig(arrow_id, state="normal")
+                except ValueError:
+                    canvas.itemconfig(arrow_id, state="hidden")
+            else:
+                canvas.itemconfig(arrow_id, state="hidden")
+        
+        draw_arrow(tg_dir_str, b['tg_arrow'], 80)
+        draw_arrow(m_dir_str, b['mag_arrow'], 70)
+        draw_arrow(w_dir_str, b['wind_arrow'], 60)
+        draw_arrow(gps_dir_str, b['gps_arrow'], 50)
 
     def on_closing(self):
         self.running = False
@@ -1079,8 +1161,10 @@ class RoboMonitor:
         if self.serial_conn and self.serial_conn.is_open:
             self.serial_conn.close()
         self.sock.close()
-        self.udp_thread.join()
+        if hasattr(self, 'udp_thread') and self.udp_thread.is_alive():
+            self.udp_thread.join(timeout=1.0)
         self.master.destroy()
+        sys.exit(0)
 
 if __name__ == "__main__":
     root = tk.Tk()

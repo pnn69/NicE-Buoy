@@ -18,14 +18,17 @@ static bool first_read_i = true;
 void battVoltage(float &vbatt, int &vperc)
 {
     int adc_result = analogReadMilliVolts(VBATT);
-    float current_v = adc_result * 0.021f;
+    
+    // Resistor divider: R1 = 6200 Ohm, R2 = 500 Ohm (Theoretical ratio: 13.4)
+    // Empirical calibration: Vin = 21.97V when Vpin = 1.630V (Ratio: 13.4785)
+    float v_batt_now = (adc_result / 1000.0f) * (21.97f / 1.630f);
 
     if (first_read_v) {
-        smoothed_vbatt = current_v;
+        smoothed_vbatt = v_batt_now;
         first_read_v = false;
     } else {
         // Simple IIR filter: 90% old, 10% new
-        smoothed_vbatt = (smoothed_vbatt * 0.9f) + (current_v * 0.1f);
+        smoothed_vbatt = (smoothed_vbatt * 0.9f) + (v_batt_now * 0.1f);
     }
 
     vbatt = smoothed_vbatt;

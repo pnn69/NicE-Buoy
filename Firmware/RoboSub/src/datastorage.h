@@ -22,5 +22,7 @@ void apParameters(String *ap, String *ww, bool get);
 void hardIron(RoboStruct *buoy, bool get);
 void softIron(RoboStruct *buoy, bool get);
 void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, float *MinX, float *MinY, float *MinZ, bool get);
+void CompassOffsetCorrection(double *offset, bool get);
+void MechanicalCorrection(double *correction, bool get);
 
 #endif /* DATASTORAGE_H_ */

@@ -1,35 +1,19 @@
 #ifndef COMPASS_H_
 #define COMPASS_H_
+
+#include <Arduino.h>
 #include <RoboCompute.h>
 
 extern QueueHandle_t compass;
 extern QueueHandle_t compassIn;
 
-extern double magHard[3];
-extern double magSoft[3][3];
-
-extern double global_lsmHdg;
-extern double global_icmHdg;
-
-extern float global_lsm_x;
-extern float global_lsm_y;
-extern float global_lsm_z;
-
-extern float global_icm_x;
-extern float global_icm_y;
-extern float global_icm_z;
-
-extern RoboStruct compassCalc;
-
-void calibrateMagneticNorth(void);
-void InitCompass(void);
+bool InitCompass(void);
 void initcompassQueue(void);
-void calibrateNorthCompas(void);
-void calibrateParametersCompas(void);
-void infieldCompassCalibration(void);
 bool CalibrateCompass(void);
-double GetHeadingRaw(void);
-double CompassAverage(double);
-double GetHeadingAvg(void);
+float GetHeading(void);
+float GetHeadingRaw(void);
+float CompassAverage(float in);
 void CompassTask(void *arg);
+int linMagCalib(int *corr);
+
 #endif /* COMPASS_H_ */

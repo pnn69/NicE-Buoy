@@ -3,6 +3,7 @@
 #include <AsyncUDP.h>
 #include <WebServer.h>
 #include <ArduinoOTA.h>
+#include <Adafruit_Sensor.h>
 #include <RoboCompute.h>
 #include "main.h"
 #include "io_sub.h"
@@ -10,6 +11,15 @@
 
 // Define the global web server on port 80
 WebServer subServer(80);
+
+extern float global_speed_bb;
+extern float global_speed_sb;
+extern bool icm_ready;
+extern float global_icmHdg;
+extern float global_lsmHdg;
+
+// Raw axis data for dashboard
+extern sensors_event_t m_lsm_last, m_icm_last;
 
 const char* compass_html = R"rawliteral(
 <!DOCTYPE html>
@@ -19,11 +29,27 @@ const char* compass_html = R"rawliteral(
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body { font-family: Arial; text-align: center; background: #222; color: #fff; margin: 0; padding: 20px; }
-canvas { background: #333; border-radius: 50%; margin-top: 20px; border: 2px solid #555; max-width: 100%; height: auto; }
+canvas { background: #333; border-radius: 50%; margin-top: 20px; border: 2px solid #555; max-width: 100%; height: auto; }      
 h2 { margin-bottom: 5px; }
 .info { font-size: 1.2em; margin-top: 10px; display: flex; justify-content: center; gap: 20px; }
 .lsm { color: #f0ad4e; font-weight: bold; }
 .icm { color: #5bc0de; font-weight: bold; }
+.raw { font-size: 0.8em; color: #aaa; }
+.raw-container { display: flex; justify-content: center; gap: 20px; margin-top: 15px; flex-wrap: wrap; }
+.raw-box { text-align: left; border: 1px solid #444; padding: 10px; border-radius: 5px; background: #2a2a2a; min-width: 250px; }
+table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+th, td { padding: 4px 8px; text-align: right; border-bottom: 1px solid #333; }
+th { font-size: 0.7em; color: #888; text-transform: uppercase; }
+td:first-child { text-align: left; color: #fff; font-weight: normal; }
+.min-col { color: #ff8888; }
+.max-col { color: #88ff88; }
+button { margin-top: 15px; padding: 8px 16px; background: #444; color: white; border: 1px solid #666; cursor: pointer; border-radius: 4px; }
+button:hover { background: #555; }
+.thrusters { margin-top: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; max-width: 400px; margin-left: auto; margin-right: auto; }
+.thruster-bar-container { width: 100%; background: #444; border-radius: 5px; height: 25px; position: relative; display: flex; align-items: center; border: 1px solid #666; overflow: hidden; }
+.thruster-bar { height: 100%; width: 0%; background: transparent; position: absolute; left: 50%; transition: width 0.1s, left 0.1s; }
+.thruster-label { position: absolute; width: 100%; text-align: center; font-size: 0.9em; font-weight: bold; z-index: 1; pointer-events: none; text-shadow: 1px 1px 2px black; }
+.center-line { position: absolute; left: 50%; width: 2px; height: 100%; background: #888; z-index: 0; }
 </style>
 </head>
 <body>
@@ -32,25 +58,91 @@ h2 { margin-bottom: 5px; }
     <span class="lsm">LSM303: <span id="lsmVal">0.0</span>&deg;</span>
     <span class="icm">ICM20948: <span id="icmVal">0.0</span>&deg;</span>
 </div>
+
+<div class="thrusters">
+    <div class="thruster-bar-container">
+        <div class="center-line"></div>
+        <div id="bb_bar" class="thruster-bar"></div>
+        <div class="thruster-label">Port / BB (<span id="bb_val">0</span>%)</div>
+    </div>
+    <div class="thruster-bar-container">
+        <div class="center-line"></div>
+        <div id="sb_bar" class="thruster-bar"></div>
+        <div class="thruster-label">Starboard / SB (<span id="sb_val">0</span>%)</div>
+    </div>
+</div>
+
+<button onclick="resetMinMax()">Reset Min/Max</button>
+
+<div class="raw-container">
+    <div class="raw-box lsm">
+        <div style="font-weight:bold; margin-bottom:5px;">LSM Raw (Mag)</div>
+        <table>
+            <tr><th>Axis</th><th>Min</th><th>Now</th><th>Max</th></tr>
+            <tr><td>X</td><td id="lsm_x_min" class="min-col">0.0</td><td id="lsm_x">0.0</td><td id="lsm_x_max" class="max-col">0.0</td></tr>
+            <tr><td>Y</td><td id="lsm_y_min" class="min-col">0.0</td><td id="lsm_y">0.0</td><td id="lsm_y_max" class="max-col">0.0</td></tr>
+            <tr><td>Z</td><td id="lsm_z_min" class="min-col">0.0</td><td id="lsm_z">0.0</td><td id="lsm_z_max" class="max-col">0.0</td></tr>
+        </table>
+    </div>
+    <div class="raw-box icm">
+        <div style="font-weight:bold; margin-bottom:5px;">ICM Raw (Mag)</div>
+        <table>
+            <tr><th>Axis</th><th>Min</th><th>Now</th><th>Max</th></tr>
+            <tr><td>X</td><td id="icm_x_min" class="min-col">0.0</td><td id="icm_x">0.0</td><td id="icm_x_max" class="max-col">0.0</td></tr>
+            <tr><td>Y</td><td id="icm_y_min" class="min-col">0.0</td><td id="icm_y">0.0</td><td id="icm_y_max" class="max-col">0.0</td></tr>
+            <tr><td>Z</td><td id="icm_z_min" class="min-col">0.0</td><td id="icm_z">0.0</td><td id="icm_z_max" class="max-col">0.0</td></tr>
+        </table>
+    </div>
+</div>
 <canvas id="compassCanvas" width="400" height="400"></canvas>
 <script>
 const ctx = document.getElementById('compassCanvas').getContext('2d');
 const cx = 200, cy = 200, r = 180;
 
+let session = {
+    lsm: { x: {min: null, max: null}, y: {min: null, max: null}, z: {min: null, max: null} },
+    icm: { x: {min: null, max: null}, y: {min: null, max: null}, z: {min: null, max: null} }
+};
+
+function updateMinMax(sensor, axis, val) {
+    if (session[sensor][axis].min === null || val < session[sensor][axis].min) session[sensor][axis].min = val;
+    if (session[sensor][axis].max === null || val > session[sensor][axis].max) session[sensor][axis].max = val;
+    document.getElementById(sensor + '_' + axis + '_min').innerText = session[sensor][axis].min.toFixed(2);
+    document.getElementById(sensor + '_' + axis + '_max').innerText = session[sensor][axis].max.toFixed(2);
+}
+
+function updateThruster(id, val) {
+    const bar = document.getElementById(id + '_bar');
+    const label = document.getElementById(id + '_val');
+    label.innerText = val;
+
+    // Width is percentage of half the bar
+    let width = Math.abs(val) / 2; 
+    bar.style.width = width + '%';
+
+    if (val < 0) {
+        bar.style.left = (50 - width) + '%';
+        bar.style.backgroundColor = '#5bc0de'; // Blue for forward/reverse
+    } else {
+        bar.style.left = '50%';
+        bar.style.backgroundColor = '#f0ad4e'; // Orange for opposite
+    }
+}
+
 function drawRose(lsm, icm) {
     ctx.clearRect(0, 0, 400, 400);
-    
+
     // Draw background
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, 2*Math.PI); ctx.strokeStyle = '#555'; ctx.lineWidth = 2; ctx.stroke();
-    
+
     // Draw N, E, S, W
     ctx.fillStyle = '#aaa'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('N', cx, cy - r + 20); ctx.fillText('S', cx, cy + r - 20);
     ctx.fillText('E', cx + r - 20, cy); ctx.fillText('W', cx - r + 20, cy);
-    
+
     // Draw LSM Vector (Orange)
     drawVector(lsm, '#f0ad4e', r - 30, 4);
-    
+
     // Draw ICM Vector (Blue)
     drawVector(icm, '#5bc0de', r - 40, 4);
 }
@@ -71,16 +163,49 @@ function fetchData() {
     .then(data => {
         document.getElementById('lsmVal').innerText = data.lsm.toFixed(1);
         document.getElementById('icmVal').innerText = data.icm.toFixed(1);
+
+        document.getElementById('lsm_x').innerText = data.lsm_x.toFixed(2);
+        document.getElementById('lsm_y').innerText = data.lsm_y.toFixed(2);
+        document.getElementById('lsm_z').innerText = data.lsm_z.toFixed(2);
+
+        document.getElementById('icm_x').innerText = data.icm_x.toFixed(2);
+        document.getElementById('icm_y').innerText = data.icm_y.toFixed(2);
+        document.getElementById('icm_z').innerText = data.icm_z.toFixed(2);
+
+        updateMinMax('lsm', 'x', data.lsm_x);
+        updateMinMax('lsm', 'y', data.lsm_y);
+        updateMinMax('lsm', 'z', data.lsm_z);
+
+        updateMinMax('icm', 'x', data.icm_x);
+        updateMinMax('icm', 'y', data.icm_y);
+        updateMinMax('icm', 'z', data.icm_z);
+
+        updateThruster('bb', data.speed_bb);
+        updateThruster('sb', data.speed_sb);
+
         drawRose(data.lsm, data.icm);
     })
     .catch(e => console.error(e));
 }
+
+function resetMinMax() {
+    session = {
+        lsm: { x: {min: null, max: null}, y: {min: null, max: null}, z: {min: null, max: null} },
+        icm: { x: {min: null, max: null}, y: {min: null, max: null}, z: {min: null, max: null} }
+    };
+    ['lsm', 'icm'].forEach(sensor => {
+        ['x', 'y', 'z'].forEach(axis => {
+            document.getElementById(sensor + '_' + axis + '_min').innerText = '0.00';
+            document.getElementById(sensor + '_' + axis + '_max').innerText = '0.00';
+        });
+    });
+}
 setInterval(fetchData, 200);
-drawRose(0, 0);
 </script>
 </body>
 </html>
 )rawliteral";
+
 #include "datastorage.h"
 #include "subwifi.h"
 
@@ -422,12 +547,14 @@ void WiFiTask(void *arg)
         String json = "{";
         json += "\"lsm\":" + String(global_lsmHdg, 2) + ", ";
         json += "\"icm\":" + String(global_icmHdg, 2) + ", ";
-        json += "\"lsmHardX\":" + String(compassCalc.magHard[0], 2) + ", ";
-        json += "\"lsmHardY\":" + String(compassCalc.magHard[1], 2) + ", ";
-        json += "\"lsmHardZ\":" + String(compassCalc.magHard[2], 2) + ", ";
-        json += "\"icmHardX\":" + String(compassCalc.icmMagHard[0], 2) + ", ";
-        json += "\"icmHardY\":" + String(compassCalc.icmMagHard[1], 2) + ", ";
-        json += "\"icmHardZ\":" + String(compassCalc.icmMagHard[2], 2);
+        json += "\"lsm_x\":" + String(m_lsm_last.magnetic.x, 2) + ", ";
+        json += "\"lsm_y\":" + String(m_lsm_last.magnetic.y, 2) + ", ";
+        json += "\"lsm_z\":" + String(m_lsm_last.magnetic.z, 2) + ", ";
+        json += "\"icm_x\":" + String(m_icm_last.magnetic.x, 2) + ", ";
+        json += "\"icm_y\":" + String(m_icm_last.magnetic.y, 2) + ", ";
+        json += "\"icm_z\":" + String(m_icm_last.magnetic.z, 2) + ", ";
+        json += "\"speed_bb\":" + String(global_speed_bb, 0) + ", ";
+        json += "\"speed_sb\":" + String(global_speed_sb, 0);
         json += "}";
         subServer.send(200, "application/json", json);
     });

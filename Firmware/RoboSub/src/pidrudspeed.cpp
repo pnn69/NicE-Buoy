@@ -43,7 +43,7 @@ void initRudPid(RoboStruct *rud)
     rudderPID.SetTunings(rud->Kpr, rud->Kir, rud->Kdr, P_ON_E);
     rudderPID.SetOutputLimits(-100, 100);
     resetRudPid();
-    rud->ir = rudderPID.GetITerm();
+    rud->ir = 0; // rudderPID.GetITerm();
     Serial.println("PID rudder used for calculations> pr:" + String(rud->Kpr, 2) +
                    " ir:" + String(rud->Kir, 2) +
                    " dr:" + String(rud->Kdr, 2) +
@@ -79,7 +79,7 @@ void initSpeedPid(RoboStruct *speed)
     computeParameters(speed, GET);
     speedPID.SetOutputLimits(0, speed->maxSpeed); // Use actual maxSpeed limit
     resetSpeedPid();
-    speed->ip = speedPID.GetITerm();
+    speed->ip = 0; // speedPID.GetITerm();
     Serial.println("PID speed  used for calculations> ps:" + String(speed->Kps, 2) +
                    " is:" + String(speed->Kis, 2) +
                    " ds:" + String(speed->Kds, 2) +
@@ -113,7 +113,7 @@ void rudderPid(RoboStruct *rud)
     rudderSetpoint = 0;
     rudderPID.Compute();
 
-    double rotation_power = rudderOutput;
+    double rotation_power = -rudderOutput;
 
     // 3.3 Position PID (forward_power is calculated by speedPid and passed via tgSpeed)
     double forward_power = rud->tgSpeed;
@@ -219,7 +219,7 @@ void rudderPid(RoboStruct *rud)
     // Clamped to ±maxSpeed bounds and store for ESC output
     rud->speedBb = constrain(left, -rud->maxSpeed, rud->maxSpeed);
     rud->speedSb = constrain(right, -rud->maxSpeed, rud->maxSpeed);
-    rud->ir = rudderPID.GetITerm();
+    rud->ir = 0; // rudderPID.GetITerm();
 }
 
 /**
@@ -274,5 +274,5 @@ void speedPid(RoboStruct *dist)
         // Pre-stage phases (Idle or Pivot) require 0 forward thrust
         dist->tgSpeed = 0;
     }
-    dist->ip = speedPID.GetITerm();
+    dist->ip = 0; // speedPID.GetITerm();
 }

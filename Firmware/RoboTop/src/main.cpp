@@ -245,6 +245,21 @@ void handelKeyPress(RoboStruct *key)
  */
 void buttonLight(RoboStruct *sta)
 {
+    static int lastCalibState = 0;
+    int currentCalibState = (sta->status == CALIBRATE_MAGNETIC_COMPASS || sta->status == INFIELD_CALIBRATE) ? 1 : 0;
+    
+    if (currentCalibState != lastCalibState) {
+        if (currentCalibState == 1) {
+            mainCollorStatus.color = CRGB::Purple;
+            mainCollorStatus.blink = BLINK_FAST;
+        } else {
+            mainCollorStatus.color = CRGB::Black;
+            mainCollorStatus.blink = BLINK_OFF;
+        }
+        xQueueSend(ledStatus, (void *)&mainCollorStatus, 0);
+        lastCalibState = currentCalibState;
+    }
+
     if (buttonBlinkTimer < millis())
     {
         buttonBlinkTimer = millis() + blink;
@@ -519,7 +534,7 @@ void handleInfieldCompassCalibration(RoboStruct *timer)
             timer->tgLng = lon0;
             timer->status = LOCKED;
             calibPhase = 0;
-            beep(1000, buzzer);
+            beep(5, buzzer);
         }
     }
 }
@@ -666,7 +681,7 @@ void handleInfieldOffsetCalibration(RoboStruct *timer)
             timer->status = LOCKED;
             calibPhase = 0;
             printf("#INFIELD_OFFSET: Complete. Returning to Home (P0).\r\n");
-            beep(1000, buzzer);
+            beep(5, buzzer);
         }
     }
 }
@@ -809,8 +824,8 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
         static unsigned long lastInTime = 0;
 
         // Only filter mode-changing commands (DOCKING, LOCKING, IDLE, etc.)
-        // Do NOT filter critical, single-shot action commands.
-        if (RfIn.cmd != REMOTE && RfIn.cmd != TGDIRSPEED && RfIn.cmd != DIRDIST && RfIn.cmd != LOCKING && RfIn.cmd != DOCKING && RfIn.cmd != IDELING)
+        // Do NOT filter critical, single-shot action commands like SETUPDATA (83)
+        if (RfIn.cmd != REMOTE && RfIn.cmd != TGDIRSPEED && RfIn.cmd != DIRDIST && RfIn.cmd != LOCKING && RfIn.cmd != DOCKING && RfIn.cmd != IDELING && RfIn.cmd != SETUPDATA)
         {
             if (RfIn.cmd == lastInCmd && RfIn.status == lastInStatus && (millis() - lastInTime < 2000))
             {
@@ -915,12 +930,15 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfOut->tgDir = RfIn.tgDir;
                 RfOut->speedSet = RfIn.speedSet;
                 RfOut->status = TGDIRSPEED;
-                break;
-            case REMOTE:
-                RfOut->status = RfIn.cmd;
-                RfOut->tgDir = RfIn.tgDir;
-                RfOut->tgSpeed = RfIn.tgSpeed;
-                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                case REMOTE:
+                    if (RfOut->status != REMOTE) {
+                        beep(1, buzzer);
+                    }
+                    RfOut->status = RfIn.cmd;
+                    RfOut->tgDir = RfIn.tgDir;
+                    RfOut->tgSpeed = RfIn.tgSpeed;
+                    xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                    break;
                 RfOut->status = RfIn.cmd;
                 break;
             case DIRDIST:

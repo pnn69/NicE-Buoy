@@ -211,6 +211,9 @@ void calculateLedColor(int speed, uint8_t& r, uint8_t& g) {
  * 
  * @param arg Unused FreeRTOS task argument.
  */
+float global_speed_bb = 0;
+float global_speed_sb = 0;
+
 void EscTask(void *arg)
 {
     unsigned long offStamp = 0;
@@ -252,7 +255,6 @@ void EscTask(void *arg)
             spsb = 0; spbb = 0; spsbAct = 0; spbbAct = 0;
         }
 
-        // Ramping logic (every 20ms for smooth transition)
         if (millis() >= escStamp)
         {
             escStamp = millis() + 20;
@@ -267,6 +269,10 @@ void EscTask(void *arg)
             if (changed) {
                 ledcWrite(ESC_SB_CHANNEL, speedToPulse(spsbAct));
                 ledcWrite(ESC_BB_CHANNEL, speedToPulse(spbbAct));
+                
+                global_speed_bb = -spbbAct; // Match the physical orientation
+                global_speed_sb = -spsbAct; // Match the physical orientation
+
                 ledChanged = true;
             }
         }

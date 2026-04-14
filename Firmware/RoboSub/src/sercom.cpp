@@ -33,11 +33,12 @@ void initserqueue(void)
  */
 void printMatrix()
 {
+    extern RoboStruct mainData;
     for (int i = 0; i < 3; i++)
     {
         for (int j = 0; j < 3; j++)
         {
-            Serial.print(magSoft[i][j], 4);
+            Serial.print(mainData.magSoft[i][j], 4);
             Serial.print(j < 2 ? ", " : "\n");
         }
     }

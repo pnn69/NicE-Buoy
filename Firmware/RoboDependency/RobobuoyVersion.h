@@ -3,7 +3,7 @@
 
 #define PROJECT BOBOBUOY
 #define TOPVERSION 3.0
-#define SUBVERSION 3.0
+#define SUBVERSION 3.1
 #define LORAVERSION 3.0
 #define CONTROLVERSION 3.0
 

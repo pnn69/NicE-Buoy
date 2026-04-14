@@ -438,3 +438,31 @@ void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, floa
     }
     stopMem();
 }
+
+void CompassOffsetCorrection(double *offset, bool get)
+{
+    startMem();
+    if (get)
+    {
+        *offset = storage.getDouble("magCorr", 0);
+    }
+    else
+    {
+        storage.putDouble("magCorr", *offset);
+    }
+    stopMem();
+}
+
+void MechanicalCorrection(double *correction, bool get)
+{
+    startMem();
+    if (get)
+    {
+        *correction = storage.getDouble("mechCorr", 0);
+    }
+    else
+    {
+        storage.putDouble("mechCorr", *correction);
+    }
+    stopMem();
+}

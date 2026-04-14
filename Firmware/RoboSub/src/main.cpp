@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <Wire.h>
 #include <RoboTone.h>
 #include <RoboCompute.h>
 #include "main.h"
@@ -20,16 +21,16 @@
 TaskHandle_t compassTaskHandle = NULL; // Task handle for compass task
 
 // pid subparameter;
-static RoboStruct mainData;
+RoboStruct mainData;
 static RoboStruct udpInMain;
 static RoboStruct serDataIn;
 static RoboStruct dataIn;
 static RoboStruct compassInData;
-static Message escOut;
+Message escOut;
 static unsigned long buoyId;
 static unsigned long PwrOff;
 static unsigned long pidTimer = 0;
-static int subStatus = IDLE;
+int subStatus = IDLE;
 static LedData mainLedStatus;
 static PwrData mainPwrData;
 static Buzz mainBuzzerData;
@@ -61,8 +62,32 @@ int presses = 0;
  */
 void setup()
 {
+    Serial.begin(115200);
     pinMode(PWRENABLE, OUTPUT);
     digitalWrite(PWRENABLE, 1); // enable powersupply
+    delay(500); // Give sensors time to power up!
+    Wire.begin(21, 22);
+    Wire.setClock(400000);
+    
+    // I2C Scanner
+    Serial.println("\n--- I2C Scanner ---");
+    byte error, address;
+    int nDevices = 0;
+    for(address = 1; address < 127; address++ ) {
+        Wire.beginTransmission(address);
+        error = Wire.endTransmission();
+        if (error == 0) {
+            Serial.printf("I2C device found at address 0x%02X\n", address);
+            nDevices++;
+        }
+        else if (error==4) {
+            Serial.printf("Unknown error at address 0x%02X\n", address);
+        }    
+    }
+    if (nDevices == 0) Serial.println("No I2C devices found\n");
+    else Serial.println("done\n");
+    Serial.println("-------------------");
+
     pinMode(ESC_SB_PWR_PIN, OUTPUT);
     pinMode(ESC_BB_PWR_PIN, OUTPUT);
     digitalWrite(ESC_SB_PWR_PIN, LOW);
@@ -178,7 +203,7 @@ void handelKeyPress(void)
         {
             beep(1, buzzer);
             delay(1000);
-            calibrateMagneticNorth();
+            CalibrateCompass();
             presses = -1;
         }
         if (presses == 1) // Calibrate compas
@@ -394,7 +419,7 @@ void handelSerandRfdata(RoboStruct *ser)
             break;
         case CALC_COMPASS_OFFSET:
             vTaskSuspend(compassTaskHandle);
-            calibrateMagneticNorth();
+            CalibrateCompass();
             vTaskResume(compassTaskHandle);
             ser->status = IDELING;
             xQueueSend(serOut, (void *)ser, 10);
@@ -629,7 +654,7 @@ void handleTimerRoutines(RoboStruct *in)
         logtimer = millis() + 1000;
         battVoltage(in->subAccuV, in->subAccuP);
         battCurrent(in->subAccuI);
-        printf("TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", in->tgDist - 2, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb);
+        printf("V31 TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", in->tgDist - 2, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb);
         printf("  ip: %05.3f ir: %05.3f\r\n", in->ip, in->ir);
     }
 }
