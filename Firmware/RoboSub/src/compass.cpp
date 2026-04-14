@@ -8,11 +8,17 @@
 #include "compass.h"
 #include "main.h"
 #include "datastorage.h"
+#include <AsyncUDP.h>
+#include <Preferences.h>
+#include "leds.h"
+#include "buzzer.h"
 #include "esc.h"
-#include "subwifi.h"
+#include "compass.h"
+#include "main.h"
+#include "datastorage.h"
 #include "pidrudspeed.h"
 #include "sercom.h"
-#include <AsyncUDP.h>
+#include "subwifi.h"
 
 #include <Adafruit_ICM20X.h>
 #include <Adafruit_ICM20948.h>
@@ -20,6 +26,7 @@
 #define NUM_DIRECTIONS 30
 #define NUM_POSITIONS 50
 
+extern Preferences storage;
 QueueHandle_t compass;
 QueueHandle_t compassIn;
 
@@ -46,6 +53,8 @@ struct vector_t
 // Stores min and max magnetometer values from calibration
 vector_t<float> m_max;
 vector_t<float> m_min;
+vector_t<float> icm_max = {50, 50, 50};
+vector_t<float> icm_min = {-50, -50, -50};
 
 template <typename Ta, typename Tb, typename To>
 void vector_cross(const vector_t<Ta> *a, const vector_t<Tb> *b, vector_t<To> *out)
@@ -110,12 +119,12 @@ float heading(vector_t<T> from)
     // compute heading
     float n_dot_f = vector_dot(&north, &from);
     float e_dot_f = vector_dot(&east, &from);
-    
+
     if (n_dot_f == 0 && e_dot_f == 0) return 0.0f;
 
     float heading_val = atan2(n_dot_f, e_dot_f) * 180 / M_PI;
     if (isnan(heading_val)) return 0.0f;
-    
+
     if (heading_val < 0)
     {
         heading_val += 360;
@@ -132,7 +141,7 @@ bool InitCompass(void)
 
     float min_mag[3], max_mag[3];
     CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], true); //  get callibration data
-    
+
     // Sanity check for calibration data
     if (abs(max_mag[0] - min_mag[0]) < 0.01) {
         Serial.println("Compass: No valid calibration found, using defaults");
@@ -142,6 +151,16 @@ bool InitCompass(void)
         m_min = (vector_t<float>){min_mag[0], min_mag[1], min_mag[2]};
         m_max = (vector_t<float>){max_mag[0], max_mag[1], max_mag[2]};
     }
+
+    // Load ICM calibration from NVS
+    storage.begin("NicE_Buoy_Data", false);
+    icm_max.x = storage.getFloat("IcmMaxX", 50.0);
+    icm_max.y = storage.getFloat("IcmMaxY", 50.0);
+    icm_max.z = storage.getFloat("IcmMaxZ", 50.0);
+    icm_min.x = storage.getFloat("IcmMinX", -50.0);
+    icm_min.y = storage.getFloat("IcmMinY", -50.0);
+    icm_min.z = storage.getFloat("IcmMinZ", -50.0);
+    storage.end();
 
     bool mag_ok = mag.begin();
     if (!mag_ok)
@@ -154,7 +173,7 @@ bool InitCompass(void)
     {
         Serial.println("Unable to initialize LSM303 accelerometer");
     }
-    
+
     lsm_ready = (mag_ok && acc_ok);
 
     // Initialize ICM20948
@@ -169,10 +188,10 @@ bool InitCompass(void)
 
     accel.setRange(LSM303_RANGE_4G);
     accel.setMode(LSM303_MODE_NORMAL);
-    
+
     CompassOffsetCorrection(&mainData.compassOffset, true);
     MechanicalCorrection(&mainData.mechanicCorrection, true);
-    
+
     Serial.printf("Compass Initialized. Offset: %0.1f, Mech: %0.1f\n", mainData.compassOffset, mainData.mechanicCorrection);
     return true;
 }
@@ -180,36 +199,74 @@ bool InitCompass(void)
 bool CalibrateCompass(void)
 {
     static unsigned long calstamp;
-    sensors_event_t event;
     uint32_t lokcnt = 0;
     Serial.println("Callibrating compass now!!!");
+    
+    // Feedback: Fast blinking purple LED and initial beep
+    LedData calLedStatus;
+    calLedStatus.color = CRGB::Purple;
+    calLedStatus.blink = BLINK_FAST;
+    xQueueSend(ledStatus, (void *)&calLedStatus, 0);
+    beep(1, buzzer);
+
     calstamp = millis();
     float min_mag[3], max_mag[3];
+    float min_icm[3], max_icm[3];
     min_mag[0] = min_mag[1] = min_mag[2] = 1000000.0f;
     max_mag[0] = max_mag[1] = max_mag[2] = -1000000.0f;
+    min_icm[0] = min_icm[1] = min_icm[2] = 1000000.0f;
+    max_icm[0] = max_icm[1] = max_icm[2] = -1000000.0f;
 
     while (millis() - calstamp <= 1000 * 60) // 1 minute callibrating
     {
-        mag.getEvent(&event);
-        min_mag[0] = fmin(min_mag[0], event.magnetic.x);
-        max_mag[0] = fmax(max_mag[0], event.magnetic.x);
-        min_mag[1] = fmin(min_mag[1], event.magnetic.y);
-        max_mag[1] = fmax(max_mag[1], event.magnetic.y);
-        min_mag[2] = fmin(min_mag[2], event.magnetic.z);
-        max_mag[2] = fmax(max_mag[2], event.magnetic.z);
+        sensors_event_t event_lsm, event_icm;
+        mag.getEvent(&event_lsm);
+        icm.getMagnetometerSensor()->getEvent(&event_icm);
+
+        min_mag[0] = fmin(min_mag[0], event_lsm.magnetic.x);
+        max_mag[0] = fmax(max_mag[0], event_lsm.magnetic.x);
+        min_mag[1] = fmin(min_mag[1], event_lsm.magnetic.y);
+        max_mag[1] = fmax(max_mag[1], event_lsm.magnetic.y);
+        min_mag[2] = fmin(min_mag[2], event_lsm.magnetic.z);
+        max_mag[2] = fmax(max_mag[2], event_lsm.magnetic.z);
+        
+        min_icm[0] = fmin(min_icm[0], event_icm.magnetic.x);
+        max_icm[0] = fmax(max_icm[0], event_icm.magnetic.x);
+        min_icm[1] = fmin(min_icm[1], event_icm.magnetic.y);
+        max_icm[1] = fmax(max_icm[1], event_icm.magnetic.y);
+        min_icm[2] = fmin(min_icm[2], event_icm.magnetic.z);
+        max_icm[2] = fmax(max_icm[2], event_icm.magnetic.z);
 
         if (lokcnt++ > 250)
         {
             lokcnt = 0;
-            Serial.printf("Calllibration factors Compass: MaxXYZ: {%f, %f, %f}; MinXYZ {%f, %f, %f};\r\n", max_mag[0], max_mag[1], max_mag[2], min_mag[0], min_mag[1], min_mag[2]);
+            Serial.printf("Calibrating: LSM X[%0.1f,%0.1f] | ICM X[%0.1f,%0.1f]\r\n", min_mag[0], max_mag[0], min_icm[0], max_icm[0]);
         }
         vTaskDelay(pdMS_TO_TICKS(10));
     }
     CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], false); //  store callibration data
     m_min = (vector_t<float>){min_mag[0], min_mag[1], min_mag[2]};
     m_max = (vector_t<float>){max_mag[0], max_mag[1], max_mag[2]};
+    icm_min = (vector_t<float>){min_icm[0], min_icm[1], min_icm[2]};
+    icm_max = (vector_t<float>){max_icm[0], max_icm[1], max_icm[2]};
+    
+    storage.begin("NicE_Buoy_Data", false);
+    storage.putFloat("IcmMaxX", icm_max.x);
+    storage.putFloat("IcmMaxY", icm_max.y);
+    storage.putFloat("IcmMaxZ", icm_max.z);
+    storage.putFloat("IcmMinX", icm_min.x);
+    storage.putFloat("IcmMinY", icm_min.y);
+    storage.putFloat("IcmMinZ", icm_min.z);
+    storage.end();
+    
     Serial.printf("New callibration stored!!!\n\r");
-    Serial.printf("Calllibration factors Compass: MaxXYZ: {%f, %f, %f}; MinXYZ {%f, %f, %f};\r\n", max_mag[0], max_mag[1], max_mag[2], min_mag[0], min_mag[1], min_mag[2]);
+    
+    // Restore LED to original state (Yellow Idle)
+    LedData idleLedStatus;
+    idleLedStatus.color = CRGB::Yellow;
+    idleLedStatus.blink = BLINK_OFF;
+    xQueueSend(ledStatus, (void *)&idleLedStatus, 0);
+    beep(2, buzzer); // Final confirmation beep
 
     return true;
 }
@@ -219,18 +276,16 @@ float heading_icm(vector_t<int> from)
     if (!icm_ready) return -1.0f;
     sensors_event_t accel_event, mag_event, gyro_event, temp_event;
     icm.getEvent(&accel_event, &gyro_event, &temp_event, &mag_event);
+    
     m_icm_last = mag_event;
 
     vector_t<float> temp_m = {mag_event.magnetic.x, mag_event.magnetic.y, mag_event.magnetic.z};
     vector_t<float> a = {accel_event.acceleration.x, accel_event.acceleration.y, accel_event.acceleration.z};
 
-    // Note: yesterday's code had specific ICM calibration handling. 
-    // For now, we will use the same hard/soft iron logic if available, 
-    // but since we are refactoring, we'll keep it simple: 
-    // subtract defaults or shared m_min/m_max if they were meant for both.
-    temp_m.x -= (m_min.x + m_max.x) / 2;
-    temp_m.y -= (m_min.y + m_max.y) / 2;
-    temp_m.z -= (m_min.z + m_max.z) / 2;
+    // Apply specific ICM calibration bounds
+    temp_m.x -= (icm_min.x + icm_max.x) / 2;
+    temp_m.y -= (icm_min.y + icm_max.y) / 2;
+    temp_m.z -= (icm_min.z + icm_max.z) / 2;
 
     vector_t<float> east;
     vector_t<float> north;
@@ -242,12 +297,12 @@ float heading_icm(vector_t<int> from)
     vector_t<float> f = {(float)from.x, (float)from.y, (float)from.z};
     float n_dot_f = vector_dot(&north, &f);
     float e_dot_f = vector_dot(&east, &f);
-    
+
     if (n_dot_f == 0 && e_dot_f == 0) return 0.0f;
 
     float heading_val = atan2(n_dot_f, e_dot_f) * 180 / M_PI;
     if (isnan(heading_val)) return 0.0f;
-    
+
     if (heading_val < 0) heading_val += 360;
     return heading_val;
 }
@@ -255,10 +310,10 @@ float heading_icm(vector_t<int> from)
 float GetHeading(void)
 {
     float mHeding = 0;
-    if (icm_ready) {
-        mHeding = heading_icm((vector_t<int>){0, 1, 0});
-    } else {
+    if (lsm_ready) {
         mHeding = heading((vector_t<int>){0, 1, 0});
+    } else {
+        mHeding = heading_icm((vector_t<int>){0, 1, 0});
     }
     mHeding = mHeding + mainData.compassOffset;
     if (mHeding < 0)
@@ -275,10 +330,10 @@ float GetHeading(void)
 float GetHeadingRaw(void)
 {
     float t = 0;
-    if (icm_ready) {
-        t = heading_icm((vector_t<int>){0, 1, 0});
-    } else {
+    if (lsm_ready) {
         t = heading((vector_t<int>){0, 1, 0});
+    } else {
+        t = heading_icm((vector_t<int>){0, 1, 0});
     }
     if (t > 360)
     {
@@ -298,14 +353,14 @@ static bool cbufFull = false;
 float CompassAverage(float in)
 {
     if (isnan(in)) return 0.0f;
-    
+
     directions[cbufpointer++] = in;
     if (cbufpointer >= NUM_DIRECTIONS)
     {
         cbufpointer = 0;
         cbufFull = true;
     }
-    
+
     int count = cbufFull ? NUM_DIRECTIONS : cbufpointer;
     if (count == 0) return in;
 
@@ -316,7 +371,7 @@ float CompassAverage(float in)
         sum_x += cos(directions[i] * M_PI / 180.0);
         sum_y += sin(directions[i] * M_PI / 180.0);
     }
-    
+
     if (abs(sum_x) < 0.0001 && abs(sum_y) < 0.0001) return in;
 
     // Calculate the average direction in degrees
@@ -454,12 +509,12 @@ int linMagCalib(int *corr)
                 mainData.compassOffset = correction;
                 CompassOffsetCorrection(&mainData.compassOffset, false);
                 MechanicalCorrection(&mainData.mechanicCorrection, false);
-                
+
                 snprintf(bufff, sizeof(bufff), "<Calib stored><magCorr>%0.1f><mechCorr><%0.1f>", mainData.compassOffset, mainData.mechanicCorrection);
                 udpsend(bufff);
                 ret = 1;
                 stage = 0;
-                
+
                 // Stop motors
                 escOut.speedbb = 0;
                 escOut.speedsb = 0;
@@ -494,7 +549,7 @@ void CompassTask(void *arg)
                 calib_mode = 1;
             }
         }
-        
+
         if (calib_mode == 1) {
             if (linMagCalib(&corr) != -1) {
                 calib_mode = 0; // finished
@@ -502,19 +557,28 @@ void CompassTask(void *arg)
         }
 
         global_lsmHdg = heading((vector_t<int>){0, 1, 0});
+        if (lsm_ready) {
+            global_lsmHdg += mainData.compassOffset;
+            if (global_lsmHdg < 0) global_lsmHdg += 360.0;
+            else if (global_lsmHdg > 360) global_lsmHdg -= 360.0;
+        }
+
         if (icm_ready) {
             global_icmHdg = heading_icm((vector_t<int>){0, 1, 0});
+            global_icmHdg += mainData.icmCompassOffset;
+            if (global_icmHdg < 0) global_icmHdg += 360.0;
+            else if (global_icmHdg > 360) global_icmHdg -= 360.0;
         }
 
         float rawHdg = GetHeading();
         double activeHdg = (double)CompassAverage(rawHdg);
-        
+
         if (isnan(activeHdg)) {
             activeHdg = 0.0;
         }
 
         xQueueOverwrite(compass, (void *)&activeHdg);
-        
+
         static uint32_t lastPrint = 0;
         if (millis() - lastPrint > 2000) {
             lastPrint = millis();
@@ -525,7 +589,7 @@ void CompassTask(void *arg)
         if (millis() - lastUdp > 200) { // Broadcast at 5Hz
             lastUdp = millis();
             char dbg[250];
-            snprintf(dbg, sizeof(dbg), 
+            snprintf(dbg, sizeof(dbg),
                 "{\"debug\":\"compass\",\"lsm_hdg\":%.1f,\"icm_hdg\":%.1f,\"lsm\":[%.1f,%.1f,%.1f],\"icm\":[%.1f,%.1f,%.1f]}",
                 global_lsmHdg, global_icmHdg,
                 m_lsm_last.magnetic.x, m_lsm_last.magnetic.y, m_lsm_last.magnetic.z,
@@ -533,7 +597,7 @@ void CompassTask(void *arg)
             );
             udpsend(dbg);
         }
-        
+
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }

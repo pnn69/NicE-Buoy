@@ -36,11 +36,13 @@ h2 { margin-bottom: 5px; }
 .icm { color: #5bc0de; font-weight: bold; }
 .raw { font-size: 0.8em; color: #aaa; }
 .raw-container { display: flex; justify-content: center; gap: 20px; margin-top: 15px; flex-wrap: wrap; }
-.raw-box { text-align: left; border: 1px solid #444; padding: 10px; border-radius: 5px; background: #2a2a2a; min-width: 250px; }
-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
-th, td { padding: 4px 8px; text-align: right; border-bottom: 1px solid #333; }
-th { font-size: 0.7em; color: #888; text-transform: uppercase; }
-td:first-child { text-align: left; color: #fff; font-weight: normal; }
+.raw-box { text-align: left; border: 1px solid #444; padding: 10px; border-radius: 5px; background: #2a2a2a; min-width: 300px; }
+.axis-row { display: flex; align-items: center; margin: 15px 0; font-size: 0.9em; }
+.axis-label { width: 15px; font-weight: bold; }
+.axis-bar-container { flex-grow: 1; background: #444; height: 16px; border-radius: 8px; position: relative; margin: 0 10px; border: 1px solid #666; }
+.axis-dot { position: absolute; top: -4px; width: 10px; height: 24px; background: white; border-radius: 3px; transform: translateX(-5px); transition: left 0.1s; }
+.axis-vals { width: 50px; text-align: right; font-family: monospace; }
+.axis-minmax { font-size: 0.7em; color: #888; display: flex; justify-content: space-between; margin: -10px 60px 10px 25px; }
 .min-col { color: #ff8888; }
 .max-col { color: #88ff88; }
 button { margin-top: 15px; padding: 8px 16px; background: #444; color: white; border: 1px solid #666; cursor: pointer; border-radius: 4px; }
@@ -73,25 +75,26 @@ button:hover { background: #555; }
 </div>
 
 <button onclick="resetMinMax()">Reset Min/Max</button>
+<button onclick="startCalib()" style="background: #5a32a8;">Start Desk Calibration</button>
 
 <div class="raw-container">
     <div class="raw-box lsm">
         <div style="font-weight:bold; margin-bottom:5px;">LSM Raw (Mag)</div>
-        <table>
-            <tr><th>Axis</th><th>Min</th><th>Now</th><th>Max</th></tr>
-            <tr><td>X</td><td id="lsm_x_min" class="min-col">0.0</td><td id="lsm_x">0.0</td><td id="lsm_x_max" class="max-col">0.0</td></tr>
-            <tr><td>Y</td><td id="lsm_y_min" class="min-col">0.0</td><td id="lsm_y">0.0</td><td id="lsm_y_max" class="max-col">0.0</td></tr>
-            <tr><td>Z</td><td id="lsm_z_min" class="min-col">0.0</td><td id="lsm_z">0.0</td><td id="lsm_z_max" class="max-col">0.0</td></tr>
-        </table>
+        <div class="axis-row"><div class="axis-label">X</div><div class="axis-bar-container"><div id="lsm_x_dot" class="axis-dot" style="left:50%; background:#f0ad4e;"></div></div><div id="lsm_x_val" class="axis-vals">0.0</div></div>
+        <div class="axis-minmax"><span id="lsm_x_min" class="min-col">0.0</span><span id="lsm_x_max" class="max-col">0.0</span></div>
+        <div class="axis-row"><div class="axis-label">Y</div><div class="axis-bar-container"><div id="lsm_y_dot" class="axis-dot" style="left:50%; background:#f0ad4e;"></div></div><div id="lsm_y_val" class="axis-vals">0.0</div></div>
+        <div class="axis-minmax"><span id="lsm_y_min" class="min-col">0.0</span><span id="lsm_y_max" class="max-col">0.0</span></div>
+        <div class="axis-row"><div class="axis-label">Z</div><div class="axis-bar-container"><div id="lsm_z_dot" class="axis-dot" style="left:50%; background:#f0ad4e;"></div></div><div id="lsm_z_val" class="axis-vals">0.0</div></div>
+        <div class="axis-minmax"><span id="lsm_z_min" class="min-col">0.0</span><span id="lsm_z_max" class="max-col">0.0</span></div>
     </div>
     <div class="raw-box icm">
         <div style="font-weight:bold; margin-bottom:5px;">ICM Raw (Mag)</div>
-        <table>
-            <tr><th>Axis</th><th>Min</th><th>Now</th><th>Max</th></tr>
-            <tr><td>X</td><td id="icm_x_min" class="min-col">0.0</td><td id="icm_x">0.0</td><td id="icm_x_max" class="max-col">0.0</td></tr>
-            <tr><td>Y</td><td id="icm_y_min" class="min-col">0.0</td><td id="icm_y">0.0</td><td id="icm_y_max" class="max-col">0.0</td></tr>
-            <tr><td>Z</td><td id="icm_z_min" class="min-col">0.0</td><td id="icm_z">0.0</td><td id="icm_z_max" class="max-col">0.0</td></tr>
-        </table>
+        <div class="axis-row"><div class="axis-label">X</div><div class="axis-bar-container"><div id="icm_x_dot" class="axis-dot" style="left:50%; background:#5bc0de;"></div></div><div id="icm_x_val" class="axis-vals">0.0</div></div>
+        <div class="axis-minmax"><span id="icm_x_min" class="min-col">0.0</span><span id="icm_x_max" class="max-col">0.0</span></div>
+        <div class="axis-row"><div class="axis-label">Y</div><div class="axis-bar-container"><div id="icm_y_dot" class="axis-dot" style="left:50%; background:#5bc0de;"></div></div><div id="icm_y_val" class="axis-vals">0.0</div></div>
+        <div class="axis-minmax"><span id="icm_y_min" class="min-col">0.0</span><span id="icm_y_max" class="max-col">0.0</span></div>
+        <div class="axis-row"><div class="axis-label">Z</div><div class="axis-bar-container"><div id="icm_z_dot" class="axis-dot" style="left:50%; background:#5bc0de;"></div></div><div id="icm_z_val" class="axis-vals">0.0</div></div>
+        <div class="axis-minmax"><span id="icm_z_min" class="min-col">0.0</span><span id="icm_z_max" class="max-col">0.0</span></div>
     </div>
 </div>
 <canvas id="compassCanvas" width="400" height="400"></canvas>
@@ -104,11 +107,23 @@ let session = {
     icm: { x: {min: null, max: null}, y: {min: null, max: null}, z: {min: null, max: null} }
 };
 
-function updateMinMax(sensor, axis, val) {
+function updateBar(sensor, axis, val) {
     if (session[sensor][axis].min === null || val < session[sensor][axis].min) session[sensor][axis].min = val;
     if (session[sensor][axis].max === null || val > session[sensor][axis].max) session[sensor][axis].max = val;
-    document.getElementById(sensor + '_' + axis + '_min').innerText = session[sensor][axis].min.toFixed(2);
-    document.getElementById(sensor + '_' + axis + '_max').innerText = session[sensor][axis].max.toFixed(2);
+    
+    let min = session[sensor][axis].min;
+    let max = session[sensor][axis].max;
+    
+    document.getElementById(sensor + '_' + axis + '_val').innerText = val.toFixed(1);
+    document.getElementById(sensor + '_' + axis + '_min').innerText = min.toFixed(1);
+    document.getElementById(sensor + '_' + axis + '_max').innerText = max.toFixed(1);
+    
+    let range = max - min;
+    let percent = 50;
+    if (range > 0) {
+        percent = ((val - min) / range) * 100;
+    }
+    document.getElementById(sensor + '_' + axis + '_dot').style.left = percent + '%';
 }
 
 function updateThruster(id, val) {
@@ -164,21 +179,13 @@ function fetchData() {
         document.getElementById('lsmVal').innerText = data.lsm.toFixed(1);
         document.getElementById('icmVal').innerText = data.icm.toFixed(1);
 
-        document.getElementById('lsm_x').innerText = data.lsm_x.toFixed(2);
-        document.getElementById('lsm_y').innerText = data.lsm_y.toFixed(2);
-        document.getElementById('lsm_z').innerText = data.lsm_z.toFixed(2);
+        updateBar('lsm', 'x', data.lsm_x);
+        updateBar('lsm', 'y', data.lsm_y);
+        updateBar('lsm', 'z', data.lsm_z);
 
-        document.getElementById('icm_x').innerText = data.icm_x.toFixed(2);
-        document.getElementById('icm_y').innerText = data.icm_y.toFixed(2);
-        document.getElementById('icm_z').innerText = data.icm_z.toFixed(2);
-
-        updateMinMax('lsm', 'x', data.lsm_x);
-        updateMinMax('lsm', 'y', data.lsm_y);
-        updateMinMax('lsm', 'z', data.lsm_z);
-
-        updateMinMax('icm', 'x', data.icm_x);
-        updateMinMax('icm', 'y', data.icm_y);
-        updateMinMax('icm', 'z', data.icm_z);
+        updateBar('icm', 'x', data.icm_x);
+        updateBar('icm', 'y', data.icm_y);
+        updateBar('icm', 'z', data.icm_z);
 
         updateThruster('bb', data.speed_bb);
         updateThruster('sb', data.speed_sb);
@@ -200,6 +207,13 @@ function resetMinMax() {
         });
     });
 }
+
+function startCalib() {
+    if(confirm('Start Desk Compass Calibration? The system will beep and middle LED will blink purple for 60 seconds.')) {
+        fetch('/calibrate').then(r => alert('Calibration Started! Observe the Sub LEDs.'));
+    }
+}
+
 setInterval(fetchData, 200);
 </script>
 </body>
@@ -557,6 +571,11 @@ void WiFiTask(void *arg)
         json += "\"speed_sb\":" + String(global_speed_sb, 0);
         json += "}";
         subServer.send(200, "application/json", json);
+    });
+    subServer.on("/calibrate", []() {
+        int cmd = CALIBRATE_MAGNETIC_COMPASS;
+        xQueueSend(compassIn, (void *)&cmd, 10);
+        subServer.send(200, "text/plain", "OK");
     });
     subServer.begin();
     

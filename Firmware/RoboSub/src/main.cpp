@@ -405,8 +405,8 @@ void handelSerandRfdata(RoboStruct *ser)
             break;
         case STORE_COMPASS_OFFSET:
             printf("New compass offset: %f | %f", dataIn.compassOffset, dataIn.icmCompassOffset);
-            CompasOffset(&dataIn, SET);
-            icmCompassOffsetLoad(&dataIn, SET);
+            CompassOffsetCorrection(&dataIn.compassOffset, false); // FIX: Save to correct NVS key ("magCorr")
+            icmCompassOffsetLoad(&dataIn, false);
             ser->compassOffset = dataIn.compassOffset; // Update running config
             ser->icmCompassOffset = dataIn.icmCompassOffset; // Update running config
             InitCompass();
@@ -429,6 +429,12 @@ void handelSerandRfdata(RoboStruct *ser)
             printf("Starting Desk Compass Calibration...");
             ser->status = CALIBRATE_MAGNETIC_COMPASS;
             {
+                // Immediate feedback
+                mainLedStatus.color = CRGB::Purple;
+                mainLedStatus.blink = BLINK_FAST;
+                xQueueSend(ledStatus, (void *)&mainLedStatus, 0);
+                beep(1, buzzer);
+
                 int cmd = CALIBRATE_MAGNETIC_COMPASS;
                 xQueueSend(compassIn, (void *)&cmd, 10);
             }
