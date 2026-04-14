@@ -2750,6 +2750,16 @@
 		)
 		(uuid "375d4c48-019a-405b-82aa-5affee495110")
 	)
+	(text "Moet Pmos worden"
+		(exclude_from_sim no)
+		(at 74.295 60.325 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "6af15b8c-f37c-464e-a3c5-efe38ab61c0a")
+	)
 	(text "https://320volt.com/en/bms-3s-25a-circuit-diagram-modified/"
 		(exclude_from_sim no)
 		(at 46.355 14.605 0)
