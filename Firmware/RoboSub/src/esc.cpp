@@ -277,33 +277,19 @@ void EscTask(void *arg)
             }
         }
 
-        // Update LED data and send to queue only when changed
-        if (ledChanged && millis() >= ledUpdateStamp) {
+        // Update LED data and send to queue periodically or when changed
+        if (millis() >= ledUpdateStamp) {
             ledUpdateStamp = millis() + 100;
             
-            // Update BB LED color based on actual speed
-            uint8_t r, g;
-            calculateLedColor(spbbAct, r, g);
-            powerIndicator.bb[0] = r;
-            powerIndicator.bb[1] = g;
-            powerIndicator.bb[2] = 0;
+            // Send user-facing speeds to LED task
+            powerIndicator.ledSb = (int)global_speed_sb;
+            powerIndicator.ledBb = (int)global_speed_bb;
             powerIndicator.blinkBb = BLINK_OFF;
-
-            // Update SB LED color based on actual speed
-            calculateLedColor(spsbAct, r, g);
-            powerIndicator.sb[0] = r;
-            powerIndicator.sb[1] = g;
-            powerIndicator.sb[2] = 0;
             powerIndicator.blinkSb = BLINK_OFF;
-            
-            // Update bar graph values
-            powerIndicator.ledSb = spsbAct;
-            powerIndicator.ledBb = spbbAct;
-            
-            xQueueOverwrite(ledPwr, (void *)&powerIndicator);
-            ledChanged = false;  // Clear flag after successful update
-        }
 
+            xQueueOverwrite(ledPwr, (void *)&powerIndicator);
+            ledChanged = false;
+        }
         vTaskDelay(pdMS_TO_TICKS(5));
     }
 }

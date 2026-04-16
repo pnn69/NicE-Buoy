@@ -8,7 +8,7 @@
 #include "leds.h"
 #include "io_sub.h"
 
-#define NUM_LEDS 3 + 20
+#define NUM_LEDS 3
 #define LEDBB 2
 #define LEDSTATUS 1
 #define LEDSB 0
@@ -56,7 +56,7 @@ void initLed(void)
  * @brief FreeRTOS task handling LED animations and state updates.
  * 1. Initializes the FastLED driver.
  * 2. Monitors `ledStatus` for system state colors (e.g., GPS lock, connection status).
- * 3. Monitors `ledPwr` for motor speed data to drive the LED bar graphs.
+ * 3. Monitors `ledPwr` for motor speed data to drive the LED thruster indicators.
  * 4. Manages global blink animations (Fast and Slow) for any LED that requires it.
  * 5. Calls FastLED.show() only when the state or animation step changes.
  * 
@@ -80,24 +80,22 @@ void LedTask(void *arg)
         
         if (xQueueReceive(ledPwr, (void *)&ledPwrData, 0) == pdTRUE)
         {
-            leds[LEDBB] = ledPwrData.bb;
-            leds[LEDSB] = ledPwrData.sb;
-            
             int bbVal = ledPwrData.ledBb;
             int sbVal = ledPwrData.ledSb;
 
-            for (int i = 1; i < 11; i++)
-            {
-                // BB Motor Bar
-                if (bbVal >= 10) { leds[2 + i] = CRGB::Green; bbVal -= 10; }
-                else if (bbVal <= -10) { leds[2 + i] = CRGB::Red; bbVal += 10; }
-                else { leds[2 + i] = CRGB::Black; }
+            // BB Motor Indicator (LED 2)
+            if (bbVal > 5) { ledPwrData.bb = CRGB::Green; }
+            else if (bbVal < -5) { ledPwrData.bb = CRGB::Red; }
+            else { ledPwrData.bb = CRGB::Black; }
 
-                // SB Motor Bar
-                if (sbVal >= 10) { leds[2 + 10 + i] = CRGB::Green; sbVal -= 10; }
-                else if (sbVal <= -10) { leds[2 + 10 + i] = CRGB::Red; sbVal += 10; }
-                else { leds[2 + 10 + i] = CRGB::Black; }
-            }
+            // SB Motor Indicator (LED 0)
+            if (sbVal > 5) { ledPwrData.sb = CRGB::Green; }
+            else if (sbVal < -5) { ledPwrData.sb = CRGB::Red; }
+            else { ledPwrData.sb = CRGB::Black; }
+
+            leds[LEDBB] = ledPwrData.bb;
+            leds[LEDSB] = ledPwrData.sb;
+            
             changed = true;
         }
 

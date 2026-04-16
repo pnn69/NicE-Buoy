@@ -615,10 +615,6 @@ void handleTimerRoutines(RoboStruct *in)
             escOut.speedbb = in->speedBb;
             escOut.speedsb = in->speedSb;
             xQueueSend(escspeed, (void *)&escOut, 10);
-            
-            mainPwrData.ledBb = in->speedBb;
-            mainPwrData.ledSb = in->speedSb;
-            xQueueSend(ledPwr, (void *)&mainPwrData, 0);
         }
         break;
     case REMOTE:
@@ -627,19 +623,11 @@ void handleTimerRoutines(RoboStruct *in)
         escOut.speedbb = in->speedBb;
         escOut.speedsb = in->speedSb;
         xQueueSend(escspeed, (void *)&escOut, 10);
-
-        mainPwrData.ledBb = in->speedBb;
-        mainPwrData.ledSb = in->speedSb;
-        xQueueSend(ledPwr, (void *)&mainPwrData, 0);
         break;
     case SPBBSPSB: // SpeedBb,SpeedSb
         escOut.speedbb = in->speedBb;
         escOut.speedsb = in->speedSb;
         xQueueSend(escspeed, (void *)&escOut, 10);
-
-        mainPwrData.ledBb = in->speedBb;
-        mainPwrData.ledSb = in->speedSb;
-        xQueueSend(ledPwr, (void *)&mainPwrData, 0);
         break;
     case IDLE:
     case IDELING:
