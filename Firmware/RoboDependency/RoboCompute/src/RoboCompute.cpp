@@ -246,14 +246,8 @@ void RoboDecode(String data, RoboStruct *dataStore)
         break;
 
     case STORE_COMPASS_OFFSET:
-        // Accommodate for Python sending ,,val (numbers[2]) and C++ sending ,val (numbers[1])
-        if (numbers[2].length() > 0) {
-            dataStore->compassOffset = numbers[2].toDouble();
-            if (numbers[3].length() > 0) dataStore->icmCompassOffset = numbers[3].toDouble();
-        } else {
-            dataStore->compassOffset = numbers[1].toDouble();
-            if (numbers[2].length() > 0) dataStore->icmCompassOffset = numbers[2].toDouble();
-        }
+        dataStore->compassOffset = numbers[2].toDouble();
+        dataStore->icmCompassOffset = numbers[3].toDouble();
         break;
 
     case SETUPDATA:
@@ -522,13 +516,12 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->pivotSpeed,2);
         out += "," + String(dataOut->compassOffset,2);
         out += "," + String(dataOut->minOfsetDist);
+        out += "," + String(dataOut->icmCompassOffset,2);
         break;
-
-
-
 
     case STORE_COMPASS_OFFSET:
         out += "," + String(dataOut->compassOffset, 2);
+        out += "," + String(dataOut->icmCompassOffset, 2);
         break;
 
     case PING:

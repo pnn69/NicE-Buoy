@@ -90,6 +90,7 @@ bool lsm_ready = false;
 float global_lsmHdg = 0;
 float global_icmHdg = 0;
 sensors_event_t m_lsm_last, m_icm_last;
+sensors_event_t m_lsm_a_last, m_icm_a_last;
 
 template <typename T>
 float heading(vector_t<T> from)
@@ -101,6 +102,7 @@ float heading(vector_t<T> from)
     vector_t<float> temp_m = {event.magnetic.x, event.magnetic.y, event.magnetic.z};
 
     if (!accel.getEvent(&event)) return 0.0f;
+    m_lsm_a_last = event;
     vector_t<float> a = {event.acceleration.x, event.acceleration.y, event.acceleration.z};
 
     // Important: subtract average of min and max from magnetometer calibration
@@ -190,9 +192,10 @@ bool InitCompass(void)
     accel.setMode(LSM303_MODE_NORMAL);
 
     CompassOffsetCorrection(&mainData.compassOffset, true);
+    icmCompassOffsetLoad(&mainData, true);
     MechanicalCorrection(&mainData.mechanicCorrection, true);
 
-    Serial.printf("Compass Initialized. Offset: %0.1f, Mech: %0.1f\n", mainData.compassOffset, mainData.mechanicCorrection);
+    Serial.printf("Compass Initialized. LSM Offset: %0.1f, ICM Offset: %0.1f, Mech: %0.1f\n", mainData.compassOffset, mainData.icmCompassOffset, mainData.mechanicCorrection);
     return true;
 }
 
@@ -207,6 +210,7 @@ bool CalibrateCompass(void)
     calLedStatus.color = CRGB::Purple;
     calLedStatus.blink = BLINK_FAST;
     xQueueSend(ledStatus, (void *)&calLedStatus, 0);
+    vTaskDelay(pdMS_TO_TICKS(500)); // Delay to ensure previous beep finished
     beep(1, buzzer);
 
     calstamp = millis();
@@ -222,6 +226,12 @@ bool CalibrateCompass(void)
         sensors_event_t event_lsm, event_icm;
         mag.getEvent(&event_lsm);
         icm.getMagnetometerSensor()->getEvent(&event_icm);
+
+        // Map ICM magnetometer to LSM frame: X = Y, Y = -X, Z = Z
+        float temp_mag_x = event_icm.magnetic.x;
+        event_icm.magnetic.x = event_icm.magnetic.y;
+        event_icm.magnetic.y = -temp_mag_x;
+        event_icm.magnetic.z = event_icm.magnetic.z;
 
         min_mag[0] = fmin(min_mag[0], event_lsm.magnetic.x);
         max_mag[0] = fmax(max_mag[0], event_lsm.magnetic.x);
@@ -266,7 +276,7 @@ bool CalibrateCompass(void)
     idleLedStatus.color = CRGB::Yellow;
     idleLedStatus.blink = BLINK_OFF;
     xQueueSend(ledStatus, (void *)&idleLedStatus, 0);
-    beep(2, buzzer); // Final confirmation beep
+    beep(5, buzzer); // Final confirmation melody
 
     return true;
 }
@@ -274,10 +284,23 @@ bool CalibrateCompass(void)
 float heading_icm(vector_t<int> from)
 {
     if (!icm_ready) return -1.0f;
-    sensors_event_t accel_event, mag_event, gyro_event, temp_event;
-    icm.getEvent(&accel_event, &gyro_event, &temp_event, &mag_event);
+    sensors_event_t accel_event, mag_event;
+    icm_accel->getEvent(&accel_event);
+    icm_mag->getEvent(&mag_event);
     
+    // Map ICM magnetometer to LSM frame: X = Y, Y = -X, Z = Z (internal AK09916 is NOT inverted on this board)
+    float temp_mag_x = mag_event.magnetic.x;
+    mag_event.magnetic.x = mag_event.magnetic.y;
+    mag_event.magnetic.y = -temp_mag_x;
+    mag_event.magnetic.z = mag_event.magnetic.z;
     m_icm_last = mag_event;
+
+    // Map ICM accelerometer to LSM frame: X = Y, Y = -X, Z = Z (physically rotated 90 deg)
+    float temp_accel_x = accel_event.acceleration.x;
+    accel_event.acceleration.x = accel_event.acceleration.y;
+    accel_event.acceleration.y = -temp_accel_x;
+    // Z stays the same
+    m_icm_a_last = accel_event;
 
     vector_t<float> temp_m = {mag_event.magnetic.x, mag_event.magnetic.y, mag_event.magnetic.z};
     vector_t<float> a = {accel_event.acceleration.x, accel_event.acceleration.y, accel_event.acceleration.z};
@@ -312,17 +335,17 @@ float GetHeading(void)
     float mHeding = 0;
     if (lsm_ready) {
         mHeding = heading((vector_t<int>){0, 1, 0});
+        mHeding = mHeding + mainData.compassOffset;
     } else {
         mHeding = heading_icm((vector_t<int>){0, 1, 0});
+        mHeding = mHeding + mainData.icmCompassOffset;
     }
-    mHeding = mHeding + mainData.compassOffset;
-    if (mHeding < 0)
-    {
-        mHeding = mHeding + 360.0;
-    }
-    else if (mHeding > 360)
-    {
-        mHeding = mHeding - 360.0;
+    
+    if (!isnan(mHeding)) {
+        mHeding = fmod(mHeding, 360.0);
+        if (mHeding < 0) mHeding += 360.0;
+    } else {
+        mHeding = 0.0;
     }
     return mHeding;
 }
@@ -335,13 +358,12 @@ float GetHeadingRaw(void)
     } else {
         t = heading_icm((vector_t<int>){0, 1, 0});
     }
-    if (t > 360)
-    {
-        t -= 360;
-    }
-    else if (t < 0)
-    {
-        t += 360;
+    
+    if (!isnan(t)) {
+        t = fmod(t, 360.0);
+        if (t < 0) t += 360.0;
+    } else {
+        t = 0.0;
     }
     return t;
 }
@@ -559,15 +581,23 @@ void CompassTask(void *arg)
         global_lsmHdg = heading((vector_t<int>){0, 1, 0});
         if (lsm_ready) {
             global_lsmHdg += mainData.compassOffset;
-            if (global_lsmHdg < 0) global_lsmHdg += 360.0;
-            else if (global_lsmHdg > 360) global_lsmHdg -= 360.0;
+            if (!isnan(global_lsmHdg)) {
+                global_lsmHdg = fmod(global_lsmHdg, 360.0);
+                if (global_lsmHdg < 0) global_lsmHdg += 360.0;
+            } else {
+                global_lsmHdg = 0.0;
+            }
         }
 
         if (icm_ready) {
             global_icmHdg = heading_icm((vector_t<int>){0, 1, 0});
             global_icmHdg += mainData.icmCompassOffset;
-            if (global_icmHdg < 0) global_icmHdg += 360.0;
-            else if (global_icmHdg > 360) global_icmHdg -= 360.0;
+            if (!isnan(global_icmHdg)) {
+                global_icmHdg = fmod(global_icmHdg, 360.0);
+                if (global_icmHdg < 0) global_icmHdg += 360.0;
+            } else {
+                global_icmHdg = 0.0;
+            }
         }
 
         float rawHdg = GetHeading();
@@ -590,10 +620,12 @@ void CompassTask(void *arg)
             lastUdp = millis();
             char dbg[250];
             snprintf(dbg, sizeof(dbg),
-                "{\"debug\":\"compass\",\"lsm_hdg\":%.1f,\"icm_hdg\":%.1f,\"lsm\":[%.1f,%.1f,%.1f],\"icm\":[%.1f,%.1f,%.1f]}",
-                global_lsmHdg, global_icmHdg,
+                "{\"lsm_hdg\":%.1f,\"icm_hdg\":%.1f,\"off\":%.1f,\"l_m\":[%.1f,%.1f,%.1f],\"i_m\":[%.1f,%.1f,%.1f],\"l_a\":[%.1f,%.1f,%.1f],\"i_a\":[%.1f,%.1f,%.1f]}",
+                global_lsmHdg, global_icmHdg, mainData.compassOffset,
                 m_lsm_last.magnetic.x, m_lsm_last.magnetic.y, m_lsm_last.magnetic.z,
-                m_icm_last.magnetic.x, m_icm_last.magnetic.y, m_icm_last.magnetic.z
+                m_icm_last.magnetic.x, m_icm_last.magnetic.y, m_icm_last.magnetic.z,
+                m_lsm_a_last.acceleration.x, m_lsm_a_last.acceleration.y, m_lsm_a_last.acceleration.z,
+                m_icm_a_last.acceleration.x, m_icm_a_last.acceleration.y, m_icm_a_last.acceleration.z
             );
             udpsend(dbg);
         }

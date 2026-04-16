@@ -500,26 +500,30 @@ class RoboMonitor:
 
         ttk.Label(main_setup_frame, text="Compass Configuration", font=("Arial", 11, "bold")).grid(row=15, column=0, columnspan=2, pady=(10, 10))
         
-        ttk.Label(main_setup_frame, text="Compass Offset:").grid(row=16, column=0, sticky="e", padx=10, pady=5)
+        ttk.Label(main_setup_frame, text="LSM Offset:").grid(row=16, column=0, sticky="e", padx=10, pady=2)
         compass_offset_entry = ttk.Entry(main_setup_frame, width=15)
-        compass_offset_entry.grid(row=16, column=1, sticky="w", pady=5)
-        
+        compass_offset_entry.grid(row=16, column=1, sticky="w", pady=2)
+
+        ttk.Label(main_setup_frame, text="ICM Offset:").grid(row=17, column=0, sticky="e", padx=10, pady=2)
+        icm_offset_entry = ttk.Entry(main_setup_frame, width=15)
+        icm_offset_entry.grid(row=17, column=1, sticky="w", pady=2)
+
         def send_compass_offset():
             try:
                 coff = float(compass_offset_entry.get() or 0)
-                val_str = f"{format(coff, '.2f')}"
+                icmoff = float(icm_offset_entry.get() or 0)
+                val_str = f"{format(coff, '.2f')},{format(icmoff, '.2f')}"
                 # CMD 75 is STORE_COMPASS_OFFSET
                 base_msg = f"{b['id']},99,3,75,,{val_str},,,,,"
                 self.send_custom_udp_command(b['id'], base_msg)
             except ValueError:
                 pass
 
-        ttk.Button(main_setup_frame, text="Send Compass Offset", command=send_compass_offset).grid(row=17, column=0, columnspan=2, pady=(10, 5))
-        
+        ttk.Button(main_setup_frame, text="Send Compass Offsets", command=send_compass_offset).grid(row=18, column=0, columnspan=2, pady=(10, 5))
+
         # --- In-Field Calibration Section ---
         calib_frame = ttk.LabelFrame(main_setup_frame, text="In-Field Calibration", padding="10")
-        calib_frame.grid(row=18, column=0, columnspan=2, sticky="ew", pady=(15, 0))
-        
+        calib_frame.grid(row=19, column=0, columnspan=2, sticky="ew", pady=(15, 0))        
         calib_comp_btn = ttk.Button(calib_frame, text="Compass Calibration", command=lambda: self.on_infield_calib_click(b))
         calib_comp_btn.pack(fill="x", pady=2)
         
@@ -531,7 +535,8 @@ class RoboMonitor:
             "Kpr": kpr_entry, "Kir": kir_entry, "Kdr": kdr_entry,
             "Kps": kps_entry, "Kis": kis_entry, "Kds": kds_entry,
             "maxSpeed": max_speed_entry, "minSpeed": min_speed_entry,
-            "pivotSpeed": pivot_speed_entry, "compassOffset": compass_offset_entry
+            "pivotSpeed": pivot_speed_entry, "compassOffset": compass_offset_entry,
+            "icmCompassOffset": icm_offset_entry
         }
         # Pre-fill if we have data already
         with self.data_lock:
@@ -909,16 +914,25 @@ class RoboMonitor:
                 
                 piv_s = "0.2"
                 comp_off = "0.0"
+                icm_comp_off = "0.0"
                 if len(fields) >= 14:
                     piv_s = fields[13]
                 if len(fields) >= 15:
                     comp_off = fields[14]
+                if len(fields) >= 17: # Kps Kis Kds (3) + max min (2) + pivot(1) + offset(1) + minoffset(1) + icmoffset(1) => 9 parameters past initial 5 + 3 PIDR => Actually let's check field indices based on RoboCompute.cpp
+                    # SETUPDATA layout from RoboCompute:
+                    # 0:IDr, 1:IDs, 2:ACK, 3:CMD, 4:Status
+                    # 5:Kpr, 6:Kir, 7:Kdr, 8:Kps, 9:Kis, 10:Kds
+                    # 11:maxSpeed, 12:minSpeed, 13:pivotSpeed
+                    # 14:compassOffset, 15:minOfsetDist, 16:icmCompassOffset
+                    icm_comp_off = fields[16]
+
                 data.update({
                     "IDr": fields[0], "IDs": fields[1], "ACK": fields[2], "CMD": fields[3], "Status": fields[4],
                     "Kpr": fields[5], "Kir": fields[6], "Kdr": fields[7],
                     "Kps": fields[8], "Kis": fields[9], "Kds": fields[10],
                     "maxSpeed": fields[11], "minSpeed": fields[12], "pivotSpeed": piv_s,
-                    "compassOffset": comp_off
+                    "compassOffset": comp_off, "icmCompassOffset": icm_comp_off
                 })
                 self.update_buoy_data(buoy_id, data)
                 

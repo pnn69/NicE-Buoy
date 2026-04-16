@@ -1,6 +1,6 @@
 #ifndef LEDS_H_
 #define LEDS_H_
-#define BRIGHTNES 0
+#define LED_BRIGHTNESS 100
 #include <FastLED.h>
 #include "main.h"
 

@@ -20,6 +20,7 @@ extern float global_lsmHdg;
 
 // Raw axis data for dashboard
 extern sensors_event_t m_lsm_last, m_icm_last;
+extern sensors_event_t m_lsm_a_last, m_icm_a_last;
 
 const char* compass_html = R"rawliteral(
 <!DOCTYPE html>

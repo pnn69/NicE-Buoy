@@ -380,6 +380,7 @@ void WiFiTask(void *arg)
             json += "\"minSpeed\":\"" + String(buoyPara[i].minSpeed) + "\",";
             json += "\"pivotSpeed\":\"" + String(buoyPara[i].pivotSpeed, 2) + "\",";
             json += "\"compassOffset\":\"" + String(buoyPara[i].compassOffset, 2) + "\",";
+            json += "\"icmCompassOffset\":\"" + String(buoyPara[i].icmCompassOffset, 2) + "\",";
             json += "\"Lat\":\"" + String(mainData.lat, 6) + "\",";
             json += "\"Lng\":\"" + String(mainData.lng, 6) + "\",";
             json += "\"GpsFix\":\"" + String(buoyPara[i].gpsFix) + "\"";

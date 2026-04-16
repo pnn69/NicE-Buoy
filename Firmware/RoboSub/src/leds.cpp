@@ -39,16 +39,16 @@ bool initledqueue(void)
 
 /**
  * @brief Configures the FastLED library and hardware pin for WS2812B LEDs.
- * Sets the initial colors (Red, White, Blue) to indicate the system is booting.
+ * Sets the initial colors to RGB (Red, Green, Blue) on startup.
  */
 void initLed(void)
 {
     FastLED.addLeds<WS2812B, LEDS_PIN, GRB>(leds, NUM_LEDS);
     FastLED.clear();
-    leds[LEDSTATUS] = CRGB::Red;
-    leds[LEDBB] = CRGB::White;
-    leds[LEDSB] = CRGB::Blue;
-    FastLED.setBrightness(100);
+    leds[0] = CRGB::Red;
+    leds[1] = CRGB::Green;
+    leds[2] = CRGB::Blue;
+    FastLED.setBrightness(LED_BRIGHTNESS);
     FastLED.show();
 }
 

@@ -143,11 +143,11 @@ void CompasOffset(RoboStruct *buoy, bool get)
     startMem();
     if (get)
     {
-        buoy->compassOffset = storage.getDouble("CompasOffset", 0);
+        buoy->compassOffset = storage.getDouble("magCorr", 0);
     }
     else
     {
-        storage.putDouble("CompasOffset", buoy->compassOffset);
+        storage.putDouble("magCorr", buoy->compassOffset);
     }
     stopMem();
 }

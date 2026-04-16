@@ -405,11 +405,10 @@ void handelSerandRfdata(RoboStruct *ser)
             break;
         case STORE_COMPASS_OFFSET:
             printf("New compass offset: %f | %f", dataIn.compassOffset, dataIn.icmCompassOffset);
-            CompassOffsetCorrection(&dataIn.compassOffset, false); // FIX: Save to correct NVS key ("magCorr")
+            CompassOffsetCorrection(&dataIn.compassOffset, false);
             icmCompassOffsetLoad(&dataIn, false);
             ser->compassOffset = dataIn.compassOffset; // Update running config
             ser->icmCompassOffset = dataIn.icmCompassOffset; // Update running config
-            InitCompass();
             printf(" (Stored)\r\n");
             // Send an ACK back to the Top buoy so it stops retransmitting (if LORAGETACK is used)
             if (dataIn.ack == LORAGETACK || dataIn.ack == LORASET) {
@@ -616,6 +615,10 @@ void handleTimerRoutines(RoboStruct *in)
             escOut.speedbb = in->speedBb;
             escOut.speedsb = in->speedSb;
             xQueueSend(escspeed, (void *)&escOut, 10);
+            
+            mainPwrData.ledBb = in->speedBb;
+            mainPwrData.ledSb = in->speedSb;
+            xQueueSend(ledPwr, (void *)&mainPwrData, 0);
         }
         break;
     case REMOTE:
@@ -624,11 +627,19 @@ void handleTimerRoutines(RoboStruct *in)
         escOut.speedbb = in->speedBb;
         escOut.speedsb = in->speedSb;
         xQueueSend(escspeed, (void *)&escOut, 10);
+
+        mainPwrData.ledBb = in->speedBb;
+        mainPwrData.ledSb = in->speedSb;
+        xQueueSend(ledPwr, (void *)&mainPwrData, 0);
         break;
     case SPBBSPSB: // SpeedBb,SpeedSb
         escOut.speedbb = in->speedBb;
         escOut.speedsb = in->speedSb;
         xQueueSend(escspeed, (void *)&escOut, 10);
+
+        mainPwrData.ledBb = in->speedBb;
+        mainPwrData.ledSb = in->speedSb;
+        xQueueSend(ledPwr, (void *)&mainPwrData, 0);
         break;
     case IDLE:
     case IDELING:
@@ -680,10 +691,10 @@ void handleTimerRoutines(RoboStruct *in)
 void loop(void)
 {
 
-    mainLedStatus.color = CRGB::Yellow;
+    mainLedStatus.color = CRGB::Black;
     mainLedStatus.blink = BLINK_OFF;
-    mainPwrData.sb = CRGB::Yellow;
-    mainPwrData.bb = CRGB::Yellow;
+    mainPwrData.sb = CRGB::Black;
+    mainPwrData.bb = CRGB::Black;
     xQueueSend(ledStatus, (void *)&mainLedStatus, 0); // update status led
     xQueueSend(ledPwr, (void *)&mainPwrData, 0);    // update power led
     PwrOff = millis();
