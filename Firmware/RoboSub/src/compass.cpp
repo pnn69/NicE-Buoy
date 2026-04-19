@@ -19,6 +19,7 @@
 #include "pidrudspeed.h"
 #include "sercom.h"
 #include "subwifi.h"
+#include "mag_calib.h"
 
 #include <Adafruit_ICM20X.h>
 #include <Adafruit_ICM20948.h>
@@ -105,10 +106,14 @@ float heading(vector_t<T> from)
     m_lsm_a_last = event;
     vector_t<float> a = {event.acceleration.x, event.acceleration.y, event.acceleration.z};
 
-    // Important: subtract average of min and max from magnetometer calibration
-    temp_m.x -= (m_min.x + m_max.x) / 2;
-    temp_m.y -= (m_min.y + m_max.y) / 2;
-    temp_m.z -= (m_min.z + m_max.z) / 2;
+    // Apply Soft and Hard Iron calibration
+    float raw_x = temp_m.x - mainData.magHard[0];
+    float raw_y = temp_m.y - mainData.magHard[1];
+    float raw_z = temp_m.z - mainData.magHard[2];
+
+    temp_m.x = mainData.magSoft[0][0] * raw_x + mainData.magSoft[0][1] * raw_y + mainData.magSoft[0][2] * raw_z;
+    temp_m.y = mainData.magSoft[1][0] * raw_x + mainData.magSoft[1][1] * raw_y + mainData.magSoft[1][2] * raw_z;
+    temp_m.z = mainData.magSoft[2][0] * raw_x + mainData.magSoft[2][1] * raw_y + mainData.magSoft[2][2] * raw_z;
 
     // Compute east and north vectors
     vector_t<float> east;
@@ -142,7 +147,10 @@ bool InitCompass(void)
     vTaskDelay(pdMS_TO_TICKS(100)); // Give sensors time to power up
 
     float min_mag[3], max_mag[3];
-    CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], true); //  get callibration data
+    CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], true); // Legacy float
+    
+    // Load full compass calibration (Soft + Hard iron + Offset) into mainData
+    CompassCallibrationFactors(&mainData, true);
 
     // Sanity check for calibration data
     if (abs(max_mag[0] - min_mag[0]) < 0.01) {
@@ -221,6 +229,9 @@ bool CalibrateCompass(void)
     min_icm[0] = min_icm[1] = min_icm[2] = 1000000.0f;
     max_icm[0] = max_icm[1] = max_icm[2] = -1000000.0f;
 
+    MagCalibrator cal_lsm;
+    MagCalibrator cal_icm;
+
     while (millis() - calstamp <= 1000 * 60) // 1 minute callibrating
     {
         sensors_event_t event_lsm, event_icm;
@@ -232,6 +243,10 @@ bool CalibrateCompass(void)
         event_icm.magnetic.x = event_icm.magnetic.y;
         event_icm.magnetic.y = -temp_mag_x;
         event_icm.magnetic.z = event_icm.magnetic.z;
+
+        // Add points to the calibrators
+        cal_lsm.addPoint(event_lsm.magnetic.x, event_lsm.magnetic.y, event_lsm.magnetic.z);
+        cal_icm.addPoint(event_icm.magnetic.x, event_icm.magnetic.y, event_icm.magnetic.z);
 
         min_mag[0] = fmin(min_mag[0], event_lsm.magnetic.x);
         max_mag[0] = fmax(max_mag[0], event_lsm.magnetic.x);
@@ -250,11 +265,47 @@ bool CalibrateCompass(void)
         if (lokcnt++ > 250)
         {
             lokcnt = 0;
-            Serial.printf("Calibrating: LSM X[%0.1f,%0.1f] | ICM X[%0.1f,%0.1f]\r\n", min_mag[0], max_mag[0], min_icm[0], max_icm[0]);
+            Serial.printf("Calibrating: LSM points=%d | ICM points=%d\r\n", cal_lsm.getNumPoints(), cal_icm.getNumPoints());
         }
         vTaskDelay(pdMS_TO_TICKS(10));
     }
-    CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], false); //  store callibration data
+    
+    float hard[3];
+    float soft[3][3];
+
+    if (cal_lsm.calculateCalibration(hard, soft)) {
+        for(int i=0; i<3; i++) mainData.magHard[i] = hard[i];
+        for(int i=0; i<3; i++) for(int j=0; j<3; j++) mainData.magSoft[i][j] = soft[i][j];
+        hardIron(&mainData, false);
+        softIron(&mainData, false);
+        Serial.println("LSM Ellipsoid Fit successful!");
+    } else {
+        Serial.println("LSM Ellipsoid Fit failed. Falling back to Hard Iron Min/Max.");
+        mainData.magHard[0] = (max_mag[0] + min_mag[0]) / 2;
+        mainData.magHard[1] = (max_mag[1] + min_mag[1]) / 2;
+        mainData.magHard[2] = (max_mag[2] + min_mag[2]) / 2;
+        for(int i=0; i<3; i++) for(int j=0; j<3; j++) mainData.magSoft[i][j] = (i==j) ? 1.0 : 0.0;
+        hardIron(&mainData, false);
+        softIron(&mainData, false);
+    }
+
+    if (cal_icm.calculateCalibration(hard, soft)) {
+        for(int i=0; i<3; i++) mainData.icmMagHard[i] = hard[i];
+        for(int i=0; i<3; i++) for(int j=0; j<3; j++) mainData.icmMagSoft[i][j] = soft[i][j];
+        icmHardIron(&mainData, false);
+        icmSoftIron(&mainData, false);
+        Serial.println("ICM Ellipsoid Fit successful!");
+    } else {
+        Serial.println("ICM Ellipsoid Fit failed. Falling back to Hard Iron Min/Max.");
+        mainData.icmMagHard[0] = (max_icm[0] + min_icm[0]) / 2;
+        mainData.icmMagHard[1] = (max_icm[1] + min_icm[1]) / 2;
+        mainData.icmMagHard[2] = (max_icm[2] + min_icm[2]) / 2;
+        for(int i=0; i<3; i++) for(int j=0; j<3; j++) mainData.icmMagSoft[i][j] = (i==j) ? 1.0 : 0.0;
+        icmHardIron(&mainData, false);
+        icmSoftIron(&mainData, false);
+    }
+
+    CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], false); //  store legacy data
     m_min = (vector_t<float>){min_mag[0], min_mag[1], min_mag[2]};
     m_max = (vector_t<float>){max_mag[0], max_mag[1], max_mag[2]};
     icm_min = (vector_t<float>){min_icm[0], min_icm[1], min_icm[2]};
@@ -306,9 +357,13 @@ float heading_icm(vector_t<int> from)
     vector_t<float> a = {accel_event.acceleration.x, accel_event.acceleration.y, accel_event.acceleration.z};
 
     // Apply specific ICM calibration bounds
-    temp_m.x -= (icm_min.x + icm_max.x) / 2;
-    temp_m.y -= (icm_min.y + icm_max.y) / 2;
-    temp_m.z -= (icm_min.z + icm_max.z) / 2;
+    float raw_x = temp_m.x - mainData.icmMagHard[0];
+    float raw_y = temp_m.y - mainData.icmMagHard[1];
+    float raw_z = temp_m.z - mainData.icmMagHard[2];
+
+    temp_m.x = mainData.icmMagSoft[0][0] * raw_x + mainData.icmMagSoft[0][1] * raw_y + mainData.icmMagSoft[0][2] * raw_z;
+    temp_m.y = mainData.icmMagSoft[1][0] * raw_x + mainData.icmMagSoft[1][1] * raw_y + mainData.icmMagSoft[1][2] * raw_z;
+    temp_m.z = mainData.icmMagSoft[2][0] * raw_x + mainData.icmMagSoft[2][1] * raw_y + mainData.icmMagSoft[2][2] * raw_z;
 
     vector_t<float> east;
     vector_t<float> north;
