@@ -276,12 +276,16 @@ bool CalibrateCompass(void)
     float hard[3];
     float soft[3][3];
 
+    bool lsm_success = false;
+    bool icm_success = false;
+
     if (cal_lsm.calculateCalibration(hard, soft)) {
         for(int i=0; i<3; i++) mainData.magHard[i] = hard[i];
         for(int i=0; i<3; i++) for(int j=0; j<3; j++) mainData.magSoft[i][j] = soft[i][j];
         hardIron(&mainData, false);
         softIron(&mainData, false);
         Serial.println("LSM Ellipsoid Fit successful!");
+        lsm_success = true;
     } else {
         Serial.println("LSM Ellipsoid Fit failed. Falling back to Hard Iron Min/Max.");
         mainData.magHard[0] = (max_mag[0] + min_mag[0]) / 2;
@@ -298,6 +302,7 @@ bool CalibrateCompass(void)
         icmHardIron(&mainData, false);
         icmSoftIron(&mainData, false);
         Serial.println("ICM Ellipsoid Fit successful!");
+        icm_success = true;
     } else {
         Serial.println("ICM Ellipsoid Fit failed. Falling back to Hard Iron Min/Max.");
         mainData.icmMagHard[0] = (max_icm[0] + min_icm[0]) / 2;
@@ -330,9 +335,17 @@ bool CalibrateCompass(void)
     idleLedStatus.color = CRGB::Yellow;
     idleLedStatus.blink = BLINK_OFF;
     xQueueSend(ledStatus, (void *)&idleLedStatus, 0);
-    beep(5, buzzer); // Final confirmation melody
 
-    mainData.status = IDLE; // Notify top unit that calibration has finished
+    if (lsm_success || icm_success) {
+        beep(5, buzzer); // Final confirmation melody (Happy)
+        mainData.status = IDLE; // Notify top unit (Success)
+    } else {
+        beep(3, buzzer); // Sad sound (Failure)
+        mainData.status = ERROR; // Notify top unit (Failure)
+        vTaskDelay(pdMS_TO_TICKS(1000)); // Hold ERROR status for 1 second so Top unit sees it
+        mainData.status = IDLE;
+    }
+
     return true;
 }
 
