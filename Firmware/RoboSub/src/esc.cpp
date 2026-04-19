@@ -60,10 +60,12 @@ void writeESC(uint8_t channel, uint16_t pulse_us)
  * Maps speed to pulse width (1000-2000us), then pulse width to duty cycle (3276-6553).
  * 
  * @param speed Target motor speed as a percentage (-100 to 100).
+ * @param invert If true, reverses the direction of the speed.
  * @return uint16_t The calculated 16-bit duty cycle.
  */
-uint16_t speedToPulse(int speed)
+uint16_t speedToPulse(int speed, bool invert)
 {
+    if (invert) speed = -speed;
     // Convert speed (-100 to 100) to microsecond pulse (1000 to 2000)
     int pulse = map(speed, -100, 100, 1000, 2000);
     // Then convert microseconds to 16-bit duty cycle (5%-10% of 20ms)
@@ -77,20 +79,20 @@ uint16_t speedToPulse(int speed)
 void triggerESC(void)
 {
     Serial.println("Trigger ESC");
-    ledcWrite(ESC_BB_CHANNEL, speedToPulse(5));
-    ledcWrite(ESC_SB_CHANNEL, speedToPulse(5));
+    ledcWrite(ESC_BB_CHANNEL, speedToPulse(5, false));
+    ledcWrite(ESC_SB_CHANNEL, speedToPulse(5, false));
     vTaskDelay(pdMS_TO_TICKS(ESC_ARM_TIME));
     
-    ledcWrite(ESC_BB_CHANNEL, speedToPulse(0));
-    ledcWrite(ESC_SB_CHANNEL, speedToPulse(0));
+    ledcWrite(ESC_BB_CHANNEL, speedToPulse(0, false));
+    ledcWrite(ESC_SB_CHANNEL, speedToPulse(0, false));
     vTaskDelay(pdMS_TO_TICKS(ESC_ARM_TIME));
     
-    ledcWrite(ESC_BB_CHANNEL, speedToPulse(-5));
-    ledcWrite(ESC_SB_CHANNEL, speedToPulse(-5));
+    ledcWrite(ESC_BB_CHANNEL, speedToPulse(-5, false));
+    ledcWrite(ESC_SB_CHANNEL, speedToPulse(-5, false));
     vTaskDelay(pdMS_TO_TICKS(ESC_ARM_TIME));
     
-    ledcWrite(ESC_BB_CHANNEL, speedToPulse(0));
-    ledcWrite(ESC_SB_CHANNEL, speedToPulse(0));
+    ledcWrite(ESC_BB_CHANNEL, speedToPulse(0, false));
+    ledcWrite(ESC_SB_CHANNEL, speedToPulse(0, false));
     vTaskDelay(pdMS_TO_TICKS(ESC_ARM_TIME));
 }
 
@@ -163,7 +165,7 @@ void startESC(void)
     ledcSetup(ESC_SB_CHANNEL, ESC_FREQ, ESC_RESOLUTION);
     ledcAttachPin(ESC_BB_PIN, ESC_BB_CHANNEL); // e.g., GPIO 25
     ledcAttachPin(ESC_SB_PIN, ESC_SB_CHANNEL); // e.g., GPIO 26
-    uint16_t neutral = speedToPulse(0);
+    uint16_t neutral = speedToPulse(0, false);
     for (int i = 0; i < 100; i++)
     { // 2 seconds at 20ms
         ledcWrite(ESC_BB_CHANNEL, neutral);
@@ -177,20 +179,20 @@ void startESC(void)
 //***************************************************************************************************
 /**
  * @brief Calculates the RGB LED color representation based on motor speed.
- * Green for forward (negative speed), Red for reverse (positive speed).
+ * Green for forward (positive speed), Red for reverse (negative speed).
  * 
  * @param speed Current motor speed (-100 to 100).
  * @param r Output parameter for the red color component.
  * @param g Output parameter for the green color component.
  */
 void calculateLedColor(int speed, uint8_t& r, uint8_t& g) {
-    if (speed < 0) {
+    if (speed > 0) {
         // Forward: Green
         r = 0;
-        g = map(speed, -100, 0, 255, 0);
-    } else if (speed > 0) {
+        g = map(speed, 0, 100, 0, 255);
+    } else if (speed < 0) {
         // Reverse: Red
-        r = map(speed, 0, 100, 0, 255);
+        r = map(speed, -100, 0, 255, 0);
         g = 0;
     } else {
         r = 0;
@@ -213,6 +215,7 @@ void calculateLedColor(int speed, uint8_t& r, uint8_t& g) {
  */
 float global_speed_bb = 0;
 float global_speed_sb = 0;
+extern RoboStruct mainData;
 
 void EscTask(void *arg)
 {
@@ -228,8 +231,8 @@ void EscTask(void *arg)
     {
         if (xQueueReceive(escspeed, (void *)&rcv_msg, 0) == pdTRUE)
         {
-            spbb = -rcv_msg.speedbb;
-            spsb = -rcv_msg.speedsb;
+            spbb = rcv_msg.speedbb;
+            spsb = rcv_msg.speedsb;
             ledChanged = true;
         }
 
@@ -267,11 +270,12 @@ void EscTask(void *arg)
             else if (spbb < spbbAct) { spbbAct--; changed = true; }
 
             if (changed) {
-                ledcWrite(ESC_SB_CHANNEL, speedToPulse(spsbAct));
-                ledcWrite(ESC_BB_CHANNEL, speedToPulse(spbbAct));
+                // Apply hardware-level inversion if flags are set
+                ledcWrite(ESC_SB_CHANNEL, speedToPulse(spsbAct, mainData.revSB));
+                ledcWrite(ESC_BB_CHANNEL, speedToPulse(spbbAct, mainData.revBB));
                 
-                global_speed_bb = -spbbAct; // Match the physical orientation
-                global_speed_sb = -spsbAct; // Match the physical orientation
+                global_speed_bb = spbbAct; // Match the now-positive forward orientation
+                global_speed_sb = spsbAct; 
 
                 ledChanged = true;
             }

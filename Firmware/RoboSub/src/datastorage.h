@@ -18,6 +18,7 @@ void computeParameters(RoboStruct *buoy, bool get);
 void speedMaxMin(RoboStruct *buoy, bool get);
 void pidSpeedParameters(RoboStruct *buoy, bool get);
 void pidRudderParameters(RoboStruct *buoy, bool get);
+void thrusterInversion(RoboStruct *buoy, bool get);
 void apParameters(String *ap, String *ww, bool get);
 void hardIron(RoboStruct *buoy, bool get);
 void softIron(RoboStruct *buoy, bool get);

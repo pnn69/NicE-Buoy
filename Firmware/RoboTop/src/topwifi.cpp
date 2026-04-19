@@ -190,7 +190,7 @@ bool udp_setup(int poort)
                             }
                             lastUpdMsg = millis();
                         }
-                        else
+                        else if (!stringUdpIn.startsWith("{")) // Ignore JSON compass telemetry to prevent console spam
                         {
                             Serial.println("crc error: " + stringUdpIn);
                         } });

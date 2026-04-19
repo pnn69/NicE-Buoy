@@ -111,6 +111,7 @@ void setup()
     initRudPid(&mainData);
     initSpeedPid(&mainData);
     speedMaxMin(&mainData, GET);
+    thrusterInversion(&mainData, GET);
     initescqueue();
 
     if (digitalRead(BUTTON_PIN) == LOW)
@@ -476,8 +477,37 @@ void handelSerandRfdata(RoboStruct *ser)
                 speedMaxMin(ser, GET);
                 CompasOffset(ser, GET);
                 icmCompassOffsetLoad(ser, GET);
+                thrusterInversion(ser, GET); // Ensure latest inversion flags are sent
                 xQueueSend(serOut, (void *)ser, 10);
                 printf("Sent SETUPDATA back\r\n");
+            }
+            else if (dataIn.ack == LORASET)
+            {
+                printf("New setup received. Updating PID and Inversion flags.\r\n");
+                pidRudderParameters(&dataIn, SET);
+                pidSpeedParameters(&dataIn, SET);
+                speedMaxMin(&dataIn, SET);
+                CompasOffset(&dataIn, SET);
+                icmCompassOffsetLoad(&dataIn, SET);
+                thrusterInversion(&dataIn, SET);
+                
+                // Reload into running config
+                pidRudderParameters(ser, GET);
+                pidSpeedParameters(ser, GET);
+                speedMaxMin(ser, GET);
+                CompasOffset(ser, GET);
+                icmCompassOffsetLoad(ser, GET);
+                thrusterInversion(ser, GET);
+                
+                initRudPid(ser);
+                initSpeedPid(ser);
+
+                // Send confirmation back so Top and UI get the updated values
+                ser->IDr = dataIn.IDs;
+                ser->cmd = SETUPDATA;
+                ser->ack = LORAINF;
+                xQueueSend(serOut, (void *)ser, 10);
+                printf("Sent updated SETUPDATA back\r\n");
             }
             break;
         case HARDIRONFACTORS:

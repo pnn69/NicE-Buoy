@@ -24,7 +24,7 @@
 #include <Adafruit_ICM20X.h>
 #include <Adafruit_ICM20948.h>
 
-#define NUM_DIRECTIONS 30
+#define NUM_DIRECTIONS 5
 #define NUM_POSITIONS 50
 
 extern Preferences storage;

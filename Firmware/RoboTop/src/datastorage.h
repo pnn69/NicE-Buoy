@@ -11,6 +11,7 @@ void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, floa
 void CompassOffsetCorrection(int *delta, bool get);
 void MechanicalCorrection(int *delta, bool get);
 void memDockPos(RoboStruct *buoy, bool get);
+void thrusterInversion(RoboStruct *buoy, bool get);
 void computeParameters(RoboStruct *buoy, bool get);
 void pidSpeedParameters(RoboStruct *buoy, bool get);
 void pidRudderParameters(RoboStruct *buoy, bool get);

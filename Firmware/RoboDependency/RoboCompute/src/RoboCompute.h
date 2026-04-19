@@ -177,6 +177,8 @@ struct RoboStruct
     double icmMagHard[3] = {0};    // ICM Hard Iron Factors
     double icmMagSoft[3][3] = {0}; // ICM Soft Iron Factors
     double icmCompassOffset = 0;   // ICM compass offset
+    bool revBB = false;            // Reverse direction for Port/BB thruster
+    bool revSB = false;            // Reverse direction for Starboard/SB thruster
 };
 
 struct RoboStructGps

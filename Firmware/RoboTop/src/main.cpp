@@ -107,6 +107,7 @@ void setup()
     xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
     xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 1);
     memDockPos(&mainData, GET);
+    thrusterInversion(&mainData, GET);
     Serial.println("Dock position set to: ");
     Serial.printf("Lat: %.8lf, Lng: %.8lf\r\n", mainData.tgLat, mainData.tgLng);
     Serial.println("Main task running!");
@@ -255,6 +256,8 @@ void buttonLight(RoboStruct *sta)
         } else {
             mainCollorStatus.color = CRGB::Black;
             mainCollorStatus.blink = BLINK_OFF;
+            if (sta->status == ERROR) beep(3, buzzer);
+            else beep(5, buzzer);
         }
         xQueueSend(ledStatus, (void *)&mainCollorStatus, 0);
         lastCalibState = currentCalibState;
@@ -898,8 +901,13 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case SETUPDATA:
-                if (RfIn.ack == LORAGET || RfIn.ack == LORAGETACK)
+                if (RfIn.ack == LORAGET || RfIn.ack == LORAGETACK || RfIn.ack == LORASET)
                 {
+                    if (RfIn.ack == LORASET) {
+                        thrusterInversion(&RfIn, SET); // Persist if it's a SET command
+                        RfOut->revBB = RfIn.revBB;
+                        RfOut->revSB = RfIn.revSB;
+                    }
                     xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 }
                 else
@@ -1133,8 +1141,8 @@ void handelSerialData(RoboStruct *ser)
             ser->subAccuV = serDataIn.subAccuV;
             ser->subAccuP = serDataIn.subAccuP;
             
-            mainPwrData.ledBb = -ser->speedBb;
-            mainPwrData.ledSb = -ser->speedSb;
+            mainPwrData.ledBb = ser->speedBb;
+            mainPwrData.ledSb = ser->speedSb;
             xQueueSend(ledPwr, (void *)&mainPwrData, 0);
             break;
         case SETUPDATA:
@@ -1153,6 +1161,8 @@ void handelSerialData(RoboStruct *ser)
             mainData.minSpeed = serDataIn.minSpeed;
             mainData.pivotSpeed = serDataIn.pivotSpeed;
             mainData.compassOffset = serDataIn.compassOffset;
+            mainData.revBB = serDataIn.revBB;
+            mainData.revSB = serDataIn.revSB;
 
             xQueueSend(udpOut, (void *)&serDataIn, 0);
             xQueueSend(loraOut, (void *)&serDataIn, 0);
@@ -1166,8 +1176,8 @@ void handelSerialData(RoboStruct *ser)
             ser->speedSb = serDataIn.speedSb;
             printf("M:%03.0f T:%03.0f D:%03.1f   BB:%d SB:%d\r\n", ser->dirMag, ser->tgDir, ser->tgDist, ser->speedBb, ser->speedSb);
             
-            mainPwrData.ledBb = -ser->speedBb;
-            mainPwrData.ledSb = -ser->speedSb;
+            mainPwrData.ledBb = ser->speedBb;
+            mainPwrData.ledSb = ser->speedSb;
             xQueueSend(ledPwr, (void *)&mainPwrData, 0);
             break;
         case SUBACCU:

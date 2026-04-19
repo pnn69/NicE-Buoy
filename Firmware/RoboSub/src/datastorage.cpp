@@ -40,6 +40,8 @@ void initMemory(void)
         storage.putDouble("Docklat", 0.0);
         storage.putDouble("Docklon", 0.0);
         storage.putDouble("declination", 2.6666666666); // Amsterdam default
+        storage.putBool("revBB", false);
+        storage.putBool("revSB", false);
 
         Serial.printf("# Buoy Memory initialized for MAC: %08X\r\n", id);
         delay(500);
@@ -449,6 +451,22 @@ void CompassOffsetCorrection(double *offset, bool get)
     else
     {
         storage.putDouble("magCorr", *offset);
+    }
+    stopMem();
+}
+
+void thrusterInversion(RoboStruct *buoy, bool get)
+{
+    startMem();
+    if (get)
+    {
+        buoy->revBB = storage.getBool("revBB", false);
+        buoy->revSB = storage.getBool("revSB", false);
+    }
+    else
+    {
+        storage.putBool("revBB", buoy->revBB);
+        storage.putBool("revSB", buoy->revSB);
     }
     stopMem();
 }

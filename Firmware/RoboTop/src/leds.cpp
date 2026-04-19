@@ -100,13 +100,13 @@ void LedTask(void *arg)
             for (int i = 1; i < 11; i++)
             {
                 // BB Motor Bar (LEDs 3 to 12)
-                if (bbVal >= 10) { leds[2 + i] = CRGB::Red; bbVal -= 10; }
-                else if (bbVal <= -10) { leds[2 + i] = CRGB::Green; bbVal += 10; }
+                if (bbVal <= -10) { leds[2 + i] = CRGB::Red; bbVal += 10; }
+                else if (bbVal >= 10) { leds[2 + i] = CRGB::Green; bbVal -= 10; }
                 else { leds[2 + i] = CRGB::Black; }
 
                 // SB Motor Bar (LEDs 13 to 22)
-                if (sbVal >= 10) { leds[2 + 10 + i] = CRGB::Red; sbVal -= 10; }
-                else if (sbVal <= -10) { leds[2 + 10 + i] = CRGB::Green; sbVal += 10; }
+                if (sbVal <= -10) { leds[2 + 10 + i] = CRGB::Red; sbVal += 10; }
+                else if (sbVal >= 10) { leds[2 + 10 + i] = CRGB::Green; sbVal -= 10; }
                 else { leds[2 + 10 + i] = CRGB::Black; }
             }
             changed = true;

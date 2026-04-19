@@ -303,7 +303,7 @@ class RoboMonitor:
             dist = float(dist_val)
             # CMD=47 (DIRDIST), STATUS=7 (IDLE)
             val_str = f"{format(d, '.2f')},{format(dist, '.2f')}"
-            base_msg = f"{b['id']},99,,47,7,{val_str}"
+            base_msg = f"{b['id']},99,6,47,7,{val_str}"
             self.send_custom_udp_command(b['id'], base_msg)
         except ValueError:
             pass
@@ -471,7 +471,7 @@ class RoboMonitor:
 
         ttk.Button(main_setup_frame, text="Send Speed PID", command=send_speed_pid).grid(row=9, column=0, columnspan=2, pady=(10, 5))
         
-        ttk.Label(main_setup_frame, text="Speed Limits", font=("Arial", 11, "bold")).grid(row=10, column=0, columnspan=2, pady=(0, 10))
+        ttk.Label(main_setup_frame, text="Speed Limits & Motor Config", font=("Arial", 11, "bold")).grid(row=10, column=0, columnspan=2, pady=(0, 10))
         
         ttk.Label(main_setup_frame, text="Max Speed:").grid(row=11, column=0, sticky="e", padx=10, pady=5)
         max_speed_entry = ttk.Entry(main_setup_frame, width=15)
@@ -484,29 +484,58 @@ class RoboMonitor:
         ttk.Label(main_setup_frame, text="Pivot Speed:").grid(row=13, column=0, sticky="e", padx=10, pady=5)
         pivot_speed_entry = ttk.Entry(main_setup_frame, width=15)
         pivot_speed_entry.grid(row=13, column=1, sticky="w", pady=5)
+
+        rev_bb_var = tk.BooleanVar()
+        rev_bb_check = ttk.Checkbutton(main_setup_frame, text="Reverse Bow Thruster (BB)", variable=rev_bb_var)
+        rev_bb_check.grid(row=14, column=0, columnspan=2, pady=2)
+
+        rev_sb_var = tk.BooleanVar()
+        rev_sb_check = ttk.Checkbutton(main_setup_frame, text="Reverse Stern Thruster (SB)", variable=rev_sb_var)
+        rev_sb_check.grid(row=15, column=0, columnspan=2, pady=2)
         
-        def send_speed_limits():
+        def send_speed_limits_and_motors():
             try:
+                # Fetch all existing values since CMD 83 overwrites the full config block
+                kpr = format(float(kpr_entry.get() or 0), '.10g')
+                kir = format(float(kir_entry.get() or 0), '.10g')
+                kdr = format(float(kdr_entry.get() or 0), '.10g')
+                kps = format(float(kps_entry.get() or 0), '.10g')
+                kis = format(float(kis_entry.get() or 0), '.10g')
+                kds = format(float(kds_entry.get() or 0), '.10g')
+                
                 max_s = int(max_speed_entry.get() or 0)
                 min_s = int(min_speed_entry.get() or 0)
-                piv_s = float(pivot_speed_entry.get() or 0.2)
-                val_str = f"{max_s},{min_s},{format(piv_s, '.2f')}"
-                base_msg = f"{b['id']},99,3,69,,{val_str},,,,,"
+                piv_s = format(float(pivot_speed_entry.get() or 0.2), '.2f')
+                
+                coff = format(float(compass_offset_entry.get() or 0), '.2f')
+                min_off = b['data'].get("minOfsetDist", "0") # Assuming default 0 if missing
+                icmoff = format(float(icm_offset_entry.get() or 0), '.2f')
+                
+                rev_bb_int = 1 if rev_bb_var.get() else 0
+                rev_sb_int = 1 if rev_sb_var.get() else 0
+
+                # Construct full SETUPDATA string: CMD=83
+                val_str = f"{kpr},{kir},{kdr},{kps},{kis},{kds},{max_s},{min_s},{piv_s},{coff},{min_off},{icmoff},{rev_bb_int},{rev_sb_int}"
+                
+                # Send with ACK=false (0) or LORASET (2)? We'll use 2 for LORASET to trigger persist
+                base_msg = f"{b['id']},99,2,83,,{val_str}"
                 self.send_custom_udp_command(b['id'], base_msg)
-            except ValueError:
-                pass
+                
+                self.log_message(f"Sent full setup configuration to Buoy {b['id']} (CMD 83)")
+            except ValueError as e:
+                self.log_message(f"Input validation error: {e}")
 
-        ttk.Button(main_setup_frame, text="Send Speed Limits", command=send_speed_limits).grid(row=14, column=0, columnspan=2, pady=(10, 5))
+        ttk.Button(main_setup_frame, text="Save Speed Limits & Motors", command=send_speed_limits_and_motors).grid(row=16, column=0, columnspan=2, pady=(10, 5))
 
-        ttk.Label(main_setup_frame, text="Compass Configuration", font=("Arial", 11, "bold")).grid(row=15, column=0, columnspan=2, pady=(10, 10))
+        ttk.Label(main_setup_frame, text="Compass Configuration", font=("Arial", 11, "bold")).grid(row=17, column=0, columnspan=2, pady=(10, 10))
         
-        ttk.Label(main_setup_frame, text="LSM Offset:").grid(row=16, column=0, sticky="e", padx=10, pady=2)
+        ttk.Label(main_setup_frame, text="LSM Offset:").grid(row=18, column=0, sticky="e", padx=10, pady=2)
         compass_offset_entry = ttk.Entry(main_setup_frame, width=15)
-        compass_offset_entry.grid(row=16, column=1, sticky="w", pady=2)
+        compass_offset_entry.grid(row=18, column=1, sticky="w", pady=2)
 
-        ttk.Label(main_setup_frame, text="ICM Offset:").grid(row=17, column=0, sticky="e", padx=10, pady=2)
+        ttk.Label(main_setup_frame, text="ICM Offset:").grid(row=19, column=0, sticky="e", padx=10, pady=2)
         icm_offset_entry = ttk.Entry(main_setup_frame, width=15)
-        icm_offset_entry.grid(row=17, column=1, sticky="w", pady=2)
+        icm_offset_entry.grid(row=19, column=1, sticky="w", pady=2)
 
         def send_compass_offset():
             try:
@@ -519,11 +548,11 @@ class RoboMonitor:
             except ValueError:
                 pass
 
-        ttk.Button(main_setup_frame, text="Send Compass Offsets", command=send_compass_offset).grid(row=18, column=0, columnspan=2, pady=(10, 5))
+        ttk.Button(main_setup_frame, text="Send Compass Offsets", command=send_compass_offset).grid(row=20, column=0, columnspan=2, pady=(10, 5))
 
         # --- In-Field Calibration Section ---
         calib_frame = ttk.LabelFrame(main_setup_frame, text="In-Field Calibration", padding="10")
-        calib_frame.grid(row=19, column=0, columnspan=2, sticky="ew", pady=(15, 0))        
+        calib_frame.grid(row=21, column=0, columnspan=2, sticky="ew", pady=(15, 0))        
         calib_comp_btn = ttk.Button(calib_frame, text="Compass Calibration", command=lambda: self.on_infield_calib_click(b))
         calib_comp_btn.pack(fill="x", pady=2)
         
@@ -538,6 +567,10 @@ class RoboMonitor:
             "pivotSpeed": pivot_speed_entry, "compassOffset": compass_offset_entry,
             "icmCompassOffset": icm_offset_entry
         }
+        b['setup_vars'] = {
+            "revBB": rev_bb_var,
+            "revSB": rev_sb_var
+        }
         # Pre-fill if we have data already
         with self.data_lock:
             for key, entry in b['setup_entries'].items():
@@ -545,6 +578,11 @@ class RoboMonitor:
                 if val:
                     entry.delete(0, tk.END)
                     entry.insert(0, val)
+            
+            # Pre-fill checkbuttons
+            if b.get('setup_vars'):
+                b['setup_vars']['revBB'].set(b['data'].get('revBB') == "1")
+                b['setup_vars']['revSB'].set(b['data'].get('revSB') == "1")
 
     def on_infield_calib_click(self, b):
         with self.data_lock:
@@ -914,25 +952,30 @@ class RoboMonitor:
                 
                 piv_s = "0.2"
                 comp_off = "0.0"
+                min_off = "0"
                 icm_comp_off = "0.0"
+                rev_bb = "0"
+                rev_sb = "0"
                 if len(fields) >= 14:
                     piv_s = fields[13]
                 if len(fields) >= 15:
                     comp_off = fields[14]
-                if len(fields) >= 17: # Kps Kis Kds (3) + max min (2) + pivot(1) + offset(1) + minoffset(1) + icmoffset(1) => 9 parameters past initial 5 + 3 PIDR => Actually let's check field indices based on RoboCompute.cpp
-                    # SETUPDATA layout from RoboCompute:
-                    # 0:IDr, 1:IDs, 2:ACK, 3:CMD, 4:Status
-                    # 5:Kpr, 6:Kir, 7:Kdr, 8:Kps, 9:Kis, 10:Kds
-                    # 11:maxSpeed, 12:minSpeed, 13:pivotSpeed
-                    # 14:compassOffset, 15:minOfsetDist, 16:icmCompassOffset
+                if len(fields) >= 16:
+                    min_off = fields[15]
+                if len(fields) >= 17:
                     icm_comp_off = fields[16]
+                if len(fields) >= 18:
+                    rev_bb = fields[17]
+                if len(fields) >= 19:
+                    rev_sb = fields[18]
 
                 data.update({
                     "IDr": fields[0], "IDs": fields[1], "ACK": fields[2], "CMD": fields[3], "Status": fields[4],
                     "Kpr": fields[5], "Kir": fields[6], "Kdr": fields[7],
                     "Kps": fields[8], "Kis": fields[9], "Kds": fields[10],
                     "maxSpeed": fields[11], "minSpeed": fields[12], "pivotSpeed": piv_s,
-                    "compassOffset": comp_off, "icmCompassOffset": icm_comp_off
+                    "compassOffset": comp_off, "minOfsetDist": min_off, "icmCompassOffset": icm_comp_off,
+                    "revBB": rev_bb, "revSB": rev_sb
                 })
                 self.update_buoy_data(buoy_id, data)
                 
@@ -1097,6 +1140,14 @@ class RoboMonitor:
                             # Only update if the entry is empty (first time)
                             if val and not entry.get():
                                 entry.insert(0, val)
+                                
+                    # Update setup checkbuttons
+                    if b.get('setup_vars'):
+                        # Only set the checkbox value from incoming data if it hasn't been initialized yet
+                        # We check if the entry fields are empty as a proxy for "first time load"
+                        if b.get('setup_entries') and not b['setup_entries']['maxSpeed'].get():
+                            b['setup_vars']['revBB'].set(data.get('revBB') == "1")
+                            b['setup_vars']['revSB'].set(data.get('revSB') == "1")
 
                     # --- Update visual indicators independently of the labels list ---
                     for thrust_name in ["Bow Thruster (BB)", "Stern Thruster (SB)"]:
@@ -1110,7 +1161,7 @@ class RoboMonitor:
                         canvas.delete("bar")
                         if val != "N/A":
                             try:
-                                v = -float(val) # Invert to match physical orientation (same as sub website)
+                                v = float(val) 
                                 bar_height = abs(v) * 0.9
                                 if v < 0:
                                     canvas.create_rectangle(0, 90, 20, 90 + bar_height, fill="red", outline="red", tags="bar")

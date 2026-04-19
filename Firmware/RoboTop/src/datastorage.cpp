@@ -122,6 +122,22 @@ void memDockPos(RoboStruct *buoy, bool get)
     stopMem();
 }
 
+void thrusterInversion(RoboStruct *buoy, bool get)
+{
+    startMem();
+    if (get)
+    {
+        buoy->revBB = storage.getBool("revBB", false);
+        buoy->revSB = storage.getBool("revSB", false);
+    }
+    else
+    {
+        storage.putBool("revBB", buoy->revBB);
+        storage.putBool("revSB", buoy->revSB);
+    }
+    stopMem();
+}
+
 /*
     Defaut callibration factors determed earyer
     compass.m_min = (LSM303::vector<int16_t>){-535, -645, -382};
