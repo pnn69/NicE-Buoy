@@ -213,6 +213,9 @@ bool CalibrateCompass(void)
     uint32_t lokcnt = 0;
     Serial.println("Callibrating compass now!!!");
     
+    // Notify top unit by updating the main data structure's status
+    mainData.status = CALIBRATE_MAGNETIC_COMPASS;
+    
     // Feedback: Fast blinking purple LED and initial beep
     LedData calLedStatus;
     calLedStatus.color = CRGB::Purple;
@@ -329,6 +332,7 @@ bool CalibrateCompass(void)
     xQueueSend(ledStatus, (void *)&idleLedStatus, 0);
     beep(5, buzzer); // Final confirmation melody
 
+    mainData.status = IDLE; // Notify top unit that calibration has finished
     return true;
 }
 
