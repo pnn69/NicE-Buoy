@@ -122,9 +122,18 @@ void drawLockScreen(RoboStruct *buoy, adcDataType *adc) {
 
     // Fixed Mode Indicator
     display.setTextSize(2);
+    char m = (buoy->status == DOCKED || buoy->status == DOCKING || buoy->status == DOC) ? 'D' : 'L';
     display.setCursor(96, 0);
-    char m = (buoy->status == DOCKED || buoy->status == DOCKING) ? 'D' : 'L';
     display.printf("%c", m);
+
+    // Speed PID I-Term to the left of the mode indicator (Size 2, no decimals)
+    display.setTextSize(2);
+    String iStr = String((int)buoy->ip);
+    
+    int iX = 94 - (iStr.length() * 12);
+    if (iX < 42) iX = 42; // Prevent overwriting the ID header
+    display.setCursor(iX, 0);
+    display.print(iStr);
 
     drawBatteryBar(buoy->subAccuV);
     drawThrustBars(buoy->speedBb, buoy->speedSb);

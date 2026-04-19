@@ -240,7 +240,10 @@ input {
     <div>
         <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
             <span id="distanceText" style="font-size:28px;color:red;font-weight:bold;">0m</span>
-            <span id="intervalText" style="font-size:28px;color:purple;font-weight:bold;">I:0</span>
+            <div style="text-align: right; color:purple; font-weight:bold; font-size:20px; line-height:1.2;">
+                <div id="intervalSpeedText">Is:0</div>
+                <div id="intervalRudderText">Ir:0</div>
+            </div>
         </div>
 
         <div class="compassCircle">
@@ -251,10 +254,21 @@ input {
             <div class="dirLabel w">W</div>
         </div>
 
+        <div style="display:flex; justify-content:space-between; margin-top:8px;">
+            <span id="targetDirText" style="font-size:24px;color:red;font-weight:bold;">Tg:---</span>
+            <span id="magDirText" style="font-size:24px;color:green;font-weight:bold;">Mag:---</span>
+        </div>
+
         <div style="display:flex;gap:10px;align-items:center;justify-content:center;margin-top:10px;">
             <span>17V</span>
             <div class="battery"><div id="batteryFill" class="batteryFill"></div></div>
             <span>25V</span>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;justify-content:center;margin-top:6px;">
+            <span style="color:orange;font-weight:bold;" id="currentValText">0.0A</span>
+            <div class="battery" style="background:#ddd;"><div id="currentFill" class="batteryFill" style="background:orange; width:0%;"></div></div>
+            <span style="color:orange;font-weight:bold;">10A</span>
         </div>
 
         <div style="margin-top:10px;">
@@ -729,10 +743,16 @@ function updateUI() {
     // Status and Strings
     titleEl.innerText = getStatusText(b.Status);
     const tgDist = parseFloat(b.TgDist || 0);
-    const pidI = parseFloat(b.PIDI || 0);
+    const pidIs = parseFloat(b.PIDI || 0);
+    const pidIr = parseFloat(b.PIDR || 0);
+    const tgDir = parseFloat(b.TgDir || 0);
+    const magDir = parseFloat(b.MagDir || 0);
 
-    document.getElementById("distanceText").innerText = (!isNaN(tgDist) && tgDist !== 0) ? tgDist.toFixed(2) + "m" : "-";
-    document.getElementById("intervalText").innerText = (!isNaN(pidI) && pidI !== 0) ? "I:" + pidI.toFixed(2) : "";
+    document.getElementById("distanceText").innerText = (!isNaN(tgDist)) ? tgDist.toFixed(2) + "m" : "-";
+    document.getElementById("intervalSpeedText").innerText = (!isNaN(pidIs)) ? "Is:" + pidIs.toFixed(2) : "Is:---";
+    document.getElementById("intervalRudderText").innerText = (!isNaN(pidIr)) ? "Ir:" + pidIr.toFixed(2) : "Ir:---";
+    document.getElementById("targetDirText").innerText = (!isNaN(tgDir)) ? "Tg:" + tgDir.toFixed(0) + "°" : "Tg:---";
+    document.getElementById("magDirText").innerText = (!isNaN(magDir)) ? "Mag:" + magDir.toFixed(0) + "°" : "Mag:---";
 
     // Bars
     setBar("barBB", parseFloat(b.BB || 0), "bbValue");
@@ -744,16 +764,27 @@ function updateUI() {
     batteryFill.style.width = perc + "%";
     batteryFill.style.background = perc > 20 ? 'green' : 'red';
 
+    // Current (Amps)
+    const currentA = parseFloat(b.SubCurr || 0);
+    const currPerc = Math.min((currentA / 10.0) * 100, 100); // Scale 0-10A to 0-100%
+    const currentFill = document.getElementById("currentFill");
+    currentFill.style.width = currPerc + "%";
+    document.getElementById("currentValText").innerText = (!isNaN(currentA)) ? currentA.toFixed(1) + "A" : "0.0A";
+
     // Compass Vector Logic
     const isIdle = String(b.Status).trim() === "7";
     const isLocked = ["12", "13", "14"].includes(String(b.Status).trim());
     const isDocking = ["15", "16", "17"].includes(String(b.Status).trim());
-    const isFar = tgDist > 5.0;
-    const isClose = tgDist <= 5.0;
+    
+    // Updated visibility logic based on user request:
+    // 1. Only show Wind if LOCKED and within 10 meters.
+    // 2. Only show GPS if distance > 10 meters.
+    const showWind = isLocked && (tgDist <= 10.0);
+    const showGps = tgDist > 10.0;
 
     let tgDirForVector = isIdle ? null : b.TgDir;
-    let windDirForVector = (isLocked && isClose) ? b.WDir : null;
-    let gpsDirForVector = (!isIdle && isFar) ? b.GpsDir : null;
+    let windDirForVector = showWind ? b.WDir : null;
+    let gpsDirForVector = showGps ? b.GpsDir : null;
 
     drawCompass(b.MagDir, tgDirForVector, windDirForVector, gpsDirForVector);
 

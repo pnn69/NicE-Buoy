@@ -297,11 +297,15 @@ void processData(RoboStruct *RfIn)
         }
     }
 
-    // 2. Motor Power: ONLY update from commands that actually contain Bb/Sb fields in RoboDecode
+    // 2. Motor Power & PID: ONLY update from commands that actually contain these fields
     if (RfIn->cmd == SUBDATA || RfIn->cmd == TOPDATA || RfIn->cmd == SPBBSPSB)
     {
         IDs[pos].speedBb = RfIn->speedBb;
         IDs[pos].speedSb = RfIn->speedSb;
+    }
+    if (RfIn->cmd == SUBDATA || RfIn->cmd == TOPDATA)
+    {
+        IDs[pos].ip = RfIn->ip;
     }
 
     // 3. Heading

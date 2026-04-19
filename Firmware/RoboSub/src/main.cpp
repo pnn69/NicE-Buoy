@@ -90,8 +90,10 @@ void setup()
 
     pinMode(ESC_SB_PWR_PIN, OUTPUT);
     pinMode(ESC_BB_PWR_PIN, OUTPUT);
-    digitalWrite(ESC_SB_PWR_PIN, LOW);
-    digitalWrite(ESC_BB_PWR_PIN, LOW);
+    digitalWrite(ESC_SB_PWR_PIN, HIGH);
+    digitalWrite(ESC_BB_PWR_PIN, HIGH);
+    printf("[ESC] Power Pins Enabled (Forced HIGH)\r\n");
+
     Serial.begin(115200);
     pinMode(BUTTON_PIN, INPUT);
     pinMode(PWRENABLE, OUTPUT);
@@ -381,6 +383,11 @@ void handelSerandRfdata(RoboStruct *ser)
             pidRudderParameters(ser, GET);
             initRudPid(ser);
             printf("Rudder PID stored pr:%0.2f ir:%0.2f dr:%0.2f\r\n", ser->Kpr, ser->Kir, ser->Kdr);
+            
+            ser->IDr = dataIn.IDs;
+            ser->cmd = PIDRUDDERSET;
+            ser->ack = LORAINF;
+            xQueueSend(serOut, (void *)ser, 10);
             break;
         case PIDSPEED:
             if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
@@ -397,6 +404,11 @@ void handelSerandRfdata(RoboStruct *ser)
             pidSpeedParameters(ser, GET);
             initSpeedPid(ser);
             printf("Speed PID stored ps:%0.2f is:%0.2f ds:%0.2f\r\n", ser->Kps, ser->Kis, ser->Kds);
+            
+            ser->IDr = dataIn.IDs;
+            ser->cmd = PIDSPEEDSET;
+            ser->ack = LORAINF;
+            xQueueSend(serOut, (void *)ser, 10);
             break;
         case STORE_DECLINATION:
             printf("Declinaton set to: %f", dataIn.declination);
@@ -464,6 +476,12 @@ void handelSerandRfdata(RoboStruct *ser)
             initRudPid(ser);
             initSpeedPid(ser);
             printf("Max speed %d Min speed %d\r\n", ser->maxSpeed, ser->minSpeed);
+            
+            // Send confirmation back so Top and UI get the updated values
+            ser->IDr = dataIn.IDs;
+            ser->cmd = MAXMINPWRSET;
+            ser->ack = LORAINF;
+            xQueueSend(serOut, (void *)ser, 10);
             break;
         case SETUPDATA:
             if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)

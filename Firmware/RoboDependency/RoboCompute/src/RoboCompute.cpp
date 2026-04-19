@@ -333,6 +333,7 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->ir, 2);
         out += "," + String(dataOut->subAccuV, 2);
         out += "," + String(dataOut->subAccuP);
+        out += "," + String(dataOut->subAccuI, 2);
         break;
     case TOPDATA:
         out += "," + String(dataOut->dirMag, 0);
@@ -351,6 +352,7 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->lng, 8);
         out += "," + String(dataOut->gpsFix);
         out += "," + String(dataOut->gpsSat);
+        out += "," + String(dataOut->subAccuI, 2);
         break;
     case MDIR:
         out += "," + String(dataOut->dirMag, 2);

@@ -801,7 +801,7 @@ class RoboMonitor:
             "Timestamp",
             "Wind Dir", "Wind StdDev",
             "PID I-term", "PID R-term",
-            "Battery",
+            "Battery", "Current",
             "GPS Fix", "GPS Satellites"
         ]
         for i, name in enumerate(param_names):
@@ -895,7 +895,8 @@ class RoboMonitor:
                     "PID I-term": fields[13] or "0", "PID R-term": fields[14] or "0",
                     "Sub Battery V": fields[15] or "0", "Sub Battery %": fields[16] or "0",
                     "Latitude (Lat)": fields[17] or "0", "Longitude (Lon)": fields[18] or "0",
-                    "GPS Fix": fields[19] or "0", "GPS Satellites": fields[20] or "0"
+                    "GPS Fix": fields[19] or "0", "GPS Satellites": fields[20] or "0",
+                    "Current": fields[21] or "0.0"
                 })
                 self.update_buoy_data(buoy_id, data)
                 
@@ -923,21 +924,21 @@ class RoboMonitor:
                 })
                 self.update_buoy_data(buoy_id, data)
                 
-            elif cmd == "55" and len(fields) >= 8: # PIDRUDDER
+            elif cmd in ["54", "55"] and len(fields) >= 8: # PIDRUDDER and PIDRUDDERSET
                 if fields[2] == "4": return
                 data.update({
                     "Kpr": fields[5], "Kir": fields[6], "Kdr": fields[7]
                 })
                 self.update_buoy_data(buoy_id, data)
-                
-            elif cmd == "57" and len(fields) >= 8: # PIDSPEED
+
+            elif cmd in ["56", "57"] and len(fields) >= 8: # PIDSPEED and PIDSPEEDSET
                 if fields[2] == "4": return
                 data.update({
                     "Kps": fields[5], "Kis": fields[6], "Kds": fields[7]
                 })
                 self.update_buoy_data(buoy_id, data)
-                
-            elif cmd == "68" and len(fields) >= 7: # MAXMINPWR
+
+            elif cmd in ["68", "69"] and len(fields) >= 7: # MAXMINPWR and MAXMINPWRSET
                 if fields[2] == "4": return
                 piv_s = "0.2"
                 if len(fields) >= 8:
@@ -946,7 +947,6 @@ class RoboMonitor:
                     "maxSpeed": fields[5], "minSpeed": fields[6], "pivotSpeed": piv_s
                 })
                 self.update_buoy_data(buoy_id, data)
-
             elif cmd == "83" and len(fields) >= 14: # SETUPDATA
                 if fields[2] == "4": return # Ignore LORAACK packets which contain empty structs
                 
@@ -1036,14 +1036,25 @@ class RoboMonitor:
                     b['windrose_canvas'].itemconfig(b['dist_text'], text=dist_val)
                     
                     pid_i_val = data.get("PID I-term", "N/A")
+                    pid_r_val = data.get("PID R-term", "N/A")
+                    
                     if pid_i_val != "N/A" and pid_i_val != "nan" and pid_i_val != "":
                         try:
-                            pid_i_val = f"{float(pid_i_val):.2f}"
+                            pid_i_val = f"{float(pid_i_val):.1f}"
                         except ValueError:
-                            pid_i_val = "0.00"
+                            pid_i_val = "0.0"
                     else:
-                        pid_i_val = "0.00"
-                    b['windrose_canvas'].itemconfig(b['pid_i_text'], text=f"I:{pid_i_val}")
+                        pid_i_val = "0.0"
+                        
+                    if pid_r_val != "N/A" and pid_r_val != "nan" and pid_r_val != "":
+                        try:
+                            pid_r_val = f"{float(pid_r_val):.1f}"
+                        except ValueError:
+                            pid_r_val = "0.0"
+                    else:
+                        pid_r_val = "0.0"
+
+                    b['windrose_canvas'].itemconfig(b['pid_i_text'], text=f"Is:{pid_i_val}\nIr:{pid_r_val}", justify="right")
 
                     if current_status in ["12", "13", "14", "15", "16", "17"]: # LOCKED or DOCKING
                         tg_dir_val = data.get("Target Dir", "N/A")
@@ -1111,27 +1122,22 @@ class RoboMonitor:
                     gps_dir = data.get("GPS Dir", "N/A")
                     dist_val = data.get("Target Dist", "0")
 
-                    show_gps_vector = False
                     try:
-                        dist_ok = float(dist_val) > 5.0
+                        f_dist = float(dist_val)
                     except:
-                        dist_ok = False
+                        f_dist = 0.0
 
-                    status_ok = current_status in ["12", "13", "14", "15", "16", "17"]  # LOCKED or DOCKING
+                    is_locked = current_status in ["12", "13", "14"]
+                    
+                    # 1. Show Wind vector (w_dir) only if LOCKED and within 10m
+                    show_wind = is_locked and (f_dist <= 10.0)
+                    w_dir_to_show = w_dir if show_wind else "N/A"
 
-                    if gps_dir not in ["N/A", "nan", ""] and status_ok and dist_ok:
-                        if b.get("gps_dir_first_seen") is None:
-                            b["gps_dir_first_seen"] = time.time()
-
-                        if time.time() - b["gps_dir_first_seen"] >= 5.0:
-                            gps_dir_to_show = gps_dir
-                            show_gps_vector = True
-                        else:
-                            gps_dir_to_show = "N/A"
-                    else:
-                        b["gps_dir_first_seen"] = None
-                        gps_dir_to_show = "N/A"                
-                    self.update_windrose(b, w_dir, tg_dir, data.get("Magnetic Dir", "N/A"), gps_dir_to_show)
+                    # 2. Show GPS vector (gps_dir) only if distance > 10m
+                    show_gps = (f_dist > 10.0)
+                    gps_dir_to_show = gps_dir if show_gps else "N/A"
+                    
+                    self.update_windrose(b, w_dir_to_show, tg_dir, data.get("Magnetic Dir", "N/A"), gps_dir_to_show)
                     
                     # Update Setup Window entries if open
                     if b.get('setup_entries'):
@@ -1186,6 +1192,15 @@ class RoboMonitor:
                                     label_widget.config(text=f"{float(volt_val):.1f}V")
                                 except ValueError:
                                     label_widget.config(text=f"{volt_val}V")
+                            else:
+                                label_widget.config(text="N/A")
+                        elif name == "Current":
+                            curr_val = data.get("Current", "N/A")
+                            if curr_val != "N/A":
+                                try:
+                                    label_widget.config(text=f"{float(curr_val):.1f}A")
+                                except ValueError:
+                                    label_widget.config(text=f"{curr_val}A")
                             else:
                                 label_widget.config(text="N/A")
                         elif name in ["GPS Dir", "Wind Dir"]:

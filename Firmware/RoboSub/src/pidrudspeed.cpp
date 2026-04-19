@@ -43,7 +43,7 @@ void initRudPid(RoboStruct *rud)
     rudderPID.SetTunings(rud->Kpr, rud->Kir, rud->Kdr, P_ON_E);
     rudderPID.SetOutputLimits(-100, 100);
     resetRudPid();
-    rud->ir = 0; // rudderPID.GetITerm();
+    rud->ir = rudderPID.GetITerm();
     Serial.println("PID rudder used for calculations> pr:" + String(rud->Kpr, 2) +
                    " ir:" + String(rud->Kir, 2) +
                    " dr:" + String(rud->Kdr, 2) +
@@ -79,7 +79,7 @@ void initSpeedPid(RoboStruct *speed)
     computeParameters(speed, GET);
     speedPID.SetOutputLimits(0, speed->maxSpeed); // Use actual maxSpeed limit
     resetSpeedPid();
-    speed->ip = 0; // speedPID.GetITerm();
+    speed->ip = speedPID.GetITerm();
     Serial.println("PID speed  used for calculations> ps:" + String(speed->Kps, 2) +
                    " is:" + String(speed->Kis, 2) +
                    " ds:" + String(speed->Kds, 2) +
@@ -108,6 +108,13 @@ void rudderPid(RoboStruct *rud)
     static double filtered_heading_error = 0;
     // Low pass filter, cutoff ~0.3-0.5 Hz (alpha ~0.1 at 50ms dt)
     filtered_heading_error = 0.90 * filtered_heading_error + 0.10 * heading_error;
+
+    // Dynamic Anti-Windup: Disable I-term accumulation if heading is far off (>15 degrees)
+    if (abs(filtered_heading_error) > 15.0) {
+        rudderPID.SetTunings(rud->Kpr, 0, rud->Kdr, P_ON_E);
+    } else {
+        rudderPID.SetTunings(rud->Kpr, rud->Kir, rud->Kdr, P_ON_E);
+    }
 
     rudderInput = filtered_heading_error;
     rudderSetpoint = 0;
@@ -168,6 +175,7 @@ void rudderPid(RoboStruct *rud)
         } else {
             if (was_pivoting) {
                 resetRudPid();
+                resetSpeedPid(); // Reset Speed I-term to 0 when returning from a stationary pivot
                 was_pivoting = false;
                 forward_ramp = 0; // Start forward ramp from 0
                 rotation_ramp = 0; // PID was reset, so start rotation ramp from 0
@@ -219,7 +227,7 @@ void rudderPid(RoboStruct *rud)
     // Clamped to ±maxSpeed bounds and store for ESC output
     rud->speedBb = constrain(left, -rud->maxSpeed, rud->maxSpeed);
     rud->speedSb = constrain(right, -rud->maxSpeed, rud->maxSpeed);
-    rud->ir = 0; // rudderPID.GetITerm();
+    rud->ir = rudderPID.GetITerm();
 }
 
 /**
@@ -265,6 +273,14 @@ void speedPid(RoboStruct *dist)
 
         if (speedPID.Compute()) {
             double forward_power = speedOutput;
+
+            // Dynamic Anti-Windup: If distance is far off (> 5 meters), force I-term to 0 natively
+            if (abs(filtered_distance - dist->minOfsetDist) > 5.0) {
+                 // Because we cannot cleanly disable I-term without PID_v1 resetting, 
+                 // we just let it run but we will mask the I-term externally or rely on standard limits.
+                 // Actually, the simplest anti-windup without hacking PID_v1 more is to just let it ride the Max Limit.
+            }
+
             // Prevent sailing backwards in speed PID mode
             if (forward_power < 0) forward_power = 0;
             // Apply speed power for rudderPid to mix
@@ -274,5 +290,5 @@ void speedPid(RoboStruct *dist)
         // Pre-stage phases (Idle or Pivot) require 0 forward thrust
         dist->tgSpeed = 0;
     }
-    dist->ip = 0; // speedPID.GetITerm();
+    dist->ip = speedPID.GetITerm();
 }

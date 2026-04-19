@@ -938,16 +938,15 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfOut->tgDir = RfIn.tgDir;
                 RfOut->speedSet = RfIn.speedSet;
                 RfOut->status = TGDIRSPEED;
-                case REMOTE:
-                    if (RfOut->status != REMOTE) {
-                        beep(1, buzzer);
-                    }
-                    RfOut->status = RfIn.cmd;
-                    RfOut->tgDir = RfIn.tgDir;
-                    RfOut->tgSpeed = RfIn.tgSpeed;
-                    xQueueSend(serOut, (void *)&RfIn, 0); // update sub
-                    break;
-                RfOut->status = RfIn.cmd;
+                break;
+            case REMOTE:
+                if (RfOut->status != REMOTE) {
+                    beep(1, buzzer);
+                    RfOut->status = REMOTE;
+                }
+                RfOut->tgDir = RfIn.tgDir;
+                RfOut->tgSpeed = RfIn.tgSpeed;
+                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 break;
             case DIRDIST:
                 double lat, lon;
@@ -961,7 +960,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 break;
             case LOCKING:
-                if (RfOut->gpsFix == true && RfOut->status != LOCKING)
+                if (RfOut->gpsFix == true && RfOut->status != LOCKING && RfOut->status != LOCKED)
                 {
                     RfOut->status = LOCKING;
                     beep(1, buzzer);
@@ -1140,6 +1139,7 @@ void handelSerialData(RoboStruct *ser)
             ser->ir = serDataIn.ir;
             ser->subAccuV = serDataIn.subAccuV;
             ser->subAccuP = serDataIn.subAccuP;
+            ser->subAccuI = serDataIn.subAccuI;
             
             mainPwrData.ledBb = ser->speedBb;
             mainPwrData.ledSb = ser->speedSb;
