@@ -24,7 +24,7 @@
 #include <Adafruit_ICM20X.h>
 #include <Adafruit_ICM20948.h>
 
-#define NUM_DIRECTIONS 5
+#define NUM_DIRECTIONS 25
 #define NUM_POSITIONS 50
 
 extern Preferences storage;
@@ -235,10 +235,10 @@ bool CalibrateCompass(void)
         sensors_event_t a_event, g_event, t_event;
         icm.getEvent(&a_event, &g_event, &t_event, &event_icm);
 
-        // The ICM chip is mounted in the same physical orientation as the LSM chip.
-        // The internal AK09916 magnetometer has its Z-axis pointing opposite to its Accelerometer.
-        // Y and Z must be inverted to align the Magnetometer die with the Accelerometer die.
-        event_icm.magnetic.y = -event_icm.magnetic.y;
+        // Map ICM magnetometer to LSM frame: X = Y, Y = -X, Z = -Z
+        float temp_mag_x = event_icm.magnetic.x;
+        event_icm.magnetic.x = event_icm.magnetic.y;
+        event_icm.magnetic.y = -temp_mag_x;
         event_icm.magnetic.z = -event_icm.magnetic.z;
 
         // Add points to the calibrators
@@ -349,14 +349,18 @@ float heading_icm(vector_t<int> from)
     sensors_event_t accel_event, gyro_event, temp_event, mag_event;
     icm.getEvent(&accel_event, &gyro_event, &temp_event, &mag_event);
     
-    // The ICM chip is mounted in the same physical orientation as the LSM chip.
-    // The internal AK09916 magnetometer has its Z-axis pointing opposite to its Accelerometer.
-    // Y and Z must be inverted to align the Magnetometer die with the Accelerometer die.
-    mag_event.magnetic.y = -mag_event.magnetic.y;
+    // Map ICM magnetometer to LSM frame: X = Y, Y = -X, Z = -Z
+    float temp_mag_x = mag_event.magnetic.x;
+    mag_event.magnetic.x = mag_event.magnetic.y;
+    mag_event.magnetic.y = -temp_mag_x;
     mag_event.magnetic.z = -mag_event.magnetic.z;
     m_icm_last = mag_event;
 
-    // Accel frame naturally matches LSM frame when physically mounted the same way.
+    // Map ICM accelerometer to LSM frame: X = Y, Y = -X, Z = Z
+    float temp_accel_x = accel_event.acceleration.x;
+    accel_event.acceleration.x = accel_event.acceleration.y;
+    accel_event.acceleration.y = -temp_accel_x;
+    // Z stays the same
     m_icm_a_last = accel_event;
 
     vector_t<float> temp_m = {mag_event.magnetic.x, mag_event.magnetic.y, mag_event.magnetic.z};

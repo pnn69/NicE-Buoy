@@ -126,6 +126,7 @@ void Declination(RoboStruct *buoy, bool get)
     if (get)
     {
         buoy->declination = storage.getDouble("declination", 2.66666666); // amsterdam 2025
+        if (isnan(buoy->declination)) buoy->declination = 2.66666666;
     }
     else
     {
@@ -146,6 +147,7 @@ void CompasOffset(RoboStruct *buoy, bool get)
     if (get)
     {
         buoy->compassOffset = storage.getDouble("magCorr", 0);
+        if (isnan(buoy->compassOffset)) buoy->compassOffset = 0;
     }
     else
     {
@@ -379,6 +381,7 @@ void icmCompassOffsetLoad(RoboStruct *buoy, bool get)
     if (get)
     {
         buoy->icmCompassOffset = storage.getDouble("icm_c_off", 0.0);
+        if (isnan(buoy->icmCompassOffset)) buoy->icmCompassOffset = 0;
     }
     else
     {
@@ -447,6 +450,7 @@ void CompassOffsetCorrection(double *offset, bool get)
     if (get)
     {
         *offset = storage.getDouble("magCorr", 0);
+        if (isnan(*offset)) *offset = 0;
     }
     else
     {
@@ -477,6 +481,7 @@ void MechanicalCorrection(double *correction, bool get)
     if (get)
     {
         *correction = storage.getDouble("mechCorr", 0);
+        if (isnan(*correction)) *correction = 0;
     }
     else
     {

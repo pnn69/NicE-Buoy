@@ -144,19 +144,16 @@ void EscTask(void *arg)
             spsb = 0; spbb = 0; spsbAct = 0; spbbAct = 0;
         }
 
-        // Pulse Generation & Ramping
+        // Pulse Generation (No Ramping - Ramping moved to PID)
         if (millis() >= escStamp)
         {
             escStamp = millis() + 20;
-            bool changed = false;
             
-            if (spsb > spsbAct) { spsbAct++; changed = true; }
-            else if (spsb < spsbAct) { spsbAct--; changed = true; }
-            
-            if (spbb > spbbAct) { spbbAct++; changed = true; }
-            else if (spbb < spbbAct) { spbbAct--; changed = true; }
+            // Apply speed directly to actuators (Ramping is now handled in pidrudspeed.cpp)
+            spsbAct = spsb;
+            spbbAct = spbb;
 
-            if (changed && esc_power_on) {
+            if (esc_power_on) {
                 servoSB.writeMicroseconds(speedToPulse(spsbAct, mainData.revSB));
                 servoBB.writeMicroseconds(speedToPulse(spbbAct, mainData.revBB));
                 global_speed_bb = spbbAct;
