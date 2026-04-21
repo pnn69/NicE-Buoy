@@ -117,6 +117,7 @@ float heading(vector_t<T> from)
     vector_cross(&a, &east, &north);
     vector_normalize(&north);
 
+    // compute heading
     vector_t<float> f = {(float)from.x, (float)from.y, (float)from.z};
     float n_dot_f = vector_dot(&north, &f);
     float e_dot_f = vector_dot(&east, &f);
@@ -126,10 +127,7 @@ float heading(vector_t<T> from)
     float heading_val = atan2(n_dot_f, e_dot_f) * 180 / M_PI;
     if (isnan(heading_val)) return 0.0f;
 
-    if (heading_val < 0)
-    {
-        heading_val += 360;
-    }
+    if (heading_val < 0) heading_val += 360;
     return heading_val;
 }
 
@@ -237,11 +235,11 @@ bool CalibrateCompass(void)
         sensors_event_t a_event, g_event, t_event;
         icm.getEvent(&a_event, &g_event, &t_event, &event_icm);
 
-        // Map ICM magnetometer to LSM frame: X = Y, Y = -X, Z = Z
-        float temp_mag_x = event_icm.magnetic.x;
-        event_icm.magnetic.x = event_icm.magnetic.y;
-        event_icm.magnetic.y = -temp_mag_x;
-        event_icm.magnetic.z = event_icm.magnetic.z;
+        // The ICM chip is mounted in the same physical orientation as the LSM chip.
+        // The internal AK09916 magnetometer has its Z-axis pointing opposite to its Accelerometer.
+        // Y and Z must be inverted to align the Magnetometer die with the Accelerometer die.
+        event_icm.magnetic.y = -event_icm.magnetic.y;
+        event_icm.magnetic.z = -event_icm.magnetic.z;
 
         // Add points to the calibrators
         cal_lsm.addPoint(event_lsm.magnetic.x, event_lsm.magnetic.y, event_lsm.magnetic.z);
@@ -351,18 +349,14 @@ float heading_icm(vector_t<int> from)
     sensors_event_t accel_event, gyro_event, temp_event, mag_event;
     icm.getEvent(&accel_event, &gyro_event, &temp_event, &mag_event);
     
-    // Map ICM magnetometer to LSM frame: X = Y, Y = -X, Z = Z (internal AK09916 is NOT inverted on this board)
-    float temp_mag_x = mag_event.magnetic.x;
-    mag_event.magnetic.x = mag_event.magnetic.y;
-    mag_event.magnetic.y = -temp_mag_x;
-    mag_event.magnetic.z = mag_event.magnetic.z;
+    // The ICM chip is mounted in the same physical orientation as the LSM chip.
+    // The internal AK09916 magnetometer has its Z-axis pointing opposite to its Accelerometer.
+    // Y and Z must be inverted to align the Magnetometer die with the Accelerometer die.
+    mag_event.magnetic.y = -mag_event.magnetic.y;
+    mag_event.magnetic.z = -mag_event.magnetic.z;
     m_icm_last = mag_event;
 
-    // Map ICM accelerometer to LSM frame: X = Y, Y = -X, Z = Z (physically rotated 90 deg)
-    float temp_accel_x = accel_event.acceleration.x;
-    accel_event.acceleration.x = accel_event.acceleration.y;
-    accel_event.acceleration.y = -temp_accel_x;
-    // Z stays the same
+    // Accel frame naturally matches LSM frame when physically mounted the same way.
     m_icm_a_last = accel_event;
 
     vector_t<float> temp_m = {mag_event.magnetic.x, mag_event.magnetic.y, mag_event.magnetic.z};
