@@ -88,12 +88,6 @@ void setup()
     else Serial.println("done\n");
     Serial.println("-------------------");
 
-    pinMode(ESC_SB_PWR_PIN, OUTPUT);
-    pinMode(ESC_BB_PWR_PIN, OUTPUT);
-    digitalWrite(ESC_SB_PWR_PIN, HIGH);
-    digitalWrite(ESC_BB_PWR_PIN, HIGH);
-    printf("[ESC] Power Pins Enabled (Forced HIGH)\r\n");
-
     Serial.begin(115200);
     pinMode(BUTTON_PIN, INPUT);
     pinMode(PWRENABLE, OUTPUT);
@@ -247,14 +241,10 @@ void handelStatus(RoboStruct *stat)
     if (stat->status == IDELING)
     {
         stat->speed = 0;
-        stat->speedBb = 0;
-        stat->speedSb = 0;
+        // Note: speedBb and speedSb are NOT zeroed here to allow smooth ramping in rudderPid
         stat->status = IDLE;
-        escOut.speedbb = 0;
-        escOut.speedsb = 0;
-        xQueueSend(escspeed, (void *)&escOut, 10);
         xQueueSend(serOut, (void *)stat, 10);
-        printf("Idle");
+        printf("Entering IDLE state (ramping down)\r\n");
     }
 }
 //***************************************************************************************************
@@ -300,16 +290,13 @@ void handelSerandRfdata(RoboStruct *ser)
         case IDELING:
             if (ser->status != IDELING)
             {
-                escOut.speedbb = 0;
-                escOut.speedsb = 0;
-                xQueueSend(escspeed, (void *)&escOut, 10);
                 ser->tgDist = 0;
                 ser->tgSpeed = 0;
                 ser->tgDir = 0;
                 ser->status = IDELING;
                 initRudPid(ser);
                 initSpeedPid(ser);
-                printf("IDLE command recieved!");
+                printf("IDLE command recieved (ramping down)\r\n");
             }
             break;
         case DIRDIST:
@@ -590,8 +577,6 @@ void handelSerialTimeOut(RoboStruct *ser)
             mainLedStatus.blink = BLINK_SLOW;
             xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
             delay(500);
-            digitalWrite(ESC_SB_PWR_PIN, LOW);
-            digitalWrite(ESC_BB_PWR_PIN, LOW);
             ser->status = IDELING;
         }
     }
@@ -607,8 +592,6 @@ void handelSerialTimeOut(RoboStruct *ser)
         beep(-1, buzzer);
         printf("Power off now!\r\n");
         delay(5000);
-        digitalWrite(ESC_SB_PWR_PIN, LOW);
-        digitalWrite(ESC_BB_PWR_PIN, LOW);
         digitalWrite(PWRENABLE, 0); // disable powersupply
         delay(1000);
         PwrOff = millis();
@@ -679,15 +662,17 @@ void handleTimerRoutines(RoboStruct *in)
         break;
     case IDLE:
     case IDELING:
-        if (escOut.speedbb != 0 || escOut.speedsb != 0)
+        if (in->speedBb != 0 || in->speedSb != 0)
         {
-
-            escOut.speedbb = 0;
-            escOut.speedsb = 0;
-            xQueueSend(escspeed, (void *)&escOut, 10);
+            if (pidTimer < millis())
+            {
+                pidTimer = millis() + 50;
+                rudderPid(in);
+                escOut.speedbb = in->speedBb;
+                escOut.speedsb = in->speedSb;
+                xQueueSend(escspeed, (void *)&escOut, 10);
+            }
         }
-        in->speedBb = 0;
-        in->speedSb = 0;
         in->ip = 0;
         in->ir = 0;
         break;

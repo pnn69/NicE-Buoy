@@ -853,6 +853,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     printf("#Status set to DOCKING\r\n");
                     RfOut->status = DOCKING;
+                    RfOut->lastSerOut = 0; // Force immediate update to sub
                 }
                 break;
             case LOCKPOS: // store new data into position database
@@ -938,6 +939,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfOut->tgDir = RfIn.tgDir;
                 RfOut->speedSet = RfIn.speedSet;
                 RfOut->status = TGDIRSPEED;
+                RfOut->lastSerOut = 0; // Force immediate update to sub
                 break;
             case REMOTE:
                 if (RfOut->status != REMOTE) {
@@ -947,6 +949,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfOut->tgDir = RfIn.tgDir;
                 RfOut->tgSpeed = RfIn.tgSpeed;
                 xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                RfOut->lastSerOut = 0; // Force immediate update to sub
                 break;
             case DIRDIST:
                 double lat, lon;
@@ -955,15 +958,20 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 // printf("New cordinates: https://www.google.nl/maps/@%f,%f,14z\r\n", RfOut->tgLat, RfOut->tgLng);
                 RouteToPoint(RfOut->lat, RfOut->lng, RfOut->tgLat, RfOut->tgLng, &RfOut->tgDist, &RfOut->tgDir);
                 // printf("New dir: %f New distance %f\r\n", RfOut->tgDir, RfOut->tgDist);
+                
+                if (RfOut->status != LOCKED) {
+                    RfIn.cmd = RESET_SPEED_RUD_PID;
+                    xQueueSend(serOut, (void *)&RfIn, 0); // update sub only if transitioning
+                }
                 RfOut->status = LOCKED;
-                RfIn.cmd = RESET_SPEED_RUD_PID;
-                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                RfOut->lastSerOut = 0; // Force immediate update to sub
                 break;
             case LOCKING:
                 if (RfOut->gpsFix == true && RfOut->status != LOCKING && RfOut->status != LOCKED)
                 {
                     RfOut->status = LOCKING;
                     beep(1, buzzer);
+                    RfOut->lastSerOut = 0; // Force immediate update to sub
                 }
                 break;
             case DOCKPOS: // Get the positon to dock
@@ -988,6 +996,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfIn.IDs = RfOut->mac; // Put this Id in field for positioning
                 AddDataToBuoyBase(RfIn, buoyParaPtrs);
                 RfOut->status = LOCKED;
+                RfOut->lastSerOut = 0; // Force immediate update to sub
                 break;
             case IDELING:
             case IDLE:
@@ -995,6 +1004,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     printf("#Status set to IDLE (by lora input)\r\n");
                     RfOut->status = IDELING;
+                    RfOut->lastSerOut = 0; // Force immediate update to sub
                 }
                 break;
             case SUBACCU:

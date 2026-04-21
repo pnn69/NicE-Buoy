@@ -123,78 +123,57 @@ void rudderPid(RoboStruct *rud)
     double rotation_power = -rudderOutput;
 
     // 3.3 Position PID (forward_power is calculated by speedPid and passed via tgSpeed)
-    double forward_power = rud->tgSpeed;
+    double target_forward = rud->tgSpeed;
+    static double forward_ramp = 0;
 
     // --- DRIFT & LOCK LOGIC ---
-    if (rud->sub_status == SUB_STATUS_IDLE_DRIFT) {
-        // Zone 1: < 1m - No thrust, no rotation (Save battery + handle GPS jitter)
-        forward_power = 0;
+    if (rud->status == IDLE || rud->status == IDELING) {
+        target_forward = 0;
         rotation_power = 0;
     }
-    else if (rud->sub_status == SUB_STATUS_PIVOT_PREP) {
-        // Zone 2: 1m to minOfsetDist - Pivot ONLY to target 0 deg while drifting out
-        forward_power = 0;
-        rotation_power = constrain(rotation_power, -rud->maxSpeed * rud->pivotSpeed, rud->maxSpeed * rud->pivotSpeed);
-    }
-    else {
-        // Zone 3: Locked Mode (Active Holding at minOfsetDist)
-        static bool was_pivoting = false;
-        static double forward_ramp = 0;
-        static double rotation_ramp = 0;
+    else if (rud->status == LOCKED || rud->status == DOCKED || rud->status == DIRDIST) {
+        if (rud->sub_status == SUB_STATUS_IDLE_DRIFT) {
+            // Zone 1: < 1m - No thrust, no rotation
+            target_forward = 0;
+            rotation_power = 0;
+        }
+        else if (rud->sub_status == SUB_STATUS_PIVOT_PREP) {
+            // Zone 2: 1m to minOfsetDist - Pivot ONLY
+            target_forward = 0;
+            rotation_power = constrain(rotation_power, -rud->maxSpeed * rud->pivotSpeed, rud->maxSpeed * rud->pivotSpeed);
+        }
+        else {
+            // Zone 3: Locked Mode (Active Holding)
+            static bool was_pivoting = false;
 
-        // 🚫 3.4 IMPORTANT: ±30° Heading Lockout for Safety
-        // If knocked > 30 deg off, stop forward thrust and pivot stationary first.
-        if (abs(filtered_heading_error) > 30.0) {
-            was_pivoting = true;
-            
-            // Setpoints for pivot
-            double target_forward = 0;
-            double target_rotation = constrain(rotation_power, -rud->maxSpeed * rud->pivotSpeed, rud->maxSpeed * rud->pivotSpeed);
-            
-            // Ramp forward power down to 0
-            if (forward_ramp > target_forward) {
-                forward_ramp -= 10.0;
-                if (forward_ramp < target_forward) forward_ramp = target_forward;
-            } else if (forward_ramp < target_forward) {
-                forward_ramp += 10.0;
-                if (forward_ramp > target_forward) forward_ramp = target_forward;
-            }
-            
-            // Ramp rotation power to pivot setpoint
-            if (rotation_ramp < target_rotation) {
-                rotation_ramp += 10.0;
-                if (rotation_ramp > target_rotation) rotation_ramp = target_rotation;
-            } else if (rotation_ramp > target_rotation) {
-                rotation_ramp -= 10.0;
-                if (rotation_ramp < target_rotation) rotation_ramp = target_rotation;
-            }
-            
-            forward_power = forward_ramp;
-            rotation_power = rotation_ramp;
-            
-        } else {
-            if (was_pivoting) {
-                resetRudPid();
-                resetSpeedPid(); // Reset Speed I-term to 0 when returning from a stationary pivot
-                was_pivoting = false;
-                forward_ramp = 0; // Start forward ramp from 0
-                rotation_ramp = 0; // PID was reset, so start rotation ramp from 0
-            }
-            
-            // Ramp up forward power to prevent big sudden currents
-            if (forward_ramp < forward_power) {
-                forward_ramp += 2.0; // Adjust rate as needed (e.g., 2% per cycle)
-                if (forward_ramp > forward_power) {
-                    forward_ramp = forward_power;
-                }
+            // 🚫 3.4 IMPORTANT: ±30° Heading Lockout for Safety
+            if (abs(filtered_heading_error) > 30.0) {
+                was_pivoting = true;
+                target_forward = 0; // Ramp down forward to pivot
+                rotation_power = constrain(rotation_power, -rud->maxSpeed * rud->pivotSpeed, rud->maxSpeed * rud->pivotSpeed);
             } else {
-                forward_ramp = forward_power; // Track dropping power naturally
+                if (was_pivoting) {
+                    resetRudPid();
+                    resetSpeedPid();
+                    was_pivoting = false;
+                    forward_ramp = 0; // Reset ramp when starting forward again
+                }
             }
-            
-            forward_power = forward_ramp;
-            rotation_ramp = rotation_power; // Keep rotation ramp in sync with normal PID output
         }
     }
+
+    // --- 3.5 CENTRAL SPEED RAMPING ---
+    // Apply ramping to target_forward to prevent sudden current spikes and ESC blocking.
+    
+    // Forward Ramping
+    if (forward_ramp < target_forward) {
+        forward_ramp += 2.0; // Ramp up (approx 4% per 50ms = 80% per second)
+        if (forward_ramp > target_forward) forward_ramp = target_forward;
+    } else if (forward_ramp > target_forward) {
+        forward_ramp -= 5.0; // Ramp down faster for safety/responsiveness
+        if (forward_ramp < target_forward) forward_ramp = target_forward;
+    }
+    double forward_power = forward_ramp;
 
     // 3.6 Thruster Mixer (Differential Steering)
     // left (bb) = forward_power + rotation_power

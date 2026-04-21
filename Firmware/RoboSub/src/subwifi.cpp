@@ -108,7 +108,14 @@ let session = {
     icm: { x: {min: null, max: null}, y: {min: null, max: null}, z: {min: null, max: null} }
 };
 
-function updateBar(sensor, axis, val) {
+let firstLoad = true;
+
+function updateBar(sensor, axis, val, nvsMin, nvsMax) {
+    if (firstLoad) {
+        session[sensor][axis].min = nvsMin;
+        session[sensor][axis].max = nvsMax;
+    }
+
     if (session[sensor][axis].min === null || val < session[sensor][axis].min) session[sensor][axis].min = val;
     if (session[sensor][axis].max === null || val > session[sensor][axis].max) session[sensor][axis].max = val;
     
@@ -180,18 +187,19 @@ function fetchData() {
         document.getElementById('lsmVal').innerText = data.lsm.toFixed(1);
         document.getElementById('icmVal').innerText = data.icm.toFixed(1);
 
-        updateBar('lsm', 'x', data.lsm_x);
-        updateBar('lsm', 'y', data.lsm_y);
-        updateBar('lsm', 'z', data.lsm_z);
+        updateBar('lsm', 'x', data.lsm_x, data.lsm_min.x, data.lsm_max.x);
+        updateBar('lsm', 'y', data.lsm_y, data.lsm_min.y, data.lsm_max.y);
+        updateBar('lsm', 'z', data.lsm_z, data.lsm_min.z, data.lsm_max.z);
 
-        updateBar('icm', 'x', data.icm_x);
-        updateBar('icm', 'y', data.icm_y);
-        updateBar('icm', 'z', data.icm_z);
+        updateBar('icm', 'x', data.icm_x, data.icm_min.x, data.icm_max.x);
+        updateBar('icm', 'y', data.icm_y, data.icm_min.y, data.icm_max.y);
+        updateBar('icm', 'z', data.icm_z, data.icm_min.z, data.icm_max.z);
 
         updateThruster('bb', data.speed_bb);
         updateThruster('sb', data.speed_sb);
 
         drawRose(data.lsm, data.icm);
+        firstLoad = false;
     })
     .catch(e => console.error(e));
 }
@@ -568,8 +576,15 @@ void WiFiTask(void *arg)
         json += "\"icm_x\":" + String(m_icm_last.magnetic.x, 2) + ", ";
         json += "\"icm_y\":" + String(m_icm_last.magnetic.y, 2) + ", ";
         json += "\"icm_z\":" + String(m_icm_last.magnetic.z, 2) + ", ";
+        json += "\"lsm_min\":{\"x\":" + String(m_min.x, 1) + ",\"y\":" + String(m_min.y, 1) + ",\"z\":" + String(m_min.z, 1) + "}, ";
+        json += "\"lsm_max\":{\"x\":" + String(m_max.x, 1) + ",\"y\":" + String(m_max.y, 1) + ",\"z\":" + String(m_max.z, 1) + "}, ";
+        json += "\"icm_min\":{\"x\":" + String(icm_min.x, 1) + ",\"y\":" + String(icm_min.y, 1) + ",\"z\":" + String(icm_min.z, 1) + "}, ";
+        json += "\"icm_max\":{\"x\":" + String(icm_max.x, 1) + ",\"y\":" + String(icm_max.y, 1) + ",\"z\":" + String(icm_max.z, 1) + "}, ";
         json += "\"speed_bb\":" + String(global_speed_bb, 0) + ", ";
-        json += "\"speed_sb\":" + String(global_speed_sb, 0);
+        json += "\"speed_sb\":" + String(global_speed_sb, 0) + ", ";
+        json += "\"a_x\":" + String(m_icm_a_last.acceleration.x, 2) + ", ";
+        json += "\"a_y\":" + String(m_icm_a_last.acceleration.y, 2) + ", ";
+        json += "\"a_z\":" + String(m_icm_a_last.acceleration.z, 2);
         json += "}";
         subServer.send(200, "application/json", json);
     });

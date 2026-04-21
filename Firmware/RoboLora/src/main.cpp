@@ -53,7 +53,6 @@ void dispatchCommand(RoboStruct *data, adcDataType *adc)
         forceSend = true;
         
         data->ack = LORAGETACK; // 3
-        data->status = IDLE;    // 7
         
         switch (adc->swPos)
         {
@@ -61,6 +60,7 @@ void dispatchCommand(RoboStruct *data, adcDataType *adc)
         case SW_MID:   data->cmd = IDELING; break; // 8
         case SW_RIGHT: data->cmd = LOCKING; break; // 12
         }
+        data->status = data->cmd; // locally update status to enable pot right away
         printf("Switch moved! New Cmd: %d\n", data->cmd);
 
         int pos = posID(data);
@@ -86,6 +86,15 @@ void dispatchCommand(RoboStruct *data, adcDataType *adc)
     // 3. Dispatch to Queues ONLY if an event occurred (Physical move or Pot change)
     if (forceSend)
     {
+        if (data->IDs == 0)
+        {
+            // We haven't discovered a buoy yet. Don't send, and don't clear the command.
+            // We will try sending again on the next loop or when a buoy is discovered.
+            // Force lastPhysicalSwitchPos to -1 so the switch logic re-triggers next loop
+            lastPhysicalSwitchPos = -1;
+            return;
+        }
+
         data->IDr = data->IDs; // Ensure target is set to the selected buoy
         
         static int lastSentCmd = -1;

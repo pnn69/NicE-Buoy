@@ -45,12 +45,6 @@ extern Message escOut;
 extern int subStatus;
 extern AsyncUDP udp;
 
-template <typename T>
-struct vector_t
-{
-    T x, y, z;
-};
-
 // Stores min and max magnetometer values from calibration
 vector_t<float> m_max;
 vector_t<float> m_min;
@@ -123,9 +117,9 @@ float heading(vector_t<T> from)
     vector_cross(&a, &east, &north);
     vector_normalize(&north);
 
-    // compute heading
-    float n_dot_f = vector_dot(&north, &from);
-    float e_dot_f = vector_dot(&east, &from);
+    vector_t<float> f = {(float)from.x, (float)from.y, (float)from.z};
+    float n_dot_f = vector_dot(&north, &f);
+    float e_dot_f = vector_dot(&east, &f);
 
     if (n_dot_f == 0 && e_dot_f == 0) return 0.0f;
 
@@ -239,7 +233,9 @@ bool CalibrateCompass(void)
     {
         sensors_event_t event_lsm, event_icm;
         mag.getEvent(&event_lsm);
-        icm.getMagnetometerSensor()->getEvent(&event_icm);
+        
+        sensors_event_t a_event, g_event, t_event;
+        icm.getEvent(&a_event, &g_event, &t_event, &event_icm);
 
         // Map ICM magnetometer to LSM frame: X = Y, Y = -X, Z = Z
         float temp_mag_x = event_icm.magnetic.x;
@@ -352,9 +348,8 @@ bool CalibrateCompass(void)
 float heading_icm(vector_t<int> from)
 {
     if (!icm_ready) return -1.0f;
-    sensors_event_t accel_event, mag_event;
-    icm_accel->getEvent(&accel_event);
-    icm_mag->getEvent(&mag_event);
+    sensors_event_t accel_event, gyro_event, temp_event, mag_event;
+    icm.getEvent(&accel_event, &gyro_event, &temp_event, &mag_event);
     
     // Map ICM magnetometer to LSM frame: X = Y, Y = -X, Z = Z (internal AK09916 is NOT inverted on this board)
     float temp_mag_x = mag_event.magnetic.x;
@@ -378,6 +373,15 @@ float heading_icm(vector_t<int> from)
     float raw_y = temp_m.y - mainData.icmMagHard[1];
     float raw_z = temp_m.z - mainData.icmMagHard[2];
 
+    // Sanity check: If the soft iron matrix is all zeros (due to old NVS data), reset to Identity
+    if (mainData.icmMagSoft[0][0] == 0.0f && mainData.icmMagSoft[1][1] == 0.0f && mainData.icmMagSoft[2][2] == 0.0f) {
+        for(int i=0; i<3; i++) {
+            for(int j=0; j<3; j++) {
+                mainData.icmMagSoft[i][j] = (i==j) ? 1.0f : 0.0f;
+            }
+        }
+    }
+
     temp_m.x = mainData.icmMagSoft[0][0] * raw_x + mainData.icmMagSoft[0][1] * raw_y + mainData.icmMagSoft[0][2] * raw_z;
     temp_m.y = mainData.icmMagSoft[1][0] * raw_x + mainData.icmMagSoft[1][1] * raw_y + mainData.icmMagSoft[1][2] * raw_z;
     temp_m.z = mainData.icmMagSoft[2][0] * raw_x + mainData.icmMagSoft[2][1] * raw_y + mainData.icmMagSoft[2][2] * raw_z;
@@ -398,7 +402,10 @@ float heading_icm(vector_t<int> from)
     float heading_val = atan2(n_dot_f, e_dot_f) * 180 / M_PI;
     if (isnan(heading_val)) return 0.0f;
 
-    if (heading_val < 0) heading_val += 360;
+    if (heading_val < 0)
+    {
+        heading_val += 360;
+    }
     return heading_val;
 }
 
@@ -652,6 +659,7 @@ void CompassTask(void *arg)
 
         global_lsmHdg = heading((vector_t<int>){0, 1, 0});
         if (lsm_ready) {
+            if (isnan(global_lsmHdg)) global_lsmHdg = 0;
             global_lsmHdg += mainData.compassOffset;
             if (!isnan(global_lsmHdg)) {
                 global_lsmHdg = fmod(global_lsmHdg, 360.0);
@@ -663,6 +671,7 @@ void CompassTask(void *arg)
 
         if (icm_ready) {
             global_icmHdg = heading_icm((vector_t<int>){0, 1, 0});
+            if (isnan(global_icmHdg)) global_icmHdg = 0;
             global_icmHdg += mainData.icmCompassOffset;
             if (!isnan(global_icmHdg)) {
                 global_icmHdg = fmod(global_icmHdg, 360.0);
@@ -673,6 +682,7 @@ void CompassTask(void *arg)
         }
 
         float rawHdg = GetHeading();
+        if (isnan(rawHdg)) rawHdg = 0;
         double activeHdg = (double)CompassAverage(rawHdg);
 
         if (isnan(activeHdg)) {
