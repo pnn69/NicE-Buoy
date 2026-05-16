@@ -16,11 +16,8 @@ extern float global_speed_bb;
 extern float global_speed_sb;
 extern bool icm_ready;
 extern float global_icmHdg;
-extern float global_lsmHdg;
 
 // Raw axis data for dashboard
-extern sensors_event_t m_lsm_last, m_icm_last;
-extern sensors_event_t m_lsm_a_last, m_icm_a_last;
 
 const char* compass_html = R"rawliteral(
 <!DOCTYPE html>
@@ -33,7 +30,6 @@ body { font-family: Arial; text-align: center; background: #222; color: #fff; ma
 canvas { background: #333; border-radius: 50%; margin-top: 20px; border: 2px solid #555; max-width: 100%; height: auto; }      
 h2 { margin-bottom: 5px; }
 .info { font-size: 1.2em; margin-top: 10px; display: flex; justify-content: center; gap: 20px; }
-.lsm { color: #f0ad4e; font-weight: bold; }
 .icm { color: #5bc0de; font-weight: bold; }
 .raw { font-size: 0.8em; color: #aaa; }
 .raw-container { display: flex; justify-content: center; gap: 20px; margin-top: 15px; flex-wrap: wrap; }
@@ -56,10 +52,10 @@ button:hover { background: #555; }
 </style>
 </head>
 <body>
-<h2>Dual Compass Debug</h2>
+<h2>Compass Debug</h2>
 <div class="info">
-    <span class="lsm">LSM303: <span id="lsmVal">0.0</span>&deg;</span>
-    <span class="icm">ICM20948: <span id="icmVal">0.0</span>&deg;</span>
+    
+    <span>Heading: <span id="icmVal" class="icm">0.0</span>&deg;</span>
 </div>
 
 <div class="thrusters">
@@ -79,17 +75,9 @@ button:hover { background: #555; }
 <button onclick="startCalib()" style="background: #5a32a8;">Start Desk Calibration</button>
 
 <div class="raw-container">
-    <div class="raw-box lsm">
-        <div style="font-weight:bold; margin-bottom:5px;">LSM Raw (Mag)</div>
-        <div class="axis-row"><div class="axis-label">X</div><div class="axis-bar-container"><div id="lsm_x_dot" class="axis-dot" style="left:50%; background:#f0ad4e;"></div></div><div id="lsm_x_val" class="axis-vals">0.0</div></div>
-        <div class="axis-minmax"><span id="lsm_x_min" class="min-col">0.0</span><span id="lsm_x_max" class="max-col">0.0</span></div>
-        <div class="axis-row"><div class="axis-label">Y</div><div class="axis-bar-container"><div id="lsm_y_dot" class="axis-dot" style="left:50%; background:#f0ad4e;"></div></div><div id="lsm_y_val" class="axis-vals">0.0</div></div>
-        <div class="axis-minmax"><span id="lsm_y_min" class="min-col">0.0</span><span id="lsm_y_max" class="max-col">0.0</span></div>
-        <div class="axis-row"><div class="axis-label">Z</div><div class="axis-bar-container"><div id="lsm_z_dot" class="axis-dot" style="left:50%; background:#f0ad4e;"></div></div><div id="lsm_z_val" class="axis-vals">0.0</div></div>
-        <div class="axis-minmax"><span id="lsm_z_min" class="min-col">0.0</span><span id="lsm_z_max" class="max-col">0.0</span></div>
-    </div>
+
     <div class="raw-box icm">
-        <div style="font-weight:bold; margin-bottom:5px;">ICM Raw (Mag)</div>
+        <div style="font-weight:bold; margin-bottom:5px;">Magnetometer Raw</div>
         <div class="axis-row"><div class="axis-label">X</div><div class="axis-bar-container"><div id="icm_x_dot" class="axis-dot" style="left:50%; background:#5bc0de;"></div></div><div id="icm_x_val" class="axis-vals">0.0</div></div>
         <div class="axis-minmax"><span id="icm_x_min" class="min-col">0.0</span><span id="icm_x_max" class="max-col">0.0</span></div>
         <div class="axis-row"><div class="axis-label">Y</div><div class="axis-bar-container"><div id="icm_y_dot" class="axis-dot" style="left:50%; background:#5bc0de;"></div></div><div id="icm_y_val" class="axis-vals">0.0</div></div>
@@ -103,8 +91,7 @@ button:hover { background: #555; }
 const ctx = document.getElementById('compassCanvas').getContext('2d');
 const cx = 200, cy = 200, r = 180;
 
-let session = {
-    lsm: { x: {min: null, max: null}, y: {min: null, max: null}, z: {min: null, max: null} },
+let session = { //
     icm: { x: {min: null, max: null}, y: {min: null, max: null}, z: {min: null, max: null} }
 };
 
@@ -152,7 +139,7 @@ function updateThruster(id, val) {
     }
 }
 
-function drawRose(lsm, icm) {
+function drawRose(icm) {
     ctx.clearRect(0, 0, 400, 400);
 
     // Draw background
@@ -162,9 +149,6 @@ function drawRose(lsm, icm) {
     ctx.fillStyle = '#aaa'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('N', cx, cy - r + 20); ctx.fillText('S', cx, cy + r - 20);
     ctx.fillText('E', cx + r - 20, cy); ctx.fillText('W', cx - r + 20, cy);
-
-    // Draw LSM Vector (Orange)
-    drawVector(lsm, '#f0ad4e', r - 30, 4);
 
     // Draw ICM Vector (Blue)
     drawVector(icm, '#5bc0de', r - 40, 4);
@@ -184,12 +168,9 @@ function fetchData() {
     fetch('/data')
     .then(r => r.json())
     .then(data => {
-        document.getElementById('lsmVal').innerText = data.lsm.toFixed(1);
+        
         document.getElementById('icmVal').innerText = data.icm.toFixed(1);
 
-        updateBar('lsm', 'x', data.lsm_x, data.lsm_min.x, data.lsm_max.x);
-        updateBar('lsm', 'y', data.lsm_y, data.lsm_min.y, data.lsm_max.y);
-        updateBar('lsm', 'z', data.lsm_z, data.lsm_min.z, data.lsm_max.z);
 
         updateBar('icm', 'x', data.icm_x, data.icm_min.x, data.icm_max.x);
         updateBar('icm', 'y', data.icm_y, data.icm_min.y, data.icm_max.y);
@@ -198,7 +179,7 @@ function fetchData() {
         updateThruster('bb', data.speed_bb);
         updateThruster('sb', data.speed_sb);
 
-        drawRose(data.lsm, data.icm);
+        drawRose(data.icm);
         firstLoad = false;
     })
     .catch(e => console.error(e));
@@ -206,10 +187,9 @@ function fetchData() {
 
 function resetMinMax() {
     session = {
-        lsm: { x: {min: null, max: null}, y: {min: null, max: null}, z: {min: null, max: null} },
         icm: { x: {min: null, max: null}, y: {min: null, max: null}, z: {min: null, max: null} }
     };
-    ['lsm', 'icm'].forEach(sensor => {
+    ['icm'].forEach(sensor => {
         ['x', 'y', 'z'].forEach(axis => {
             document.getElementById(sensor + '_' + axis + '_min').innerText = '0.00';
             document.getElementById(sensor + '_' + axis + '_max').innerText = '0.00';
@@ -568,24 +548,18 @@ void WiFiTask(void *arg)
         subServer.send(200, "text/html", compass_html);
     });
     subServer.on("/data", []() {
+        extern float last_raw_x, last_raw_y, last_raw_z;
+        extern vector_t<float> icm_min, icm_max;
         String json = "{";
-        json += "\"lsm\":" + String(global_lsmHdg, 2) + ", ";
         json += "\"icm\":" + String(global_icmHdg, 2) + ", ";
-        json += "\"lsm_x\":" + String(m_lsm_last.magnetic.x, 2) + ", ";
-        json += "\"lsm_y\":" + String(m_lsm_last.magnetic.y, 2) + ", ";
-        json += "\"lsm_z\":" + String(m_lsm_last.magnetic.z, 2) + ", ";
-        json += "\"icm_x\":" + String(m_icm_last.magnetic.x, 2) + ", ";
-        json += "\"icm_y\":" + String(m_icm_last.magnetic.y, 2) + ", ";
-        json += "\"icm_z\":" + String(m_icm_last.magnetic.z, 2) + ", ";
-        json += "\"lsm_min\":{\"x\":" + String(m_min.x, 1) + ",\"y\":" + String(m_min.y, 1) + ",\"z\":" + String(m_min.z, 1) + "}, ";
-        json += "\"lsm_max\":{\"x\":" + String(m_max.x, 1) + ",\"y\":" + String(m_max.y, 1) + ",\"z\":" + String(m_max.z, 1) + "}, ";
+        json += "\"icm_x\":" + String(last_raw_x, 2) + ", ";
+        json += "\"icm_y\":" + String(last_raw_y, 2) + ", ";
+        json += "\"icm_z\":" + String(last_raw_z, 2) + ", ";
         json += "\"icm_min\":{\"x\":" + String(icm_min.x, 1) + ",\"y\":" + String(icm_min.y, 1) + ",\"z\":" + String(icm_min.z, 1) + "}, ";
         json += "\"icm_max\":{\"x\":" + String(icm_max.x, 1) + ",\"y\":" + String(icm_max.y, 1) + ",\"z\":" + String(icm_max.z, 1) + "}, ";
         json += "\"speed_bb\":" + String(global_speed_bb, 0) + ", ";
         json += "\"speed_sb\":" + String(global_speed_sb, 0) + ", ";
-        json += "\"a_x\":" + String(m_icm_a_last.acceleration.x, 2) + ", ";
-        json += "\"a_y\":" + String(m_icm_a_last.acceleration.y, 2) + ", ";
-        json += "\"a_z\":" + String(m_icm_a_last.acceleration.z, 2);
+        json += "\"a_x\":0, \"a_y\":0, \"a_z\":0";
         json += "}";
         subServer.send(200, "application/json", json);
     });

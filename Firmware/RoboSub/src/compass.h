@@ -14,10 +14,6 @@ struct vector_t
 };
 
 // Stores min and max magnetometer values from calibration
-extern vector_t<float> m_max;
-extern vector_t<float> m_min;
-extern vector_t<float> icm_max;
-extern vector_t<float> icm_min;
 
 bool InitCompass(void);
 void initcompassQueue(void);

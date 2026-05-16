@@ -33,8 +33,6 @@ extern Message escOut;
 extern int subStatus;
 extern AsyncUDP udp;
 
-vector_t<float> m_max;
-vector_t<float> m_min;
 vector_t<float> icm_max = {50, 50, 50};
 vector_t<float> icm_min = {-50, -50, -50};
 
@@ -94,13 +92,6 @@ bool InitCompass(void)
     CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], true);
     CompassCallibrationFactors(&mainData, true);
 
-    if (abs(max_mag[0] - min_mag[0]) < 0.01) {
-        m_min = (vector_t<float>){-50, -50, -50};
-        m_max = (vector_t<float>){50, 50, 50};
-    } else {
-        m_min = (vector_t<float>){min_mag[0], min_mag[1], min_mag[2]};
-        m_max = (vector_t<float>){max_mag[0], max_mag[1], max_mag[2]};
-    }
 
     storage.begin("NicE_Buoy_Data", false);
     icm_max.x = storage.getFloat("IcmMaxX", 50.0);
@@ -489,16 +480,7 @@ void CompassTask(void *arg)
             float my = sumY / avg_count;
             float mz = sumZ / avg_count;
 
-            float cal_x = mx - mainData.icmMagHard[0];
-            float cal_y = my - mainData.icmMagHard[1];
-            float cal_z = mz - mainData.icmMagHard[2];
-
-            float final_x = mainData.icmMagSoft[0][0] * cal_x + mainData.icmMagSoft[0][1] * cal_y + mainData.icmMagSoft[0][2] * cal_z;
-            float final_y = mainData.icmMagSoft[1][0] * cal_x + mainData.icmMagSoft[1][1] * cal_y + mainData.icmMagSoft[1][2] * cal_z;
-            float final_z = mainData.icmMagSoft[2][0] * cal_x + mainData.icmMagSoft[2][1] * cal_y + mainData.icmMagSoft[2][2] * cal_z;
-
-            // Proven axis mapping: atan2f(final_z, final_y)
-            float current_h_rad = atan2f(final_z, final_y);
+            float current_h_rad = atan2f(mz, my);
             
             sin_samples[h_avg_idx] = sinf(current_h_rad);
             cos_samples[h_avg_idx] = cosf(current_h_rad);
