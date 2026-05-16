@@ -142,11 +142,11 @@ bool InitCompass(void)
     }
 
     CompassOffsetCorrection(&mainData.compassOffset, true);
-    icmCompassOffsetLoad(&mainData, true);
+    CompasOffset(&mainData, true);
     MechanicalCorrection(&mainData.mechanicCorrection, true);
 
     Serial.printf("Compass Initialized. ICM Status: %s, Offset: %0.1f, Mech: %0.1f\n", 
-        icm_ready ? "OK" : "Error", mainData.icmCompassOffset, mainData.mechanicCorrection);
+        icm_ready ? "OK" : "Error", mainData.compassOffset, mainData.mechanicCorrection);
     return true;
 }
 
@@ -198,20 +198,20 @@ bool CalibrateCompass(void)
     bool icm_success = false;
 
     if (cal_icm.calculateCalibration(hard, soft)) {
-        for(int i=0; i<3; i++) mainData.icmMagHard[i] = hard[i];
-        for(int i=0; i<3; i++) for(int j=0; j<3; j++) mainData.icmMagSoft[i][j] = soft[i][j];
-        icmHardIron(&mainData, false);
-        icmSoftIron(&mainData, false);
+        for(int i=0; i<3; i++) mainData.magHard[i] = hard[i];
+        for(int i=0; i<3; i++) for(int j=0; j<3; j++) mainData.magSoft[i][j] = soft[i][j];
+        hardIron(&mainData, false);
+        softIron(&mainData, false);
         Serial.println("ICM Ellipsoid Fit successful!");
         icm_success = true;
     } else {
         Serial.println("ICM Ellipsoid Fit failed. Falling back to Hard Iron Min/Max.");
-        mainData.icmMagHard[0] = (max_icm[0] + min_icm[0]) / 2;
-        mainData.icmMagHard[1] = (max_icm[1] + min_icm[1]) / 2;
-        mainData.icmMagHard[2] = (max_icm[2] + min_icm[2]) / 2;
-        for(int i=0; i<3; i++) for(int j=0; j<3; j++) mainData.icmMagSoft[i][j] = (i==j) ? 1.0 : 0.0;
-        icmHardIron(&mainData, false);
-        icmSoftIron(&mainData, false);
+        mainData.magHard[0] = (max_icm[0] + min_icm[0]) / 2;
+        mainData.magHard[1] = (max_icm[1] + min_icm[1]) / 2;
+        mainData.magHard[2] = (max_icm[2] + min_icm[2]) / 2;
+        for(int i=0; i<3; i++) for(int j=0; j<3; j++) mainData.magSoft[i][j] = (i==j) ? 1.0 : 0.0;
+        hardIron(&mainData, false);
+        softIron(&mainData, false);
     }
 
     icm_min = (vector_t<float>){min_icm[0], min_icm[1], min_icm[2]};
@@ -310,7 +310,7 @@ int linMagCalib(int *corr)
         mainData.speedBb = 30;
         mainData.speedSb = 30;
         pointer = 0;
-        mainData.icmCompassOffset = 0;
+        mainData.compassOffset = 0;
         mainData.mechanicCorrection = 0;
         initRudPid(&mainData);
         timer1 = millis();
@@ -354,7 +354,7 @@ int linMagCalib(int *corr)
 
             if (tel > 60) 
             {
-                icmCompassOffsetLoad(&mainData, true);
+                CompasOffset(&mainData, true);
                 MechanicalCorrection(&mainData.mechanicCorrection, true);
                 mainData.speedBb = 0;
                 mainData.speedSb = 0;
@@ -401,11 +401,11 @@ int linMagCalib(int *corr)
                 if (correction > 360) correction -= 360.0;
                 if (correction > 180) correction -= 360.0;
 
-                mainData.icmCompassOffset = correction;
-                icmCompassOffsetLoad(&mainData, false);
+                mainData.compassOffset = correction;
+                CompasOffset(&mainData, false);
                 MechanicalCorrection(&mainData.mechanicCorrection, false);
 
-                snprintf(bufff, sizeof(bufff), "<Calib stored><magCorr>%0.1f><mechCorr><%0.1f>", mainData.icmCompassOffset, mainData.mechanicCorrection);
+                snprintf(bufff, sizeof(bufff), "<Calib stored><magCorr>%0.1f><mechCorr><%0.1f>", mainData.compassOffset, mainData.mechanicCorrection);
                 udpsend(bufff);
                 ret = 1;
                 stage = 0;
@@ -496,7 +496,7 @@ void CompassTask(void *arg)
             float heading_val = atan2f(sum_sin, sum_cos) * 180.0f / M_PI;
             if (heading_val < 0) heading_val += 360.0f;
             
-            heading_val += mainData.icmCompassOffset;
+            heading_val += mainData.compassOffset;
             heading_val = fmod(heading_val, 360.0f);
             if (heading_val < 0) heading_val += 360.0f;
 
@@ -520,7 +520,7 @@ void CompassTask(void *arg)
             char dbg[250];
             snprintf(dbg, sizeof(dbg),
                 "{\"lsm_hdg\":%.1f,\"icm_hdg\":%.1f,\"off\":%.1f,\"i_m\":[%.1f,%.1f,%.1f]}",
-                0.0f, global_icmHdg, mainData.icmCompassOffset,
+                0.0f, global_icmHdg, mainData.compassOffset,
                 last_raw_x, last_raw_y, last_raw_z
             );
             udpsend(dbg);

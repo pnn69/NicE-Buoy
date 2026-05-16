@@ -405,11 +405,10 @@ void handelSerandRfdata(RoboStruct *ser)
             InitCompass();
             break;
         case STORE_COMPASS_OFFSET:
-            printf("New compass offset: %f | %f", dataIn.compassOffset, dataIn.icmCompassOffset);
+            printf("New compass offset: %f", dataIn.compassOffset);
             CompassOffsetCorrection(&dataIn.compassOffset, false);
-            icmCompassOffsetLoad(&dataIn, false);
-            ser->compassOffset = dataIn.compassOffset; // Update running config
-            ser->icmCompassOffset = dataIn.icmCompassOffset; // Update running config
+                        ser->compassOffset = dataIn.compassOffset; // Update running config
+             // Update running config
             printf(" (Stored)\r\n");
             // Send an ACK back to the Top buoy so it stops retransmitting (if LORAGETACK is used)
             if (dataIn.ack == LORAGETACK || dataIn.ack == LORASET) {
@@ -482,8 +481,7 @@ void handelSerandRfdata(RoboStruct *ser)
                 pidSpeedParameters(ser, GET);
                 speedMaxMin(ser, GET);
                 CompasOffset(ser, GET);
-                icmCompassOffsetLoad(ser, GET);
-                thrusterInversion(ser, GET); // Ensure latest inversion flags are sent
+                                thrusterInversion(ser, GET); // Ensure latest inversion flags are sent
                 xQueueSend(serOut, (void *)ser, 10);
                 printf("Sent SETUPDATA back\r\n");
             }
@@ -494,16 +492,14 @@ void handelSerandRfdata(RoboStruct *ser)
                 pidSpeedParameters(&dataIn, SET);
                 speedMaxMin(&dataIn, SET);
                 CompasOffset(&dataIn, SET);
-                icmCompassOffsetLoad(&dataIn, SET);
-                thrusterInversion(&dataIn, SET);
+                                thrusterInversion(&dataIn, SET);
                 
                 // Reload into running config
                 pidRudderParameters(ser, GET);
                 pidSpeedParameters(ser, GET);
                 speedMaxMin(ser, GET);
                 CompasOffset(ser, GET);
-                icmCompassOffsetLoad(ser, GET);
-                thrusterInversion(ser, GET);
+                                thrusterInversion(ser, GET);
                 
                 initRudPid(ser);
                 initSpeedPid(ser);

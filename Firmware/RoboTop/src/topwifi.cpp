@@ -347,7 +347,6 @@ void WiFiTask(void *arg)
         json += "\"minSpeed\":\"" + String(mainData.minSpeed) + "\",";
         json += "\"pivotSpeed\":\"" + String(mainData.pivotSpeed, 2) + "\",";
         json += "\"compassOffset\":\"" + String(mainData.compassOffset, 2) + "\",";
-        json += "\"icmCompassOffset\":\"" + String(mainData.icmCompassOffset, 2) + "\",";
         json += "\"Lat\":\"" + String(mainData.lat, 6) + "\",";
         json += "\"Lng\":\"" + String(mainData.lng, 6) + "\",";
         json += "\"GpsFix\":\"" + String(mainData.gpsFix) + "\"";
@@ -381,7 +380,6 @@ void WiFiTask(void *arg)
             json += "\"minSpeed\":\"" + String(buoyPara[i].minSpeed) + "\",";
             json += "\"pivotSpeed\":\"" + String(buoyPara[i].pivotSpeed, 2) + "\",";
             json += "\"compassOffset\":\"" + String(buoyPara[i].compassOffset, 2) + "\",";
-            json += "\"icmCompassOffset\":\"" + String(buoyPara[i].icmCompassOffset, 2) + "\",";
             json += "\"Lat\":\"" + String(mainData.lat, 6) + "\",";
             json += "\"Lng\":\"" + String(mainData.lng, 6) + "\",";
             json += "\"GpsFix\":\"" + String(buoyPara[i].gpsFix) + "\"";
@@ -467,7 +465,6 @@ void WiFiTask(void *arg)
             }
             else if (cmdEnum == STORE_COMPASS_OFFSET) {
                 mainData.compassOffset = server.arg("offset").toFloat();
-                mainData.icmCompassOffset = server.arg("icmoffset").toFloat();
                 mainData.ack = LORASET;
             }
             
@@ -512,7 +509,6 @@ void WiFiTask(void *arg)
             }
             else if (cmdEnum == STORE_COMPASS_OFFSET) {
                 msg.compassOffset = server.arg("offset").toFloat();
-                msg.icmCompassOffset = server.arg("icmoffset").toFloat();
             }
 
             if (msg.IDr != 0) {

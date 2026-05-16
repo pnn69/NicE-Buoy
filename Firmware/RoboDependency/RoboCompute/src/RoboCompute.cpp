@@ -247,7 +247,6 @@ void RoboDecode(String data, RoboStruct *dataStore)
 
     case STORE_COMPASS_OFFSET:
         dataStore->compassOffset = numbers[2].toDouble();
-        dataStore->icmCompassOffset = numbers[3].toDouble();
         break;
 
     case SETUPDATA:
@@ -262,9 +261,8 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->pivotSpeed = numbers[10].toDouble();
         dataStore->compassOffset = numbers[11].toDouble();
         dataStore->minOfsetDist = numbers[12].toInt();
-        if (numbers[13].length() > 0) dataStore->icmCompassOffset = numbers[13].toDouble();
-        if (numbers[14].length() > 0) dataStore->revBB = (bool)numbers[14].toInt();
-        if (numbers[15].length() > 0) dataStore->revSB = (bool)numbers[15].toInt();
+        if (numbers[13].length() > 0) dataStore->revBB = (bool)numbers[13].toInt();
+        if (numbers[14].length() > 0) dataStore->revSB = (bool)numbers[14].toInt();
         break;
 
     case ROUTTOPOINT:
@@ -520,14 +518,12 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->pivotSpeed,2);
         out += "," + String(dataOut->compassOffset,2);
         out += "," + String(dataOut->minOfsetDist);
-        out += "," + String(dataOut->icmCompassOffset,2);
         out += "," + String((int)dataOut->revBB);
         out += "," + String((int)dataOut->revSB);
         break;
 
     case STORE_COMPASS_OFFSET:
         out += "," + String(dataOut->compassOffset, 2);
-        out += "," + String(dataOut->icmCompassOffset, 2);
         break;
 
     case PING:

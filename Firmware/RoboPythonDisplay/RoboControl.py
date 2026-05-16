@@ -515,7 +515,7 @@ class RoboMonitor:
                 rev_sb_int = 1 if rev_sb_var.get() else 0
 
                 # Construct full SETUPDATA string: CMD=83
-                val_str = f"{kpr},{kir},{kdr},{kps},{kis},{kds},{max_s},{min_s},{piv_s},{coff},{min_off},{icmoff},{rev_bb_int},{rev_sb_int}"
+                val_str = f"{kpr},{kir},{kdr},{kps},{kis},{kds},{max_s},{min_s},{piv_s},{coff},{min_off},{rev_bb_int},{rev_sb_int}"
                 
                 # Send with ACK=false (0) or LORASET (2)? We'll use 2 for LORASET to trigger persist
                 base_msg = f"{b['id']},99,2,83,,{val_str}"
@@ -529,19 +529,14 @@ class RoboMonitor:
 
         ttk.Label(main_setup_frame, text="Compass Configuration", font=("Arial", 11, "bold")).grid(row=17, column=0, columnspan=2, pady=(10, 10))
         
-        ttk.Label(main_setup_frame, text="LSM Offset:").grid(row=18, column=0, sticky="e", padx=10, pady=2)
+        ttk.Label(main_setup_frame, text="Compass Offset:").grid(row=18, column=0, sticky="e", padx=10, pady=2)
         compass_offset_entry = ttk.Entry(main_setup_frame, width=15)
         compass_offset_entry.grid(row=18, column=1, sticky="w", pady=2)
-
-        ttk.Label(main_setup_frame, text="ICM Offset:").grid(row=19, column=0, sticky="e", padx=10, pady=2)
-        icm_offset_entry = ttk.Entry(main_setup_frame, width=15)
-        icm_offset_entry.grid(row=19, column=1, sticky="w", pady=2)
 
         def send_compass_offset():
             try:
                 coff = float(compass_offset_entry.get() or 0)
-                icmoff = float(icm_offset_entry.get() or 0)
-                val_str = f"{format(coff, '.2f')},{format(icmoff, '.2f')}"
+                val_str = f"{format(coff, '.2f')}"
                 # CMD 75 is STORE_COMPASS_OFFSET
                 base_msg = f"{b['id']},99,3,75,,{val_str},,,,,"
                 self.send_custom_udp_command(b['id'], base_msg)
@@ -565,7 +560,7 @@ class RoboMonitor:
             "Kps": kps_entry, "Kis": kis_entry, "Kds": kds_entry,
             "maxSpeed": max_speed_entry, "minSpeed": min_speed_entry,
             "pivotSpeed": pivot_speed_entry, "compassOffset": compass_offset_entry,
-            "icmCompassOffset": icm_offset_entry
+            
         }
         b['setup_vars'] = {
             "revBB": rev_bb_var,
@@ -962,19 +957,18 @@ class RoboMonitor:
                     comp_off = fields[14]
                 if len(fields) >= 16:
                     min_off = fields[15]
+                                    
                 if len(fields) >= 17:
-                    icm_comp_off = fields[16]
+                    rev_bb = fields[16]
                 if len(fields) >= 18:
-                    rev_bb = fields[17]
-                if len(fields) >= 19:
-                    rev_sb = fields[18]
+                    rev_sb = fields[17]
 
                 data.update({
                     "IDr": fields[0], "IDs": fields[1], "ACK": fields[2], "CMD": fields[3], "Status": fields[4],
                     "Kpr": fields[5], "Kir": fields[6], "Kdr": fields[7],
                     "Kps": fields[8], "Kis": fields[9], "Kds": fields[10],
                     "maxSpeed": fields[11], "minSpeed": fields[12], "pivotSpeed": piv_s,
-                    "compassOffset": comp_off, "minOfsetDist": min_off, "icmCompassOffset": icm_comp_off,
+                    "compassOffset": comp_off, "minOfsetDist": min_off,
                     "revBB": rev_bb, "revSB": rev_sb
                 })
                 self.update_buoy_data(buoy_id, data)
