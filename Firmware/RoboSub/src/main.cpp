@@ -71,6 +71,7 @@ void setup()
     
     // I2C Scanner
     Serial.println("\n--- I2C Scanner ---");
+    // mainData.IDr = BUOYIDALL;
     byte error, address;
     int nDevices = 0;
     for(address = 1; address < 127; address++ ) {
@@ -279,9 +280,9 @@ void handelSerandRfdata(RoboStruct *ser)
     //***************************************************************************************************
     //      new udp message (handle only if no new serial data)
     //***************************************************************************************************
-    // else if (xQueueReceive(udpIn, (void *)&dataIn, 0)) // New UDP data
-    // {
-    // }
+    if (xQueueReceive(udpIn, (void *)&dataIn, 0)) // New UDP data
+    {
+    }
     if (dataIn.IDr != -1)
     {
         switch (dataIn.cmd)
@@ -683,8 +684,7 @@ void handleTimerRoutines(RoboStruct *in)
     if (nextSamp < millis())
     {
         nextSamp = 250 + millis();
-        in->cmd = SUBDATA;
-        xQueueSend(serOut, (void *)in, 10);
+        in->cmd = SUBDATA; xQueueSend(serOut, (void *)in, 10);
     }
 
     if (logtimer < millis())

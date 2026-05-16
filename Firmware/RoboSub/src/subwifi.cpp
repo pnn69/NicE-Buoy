@@ -383,8 +383,9 @@ bool setupudp(void)
         udp.onPacket([](AsyncUDPPacket packet)
                      {
                         RoboStruct udpDataIn;
-                         String stringUdpIn = (const char *)packet.data();  // Convert incoming data to String
-                         rfDeCode(stringUdpIn,&udpDataIn);     // Decode string to RoboStruct
+                        // Use the 2-argument constructor to correctly define the string length
+                        String stringUdpIn = String((const char *)packet.data(), packet.length());
+                        rfDeCode(stringUdpIn, &udpDataIn);     // Decode string to RoboStruct
                         if (udpDataIn.IDs != -1 && udpDataIn.IDs != subwifiData.mac) // ignore own messages
                         {
                             xQueueSend(udpIn, (void *)&udpDataIn, 10); // notify main there is new data
@@ -605,7 +606,7 @@ void WiFiTask(void *arg)
         ArduinoOTA.handle();
         if (xQueueReceive(udpOut, (void *)&subWifiOut, 5) == pdTRUE)
         {
-            subWifiOut.IDr = espMac();
+            subWifiOut.IDr = 1; // BUOYIDALL
             subWifiOut.IDs = espMac();
             String out = rfCode(&subWifiOut);
             udp.broadcast(out.c_str());

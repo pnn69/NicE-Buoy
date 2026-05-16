@@ -201,9 +201,9 @@ void SercomTask(void *arg)
                 RoboStruct serDataIn;
                 rfDeCode(serStringIn, &serDataIn);
                 mac = espMac();
-                if (serDataIn.IDs != -1 && serDataIn.IDs != mac) // ignore own messages
+                if (serDataIn.IDs != -1) // DO NOT ignore own messages, their MACs might be the same!
                 {
-                    xQueueSend(serIn, (void *)&serDataIn, 10); // notify main there is new data
+                    printf("SER_IN CMD=%d DIRMAG=%.2f\n", serDataIn.cmd, serDataIn.dirMag); xQueueSend(serIn, (void *)&serDataIn, 10); // notify main there is new data
                     lastSerMsg = millis();
                 }
             }
@@ -219,7 +219,7 @@ void SercomTask(void *arg)
             {
                 RoboStruct serDataIn;
                 rfDeCode(serStringIn, &serDataIn);
-                if (serDataIn.IDs != -1 && serDataIn.IDs != mac) // ignore own messages
+                if (serDataIn.IDs != -1) // DO NOT ignore own messages, their MACs might be the same!
                 {
                     lastRx = millis();
                     if (serDataIn.ack == LORAACK) // A message form me so check if its a ACK message
@@ -229,7 +229,7 @@ void SercomTask(void *arg)
                     }
                     else
                     {
-                        xQueueSend(serIn, (void *)&serDataIn, 10); // notify main there is new data
+                        printf("SER_IN CMD=%d DIRMAG=%.2f\n", serDataIn.cmd, serDataIn.dirMag); xQueueSend(serIn, (void *)&serDataIn, 10); // notify main there is new data
                         lastSerMsg = millis();
                     }
                 }

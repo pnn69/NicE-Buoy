@@ -848,6 +848,21 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
         {
             switch (RfIn.cmd)
             {
+            
+            case SUBDATA:
+                RfOut->dirMag = RfIn.dirMag;
+                RfOut->speedBb = RfIn.speedBb;
+                RfOut->speedSb = RfIn.speedSb;
+                RfOut->ip = RfIn.ip;
+                RfOut->ir = RfIn.ir;
+                RfOut->subAccuV = RfIn.subAccuV;
+                RfOut->subAccuP = RfIn.subAccuP;
+                RfOut->subAccuI = RfIn.subAccuI;
+
+                mainPwrData.ledBb = RfOut->speedBb;
+                mainPwrData.ledSb = RfOut->speedSb;
+                xQueueSend(ledPwr, (void *)&mainPwrData, 0);
+                break;
             case DOCKING:
                 if (RfOut->status != DOCKING && RfOut->status != DOCKED)
                 {

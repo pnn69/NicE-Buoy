@@ -619,58 +619,32 @@ String addCRCToString(String input)
 // rfIn = "$9*39";
 void rfDeCode(String rfIn, RoboStruct *in)
 {
-    rfIn.trim(); // Remove whitespace
-
-    // Set defaults
+    rfIn.trim();
     in->IDr = -1;
     in->IDs = -1;
 
-    // Basic structure validation
-    if (!rfIn.startsWith("$") || rfIn.indexOf('*') == -1)
-    {
-        return; // Invalid format
-    }
+    if (!rfIn.startsWith("$") || rfIn.indexOf('*') == -1) return;
+    if (!verifyCRC(rfIn)) return;
 
-    // CRC check
-    if (!verifyCRC(rfIn))
-    {
-        return;
-    }
-
-    int commaIndex;
-
-    // Parse IDr
-    commaIndex = rfIn.indexOf(',');
-    if (commaIndex == -1)
-        return;
-    String hexString = rfIn.substring(1, commaIndex);
-    in->IDr = strtoull(hexString.c_str(), NULL, 16);
-
-    // Parse IDs
-    rfIn = rfIn.substring(commaIndex + 1);
-    commaIndex = rfIn.indexOf(',');
-    if (commaIndex == -1)
-        return;
-    hexString = rfIn.substring(0, commaIndex);
-    in->IDs = strtoull(hexString.c_str(), NULL, 16);
-
-    // Parse ack
-    rfIn = rfIn.substring(commaIndex + 1);
-    commaIndex = rfIn.indexOf(',');
-    if (commaIndex == -1)
-        return;
-    in->ack = rfIn.substring(0, commaIndex).toInt();
-
-    // Parse msg and data
-    rfIn = rfIn.substring(commaIndex + 1);
     int starIndex = rfIn.indexOf('*');
-    if (starIndex == -1)
-        return;
-    String dataPart = rfIn.substring(0, starIndex);
-    dataPart.replace("$", "");
+    rfIn = rfIn.substring(1, starIndex);
 
-    // Decode remaining data into struct
-    RoboDecode(dataPart, in);
+    int comma1 = rfIn.indexOf(',');
+    if (comma1 == -1) return;
+    in->IDr = strtoull(rfIn.substring(0, comma1).c_str(), NULL, 16);
+
+    rfIn = rfIn.substring(comma1 + 1);
+    int comma2 = rfIn.indexOf(',');
+    if (comma2 == -1) return;
+    in->IDs = strtoull(rfIn.substring(0, comma2).c_str(), NULL, 16);
+
+    rfIn = rfIn.substring(comma2 + 1);
+    int comma3 = rfIn.indexOf(',');
+    if (comma3 == -1) return;
+    in->ack = rfIn.substring(0, comma3).toInt();
+
+    rfIn = rfIn.substring(comma3 + 1);
+    RoboDecode(rfIn, in);
 }
 
 String removeBeginAndEndToString(String input)
