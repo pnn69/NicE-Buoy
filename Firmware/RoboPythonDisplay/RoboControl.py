@@ -313,8 +313,8 @@ class RoboMonitor:
         with self.data_lock:
             if not b['id']: return
             
-            # Clear existing PID data to ensure we fetch fresh values
-            for key in ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "compassOffset"]:
+            # Clear existing setup data to ensure we fetch fresh values
+            for key in ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "pivotSpeed", "compassOffset", "icmCompassOffset", "minOfsetDist", "revBB", "revSB"]:
                 b['data'].pop(key, None)
             
         loading_win = tk.Toplevel(self.master)
@@ -355,7 +355,7 @@ class RoboMonitor:
             has_compass = "compassOffset" in b['data']
 
             # Anti-Echo Logic: ensure data is not just an empty/zero ACK from Top buoy
-            is_valid_data = b['data'].get("ACK") == "6" or (has_maxmin and b['data'].get("maxSpeed", "0") != "0")
+            is_valid_data = b['data'].get("ACK") in ["3", "6"] or (has_maxmin and b['data'].get("maxSpeed", "0") != "0")
 
             if has_rudder and has_speed and has_maxmin and has_compass and is_valid_data:
                 loading_win.destroy()
@@ -417,18 +417,35 @@ class RoboMonitor:
         # Main container (now inside the scrollable_frame)
         main_setup_frame = scrollable_frame
 
+        # --- Define all entries first for reliable closure access ---
+        # Rudder entries
+        kpr_entry = ttk.Entry(main_setup_frame, width=15)
+        kir_entry = ttk.Entry(main_setup_frame, width=15)
+        kdr_entry = ttk.Entry(main_setup_frame, width=15)
+        
+        # Speed entries
+        kps_entry = ttk.Entry(main_setup_frame, width=15)
+        kis_entry = ttk.Entry(main_setup_frame, width=15)
+        kds_entry = ttk.Entry(main_setup_frame, width=15)
+        
+        # Limit entries
+        max_speed_entry = ttk.Entry(main_setup_frame, width=15)
+        min_speed_entry = ttk.Entry(main_setup_frame, width=15)
+        pivot_speed_entry = ttk.Entry(main_setup_frame, width=15)
+        
+        # Compass entry
+        compass_offset_entry = ttk.Entry(main_setup_frame, width=15)
+        # ----------------------------------------------------------
+
         ttk.Label(main_setup_frame, text="Rudder PID", font=("Arial", 11, "bold")).grid(row=0, column=0, columnspan=2, pady=(0, 10))
         
         ttk.Label(main_setup_frame, text="P:").grid(row=1, column=0, sticky="e", padx=10, pady=5)
-        kpr_entry = ttk.Entry(main_setup_frame, width=15)
         kpr_entry.grid(row=1, column=1, sticky="w", pady=5)
         
         ttk.Label(main_setup_frame, text="I:").grid(row=2, column=0, sticky="e", padx=10, pady=5)
-        kir_entry = ttk.Entry(main_setup_frame, width=15)
         kir_entry.grid(row=2, column=1, sticky="w", pady=5)
         
         ttk.Label(main_setup_frame, text="D:").grid(row=3, column=0, sticky="e", padx=10, pady=5)
-        kdr_entry = ttk.Entry(main_setup_frame, width=15)
         kdr_entry.grid(row=3, column=1, sticky="w", pady=5)
         
         def send_rudder_pid():
@@ -447,15 +464,12 @@ class RoboMonitor:
         ttk.Label(main_setup_frame, text="Speed PID", font=("Arial", 11, "bold")).grid(row=5, column=0, columnspan=2, pady=(0, 10))
         
         ttk.Label(main_setup_frame, text="P:").grid(row=6, column=0, sticky="e", padx=10, pady=5)
-        kps_entry = ttk.Entry(main_setup_frame, width=15)
         kps_entry.grid(row=6, column=1, sticky="w", pady=5)
         
         ttk.Label(main_setup_frame, text="I:").grid(row=7, column=0, sticky="e", padx=10, pady=5)
-        kis_entry = ttk.Entry(main_setup_frame, width=15)
         kis_entry.grid(row=7, column=1, sticky="w", pady=5)
         
         ttk.Label(main_setup_frame, text="D:").grid(row=8, column=0, sticky="e", padx=10, pady=5)
-        kds_entry = ttk.Entry(main_setup_frame, width=15)
         kds_entry.grid(row=8, column=1, sticky="w", pady=5)
         
         def send_speed_pid():
@@ -474,15 +488,12 @@ class RoboMonitor:
         ttk.Label(main_setup_frame, text="Speed Limits & Motor Config", font=("Arial", 11, "bold")).grid(row=10, column=0, columnspan=2, pady=(0, 10))
         
         ttk.Label(main_setup_frame, text="Max Speed:").grid(row=11, column=0, sticky="e", padx=10, pady=5)
-        max_speed_entry = ttk.Entry(main_setup_frame, width=15)
         max_speed_entry.grid(row=11, column=1, sticky="w", pady=5)
         
         ttk.Label(main_setup_frame, text="Min Speed:").grid(row=12, column=0, sticky="e", padx=10, pady=5)
-        min_speed_entry = ttk.Entry(main_setup_frame, width=15)
         min_speed_entry.grid(row=12, column=1, sticky="w", pady=5)
 
         ttk.Label(main_setup_frame, text="Pivot Speed:").grid(row=13, column=0, sticky="e", padx=10, pady=5)
-        pivot_speed_entry = ttk.Entry(main_setup_frame, width=15)
         pivot_speed_entry.grid(row=13, column=1, sticky="w", pady=5)
 
         rev_bb_var = tk.BooleanVar()
@@ -509,13 +520,13 @@ class RoboMonitor:
                 
                 coff = format(float(compass_offset_entry.get() or 0), '.2f')
                 min_off = b['data'].get("minOfsetDist", "0") # Assuming default 0 if missing
-                icmoff = format(float(icm_offset_entry.get() or 0), '.2f')
                 
                 rev_bb_int = 1 if rev_bb_var.get() else 0
                 rev_sb_int = 1 if rev_sb_var.get() else 0
 
                 # Construct full SETUPDATA string: CMD=83
-                val_str = f"{kpr},{kir},{kdr},{kps},{kis},{kds},{max_s},{min_s},{piv_s},{coff},{min_off},{rev_bb_int},{rev_sb_int}"
+                # Send coff for both offset fields for consistency
+                val_str = f"{kpr},{kir},{kdr},{kps},{kis},{kds},{max_s},{min_s},{piv_s},{coff},{coff},{min_off},{rev_bb_int},{rev_sb_int}"
                 
                 # Send with ACK=false (0) or LORASET (2)? We'll use 2 for LORASET to trigger persist
                 base_msg = f"{b['id']},99,2,83,,{val_str}"
@@ -530,20 +541,20 @@ class RoboMonitor:
         ttk.Label(main_setup_frame, text="Compass Configuration", font=("Arial", 11, "bold")).grid(row=17, column=0, columnspan=2, pady=(10, 10))
         
         ttk.Label(main_setup_frame, text="Compass Offset:").grid(row=18, column=0, sticky="e", padx=10, pady=2)
-        compass_offset_entry = ttk.Entry(main_setup_frame, width=15)
         compass_offset_entry.grid(row=18, column=1, sticky="w", pady=2)
 
         def send_compass_offset():
             try:
                 coff = float(compass_offset_entry.get() or 0)
-                val_str = f"{format(coff, '.2f')}"
+                # Send same offset to both internal variables
+                val_str = f"{format(coff, '.2f')},{format(coff, '.2f')}"
                 # CMD 75 is STORE_COMPASS_OFFSET
                 base_msg = f"{b['id']},99,3,75,,{val_str},,,,,"
                 self.send_custom_udp_command(b['id'], base_msg)
             except ValueError:
                 pass
 
-        ttk.Button(main_setup_frame, text="Send Compass Offsets", command=send_compass_offset).grid(row=20, column=0, columnspan=2, pady=(10, 5))
+        ttk.Button(main_setup_frame, text="Send Compass Offset", command=send_compass_offset).grid(row=20, column=0, columnspan=2, pady=(10, 5))
 
         # --- In-Field Calibration Section ---
         calib_frame = ttk.LabelFrame(main_setup_frame, text="In-Field Calibration", padding="10")
@@ -559,8 +570,7 @@ class RoboMonitor:
             "Kpr": kpr_entry, "Kir": kir_entry, "Kdr": kdr_entry,
             "Kps": kps_entry, "Kis": kis_entry, "Kds": kds_entry,
             "maxSpeed": max_speed_entry, "minSpeed": min_speed_entry,
-            "pivotSpeed": pivot_speed_entry, "compassOffset": compass_offset_entry,
-            
+            "pivotSpeed": pivot_speed_entry, "compassOffset": compass_offset_entry
         }
         b['setup_vars'] = {
             "revBB": rev_bb_var,
@@ -947,8 +957,8 @@ class RoboMonitor:
                 
                 piv_s = "0.2"
                 comp_off = "0.0"
-                min_off = "0"
                 icm_comp_off = "0.0"
+                min_off = "2"
                 rev_bb = "0"
                 rev_sb = "0"
                 if len(fields) >= 14:
@@ -956,19 +966,20 @@ class RoboMonitor:
                 if len(fields) >= 15:
                     comp_off = fields[14]
                 if len(fields) >= 16:
-                    min_off = fields[15]
-                                    
+                    icm_comp_off = fields[15]
                 if len(fields) >= 17:
-                    rev_bb = fields[16]
+                    min_off = fields[16]
                 if len(fields) >= 18:
-                    rev_sb = fields[17]
+                    rev_bb = fields[17]
+                if len(fields) >= 19:
+                    rev_sb = fields[18]
 
                 data.update({
                     "IDr": fields[0], "IDs": fields[1], "ACK": fields[2], "CMD": fields[3], "Status": fields[4],
                     "Kpr": fields[5], "Kir": fields[6], "Kdr": fields[7],
                     "Kps": fields[8], "Kis": fields[9], "Kds": fields[10],
                     "maxSpeed": fields[11], "minSpeed": fields[12], "pivotSpeed": piv_s,
-                    "compassOffset": comp_off, "minOfsetDist": min_off,
+                    "compassOffset": comp_off, "icmCompassOffset": icm_comp_off, "minOfsetDist": min_off,
                     "revBB": rev_bb, "revSB": rev_sb
                 })
                 self.update_buoy_data(buoy_id, data)
