@@ -889,6 +889,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             case PIDRUDDER:
                 if (RfIn.ack == LORAGET || RfIn.ack == LORAGETACK)
                 {
+                    RfIn.IDr = BUOYIDALL;
                     xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 }
                 else
@@ -902,11 +903,13 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 pidRudderParameters(&RfIn, SET);
                 printf("#PIDRUDDERSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kpr, RfIn.Kir, RfIn.Kdr);
                 RfIn.ack = LORAGETACK;
+                RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 break;
             case PIDSPEED:
                 if (RfIn.ack == LORAGET || RfIn.ack == LORAGETACK)
                 {
+                    RfIn.IDr = BUOYIDALL;
                     xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 }
                 else
@@ -924,6 +927,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                         RfOut->revBB = RfIn.revBB;
                         RfOut->revSB = RfIn.revSB;
                     }
+                    RfIn.IDr = BUOYIDALL;
                     xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 }
                 else
@@ -945,6 +949,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 printf("#PIDSPEEDSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kps, RfIn.Kis, RfIn.Kds);
                 RfOut->cmd = PIDSPEEDSET;
                 RfIn.ack = LORAGETACK;
+                RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 RfOut->Kps = RfIn.Kps;
                 RfOut->Kis = RfIn.Kis;
@@ -1171,27 +1176,36 @@ void handelSerialData(RoboStruct *ser)
             xQueueSend(ledPwr, (void *)&mainPwrData, 0);
             break;
         case SETUPDATA:
-            serDataIn.IDs = mainData.IDs; // FIX: ensure IDs is set to Top's IDs for consistent buoy identification!
-            serDataIn.mac = mainData.mac; // FIX: ensure mac is set to Top's mac before sending out!
-            serDataIn.IDr = BUOYIDALL;    // FIX: ensure response is broadcasted to all (ID 1) just like BUOYPOS
+            if (serDataIn.ack == LORAGET || serDataIn.ack == LORAGETACK || serDataIn.ack == LORASET) {
+                // This is a request from PC (Serial) -> Forward to Sub
+                serDataIn.IDr = BUOYIDALL; // Force Sub to accept the request
+                xQueueSend(serOut, (void *)&serDataIn, 0);
+            } else {
+                // Update local mainData so web interface sees the correct values
+                mainData.Kpr = serDataIn.Kpr;
+                mainData.Kir = serDataIn.Kir;
+                mainData.Kdr = serDataIn.Kdr;
+                mainData.Kps = serDataIn.Kps;
+                mainData.Kis = serDataIn.Kis;
+                mainData.Kds = serDataIn.Kds;
+                mainData.maxSpeed = serDataIn.maxSpeed;
+                mainData.minSpeed = serDataIn.minSpeed;
+                mainData.pivotSpeed = serDataIn.pivotSpeed;
+                mainData.compassOffset = serDataIn.compassOffset;
+                mainData.revBB = serDataIn.revBB;
+                mainData.revSB = serDataIn.revSB;
 
-            // Update local mainData so web interface sees the correct values
-            mainData.Kpr = serDataIn.Kpr;
-            mainData.Kir = serDataIn.Kir;
-            mainData.Kdr = serDataIn.Kdr;
-            mainData.Kps = serDataIn.Kps;
-            mainData.Kis = serDataIn.Kis;
-            mainData.Kds = serDataIn.Kds;
-            mainData.maxSpeed = serDataIn.maxSpeed;
-            mainData.minSpeed = serDataIn.minSpeed;
-            mainData.pivotSpeed = serDataIn.pivotSpeed;
-            mainData.compassOffset = serDataIn.compassOffset;
-            mainData.revBB = serDataIn.revBB;
-            mainData.revSB = serDataIn.revSB;
+                // IMPORTANT: Send the actual protocol string to the PC via Serial so RoboControl.py sees it!
+                Serial.println(rfCode(&serDataIn));
 
-            xQueueSend(udpOut, (void *)&serDataIn, 0);
-            xQueueSend(loraOut, (void *)&serDataIn, 0);
-            printf("Setup data PID and Compass sent and updated locally\r\n");
+                // Acknowledge the Sub to stop its retry loop
+                serDataIn.ack = LORAGETACK;
+                xQueueSend(serOut, (void *)&serDataIn, 0);
+
+                xQueueSend(udpOut, (void *)&serDataIn, 0);
+                xQueueSend(loraOut, (void *)&serDataIn, 0);
+                printf("Setup data PID and Compass sent and updated locally\r\n");
+            }
             break;
         case PONG:
             break;
@@ -1244,23 +1258,28 @@ void handelSerialData(RoboStruct *ser)
             printf("Raw:0,0,0,0,0,0,%.0f,%.0f,%.0f\r\n", serDataIn.magHard[0], serDataIn.magHard[1], serDataIn.magHard[2]);
             break;
         case PIDRUDDER:
+        case PIDRUDDERSET:
         case PIDSPEED:
+        case PIDSPEEDSET:
         case MAXMINPWR:
         case MAXMINPWRSET:
             if (serDataIn.ack == LORAGET || serDataIn.ack == LORAGETACK)
             {
                 // This is a request from PC (Serial) -> Forward to Sub
+                serDataIn.IDr = BUOYIDALL; // Force Sub to accept the request
                 xQueueSend(serOut, (void *)&serDataIn, 0);
             }
             else
             {
                 // This is a response from Sub -> Forward to PC/LoRa/UDP
                 printf("Received PID/PWR data from sub. CMD: %d\r\n", serDataIn.cmd);
-                serDataIn.IDs = mainData.IDs; // FIX: ensure IDs is set to Top's IDs for consistent buoy identification!
-                serDataIn.mac = mainData.mac; // FIX: ensure mac is set to Top's mac before sending out!
                 
                 // IMPORTANT: Send the actual protocol string to the PC via Serial so RoboControl.py sees it!
                 Serial.println(rfCode(&serDataIn));
+
+                // Acknowledge the Sub to stop its retry loop
+                serDataIn.ack = LORAGETACK;
+                xQueueSend(serOut, (void *)&serDataIn, 0);
 
                 xQueueSend(udpOut, (void *)&serDataIn, 0);
                 xQueueSend(loraOut, (void *)&serDataIn, 0);

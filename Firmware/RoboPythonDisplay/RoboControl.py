@@ -364,6 +364,8 @@ class RoboMonitor:
             else:
                 if retries >= 75: # 15 seconds total max (75 * 200ms)
                     self.log_message(f"Timeout: Could not retrieve setup data for Buoy {b['id']}")
+                    self.log_message(f"DEBUG TIMEOUT: has_rud={has_rudder}, has_speed={has_speed}, has_max={has_maxmin}, has_comp={has_compass}, valid={is_valid_data}")
+                    self.log_message(f"DEBUG DATA: {b['data']}")
                     info_lbl.config(text="Timeout occurred.", foreground="red")
                     loading_win.after(2000, loading_win.destroy)
                     return
@@ -936,14 +938,14 @@ class RoboMonitor:
                 })
                 self.update_buoy_data(buoy_id, data)
 
-            elif cmd in ["56", "57"] and len(fields) >= 8: # PIDSPEED and PIDSPEEDSET
+            elif cmd in ["56", "57", "58"] and len(fields) >= 8: # PIDSPEED (56) and PIDSPEEDSET (58)
                 if fields[2] == "4": return
                 data.update({
                     "Kps": fields[5], "Kis": fields[6], "Kds": fields[7]
                 })
                 self.update_buoy_data(buoy_id, data)
 
-            elif cmd in ["68", "69"] and len(fields) >= 7: # MAXMINPWR and MAXMINPWRSET
+            elif cmd in ["67", "68"] and len(fields) >= 7: # MAXMINPWR (67) and MAXMINPWRSET (68)
                 if fields[2] == "4": return
                 piv_s = "0.2"
                 if len(fields) >= 8:
@@ -952,7 +954,7 @@ class RoboMonitor:
                     "maxSpeed": fields[5], "minSpeed": fields[6], "pivotSpeed": piv_s
                 })
                 self.update_buoy_data(buoy_id, data)
-            elif cmd == "83" and len(fields) >= 14: # SETUPDATA
+            elif cmd == "83" and len(fields) >= 14: # SETUPDATA (83)
                 if fields[2] == "4": return # Ignore LORAACK packets which contain empty structs
                 
                 piv_s = "0.2"
