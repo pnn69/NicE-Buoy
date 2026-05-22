@@ -323,9 +323,8 @@ input {
         <button onclick="sendSetupCommand('LIMITS')" style="width:100%; margin: 4px 0 8px 0;">Send Speed Limits</button>
 
         <h4 style="margin: 5px 0 2px 0;">Compass</h4>
-        <div class="inputRow" style="margin-top: 0;">Compass Offset <input id="compassOffset" type="number" step="0.1"></div>
-        <button onclick="sendSetupCommand('COMPASSOFFSET')" style="width:100%; margin: 4px 0 8px 0;">Send Compass Offsets</button>
-
+        <div class="inputRow" style="margin-top: 0;">Compass Offset <input id="compassOffset" type="number" step="0.1" style="width:50px;"></div>
+        <button onclick="sendSetupCommand('COMPASSOFFSET')" style="width:100%; margin: 4px 0 8px 0;">Send Compass Offset</button>
         <hr style="margin: 8px 0;">
         <h4 style="margin: 5px 0;">In-Field Calibration</h4>
         <button onclick="sendSetupCommand('CALIB_COMPASS')" style="width:100%; background:#f0ad4e; color:white; margin-bottom: 4px;">In-Water Calibration (Circles)</button>
@@ -387,11 +386,17 @@ function openSetup() {
     document.getElementById("setupModal").style.display = "block";
     
     // Clear fields to indicate loading
-    const fields = ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "pivotSpeed", "compassOffset", "icmCompassOffset"];
+    const fields = ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "pivotSpeed", "compassOffset"];
     fields.forEach(f => {
         const el = document.getElementById(f);
         if (el) el.value = "Wait...";
     });
+    
+    // Invalidate cached data so updateSetupModal waits for fresh fetch
+    const b = buoyData[currentBuoy];
+    if (b) {
+        fields.forEach(f => delete b[f]);
+    }
     
     waitingForSetupData = true;
     sendCommand('SETUP'); // Trigger ESP to get fresh data via LoRa/UDP
@@ -452,8 +457,7 @@ function sendSetupCommand(cmd) {
         url += `&max=${document.getElementById('maxSpeed').value || 0}&min=${document.getElementById('minSpeed').value || 0}&pivot=${document.getElementById('pivotSpeed').value || 0.2}`;
     } else if (cmd === 'COMPASSOFFSET') {
         url += `&offset=${document.getElementById('compassOffset').value || 0}`;
-    } else if (cmd === 'CALIB_COMPASS') {
-        if (!confirm(`Deploying In-Water Calibration will cause Buoy ${currentBuoy} to move autonomously in circles for ~3 minutes.\n\nEnsure the area is clear. Continue?`)) return;
+    } else if (cmd === 'CALIB_COMPASS') {        if (!confirm(`Deploying In-Water Calibration will cause Buoy ${currentBuoy} to move autonomously in circles for ~3 minutes.\n\nEnsure the area is clear. Continue?`)) return;
     } else if (cmd === 'MANUAL_CALIB') {
         if (!confirm(`Desk Calibration started for Buoy ${currentBuoy}!\n\nAs soon as you click OK, the buoy will record its compass bounds for 60 seconds.\n\nPlease pick it up and rotate it continuously in all 3D axes (Figure-8 motion). Ready?`)) return;
     } else if (cmd === 'CALIB_OFFSET') {

@@ -465,6 +465,7 @@ void WiFiTask(void *arg)
             }
             else if (cmdEnum == STORE_COMPASS_OFFSET) {
                 mainData.compassOffset = server.arg("offset").toFloat();
+                mainData.icmCompassOffset = mainData.compassOffset;
                 mainData.ack = LORASET;
             }
             

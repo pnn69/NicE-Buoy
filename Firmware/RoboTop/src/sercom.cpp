@@ -5,6 +5,7 @@
 #include <HardwareSerial.h>
 #include "robotone.h"
 #include "buzzer.h"
+#include <AsyncUDP.h>
 
 QueueHandle_t serOut;
 QueueHandle_t serIn;
@@ -201,7 +202,7 @@ void SercomTask(void *arg)
                 RoboStruct serDataIn;
                 rfDeCode(serStringIn, &serDataIn);
                 mac = espMac();
-                if (serDataIn.IDs != -1) // DO NOT ignore own messages, their MACs might be the same!
+                if (serDataIn.IDs != -1 && serDataIn.IDs != mac) // Filter out own echoed messages on half-duplex line
                 {
                     printf("SER_IN CMD=%d DIRMAG=%.2f\n", serDataIn.cmd, serDataIn.dirMag); xQueueSend(serIn, (void *)&serDataIn, 10); // notify main there is new data
                     lastSerMsg = millis();
@@ -219,7 +220,7 @@ void SercomTask(void *arg)
             {
                 RoboStruct serDataIn;
                 rfDeCode(serStringIn, &serDataIn);
-                if (serDataIn.IDs != -1) // DO NOT ignore own messages, their MACs might be the same!
+                if (serDataIn.IDs != -1 && serDataIn.IDs != mac) // Filter out own echoed messages on half-duplex line
                 {
                     lastRx = millis();
                     if (serDataIn.ack == LORAACK) // A message form me so check if its a ACK message
