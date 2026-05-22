@@ -216,7 +216,7 @@ void SercomTask(void *arg)
                 RoboStruct serDataIn;
                 rfDeCode(serStringIn, &serDataIn);
                 mac = espMac();
-                if (serDataIn.IDs != -1) // DO NOT ignore own messages, their MACs might be the same!
+                if (serDataIn.IDs != -1 && serDataIn.IDs != mac) // Filter out own echoed messages on half-duplex line
                 {
                     xQueueSend(serIn, (void *)&serDataIn, 10); // notify main there is new data
                     lastSerMsg = millis();
@@ -235,7 +235,7 @@ void SercomTask(void *arg)
                 RoboStruct serDataIn;
                 rfDeCode(serStringIn, &serDataIn);
                 mac = espMac();
-                if (serDataIn.IDs != -1) // DO NOT ignore own messages, their MACs might be the same!
+                if (serDataIn.IDs != -1 && serDataIn.IDs != mac) // Filter out own echoed messages on half-duplex line
                 {
                     // Serial.print("RxSub " + serStringIn);
                     lastRx = millis();

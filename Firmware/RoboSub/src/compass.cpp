@@ -88,10 +88,9 @@ bool InitCompass(void)
     vTaskDelay(pdMS_TO_TICKS(100));
 
     // Load calibration factors
-    float min_mag[3], max_mag[3];
-    CompassCallibrationFactorsFloat(&max_mag[0], &max_mag[1], &max_mag[2], &min_mag[0], &min_mag[1], &min_mag[2], true);
     CompassCallibrationFactors(&mainData, true);
-
+    hardIron(&mainData, true);
+    softIron(&mainData, true);
 
     storage.begin("NicE_Buoy_Data", false);
     icm_max.x = storage.getFloat("IcmMaxX", 50.0);
@@ -143,6 +142,7 @@ bool InitCompass(void)
 
     CompassOffsetCorrection(&mainData.compassOffset, true);
     CompasOffset(&mainData, true);
+    CompasIcmOffset(&mainData, true);
     MechanicalCorrection(&mainData.mechanicCorrection, true);
 
     Serial.printf("Compass Initialized. ICM Status: %s, Offset: %0.1f, Mech: %0.1f\n", 
@@ -166,53 +166,56 @@ bool CalibrateCompass(void)
     beep(1, buzzer);
 
     calstamp = millis();
-    float min_icm[3] = {1000000.0f, 1000000.0f, 1000000.0f};
-    float max_icm[3] = {-1000000.0f, -1000000.0f, -1000000.0f};
-
-    MagCalibrator cal_icm;
+    float min_icm[3] = {10000.0f, 10000.0f, 10000.0f};
+    float max_icm[3] = {-10000.0f, -10000.0f, -10000.0f};
 
     while (millis() - calstamp <= 1000 * 60)
     {
         float mx, my, mz;
         if (read_mag(mx, my, mz)) {
-            cal_icm.addPoint(mx, my, mz);
+            if (mx < min_icm[0]) min_icm[0] = mx;
+            if (my < min_icm[1]) min_icm[1] = my;
+            if (mz < min_icm[2]) min_icm[2] = mz;
+            if (mx > max_icm[0]) max_icm[0] = mx;
+            if (my > max_icm[1]) max_icm[1] = my;
+            if (mz > max_icm[2]) max_icm[2] = mz;
 
-            min_icm[0] = fmin(min_icm[0], mx);
-            max_icm[0] = fmax(max_icm[0], mx);
-            min_icm[1] = fmin(min_icm[1], my);
-            max_icm[1] = fmax(max_icm[1], my);
-            min_icm[2] = fmin(min_icm[2], mz);
-            max_icm[2] = fmax(max_icm[2], mz);
-
-            if (lokcnt++ > 250)
+            if (lokcnt++ > 100)
             {
                 lokcnt = 0;
-                Serial.printf("Calibrating: ICM points=%d\r\n", cal_icm.getNumPoints());
+                Serial.printf("Calibrating: X:%.1f..%.1f, Y:%.1f..%.1f, Z:%.1f..%.1f\r\n", 
+                    min_icm[0], max_icm[0], min_icm[1], max_icm[1], min_icm[2], max_icm[2]);
             }
         }
         vTaskDelay(pdMS_TO_TICKS(10));
     }
     
-    float hard[3];
-    float soft[3][3];
-    bool icm_success = false;
+    float offset_x = (max_icm[0] + min_icm[0]) / 2.0f;
+    float offset_y = (max_icm[1] + min_icm[1]) / 2.0f;
+    float offset_z = (max_icm[2] + min_icm[2]) / 2.0f;
+    
+    float delta_x = (max_icm[0] - min_icm[0]) / 2.0f;
+    float delta_y = (max_icm[1] - min_icm[1]) / 2.0f;
+    float delta_z = (max_icm[2] - min_icm[2]) / 2.0f;
+    
+    if(delta_x == 0) delta_x = 1;
+    if(delta_y == 0) delta_y = 1;
+    if(delta_z == 0) delta_z = 1;
 
-    if (cal_icm.calculateCalibration(hard, soft)) {
-        for(int i=0; i<3; i++) mainData.magHard[i] = hard[i];
-        for(int i=0; i<3; i++) for(int j=0; j<3; j++) mainData.magSoft[i][j] = soft[i][j];
-        hardIron(&mainData, false);
-        softIron(&mainData, false);
-        Serial.println("ICM Ellipsoid Fit successful!");
-        icm_success = true;
-    } else {
-        Serial.println("ICM Ellipsoid Fit failed. Falling back to Hard Iron Min/Max.");
-        mainData.magHard[0] = (max_icm[0] + min_icm[0]) / 2;
-        mainData.magHard[1] = (max_icm[1] + min_icm[1]) / 2;
-        mainData.magHard[2] = (max_icm[2] + min_icm[2]) / 2;
-        for(int i=0; i<3; i++) for(int j=0; j<3; j++) mainData.magSoft[i][j] = (i==j) ? 1.0 : 0.0;
-        hardIron(&mainData, false);
-        softIron(&mainData, false);
+    float avg_delta = (delta_x + delta_y + delta_z) / 3.0f;
+
+    mainData.magHard[0] = offset_x;
+    mainData.magHard[1] = offset_y;
+    mainData.magHard[2] = offset_z;
+
+    for(int i=0; i<3; i++) {
+        for(int j=0; j<3; j++) {
+            mainData.magSoft[i][j] = (i==j) ? (avg_delta / (i==0 ? delta_x : (i==1 ? delta_y : delta_z))) : 0.0f;
+        }
     }
+
+    hardIron(&mainData, false);
+    softIron(&mainData, false);
 
     icm_min = (vector_t<float>){min_icm[0], min_icm[1], min_icm[2]};
     icm_max = (vector_t<float>){max_icm[0], max_icm[1], max_icm[2]};
@@ -233,15 +236,8 @@ bool CalibrateCompass(void)
     idleLedStatus.blink = BLINK_OFF;
     xQueueSend(ledStatus, (void *)&idleLedStatus, 0);
 
-    if (icm_success) {
-        beep(5, buzzer);
-        mainData.status = IDLE;
-    } else {
-        beep(3, buzzer);
-        mainData.status = ERROR;
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        mainData.status = IDLE;
-    }
+    beep(5, buzzer);
+    mainData.status = IDLE;
 
     return true;
 }
@@ -464,9 +460,20 @@ void CompassTask(void *arg)
         if (read_mag(rx, ry, rz)) {
             last_raw_x = rx; last_raw_y = ry; last_raw_z = rz;
 
-            avgX_samples[avg_idx] = rx;
-            avgY_samples[avg_idx] = ry;
-            avgZ_samples[avg_idx] = rz;
+            // Apply Hard Iron Offset
+            float hx = rx - mainData.magHard[0];
+            float hy = ry - mainData.magHard[1];
+            float hz = rz - mainData.magHard[2];
+
+            // Apply Soft Iron Matrix
+            float compX = hx * mainData.magSoft[0][0] + hy * mainData.magSoft[0][1] + hz * mainData.magSoft[0][2];
+            float compY = hx * mainData.magSoft[1][0] + hy * mainData.magSoft[1][1] + hz * mainData.magSoft[1][2];
+            float compZ = hx * mainData.magSoft[2][0] + hy * mainData.magSoft[2][1] + hz * mainData.magSoft[2][2];
+
+            // Moving Average for compensated X, Y, Z
+            avgX_samples[avg_idx] = compX;
+            avgY_samples[avg_idx] = compY;
+            avgZ_samples[avg_idx] = compZ;
             avg_idx = (avg_idx + 1) % AVERIDGE_COUNT;
             if (avg_count < AVERIDGE_COUNT) avg_count++;
 
@@ -480,6 +487,7 @@ void CompassTask(void *arg)
             float my = sumY / avg_count;
             float mz = sumZ / avg_count;
 
+            // Calculate heading using Y and Z axes with circular averaging
             float current_h_rad = atan2f(mz, my);
             
             sin_samples[h_avg_idx] = sinf(current_h_rad);
@@ -494,11 +502,10 @@ void CompassTask(void *arg)
             }
 
             float heading_val = atan2f(sum_sin, sum_cos) * 180.0f / M_PI;
-            if (heading_val < 0) heading_val += 360.0f;
-            
             heading_val += mainData.compassOffset;
-            heading_val = fmod(heading_val, 360.0f);
+            
             if (heading_val < 0) heading_val += 360.0f;
+            if (heading_val >= 360.0f) heading_val -= 360.0f;
 
             global_icmHdg = heading_val;
         }
@@ -515,7 +522,7 @@ void CompassTask(void *arg)
         }
 
         static uint32_t lastUdp = 0;
-        if (millis() - lastUdp > 200) { 
+        if (millis() - lastUdp > 50) { 
             lastUdp = millis();
             char dbg[250];
             snprintf(dbg, sizeof(dbg),
@@ -526,6 +533,6 @@ void CompassTask(void *arg)
             udpsend(dbg);
         }
 
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
 }

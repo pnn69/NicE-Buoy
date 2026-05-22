@@ -35,6 +35,7 @@ static LedData mainLedStatus;
 static PwrData mainPwrData;
 static Buzz mainBuzzerData;
 static int wifiConfig = 0;
+bool global_thruster_swap = false;
 // timer variables
 unsigned long nextSamp = millis();
 unsigned long logtimer = millis();
@@ -109,6 +110,7 @@ void setup()
     initSpeedPid(&mainData);
     speedMaxMin(&mainData, GET);
     thrusterInversion(&mainData, GET);
+    thrusterSwap(&global_thruster_swap, GET);
     initescqueue();
 
     if (digitalRead(BUTTON_PIN) == LOW)
@@ -405,13 +407,19 @@ void handelSerandRfdata(RoboStruct *ser)
             InitCompass();
             break;
         case STORE_COMPASS_OFFSET:
-            printf("New compass offset: %f", dataIn.compassOffset);
+            printf("New compass offset: %f, ICM offset: %f", dataIn.compassOffset, dataIn.icmCompassOffset);
             CompassOffsetCorrection(&dataIn.compassOffset, false);
-                        ser->compassOffset = dataIn.compassOffset; // Update running config
-             // Update running config
+            CompasIcmOffset(&dataIn, false);
+            ser->compassOffset = dataIn.compassOffset; // Update running config
+            ser->icmCompassOffset = dataIn.icmCompassOffset;
+            mainData.compassOffset = dataIn.compassOffset; // Ensure compassTask uses the new offset immediately!
+            mainData.icmCompassOffset = dataIn.icmCompassOffset;
             printf(" (Stored)\r\n");
             // Send an ACK back to the Top buoy so it stops retransmitting (if LORAGETACK is used)
             if (dataIn.ack == LORAGETACK || dataIn.ack == LORASET) {
+                ser->IDr = dataIn.IDs;
+                ser->cmd = STORE_COMPASS_OFFSET;
+                ser->ack = LORAINF;
                 ser->status = IDELING; // Force a status sync back to Top
                 xQueueSend(serOut, (void *)ser, 10);
             }
@@ -481,6 +489,7 @@ void handelSerandRfdata(RoboStruct *ser)
                 pidSpeedParameters(ser, GET);
                 speedMaxMin(ser, GET);
                 CompasOffset(ser, GET);
+                CompasIcmOffset(ser, GET);
                                 thrusterInversion(ser, GET); // Ensure latest inversion flags are sent
                 xQueueSend(serOut, (void *)ser, 10);
                 printf("Sent SETUPDATA back\r\n");
@@ -492,6 +501,7 @@ void handelSerandRfdata(RoboStruct *ser)
                 pidSpeedParameters(&dataIn, SET);
                 speedMaxMin(&dataIn, SET);
                 CompasOffset(&dataIn, SET);
+                CompasIcmOffset(&dataIn, SET);
                                 thrusterInversion(&dataIn, SET);
                 
                 // Reload into running config
@@ -499,7 +509,10 @@ void handelSerandRfdata(RoboStruct *ser)
                 pidSpeedParameters(ser, GET);
                 speedMaxMin(ser, GET);
                 CompasOffset(ser, GET);
-                                thrusterInversion(ser, GET);
+                CompasIcmOffset(ser, GET);
+                thrusterInversion(ser, GET);
+                mainData.compassOffset = ser->compassOffset; // Ensure compassTask uses the new offset immediately!
+                mainData.icmCompassOffset = ser->icmCompassOffset;
                 
                 initRudPid(ser);
                 initSpeedPid(ser);
@@ -611,7 +624,7 @@ void handleTimerRoutines(RoboStruct *in)
     case DIRDIST:
         if (pidTimer < millis())
         {
-            pidTimer = millis() + 50; // 50ms
+            pidTimer = millis() + 20; // 20ms
             speedPid(in);
             if (in->tgDist > 1.0 && in->tgDist < 5000)
             {
@@ -663,7 +676,7 @@ void handleTimerRoutines(RoboStruct *in)
         {
             if (pidTimer < millis())
             {
-                pidTimer = millis() + 50;
+                pidTimer = millis() + 20;
                 rudderPid(in);
                 escOut.speedbb = in->speedBb;
                 escOut.speedsb = in->speedSb;

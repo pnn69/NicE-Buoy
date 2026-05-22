@@ -154,10 +154,17 @@ void EscTask(void *arg)
             spbbAct = spbb;
 
             if (esc_power_on) {
-                servoSB.writeMicroseconds(speedToPulse(spsbAct, mainData.revSB));
-                servoBB.writeMicroseconds(speedToPulse(spbbAct, mainData.revBB));
-                global_speed_bb = spbbAct;
-                global_speed_sb = spsbAct;
+                extern bool global_thruster_swap;
+                int s_sb = spsbAct;
+                int s_bb = spbbAct;
+                if (global_thruster_swap) {
+                    s_sb = spbbAct;
+                    s_bb = spsbAct;
+                }
+                servoSB.writeMicroseconds(speedToPulse(s_sb, mainData.revSB));
+                servoBB.writeMicroseconds(speedToPulse(s_bb, mainData.revBB));
+                global_speed_bb = s_bb;
+                global_speed_sb = s_sb;
             }
         }
 

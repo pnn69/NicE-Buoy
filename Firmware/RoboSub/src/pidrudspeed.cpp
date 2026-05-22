@@ -39,7 +39,7 @@ void initRudPid(RoboStruct *rud)
 {
     speedMaxMin(rud, GET);
     pidRudderParameters(rud, GET);
-    rudderPID.SetSampleTime(100);
+    rudderPID.SetSampleTime(20);
     rudderPID.SetTunings(rud->Kpr, rud->Kir, rud->Kdr, P_ON_E);
     rudderPID.SetOutputLimits(-100, 100);
     resetRudPid();
@@ -73,7 +73,7 @@ void resetSpeedPid()
 void initSpeedPid(RoboStruct *speed)
 {
     speedMaxMin(speed, GET);
-    speedPID.SetSampleTime(100);
+    speedPID.SetSampleTime(20);
     pidSpeedParameters(speed, GET);
     speedPID.SetTunings(speed->Kps, speed->Kis, speed->Kds, P_ON_E);
     computeParameters(speed, GET);
@@ -106,8 +106,8 @@ void rudderPid(RoboStruct *rud)
 
     // Wave Filtering (Low-pass) on heading error
     static double filtered_heading_error = 0;
-    // Low pass filter, cutoff ~0.3-0.5 Hz (alpha ~0.1 at 50ms dt)
-    filtered_heading_error = 0.90 * filtered_heading_error + 0.10 * heading_error;
+    // Increased alpha to 0.40 for faster response (less filtering)
+    filtered_heading_error = 0.60 * filtered_heading_error + 0.40 * heading_error;
 
     // Dynamic Anti-Windup: Disable I-term accumulation if heading is far off (>15 degrees)
     if (abs(filtered_heading_error) > 15.0) {
@@ -144,20 +144,28 @@ void rudderPid(RoboStruct *rud)
         }
         else {
             // Zone 3: Locked Mode (Active Holding)
-            static bool was_pivoting = false;
+            
+            // Calculate a smoothing factor based on heading error (20 to 45 degrees)
+            // 1.0 = Pure Normal (Forward + Differential)
+            // 0.0 = Pure Pivot (Rotation only)
+            double abs_error = abs(filtered_heading_error);
+            double forward_factor = 1.0;
+            if (abs_error > 45.0) forward_factor = 0.0;
+            else if (abs_error > 20.0) forward_factor = 1.0 - (abs_error - 20.0) / 25.0;
 
-            // 🚫 3.4 IMPORTANT: ±30° Heading Lockout for Safety
-            if (abs(filtered_heading_error) > 30.0) {
-                was_pivoting = true;
-                target_forward = 0; // Ramp down forward to pivot
-                rotation_power = constrain(rotation_power, -rud->maxSpeed * rud->pivotSpeed, rud->maxSpeed * rud->pivotSpeed);
-            } else {
-                if (was_pivoting) {
-                    resetRudPid();
-                    resetSpeedPid();
-                    was_pivoting = false;
-                    forward_ramp = 0; // Reset ramp when starting forward again
-                }
+            target_forward = rud->tgSpeed * forward_factor;
+
+            // Smoothly blend the rotation power limit between pivotSpeed and full power (1.0)
+            double rot_limit_factor = rud->pivotSpeed + (1.0 - rud->pivotSpeed) * forward_factor;
+            rotation_power = constrain(rotation_power, -rud->maxSpeed * rot_limit_factor, rud->maxSpeed * rot_limit_factor);
+
+            // Handle PID resets only on major state exits to preserve continuity
+            static bool was_pure_pivot = false;
+            if (forward_factor < 0.1) was_pure_pivot = true;
+            else if (forward_factor > 0.9 && was_pure_pivot) {
+                resetRudPid();
+                resetSpeedPid();
+                was_pure_pivot = false;
             }
         }
     }
@@ -167,10 +175,10 @@ void rudderPid(RoboStruct *rud)
     
     // Forward Ramping
     if (forward_ramp < target_forward) {
-        forward_ramp += 2.0; // Ramp up (approx 4% per 50ms = 80% per second)
+        forward_ramp += 5.0; // Ramp up faster (approx 10% per 20ms = 500% per second)
         if (forward_ramp > target_forward) forward_ramp = target_forward;
     } else if (forward_ramp > target_forward) {
-        forward_ramp -= 5.0; // Ramp down faster for safety/responsiveness
+        forward_ramp -= 10.0; // Ramp down even faster
         if (forward_ramp < target_forward) forward_ramp = target_forward;
     }
     double forward_power = forward_ramp;

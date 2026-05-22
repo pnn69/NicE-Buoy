@@ -71,6 +71,47 @@ button:hover { background: #555; }
     </div>
 </div>
 
+<div class="raw-container">
+    <div class="raw-box">
+        <div style="font-weight:bold; margin-bottom:5px;">Rudder PID</div>
+        <div class="axis-row">P: <input type="number" step="0.001" id="kpr_in" style="width:70px; margin-left:5px;"> <button onclick="setParam('kpr')">Set</button></div>
+        <div class="axis-row">I: <input type="number" step="0.001" id="kir_in" style="width:70px; margin-left:5px;"> <button onclick="setParam('kir')">Set</button></div>
+        <div class="axis-row">D: <input type="number" step="0.001" id="kdr_in" style="width:70px; margin-left:5px;"> <button onclick="setParam('kdr')">Set</button></div>
+    </div>
+    <div class="raw-box">
+        <div style="font-weight:bold; margin-bottom:5px;">Speed PID</div>
+        <div class="axis-row">P: <input type="number" step="0.001" id="kps_in" style="width:70px; margin-left:5px;"> <button onclick="setParam('kps')">Set</button></div>
+        <div class="axis-row">I: <input type="number" step="0.001" id="kis_in" style="width:70px; margin-left:5px;"> <button onclick="setParam('kis')">Set</button></div>
+        <div class="axis-row">D: <input type="number" step="0.001" id="kds_in" style="width:70px; margin-left:5px;"> <button onclick="setParam('kds')">Set</button></div>
+    </div>
+    <div class="raw-box">
+        <div style="font-weight:bold; margin-bottom:5px;">Compass Offset</div>
+        <div class="axis-row">Offset: <input type="number" step="0.1" id="coff_in" style="width:70px; margin-left:5px;"> <button onclick="setParam('coff')">Set</button></div>
+        <div class="axis-row">Pivot Spd: <input type="number" step="0.01" id="pvspd_in" style="width:70px; margin-left:5px;"> <button onclick="setParam('pvspd')">Set</button></div>
+    </div>
+    <div class="raw-box">
+        <div style="font-weight:bold; margin-bottom:5px;">Thrusters</div>
+        <div class="axis-row">BB Invert: 
+            <select id="revbb_in" onchange="setParam('revbb')" style="margin-left:5px; background:#444; color:white; border:1px solid #666;">
+                <option value="0">Normal</option>
+                <option value="1">Inverted</option>
+            </select>
+        </div>
+        <div class="axis-row">SB Invert: 
+            <select id="revsb_in" onchange="setParam('revsb')" style="margin-left:5px; background:#444; color:white; border:1px solid #666;">
+                <option value="0">Normal</option>
+                <option value="1">Inverted</option>
+            </select>
+        </div>
+        <div class="axis-row">Swap Motors: 
+            <select id="tswap_in" onchange="setParam('tswap')" style="margin-left:5px; background:#444; color:white; border:1px solid #666;">
+                <option value="0">Normal</option>
+                <option value="1">Swapped</option>
+            </select>
+        </div>
+    </div>
+</div>
+
 <button onclick="resetMinMax()">Reset Min/Max</button>
 <button onclick="startCalib()" style="background: #5a32a8;">Start Desk Calibration</button>
 
@@ -202,6 +243,24 @@ function startCalib() {
         fetch('/calibrate').then(r => alert('Calibration Started! Observe the Sub LEDs.'));
     }
 }
+
+function setParam(param) {
+    const val = document.getElementById(param + '_in').value;
+    if (val === '') return;
+    fetch('/setparam?p=' + param + '&v=' + val)
+    .then(r => r.text())
+    .then(t => console.log('Set', param, t));
+}
+
+// Fetch initial parameter values once
+fetch('/params')
+.then(r => r.json())
+.then(data => {
+    ['kpr', 'kir', 'kdr', 'kps', 'kis', 'kds', 'coff', 'revbb', 'revsb', 'tswap', 'pvspd'].forEach(p => {
+        const el = document.getElementById(p + '_in');
+        if (el && data[p] !== undefined) el.value = data[p];
+    });
+});
 
 setInterval(fetchData, 200);
 </script>
@@ -568,6 +627,85 @@ void WiFiTask(void *arg)
         xQueueSend(compassIn, (void *)&cmd, 10);
         subServer.send(200, "text/plain", "OK");
     });
+    subServer.on("/params", []() {
+        extern RoboStruct mainData;
+        extern bool global_thruster_swap;
+        String json = "{";
+        json += "\"kpr\":" + String(mainData.Kpr, 3) + ", ";
+        json += "\"kir\":" + String(mainData.Kir, 3) + ", ";
+        json += "\"kdr\":" + String(mainData.Kdr, 3) + ", ";
+        json += "\"kps\":" + String(mainData.Kps, 3) + ", ";
+        json += "\"kis\":" + String(mainData.Kis, 3) + ", ";
+        json += "\"kds\":" + String(mainData.Kds, 3) + ", ";
+        json += "\"coff\":" + String(mainData.compassOffset, 2) + ", ";
+        json += "\"pvspd\":" + String(mainData.pivotSpeed, 2) + ", ";
+        json += "\"revbb\":" + String(mainData.revBB ? 1 : 0) + ", ";
+        json += "\"revsb\":" + String(mainData.revSB ? 1 : 0) + ", ";
+        json += "\"tswap\":" + String(global_thruster_swap ? 1 : 0);
+        json += "}";
+        subServer.send(200, "application/json", json);
+    });
+
+    subServer.on("/setparam", []() {
+        if (!subServer.hasArg("p") || !subServer.hasArg("v")) {
+            subServer.send(400, "text/plain", "Missing args");
+            return;
+        }
+        String p = subServer.arg("p");
+        float v = subServer.arg("v").toFloat();
+        extern RoboStruct mainData;
+        extern QueueHandle_t serIn;
+        extern bool global_thruster_swap;
+        
+        RoboStruct updateData = mainData;
+        updateData.IDr = espMac(); // Target self
+        
+        bool sendUpdate = false;
+
+        if (p == "kpr") { updateData.Kpr = v; updateData.cmd = PIDRUDDERSET; sendUpdate = true; }
+        else if (p == "kir") { updateData.Kir = v; updateData.cmd = PIDRUDDERSET; sendUpdate = true; }
+        else if (p == "kdr") { updateData.Kdr = v; updateData.cmd = PIDRUDDERSET; sendUpdate = true; }
+        else if (p == "kps") { updateData.Kps = v; updateData.cmd = PIDSPEEDSET; sendUpdate = true; }
+        else if (p == "kis") { updateData.Kis = v; updateData.cmd = PIDSPEEDSET; sendUpdate = true; }
+        else if (p == "kds") { updateData.Kds = v; updateData.cmd = PIDSPEEDSET; sendUpdate = true; }
+        else if (p == "revbb") { 
+            updateData.revBB = (v > 0.5); 
+            updateData.cmd = SETUPDATA; // Using SETUPDATA as it handles general config including inversion
+            updateData.ack = LORASET;
+            sendUpdate = true; 
+        }
+        else if (p == "revsb") { 
+            updateData.revSB = (v > 0.5); 
+            updateData.cmd = SETUPDATA;
+            updateData.ack = LORASET;
+            sendUpdate = true; 
+        }
+        else if (p == "tswap") {
+            global_thruster_swap = (v > 0.5);
+            thrusterSwap(&global_thruster_swap, SET);
+            subServer.send(200, "text/plain", "OK");
+            return;
+        }
+        else if (p == "coff") { 
+            updateData.compassOffset = v; 
+            updateData.icmCompassOffset = v; 
+            updateData.cmd = STORE_COMPASS_OFFSET; 
+            sendUpdate = true; 
+        }
+        else if (p == "pvspd") { 
+            updateData.pivotSpeed = v; 
+            updateData.cmd = MAXMINPWRSET; 
+            sendUpdate = true; 
+        }
+
+        if (sendUpdate) {
+            xQueueSend(serIn, (void *)&updateData, 10);
+            subServer.send(200, "text/plain", "OK");
+        } else {
+            subServer.send(400, "text/plain", "Unknown param");
+        }
+    });
+
     subServer.begin();
     
     Serial.print("WiFI task running!\r\n");
