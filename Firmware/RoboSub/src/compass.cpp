@@ -150,13 +150,19 @@ bool InitCompass(void)
     return true;
 }
 
+#define STOP_MAGNETIC_CALIBRATION 132
+
+static int global_cal_points = 0;
+int get_cal_point_count() { return global_cal_points; }
+
 bool CalibrateCompass(void)
 {
-    static unsigned long calstamp;
+    MagCalibrator calibrator;
     uint32_t lokcnt = 0;
-    Serial.println("Callibrating compass now!!!");
+    Serial.println("Callibrating compass now (LS Datapoint mode)!!!");
     
     mainData.status = CALIBRATE_MAGNETIC_COMPASS;
+    global_cal_points = 0;
     
     LedData calLedStatus;
     calLedStatus.color = CRGB::Purple;
@@ -165,78 +171,68 @@ bool CalibrateCompass(void)
     vTaskDelay(pdMS_TO_TICKS(500));
     beep(1, buzzer);
 
-    calstamp = millis();
-    float min_icm[3] = {10000.0f, 10000.0f, 10000.0f};
-    float max_icm[3] = {-10000.0f, -10000.0f, -10000.0f};
+    calibrator.reset();
+    int cmd = 0;
 
-    while (millis() - calstamp <= 1000 * 60)
+    while (true)
     {
+        // Check for stop command
+        if (xQueueReceive(compassIn, &cmd, 0) == pdTRUE) {
+            if (cmd == STOP_MAGNETIC_CALIBRATION) {
+                if (calibrator.getNumPoints() < 50) {
+                    Serial.println("Stop rejected: Not enough points.");
+                    udpsend("Calibration stop rejected: Need at least 50 points for a valid fit.");
+                } else {
+                    Serial.println("Stop command received.");
+                    break;
+                }
+            }
+        }
+
         float mx, my, mz;
         if (read_mag(mx, my, mz)) {
-            if (mx < min_icm[0]) min_icm[0] = mx;
-            if (my < min_icm[1]) min_icm[1] = my;
-            if (mz < min_icm[2]) min_icm[2] = mz;
-            if (mx > max_icm[0]) max_icm[0] = mx;
-            if (my > max_icm[1]) max_icm[1] = my;
-            if (mz > max_icm[2]) max_icm[2] = mz;
+            int prev_count = calibrator.getNumPoints();
+            calibrator.addPoint(mx, my, mz);
+            int new_count = calibrator.getNumPoints();
+            global_cal_points = new_count;
 
-            if (lokcnt++ > 100)
+            if (new_count > prev_count && (new_count % 10 == 0))
             {
-                lokcnt = 0;
-                Serial.printf("Calibrating: X:%.1f..%.1f, Y:%.1f..%.1f, Z:%.1f..%.1f\r\n", 
-                    min_icm[0], max_icm[0], min_icm[1], max_icm[1], min_icm[2], max_icm[2]);
+                Serial.printf("Calibrating: Collected %d points\r\n", new_count);
             }
         }
         vTaskDelay(pdMS_TO_TICKS(10));
     }
     
-    float offset_x = (max_icm[0] + min_icm[0]) / 2.0f;
-    float offset_y = (max_icm[1] + min_icm[1]) / 2.0f;
-    float offset_z = (max_icm[2] + min_icm[2]) / 2.0f;
-    
-    float delta_x = (max_icm[0] - min_icm[0]) / 2.0f;
-    float delta_y = (max_icm[1] - min_icm[1]) / 2.0f;
-    float delta_z = (max_icm[2] - min_icm[2]) / 2.0f;
-    
-    if(delta_x == 0) delta_x = 1;
-    if(delta_y == 0) delta_y = 1;
-    if(delta_z == 0) delta_z = 1;
+    float hard[3];
+    float soft[3][3];
 
-    float avg_delta = (delta_x + delta_y + delta_z) / 3.0f;
+    if (calibrator.calculateCalibration(hard, soft)) {
+        mainData.magHard[0] = hard[0];
+        mainData.magHard[1] = hard[1];
+        mainData.magHard[2] = hard[2];
 
-    mainData.magHard[0] = offset_x;
-    mainData.magHard[1] = offset_y;
-    mainData.magHard[2] = offset_z;
-
-    for(int i=0; i<3; i++) {
-        for(int j=0; j<3; j++) {
-            mainData.magSoft[i][j] = (i==j) ? (avg_delta / (i==0 ? delta_x : (i==1 ? delta_y : delta_z))) : 0.0f;
+        for(int i=0; i<3; i++) {
+            for(int j=0; j<3; j++) {
+                mainData.magSoft[i][j] = soft[i][j];
+            }
         }
+
+        hardIron(&mainData, false);
+        softIron(&mainData, false);
+        
+        Serial.printf("New LS calibration stored!!!\n\r");
+        beep(5, buzzer);
+    } else {
+        Serial.println("Calibration failed (not enough points or singular matrix)");
+        beep(2, buzzer);
     }
-
-    hardIron(&mainData, false);
-    softIron(&mainData, false);
-
-    icm_min = (vector_t<float>){min_icm[0], min_icm[1], min_icm[2]};
-    icm_max = (vector_t<float>){max_icm[0], max_icm[1], max_icm[2]};
-    
-    storage.begin("NicE_Buoy_Data", false);
-    storage.putFloat("IcmMaxX", icm_max.x);
-    storage.putFloat("IcmMaxY", icm_max.y);
-    storage.putFloat("IcmMaxZ", icm_max.z);
-    storage.putFloat("IcmMinX", icm_min.x);
-    storage.putFloat("IcmMinY", icm_min.y);
-    storage.putFloat("IcmMinZ", icm_min.z);
-    storage.end();
-    
-    Serial.printf("New calibration stored!!!\n\r");
     
     LedData idleLedStatus;
     idleLedStatus.color = CRGB::Yellow;
     idleLedStatus.blink = BLINK_OFF;
     xQueueSend(ledStatus, (void *)&idleLedStatus, 0);
 
-    beep(5, buzzer);
     mainData.status = IDLE;
 
     return true;
@@ -421,7 +417,7 @@ int linMagCalib(int *corr)
 
 void initcompassQueue(void)
 {
-    compass = xQueueCreate(1, sizeof(double));
+    compass = xQueueCreate(1, sizeof(float));
     compassIn = xQueueCreate(10, sizeof(int));
 }
 
@@ -511,8 +507,8 @@ void CompassTask(void *arg)
         }
 
         float rawHdg = global_icmHdg;
-        double activeHdg = (double)CompassAverage(rawHdg);
-        mainData.dirMag = (float)activeHdg;
+        float activeHdg = CompassAverage(rawHdg);
+        mainData.dirMag = activeHdg;
         xQueueOverwrite(compass, (void *)&activeHdg);
 
         static uint32_t lastPrint = 0;

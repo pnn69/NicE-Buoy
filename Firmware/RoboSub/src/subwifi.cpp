@@ -71,6 +71,8 @@ button:hover { background: #555; }
     </div>
 </div>
 
+<canvas id="compassCanvas" width="400" height="400"></canvas>
+
 <div class="raw-container">
     <div class="raw-box">
         <div style="font-weight:bold; margin-bottom:5px;">Rudder PID</div>
@@ -113,7 +115,7 @@ button:hover { background: #555; }
 </div>
 
 <button onclick="resetMinMax()">Reset Min/Max</button>
-<button onclick="startCalib()" style="background: #5a32a8;">Start Desk Calibration</button>
+<button id="calButton" onclick="startCalib()" style="background: #5a32a8;">Start Desk Calibration</button>
 
 <div class="raw-container">
 
@@ -127,7 +129,6 @@ button:hover { background: #555; }
         <div class="axis-minmax"><span id="icm_z_min" class="min-col">0.0</span><span id="icm_z_max" class="max-col">0.0</span></div>
     </div>
 </div>
-<canvas id="compassCanvas" width="400" height="400"></canvas>
 <script>
 const ctx = document.getElementById('compassCanvas').getContext('2d');
 const cx = 200, cy = 200, r = 180;
