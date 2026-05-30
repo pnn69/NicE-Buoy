@@ -32,22 +32,22 @@ h2 { margin-bottom: 5px; }
 .info { font-size: 1.2em; margin-top: 10px; display: flex; justify-content: center; gap: 20px; }
 .icm { color: #5bc0de; font-weight: bold; }
 .raw { font-size: 0.8em; color: #aaa; }
-.raw-container { display: flex; justify-content: center; gap: 20px; margin-top: 15px; flex-wrap: wrap; }
-.raw-box { text-align: left; border: 1px solid #444; padding: 10px; border-radius: 5px; background: #2a2a2a; min-width: 300px; }
-.axis-row { display: flex; align-items: center; margin: 15px 0; font-size: 0.9em; }
+.raw-container { display: flex; justify-content: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.raw-box { text-align: left; border: 1px solid #444; padding: 6px 10px; border-radius: 5px; background: #2a2a2a; min-width: 220px; }
+.axis-row { display: flex; align-items: center; margin: 8px 0; font-size: 0.9em; }
 .axis-label { width: 15px; font-weight: bold; }
 .axis-bar-container { flex-grow: 1; background: #444; height: 16px; border-radius: 8px; position: relative; margin: 0 10px; border: 1px solid #666; }
-.axis-dot { position: absolute; top: -4px; width: 10px; height: 24px; background: white; border-radius: 3px; transform: translateX(-5px); transition: left 0.1s; }
+.axis-dot { position: absolute; top: -2px; width: 4px; height: 20px; background: white; border: 1px solid #000; border-radius: 2px; transform: translateX(-2px); transition: left 0.1s; z-index: 10; }
 .axis-vals { width: 50px; text-align: right; font-family: monospace; }
-.axis-minmax { font-size: 0.7em; color: #888; display: flex; justify-content: space-between; margin: -10px 60px 10px 25px; }
+.axis-minmax { font-size: 0.7em; color: #888; display: flex; justify-content: space-between; margin: -5px 60px 8px 25px; }
 .min-col { color: #ff8888; }
 .max-col { color: #88ff88; }
-button { margin-top: 15px; padding: 8px 16px; background: #444; color: white; border: 1px solid #666; cursor: pointer; border-radius: 4px; }
+button { margin-top: 10px; padding: 6px 12px; background: #444; color: white; border: 1px solid #666; cursor: pointer; border-radius: 4px; }
 button:hover { background: #555; }
-.thrusters { margin-top: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; max-width: 400px; margin-left: auto; margin-right: auto; }
-.thruster-bar-container { width: 100%; background: #444; border-radius: 5px; height: 25px; position: relative; display: flex; align-items: center; border: 1px solid #666; overflow: hidden; }
+.thrusters { margin-top: 15px; display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; max-width: 400px; margin-left: auto; margin-right: auto; }
+.thruster-bar-container { width: 100%; background: #444; border-radius: 5px; height: 22px; position: relative; display: flex; align-items: center; border: 1px solid #666; overflow: hidden; }
 .thruster-bar { height: 100%; width: 0%; background: transparent; position: absolute; left: 50%; transition: width 0.1s, left 0.1s; }
-.thruster-label { position: absolute; width: 100%; text-align: center; font-size: 0.9em; font-weight: bold; z-index: 1; pointer-events: none; text-shadow: 1px 1px 2px black; }
+.thruster-label { position: absolute; width: 100%; text-align: center; font-size: 0.85em; font-weight: bold; z-index: 1; pointer-events: none; text-shadow: 1px 1px 2px black; }
 .center-line { position: absolute; left: 50%; width: 2px; height: 100%; background: #888; z-index: 0; }
 </style>
 </head>
@@ -56,7 +56,9 @@ button:hover { background: #555; }
 <div class="info">
     
     <span>Heading: <span id="icmVal" class="icm">0.0</span>&deg;</span>
+    <span style="font-size:0.6em; margin-left:10px;">(XZ:<span id="h_xz">0</span>&deg; XY:<span id="h_xy">0</span>&deg; YZ:<span id="h_yz">0</span>&deg;)</span>
 </div>
+<div id="statusText" style="font-size: 0.9em; color: #aaa; margin-top: 5px;">Connecting to Sub...</div>
 
 <div class="thrusters">
     <div class="thruster-bar-container">
@@ -75,40 +77,40 @@ button:hover { background: #555; }
 
 <div class="raw-container">
     <div class="raw-box">
-        <div style="font-weight:bold; margin-bottom:5px;">Rudder PID</div>
-        <div class="axis-row">P: <input type="number" step="0.001" id="kpr_in" style="width:70px; margin-left:5px;"> <button onclick="setParam('kpr')">Set</button></div>
-        <div class="axis-row">I: <input type="number" step="0.001" id="kir_in" style="width:70px; margin-left:5px;"> <button onclick="setParam('kir')">Set</button></div>
-        <div class="axis-row">D: <input type="number" step="0.001" id="kdr_in" style="width:70px; margin-left:5px;"> <button onclick="setParam('kdr')">Set</button></div>
+        <div style="font-weight:bold; margin-bottom:4px; font-size: 0.9em;">Rudder PID</div>
+        <div class="axis-row">P: <input type="number" step="0.001" id="kpr_in" style="width:60px; margin-left:5px;"> <button onclick="setParam('kpr')">Set</button></div>
+        <div class="axis-row">I: <input type="number" step="0.001" id="kir_in" style="width:60px; margin-left:5px;"> <button onclick="setParam('kir')">Set</button></div>
+        <div class="axis-row">D: <input type="number" step="0.001" id="kdr_in" style="width:60px; margin-left:5px;"> <button onclick="setParam('kdr')">Set</button></div>
     </div>
     <div class="raw-box">
-        <div style="font-weight:bold; margin-bottom:5px;">Speed PID</div>
-        <div class="axis-row">P: <input type="number" step="0.001" id="kps_in" style="width:70px; margin-left:5px;"> <button onclick="setParam('kps')">Set</button></div>
-        <div class="axis-row">I: <input type="number" step="0.001" id="kis_in" style="width:70px; margin-left:5px;"> <button onclick="setParam('kis')">Set</button></div>
-        <div class="axis-row">D: <input type="number" step="0.001" id="kds_in" style="width:70px; margin-left:5px;"> <button onclick="setParam('kds')">Set</button></div>
+        <div style="font-weight:bold; margin-bottom:4px; font-size: 0.9em;">Speed PID</div>
+        <div class="axis-row">P: <input type="number" step="0.001" id="kps_in" style="width:60px; margin-left:5px;"> <button onclick="setParam('kps')">Set</button></div>
+        <div class="axis-row">I: <input type="number" step="0.001" id="kis_in" style="width:60px; margin-left:5px;"> <button onclick="setParam('kis')">Set</button></div>
+        <div class="axis-row">D: <input type="number" step="0.001" id="kds_in" style="width:60px; margin-left:5px;"> <button onclick="setParam('kds')">Set</button></div>
     </div>
     <div class="raw-box">
-        <div style="font-weight:bold; margin-bottom:5px;">Compass Offset</div>
-        <div class="axis-row">Offset: <input type="number" step="0.1" id="coff_in" style="width:70px; margin-left:5px;"> <button onclick="setParam('coff')">Set</button></div>
-        <div class="axis-row">Pivot Spd: <input type="number" step="0.01" id="pvspd_in" style="width:70px; margin-left:5px;"> <button onclick="setParam('pvspd')">Set</button></div>
+        <div style="font-weight:bold; margin-bottom:4px; font-size: 0.9em;">Compass & Pivot</div>
+        <div class="axis-row">Off: <input type="number" step="0.1" id="coff_in" style="width:60px; margin-left:5px;"> <button onclick="setParam('coff')">Set</button></div>
+        <div class="axis-row">Piv: <input type="number" step="0.01" id="pvspd_in" style="width:60px; margin-left:5px;"> <button onclick="setParam('pvspd')">Set</button></div>
     </div>
     <div class="raw-box">
-        <div style="font-weight:bold; margin-bottom:5px;">Thrusters</div>
-        <div class="axis-row">BB Invert: 
-            <select id="revbb_in" onchange="setParam('revbb')" style="margin-left:5px; background:#444; color:white; border:1px solid #666;">
-                <option value="0">Normal</option>
-                <option value="1">Inverted</option>
+        <div style="font-weight:bold; margin-bottom:4px; font-size: 0.9em;">Thrusters</div>
+        <div class="axis-row">Reverse BB: 
+            <select id="revbb_in" onchange="setParam('revbb')" style="margin-left:5px; background:#444; color:white; border:1px solid #666; font-size: 0.9em;">
+                <option value="0">N</option>
+                <option value="1">I</option>
             </select>
         </div>
-        <div class="axis-row">SB Invert: 
-            <select id="revsb_in" onchange="setParam('revsb')" style="margin-left:5px; background:#444; color:white; border:1px solid #666;">
-                <option value="0">Normal</option>
-                <option value="1">Inverted</option>
+        <div class="axis-row">Reverse SB: 
+            <select id="revsb_in" onchange="setParam('revsb')" style="margin-left:5px; background:#444; color:white; border:1px solid #666; font-size: 0.9em;">
+                <option value="0">N</option>
+                <option value="1">I</option>
             </select>
         </div>
-        <div class="axis-row">Swap Motors: 
-            <select id="tswap_in" onchange="setParam('tswap')" style="margin-left:5px; background:#444; color:white; border:1px solid #666;">
-                <option value="0">Normal</option>
-                <option value="1">Swapped</option>
+        <div class="axis-row">Swap:
+            <select id="tswap_in" onchange="setParam('tswap')" style="margin-left:5px; background:#444; color:white; border:1px solid #666; font-size: 0.9em;">
+                <option value="0">N</option>
+                <option value="1">S</option>
             </select>
         </div>
     </div>
@@ -116,17 +118,26 @@ button:hover { background: #555; }
 
 <button onclick="resetMinMax()">Reset Min/Max</button>
 <button id="calButton" onclick="startCalib()" style="background: #5a32a8;">Start Desk Calibration</button>
+<button onclick="startTest()" style="background: #2a6a2a; margin-left: 10px;">Start Linearity Test</button>
 
 <div class="raw-container">
-
     <div class="raw-box icm">
         <div style="font-weight:bold; margin-bottom:5px;">Magnetometer Raw</div>
-        <div class="axis-row"><div class="axis-label">X</div><div class="axis-bar-container"><div id="icm_x_dot" class="axis-dot" style="left:50%; background:#5bc0de;"></div></div><div id="icm_x_val" class="axis-vals">0.0</div></div>
+        <div class="axis-row"><div class="axis-label">X</div><div class="axis-bar-container"><div id="icm_x_dot" class="axis-dot" style="left:50%;"></div></div><div id="icm_x_val" class="axis-vals">0.0</div></div>
         <div class="axis-minmax"><span id="icm_x_min" class="min-col">0.0</span><span id="icm_x_max" class="max-col">0.0</span></div>
-        <div class="axis-row"><div class="axis-label">Y</div><div class="axis-bar-container"><div id="icm_y_dot" class="axis-dot" style="left:50%; background:#5bc0de;"></div></div><div id="icm_y_val" class="axis-vals">0.0</div></div>
+        <div class="axis-row"><div class="axis-label">Y</div><div class="axis-bar-container"><div id="icm_y_dot" class="axis-dot" style="left:50%;"></div></div><div id="icm_y_val" class="axis-vals">0.0</div></div>
         <div class="axis-minmax"><span id="icm_y_min" class="min-col">0.0</span><span id="icm_y_max" class="max-col">0.0</span></div>
-        <div class="axis-row"><div class="axis-label">Z</div><div class="axis-bar-container"><div id="icm_z_dot" class="axis-dot" style="left:50%; background:#5bc0de;"></div></div><div id="icm_z_val" class="axis-vals">0.0</div></div>
+        <div class="axis-row"><div class="axis-label">Z</div><div class="axis-bar-container"><div id="icm_z_dot" class="axis-dot" style="left:50%;"></div></div><div id="icm_z_val" class="axis-vals">0.0</div></div>
         <div class="axis-minmax"><span id="icm_z_min" class="min-col">0.0</span><span id="icm_z_max" class="max-col">0.0</span></div>
+    </div>
+    <div class="raw-box" style="color: #f0ad4e;">
+        <div style="font-weight:bold; margin-bottom:5px;">Accelerometer Raw</div>
+        <div class="axis-row"><div class="axis-label">X</div><div class="axis-bar-container"><div id="accel_x_dot" class="axis-dot" style="left:50%;"></div></div><div id="accel_x_val" class="axis-vals">0.00</div></div>
+        <div class="axis-minmax"><span id="accel_x_min" class="min-col">0.00</span><span id="accel_x_max" class="max-col">0.00</span></div>
+        <div class="axis-row"><div class="axis-label">Y</div><div class="axis-bar-container"><div id="accel_y_dot" class="axis-dot" style="left:50%;"></div></div><div id="accel_y_val" class="axis-vals">0.00</div></div>
+        <div class="axis-minmax"><span id="accel_y_min" class="min-col">0.00</span><span id="accel_y_max" class="max-col">0.00</span></div>
+        <div class="axis-row"><div class="axis-label">Z</div><div class="axis-bar-container"><div id="accel_z_dot" class="axis-dot" style="left:50%;"></div></div><div id="accel_z_val" class="axis-vals">0.00</div></div>
+        <div class="axis-minmax"><span id="accel_z_min" class="min-col">0.00</span><span id="accel_z_max" class="max-col">0.00</span></div>
     </div>
 </div>
 <script>
@@ -134,7 +145,8 @@ const ctx = document.getElementById('compassCanvas').getContext('2d');
 const cx = 200, cy = 200, r = 180;
 
 let session = { //
-    icm: { x: {min: null, max: null}, y: {min: null, max: null}, z: {min: null, max: null} }
+    icm: { x: {min: null, max: null}, y: {min: null, max: null}, z: {min: null, max: null} },
+    accel: { x: {min: null, max: null}, y: {min: null, max: null}, z: {min: null, max: null} }
 };
 
 let firstLoad = true;
@@ -151,9 +163,10 @@ function updateBar(sensor, axis, val, nvsMin, nvsMax) {
     let min = session[sensor][axis].min;
     let max = session[sensor][axis].max;
     
-    document.getElementById(sensor + '_' + axis + '_val').innerText = val.toFixed(1);
-    document.getElementById(sensor + '_' + axis + '_min').innerText = min.toFixed(1);
-    document.getElementById(sensor + '_' + axis + '_max').innerText = max.toFixed(1);
+    let prec = (sensor === 'accel') ? 2 : 1;
+    document.getElementById(sensor + '_' + axis + '_val').innerText = val.toFixed(prec);
+    document.getElementById(sensor + '_' + axis + '_min').innerText = min.toFixed(prec);
+    document.getElementById(sensor + '_' + axis + '_max').innerText = max.toFixed(prec);
     
     let range = max - min;
     let percent = 50;
@@ -206,32 +219,71 @@ function drawVector(angle, color, length, width) {
     ctx.stroke();
 }
 
+function startTest() {
+    if(confirm('Start Linearity Test? You will hear 1 beep to start. Rotate the buoy uniformly for 30 seconds until you hear 2 beeps.')) {
+        fetch('/starttest').then(r => alert('Test Mode Active! Start rotating after the beep.'));
+    }
+}
+
 function fetchData() {
     fetch('/data')
     .then(r => r.json())
     .then(data => {
+        if (data.icm !== undefined) document.getElementById('icmVal').innerText = data.icm.toFixed(1);
+        if (data.h_xz !== undefined) document.getElementById('h_xz').innerText = data.h_xz.toFixed(0);
+        if (data.h_xy !== undefined) document.getElementById('h_xy').innerText = data.h_xy.toFixed(0);
+        if (data.h_yz !== undefined) document.getElementById('h_yz').innerText = data.h_yz.toFixed(0);
+
+        // Defensive updates for bars
+        const mMin = data.icm_min || {x:-50, y:-50, z:-50};
+        const mMax = data.icm_max || {x:50, y:50, z:50};
         
-        document.getElementById('icmVal').innerText = data.icm.toFixed(1);
+        updateBar('icm', 'x', data.icm_x || 0, mMin.x, mMax.x);
+        updateBar('icm', 'y', data.icm_y || 0, mMin.y, mMax.y);
+        updateBar('icm', 'z', data.icm_z || 0, mMin.z, mMax.z);
 
+        updateBar('accel', 'x', data.a_x || 0, -2, 2);
+        updateBar('accel', 'y', data.a_y || 0, -2, 2);
+        updateBar('accel', 'z', data.a_z || 0, -2, 2);
 
-        updateBar('icm', 'x', data.icm_x, data.icm_min.x, data.icm_max.x);
-        updateBar('icm', 'y', data.icm_y, data.icm_min.y, data.icm_max.y);
-        updateBar('icm', 'z', data.icm_z, data.icm_min.z, data.icm_max.z);
+        updateThruster('bb', data.speed_bb || 0);
+        updateThruster('sb', data.speed_sb || 0);
 
-        updateThruster('bb', data.speed_bb);
-        updateThruster('sb', data.speed_sb);
+        const calBtn = document.getElementById('calButton');
+        const statusEl = document.getElementById('statusText');
+        
+        if (data.is_calibrating) {
+            let color = '#f0ad4e'; // Orange
+            if (data.cal_points >= 150) color = '#5cb85c'; // Green
+            
+            calBtn.innerText = 'Stop Calibration (' + data.cal_points + ')';
+            calBtn.style.background = color;
+            calBtn.dataset.points = data.cal_points;
+            statusEl.innerText = 'CALIBRATING: ' + data.cal_points + ' points collected';
+            statusEl.style.color = '#f0ad4e';
+        } else {
+            calBtn.innerText = 'Start Desk Calibration';
+            calBtn.style.background = '#5a32a8';
+            calBtn.dataset.points = 0;
+            statusEl.innerText = 'System Ready (Hybrid Mode)';
+            statusEl.style.color = '#88ff88';
+        }
 
-        drawRose(data.icm);
+        if (data.icm !== undefined) drawRose(data.icm);
         firstLoad = false;
     })
-    .catch(e => console.error(e));
+    .catch(e => {
+        console.error('Fetch error:', e);
+        document.getElementById('statusText').innerText = "Connection Lost / Error";
+    });
 }
 
 function resetMinMax() {
     session = {
-        icm: { x: {min: null, max: null}, y: {min: null, max: null}, z: {min: null, max: null} }
+        icm: { x: {min: null, max: null}, y: {min: null, max: null}, z: {min: null, max: null} },
+        accel: { x: {min: null, max: null}, y: {min: null, max: null}, z: {min: null, max: null} }
     };
-    ['icm'].forEach(sensor => {
+    ['icm', 'accel'].forEach(sensor => {
         ['x', 'y', 'z'].forEach(axis => {
             document.getElementById(sensor + '_' + axis + '_min').innerText = '0.00';
             document.getElementById(sensor + '_' + axis + '_max').innerText = '0.00';
@@ -240,8 +292,20 @@ function resetMinMax() {
 }
 
 function startCalib() {
-    if(confirm('Start Desk Compass Calibration? The system will beep and middle LED will blink purple for 60 seconds.')) {
-        fetch('/calibrate').then(r => alert('Calibration Started! Observe the Sub LEDs.'));
+    const calBtn = document.getElementById('calButton');
+    if (calBtn.innerText.includes('Start Desk Calibration')) {
+        if(confirm('Start Desk Compass Calibration? Move the device in a figure-8 pattern until you have at least 150 points for best results.')) {
+            fetch('/calibrate?cmd=start').then(r => alert('Calibration Started!'));
+        }
+    } else {
+        const points = parseInt(calBtn.dataset.points || 0);
+        if (points < 50) {
+            alert('Not enough points yet! (Need at least 50 for the matrix calculation, 150+ recommended)');
+            return;
+        }
+        if(confirm('Stop Calibration and calculate Least Squares fit using ' + points + ' points?')) {
+            fetch('/calibrate?cmd=stop').then(r => alert('Calibration Stopped and Calculated!'));
+        }
     }
 }
 
@@ -604,27 +668,71 @@ void WiFiTask(void *arg)
     setupudp();
     
     // Set up Web Server
-    subServer.on("/", []() {
-        subServer.send(200, "text/html", compass_html);
+    WiFi.macAddress(mac);
+    char macStr2[25];
+    sprintf(macStr2, "%02X%02X%02X%02X%02X%02X",
+            mac[0], mac[1], mac[2],
+            mac[3], mac[4], mac[5]);
+
+    subServer.on("/", [macStr2]() {
+        String html = String(compass_html);
+
+        html.replace("Compass Debug", String("Compass ") + macStr2);
+
+        subServer.send(200, "text/html", html);
     });
+
     subServer.on("/data", []() {
         extern float last_raw_x, last_raw_y, last_raw_z;
-        extern vector_t<float> icm_min, icm_max;
+        extern float last_raw_ax, last_raw_ay, last_raw_az;
+        extern uint8_t bno_cal_sys, bno_cal_gyro, bno_cal_accel, bno_cal_mag;
+        extern bool bno_ready;
+        extern String bno_error;
+        extern String global_scan_results;
+        extern float h_xz, h_xy, h_yz;
+        extern bool global_is_calibrating;
+        extern int get_cal_point_count();
         String json = "{";
         json += "\"icm\":" + String(global_icmHdg, 2) + ", ";
+        json += "\"h_xz\":" + String(h_xz, 1) + ", ";
+        json += "\"h_xy\":" + String(h_xy, 1) + ", ";
+        json += "\"h_yz\":" + String(h_yz, 1) + ", ";
         json += "\"icm_x\":" + String(last_raw_x, 2) + ", ";
         json += "\"icm_y\":" + String(last_raw_y, 2) + ", ";
         json += "\"icm_z\":" + String(last_raw_z, 2) + ", ";
-        json += "\"icm_min\":{\"x\":" + String(icm_min.x, 1) + ",\"y\":" + String(icm_min.y, 1) + ",\"z\":" + String(icm_min.z, 1) + "}, ";
-        json += "\"icm_max\":{\"x\":" + String(icm_max.x, 1) + ",\"y\":" + String(icm_max.y, 1) + ",\"z\":" + String(icm_max.z, 1) + "}, ";
         json += "\"speed_bb\":" + String(global_speed_bb, 0) + ", ";
         json += "\"speed_sb\":" + String(global_speed_sb, 0) + ", ";
-        json += "\"a_x\":0, \"a_y\":0, \"a_z\":0";
+        json += "\"a_x\":" + String(last_raw_ax, 2) + ", \"a_y\":" + String(last_raw_ay, 2) + ", \"a_z\":" + String(last_raw_az, 2) + ", ";
+        json += "\"cal_levels\":[" + String(bno_cal_sys) + "," + String(bno_cal_gyro) + "," + String(bno_cal_accel) + "," + String(bno_cal_mag) + "], ";
+        json += "\"bno_ready\":" + String(bno_ready ? "true" : "false") + ", ";
+        json += "\"bno_error\":\"" + bno_error + "\", ";
+        json += "\"is_calibrating\":" + String(global_is_calibrating ? "true" : "false") + ", ";
+        json += "\"cal_points\":" + String(get_cal_point_count()) + ", ";
+        json += "\"scan_all\":\"" + global_scan_results + "\"";
         json += "}";
         subServer.send(200, "application/json", json);
     });
+    subServer.on("/scan", []() {
+        extern bool InitCompass();
+        InitCompass(); // Reruns exhaustive scan
+        subServer.send(200, "text/plain", "Scan Triggered");
+    });
     subServer.on("/calibrate", []() {
-        int cmd = CALIBRATE_MAGNETIC_COMPASS;
+        String cmd_arg = subServer.arg("cmd");
+        Serial.printf("Web: /calibrate called with cmd=%s\n", cmd_arg.c_str());
+        int cmd = CALIBRATE_MAGNETIC_COMPASS; // Default start
+        if (cmd_arg == "stop") {
+            cmd = 132; // Custom stop command ID
+        }
+        if (xQueueSend(compassIn, (void *)&cmd, 10) == pdTRUE) {
+            Serial.println("Web: Command sent to compassIn queue.");
+        } else {
+            Serial.println("Web: FAILED to send command to compassIn queue!");
+        }
+        subServer.send(200, "text/plain", "OK");
+    });
+    subServer.on("/starttest", []() {
+        int cmd = 33; // START_LINEARITY_TEST
         xQueueSend(compassIn, (void *)&cmd, 10);
         subServer.send(200, "text/plain", "OK");
     });

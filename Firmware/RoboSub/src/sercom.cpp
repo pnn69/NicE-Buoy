@@ -150,8 +150,7 @@ void SercomTask(void *arg)
     unsigned long lastRx = millis();
     mac = espMac();
     delay(2000);
-    // Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // Half-duplex on same pin
-    Serial1.begin(230400, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // Half-duplex on same pin
+    Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // Half-duplex on same pin
     Serial1.setTimeout(100);
     Serial.setTimeout(100);
     while (1)

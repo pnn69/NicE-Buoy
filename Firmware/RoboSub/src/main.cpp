@@ -125,8 +125,8 @@ void setup()
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 2048, NULL, 1, NULL, 1);
     xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 5, NULL, 1);
     xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
-    xTaskCreatePinnedToCore(CompassTask, "CompassTask", 4000, NULL, configMAX_PRIORITIES - 1, &compassTaskHandle, 0); //&compassTaskHandle is used to suspend/resume the task
-    xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 3, NULL, 0);
+    xTaskCreatePinnedToCore(CompassTask, "CompassTask", 8192, NULL, configMAX_PRIORITIES - 1, &compassTaskHandle, 0); //&compassTaskHandle is used to suspend/resume the task
+    xTaskCreatePinnedToCore(SercomTask, "SerialTask", 8192, NULL, configMAX_PRIORITIES - 3, NULL, 0);
     Serial.println("Setup done!");
     // Disable brownout detector
     WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
