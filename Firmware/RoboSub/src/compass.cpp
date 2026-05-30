@@ -16,6 +16,7 @@
 #include "mag_calib.h"
 
 #define NUM_DIRECTIONS 50
+#define AVERIDGE_COUNT 3
 
 #define LSM_MAG_ADDR 0x1E
 #define LSM_ACC_ADDR 0x19
@@ -27,7 +28,7 @@ QueueHandle_t compass;
 QueueHandle_t compassIn;
 
 bool bno_ready = false;
-String bno_error = "Diag Mode V4";
+String bno_error = "Hybrid Mode V11";
 
 extern RoboStruct mainData;
 extern Message escOut;
@@ -39,8 +40,9 @@ uint8_t bno_cal_sys = 0, bno_cal_gyro = 0, bno_cal_accel = 0, bno_cal_mag = 0;
 float last_raw_x = 0, last_raw_y = 0, last_raw_z = 0;
 float last_raw_ax = 0, last_raw_ay = 0, last_raw_az = 0;
 
-// Internal diag vars
 float h_xz = 0, h_xy = 0, h_yz = 0;
+uint32_t global_loop_cnt = 0;
+String global_cal_msg = "Ready V11";
 
 void udpsend(const char* msg) {
     if (udp) udp.broadcast(msg);
@@ -67,18 +69,26 @@ bool readRegs(uint8_t dev, uint8_t reg, uint8_t* buf, int len) {
 
 bool InitCompass(void)
 {
-    Serial.println("Initializing Hybrid Compass (Diag Mode)...");
+    Serial.println("Initializing Hybrid Compass V11...");
     Wire.begin(21, 22);
     Wire.setClock(100000);
     vTaskDelay(pdMS_TO_TICKS(100));
 
     writeReg(ICM_ADDR, 0x7F, 0x00);
     writeReg(ICM_ADDR, 0x06, 0x01);
+    vTaskDelay(pdMS_TO_TICKS(50));
     writeReg(LSM_MAG_ADDR, 0x60, 0x0C);
     writeReg(LSM_ACC_ADDR, 0x20, 0x57);
 
+    hardIron(&mainData, true);
+    softIron(&mainData, true);
+
+    if (mainData.magSoft[0][0] == 0) {
+        for(int i=0; i<3; i++) for(int j=0; j<3; j++) mainData.magSoft[i][j] = (i==j ? 1.0f : 0.0f);
+    }
+
     bno_ready = true; 
-    bno_error = "Diag Mode V4 OK";
+    bno_error = "Hybrid Mode V11 OK";
     return true;
 }
 
@@ -96,6 +106,49 @@ bool read_hybrid(float &mx, float &my, float &mz, float &ax, float &ay, float &a
         int16_t z = (buf[4] << 8) | buf[5];
         ax = x / 16384.0f; ay = y / 16384.0f; az = z / 16384.0f;
     } else return false;
+    return true;
+}
+
+bool global_is_calibrating = false;
+static int global_cal_points = 0;
+int get_cal_point_count() { return global_cal_points; }
+
+bool CalibrateCompass(void) {
+    MagCalibrator calibrator;
+    mainData.status = CALIBRATE_MAGNETIC_COMPASS;
+    global_is_calibrating = true;
+    global_cal_points = 0;
+    global_cal_msg = "Started - Tumble Buoy!";
+    beep(1, buzzer);
+    
+    while (global_is_calibrating) {
+        int cmd = 0;
+        if (xQueueReceive(compassIn, &cmd, 0) == pdTRUE && (cmd == 132 || cmd == 32)) break;
+        float hmx, hmy, hmz, hax, hay, haz;
+        if (read_hybrid(hmx, hmy, hmz, hax, hay, haz)) {
+            int prev = calibrator.getNumPoints();
+            calibrator.addPoint(hmx, hmy, hmz);
+            global_cal_points = calibrator.getNumPoints();
+            if (global_cal_points > prev && (global_cal_points % 10 == 0)) beep(1, buzzer);
+            last_raw_x = hmx; last_raw_y = hmy; last_raw_z = hmz;
+            last_raw_ax = hax; last_raw_ay = hay; last_raw_az = haz;
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    
+    float hard[3]; float soft[3][3];
+    if (calibrator.calculateCalibration(hard, soft)) {
+        mainData.magHard[0] = hard[0]; mainData.magHard[1] = hard[1]; mainData.magHard[2] = hard[2];
+        for(int i=0; i<3; i++) for(int j=0; j<3; j++) mainData.magSoft[i][j] = soft[i][j];
+        hardIron(&mainData, false); softIron(&mainData, false); 
+        global_cal_msg = "SUCCESS! Ready.";
+        beep(5, buzzer);
+    } else {
+        global_cal_msg = "FAILED - Try again.";
+        beep(2, buzzer);
+    }
+    mainData.status = IDLE;
+    global_is_calibrating = false;
     return true;
 }
 
@@ -122,37 +175,56 @@ void initcompassQueue(void) {
     compassIn = xQueueCreate(10, sizeof(int));
 }
 
-bool global_is_calibrating = false;
-int get_cal_point_count() { return 0; }
-
 void CompassTask(void *arg) {
     while (1) {
-        float hmx, hmy, hmz, hax, hay, haz;
-        if (read_hybrid(hmx, hmy, hmz, hax, hay, haz)) {
-            last_raw_x = hmx; last_raw_y = hmy; last_raw_z = hmz;
-            last_raw_ax = hax; last_raw_ay = hay; last_raw_az = haz;
+        global_loop_cnt++;
+        int cmd = 0;
+        if (xQueueReceive(compassIn, &cmd, 0) == pdTRUE) {
+            if (cmd == CALIBRATE_MAGNETIC_COMPASS) CalibrateCompass();
+        }
 
-            // Apply manual hard-iron from linearity test to see if it helps
-            float mx_c = hmx - (-30.5f);
-            float mz_c = (hmz - 15.1f);
-            float my_c = hmy;
+        if (!global_is_calibrating) {
+            float hmx, hmy, hmz, hax, hay, haz;
+            if (read_hybrid(hmx, hmy, hmz, hax, hay, haz)) {
+                last_raw_x = hmx; last_raw_y = hmy; last_raw_z = hmz;
+                last_raw_ax = hax; last_raw_ay = hay; last_raw_az = haz;
 
-            // Calculate 3 different raw headings with inverted rotation
-            h_xz = atan2f(-mz_c, mx_c) * 180.0f / M_PI; if (h_xz < 0) h_xz += 360.0f;
-            h_xy = atan2f(-my_c, mx_c) * 180.0f / M_PI; if (h_xy < 0) h_xy += 360.0f;
-            h_yz = atan2f(-mz_c, my_c) * 180.0f / M_PI; if (h_yz < 0) h_yz += 360.0f;
+                // 1. Calibrate & Map LSM Magnetometer into ICM Accelerometer frame
+                // Accel X is Vertical (Up). Mag Y is Vertical (Up).
+                // Remap Mag: [Y, X, Z] so that Mag X matches Accel X (vertical)
+                // Calculated Y center: (4 + -90) / 2 = -43.0
+                float mx_aligned = hmy - (-43.0f);   // Mag Y is vertical
+                float my_aligned = hmx - (-30.5f);  // Mag X is horizontal 1
+                float mz_aligned = (hmz - 15.1f) * 1.288f; // Mag Z is horizontal 2
 
-            // Use XZ as primary for now and apply the manual offset
-            float heading = h_xz;
-            heading += mainData.compassOffset;
-            
-            while (heading < 0) heading += 360.0f;
-            while (heading >= 360.0f) heading -= 360.0f;
+                // 2. Universal Tilt Compensation in aligned frame
+                float normA = sqrtf(hax*hax + hay*hay + haz*haz);
+                if (normA < 0.01f) normA = 1.0f;
+                float dx = -hax / normA, dy = -hay / normA, dz = -haz / normA;
 
-            global_icmHdg = heading;
-            float activeHdg = CompassAverage(global_icmHdg);
-            mainData.dirMag = activeHdg;
-            xQueueOverwrite(compass, (void *)&activeHdg);
+                float m_dot_d = mx_aligned * dx + my_aligned * dy + mz_aligned * dz;
+                float mx_h = mx_aligned - m_dot_d * dx;
+                float my_h = my_aligned - m_dot_d * dy;
+                float mz_h = mz_aligned - m_dot_d * dz;
+
+                // 3. Final Heading using projected horizontal components
+                float heading = atan2f(-mz_h, my_h) * 180.0f / M_PI;
+                if (heading < 0) heading += 360.0f;
+
+                // Diag
+                h_xz = heading;
+                h_xy = atan2f(-my_aligned, mx_aligned) * 180.0f / M_PI; if (h_xy < 0) h_xy += 360.0f;
+                h_yz = atan2f(-mz_aligned, mx_aligned) * 180.0f / M_PI; if (h_yz < 0) h_yz += 360.0f;
+
+                heading += mainData.compassOffset;
+                while (heading < 0) heading += 360.0f;
+                while (heading >= 360.0f) heading -= 360.0f;
+
+                global_icmHdg = heading;
+                float activeHdg = CompassAverage(heading);
+                mainData.dirMag = activeHdg;
+                xQueueOverwrite(compass, (void *)&activeHdg);
+            }
         }
         vTaskDelay(pdMS_TO_TICKS(20));
     }
@@ -161,4 +233,3 @@ void CompassTask(void *arg) {
 float GetHeading(void) { return global_icmHdg; }
 float GetHeadingRaw(void) { return global_icmHdg; }
 int linMagCalib(int *corr) { return 0; }
-bool CalibrateCompass(void) { return true; }

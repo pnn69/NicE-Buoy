@@ -59,6 +59,13 @@ button:hover { background: #555; }
     <span style="font-size:0.6em; margin-left:10px;">(XZ:<span id="h_xz">0</span>&deg; XY:<span id="h_xy">0</span>&deg; YZ:<span id="h_yz">0</span>&deg;)</span>
 </div>
 <div id="statusText" style="font-size: 0.9em; color: #aaa; margin-top: 5px;">Connecting to Sub...</div>
+<div style="font-size: 0.7em; color: #888; margin-top: 5px;">
+    MagRaw: [<span id="mraw_x">0</span>, <span id="mraw_y">0</span>, <span id="mraw_z">0</span>] 
+    AccRaw: [<span id="araw_x">0</span>, <span id="araw_y">0</span>, <span id="araw_z">0</span>]
+</div>
+<div style="font-size: 0.7em; color: #5bc0de; margin-top: 2px;">
+    Stored Offsets: [<span id="off_x">0</span>, <span id="off_y">0</span>, <span id="off_z">0</span>]
+</div>
 
 <div class="thrusters">
     <div class="thruster-bar-container">
@@ -234,6 +241,19 @@ function fetchData() {
         if (data.h_xy !== undefined) document.getElementById('h_xy').innerText = data.h_xy.toFixed(0);
         if (data.h_yz !== undefined) document.getElementById('h_yz').innerText = data.h_yz.toFixed(0);
 
+        if (data.icm_x !== undefined) document.getElementById('mraw_x').innerText = data.icm_x.toFixed(1);
+        if (data.icm_y !== undefined) document.getElementById('mraw_y').innerText = data.icm_y.toFixed(1);
+        if (data.icm_z !== undefined) document.getElementById('mraw_z').innerText = data.icm_z.toFixed(1);
+        if (data.a_x !== undefined) document.getElementById('araw_x').innerText = data.a_x.toFixed(2);
+        if (data.a_y !== undefined) document.getElementById('araw_y').innerText = data.a_y.toFixed(2);
+        if (data.a_z !== undefined) document.getElementById('araw_z').innerText = data.a_z.toFixed(2);
+
+        if (data.mag_hard) {
+            document.getElementById('off_x').innerText = data.mag_hard[0].toFixed(1);
+            document.getElementById('off_y').innerText = data.mag_hard[1].toFixed(1);
+            document.getElementById('off_z').innerText = data.mag_hard[2].toFixed(1);
+        }
+
         // Defensive updates for bars
         const mMin = data.icm_min || {x:-50, y:-50, z:-50};
         const mMax = data.icm_max || {x:50, y:50, z:50};
@@ -259,14 +279,14 @@ function fetchData() {
             calBtn.innerText = 'Stop Calibration (' + data.cal_points + ')';
             calBtn.style.background = color;
             calBtn.dataset.points = data.cal_points;
-            statusEl.innerText = 'CALIBRATING: ' + data.cal_points + ' points collected';
+            statusEl.innerText = data.cal_msg || ('CALIBRATING: ' + data.cal_points);
             statusEl.style.color = '#f0ad4e';
         } else {
             calBtn.innerText = 'Start Desk Calibration';
             calBtn.style.background = '#5a32a8';
             calBtn.dataset.points = 0;
-            statusEl.innerText = 'System Ready (Hybrid Mode)';
-            statusEl.style.color = '#88ff88';
+            statusEl.innerText = data.cal_msg || 'System Ready (Hybrid Mode)';
+            statusEl.style.color = (data.cal_msg && data.cal_msg.includes('SUCCESS')) ? '#88ff88' : '#aaa';
         }
 
         if (data.icm !== undefined) drawRose(data.icm);
@@ -691,15 +711,19 @@ void WiFiTask(void *arg)
         extern String global_scan_results;
         extern float h_xz, h_xy, h_yz;
         extern bool global_is_calibrating;
+        extern uint32_t global_loop_cnt;
+        extern String global_cal_msg;
         extern int get_cal_point_count();
         String json = "{";
         json += "\"icm\":" + String(global_icmHdg, 2) + ", ";
         json += "\"h_xz\":" + String(h_xz, 1) + ", ";
         json += "\"h_xy\":" + String(h_xy, 1) + ", ";
         json += "\"h_yz\":" + String(h_yz, 1) + ", ";
+        json += "\"loop\":" + String(global_loop_cnt) + ", ";
         json += "\"icm_x\":" + String(last_raw_x, 2) + ", ";
         json += "\"icm_y\":" + String(last_raw_y, 2) + ", ";
         json += "\"icm_z\":" + String(last_raw_z, 2) + ", ";
+
         json += "\"speed_bb\":" + String(global_speed_bb, 0) + ", ";
         json += "\"speed_sb\":" + String(global_speed_sb, 0) + ", ";
         json += "\"a_x\":" + String(last_raw_ax, 2) + ", \"a_y\":" + String(last_raw_ay, 2) + ", \"a_z\":" + String(last_raw_az, 2) + ", ";
