@@ -865,7 +865,13 @@ class RoboMonitor:
             # ----------------------
 
             fields = content.split(',')
-            
+
+            # --- Echo Prevention ---
+            # If the sender ID (IDs) is "99", this is a command from this script (or an echo). Ignore it.
+            if len(fields) > 1 and fields[1] == "99":
+                return
+            # -----------------------
+
             # Normalize empty fields to "0" (supports compressed zero-value transmission)
             fields = [f if f != "" else "0" for f in fields]
             
