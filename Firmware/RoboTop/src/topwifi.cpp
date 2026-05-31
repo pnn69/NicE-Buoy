@@ -367,6 +367,7 @@ void WiFiTask(void *arg)
             json += "\"WDir\":\"" + String(buoyPara[i].wDir, 2) + "\",";
             json += "\"WStd\":\"" + String(buoyPara[i].wStd, 2) + "\",";
             json += "\"SubVolt\":\"" + String(buoyPara[i].subAccuV, 2) + "\",";
+            json += "\"SubCurr\":\"" + String(buoyPara[i].subAccuI, 2) + "\",";
             json += "\"SubPerc\":\"" + String(buoyPara[i].subAccuP) + "\",";
             json += "\"PIDI\":\"" + String(buoyPara[i].ip, 2) + "\",";
             json += "\"PIDR\":\"" + String(buoyPara[i].ir, 2) + "\",";

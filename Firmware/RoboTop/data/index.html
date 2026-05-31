@@ -277,6 +277,25 @@ input {
             <span style="color:blue;">■ Wind</span>
             <span style="color:black;">■ GPS</span>
         </div>
+
+        <div style="margin-top: 30px; padding: 15px; border-top: 2px solid #999; background: #f9f9f9; border-radius: 10px;">
+            <div style="display: flex; justify-content: center; gap: 60px; align-items: flex-end;">
+                <div>
+                    <div style="margin-bottom: 5px; font-weight: bold; color: #003366;">VOLTAGE</div>
+                    <div class="side-bar" style="height: 120px; width: 40px; background: #eee;">
+                        <div id="bottomVoltBar" style="position: absolute; width: 100%; bottom: 0; background: #2196f3; transition: height 0.5s;"></div>
+                    </div>
+                    <div id="bottomVoltText" style="font-size: 22px; font-weight: bold; margin-top: 8px; color: #2196f3;">0.00V</div>
+                </div>
+                <div>
+                    <div style="margin-bottom: 5px; font-weight: bold; color: #b35900;">CURRENT</div>
+                    <div class="side-bar" style="height: 120px; width: 40px; background: #eee;">
+                        <div id="bottomCurrBar" style="position: absolute; width: 100%; bottom: 0; background: #ff9800; transition: height 0.5s;"></div>
+                    </div>
+                    <div id="bottomCurrText" style="font-size: 22px; font-weight: bold; margin-top: 8px; color: #ff9800;">0.00A</div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="side-panel">
@@ -773,6 +792,16 @@ function updateUI() {
     const currentFill = document.getElementById("currentFill");
     currentFill.style.width = currPerc + "%";
     document.getElementById("currentValText").innerText = (!isNaN(currentA)) ? currentA.toFixed(1) + "A" : "0.0A";
+
+    // Detailed Bottom Bars
+    const subVolt = parseFloat(b.SubVolt || 0);
+    const subCurr = parseFloat(b.SubCurr || 0);
+    const voltPerc = Math.max(0, Math.min(100, ((subVolt - 17.0) / 8.0) * 100));
+    document.getElementById("bottomVoltBar").style.height = voltPerc + "%";
+    document.getElementById("bottomVoltText").innerText = (!isNaN(subVolt)) ? subVolt.toFixed(2) + "V" : "0.00V";
+    const currPercDetailed = Math.max(0, Math.min(100, (subCurr / 10.0) * 100));
+    document.getElementById("bottomCurrBar").style.height = currPercDetailed + "%";
+    document.getElementById("bottomCurrText").innerText = (!isNaN(subCurr)) ? subCurr.toFixed(2) + "A" : "0.00A";
 
     // Compass Vector Logic
     const isIdle = String(b.Status).trim() === "7";
