@@ -248,6 +248,7 @@ void RoboDecode(String data, RoboStruct *dataStore)
     case STORE_COMPASS_OFFSET:
         dataStore->compassOffset = numbers[2].toDouble();
         if (numbers[3].length() > 0) dataStore->icmCompassOffset = numbers[3].toDouble();
+        if (numbers[4].length() > 0) dataStore->mechanicCorrection = numbers[4].toDouble();
         break;
 
     case SETUPDATA:
@@ -265,6 +266,7 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->minOfsetDist = numbers[13].toInt();
         if (numbers[14].length() > 0) dataStore->revBB = (bool)numbers[14].toInt();
         if (numbers[15].length() > 0) dataStore->revSB = (bool)numbers[15].toInt();
+        if (numbers[16].length() > 0) dataStore->mechanicCorrection = numbers[16].toDouble();
         break;
 
     case ROUTTOPOINT:
