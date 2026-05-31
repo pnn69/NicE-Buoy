@@ -6264,7 +6264,7 @@
 		(fields_autoplaced yes)
 		(uuid "9a39f0da-70ba-4d39-b2cf-70f693109cfc")
 		(property "Reference" "U102"
-			(at 131.7341 76.2 0)
+			(at 131.6833 76.2 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -6275,7 +6275,7 @@
 			)
 		)
 		(property "Value" "LSM303AGRTR"
-			(at 131.7341 78.74 0)
+			(at 131.6833 78.74 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects

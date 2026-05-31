@@ -267,7 +267,7 @@
       "internal_id": "",
       "mfg": "",
       "mpn": "",
-      "sch_revision": ""
+      "sch_revision": "1.0"
     },
     "layer_pairs": [],
     "layer_presets": [],
@@ -535,13 +535,14 @@
         "priority": 2147483647,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
         "track_width": 0.25,
+        "tuning_profile": "",
         "via_diameter": 0.8,
         "via_drill": 0.4,
         "wire_width": 6
       }
     ],
     "meta": {
-      "version": 4
+      "version": 5
     },
     "net_colors": null,
     "netclass_assignments": null,
@@ -894,7 +895,7 @@
       {
         "filename": "Robobuoy_BMS_S6_V1_0.kicad_sch",
         "name": "Robobuoy_BMS_S6_V1_0",
-        "uuid": "00000000-0000-0000-0000-000000000000"
+        "uuid": "1f52533e-1c9e-4a55-ac43-3d9bafbde785"
       }
     ],
     "used_designators": "",
@@ -903,7 +904,7 @@
   "sheets": [
     [
       "1f52533e-1c9e-4a55-ac43-3d9bafbde785",
-      "Root"
+      "Robobuoy_BMS_S6_V1_0"
     ],
     [
       "56ee7f72-20af-47b1-badb-ded1b77856b8",

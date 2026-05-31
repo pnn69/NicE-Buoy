@@ -43,6 +43,8 @@
 *.su
 *.idb
 *.pdb
+analyze_*.py
+capture_*.py 
 
 # Kernel Module Compile Results
 *.mod*
