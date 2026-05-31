@@ -1,7 +1,22 @@
+/**
+ * @file compass.cpp
+ * @brief BNO055 Intelligent Compass System with Persistence and Atomic Injection.
+ * 
+ * This module handles the BNO055 sensor fusion, auto-calibration monitoring,
+ * and the logic to store/restore calibration profiles to ESP32 NVS (Flash).
+ * 
+ * Key Features:
+ * 1. Atomic Injection: Writes 22-byte calibration profiles directly to BNO registers.
+ * 2. Mode-Lock Retry: Robustly ensures CONFIG/NDOF mode transitions.
+ * 3. Dual-Verification: Confirms injection by reading back registers immediately.
+ * 4. Auto-Persistence: Saves to NVS once Magnetometer level 3 is achieved.
+ */
+
 #include <Arduino.h>
 #include <Wire.h>
 #include <math.h>
 #include <RoboCompute.h>
+#include <Adafruit_BNO055.h>
 #include "compass.h"
 #include "main.h"
 #include "datastorage.h"
@@ -13,145 +28,239 @@
 #include "pidrudspeed.h"
 #include "sercom.h"
 #include "subwifi.h"
-#include "mag_calib.h"
 
+// Circular averaging buffer size
 #define NUM_DIRECTIONS 50
-#define AVERIDGE_COUNT 3
 
-#define LSM_MAG_ADDR 0x1E
-#define LSM_ACC_ADDR 0x19
-#define ICM_ADDR     0x69
+// BNO055 Hardware Register Addresses
+#define BNO055_OPR_MODE_ADDR 0x3D
+#define BNO055_PAGE_ID_ADDR 0x07
+#define BNO055_ACC_OFFSET_X_LSB_ADDR 0x55
 
-String global_scan_results = "Hybrid Mode";
 extern Preferences storage;
-QueueHandle_t compass;
-QueueHandle_t compassIn;
+QueueHandle_t compass = NULL;
+QueueHandle_t compassIn = NULL;
 
 bool bno_ready = false;
-String bno_error = "Hybrid Mode V11";
+String bno_error = "BNO Mode";
+Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28, &Wire);
+uint8_t bno_i2c_addr = 0x28; // Detected dynamically (0x28 or 0x29)
 
 extern RoboStruct mainData;
 extern Message escOut;
 extern int subStatus;
 extern AsyncUDP udp;
+extern SemaphoreHandle_t mainDataMutex;
 
+// Global state for web dashboard telemetry
 float global_icmHdg = 0;
 uint8_t bno_cal_sys = 0, bno_cal_gyro = 0, bno_cal_accel = 0, bno_cal_mag = 0;
 float last_raw_x = 0, last_raw_y = 0, last_raw_z = 0;
 float last_raw_ax = 0, last_raw_ay = 0, last_raw_az = 0;
-
-float h_xz = 0, h_xy = 0, h_yz = 0;
 uint32_t global_loop_cnt = 0;
-String global_cal_msg = "Ready V11";
+String global_cal_msg = "BNO Active";
+String global_cal_load = "00000000000000000000000000000000000000000000";
+String global_cal_ver = "00000000000000000000000000000000000000000000";
 
-void udpsend(const char* msg) {
-    if (udp) udp.broadcast(msg);
+uint32_t cal_msg_timeout = 0;
+
+/**
+ * @brief Updates the calibration message on the dashboard with an optional audio confirmation.
+ */
+void setCalMsg(String msg, int beeps = 0) {
+    global_cal_msg = msg;
+    cal_msg_timeout = millis() + 5000;
+    if (beeps > 0 && buzzer != NULL) beep(beeps, buzzer);
 }
 
-bool writeReg(uint8_t dev, uint8_t reg, uint8_t val) {
-    Wire.beginTransmission(dev);
+/**
+ * @brief Converts 22-byte profile to Hex strings for UI telemetry.
+ */
+void updateUIHex(uint8_t *data, bool loaded) {
+    char hex[100];
+    char *p = hex;
+    for (int i = 0; i < 22; i++) {
+        p += sprintf(p, "%02X", data[i]);
+    }
+    if (loaded) global_cal_load = String(hex);
+    else global_cal_ver = String(hex);
+}
+
+/**
+ * @brief Low-level register read from BNO055.
+ */
+uint8_t readReg(uint8_t reg) {
+    Wire.beginTransmission(bno_i2c_addr);
+    Wire.write(reg);
+    if (Wire.endTransmission(false) != 0) return 0xFF;
+    if (Wire.requestFrom(bno_i2c_addr, (uint8_t)1) != 1) return 0xFF;
+    return Wire.read();
+}
+
+/**
+ * @brief Low-level register write to BNO055.
+ */
+void writeReg(uint8_t reg, uint8_t val) {
+    Wire.beginTransmission(bno_i2c_addr);
     Wire.write(reg);
     Wire.write(val);
-    return (Wire.endTransmission() == 0);
+    Wire.endTransmission();
 }
 
-bool readRegs(uint8_t dev, uint8_t reg, uint8_t* buf, int len) {
-    Wire.beginTransmission(dev);
-    Wire.write(reg);
-    if (Wire.endTransmission(false) != 0) return false;
-    Wire.requestFrom(dev, (uint8_t)len);
-    for (int i=0; i<len; i++) {
-        if (Wire.available()) buf[i] = Wire.read();
-        else return false;
+/**
+ * @brief Forces the BNO055 into a target operation mode with retries.
+ * Necessary because the sensor sometimes ignores mode switches if the internal
+ * fusion engine is busy or the I2C bus is congested.
+ */
+bool forceMode(uint8_t targetMode) {
+    for (int i = 0; i < 5; i++) {
+        writeReg(BNO055_OPR_MODE_ADDR, targetMode);
+        vTaskDelay(pdMS_TO_TICKS(200));
+        uint8_t current = readReg(BNO055_OPR_MODE_ADDR);
+        if (current == targetMode) return true;
+        Serial.printf("BNO055: Mode switch retry %d (Target 0x%02X, Current 0x%02X)\r\n", i+1, targetMode, current);
     }
-    return true;
+    return false;
 }
 
-bool InitCompass(void)
-{
-    Serial.println("Initializing Hybrid Compass V11...");
-    Wire.begin(21, 22);
-    Wire.setClock(100000);
+/**
+ * @brief Reads the full 22-byte calibration profile directly from Page 0 registers.
+ * Bypasses library checks to ensure we can always capture the current state.
+ */
+bool getBnoOffsetsDirect(uint8_t *data) {
+    if (!forceMode(0x00)) return false; // Must be in CONFIG mode to read offsets
+    
+    writeReg(BNO055_PAGE_ID_ADDR, 0x00); // Offsets are on Page 0
+    vTaskDelay(pdMS_TO_TICKS(20));
+
+    Wire.beginTransmission(bno_i2c_addr);
+    Wire.write(BNO055_ACC_OFFSET_X_LSB_ADDR);
+    if (Wire.endTransmission(false) != 0) {
+        forceMode(0x0C);
+        return false;
+    }
+    
+    uint8_t count = Wire.requestFrom(bno_i2c_addr, (uint8_t)22);
+    bool hasData = false;
+    if (count == 22) {
+        for (int i = 0; i < 22; i++) {
+            data[i] = Wire.read();
+            if (data[i] != 0) hasData = true;
+        }
+    }
+    forceMode(0x0C); // Return to NDOF (Fusion) mode
+    return hasData;
+}
+
+/**
+ * @brief Performs an atomic write and immediate read-back of the calibration profile.
+ * Ensures the data actually 'lands' in the registers while the chip is in CONFIG mode.
+ */
+bool setAndVerifyOffsets(const uint8_t *data, uint8_t *verify) {
+    Serial.println("BNO055: Starting Injection sequence...\r\n");
+    
+    if (!forceMode(0x00)) {
+        Serial.println("BNO055: FATAL - Could not enter CONFIG mode!\r\n");
+        return false;
+    }
+
+    writeReg(BNO055_PAGE_ID_ADDR, 0x00);
+    vTaskDelay(pdMS_TO_TICKS(50));
+
+    // Burst write of all 22 registers (Acc, Mag, Gyro offsets + Radii)
+    Wire.beginTransmission(bno_i2c_addr);
+    Wire.write(BNO055_ACC_OFFSET_X_LSB_ADDR);
+    for (int i = 0; i < 22; i++) Wire.write(data[i]);
+    if (Wire.endTransmission() != 0) {
+        Serial.println("BNO055: ERROR - I2C Burst Write Failed!\r\n");
+        forceMode(0x0C);
+        return false;
+    }
     vTaskDelay(pdMS_TO_TICKS(100));
 
-    writeReg(ICM_ADDR, 0x7F, 0x00);
-    writeReg(ICM_ADDR, 0x06, 0x01);
-    vTaskDelay(pdMS_TO_TICKS(50));
-    writeReg(LSM_MAG_ADDR, 0x60, 0x0C);
-    writeReg(LSM_ACC_ADDR, 0x20, 0x57);
-
-    hardIron(&mainData, true);
-    softIron(&mainData, true);
-
-    if (mainData.magSoft[0][0] == 0) {
-        for(int i=0; i<3; i++) for(int j=0; j<3; j++) mainData.magSoft[i][j] = (i==j ? 1.0f : 0.0f);
+    // Immediate read-back while still in CONFIG for audit trail
+    Wire.beginTransmission(bno_i2c_addr);
+    Wire.write(BNO055_ACC_OFFSET_X_LSB_ADDR);
+    Wire.endTransmission(false);
+    uint8_t count = Wire.requestFrom(bno_i2c_addr, (uint8_t)22);
+    if (count == 22) {
+        for (int i = 0; i < 22; i++) verify[i] = Wire.read();
     }
 
-    bno_ready = true; 
-    bno_error = "Hybrid Mode V11 OK";
-    return true;
-}
-
-bool read_hybrid(float &mx, float &my, float &mz, float &ax, float &ay, float &az) {
-    uint8_t buf[6];
-    if (readRegs(LSM_MAG_ADDR, 0x68 | 0x80, buf, 6)) {
-        int16_t x = (buf[1] << 8) | buf[0];
-        int16_t y = (buf[3] << 8) | buf[2];
-        int16_t z = (buf[5] << 8) | buf[4];
-        mx = x * 0.15f; my = y * 0.15f; mz = z * 0.15f;
-    } else return false;
-    if (readRegs(ICM_ADDR, 0x2D, buf, 6)) {
-        int16_t x = (buf[0] << 8) | buf[1];
-        int16_t y = (buf[2] << 8) | buf[3];
-        int16_t z = (buf[4] << 8) | buf[5];
-        ax = x / 16384.0f; ay = y / 16384.0f; az = z / 16384.0f;
-    } else return false;
-    return true;
-}
-
-bool global_is_calibrating = false;
-static int global_cal_points = 0;
-int get_cal_point_count() { return global_cal_points; }
-
-bool CalibrateCompass(void) {
-    MagCalibrator calibrator;
-    mainData.status = CALIBRATE_MAGNETIC_COMPASS;
-    global_is_calibrating = true;
-    global_cal_points = 0;
-    global_cal_msg = "Started - Tumble Buoy!";
-    beep(1, buzzer);
+    if (!forceMode(0x0C)) {
+        Serial.println("BNO055: ERROR - Could not return to NDOF mode!\r\n");
+    }
     
-    while (global_is_calibrating) {
-        int cmd = 0;
-        if (xQueueReceive(compassIn, &cmd, 0) == pdTRUE && (cmd == 132 || cmd == 32)) break;
-        float hmx, hmy, hmz, hax, hay, haz;
-        if (read_hybrid(hmx, hmy, hmz, hax, hay, haz)) {
-            int prev = calibrator.getNumPoints();
-            calibrator.addPoint(hmx, hmy, hmz);
-            global_cal_points = calibrator.getNumPoints();
-            if (global_cal_points > prev && (global_cal_points % 10 == 0)) beep(1, buzzer);
-            last_raw_x = hmx; last_raw_y = hmy; last_raw_z = hmz;
-            last_raw_ax = hax; last_raw_ay = hay; last_raw_az = haz;
+    return true;
+}
+
+/**
+ * @brief Detects and initializes the BNO055 sensor, injecting stored NVS profiles.
+ */
+bool InitCompass(void)
+{
+    Serial.println("\r\nInitializing BNO055 Compass V13.6...\r\n");
+    bool found = false;
+    
+    // Auto-discover I2C address
+    Wire.beginTransmission(0x28);
+    if (Wire.endTransmission() == 0) { bno_i2c_addr = 0x28; found = true; }
+    else {
+        Wire.beginTransmission(0x29);
+        if (Wire.endTransmission() == 0) {
+            bno_i2c_addr = 0x29;
+            found = true;
+            bno = Adafruit_BNO055(55, 0x29, &Wire);
         }
-        vTaskDelay(pdMS_TO_TICKS(10));
     }
-    
-    float hard[3]; float soft[3][3];
-    if (calibrator.calculateCalibration(hard, soft)) {
-        mainData.magHard[0] = hard[0]; mainData.magHard[1] = hard[1]; mainData.magHard[2] = hard[2];
-        for(int i=0; i<3; i++) for(int j=0; j<3; j++) mainData.magSoft[i][j] = soft[i][j];
-        hardIron(&mainData, false); softIron(&mainData, false); 
-        global_cal_msg = "SUCCESS! Ready.";
-        beep(5, buzzer);
+
+    if (found && bno.begin()) {
+        bno_ready = true;
+        bno.setExtCrystalUse(true);
+        Serial.printf("BNO055: Found and ready at 0x%02X\r\n", bno_i2c_addr);
+
+        // Retrieve profile from ESP32 NVS
+        uint8_t calData[22];
+        memBnoCalib(calData, true);
+        updateUIHex(calData, true);
+
+        bool hasProfile = false;
+        for(int i=0; i<22; i++) if(calData[i] != 0) hasProfile = true;
+
+        if (hasProfile) {
+            uint8_t verifyData[22];
+            if (setAndVerifyOffsets(calData, verifyData)) {
+                updateUIHex(verifyData, false);
+                bool match = true;
+                for(int i=0; i<22; i++) if(calData[i] != verifyData[i]) match = false;
+                if (match) {
+                    setCalMsg("Profile Loaded OK", 1);
+                    Serial.println("BNO055: VERIFICATION MATCHED.\r\n");
+                } else {
+                    setCalMsg("Profile Mismatch", 1);
+                    Serial.println("BNO055: VERIFICATION MISMATCH.\r\n");
+                }
+            }
+        } else {
+            setCalMsg("No Profile in NVS");
+            Serial.println("BNO055: No profile found in NVS.\r\n");
+        }
     } else {
-        global_cal_msg = "FAILED - Try again.";
-        beep(2, buzzer);
+        bno_error = "BNO NOT FOUND";
+        Serial.println("BNO055: CRITICAL ERROR - Sensor not found!\r\n");
     }
-    mainData.status = IDLE;
-    global_is_calibrating = false;
-    return true;
+
+    // Load remaining persistent parameters
+    CompassOffsetCorrection(&mainData.compassOffset, true);
+    CompasOffset(&mainData, true);
+    CompasIcmOffset(&mainData, true);
+    MechanicalCorrection(&mainData.mechanicCorrection, true);
+    return bno_ready;
 }
 
+/**
+ * @brief Circular buffer averaging for smooth heading telemetry.
+ */
 float CompassAverage(float in) {
     static float directions[NUM_DIRECTIONS] = {0};
     static int cbufpointer = 0;
@@ -175,61 +284,84 @@ void initcompassQueue(void) {
     compassIn = xQueueCreate(10, sizeof(int));
 }
 
+/**
+ * @brief High-priority task managing compass fusion and auto-calibration.
+ * Runs on Core 1 to ensure consistent I2C polling without WiFi interference.
+ */
 void CompassTask(void *arg) {
+    static bool autoSaved = false;
     while (1) {
         global_loop_cnt++;
         int cmd = 0;
-        if (xQueueReceive(compassIn, &cmd, 0) == pdTRUE) {
-            if (cmd == CALIBRATE_MAGNETIC_COMPASS) CalibrateCompass();
+        
+        // Handle manual commands from web interface
+        if (compassIn && xQueueReceive(compassIn, &cmd, 0) == pdTRUE) {
+            if (cmd == 34) { // Manual Save Trigger
+                uint8_t calData[22];
+                if (getBnoOffsetsDirect(calData)) {
+                    memBnoCalib(calData, false);
+                    updateUIHex(calData, false);
+                    setCalMsg("MANUAL SAVE SUCCESS", 1);
+                    autoSaved = true;
+                } else {
+                    setCalMsg("SAVE FAILED - NO DATA", 1);
+                }
+            }
         }
 
-        if (!global_is_calibrating) {
-            float hmx, hmy, hmz, hax, hay, haz;
-            if (read_hybrid(hmx, hmy, hmz, hax, hay, haz)) {
-                last_raw_x = hmx; last_raw_y = hmy; last_raw_z = hmz;
-                last_raw_ax = hax; last_raw_ay = hay; last_raw_az = haz;
+        if (bno_ready) {
+            sensors_event_t event;
+            bno.getEvent(&event);
+            float heading = event.orientation.x;
+            
+            // Monitor internal calibration status
+            bno.getCalibration(&bno_cal_sys, &bno_cal_gyro, &bno_cal_accel, &bno_cal_mag);
+            
+            // AUTO-SAVE: Triggered when high accuracy is reached (M:3, G:3)
+            if (!autoSaved && bno_cal_mag == 3 && bno_cal_gyro == 3) {
+                uint8_t calData[22];
+                if (getBnoOffsetsDirect(calData)) {
+                    memBnoCalib(calData, false);
+                    updateUIHex(calData, false);
+                    autoSaved = true;
+                    setCalMsg("AUTO-SAVE SUCCESS", 1);
+                }
+            }
+            if (bno_cal_mag < 2) autoSaved = false; // Allow re-save if accuracy drops
 
-                // 1. Calibrate & Map LSM Magnetometer into ICM Accelerometer frame
-                // Accel X is Vertical (Up). Mag Y is Vertical (Up).
-                // Remap Mag: [Y, X, Z] so that Mag X matches Accel X (vertical)
-                // Calculated Y center: (4 + -90) / 2 = -43.0
-                float mx_aligned = hmy - (-43.0f);   // Mag Y is vertical
-                float my_aligned = hmx - (-30.5f);  // Mag X is horizontal 1
-                float mz_aligned = (hmz - 15.1f) * 1.288f; // Mag Z is horizontal 2
+            // Update UI status strings
+            if (millis() > cal_msg_timeout) {
+                char buf[100];
+                if (bno_cal_mag == 3 && bno_cal_accel == 0) snprintf(buf, sizeof(buf), "TILT BUOY! (M:3 A:0)");
+                else snprintf(buf, sizeof(buf), "S:%d G:%d A:%d M:%d", bno_cal_sys, bno_cal_gyro, bno_cal_accel, bno_cal_mag);
+                global_cal_msg = String(buf);
+            }
 
-                // 2. Universal Tilt Compensation in aligned frame
-                float normA = sqrtf(hax*hax + hay*hay + haz*haz);
-                if (normA < 0.01f) normA = 1.0f;
-                float dx = -hax / normA, dy = -hay / normA, dz = -haz / normA;
-
-                float m_dot_d = mx_aligned * dx + my_aligned * dy + mz_aligned * dz;
-                float mx_h = mx_aligned - m_dot_d * dx;
-                float my_h = my_aligned - m_dot_d * dy;
-                float mz_h = mz_aligned - m_dot_d * dz;
-
-                // 3. Final Heading using projected horizontal components
-                float heading = atan2f(-mz_h, my_h) * 180.0f / M_PI;
-                if (heading < 0) heading += 360.0f;
-
-                // Diag
-                h_xz = heading;
-                h_xy = atan2f(-my_aligned, mx_aligned) * 180.0f / M_PI; if (h_xy < 0) h_xy += 360.0f;
-                h_yz = atan2f(-mz_aligned, mx_aligned) * 180.0f / M_PI; if (h_yz < 0) h_yz += 360.0f;
-
+            // Sync with main navigation structure
+            if (mainDataMutex && xSemaphoreTake(mainDataMutex, portMAX_DELAY)) {
                 heading += mainData.compassOffset;
                 while (heading < 0) heading += 360.0f;
                 while (heading >= 360.0f) heading -= 360.0f;
-
                 global_icmHdg = heading;
                 float activeHdg = CompassAverage(heading);
                 mainData.dirMag = activeHdg;
-                xQueueOverwrite(compass, (void *)&activeHdg);
+                if (compass) xQueueOverwrite(compass, (void *)&activeHdg);
+                xSemaphoreGive(mainDataMutex);
             }
+
+            // Capture raw vectors for dashboard display
+            imu::Vector<3> magV = bno.getVector(Adafruit_BNO055::VECTOR_MAGNETOMETER);
+            imu::Vector<3> accV = bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
+            last_raw_x = magV.x(); last_raw_y = magV.y(); last_raw_z = magV.z();
+            last_raw_ax = accV.x(); last_raw_ay = accV.y(); last_raw_az = accV.z();
         }
-        vTaskDelay(pdMS_TO_TICKS(20));
+        vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
 
 float GetHeading(void) { return global_icmHdg; }
 float GetHeadingRaw(void) { return global_icmHdg; }
 int linMagCalib(int *corr) { return 0; }
+bool CalibrateCompass(void) { return true; }
+int get_cal_point_count() { return bno_cal_mag; }
+bool global_is_calibrating = false;

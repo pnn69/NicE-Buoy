@@ -4,61 +4,17 @@
 #include <RoboCompute.h>
 #include "subwifi.h"
 Preferences storage;
-
-/**
- * @brief Initializes the non-volatile storage (NVS) on startup.
- * 1. Opens the "NicE_Buoy_Data" namespace.
- * 2. Migrates legacy spelling mistakes in keys (e.g., Doclat -> Docklat).
- * 3. Checks if this is a fresh ESP32 by comparing the stored MAC ID.
- *    If new, seeds the NVS with default safe values (e.g., 0,0 dock position, Amsterdam declination).
- */
-void initMemory(void)
-{
-    storage.begin("NicE_Buoy_Data", false);
-
-    // 1. Check for legacy typo migration
-    if (storage.isKey("Doclat") && !storage.isKey("Docklat")) {
-        double lat = storage.getDouble("Doclat");
-        double lon = storage.getDouble("Doclon");
-        storage.putDouble("Docklat", lat);
-        storage.putDouble("Docklon", lon);
-        storage.remove("Doclat");
-        storage.remove("Doclon");
-        Serial.println("# Migrated legacy Dock keys.");
-    }
-
-    // 2. Check if this is a fresh processor
-    unsigned long id = espMac();
-    uint64_t stored_id = storage.getULong64("NicE_BuoyID", 0);
-
-    if (id != stored_id)
-    {
-        Serial.printf("# Configuring Fresh Processor Memory...\n\r");
-        storage.putULong64("NicE_BuoyID", id);
-        
-        // Default Dock: User should set their own home/dock position via the UI or other means.
-        storage.putDouble("Docklat", 0.0);
-        storage.putDouble("Docklon", 0.0);
-        storage.putDouble("declination", 2.6666666666); // Amsterdam default
-        storage.putBool("revBB", false);
-        storage.putBool("revSB", false);
-        storage.putBool("tSwap", false);
-
-        Serial.printf("# Buoy Memory initialized for MAC: %08X\r\n", id);
-        delay(500);
-    }
-    else
-    {
-        Serial.printf("# Buoy Memory OK (MAC: %08X)\r\n", id);
-    }
-    storage.end();
-}
+static SemaphoreHandle_t nvsMutex = NULL;
 
 /**
  * @brief Opens the NVS storage namespace. Must be called before reading/writing.
  */
 void startMem(void)
 {
+    if (nvsMutex == NULL) {
+        nvsMutex = xSemaphoreCreateMutex();
+    }
+    xSemaphoreTake(nvsMutex, portMAX_DELAY);
     storage.begin("NicE_Buoy_Data", false);
 }
 
@@ -68,6 +24,41 @@ void startMem(void)
 void stopMem(void)
 {
     storage.end();
+    xSemaphoreGive(nvsMutex);
+}
+
+/**
+ * @brief Initializes the non-volatile storage (NVS) on startup.
+ */
+void initMemory(void)
+{
+    startMem();
+
+    // 1. Check for legacy typo migration
+    if (storage.isKey("Doclat") && !storage.isKey("Docklat")) {
+        double lat = storage.getDouble("Doclat");
+        double lon = storage.getDouble("Doclon");
+        storage.putDouble("Docklat", lat);
+        storage.putDouble("Docklon", lon);
+        storage.remove("Doclat");
+        storage.remove("Doclon");
+    }
+
+    // 2. Check if this is a fresh processor
+    unsigned long id = espMac();
+    uint64_t stored_id = storage.getULong64("NicE_BuoyID", 0);
+
+    if (id != stored_id)
+    {
+        storage.putULong64("NicE_BuoyID", id);
+        storage.putDouble("Docklat", 0.0);
+        storage.putDouble("Docklon", 0.0);
+        storage.putDouble("declination", 2.6666666666); // Amsterdam default
+        storage.putBool("revBB", false);
+        storage.putBool("revSB", false);
+        storage.putBool("tSwap", false);
+    }
+    stopMem();
 }
 
 /**
@@ -465,6 +456,35 @@ void MechanicalCorrection(double *correction, bool get)
     else
     {
         storage.putDouble("mechCorr", *correction);
+    }
+    stopMem();
+}
+
+void memBnoCalib(uint8_t *data, bool get)
+{
+    startMem();
+    if (get)
+    {
+        if (storage.isKey("bnoCal")) {
+            storage.getBytes("bnoCal", data, 22);
+            Serial.printf("memBnoCalib: Profile LOADED from NVS (First byte: 0x%02X)\n", data[0]);
+        } else {
+            memset(data, 0, 22);
+            Serial.println("memBnoCalib: No profile found.");
+        }
+    }
+    else
+    {
+        // Don't save if it's all zeros
+        bool allZero = true;
+        for(int i=0; i<22; i++) if(data[i] != 0) allZero = false;
+        
+        if(!allZero) {
+            storage.putBytes("bnoCal", data, 22);
+            Serial.println("memBnoCalib: Profile SAVED to NVS.");
+        } else {
+            Serial.println("memBnoCalib: Refused to save all-zero profile.");
+        }
     }
     stopMem();
 }
