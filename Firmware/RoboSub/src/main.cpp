@@ -37,6 +37,7 @@ static PwrData mainPwrData;
 static Buzz mainBuzzerData;
 static int wifiConfig = 0;
 bool global_thruster_swap = false;
+float global_imon_v = 0;
 // timer variables
 unsigned long nextSamp = millis();
 unsigned long logtimer = millis();
@@ -131,8 +132,8 @@ void setup()
     }
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8000, &wifiConfig, configMAX_PRIORITIES - 5, NULL, 0);
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 2048, NULL, 1, NULL, 1);
-    xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 5, NULL, 1);
-    xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
+    xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 2, NULL, 1);
+    xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 5, NULL, 1);
     xTaskCreatePinnedToCore(CompassTask, "CompassTask", 4000, NULL, configMAX_PRIORITIES - 1, &compassTaskHandle, 0); //&compassTaskHandle is used to suspend/resume the task
     xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 3, NULL, 0);
     Serial.println("Setup done!");
@@ -712,9 +713,9 @@ void handleTimerRoutines(RoboStruct *in)
     {
         logtimer = millis() + 1000;
         battVoltage(in->subAccuV, in->subAccuP);
-        battCurrent(in->subAccuI);
-        printf("V31 TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", in->tgDist - 2, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb);
-        printf("  ip: %05.3f ir: %05.3f\r\n", in->ip, in->ir);
+        battCurrent(in->subAccuI, global_imon_v);
+        // printf("V31 TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", in->tgDist - 2, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb);
+        // printf("  ip: %05.3f ir: %05.3f\r\n", in->ip, in->ir);
     }
 }
 

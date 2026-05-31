@@ -39,6 +39,7 @@ extern uint8_t bno_cal_sys, bno_cal_gyro, bno_cal_accel, bno_cal_mag;
 extern String global_cal_msg;
 extern String global_cal_load, global_cal_ver;
 extern uint32_t global_loop_cnt;
+extern float global_imon_v;
 extern bool global_thruster_swap;
 
 static RoboStruct subWifiOut;
@@ -64,12 +65,16 @@ h2{margin:5px 0;color:#00d1ff}
 .axis-row{display:flex;align-items:center;margin:8px 0;font-size:0.9em}
 input,select{background:#333;color:#fff;border:1px solid #555;padding:4px;border-radius:3px;width:70px;margin-left:5px}
 button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:pointer;border-radius:4px;font-weight:bold;margin-left:5px}
-.thrusters{margin:10px auto;width:100%;max-width:350px}
-.thruster-bar-container{width:100%;background:#333;border-radius:5px;height:22px;position:relative;margin-bottom:5px;border:1px solid #444;overflow:hidden}
+.thrusters{margin:10px auto;width:100%;max-width:400px}
+.thruster-bar-container{width:100%;background:#333;border-radius:5px;height:24px;position:relative;margin-bottom:6px;border:1px solid #444;overflow:hidden}
 .thruster-bar{height:100%;position:absolute;left:50%;transition:width 0.1s,left 0.1s}
-.thruster-label{position:absolute;width:100%;text-align:center;font-size:0.8em;font-weight:bold;z-index:2;line-height:22px;text-shadow:1px 1px 2px black}
+.batt-row{display:flex;gap:5px;margin-bottom:6px}
+.batt-container-half{flex:1;background:#333;border-radius:5px;height:24px;position:relative;border:1px solid #444;overflow:hidden}
+.thruster-label{position:absolute;width:100%;text-align:center;font-size:0.85em;font-weight:bold;z-index:2;line-height:24px;text-shadow:1px 1px 2px black}
 .center-line{position:absolute;left:50%;width:2px;height:100%;background:#666;z-index:1}
+.batt-bar{height:100%;position:absolute;left:0;transition:width 0.1s}
 .cal-msg{color:#ffcc00;font-size:0.9em;margin:5px 0;min-height:1.2em;font-weight:bold}
+.footer{margin-top:20px;padding:15px;font-size:1.3em;color:#00d1ff;border-top:1px solid #333;background:#222;border-radius:8px}
 </style></head><body>
 <h2 id="mainTitle">NicE-Buoy Sub</h2>
 <div class="info"><span>Heading: <span id="icmVal" class="icm">0.0</span>&deg;</span></div>
@@ -77,6 +82,10 @@ button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:poin
 <div class="thrusters">
 <div class="thruster-bar-container"><div class="center-line"></div><div id="bb_bar" class="thruster-bar"></div><div class="thruster-label">Port / BB (<span id="bb_val">0</span>%)</div></div>
 <div class="thruster-bar-container"><div class="center-line"></div><div id="sb_bar" class="thruster-bar"></div><div class="thruster-label">Starboard / SB (<span id="sb_val">0</span>%)</div></div>
+<div class="batt-row">
+<div class="batt-container-half"><div id="v_bar" class="batt-bar" style="background:#2a6a2a"></div><div class="thruster-label">Batt: <span id="v_perc_label">0</span>%</div></div>
+<div class="batt-container-half"><div id="i_bar" class="batt-bar" style="background:#5a32a8"></div><div class="thruster-label">Current</div></div>
+</div>
 </div>
 <canvas id="compassCanvas" width="400" height="400"></canvas>
 <div class="raw-container">
@@ -106,11 +115,19 @@ button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:poin
 </div>
 </div>
 <button onclick="fetch('/setparam?p=reset_minmax&v=1')" style="background:#444;color:#fff;margin-top:10px">Reset Min/Max</button>
+<div class="footer">
+    Measured Voltage: <span id="v_val" style="color:#f0ad4e">0.00</span>V | Current: <span id="i_val" style="color:#00d1ff">0.00</span>A (Imon: <span id="imon_val">0.000</span>V)
+</div>
 <script>
 const ctx=document.getElementById('compassCanvas').getContext('2d'),cx=200,cy=200,r=180;
-function updateThruster(id,v){const b=document.getElementById(id+'_bar'),l=document.getElementById(id+'_val');l.innerText=v;let w=Math.abs(v)/2;b.style.width=w+'%';if(v<0){b.style.left=(50-w)+'%';b.style.backgroundColor='#00d1ff'}else{b.style.left='50%';b.style.backgroundColor='#f0ad4e'}}
+function updateThruster(id,v){const b=document.getElementById(id+'_bar'),l=document.getElementById(id+'_val');if(l)l.innerText=v;let w=Math.abs(v)/2;b.style.width=w+'%';if(v<0){b.style.left=(50-w)+'%';b.style.backgroundColor='#00d1ff'}else{b.style.left='50%';b.style.backgroundColor='#f0ad4e'}}
 function drawRose(h){ctx.clearRect(0,0,400,400);ctx.beginPath();ctx.arc(cx,cy,r,0,2*Math.PI);ctx.strokeStyle='#555';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#888';ctx.font='bold 20px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('N',cx,cy-r+20);ctx.fillText('S',cx,cy+r-20);ctx.fillText('E',cx+r-20,cy);ctx.fillText('W',cx-r+20,cy);const a=(h-90)*Math.PI/180;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+(r-40)*Math.cos(a),cy+(r-40)*Math.sin(a));ctx.strokeStyle='#00d1ff';ctx.lineWidth=4;ctx.stroke()}
-function fetchData(){fetch('/data').then(r=>r.json()).then(d=>{document.getElementById('icmVal').innerText=d.icm.toFixed(1);document.getElementById('calMsg').innerText=d.cal_msg;document.getElementById('cal_load').innerText=d.cal_load;document.getElementById('cal_ver').innerText=d.cal_ver;if(d.mac)document.getElementById('mainTitle').innerText='NicE-Buoy Sub '+d.mac;updateThruster('bb',d.speed_bb);updateThruster('sb',d.speed_sb);drawRose(d.icm);const c=d.cal_levels,b=document.getElementById('calButton');if(c&&c[3]===3){b.style.background='#2a6a2a';b.innerText='BNO Calibrated (3)'}else{b.style.background='#5a32a8';b.innerText='BNO Status'}}).catch(e=>{})}
+function fetchData(){fetch('/data').then(r=>r.json()).then(d=>{document.getElementById('icmVal').innerText=d.icm.toFixed(1);document.getElementById('calMsg').innerText=d.cal_msg;document.getElementById('cal_load').innerText=d.cal_load;document.getElementById('cal_ver').innerText=d.cal_ver;if(d.mac)document.getElementById('mainTitle').innerText='NicE-Buoy Sub '+d.mac;updateThruster('bb',d.speed_bb);updateThruster('sb',d.speed_sb);drawRose(d.icm);const c=d.cal_levels,b=document.getElementById('calButton');if(c&&c[3]===3){b.style.background='#2a6a2a';b.innerText='BNO Calibrated (3)'}else{b.style.background='#5a32a8';b.innerText='BNO Status'}
+document.getElementById('v_val').innerText=d.vbatt.toFixed(2);document.getElementById('i_val').innerText=d.curr.toFixed(2);
+document.getElementById('imon_val').innerText=d.imon.toFixed(3);
+document.getElementById('v_perc_label').innerText=d.vperc; document.getElementById('v_bar').style.width=d.vperc+'%';
+let ip=Math.max(0,Math.min(100,(d.curr+20)*100/40));document.getElementById('i_bar').style.width=ip+'%';
+}).catch(e=>{})}
 function startCalib(){alert('BNO055 calibrates automatically while moving. Rotate the buoy until Mag (M) shows 3.')}
 function saveCalib(){if(confirm('Save current BNO calibration?')){fetch('/savecal').then(r=>alert('Save Sent!'))}}
 function setParam(p){const e=document.getElementById(p+'_in');if(!e)return;fetch('/setparam?p='+p+'&v='+e.value)}
@@ -193,21 +210,36 @@ void WiFiTask(void *arg) {
     subServer.on("/data", [](){
         float icm = global_icmHdg;
         int sbb = 0, ssb = 0;
-        if (mainDataMutex && xSemaphoreTake(mainDataMutex, 0)) {
-            sbb = (int)mainData.speedBb; ssb = (int)mainData.speedSb;
+        float vbatt = 0, curr = 0, imon = global_imon_v;
+        int vperc = 0;
+        
+        // Use a small timeout to avoid returning 0s if mutex is briefly held by CompassTask
+        if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(10))) {
+            sbb = (int)mainData.speedBb; 
+            ssb = (int)mainData.speedSb;
+            vbatt = mainData.subAccuV;
+            curr = mainData.subAccuI;
+            vperc = mainData.subAccuP;
             xSemaphoreGive(mainDataMutex);
         }
-        String j="{"; 
-        j+="\"icm\":"+String(icm,2)+",";
-        j+="\"speed_bb\":"+String(sbb)+",";
-        j+="\"speed_sb\":"+String(ssb)+",";
-        j+="\"cal_load\":\""+global_cal_load+"\",";
-        j+="\"cal_ver\":\""+global_cal_ver+"\",";
-        j+="\"mac\":\""+global_mac_str+"\",";
-        j+="\"cal_levels\":["+String(bno_cal_sys)+","+String(bno_cal_gyro)+","+String(bno_cal_accel)+","+String(bno_cal_mag)+"],";
-        j+="\"cal_msg\":\""+global_cal_msg+"\"";
-        j+="}";
-        subServer.send(200,"application/json",j);
+        
+        String j;
+        j.reserve(512);
+        j = "{"; 
+        j += "\"icm\":" + String(icm, 2);
+        j += ",\"speed_bb\":" + String(sbb);
+        j += ",\"speed_sb\":" + String(ssb);
+        j += ",\"vbatt\":" + String(vbatt, 2);
+        j += ",\"curr\":" + String(curr, 2);
+        j += ",\"imon\":" + String(imon, 3);
+        j += ",\"vperc\":" + String(vperc);
+        j += ",\"cal_load\":\"" + global_cal_load + "\"";
+        j += ",\"cal_ver\":\"" + global_cal_ver + "\"";
+        j += ",\"mac\":\"" + global_mac_str + "\"";
+        j += ",\"cal_levels\":[" + String(bno_cal_sys) + "," + String(bno_cal_gyro) + "," + String(bno_cal_accel) + "," + String(bno_cal_mag) + "]";
+        j += ",\"cal_msg\":\"" + global_cal_msg + "\"";
+        j += "}";
+        subServer.send(200, "application/json", j);
     });
 
     subServer.begin(); 

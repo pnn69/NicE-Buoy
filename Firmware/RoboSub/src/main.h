@@ -6,6 +6,7 @@
 #include <freertos/semphr.h>
 
 extern SemaphoreHandle_t mainDataMutex;
+extern float global_imon_v;
 
 #include "../../RoboDependency\RobobuoyVersion.h"
 
