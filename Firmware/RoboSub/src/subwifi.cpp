@@ -177,7 +177,6 @@ void WiFiTask(void *arg) {
             else if(p=="revbb"){mainData.revBB=(v>0.5);thrusterInversion(&mainData,SET);}
             else if(p=="revsb"){mainData.revSB=(v>0.5);thrusterInversion(&mainData,SET);}
             else if(p=="tswap"){global_thruster_swap=(v>0.5);thrusterSwap(&global_thruster_swap,SET);}
-            else if(p=="reset_minmax"){mainData.MaxX=-1000;mainData.MaxY=-1000;mainData.MaxZ=-1000;mainData.MinX=1000;}
             xSemaphoreGive(mainDataMutex);
         }
         subServer.send(200,"text/plain","OK");
