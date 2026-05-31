@@ -24,5 +24,6 @@ void softIron(RoboStruct *buoy, bool get);
 void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, float *MinX, float *MinY, float *MinZ, bool get);
 void CompassOffsetCorrection(double *offset, bool get);
 void MechanicalCorrection(double *correction, bool get);
+void memBnoCalib(uint8_t *data, bool get);
 
 #endif /* DATASTORAGE_H_ */

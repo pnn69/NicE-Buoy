@@ -132,7 +132,7 @@ void SercomTask(void *arg)
     delay(2000);
     beep(5, buzzer);
     // Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // Half-duplex on same pin
-    Serial1.begin(230400, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // Half-duplex on same pin
+    Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL); // Half-duplex on same pin
     Serial1.setTimeout(100);
     Serial.setTimeout(100);
     while (1)
@@ -258,7 +258,7 @@ void SercomTask(void *arg)
                 digitalWrite(COM_PIN_TX, HIGH);
                 vTaskDelay(pdMS_TO_TICKS(500));
                 digitalWrite(COM_PIN_TX, LOW);
-                Serial1.begin(230400, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL);
+                Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL);
             }
             else
             {
