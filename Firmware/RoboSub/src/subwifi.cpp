@@ -117,10 +117,8 @@ function drawRose(h){ctx.clearRect(0,0,400,400);ctx.beginPath();ctx.arc(cx,cy,r,
 function fetchData(){fetch('/data?t='+Date.now()).then(r=>r.json()).then(d=>{document.getElementById('icmVal').innerText=d.icm.toFixed(1);document.getElementById('calMsg').innerText=d.cal_msg;document.getElementById('cal_load').innerText=d.cal_load;document.getElementById('cal_ver').innerText=d.cal_ver;if(d.mac)document.getElementById('mainTitle').innerText='NicE-Buoy Sub '+d.mac;updateThruster('bb',d.speed_bb);updateThruster('sb',d.speed_sb);drawRose(d.icm);const c=d.cal_levels,b=document.getElementById('calButton');if(c&&c[3]===3){b.style.background='#2a6a2a';b.innerText='BNO Calibrated (3)'}else{b.style.background='#5a32a8';b.innerText='BNO Status'}}).catch(e=>{})}
 function startCalib(){alert('BNO055 calibrates automatically while moving. Rotate the buoy until Mag (M) shows 3.')}
 function saveCalib(){if(confirm('Save current BNO calibration?')){fetch('/savecal').then(r=>alert('Save Sent!'))}}
-function setParam(p){const e=document.getElementById(p+'_in');if(!e)return;fetch('/setparam?p='+p+'&v='+e.value).then(()=>setTimeout(fetchParams,300))}
-function fetchParams(){fetch('/params?t='+Date.now()).then(r=>r.json()).then(d=>{let missing=false;['kpr','kir','kdr','kps','kis','kds','coff','pvspd','revbb','revsb','tswap','minspd','maxspd','holdrad'].forEach(p=>{const e=document.getElementById(p+'_in');if(e){if(d[p]!==undefined){if(document.activeElement!==e)e.value=d[p]}else missing=true}});if(missing||Object.keys(d).length<5)setTimeout(fetchParams,1000)}).catch(e=>{console.error(e);setTimeout(fetchParams,1000)})}
-fetchParams();
-
+function setParam(p){const e=document.getElementById(p+'_in');if(!e)return;fetch('/setparam?p='+p+'&v='+e.value)}
+fetch('/params').then(r=>r.json()).then(d=>{['kpr','kir','kdr','kps','kis','kds','coff','pvspd','revbb','revsb','tswap','minspd','maxspd','holdrad'].forEach(p=>{const e=document.getElementById(p+'_in');if(e)e.value=d[p]})});
 setInterval(fetchData,250);
 </script></body></html>
 )rawliteral";

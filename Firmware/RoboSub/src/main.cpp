@@ -66,7 +66,7 @@ void setup()
     pidSpeedParameters(&mainData, GET);
     speedMaxMin(&mainData, GET);
     CompasOffset(&mainData, GET);
-    CompasIcmOffset(&mainData, GET);
+    
     computeParameters(&mainData, GET);
     thrusterInversion(&mainData, GET);
     thrusterSwap(&mainData, GET);
@@ -136,12 +136,10 @@ void handleStatus(RoboStruct *stat)
 
 void handleTimerRoutines(RoboStruct *in)
 {
-    if (in->status != IDLE && in->status != IDELING) {
-        if (pidTimer < millis()) {
-            pidTimer = millis() + 20;
-            escOut.speedbb = in->speedBb; escOut.speedsb = in->speedSb;
-            xQueueSend(escspeed, (void *)&escOut, 10);
-        }
+    if (pidTimer < millis()) {
+        pidTimer = millis() + 20;
+        escOut.speedbb = in->speedBb; escOut.speedsb = in->speedSb;
+        xQueueSend(escspeed, (void *)&escOut, 10);
     }
     if (nextSamp < millis()) {
         nextSamp = 250 + millis();
@@ -172,7 +170,7 @@ void handleSerandRfdata(RoboStruct *ser)
             { RoboStruct res = *ser; res.IDr = dataIn.IDs; res.IDs = ser->mac; res.cmd = PIDSPEEDSET; res.ack = LORAINF; xQueueSend(serOut, (void *)&res, 10); }
             break;
         case STORE_COMPASS_OFFSET:
-            CompasOffset(&dataIn, SET); CompasIcmOffset(&dataIn, SET); MechanicalCorrection(&dataIn.mechanicCorrection, SET);
+            CompasOffset(&dataIn, SET); MechanicalCorrection(&dataIn.mechanicCorrection, SET);
             ser->compassOffset = dataIn.compassOffset; ser->icmCompassOffset = dataIn.icmCompassOffset; ser->mechanicCorrection = dataIn.mechanicCorrection;
             { RoboStruct res = *ser; res.IDr = dataIn.IDs; res.IDs = ser->mac; res.cmd = STORE_COMPASS_OFFSET; res.ack = LORAINF; xQueueSend(serOut, (void *)&res, 10); }
             break;
@@ -180,16 +178,15 @@ void handleSerandRfdata(RoboStruct *ser)
             if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK) {
                 RoboStruct res = *ser; res.IDr = dataIn.IDs; res.IDs = ser->mac; res.cmd = SETUPDATA; res.ack = LORAINF;
                 pidRudderParameters(&res, GET); pidSpeedParameters(&res, GET); speedMaxMin(&res, GET);
-                CompasOffset(&res, GET); CompasIcmOffset(&res, GET); computeParameters(&res, GET);
+                CompasOffset(&res, GET); computeParameters(&res, GET);
                 thrusterInversion(&res, GET); MechanicalCorrection(&res.mechanicCorrection, GET);
                 xQueueSend(serOut, (void *)&res, 10);
             } else if (dataIn.ack == LORASET) {
                 pidRudderParameters(&dataIn, SET); pidSpeedParameters(&dataIn, SET);
-                speedMaxMin(&dataIn, SET); CompasOffset(&dataIn, SET); CompasIcmOffset(&dataIn, SET);
-                computeParameters(&dataIn, SET); thrusterInversion(&dataIn, SET); MechanicalCorrection(&dataIn.mechanicCorrection, SET);
+                speedMaxMin(&dataIn, SET); CompasOffset(&dataIn, SET); computeParameters(&dataIn, SET); thrusterInversion(&dataIn, SET); MechanicalCorrection(&dataIn.mechanicCorrection, SET);
                 
                 pidRudderParameters(ser, GET); pidSpeedParameters(ser, GET); speedMaxMin(ser, GET);
-                CompasOffset(ser, GET); CompasIcmOffset(ser, GET); computeParameters(ser, GET);
+                CompasOffset(ser, GET); computeParameters(ser, GET);
                 thrusterInversion(ser, GET); MechanicalCorrection(&ser->mechanicCorrection, GET);
                 initRudPid(ser); initSpeedPid(ser);
                 
