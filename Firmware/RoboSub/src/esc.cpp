@@ -154,10 +154,10 @@ void EscTask(void *arg)
             spbbAct = spbb;
 
             if (esc_power_on) {
-                extern bool global_thruster_swap;
+                
                 int s_sb = spsbAct;
                 int s_bb = spbbAct;
-                if (global_thruster_swap) {
+                if (mainData.swap_BB_SB) {
                     s_sb = spbbAct;
                     s_bb = spsbAct;
                 }

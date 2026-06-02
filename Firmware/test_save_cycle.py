@@ -38,7 +38,7 @@ def wait_for_response(expected_cmd, expected_ack="6"):
     return None
 
 def parse_setupdata(msg):
-    # Example: $MAC,IDr,ACK,CMD,status,Kpr,Kir,Kdr,Kps,Kis,Kds,max,min,pivot,comp,icmcomp,minoff,revbb,revsb*CRC
+    # Example: $MAC,IDr,ACK,CMD,status,Kpr,Kir,Kdr,Kps,Kis,Kds,max,min,pivot,comp,minoff,revbb,revsb*CRC
     parts = msg.split(',')
     if len(parts) >= 11:
         try:

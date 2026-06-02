@@ -28,7 +28,6 @@ TaskHandle_t compassTaskHandle = NULL;
 RoboStruct mainData;
 SemaphoreHandle_t mainDataMutex = NULL;
 Message escOut;
-bool global_thruster_swap = false;
 
 static LedData mainLedStatus;
 static unsigned long PwrOff = 0;
@@ -70,7 +69,7 @@ void setup()
     CompasIcmOffset(&mainData, GET);
     computeParameters(&mainData, GET);
     thrusterInversion(&mainData, GET);
-    thrusterSwap(&global_thruster_swap, GET);
+    thrusterSwap(&mainData, GET);
     MechanicalCorrection(&mainData.mechanicCorrection, GET);
 
     mainData.mac = espMac();
@@ -88,8 +87,8 @@ void setup()
 
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8192, &wifiConfig, 1, NULL, 0);
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 2048, NULL, 1, NULL, 1);
-    xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 5, NULL, 1);
-    xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
+    xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 2, NULL, 1);
+    xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 5, NULL, 1);
     xTaskCreatePinnedToCore(CompassTask, "CompassTask", 8192, NULL, configMAX_PRIORITIES - 1, &compassTaskHandle, 1);
     xTaskCreatePinnedToCore(SercomTask, "SerialTask", 8192, NULL, configMAX_PRIORITIES - 3, NULL, 1);
 

@@ -227,19 +227,26 @@ void rudderPid(RoboStruct *rud)
  *    - < 1m (from Locked): Reset back to IDLE_DRIFT if pushed too deep.
  * 3. Calculates forward power ONLY when in LOCKED state, targeting minOfsetDist.
  */
+// Wave Filtering (Low-pass) on distance
+static double filtered_distance = 0;
+
+double GetFilteredDist(void) {
+    return filtered_distance;
+}
+
 void speedPid(RoboStruct *dist)
 {
-    // Wave Filtering (Low-pass) on distance
-    static double filtered_distance = 0;
     if (filtered_distance == 0) filtered_distance = dist->tgDist;
     filtered_distance = 0.90 * filtered_distance + 0.10 * dist->tgDist;
 
     // --- DRIFT & LOCK STATE MACHINE ---
     // This logic creates a hysteresis loop: Drift in center -> Pivot out -> Lock and Hold.
-    if (filtered_distance < 1.0) {
+    double drift_threshold = (dist->status == DOCKED) ? 0.2 : 1.0;
+
+    if (filtered_distance < drift_threshold) {
         dist->sub_status = SUB_STATUS_IDLE_DRIFT;
     }
-    else if (dist->sub_status == SUB_STATUS_IDLE_DRIFT && filtered_distance >= 1.0) {
+    else if (dist->sub_status == SUB_STATUS_IDLE_DRIFT && filtered_distance >= drift_threshold) {
         dist->sub_status = SUB_STATUS_PIVOT_PREP;
     }
     else if (dist->sub_status == SUB_STATUS_PIVOT_PREP && filtered_distance >= dist->minOfsetDist) {
@@ -248,7 +255,7 @@ void speedPid(RoboStruct *dist)
         resetSpeedPid(); // Clear old errors for a clean start at the 2m line
         resetRudPid();
     }
-    else if (dist->sub_status == SUB_STATUS_LOCKED && filtered_distance < 1.0) {
+    else if (dist->sub_status == SUB_STATUS_LOCKED && filtered_distance < drift_threshold) {
         // Safety fallback if buoy is pushed deep inside the target zone
         dist->sub_status = SUB_STATUS_IDLE_DRIFT;
     }

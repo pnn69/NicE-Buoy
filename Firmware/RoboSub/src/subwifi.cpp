@@ -39,8 +39,7 @@ extern uint8_t bno_cal_sys, bno_cal_gyro, bno_cal_accel, bno_cal_mag;
 extern String global_cal_msg;
 extern String global_cal_load, global_cal_ver;
 extern uint32_t global_loop_cnt;
-extern float global_imon_v;
-extern bool global_thruster_swap;
+
 
 static RoboStruct subWifiOut;
 static RoboStruct subWifiIn;
@@ -65,29 +64,21 @@ h2{margin:5px 0;color:#00d1ff}
 .axis-row{display:flex;align-items:center;margin:8px 0;font-size:0.9em}
 input,select{background:#333;color:#fff;border:1px solid #555;padding:4px;border-radius:3px;width:70px;margin-left:5px}
 button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:pointer;border-radius:4px;font-weight:bold;margin-left:5px}
-.thrusters{margin:10px auto;width:100%;max-width:400px}
-.thruster-bar-container{width:100%;background:#333;border-radius:5px;height:24px;position:relative;margin-bottom:6px;border:1px solid #444;overflow:hidden}
-.thruster-bar{height:100%;position:absolute;left:50%;transition:width 0.1s,left 0.1s}
-.batt-row{display:flex;gap:5px;margin-bottom:6px}
-.batt-container-half{flex:1;background:#333;border-radius:5px;height:24px;position:relative;border:1px solid #444;overflow:hidden}
-.thruster-label{position:absolute;width:100%;text-align:center;font-size:0.85em;font-weight:bold;z-index:2;line-height:24px;text-shadow:1px 1px 2px black}
-.center-line{position:absolute;left:50%;width:2px;height:100%;background:#666;z-index:1}
-.batt-bar{height:100%;position:absolute;left:0;transition:width 0.1s}
+.main-row{display:flex;justify-content:center;align-items:center;gap:10px;margin:10px auto;max-width:600px}
+.side-panel{width:60px;font-size:0.9em;font-weight:bold}
+.side-bar{width:30px;height:250px;background:#333;border:1px solid #555;border-radius:4px;position:relative;margin:5px auto;overflow:hidden}
+.thruster-bar{width:100%;position:absolute;left:0;transition:height 0.1s,top 0.1s,bottom 0.1s}
+.zero-line{position:absolute;width:100%;height:2px;background:#888;top:50%;z-index:1}
 .cal-msg{color:#ffcc00;font-size:0.9em;margin:5px 0;min-height:1.2em;font-weight:bold}
-.footer{margin-top:20px;padding:15px;font-size:1.3em;color:#00d1ff;border-top:1px solid #333;background:#222;border-radius:8px}
 </style></head><body>
 <h2 id="mainTitle">NicE-Buoy Sub</h2>
 <div class="info"><span>Heading: <span id="icmVal" class="icm">0.0</span>&deg;</span></div>
 <div id="calMsg" class="cal-msg">Initializing...</div>
-<div class="thrusters">
-<div class="thruster-bar-container"><div class="center-line"></div><div id="bb_bar" class="thruster-bar"></div><div class="thruster-label">Port / BB (<span id="bb_val">0</span>%)</div></div>
-<div class="thruster-bar-container"><div class="center-line"></div><div id="sb_bar" class="thruster-bar"></div><div class="thruster-label">Starboard / SB (<span id="sb_val">0</span>%)</div></div>
-<div class="batt-row">
-<div class="batt-container-half"><div id="v_bar" class="batt-bar" style="background:#2a6a2a"></div><div class="thruster-label">Batt: <span id="v_perc_label">0</span>%</div></div>
-<div class="batt-container-half"><div id="i_bar" class="batt-bar" style="background:#5a32a8"></div><div class="thruster-label">Current</div></div>
-</div>
-</div>
+<div class="main-row">
+<div class="side-panel"><div>BB</div><div class="side-bar"><div class="zero-line"></div><div id="bb_bar" class="thruster-bar"></div></div><div><span id="bb_val">0</span>%</div></div>
 <canvas id="compassCanvas" width="400" height="400"></canvas>
+<div class="side-panel"><div>SB</div><div class="side-bar"><div class="zero-line"></div><div id="sb_bar" class="thruster-bar"></div></div><div><span id="sb_val">0</span>%</div></div>
+</div>
 <div class="raw-container">
 <div class="raw-box"><b>Rudder PID</b>
 <div class="axis-row">P:<input type="number" step="0.1" id="kpr_in"><button onclick="setParam('kpr')">Set</button></div>
@@ -99,9 +90,14 @@ button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:poin
 <div class="axis-row">I:<input type="number" step="0.01" id="kis_in"><button onclick="setParam('kis')">Set</button></div>
 <div class="axis-row">D:<input type="number" step="0.01" id="kds_in"><button onclick="setParam('kds')">Set</button></div>
 </div>
-<div class="raw-box"><b>Compass & Pivot</b>
+<div class="raw-box"><b>Compass</b>
 <div class="axis-row">Off:<input type="number" id="coff_in"><button onclick="setParam('coff')">Set</button></div>
+</div>
+<div class="raw-box"><b>Speed Limits</b>
+<div class="axis-row">Min:<input type="number" id="minspd_in"><button onclick="setParam('minspd')">Set</button></div>
+<div class="axis-row">Max:<input type="number" id="maxspd_in"><button onclick="setParam('maxspd')">Set</button></div>
 <div class="axis-row">Piv:<input type="number" step="0.01" id="pvspd_in"><button onclick="setParam('pvspd')">Set</button></div>
+<div class="axis-row">Rad:<input type="number" step="0.1" id="holdrad_in"><button onclick="setParam('holdrad')">Set</button></div>
 </div>
 <div class="raw-box"><b>Thrusters</b>
 <div class="axis-row">BB Inv:<select id="revbb_in" onchange="setParam('revbb')"><option value="0">Normal</option><option value="1">Inverted</option></select></div>
@@ -114,24 +110,17 @@ button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:poin
 <button onclick="saveCalib()" style="background:#2a6a2a;color:#fff;width:100%;margin-top:5px">Save Calib</button>
 </div>
 </div>
-<button onclick="fetch('/setparam?p=reset_minmax&v=1')" style="background:#444;color:#fff;margin-top:10px">Reset Min/Max</button>
-<div class="footer">
-    Measured Voltage: <span id="v_val" style="color:#f0ad4e">0.00</span>V | Current: <span id="i_val" style="color:#00d1ff">0.00</span>A (Imon: <span id="imon_val">0.000</span>V)
-</div>
 <script>
 const ctx=document.getElementById('compassCanvas').getContext('2d'),cx=200,cy=200,r=180;
-function updateThruster(id,v){const b=document.getElementById(id+'_bar'),l=document.getElementById(id+'_val');if(l)l.innerText=v;let w=Math.abs(v)/2;b.style.width=w+'%';if(v<0){b.style.left=(50-w)+'%';b.style.backgroundColor='#00d1ff'}else{b.style.left='50%';b.style.backgroundColor='#f0ad4e'}}
+function updateThruster(id,v){const b=document.getElementById(id+'_bar'),l=document.getElementById(id+'_val');l.innerText=v;let h=Math.min(Math.abs(v),100)/2;b.style.height=h+'%';if(v<0){b.style.top='50%';b.style.bottom='auto';b.style.backgroundColor='red'}else{b.style.top='auto';b.style.bottom='50%';b.style.backgroundColor='green'}}
 function drawRose(h){ctx.clearRect(0,0,400,400);ctx.beginPath();ctx.arc(cx,cy,r,0,2*Math.PI);ctx.strokeStyle='#555';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#888';ctx.font='bold 20px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('N',cx,cy-r+20);ctx.fillText('S',cx,cy+r-20);ctx.fillText('E',cx+r-20,cy);ctx.fillText('W',cx-r+20,cy);const a=(h-90)*Math.PI/180;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+(r-40)*Math.cos(a),cy+(r-40)*Math.sin(a));ctx.strokeStyle='#00d1ff';ctx.lineWidth=4;ctx.stroke()}
-function fetchData(){fetch('/data').then(r=>r.json()).then(d=>{document.getElementById('icmVal').innerText=d.icm.toFixed(1);document.getElementById('calMsg').innerText=d.cal_msg;document.getElementById('cal_load').innerText=d.cal_load;document.getElementById('cal_ver').innerText=d.cal_ver;if(d.mac)document.getElementById('mainTitle').innerText='NicE-Buoy Sub '+d.mac;updateThruster('bb',d.speed_bb);updateThruster('sb',d.speed_sb);drawRose(d.icm);const c=d.cal_levels,b=document.getElementById('calButton');if(c&&c[3]===3){b.style.background='#2a6a2a';b.innerText='BNO Calibrated (3)'}else{b.style.background='#5a32a8';b.innerText='BNO Status'}
-document.getElementById('v_val').innerText=d.vbatt.toFixed(2);document.getElementById('i_val').innerText=d.curr.toFixed(2);
-document.getElementById('imon_val').innerText=d.imon.toFixed(3);
-document.getElementById('v_perc_label').innerText=d.vperc; document.getElementById('v_bar').style.width=d.vperc+'%';
-let ip=Math.max(0,Math.min(100,(d.curr+20)*100/40));document.getElementById('i_bar').style.width=ip+'%';
-}).catch(e=>{})}
+function fetchData(){fetch('/data?t='+Date.now()).then(r=>r.json()).then(d=>{document.getElementById('icmVal').innerText=d.icm.toFixed(1);document.getElementById('calMsg').innerText=d.cal_msg;document.getElementById('cal_load').innerText=d.cal_load;document.getElementById('cal_ver').innerText=d.cal_ver;if(d.mac)document.getElementById('mainTitle').innerText='NicE-Buoy Sub '+d.mac;updateThruster('bb',d.speed_bb);updateThruster('sb',d.speed_sb);drawRose(d.icm);const c=d.cal_levels,b=document.getElementById('calButton');if(c&&c[3]===3){b.style.background='#2a6a2a';b.innerText='BNO Calibrated (3)'}else{b.style.background='#5a32a8';b.innerText='BNO Status'}}).catch(e=>{})}
 function startCalib(){alert('BNO055 calibrates automatically while moving. Rotate the buoy until Mag (M) shows 3.')}
 function saveCalib(){if(confirm('Save current BNO calibration?')){fetch('/savecal').then(r=>alert('Save Sent!'))}}
-function setParam(p){const e=document.getElementById(p+'_in');if(!e)return;fetch('/setparam?p='+p+'&v='+e.value)}
-fetch('/params').then(r=>r.json()).then(d=>{['kpr','kir','kdr','kps','kis','kds','coff','pvspd','revbb','revsb','tswap'].forEach(p=>{const e=document.getElementById(p+'_in');if(e)e.value=d[p]})});
+function setParam(p){const e=document.getElementById(p+'_in');if(!e)return;fetch('/setparam?p='+p+'&v='+e.value).then(()=>setTimeout(fetchParams,300))}
+function fetchParams(){fetch('/params?t='+Date.now()).then(r=>r.json()).then(d=>{let missing=false;['kpr','kir','kdr','kps','kis','kds','coff','pvspd','revbb','revsb','tswap','minspd','maxspd','holdrad'].forEach(p=>{const e=document.getElementById(p+'_in');if(e){if(d[p]!==undefined){if(document.activeElement!==e)e.value=d[p]}else missing=true}});if(missing||Object.keys(d).length<5)setTimeout(fetchParams,1000)}).catch(e=>{console.error(e);setTimeout(fetchParams,1000)})}
+fetchParams();
+
 setInterval(fetchData,250);
 </script></body></html>
 )rawliteral";
@@ -170,7 +159,9 @@ void WiFiTask(void *arg) {
             RoboStruct d; 
             String s=String((const char*)p.data(),p.length()); 
             rfDeCode(s,&d);
-            if(d.IDs!=-1 && d.IDs!=espMac()) xQueueSend(udpIn,(void*)&d,10);
+            if(d.IDs!=-1 && d.IDs!=espMac()){
+                //xQueueSend(udpIn,(void*)&d,10);
+            }
         });
     }
 
@@ -182,7 +173,7 @@ void WiFiTask(void *arg) {
     subServer.on("/setparam", [](){
         if(!subServer.hasArg("p")||!subServer.hasArg("v")){subServer.send(400,"text/plain","Err");return;}
         String p=subServer.arg("p"); float v=subServer.arg("v").toFloat();
-        if(mainDataMutex && xSemaphoreTake(mainDataMutex, portMAX_DELAY)){
+        if(mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500))){
             if(p=="kpr"){mainData.Kpr=v;pidRudderParameters(&mainData,SET);initRudPid(&mainData);}
             else if(p=="kir"){mainData.Kir=v;pidRudderParameters(&mainData,SET);initRudPid(&mainData);}
             else if(p=="kdr"){mainData.Kdr=v;pidRudderParameters(&mainData,SET);initRudPid(&mainData);}
@@ -190,10 +181,13 @@ void WiFiTask(void *arg) {
             else if(p=="kis"){mainData.Kis=v;pidSpeedParameters(&mainData,SET);initSpeedPid(&mainData);}
             else if(p=="kds"){mainData.Kds=v;pidSpeedParameters(&mainData,SET);initSpeedPid(&mainData);}
             else if(p=="coff"){mainData.compassOffset=v;CompasOffset(&mainData,SET);}
-            else if(p=="pvspd"){mainData.pivotSpeed=v;speedMaxMin(&mainData,SET);}
+            else if(p=="pvspd"){mainData.pivotSpeed=v;speedMaxMin(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
+            else if(p=="holdrad"){mainData.minOfsetDist=v;computeParameters(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
+            else if(p=="minspd"){mainData.minSpeed=(int)v;speedMaxMin(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
+            else if(p=="maxspd"){mainData.maxSpeed=(int)v;speedMaxMin(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
             else if(p=="revbb"){mainData.revBB=(v>0.5);thrusterInversion(&mainData,SET);}
             else if(p=="revsb"){mainData.revSB=(v>0.5);thrusterInversion(&mainData,SET);}
-            else if(p=="tswap"){global_thruster_swap=(v>0.5);thrusterSwap(&global_thruster_swap,SET);}
+            else if(p=="tswap"){mainData.swap_BB_SB=(v>0.5);thrusterSwap(&mainData,SET);}
             xSemaphoreGive(mainDataMutex);
         }
         subServer.send(200,"text/plain","OK");
@@ -201,54 +195,68 @@ void WiFiTask(void *arg) {
 
     // Telemetry and Parameter Read API
     subServer.on("/params", [](){
-        if(mainDataMutex && xSemaphoreTake(mainDataMutex, portMAX_DELAY)){
-            String j="{"; j+="\"kpr\":"+String(mainData.Kpr,3)+",\"kir\":"+String(mainData.Kir,3)+",\"kdr\":"+String(mainData.Kdr,3)+",\"kps\":"+String(mainData.Kps,3)+",\"kis\":"+String(mainData.Kis,3)+",\"kds\":"+String(mainData.Kds,3)+",\"coff\":"+String(mainData.compassOffset,2)+",\"revbb\":"+String(mainData.revBB?1:0)+",\"revsb\":"+String(mainData.revSB?1:0)+",\"tswap\":"+String(global_thruster_swap?1:0)+",\"pvspd\":"+String(mainData.pivotSpeed,2)+"}";
-            xSemaphoreGive(mainDataMutex); subServer.send(200,"application/json",j);
+        static String last_params = "{\"kpr\":1.0,\"kir\":0.0,\"kdr\":0.0,\"kps\":1.0,\"kis\":0.0,\"kds\":0.0,\"coff\":0.0,\"pvspd\":0.5,\"minspd\":0,\"maxspd\":100,\"holdrad\":2.0,\"revbb\":0,\"revsb\":0,\"tswap\":0}";
+        if(mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(100))){
+            char buf[500];
+            snprintf(buf, sizeof(buf), 
+                "{\"kpr\":%.3f,\"kir\":%.3f,\"kdr\":%.3f,\"kps\":%.3f,\"kis\":%.3f,\"kds\":%.3f,\"coff\":%.1f,\"revbb\":%d,\"revsb\":%d,\"tswap\":%d,\"pvspd\":%.2f,\"minspd\":%d,\"maxspd\":%d,\"holdrad\":%.1f}",
+                mainData.Kpr, mainData.Kir, mainData.Kdr, mainData.Kps, mainData.Kis, mainData.Kds, 
+                (float)mainData.compassOffset, mainData.revBB?1:0, mainData.revSB?1:0, mainData.swap_BB_SB?1:0,
+                (float)mainData.pivotSpeed, mainData.minSpeed, mainData.maxSpeed, (float)mainData.minOfsetDist
+            );
+            last_params = String(buf);
+            xSemaphoreGive(mainDataMutex);
         }
+        subServer.send(200,"application/json", last_params);
     });
 
     subServer.on("/data", [](){
+        static int last_sbb = 0, last_ssb = 0;
         float icm = global_icmHdg;
-        int sbb = 0, ssb = 0;
-        float vbatt = 0, curr = 0, imon = global_imon_v;
-        int vperc = 0;
+        int sbb = last_sbb, ssb = last_ssb;
         
-        // Use a small timeout to avoid returning 0s if mutex is briefly held by CompassTask
-        if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(10))) {
-            sbb = (int)mainData.speedBb; 
-            ssb = (int)mainData.speedSb;
-            vbatt = mainData.subAccuV;
-            curr = mainData.subAccuI;
-            vperc = mainData.subAccuP;
+        if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(50))) {
+            sbb = (int)mainData.speedBb; ssb = (int)mainData.speedSb;
+            last_sbb = sbb; last_ssb = ssb;
             xSemaphoreGive(mainDataMutex);
         }
-        
-        String j;
-        j.reserve(512);
-        j = "{"; 
-        j += "\"icm\":" + String(icm, 2);
-        j += ",\"speed_bb\":" + String(sbb);
-        j += ",\"speed_sb\":" + String(ssb);
-        j += ",\"vbatt\":" + String(vbatt, 2);
-        j += ",\"curr\":" + String(curr, 2);
-        j += ",\"imon\":" + String(imon, 3);
-        j += ",\"vperc\":" + String(vperc);
-        j += ",\"cal_load\":\"" + global_cal_load + "\"";
-        j += ",\"cal_ver\":\"" + global_cal_ver + "\"";
-        j += ",\"mac\":\"" + global_mac_str + "\"";
-        j += ",\"cal_levels\":[" + String(bno_cal_sys) + "," + String(bno_cal_gyro) + "," + String(bno_cal_accel) + "," + String(bno_cal_mag) + "]";
-        j += ",\"cal_msg\":\"" + global_cal_msg + "\"";
-        j += "}";
-        subServer.send(200, "application/json", j);
+
+        String j="{"; 
+        j+="\"icm\":"+String(icm,2)+",";
+        j+="\"speed_bb\":"+String(sbb)+",";
+        j+="\"speed_sb\":"+String(ssb)+",";
+        j+="\"cal_load\":\""+global_cal_load+"\",";
+        j+="\"cal_ver\":\""+global_cal_ver+"\",";
+        j+="\"mac\":\""+global_mac_str+"\",";
+        j+="\"cal_levels\":["+String(bno_cal_sys)+","+String(bno_cal_gyro)+","+String(bno_cal_accel)+","+String(bno_cal_mag)+"],";
+        j+="\"cal_msg\":\""+global_cal_msg+"\"";
+        j+="}";
+        subServer.send(200,"application/json",j);
     });
 
     subServer.begin(); 
+    
+    // OTA Listener Setup
+    ArduinoOTA.setHostname("RoboBuoySub");
+    ArduinoOTA.onStart([]() { Serial.println("\nOTA Start"); });
+    ArduinoOTA.onEnd([]() { Serial.println("\nOTA End"); });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+        Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    });
+    ArduinoOTA.onError([](ota_error_t error) {
+        Serial.printf("Error[%u]: ", error);
+        if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+        else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+        else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+        else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+        else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    });
     ArduinoOTA.begin();
 
     // Main Server Loop
     while(1){ 
         subServer.handleClient(); 
-        ArduinoOTA.handle(); 
+        ArduinoOTA.handle();
         if (udpOut && xQueueReceive(udpOut, (void *)&subWifiOut, 0) == pdTRUE) { 
             subWifiOut.IDs = espMac(); 
             String out = rfCode(&subWifiOut); udp.broadcast(out.c_str()); 

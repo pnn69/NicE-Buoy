@@ -18,9 +18,6 @@ void startMem(void)
     storage.begin("NicE_Buoy_Data", false);
 }
 
-/**
- * @brief Closes the NVS storage namespace to commit writes and free resources.
- */
 void stopMem(void)
 {
     storage.end();
@@ -44,11 +41,13 @@ void initMemory(void)
         storage.remove("Doclon");
     }
 
-    // 2. Check if this is a fresh processor
+    // 2. Check if this is a fresh processor or if we need a data fix
     unsigned long id = espMac();
     uint64_t stored_id = storage.getULong64("NicE_BuoyID", 0);
+    double kpr_check = storage.getDouble("Kpr", 1.0);
 
-    if (id != stored_id)
+    // If Kpr is detected to be a Speed P value (e.g. 20.0), reset to defaults
+    if (id != stored_id || kpr_check > 10.0)
     {
         storage.putULong64("NicE_BuoyID", id);
         storage.putDouble("Docklat", 0.0);
@@ -57,13 +56,25 @@ void initMemory(void)
         storage.putBool("revBB", false);
         storage.putBool("revSB", false);
         storage.putBool("tSwap", false);
+        
+        // Reset PIDs to known good defaults
+        storage.putDouble("Kpr", 1.0);
+        storage.putDouble("Kir", 0.0);
+        storage.putDouble("Kdr", 0.0);
+        storage.putDouble("Kps", 20.0);
+        storage.putDouble("Kis", 0.4);
+        storage.putDouble("Kds", 0.2);
+        storage.putInt("maxSpeed", 73);
+        storage.putInt("minSpeed", -73);
+        storage.putDouble("pivotSpeed", 0.5);
+        storage.putDouble("magCorr", 88.7); // User's stated good value
     }
     stopMem();
 }
 
 /**
  * @brief Reads or writes the Buoy ID (MAC address) from/to NVS.
- * 
+ *
  * @param id Pointer to the ID variable.
  * @param get True to read from memory, false to write to memory.
  */
@@ -83,7 +94,7 @@ void memBuoyId(uint64_t *id, bool get)
 
 /**
  * @brief Reads or writes the Dock position (Home Target) from/to NVS.
- * 
+ *
  * @param buoy Pointer to the main state structure containing tgLat and tgLng.
  * @param get True to read from memory, false to write to memory.
  */
@@ -94,7 +105,6 @@ void memDockPos(RoboStruct *buoy, bool get)
     {
         buoy->tgLat = storage.getDouble("Docklat", 0);
         buoy->tgLng = storage.getDouble("Docklon", 0);
-        // Serial.printf("Get Doc pos form memory  %.8lf %.8lf\r\n", *lat, *lon);
     }
     else
     {
@@ -108,7 +118,7 @@ void memDockPos(RoboStruct *buoy, bool get)
 /**
  * @brief Reads or writes the magnetic declination offset from/to NVS.
  * Defaults to 2.666 degrees (Amsterdam 2025).
- * 
+ *
  * @param buoy Pointer to the state structure containing declination.
  * @param get True to read from memory, false to write to memory.
  */
@@ -129,7 +139,7 @@ void Declination(RoboStruct *buoy, bool get)
 
 /**
  * @brief Reads or writes the user-defined compass heading offset from/to NVS.
- * 
+ *
  * @param buoy Pointer to the state structure containing compassOffset.
  * @param get True to read from memory, false to write to memory.
  */
@@ -148,25 +158,10 @@ void CompasOffset(RoboStruct *buoy, bool get)
     stopMem();
 }
 
-void CompasIcmOffset(RoboStruct *buoy, bool get)
-{
-    startMem();
-    if (get)
-    {
-        buoy->icmCompassOffset = storage.getDouble("icmCorr", 0);
-        if (isnan(buoy->icmCompassOffset)) buoy->icmCompassOffset = 0;
-    }
-    else
-    {
-        storage.putDouble("icmCorr", buoy->icmCompassOffset);
-    }
-    stopMem();
-}
-
 /**
  * @brief Reads or writes target approach distance constraints from/to NVS.
  * Controls the active holding radius around a target point.
- * 
+ *
  * @param buoy Pointer to the state structure containing min/max offset distances.
  * @param get True to read from memory, false to write to memory.
  */
@@ -188,7 +183,7 @@ void computeParameters(RoboStruct *buoy, bool get)
 
 /**
  * @brief Reads or writes maximum/minimum ESC speed limits and pivot speeds.
- * 
+ *
  * @param buoy Pointer to the state structure containing motor speed parameters.
  * @param get True to read from memory, false to write to memory.
  */
@@ -199,7 +194,7 @@ void speedMaxMin(RoboStruct *buoy, bool get)
     {
         buoy->minSpeed = storage.getInt("minSpeed", -73);
         buoy->maxSpeed = storage.getInt("maxSpeed", 73);
-        buoy->pivotSpeed = storage.getDouble("pivotSpeed", 0.2);
+        buoy->pivotSpeed = storage.getDouble("pivotSpeed", 0.5);
     }
     else
     {
@@ -212,7 +207,7 @@ void speedMaxMin(RoboStruct *buoy, bool get)
 
 /**
  * @brief Reads or writes the Speed/Distance PID tuning parameters.
- * 
+ *
  * @param buoy Pointer to the state structure containing Kps, Kis, Kds.
  * @param get True to read from memory, false to write to memory.
  */
@@ -221,9 +216,9 @@ void pidSpeedParameters(RoboStruct *buoy, bool get)
     startMem();
     if (get)
     {
-        buoy->Kps = storage.getDouble("Kps", 20);
+        buoy->Kps = storage.getDouble("Kps", 20.0);
         buoy->Kis = storage.getDouble("Kis", 0.4);
-        buoy->Kds = storage.getDouble("Kds", 0);
+        buoy->Kds = storage.getDouble("Kds", 0.2);
     }
     else
     {
@@ -236,7 +231,7 @@ void pidSpeedParameters(RoboStruct *buoy, bool get)
 
 /**
  * @brief Reads or writes the Rudder/Heading PID tuning parameters.
- * 
+ *
  * @param buoy Pointer to the state structure containing Kpr, Kir, Kdr.
  * @param get True to read from memory, false to write to memory.
  */
@@ -245,9 +240,9 @@ void pidRudderParameters(RoboStruct *buoy, bool get)
     startMem();
     if (get)
     {
-        buoy->Kpr = storage.getDouble("Kpr", 0.5);
-        buoy->Kir = storage.getDouble("Kir", 0.02);
-        buoy->Kdr = storage.getDouble("Kdr", 0);
+        buoy->Kpr = storage.getDouble("Kpr", 1.0);
+        buoy->Kir = storage.getDouble("Kir", 0.0);
+        buoy->Kdr = storage.getDouble("Kdr", 0.0);
     }
     else
     {
@@ -260,7 +255,7 @@ void pidRudderParameters(RoboStruct *buoy, bool get)
 
 /**
  * @brief Reads or writes WiFi Access Point credentials.
- * 
+ *
  * @param ap Pointer to the Access Point SSID string.
  * @param ww Pointer to the Access Point password string.
  * @param get True to read from memory, false to write to memory.
@@ -281,12 +276,9 @@ void apParameters(String *ap, String *ww, bool get)
     stopMem();
 }
 
-// NOTE: ESP32 Preferences (NVS) has a strict limit of 15 characters for keys.
-// Do not include long strings like MAC addresses in keys to avoid silent failures.
-
 /**
  * @brief Reads or writes the Hard Iron compass calibration offsets (x, y, z) from/to NVS.
- * 
+ *
  * @param buoy Pointer to the state structure containing magHard array.
  * @param get True to read from memory, false to write to memory.
  */
@@ -312,7 +304,7 @@ void hardIron(RoboStruct *buoy, bool get)
 /**
  * @brief Reads or writes the Soft Iron compass calibration 3x3 matrix from/to NVS.
  * Defaults to an identity matrix if no calibration data is present.
- * 
+ *
  * @param buoy Pointer to the state structure containing magSoft array.
  * @param get True to read from memory, false to write to memory.
  */
@@ -336,15 +328,8 @@ void softIron(RoboStruct *buoy, bool get)
             }
         }
     }
-
     stopMem();
 }
-
-
-
-
-
-
 
 /**
  * @brief Aggregates reads or writes for all compass-related calibration factors.
@@ -359,22 +344,10 @@ void CompassCallibrationFactors(RoboStruct *buoy, bool get)
     hardIron(buoy, get);
     Declination(buoy, get);
     CompasOffset(buoy, get);
-
-    // Also load the ICM-20948 parameters
-    
-    
-    
 }
+
 /**
  * @brief Reads or writes raw Min/Max magnetic float values (Legacy/Fallback).
- * 
- * @param MaxX Pointer to max X value.
- * @param MaxY Pointer to max Y value.
- * @param MaxZ Pointer to max Z value.
- * @param MinX Pointer to min X value.
- * @param MinY Pointer to min Y value.
- * @param MinZ Pointer to min Z value.
- * @param get True to read from memory, false to write to memory.
  */
 void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, float *MinX, float *MinY, float *MinZ, bool get)
 {
@@ -431,16 +404,16 @@ void thrusterInversion(RoboStruct *buoy, bool get)
     stopMem();
 }
 
-void thrusterSwap(bool *swap, bool get)
+void thrusterSwap(RoboStruct *buoy, bool get)
 {
     startMem();
     if (get)
     {
-        *swap = storage.getBool("tSwap", false);
+        buoy->swap_BB_SB = storage.getBool("tSwap", false);
     }
     else
     {
-        storage.putBool("tSwap", *swap);
+        storage.putBool("tSwap", buoy->swap_BB_SB);
     }
     stopMem();
 }
@@ -478,7 +451,7 @@ void memBnoCalib(uint8_t *data, bool get)
         // Don't save if it's all zeros
         bool allZero = true;
         for(int i=0; i<22; i++) if(data[i] != 0) allZero = false;
-        
+
         if(!allZero) {
             storage.putBytes("bnoCal", data, 22);
             Serial.println("memBnoCalib: Profile SAVED to NVS.");

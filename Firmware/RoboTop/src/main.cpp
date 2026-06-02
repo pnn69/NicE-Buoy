@@ -87,6 +87,7 @@ void surgicalUpdate(RoboStruct *target, RoboStruct *source) {
         target->mechanicCorrection = source->mechanicCorrection;
         target->minOfsetDist = source->minOfsetDist;
         target->revBB = source->revBB; target->revSB = source->revSB;
+        target->swap_BB_SB = source->swap_BB_SB;
         break;
     case PIDRUDDERSET:
         target->Kpr = source->Kpr; target->Kir = source->Kir; target->Kdr = source->Kdr;
@@ -153,10 +154,13 @@ void setup()
     xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
     xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 1);
     
+    // Load local params
     mainData.mac = espMac();
     mainData.IDs = mainData.mac;
+    mainData.status = IDLE;
     memDockPos(&mainData, GET);
     thrusterInversion(&mainData, GET);
+    thrusterSwap(&mainData, GET);
     pidRudderParameters(&mainData, GET);
     pidSpeedParameters(&mainData, GET);
     computeParameters(&mainData, GET);
@@ -166,6 +170,9 @@ void setup()
 
     buoyPara[0] = mainData;
     Serial.printf("Top Buoy ID: %08X\r\n", (unsigned int)mainData.mac);
+    Serial.println("Dock position set to: ");
+    Serial.printf("Lat: %.8lf, Lng: %.8lf\r\n", mainData.tgLat, mainData.tgLng);
+    Serial.println("Main task running!");
 }
 
 int countKeyPresses()
@@ -305,7 +312,7 @@ void processIncomingCommand(RoboStruct *RfOut, RoboStruct *msgIn) {
         if (msgIn->cmd == SETUPDATA || msgIn->cmd == PIDSPEEDSET) pidSpeedParameters(RfOut, SET);
         if (msgIn->cmd == SETUPDATA || msgIn->cmd == MAXMINPWRSET) computeParameters(RfOut, SET);
         if (msgIn->cmd == SETUPDATA || msgIn->cmd == STORE_COMPASS_OFFSET) { CompasOffset(RfOut, SET); CompasIcmOffset(RfOut, SET); MechanicalCorrection(&RfOut->mechanicCorrection, SET); }
-        if (msgIn->cmd == SETUPDATA) thrusterInversion(RfOut, SET);
+        if (msgIn->cmd == SETUPDATA) { thrusterInversion(RfOut, SET); thrusterSwap(RfOut, SET); }
         
         // Respond for Top unit
         RoboStruct res = *RfOut;
@@ -333,9 +340,9 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *para[3])
         } else {
             // Response from other buoy
             int idx = -1;
-            for (int i = 1; i < 3; i++) { if (para[i]->IDs == RfIn.IDs || para[i]->IDs == 0) { idx = i; break; } }
+            for (int i = 1; i < 3; i++) { if (buoyPara[i].IDs == RfIn.IDs || buoyPara[i].IDs == 0) { idx = i; break; } }
             if (idx != -1) {
-                surgicalUpdate(para[idx], &RfIn);
+                surgicalUpdate(&buoyPara[idx], &RfIn);
                 Serial.println(rfCode(&RfIn));
                 xQueueSend(udpOut, (void *)&RfIn, 0);
             }

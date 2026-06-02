@@ -314,7 +314,7 @@ class RoboMonitor:
             if not b['id']: return
             
             # Clear existing setup data to ensure we fetch fresh values
-            for key in ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "pivotSpeed", "compassOffset", "icmCompassOffset", "minOfsetDist", "revBB", "revSB"]:
+            for key in ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "pivotSpeed", "compassOffset", "minOfsetDist", "revBB", "revSB", "swap_BB_SB"]:
                 b['data'].pop(key, None)
             
         loading_win = tk.Toplevel(self.master)
@@ -505,6 +505,10 @@ class RoboMonitor:
         rev_sb_var = tk.BooleanVar()
         rev_sb_check = ttk.Checkbutton(main_setup_frame, text="Reverse Stern Thruster (SB)", variable=rev_sb_var)
         rev_sb_check.grid(row=15, column=0, columnspan=2, pady=2)
+
+        swap_var = tk.BooleanVar()
+        swap_check = ttk.Checkbutton(main_setup_frame, text="Swap BB/SB Thruster Channels", variable=swap_var)
+        swap_check.grid(row=16, column=0, columnspan=2, pady=2)
         
         def send_speed_limits_and_motors():
             try:
@@ -525,10 +529,11 @@ class RoboMonitor:
                 
                 rev_bb_int = 1 if rev_bb_var.get() else 0
                 rev_sb_int = 1 if rev_sb_var.get() else 0
+                swap_int = 1 if swap_var.get() else 0
 
                 # Construct full SETUPDATA string: CMD=83
                 # Send coff for both offset fields for consistency
-                val_str = f"{kpr},{kir},{kdr},{kps},{kis},{kds},{max_s},{min_s},{piv_s},{coff},{coff},{min_off},{rev_bb_int},{rev_sb_int}"
+                val_str = f"{kpr},{kir},{kdr},{kps},{kis},{kds},{max_s},{min_s},{piv_s},{coff},{min_off},{rev_bb_int},{rev_sb_int},{swap_int}"
                 
                 # Send with ACK=false (0) or LORASET (2)? We'll use 2 for LORASET to trigger persist
                 base_msg = f"{b['id']},99,2,83,,{val_str}"
@@ -538,18 +543,18 @@ class RoboMonitor:
             except ValueError as e:
                 self.log_message(f"Input validation error: {e}")
 
-        ttk.Button(main_setup_frame, text="Save Speed Limits & Motors", command=send_speed_limits_and_motors).grid(row=16, column=0, columnspan=2, pady=(10, 5))
+        ttk.Button(main_setup_frame, text="Save Speed Limits & Motors", command=send_speed_limits_and_motors).grid(row=19, column=0, columnspan=2, pady=(10, 5))
 
-        ttk.Label(main_setup_frame, text="Compass Configuration", font=("Arial", 11, "bold")).grid(row=17, column=0, columnspan=2, pady=(10, 10))
+        ttk.Label(main_setup_frame, text="Compass Configuration", font=("Arial", 11, "bold")).grid(row=19, column=0, columnspan=2, pady=(10, 10))
         
-        ttk.Label(main_setup_frame, text="Compass Offset:").grid(row=18, column=0, sticky="e", padx=10, pady=2)
-        compass_offset_entry.grid(row=18, column=1, sticky="w", pady=2)
+        ttk.Label(main_setup_frame, text="Compass Offset:").grid(row=19, column=0, sticky="e", padx=10, pady=2)
+        compass_offset_entry.grid(row=19, column=1, sticky="w", pady=2)
 
         def send_compass_offset():
             try:
                 coff = float(compass_offset_entry.get() or 0)
                 # Send same offset to both internal variables
-                val_str = f"{format(coff, '.2f')},{format(coff, '.2f')}"
+                val_str = f"{format(coff, '.2f')}"
                 # CMD 75 is STORE_COMPASS_OFFSET
                 base_msg = f"{b['id']},99,3,75,,{val_str},,,,,"
                 self.send_custom_udp_command(b['id'], base_msg)
@@ -576,7 +581,8 @@ class RoboMonitor:
         }
         b['setup_vars'] = {
             "revBB": rev_bb_var,
-            "revSB": rev_sb_var
+            "revSB": rev_sb_var,
+              "swap_BB_SB": swap_var
         }
         # Pre-fill if we have data already
         with self.data_lock:
@@ -590,6 +596,7 @@ class RoboMonitor:
             if b.get('setup_vars'):
                 b['setup_vars']['revBB'].set(b['data'].get('revBB') == "1")
                 b['setup_vars']['revSB'].set(b['data'].get('revSB') == "1")
+                b['setup_vars']['swap_BB_SB'].set(b['data'].get('swap_BB_SB') == "1")
 
     def on_infield_calib_click(self, b):
         with self.data_lock:
@@ -961,36 +968,24 @@ class RoboMonitor:
                 })
                 self.update_buoy_data(buoy_id, data)
             elif cmd == "83" and len(fields) >= 14: # SETUPDATA (83)
-                if fields[2] == "4": return # Ignore LORAACK packets which contain empty structs
-                
-                piv_s = "0.2"
-                comp_off = "0.0"
-                icm_comp_off = "0.0"
-                min_off = "2"
-                rev_bb = "0"
-                rev_sb = "0"
-                if len(fields) >= 14:
-                    piv_s = fields[13]
-                if len(fields) >= 15:
-                    comp_off = fields[14]
-                if len(fields) >= 16:
-                    icm_comp_off = fields[15]
-                if len(fields) >= 17:
-                    min_off = fields[16]
-                if len(fields) >= 18:
-                    rev_bb = fields[17]
-                if len(fields) >= 19:
-                    rev_sb = fields[18]
+                  if fields[2] == "4": return # Ignore LORAACK packets which contain empty structs
 
-                data.update({
-                    "IDr": fields[0], "IDs": fields[1], "ACK": fields[2], "CMD": fields[3], "Status": fields[4],
-                    "Kpr": fields[5], "Kir": fields[6], "Kdr": fields[7],
-                    "Kps": fields[8], "Kis": fields[9], "Kds": fields[10],
-                    "maxSpeed": fields[11], "minSpeed": fields[12], "pivotSpeed": piv_s,
-                    "compassOffset": comp_off, "icmCompassOffset": icm_comp_off, "minOfsetDist": min_off,
-                    "revBB": rev_bb, "revSB": rev_sb
-                })
-                self.update_buoy_data(buoy_id, data)
+                  piv_s = fields[13] if len(fields) >= 14 else "0.2"
+                  comp_off = fields[14] if len(fields) >= 15 else "0.0"
+                  min_off = fields[15] if len(fields) >= 16 else "2"
+                  rev_bb = fields[16] if len(fields) >= 17 else "0"
+                  rev_sb = fields[17] if len(fields) >= 18 else "0"
+                  swap_bb_sb = fields[18] if len(fields) >= 19 else "0"
+
+                  data.update({
+                      "IDr": fields[0], "IDs": fields[1], "ACK": fields[2], "CMD": fields[3], "Status": fields[4],
+                      "Kpr": fields[5], "Kir": fields[6], "Kdr": fields[7],
+                      "Kps": fields[8], "Kis": fields[9], "Kds": fields[10],
+                      "maxSpeed": fields[11], "minSpeed": fields[12], "pivotSpeed": piv_s,
+                      "compassOffset": comp_off, "minOfsetDist": min_off,
+                      "revBB": rev_bb, "revSB": rev_sb, "swap_BB_SB": swap_bb_sb
+                  })
+                  self.update_buoy_data(buoy_id, data)
                 
         except Exception as e:
             print(f"Parse error: {e}")
@@ -1167,6 +1162,7 @@ class RoboMonitor:
                         if b.get('setup_entries') and not b['setup_entries']['maxSpeed'].get():
                             b['setup_vars']['revBB'].set(data.get('revBB') == "1")
                             b['setup_vars']['revSB'].set(data.get('revSB') == "1")
+                            b['setup_vars']['swap_BB_SB'].set(data.get('swap_BB_SB') == "1")
 
                     # --- Update visual indicators independently of the labels list ---
                     for thrust_name in ["Bow Thruster (BB)", "Stern Thruster (SB)"]:

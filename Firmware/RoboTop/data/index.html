@@ -277,25 +277,6 @@ input {
             <span style="color:blue;">■ Wind</span>
             <span style="color:black;">■ GPS</span>
         </div>
-
-        <div style="margin-top: 30px; padding: 15px; border-top: 2px solid #999; background: #f9f9f9; border-radius: 10px;">
-            <div style="display: flex; justify-content: center; gap: 60px; align-items: flex-end;">
-                <div>
-                    <div style="margin-bottom: 5px; font-weight: bold; color: #003366;">VOLTAGE</div>
-                    <div class="side-bar" style="height: 120px; width: 40px; background: #eee;">
-                        <div id="bottomVoltBar" style="position: absolute; width: 100%; bottom: 0; background: #2196f3; transition: height 0.5s;"></div>
-                    </div>
-                    <div id="bottomVoltText" style="font-size: 22px; font-weight: bold; margin-top: 8px; color: #2196f3;">0.00V</div>
-                </div>
-                <div>
-                    <div style="margin-bottom: 5px; font-weight: bold; color: #b35900;">CURRENT</div>
-                    <div class="side-bar" style="height: 120px; width: 40px; background: #eee;">
-                        <div id="bottomCurrBar" style="position: absolute; width: 100%; bottom: 0; background: #ff9800; transition: height 0.5s;"></div>
-                    </div>
-                    <div id="bottomCurrText" style="font-size: 22px; font-weight: bold; margin-top: 8px; color: #ff9800;">0.00A</div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <div class="side-panel">
@@ -331,20 +312,18 @@ input {
         
         <h4 style="margin: 5px 0 2px 0;">Rudder PID</h4>
         <div class="inputRow" style="margin-top: 0;">P <input id="Kpr" type="number" step="0.001"> I <input id="Kir" type="number" step="0.001"> D <input id="Kdr" type="number" step="0.001"></div>
-        <button onclick="sendSetupCommand('PIDRUDDER')" style="width:100%; margin: 4px 0 8px 0;">Send Rudder PID</button>
 
         <h4 style="margin: 5px 0 2px 0;">Speed PID</h4>
         <div class="inputRow" style="margin-top: 0;">P <input id="Kps" type="number" step="0.001"> I <input id="Kis" type="number" step="0.001"> D <input id="Kds" type="number" step="0.001"></div>
-        <button onclick="sendSetupCommand('PIDSPEED')" style="width:100%; margin: 4px 0 8px 0;">Send Speed PID</button>
 
         <h4 style="margin: 5px 0 2px 0;">Speed Limits</h4>
         <div class="inputRow" style="margin-top: 0;">Max <input id="maxSpeed" type="number" style="width:50px;"> Min <input id="minSpeed" type="number" style="width:50px;"> Pivot <input id="pivotSpeed" type="number" step="0.1" style="width:50px;"></div>
-        <button onclick="sendSetupCommand('LIMITS')" style="width:100%; margin: 4px 0 8px 0;">Send Speed Limits</button>
 
         <h4 style="margin: 5px 0 2px 0;">Compass</h4>
         <div class="inputRow" style="margin-top: 0;">Compass Offset <input id="compassOffset" type="number" step="0.1" style="width:50px;"></div>
-        <button onclick="sendSetupCommand('COMPASSOFFSET')" style="width:100%; margin: 4px 0 8px 0;">Send Compass Offset</button>
         <hr style="margin: 8px 0;">
+        <button onclick="updateConfig()" style="width:100%; background:#28a745; color:white; font-weight:bold; height: 45px; font-size: 18px; margin-bottom: 10px;">UPDATE CONFIG</button>
+
         <h4 style="margin: 5px 0;">In-Field Calibration</h4>
         <button onclick="sendSetupCommand('CALIB_COMPASS')" style="width:100%; background:#f0ad4e; color:white; margin-bottom: 4px;">In-Water Calibration (Circles)</button>
         <button onclick="sendSetupCommand('MANUAL_CALIB')" style="width:100%; background:#d9534f; color:white; margin-bottom: 4px;">Desk Calibration (60s Figure-8)</button>
@@ -359,6 +338,37 @@ let buoyData = {
     2: { ID: "TEST_SUB1", Status: 7, BB: 0, SB: 0, TgDist: 0, PIDI: 0, SubPerc: 42, MagDir: 180, TgDir: null, WDir: null, GpsDir: null, GpsFix: "false", Lat: "52.3580", Lng: "4.8686" },
     3: { ID: "TEST_SUB2", Status: 16, BB: -15, SB: 15, TgDist: 15.5, PIDI: -0.12, SubPerc: 18, MagDir: 275, TgDir: 285, WDir: null, GpsDir: 265, GpsFix: "true", Lat: "52.3563", Lng: "4.8811" }
 };
+
+function updateConfig() {
+    const params = {
+        Kpr: document.getElementById('Kpr').value,
+        Kir: document.getElementById('Kir').value,
+        Kdr: document.getElementById('Kdr').value,
+        Kps: document.getElementById('Kps').value,
+        Kis: document.getElementById('Kis').value,
+        Kds: document.getElementById('Kds').value,
+        maxSpeed: document.getElementById('maxSpeed').value,
+        minSpeed: document.getElementById('minSpeed').value,
+        pivotSpeed: document.getElementById('pivotSpeed').value,
+        compassOffset: document.getElementById('compassOffset').value
+    };
+
+    let url = `/command?bid=${currentBuoy}&cmd=SETUPDATA`;
+    for (const key in params) {
+        url += `&${key}=${params[key]}`;
+    }
+
+    fetch(url)
+        .then(response => response.text())
+        .then(data => {
+            console.log("Update Config response:", data);
+            alert("Configuration updated successfully!");
+        })
+        .catch(error => {
+            console.error('Error updating config:', error);
+            alert("Failed to update configuration.");
+        });
+}
 
 function getStatusText(status) {
     const s = parseInt(status);
@@ -400,25 +410,29 @@ function openMap() {
 
 let waitingForSetupData = false;
 
-function openSetup() {
+function openSetup(bid) {
+    if (bid !== undefined) currentBuoy = bid;
     document.getElementById("setupBuoyId").innerText = currentBuoy;
     document.getElementById("setupModal").style.display = "block";
     
-    // Clear fields to indicate loading
+    // Reset fields to "Wait..." and trigger a fetch
     const fields = ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "pivotSpeed", "compassOffset"];
     fields.forEach(f => {
         const el = document.getElementById(f);
         if (el) el.value = "Wait...";
     });
     
-    // Invalidate cached data so updateSetupModal waits for fresh fetch
+    // Invalidate cached data in buoyData so updateSetupModal waits for fresh fetch
     const b = buoyData[currentBuoy];
     if (b) {
         fields.forEach(f => delete b[f]);
     }
     
     waitingForSetupData = true;
-    sendCommand('SETUP'); // Trigger ESP to get fresh data via LoRa/UDP
+    // Trigger a SETUPDATA command with no params to GET the current config
+    fetch(`/command?bid=${currentBuoy}&cmd=SETUPDATA`)
+        .then(r => r.text())
+        .then(d => console.log("Fetch current config:", d));
 }
 
 function closeSetup() {
@@ -431,24 +445,21 @@ function updateSetupModal() {
     const b = buoyData[currentBuoy];
     if (!b) return;
 
-    // Anti-Echo Logic: verify data is valid (not just zeros from an initial ACK echo) before populating
-    // We check maxSpeed since it should normally be non-zero (e.g. 50). 
-    // If waitingForSetupData is true, we only populate when maxSpeed isn't zero or "Wait..."
     if (waitingForSetupData) {
+        // Anti-Echo Logic: verify data is valid before populating
         if (!b.maxSpeed || parseFloat(b.maxSpeed) === 0) {
-            return; // Still waiting for the actual response from the sub
+            return; 
         }
-        waitingForSetupData = false; // We got valid data!
+        waitingForSetupData = false; 
+    } else {
+        // If we are not waiting for a fresh fetch, DON'T overwrite what the user might be editing
+        return; 
     }
 
     const setVal = (id, val) => {
         if (val !== undefined && val !== null && !isNaN(parseFloat(val))) {
             const el = document.getElementById(id);
-            if (document.activeElement !== el && el.value === "Wait...") { // Don't overwrite if user is typing
-                el.value = parseFloat(val);
-            } else if (document.activeElement !== el && el.value !== "Wait...") {
-                el.value = parseFloat(val);
-            }
+            if (el) el.value = parseFloat(val);
         }
     };
 
@@ -462,7 +473,6 @@ function updateSetupModal() {
     setVal("minSpeed", b.minSpeed);
     setVal("pivotSpeed", b.pivotSpeed);
     setVal("compassOffset", b.compassOffset);
-    
 }
 
 function sendSetupCommand(cmd) {
@@ -792,16 +802,6 @@ function updateUI() {
     const currentFill = document.getElementById("currentFill");
     currentFill.style.width = currPerc + "%";
     document.getElementById("currentValText").innerText = (!isNaN(currentA)) ? currentA.toFixed(1) + "A" : "0.0A";
-
-    // Detailed Bottom Bars
-    const subVolt = parseFloat(b.SubVolt || 0);
-    const subCurr = parseFloat(b.SubCurr || 0);
-    const voltPerc = Math.max(0, Math.min(100, ((subVolt - 17.0) / 8.0) * 100));
-    document.getElementById("bottomVoltBar").style.height = voltPerc + "%";
-    document.getElementById("bottomVoltText").innerText = (!isNaN(subVolt)) ? subVolt.toFixed(2) + "V" : "0.00V";
-    const currPercDetailed = Math.max(0, Math.min(100, (subCurr / 10.0) * 100));
-    document.getElementById("bottomCurrBar").style.height = currPercDetailed + "%";
-    document.getElementById("bottomCurrText").innerText = (!isNaN(subCurr)) ? subCurr.toFixed(2) + "A" : "0.00A";
 
     // Compass Vector Logic
     const isIdle = String(b.Status).trim() === "7";

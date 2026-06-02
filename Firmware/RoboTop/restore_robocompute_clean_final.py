@@ -1,4 +1,6 @@
-#include <arduino.h>
+import os
+
+content = r"""#include <arduino.h>
 #include "RoboCompute.h"
 
 bool startsWithDollar(const String &str)
@@ -25,23 +27,21 @@ void RoboDecode(String data, RoboStruct *dataStore)
     switch (dataStore->cmd)
     {
     case SETUPDATA:
-        dataStore->Kpr = numbers[2].toDouble();
-        dataStore->Kir = numbers[3].toDouble();
-        dataStore->Kdr = numbers[4].toDouble();
-        dataStore->Kps = numbers[5].toDouble();
-        dataStore->Kis = numbers[6].toDouble();
-        dataStore->Kds = numbers[7].toDouble();
-        dataStore->maxSpeed = numbers[8].toInt();
-        dataStore->minSpeed = numbers[9].toInt();
-        dataStore->pivotSpeed = numbers[10].toDouble();
-        dataStore->compassOffset = numbers[11].toDouble();
-        dataStore->icmCompassOffset = numbers[12].toDouble();
-        dataStore->minOfsetDist = numbers[13].toInt();
-        if (numbers[14].length() > 0) dataStore->revBB = (bool)numbers[14].toInt();
-        if (numbers[15].length() > 0) dataStore->revSB = (bool)numbers[15].toInt();
-        if (numbers[16].length() > 0) dataStore->mechanicCorrection = numbers[16].toDouble();
-        if (numbers[17].length() > 0) dataStore->swap_BB_SB = (bool)numbers[17].toInt();
-        break;
+          dataStore->Kpr = numbers[2].toDouble();
+          dataStore->Kir = numbers[3].toDouble();
+          dataStore->Kdr = numbers[4].toDouble();
+          dataStore->Kps = numbers[5].toDouble();
+          dataStore->Kis = numbers[6].toDouble();
+          dataStore->Kds = numbers[7].toDouble();
+          dataStore->maxSpeed = numbers[8].toInt();
+          dataStore->minSpeed = numbers[9].toInt();
+          dataStore->pivotSpeed = numbers[10].toDouble();
+          dataStore->compassOffset = numbers[11].toDouble();
+          dataStore->minOfsetDist = numbers[12].toInt();
+          if (numbers[13].length() > 0) dataStore->revBB = (bool)numbers[13].toInt();
+          if (numbers[14].length() > 0) dataStore->revSB = (bool)numbers[14].toInt();
+          if (numbers[15].length() > 0) dataStore->swap_BB_SB = (bool)numbers[15].toInt();
+          break;
     case IDLE:
         dataStore->speed = 0;
         dataStore->tgDist = 0;
@@ -218,23 +218,6 @@ void RoboDecode(String data, RoboStruct *dataStore)
         break;
     case STORE_COMPASS_OFFSET:
         dataStore->compassOffset = numbers[2].toDouble();
-        if (count > 3) dataStore->icmCompassOffset = numbers[3].toDouble();
-        if (count > 4) dataStore->mechanicCorrection = numbers[4].toDouble();
-        break;
-    case ROUTTOPOINT:
-    case DOCKING:
-    case STOREASDOC:
-    case IDELING:
-    case LOCKING:
-    case RESET_RUDDER_PID:
-    case RESET_SPEED_PID:
-    case RESET_SPEED_RUD_PID:
-    case PING:
-    case PONG:
-    case CALC_COMPASS_OFFSET:
-    case CALIBRATE_MAGNETIC_COMPASS:
-    case LORAACK:
-        // Nothing to do
         break;
     default:
         printf("RoboDecode: Unknown CMD %d\r\n", dataStore->cmd);
@@ -260,11 +243,9 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->minSpeed);
         out += "," + String(dataOut->pivotSpeed, 2);
         out += "," + String(dataOut->compassOffset, 2);
-        out += "," + String(dataOut->icmCompassOffset, 2);
         out += "," + String(dataOut->minOfsetDist);
         out += "," + String((int)dataOut->revBB);
         out += "," + String((int)dataOut->revSB);
-        out += "," + String(dataOut->mechanicCorrection, 2);
         out += "," + String((int)dataOut->swap_BB_SB);
         break;
     case DIRSPEED:
@@ -419,8 +400,6 @@ String RoboCode(const RoboStruct *dataOut)
         break;
     case STORE_COMPASS_OFFSET:
         out += "," + String(dataOut->compassOffset, 2);
-        out += "," + String(dataOut->icmCompassOffset, 2);
-        out += "," + String(dataOut->mechanicCorrection, 2);
         break;
     case DOCKED:
     case LOCKED:
@@ -705,3 +684,8 @@ int GetDataPosFromBuoyBase(uint64_t id, RoboStruct buoyPara[3])
     for (int i = 0; i < 3; i++) if (id == buoyPara[i].IDs) return i;
     return -1;
 }
+"""
+
+with open('../RoboDependency/RoboCompute/src/RoboCompute.cpp', 'w', encoding='utf-8', newline='\r\n') as f:
+    f.write(content)
+print("Manually restored RoboCompute.cpp to a clean and robust state (STRICT NO-ERRORS VERSION)")

@@ -14,6 +14,7 @@ void initSpeedPid(RoboStruct *speed);
 
 void rudderPid(RoboStruct *rud);
 void speedPid(RoboStruct *speed);
+double GetFilteredDist(void);
 
 // Sub Status constants for drift-pivot-lock logic
 #define SUB_STATUS_IDLE_DRIFT 0 // < 1m, motors off

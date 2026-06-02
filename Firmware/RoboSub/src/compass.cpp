@@ -253,7 +253,6 @@ bool InitCompass(void)
     // Load remaining persistent parameters
     CompassOffsetCorrection(&mainData.compassOffset, true);
     CompasOffset(&mainData, true);
-    CompasIcmOffset(&mainData, true);
     MechanicalCorrection(&mainData.mechanicCorrection, true);
     return bno_ready;
 }
@@ -301,10 +300,10 @@ void CompassTask(void *arg) {
                 if (getBnoOffsetsDirect(calData)) {
                     memBnoCalib(calData, false);
                     updateUIHex(calData, false);
-                    setCalMsg("MANUAL SAVE SUCCESS", 1);
+                    setCalMsg("MANUAL SAVE SUCCESS", 0);
                     autoSaved = true;
                 } else {
-                    setCalMsg("SAVE FAILED - NO DATA", 1);
+                    setCalMsg("SAVE FAILED - NO DATA", 0);
                 }
             }
         }
@@ -324,7 +323,7 @@ void CompassTask(void *arg) {
                     memBnoCalib(calData, false);
                     updateUIHex(calData, false);
                     autoSaved = true;
-                    setCalMsg("AUTO-SAVE SUCCESS", 1);
+                    setCalMsg("AUTO-SAVE SUCCESS", 0);
                 }
             }
             if (bno_cal_mag < 2) autoSaved = false; // Allow re-save if accuracy drops

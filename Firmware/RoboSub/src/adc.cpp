@@ -42,16 +42,14 @@ void battVoltage(float &vbatt, int &vperc)
  * 
  * @param current_a Output parameter for the smoothed current in Amperes.
  */
-void battCurrent(float &current_a, float &imon_v)
+void battCurrent(float &current_a)
 {
 #ifdef IMON_PIN
     int adc_mv = analogReadMilliVolts(IMON_PIN);
-    imon_v = adc_mv / 1000.0f;
 
     // Formula: I = (V - 1.65V) * (20A / 1.55V)
     // I = (adc_mv - 1650) * (20 / 1550)
-    // Adjusted by / 100.0f as reported by user
-    float instant_current = ((float)(adc_mv - 1650) * (20.0f / 1550.0f)) / 100.0f;
+    float instant_current = (float)(adc_mv - 1650) * (20.0f / 1550.0f);
 
     if (first_read_i) {
         smoothed_current = instant_current;
@@ -62,7 +60,6 @@ void battCurrent(float &current_a, float &imon_v)
     }
     current_a = smoothed_current;
 #else
-    imon_v = 0.0f;
     current_a = 0.0f;
 #endif
 }

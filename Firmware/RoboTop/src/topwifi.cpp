@@ -25,64 +25,38 @@ static unsigned long mac = 0;
 AsyncUDP udp;
 QueueHandle_t udpOut;
 QueueHandle_t udpIn;
-// static unsigned long tstart, tstop;
 static unsigned long lastUpdMsg = 0;
 
 WebServer server(80);
 
 /**
  * @brief Sets up Over-The-Air (OTA) update functionality.
- * 
- * Configures the OTA hostname based on the device's MAC address and
- * sets up callbacks for start, end, progress, and error events.
- * 
- * @return true if OTA was successfully initialized.
  */
 bool setup_OTA()
 {
-    char ssidl[20];
-    char buf[30];
+    char buf[32];
     byte mac[6];
     WiFi.macAddress(mac);
     Serial.print("SETUP OTA...");
     sprintf(buf, "Top_%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     ArduinoOTA.setHostname(buf);
-    ArduinoOTA.onStart([]()
-                       {
-    /* switch off all processes here!!!!! */
-    Serial.println();
-    Serial.println("Receiving new firmware now!"); });
-    ArduinoOTA.onEnd([]()
-                     {
-    /* do stuff after update here!! */
-    Serial.println("Receiving done!");
-    Serial.println("Storing in memory and reboot!");
-    Serial.println(); });
-    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
-                          { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); });
-    ArduinoOTA.onError([](ota_error_t error){ ESP.restart(); });
-    /* setup the OTA server */
+    ArduinoOTA.onStart([]() { Serial.println("OTA Start"); });
+    ArduinoOTA.onEnd([]() { Serial.println("\nOTA End"); });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); });
+    ArduinoOTA.onError([](ota_error_t error) { ESP.restart(); });
     ArduinoOTA.begin();
-    Serial.println("...done!");
-    Serial.print("OTA ID: ");
-    Serial.println(buf);
+    Serial.println("READY");
     return true;
 }
 
 /**
  * @brief Scans for a specific Wi-Fi Access Point and connects to it.
- * 
- * @param ssipap The SSID of the target access point.
- * @param ww The password for the target access point.
- * @param tmp Pointer to store the local IP address if connection is successful.
- * @return true if the access point was found and connected to, false otherwise.
  */
 bool scan_for_wifi_ap(String ssipap, String ww, IPAddress *tmp)
 {
     unsigned long timeout = millis();
-    Serial.print("scan for for ap:");
-    Serial.println(ssipap);
-    
+    Serial.print("Scanning for ap: "); Serial.println(ssipap);
+
     while (millis() - timeout < 120000)
     {
         int n = WiFi.scanNetworks();
@@ -90,131 +64,49 @@ bool scan_for_wifi_ap(String ssipap, String ww, IPAddress *tmp)
         {
             for (int i = 0; i < n; ++i)
             {
-                if (WiFi.SSID(i) == ssipap.c_str())
+                if (WiFi.SSID(i) == ssipap)
                 {
-                    Serial.print("Access point found, logging in...");
+                    Serial.print("AP found, connecting...");
                     WiFi.begin(ssipap.c_str(), ww.c_str());
+                    unsigned long conn_timeout = millis();
                     while (WiFi.status() != WL_CONNECTED)
                     {
-                        delay(50);
-                        Serial.print(".");
-                        if (timeout + 120 * 1000 < millis())
-                        {
-                            esp_restart();
-                        }
+                        delay(500); Serial.print(".");
+                        if (millis() - conn_timeout > 30000) break;
                     }
-                    Serial.print(".");
-                    Serial.print("Logend in to SSID: ");
-                    Serial.println(ssipap);
-                    *tmp = (WiFi.localIP());
-                    return true;
+                    if (WiFi.status() == WL_CONNECTED) {
+                        Serial.println("CONNECTED");
+                        *tmp = WiFi.localIP();
+                        return true;
+                    }
                 }
             }
         }
-        Serial.println("Access point not found, retrying...");
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
-    Serial.println("Access point not found after 2 minutes.");
     return false;
 }
 
 /**
  * @brief Sets up a Wi-Fi Access Point with a static IP.
- * 
- * @param ap The SSID for the new access point.
- * @param ww The password for the new access point.
- * @param tmp Pointer to store the access point's IP address.
  */
 void setup_wifi_ap(String ap, String ww, IPAddress *tmp)
 {
-    WiFi.mode(WIFI_AP); // Set Wi-Fi mode to Access Point
-    Serial.println("Setting up access point now");
+    WiFi.mode(WIFI_AP);
+    IPAddress local_IP(192, 168, 1, 84);
+    IPAddress subnet(255, 255, 255, 0);
+    IPAddress gateway(192, 168, 1, 5);
+    WiFi.softAPConfig(local_IP, gateway, subnet);
 
-    // Configure static IP
-    IPAddress local_IP(192, 168, 1, 84); // Desired static IP address
-    IPAddress subnet(255, 255, 255, 0);  // Subnet mask
-    IPAddress gateway(192, 168, 1, 5);   // Gateway address
-    IPAddress primaryDNS(0, 0, 0, 0);    // Primary DNS (optional)
-    IPAddress secondaryDNS(0, 0, 0, 0);  // Secondary DNS (optional)
-
-    // Set the static IP address if possible
-    if (!WiFi.softAPConfig(local_IP, gateway, subnet))
-    {
-        Serial.println("Failed to configure static IP for AP");
-    }
-
-    // Start the access point with the given SSID and password
     if (WiFi.softAP(ap.c_str(), ww.c_str()))
     {
-        Serial.print("AP SSID: ");
-        Serial.println(ap);
-
-        // Get the AP's IP address and store it in the pointer tmp
         *tmp = WiFi.softAPIP();
-        Serial.print("AP IP address: ");
-        Serial.println(*tmp);
+        Serial.print("AP IP address: "); Serial.println(*tmp);
     }
-    else
-    {
-        Serial.println("Failed to start access point");
-    }
-}
-/**
- * @brief Initializes the Async UDP listener on the specified port.
- * 
- * Sets up a callback for incoming UDP packets, decodes them, and
- * sends them to the udpIn queue if they are valid and not from the local device.
- * 
- * @param poort The UDP port to listen on.
- * @return true if the UDP listener was successfully started.
- */
-bool udp_setup(int poort)
-{
-    if (udp.listen(poort))
-    {
-        Serial.print("Udp port: ");
-        Serial.println(poort);
-        udp.onPacket([](AsyncUDPPacket packet)
-                     {
-                        String stringUdpIn((const char *)packet.data(), packet.length());
-                        RoboStruct udpDataIn;
-                        rfDeCode(stringUdpIn,&udpDataIn);
-                        if (udpDataIn.IDs != -1 && udpDataIn.IDs != mac) // ignore own messages
-                        {
-                            xQueueSend(udpIn, (void *)&udpDataIn, 10); // notify main there is new data
-                            if (wifiCollorUtil.color != CRGB::DarkBlue)
-                            {
-                                wifiCollorUtil.blink = BLINK_SLOW;
-                                wifiCollorUtil.color = CRGB::DarkBlue;
-                                xQueueSend(ledUtil, (void *)&wifiCollorUtil, 0); // update GPS led
-                            }
-                            lastUpdMsg = millis();
-                        }
-                        else if (!stringUdpIn.startsWith("{")) // Ignore JSON compass telemetry to prevent console spam
-                        {
-                            Serial.println("crc error: " + stringUdpIn);
-                        } });
-        return true;
-    }
-    return false;
-}
-
-/**
- * @brief Broadcasts data over UDP.
- * 
- * @param data The string data to be broadcasted.
- */
-void udpSend(String data)
-{
-    udp.broadcast(data.c_str());
 }
 
 /**
  * @brief Retrieves the device's MAC address as an unsigned long.
- * 
- * The MAC address is cached after the first retrieval.
- * 
- * @return The last 4 bytes of the MAC address as an unsigned long.
  */
 unsigned long espMac(void)
 {
@@ -232,10 +124,6 @@ unsigned long espMac(void)
 
 /**
  * @brief Initializes the UDP input and output queues.
- * 
- * Also retrieves and returns the device's MAC address.
- * 
- * @return The device's MAC address (via espMac()).
  */
 unsigned long initwifiqueue(void)
 {
@@ -245,83 +133,83 @@ unsigned long initwifiqueue(void)
 }
 
 /**
+ * @brief Initializes the Async UDP listener.
+ */
+bool udp_setup(int poort)
+{
+    if (udp.listen(poort))
+    {
+        udp.onPacket([](AsyncUDPPacket packet)
+                     {
+            String s((const char*)packet.data(), packet.length());
+            if (s.startsWith("$")) {
+                RoboStruct udpDataIn = {};
+                rfDeCode(s, &udpDataIn);
+                if (udpDataIn.IDs != -1 && udpDataIn.IDs != espMac()) {
+                    xQueueSend(udpIn, (void *)&udpDataIn, 0);
+                }
+            } });
+        return true;
+    }
+    return false;
+}
+
+/**
  * @brief Main Wi-Fi management task.
- * 
- * This task handles:
- * - Wi-Fi connection (scanning or setting up AP).
- * - Initializing OTA and UDP.
- * - Setting up the Web Server and its endpoints (/, /data, /command).
- * - Handling web client requests and UDP broadcasting in a loop.
- * 
- * @param arg Pointer to an integer representing the Wi-Fi configuration (1 for pairing mode).
  */
 void WiFiTask(void *arg)
 {
-    byte mac[6];
+    int wifiConfig = *(int *)arg;
+    byte macarr[6];
     char macStr[20];
-    WiFi.macAddress(mac);
-    sprintf(macStr, "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    int wifiConfig = *((int *)arg);
-    unsigned long nwUpdate = millis();
-    unsigned char numClients = 0;
+    WiFi.macAddress(macarr);
+    sprintf(macStr, "%02x%02x%02x%02x%02x%02x", macarr[0], macarr[1], macarr[2], macarr[3], macarr[4], macarr[5]);
+    
+    IPAddress ip;
     String ap = "";
     String apww = "";
-    unsigned long nextSamp = millis();
-    if (wifiConfig == 1)
-    {
-        ap = "PAIR_ME_";
-        ap += macStr;
-        setup_wifi_ap(ap, apww, &ipTop);
-    }
-    else // try to find accespoint NicE_WiFi. If no succes make a accecpoint BUOY_[MAC]
-    {
+
+    if (wifiConfig == 1) {
+        ap = "PAIR_ME_"; ap += macStr;
+        setup_wifi_ap(ap, apww, &ip);
+    } else {
         wifiCollorUtil.color = CRGB::LightBlue;
         wifiCollorUtil.blink = FADE_ON;
         wifiCollorUtil.fadeAmount = 5;
-        xQueueSend(ledStatus, (void *)&wifiCollorUtil, 10); // update util led
-        ap = "NicE_WiFi";
-        apww = "!Ni1001100110";
-        if (scan_for_wifi_ap(ap, apww, &ipTop) == false)
-        {
-            ap = "BUOY_";
-            ap += macStr;
+        xQueueSend(ledStatus, (void *)&wifiCollorUtil, 10);
+        
+        ap = "NicE_WiFi"; apww = "!Ni1001100110";
+        if (!scan_for_wifi_ap(ap, apww, &ip)) {
+            ap = "BUOY_"; ap += macStr;
             apww = "";
-            setup_wifi_ap(ap, apww, &ipTop);
+            setup_wifi_ap(ap, apww, &ip);
         }
     }
-    Serial.print("IP address: ");
-    Serial.println(ipTop);
-    ota = setup_OTA();
-    udp_setup(1001);
+    
     wifiCollorUtil.color = CRGB::Black;
     wifiCollorUtil.blink = BLINK_OFF;
-    xQueueSend(ledStatus, (void *)&wifiCollorUtil, 10); // update util led
-
-    if(!SPIFFS.begin(true)){
-        Serial.println("An Error has occurred while mounting SPIFFS");
-        return;
-    }
+    xQueueSend(ledStatus, (void *)&wifiCollorUtil, 10);
+    
+    ota = setup_OTA();
+    udp_setup(1001);
+    SPIFFS.begin(true);
 
     server.on("/", HTTP_GET, [](){
         server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         server.sendHeader("Pragma", "no-cache");
         server.sendHeader("Expires", "-1");
         File file = SPIFFS.open("/index.html", "r");
-        if(!file){
-            server.send(404, "text/plain", "File not found");
-            return;
-        }
+        if(!file) { server.send(404, "text/plain", "File not found"); return; }
         server.streamFile(file, "text/html");
         file.close();
     });
 
-    server.on("/data", HTTP_GET, []() {
-        server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    server.on("/data", HTTP_GET, []()
+              {
         String json = "{\"buoys\":[";
-        
-        // Buoy 1 (Top Buoy local data)
+        // Buoy 1
         json += "{";
-        json += "\"ID\":\"" + String(espMac(), HEX) + "\",";
+        json += "\"ID\":\"" + String(mainData.mac, HEX) + "\",";
         json += "\"Status\":" + String(mainData.status) + ",";
         json += "\"Speed\":\"" + String(mainData.speedSet, 2) + "\",";
         json += "\"BB\":\"" + String(mainData.speedBb) + "\",";
@@ -339,7 +227,7 @@ void WiFiTask(void *arg)
         json += "\"PIDR\":\"" + String(mainData.ir, 2) + "\",";
         json += "\"Kpr\":\"" + String(mainData.Kpr, 4) + "\",";
         json += "\"Kir\":\"" + String(mainData.Kir, 4) + "\",";
-        json += "\"Kdr\":\"" + String(mainData.Kdr, 4) + "\",";
+        printf("JSON DEBUG: mainData.Kdr=%f\r\n", mainData.Kdr); json += "\"Kdr\":\"" + String(mainData.Kdr, 4) + "\",";
         json += "\"Kps\":\"" + String(mainData.Kps, 4) + "\",";
         json += "\"Kis\":\"" + String(mainData.Kis, 4) + "\",";
         json += "\"Kds\":\"" + String(mainData.Kds, 4) + "\",";
@@ -349,10 +237,9 @@ void WiFiTask(void *arg)
         json += "\"compassOffset\":\"" + String(mainData.compassOffset, 2) + "\",";
         json += "\"Lat\":\"" + String(mainData.lat, 6) + "\",";
         json += "\"Lng\":\"" + String(mainData.lng, 6) + "\",";
-        json += "\"GpsFix\":\"" + String(mainData.gpsFix) + "\"";
+        json += "\"GpsFix\":\"" + String(mainData.gpsFix ? "true" : "false") + "\"";
         json += "},";
 
-        // Buoy 2 and 3 (from buoyPara placeholders)
         for (int i = 1; i < 3; i++) {
             json += "{";
             json += "\"ID\":\"" + String(buoyPara[i].IDs, HEX) + "\",";
@@ -381,40 +268,50 @@ void WiFiTask(void *arg)
             json += "\"minSpeed\":\"" + String(buoyPara[i].minSpeed) + "\",";
             json += "\"pivotSpeed\":\"" + String(buoyPara[i].pivotSpeed, 2) + "\",";
             json += "\"compassOffset\":\"" + String(buoyPara[i].compassOffset, 2) + "\",";
-            json += "\"Lat\":\"" + String(mainData.lat, 6) + "\",";
-            json += "\"Lng\":\"" + String(mainData.lng, 6) + "\",";
-            json += "\"GpsFix\":\"" + String(buoyPara[i].gpsFix) + "\"";
+            json += "\"Lat\":\"" + String(buoyPara[i].lat, 6) + "\",";
+            json += "\"Lng\":\"" + String(buoyPara[i].lng, 6) + "\",";
+            json += "\"GpsFix\":\"" + String(buoyPara[i].gpsFix ? "true" : "false") + "\"";
             json += "}";
             if (i < 2) json += ",";
         }
         json += "]}";
-        server.send(200, "application/json", json);
-    });
+        server.send(200, "application/json", json); });
 
-    server.on("/command", HTTP_GET, []() {
-        if (!server.hasArg("bid") || !server.hasArg("cmd")) {
-            server.send(400, "text/plain", "Missing bid or cmd");
-            return;
-        }
-
+    server.on("/command", HTTP_GET, []()
+              {
         int bid = server.arg("bid").toInt();
         String cmdStr = server.arg("cmd");
-        int cmdEnum = NOCMD;
-        int statusEnum = -1;
+        int cmdEnum = -1;
+        printf("Web Command received: bid=%d, cmd=%s\r\n", bid, cmdStr.c_str());
 
         if (cmdStr == "LOCK") {
-            if (bid == 1 && (mainData.status == LOCKED || mainData.status == LOCKING)) { cmdEnum = IDELING; statusEnum = IDLE; }
-            else if (bid != 1 && (buoyPara[bid-1].status == LOCKED || buoyPara[bid-1].status == LOCKING)) cmdEnum = IDLE;
-            else { cmdEnum = LOCKING; statusEnum = IDLE; }
+            if (bid == 1) {
+                if (mainData.status == LOCKED || mainData.status == LOCKING) { mainData.status = IDELING; cmdEnum = IDELING; }
+                else { mainData.status = LOCKING; cmdEnum = LOCKING; }
+            } else {
+                if (buoyPara[bid-1].status == LOCKED || buoyPara[bid-1].status == LOCKING) cmdEnum = IDLE;
+                else cmdEnum = LOCKING;
+            }
         }
         else if (cmdStr == "DOCK") {
-            if (bid == 1 && (mainData.status == DOCKING || mainData.status == DOCKED)) { cmdEnum = IDELING; statusEnum = IDLE; }
-            else if (bid != 1 && (buoyPara[bid-1].status == DOCKING || buoyPara[bid-1].status == DOCKED)) cmdEnum = IDLE;
-            else { cmdEnum = DOCKING; statusEnum = IDLE; }
+            if (bid == 1) {
+                if (mainData.status == DOCKING || mainData.status == DOCKED) { mainData.status = IDELING; cmdEnum = IDELING; }
+                else { mainData.status = DOCKING; cmdEnum = DOCKING; }
+            } else {
+                if (buoyPara[bid-1].status == DOCKING || buoyPara[bid-1].status == DOCKED) cmdEnum = IDLE;
+                else cmdEnum = DOCKING;
+            }
         }
-        else if (cmdStr == "SETUP") cmdEnum = SETUPDATA;
-        else if (cmdStr == "IDLE") { cmdEnum = IDELING; statusEnum = IDLE; }
-        else if (cmdStr == "DIRDIST") { cmdEnum = DIRDIST; statusEnum = IDLE; }
+        else if (cmdStr == "SETUP" || cmdStr == "SUBSETUP" || cmdStr == "SETUPDATA") cmdEnum = SETUPDATA;
+        else if (cmdStr == "IDLE") { if (bid == 1) mainData.status = IDELING; cmdEnum = IDELING; }
+        else if (cmdStr == "DIRDIST") { 
+            cmdEnum = DIRDIST; 
+            if (bid == 1) {
+                mainData.tgDir = server.arg("dir").toFloat();
+                mainData.tgDist = server.arg("dist").toFloat();
+                mainData.status = LOCKED;
+            }
+        }
         else if (cmdStr == "MAP") cmdEnum = NEWBUOYPOS;
         else if (cmdStr == "PIDRUDDER") cmdEnum = PIDRUDDERSET;
         else if (cmdStr == "PIDSPEED") cmdEnum = PIDSPEEDSET;
@@ -426,137 +323,104 @@ void WiFiTask(void *arg)
         else if (cmdStr == "COMPUTESTART") cmdEnum = COMPUTESTART;
         else if (cmdStr == "COMPUTETRACK") cmdEnum = COMPUTETRACK;
 
+        printf("Resolved cmdEnum: %d\r\n", cmdEnum);
+
         if (bid == 1) {
-            // For movement commands, we inject an RF-like message into udpIn so main.cpp handles coordinate math
-            if (cmdEnum == DIRDIST || cmdEnum == LOCKING || cmdEnum == DOCKING || cmdEnum == IDELING) {
-                RoboStruct msg;
-                msg.IDs = 0x99; // Simulate an incoming command from Python UI
-                msg.IDr = espMac();
+            RoboStruct msg = {};
+            msg.IDs = 0x99; msg.IDr = mainData.mac;
+            msg.cmd = (msg_t)cmdEnum; 
+            if (cmdEnum == SETUPDATA) {
+                if (server.hasArg("Kpr")) {
+                    mainData.Kpr = server.arg("Kpr").toFloat();
+                    mainData.Kir = server.arg("Kir").toFloat();
+                    mainData.Kdr = server.arg("Kdr").toFloat();
+                    mainData.Kps = server.arg("Kps").toFloat();
+                    mainData.Kis = server.arg("Kis").toFloat();
+                    mainData.Kds = server.arg("Kds").toFloat();
+                    mainData.maxSpeed = server.arg("maxSpeed").toInt();
+                    mainData.minSpeed = server.arg("minSpeed").toInt();
+                    mainData.pivotSpeed = server.arg("pivotSpeed").toFloat();
+                    mainData.compassOffset = server.arg("compassOffset").toFloat();
+                    
+                    pidRudderParameters(&mainData, SET);
+                    pidSpeedParameters(&mainData, SET);
+                    computeParameters(&mainData, SET);
+                    int offset = (int)mainData.compassOffset;
+                    CompassOffsetCorrection(&offset, SET);
+                    
+                    msg = mainData;
+                    msg.IDs = 0x99; msg.IDr = mainData.mac;
+                    msg.cmd = (msg_t)cmdEnum;
+                    msg.ack = LORASET;
+                } else {
+                    msg.ack = LORAGET;
+                }
+            } else {
+                msg = mainData; // For other commands, we might need existing state
+                msg.IDs = 0x99; msg.IDr = mainData.mac;
                 msg.cmd = (msg_t)cmdEnum;
-                msg.status = (msg_t)statusEnum;
-                msg.ack = LORAGETACK; // Python uses LORAGETACK(3) for these movement states, except DIRDIST which uses LORAINF(6)
-                if (cmdEnum == DIRDIST) msg.ack = LORAINF;
-                
                 if (cmdEnum == DIRDIST) {
                     msg.tgDir = server.arg("dir").toFloat();
                     msg.tgDist = server.arg("dist").toFloat();
+                    msg.ack = LORAINF;
+                } else {
+                    msg.ack = LORAINF;
                 }
-                
-                xQueueSend(udpIn, (void *)&msg, 10);
             }
-            
-            // For setup commands, we still modify mainData directly and send to Sub
-            if (cmdEnum == PIDRUDDERSET) {
-                mainData.Kpr = server.arg("p").toFloat();
-                mainData.Kir = server.arg("i").toFloat();
-                mainData.Kdr = server.arg("d").toFloat();
-                mainData.ack = LORASET;
-            }
-            else if (cmdEnum == PIDSPEEDSET) {
-                mainData.Kps = server.arg("p").toFloat();
-                mainData.Kis = server.arg("i").toFloat();
-                mainData.Kds = server.arg("d").toFloat();
-                mainData.ack = LORASET;
-            }
-            else if (cmdEnum == MAXMINPWRSET) {
-                mainData.maxSpeed = server.arg("max").toInt();
-                mainData.minSpeed = server.arg("min").toInt();
-                mainData.pivotSpeed = server.arg("pivot").toFloat();
-                mainData.ack = LORASET;
-            }
-            else if (cmdEnum == STORE_COMPASS_OFFSET) {
-                mainData.compassOffset = server.arg("offset").toFloat();
-                mainData.icmCompassOffset = mainData.compassOffset;
-                mainData.ack = LORASET;
-            }
-            
-            if (cmdEnum == SETUPDATA || cmdEnum == PIDRUDDERSET || cmdEnum == PIDSPEEDSET ||
-                cmdEnum == MAXMINPWRSET || cmdEnum == STORE_COMPASS_OFFSET ||
-                cmdEnum == INFIELD_CALIBRATE || cmdEnum == INFIELD_OFFSET_CALIBRATE || cmdEnum == CALIBRATE_MAGNETIC_COMPASS) {
+            printf("Sending command %d to udpIn (local/forward to sub)\r\n", msg.cmd);
+            xQueueSend(udpIn, (void *)&msg, 10);
+        } else {
+            RoboStruct msg = buoyPara[bid-1]; 
+            msg.IDs = 0x99;
+            msg.IDr = buoyPara[bid-1].IDs;
+            if (msg.IDr == 0) msg.IDr = BUOYIDALL;
+            msg.cmd = (msg_t)cmdEnum;
+            msg.ack = LORASET;
 
-                mainData.cmd = (msg_t)cmdEnum;                
-                if (cmdEnum == SETUPDATA) {
-                    mainData.ack = LORAGET;
-                    mainData.IDr = BUOYIDALL;
-                    mainData.IDs = espMac();
-                } else if (cmdEnum == CALIBRATE_MAGNETIC_COMPASS || cmdEnum == INFIELD_CALIBRATE || cmdEnum == INFIELD_OFFSET_CALIBRATE) {
-                    mainData.ack = LORAGETACK;
-                }
-                xQueueSend(serOut, (void *)&mainData, 10);
-            }
-        } else if (bid >= 2 && bid <= 3) {
-            RoboStruct msg;
-            msg.IDs = espMac();
-            msg.IDr = buoyPara[bid - 1].IDs;
-            msg.cmd = (cmdEnum != NOCMD) ? cmdEnum : statusEnum;
-            
             if (cmdEnum == DIRDIST) {
                 msg.tgDir = server.arg("dir").toFloat();
                 msg.tgDist = server.arg("dist").toFloat();
-            }
-            else if (cmdEnum == PIDRUDDERSET) {
-                msg.Kpr = server.arg("p").toFloat();
-                msg.Kir = server.arg("i").toFloat();
-                msg.Kdr = server.arg("d").toFloat();
-            }
-            else if (cmdEnum == PIDSPEEDSET) {
-                msg.Kps = server.arg("p").toFloat();
-                msg.Kis = server.arg("i").toFloat();
-                msg.Kds = server.arg("d").toFloat();
-            }
-            else if (cmdEnum == MAXMINPWRSET) {
-                msg.maxSpeed = server.arg("max").toInt();
-                msg.minSpeed = server.arg("min").toInt();
-                msg.pivotSpeed = server.arg("pivot").toFloat();
-            }
-            else if (cmdEnum == STORE_COMPASS_OFFSET) {
+            } else if (cmdEnum == PIDRUDDERSET) {
+                msg.Kpr = server.arg("p").toFloat(); msg.Kir = server.arg("i").toFloat(); msg.Kdr = server.arg("d").toFloat();
+            } else if (cmdEnum == PIDSPEEDSET) {
+                msg.Kps = server.arg("p").toFloat(); msg.Kis = server.arg("i").toFloat(); msg.Kds = server.arg("d").toFloat();
+            } else if (cmdEnum == MAXMINPWRSET) {
+                msg.maxSpeed = server.arg("max").toInt(); msg.minSpeed = server.arg("min").toInt(); msg.pivotSpeed = server.arg("pivot").toFloat();
+            } else if (cmdEnum == STORE_COMPASS_OFFSET) {
                 msg.compassOffset = server.arg("offset").toFloat();
+                if (server.hasArg("mech")) msg.mechanicCorrection = server.arg("mech").toFloat();
+            } else if (cmdEnum == SETUPDATA) {
+                if (server.hasArg("Kpr")) {
+                    msg.Kpr = server.arg("Kpr").toFloat();
+                    msg.Kir = server.arg("Kir").toFloat();
+                    msg.Kdr = server.arg("Kdr").toFloat();
+                    msg.Kps = server.arg("Kps").toFloat();
+                    msg.Kis = server.arg("Kis").toFloat();
+                    msg.Kds = server.arg("Kds").toFloat();
+                    msg.maxSpeed = server.arg("maxSpeed").toInt();
+                    msg.minSpeed = server.arg("minSpeed").toInt();
+                    msg.pivotSpeed = server.arg("pivotSpeed").toFloat();
+                    msg.compassOffset = server.arg("compassOffset").toFloat();
+                    msg.ack = LORASET;
+                } else {
+                    msg.ack = LORAGET;
+                }
             }
 
-            if (msg.IDr != 0) {
-                xQueueSend(udpOut, (void *)&msg, 10);
-                xQueueSend(loraOut, (void *)&msg, 10);
-            }
+            xQueueSend(serOut, (void *)&msg, 10);
         }
-
-        server.send(200, "text/plain", "OK");
-    });
-
-    server.onNotFound([](){
-        server.send(404, "text/plain", "File not found");
+        server.send(200, "text/plain", "OK"); 
     });
 
     server.begin();
-    printf("WiFI task running!\r\n");
-    /*
-        WiFI loop
-    */
-    for (;;)
-    {
+    for (;;) {
         server.handleClient();
-        if (ota == true)
-        {
-            ArduinoOTA.handle();
-        }
-
-        if (WiFi.softAPgetStationNum() != numClients)
-        {
-            numClients = WiFi.softAPgetStationNum();
-            Serial.print("You found me!\r\n");
-            if (ap.indexOf("PAIR_ME_") != -1) // reboot if in pairing mode only
-            {
-                Serial.println("Rebooting in 5 seconds");
-                delay(5000);
-                esp_restart();
-            }
-        }
-
-        if (xQueueReceive(udpOut, (void *)&msgIdOut, 1) == pdTRUE)
-        {
+        if (ota) ArduinoOTA.handle();
+        RoboStruct msgIdOut = {};
+        if (xQueueReceive(udpOut, (void *)&msgIdOut, 1) == pdTRUE) {
             if (msgIdOut.IDs == 0) msgIdOut.IDs = espMac();
-            if (msgIdOut.IDr == 0) msgIdOut.IDr = ROBOBASE; 
-            String out = rfCode(&msgIdOut);
-            udp.broadcast(out.c_str());
+            if (msgIdOut.IDr == 0) msgIdOut.IDr = ROBOBASE;
+            udp.broadcast(rfCode(&msgIdOut).c_str());
         }
         delay(1);
     }
