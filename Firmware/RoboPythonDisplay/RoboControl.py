@@ -314,12 +314,24 @@ class RoboMonitor:
             fields = [f if f != "" else "0" for f in content.split(',')]
             if len(fields) < 5: return
             
-            # Echo prevention: if the sender is "99", it's from us. Ignore.
+            # Protocol: $Target,Sender,ACK,CMD,Status,...
+            # Sender is fields[1], Target is fields[0]
+            
+            # 1. Echo prevention: if the sender is "99", it's from us. Ignore.
             if fields[1] == "99": return
             
+            # 2. Strict Hex ID check: Ignore buoys with non-hex IDs (like simulator artifacts)
+            buoy_id = fields[1].lower()
+            if not all(c in "0123456789abcdef" for c in buoy_id):
+                return
+            
             cmd = int(fields[3])
-            buoy_id = fields[1]
-            data = {"Timestamp": ts, "IP": sender_ip, "ACK": fields[2], "Status": fields[4]}
+            ack = fields[2]
+            data = {"Timestamp": ts, "IP": sender_ip, "ACK": ack, "Status": fields[4]}
+
+            # 3. Mode/Data Consistency: Only accept primary data if ACK is LORAINF (6)
+            # This prevents echoed requests (ACK=1) from being treated as responses.
+            is_info_packet = (ack == "6")
 
             for b in self.buoy_frames:
                 if b['id'] == buoy_id or b['id'] is None:
@@ -330,7 +342,7 @@ class RoboMonitor:
                         b['last_udp_time'], b['last_udp_content'] = time.time(), content
                     break
 
-            if cmd == MsgType.TOPDATA and len(fields) >= 21:
+            if cmd == MsgType.TOPDATA and is_info_packet and len(fields) >= 21:
                 data.update({
                     "Magnetic Dir": fields[5], "GPS Dir": fields[6], "Target Dir": fields[7], "Target Dist": fields[8],
                     "Wind Dir": fields[9], "Wind StdDev": fields[10], "Bow Thruster (BB)": fields[11], "Stern Thruster (SB)": fields[12],

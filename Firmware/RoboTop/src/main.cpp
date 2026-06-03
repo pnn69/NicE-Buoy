@@ -863,10 +863,10 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
 
     if (RfIn.IDr != -1)
     {
-        // Fix corruption by using correct format specifiers
+        // Fix corruption by using correct format specifiers for 32-bit hex IDs
         if(from_udp) {
-            printf("handelRfData: Processing UDP message. IDr: %lX, IDs: %lX, cmd: %d, ack: %d\r\n",
-                   (unsigned long)RfIn.IDr, (unsigned long)RfIn.IDs, (int)RfIn.cmd, (int)RfIn.ack);
+            printf("handelRfData: Processing UDP message. Target: %08X, Sender: %08X, cmd: %d, ack: %d\r\n",
+                   (unsigned int)RfIn.IDr, (unsigned int)RfIn.IDs, (int)RfIn.cmd, (int)RfIn.ack);
         }
         
         // Deduplication Filter for Mode Commands
@@ -886,21 +886,22 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
         }
 
         // --- BRIDGING LOGIC ---
-        // If the message is NOT for us and NOT for all, bridge it to the other interface
-        if (RfIn.IDr != RfOut->mac && RfIn.IDr != BUOYIDALL && RfIn.IDr != 0)
+        // If the message is NOT for us and NOT a broadcast, bridge it to the other interface
+        // treat IDr == 0 as a legacy broadcast
+        bool is_for_me = (RfIn.IDr == RfOut->mac || RfIn.IDr == BUOYIDALL || RfIn.IDr == 0);
+        
+        if (!is_for_me)
         {
             if (from_udp) {
                 xQueueSend(loraOut, (void *)&RfIn, 0);
-                // printf("Bridged UDP -> LoRa for IDr: %lX\r\n", (unsigned long)RfIn.IDr);
             } else {
                 xQueueSend(udpOut, (void *)&RfIn, 0);
-                // printf("Bridged LoRa -> UDP for IDr: %lX\r\n", (unsigned long)RfIn.IDr);
             }
             return; // Done with bridging
         }
 
         // --- LOCAL HANDLING (For this buoy or ALL) ---
-        if (RfIn.IDr == RfOut->mac || RfIn.IDr == BUOYIDALL)
+        if (is_for_me)
         {
             switch (RfIn.cmd)
             {
