@@ -106,15 +106,13 @@ void rudderPid(RoboStruct *rud)
 
     // Wave Filtering (Low-pass) on heading error
     static double filtered_heading_error = 0;
-    // Increased alpha to 0.40 for faster response (less filtering)
-    filtered_heading_error = 0.60 * filtered_heading_error + 0.40 * heading_error;
+    // Set alpha to 0.80 to drastically reduce phase lag (Mitigates overshoot)
+    filtered_heading_error = 0.20 * filtered_heading_error + 0.80 * heading_error;
 
-    // Dynamic Anti-Windup: Disable I-term accumulation if heading is far off (>15 degrees)
-    if (abs(filtered_heading_error) > 15.0) {
-        rudderPID.SetTunings(rud->Kpr, 0, rud->Kdr, P_ON_E);
-    } else {
-        rudderPID.SetTunings(rud->Kpr, rud->Kir, rud->Kdr, P_ON_E);
-    }
+    // Simple Anti-Windup: Disable I-term if heading is far off (>15 degrees)
+    // No full reset to ensure smooth transitions
+    double current_ki = (abs(filtered_heading_error) > 15.0) ? 0 : rud->Kir;
+    rudderPID.SetTunings(rud->Kpr, current_ki, rud->Kdr, P_ON_E);
 
     rudderInput = filtered_heading_error;
     rudderSetpoint = 0;

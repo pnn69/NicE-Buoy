@@ -112,6 +112,12 @@ void setup()
     mainData.IDs = mainData.mac;
     mainData.status = IDLE;
     memDockPos(&mainData, GET);
+    if (mainData.tgLat == 0.0) {
+        printf("Dock position was empty. Setting default: 52.29296796, 4.93254612\r\n");
+        mainData.tgLat = 52.29296796;
+        mainData.tgLng = 4.93254612;
+        memDockPos(&mainData, SET);
+    }
     thrusterInversion(&mainData, GET);
     pidRudderParameters(&mainData, GET);
     pidSpeedParameters(&mainData, GET);
@@ -384,7 +390,13 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         memDockPos(stat, GET);
         stat->status = DOCKED;
         printf("Retreved data for docking tgLat:%.8f tgLng:%.8f\r\n", stat->tgLat, stat->tgLng);
-        RouteToPoint(stat->lat, stat->lng, stat->tgLat, stat->tgLng, &stat->tgDist, &stat->tgDir);
+        if (stat->lat != 0.0 && stat->lng != 0.0 && stat->tgLat != 0.0 && stat->tgLng != 0.0) {
+            RouteToPoint(stat->lat, stat->lng, stat->tgLat, stat->tgLng, &stat->tgDist, &stat->tgDir);
+        } else {
+            stat->tgDist = 0;
+            stat->tgDir = 0;
+            if (stat->tgLat == 0.0) printf("WARNING: Dock position not set in memory!\r\n");
+        }
         stat->cmd = RESET_SPEED_RUD_PID;
         xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
         xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
@@ -727,7 +739,12 @@ void handleTimerRoutines(RoboStruct *timer)
         if (timer->status == LOCKED || timer->status == DOCKED)
         {
             timer->lastSerOut = millis() + 250;
-            RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
+            if (timer->lat != 0.0 && timer->lng != 0.0 && timer->tgLat != 0.0 && timer->tgLng != 0.0) {
+                RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
+            } else {
+                timer->tgDist = 0;
+                timer->tgDir = 0;
+            }
             if (timer->tgDist > 10000)
             {
                 distErrorCnt++;

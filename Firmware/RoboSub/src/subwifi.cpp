@@ -24,6 +24,7 @@
 #include "compass.h"
 #include "datastorage.h"
 #include "pidrudspeed.h"
+#include "subwifi.h"
 
 // Global instances
 WebServer subServer(80);
@@ -40,6 +41,7 @@ extern uint8_t bno_cal_sys, bno_cal_gyro, bno_cal_accel, bno_cal_mag;
 extern String global_cal_msg;
 extern String global_cal_load, global_cal_ver;
 extern uint32_t global_loop_cnt;
+uint32_t global_params_rev = 0;
 
 
 static RoboStruct subWifiOut;
@@ -49,17 +51,50 @@ QueueHandle_t udpIn = NULL;
 String global_mac_str = "";
 
 /**
+ * @brief Retrieves local MAC address segment for unique device identification.
+ */
+unsigned long espMac(void) {
+    byte m[6]; WiFi.macAddress(m);
+    unsigned long r=0; for(int i=2;i<6;i++) r=(r<<8)|m[i];
+    return r;
+}
+
+/**
+ * @brief Initializes WiFi telemetry structures and Queues.
+ */
+void initwifi(void) {
+    byte m[6]; WiFi.macAddress(m);
+    char ms[25]; sprintf(ms, "%02X%02X%02X%02X%02X%02X", m[0], m[1], m[2], m[3], m[4], m[5]);
+    global_mac_str = String(ms);
+    udpOut = xQueueCreate(10, sizeof(RoboStruct));
+    udpIn = xQueueCreate(10, sizeof(RoboStruct));
+}
+
+/**
  * @brief Core 0 Task: Manages WiFi, WebServer, and UDP communications.
  */
 void WiFiTask(void *arg) {
+    Serial.println("WiFiTask: Starting...");
+    
     if(!LittleFS.begin(true)){
-        Serial.println("LittleFS Mount Failed");
+        Serial.println("WiFiTask: LittleFS Mount Failed");
+    } else {
+        Serial.println("WiFiTask: LittleFS Mounted");
     }
 
     WiFiManager wm; 
+    Serial.println("WiFiTask: Connecting WiFi...");
+    if (!wm.autoConnect("NicE-Buoy-Sub")) {
+        Serial.println("WiFiTask: Failed to connect and hit timeout");
+        delay(3000);
+        ESP.restart();
+    }
+    Serial.print("WiFiTask: Connected. IP: ");
+    Serial.println(WiFi.localIP());
     
     // Broadcast/Listen for other buoys on port 1001
     if (udp.listen(1001)) {
+        Serial.println("WiFiTask: UDP Listening on 1001");
         udp.onPacket([](AsyncUDPPacket p) {
             RoboStruct d; 
             String s=String((const char*)p.data(),p.length()); 
@@ -95,7 +130,13 @@ void WiFiTask(void *arg) {
             else if(p=="kds"){mainData.Kds=v;pidSpeedParameters(&mainData,SET);initSpeedPid(&mainData);}
             else if(p=="coff"){mainData.compassOffset=v;CompasOffset(&mainData,SET);}
             else if(p=="pvspd"){mainData.pivotSpeed=v;speedMaxMin(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
-            else if(p=="holdrad"){mainData.minOfsetDist=v;computeParameters(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
+            else if(p=="holdrad"){
+                if(v < 1.5f) v = 1.5f; // Safety: Must be > Pivot range (1.0m) + 0.5m buffer
+                mainData.minOfsetDist=v;
+                computeParameters(&mainData,SET);
+                initSpeedPid(&mainData);
+                initRudPid(&mainData);
+            }
             else if(p=="minspd"){mainData.minSpeed=(int)v;speedMaxMin(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
             else if(p=="maxspd"){mainData.maxSpeed=(int)v;speedMaxMin(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
             else if(p=="revbb"){mainData.revBB=(v>0.5);thrusterInversion(&mainData,SET);}
@@ -142,12 +183,14 @@ void WiFiTask(void *arg) {
         j+="\"cal_ver\":\""+global_cal_ver+"\",";
         j+="\"mac\":\""+global_mac_str+"\",";
         j+="\"cal_levels\":["+String(bno_cal_sys)+","+String(bno_cal_gyro)+","+String(bno_cal_accel)+","+String(bno_cal_mag)+"],";
-        j+="\"cal_msg\":\""+global_cal_msg+"\"";
+        j+="\"cal_msg\":\""+global_cal_msg+"\",";
+        j+="\"rev\":"+String(global_params_rev);
         j+="}";
         subServer.send(200,"application/json",j);
     });
 
     subServer.begin(); 
+    Serial.println("WiFiTask: WebServer started");
     
     // OTA Listener Setup
     ArduinoOTA.setHostname("RoboBuoySub");
@@ -165,6 +208,7 @@ void WiFiTask(void *arg) {
         else if (error == OTA_END_ERROR) Serial.println("End Failed");
     });
     ArduinoOTA.begin();
+    Serial.println("WiFiTask: OTA started");
 
     // Main Server Loop
     while(1){ 

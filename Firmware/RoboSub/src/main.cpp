@@ -36,6 +36,7 @@ static LedData mainLedStatus;
 static PwrData mainPwrData;
 static Buzz mainBuzzerData;
 static int wifiConfig = 0;
+extern uint32_t global_params_rev;
 
 // timer variables
 unsigned long nextSamp = millis();
@@ -129,7 +130,7 @@ void setup()
         }
     }
     // CORE 0: Network and Telemetry
-    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8192, &wifiConfig, 1, NULL, 0);
+    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 16384, &wifiConfig, 1, NULL, 0);
     
     // CORE 1: Real-time Control and Sensors
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 2048, NULL, 1, NULL, 1);
@@ -299,7 +300,7 @@ void handelSerandRfdata(RoboStruct *ser)
     
     
     
-    if (dataIn.IDr != -1 || true)
+    if (dataIn.IDr != -1)
     {
         switch (dataIn.cmd)
         {
@@ -382,6 +383,7 @@ void handelSerandRfdata(RoboStruct *ser)
             }
             break;
         case PIDRUDDERSET:
+            global_params_rev++;
             printf("New rudder PID settings pr:%0.2f ir:%0.2f dr:%0.2f\r\n", dataIn.Kpr, dataIn.Kir, dataIn.Kdr);
             pidRudderParameters(&dataIn, SET);
             pidRudderParameters(ser, GET);
@@ -403,6 +405,7 @@ void handelSerandRfdata(RoboStruct *ser)
             }
             break;
         case PIDSPEEDSET:
+            global_params_rev++;
             printf("New speed PID settings ps:%0.2f is:%0.2f ds:%0.2f\r\n", dataIn.Kps, dataIn.Kis, dataIn.Kds);
             pidSpeedParameters(&dataIn, SET);
             pidSpeedParameters(ser, GET);
@@ -475,6 +478,7 @@ void handelSerandRfdata(RoboStruct *ser)
                 }
                 break;
             case MAXMINPWRSET:
+            global_params_rev++;
             printf("New Speed settings Max:%d Min:%d Pivot:%0.2f\r\n", dataIn.maxSpeed, dataIn.minSpeed, dataIn.pivotSpeed);
             speedMaxMin(&dataIn, SET);
             speedMaxMin(ser, GET);
@@ -489,6 +493,7 @@ void handelSerandRfdata(RoboStruct *ser)
             xQueueSend(serOut, (void *)ser, 10);
             break;
         case SETUPDATA:
+            global_params_rev++;
             if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
             {
                 ser->IDr = dataIn.IDs;
