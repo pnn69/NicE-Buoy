@@ -231,27 +231,36 @@ class RoboMonitor:
         self.logs_container = ttk.Frame(self.master)
         self.logs_container.pack(expand=True, fill="both", padx=15, pady=5)
         self.log_windows = {}
-        log_configs = [("UDP IN", 0, 0, "lime"), ("UDP OUT", 0, 1, "cyan"), ("LORA IN", 1, 0, "yellow"), ("LORA OUT", 1, 1, "orange")]
+        log_configs = [("UDP", 0, 0, "lime"), ("LORA", 0, 1, "yellow")]
         for name, row, col, color in log_configs:
             f = ttk.LabelFrame(self.logs_container, text=name)
             f.grid(row=row, column=col, sticky="nsew", padx=2, pady=2)
             self.logs_container.grid_columnconfigure(col, weight=1)
             self.logs_container.grid_rowconfigure(row, weight=1)
-            txt = tk.Text(f, height=5, bg="black", fg=color, font=("Consolas", 8))
+            txt = tk.Text(f, height=8, bg="black", fg=color, font=("Consolas", 8))
             sb = ttk.Scrollbar(f, command=txt.yview)
             txt.configure(yscrollcommand=sb.set)
             txt.pack(side="left", expand=True, fill="both")
             sb.pack(side="right", fill="y")
             self.log_windows[name] = txt
 
-    def log_message(self, message, source="UDP IN"):
+    def log_message(self, message, source="UDP"):
         def _log():
             ts = datetime.now().strftime("%H:%M:%S")
-            entry = f"[{ts}] {message}\n"
-            target = self.log_windows.get(source, self.log_windows["UDP IN"])
-            target.insert("end", entry)
-            target.see("end")
-            if float(target.index("end-1c")) > 100: target.delete("1.0", "2.0")
+            # Prefix with TX/RX if applicable
+            prefix = ""
+            if "IN" in source: prefix = "RX "
+            elif "OUT" in source: prefix = "TX "
+            
+            entry = f"[{ts}] {prefix}{message}\n"
+            
+            # Map source to consolidated window
+            target_key = "LORA" if "LORA" in source.upper() else "UDP"
+            target = self.log_windows.get(target_key)
+            if target:
+                target.insert("end", entry)
+                target.see("end")
+                if float(target.index("end-1c")) > 200: target.delete("1.0", "2.0")
         self.master.after(0, _log)
 
     def refresh_ports(self):
