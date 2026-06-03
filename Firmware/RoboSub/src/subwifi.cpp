@@ -100,7 +100,7 @@ void WiFiTask(void *arg) {
             String s=String((const char*)p.data(),p.length()); 
             rfDeCode(s,&d);
             if(d.IDs!=-1 && d.IDs!=espMac()){
-                //xQueueSend(udpIn,(void*)&d,10);
+                xQueueSend(udpIn,(void*)&d,10);
             }
         });
     }

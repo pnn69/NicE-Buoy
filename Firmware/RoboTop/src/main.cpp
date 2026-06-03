@@ -838,19 +838,35 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
 
     if (xQueueReceive(loraIn, (void *)&RfIn, 1) == pdTRUE) // new lora data
     {
-        printf("handelRfData: Received from LoRa\r\n");
+        // printf("handelRfData: Received from LoRa\r\n");
     }
     else if (xQueueReceive(udpIn, (void *)&RfIn, 1) == pdTRUE) // new udp data
     {
         from_udp = true;
-        printf("handelRfData: Received from UDP\r\n");
+        // printf("handelRfData: Received from UDP\r\n");
+    }
+
+void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
+{
+    RoboStruct RfIn;
+    RfIn.IDr = -1;
+    bool from_udp = false;
+
+    if (xQueueReceive(loraIn, (void *)&RfIn, 1) == pdTRUE) // new lora data
+    {
+        // printf("handelRfData: Received from LoRa\r\n");
+    }
+    else if (xQueueReceive(udpIn, (void *)&RfIn, 1) == pdTRUE) // new udp data
+    {
+        from_udp = true;
     }
 
     if (RfIn.IDr != -1)
     {
+        // Fix corruption by using correct format specifiers
         if(from_udp) {
-            printf("handelRfData: Processing UDP message. IDr: %llX, IDs: %llX, cmd: %d, ack: %d, compassOffset: %f\r\n",
-                   RfIn.IDr, RfIn.IDs, RfIn.cmd, RfIn.ack, RfIn.compassOffset);
+            printf("handelRfData: Processing UDP message. IDr: %lX, IDs: %lX, cmd: %d, ack: %d\r\n",
+                   (unsigned long)RfIn.IDr, (unsigned long)RfIn.IDs, (int)RfIn.cmd, (int)RfIn.ack);
         }
         
         // Deduplication Filter for Mode Commands
@@ -858,13 +874,10 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
         static int lastInStatus = -1;
         static unsigned long lastInTime = 0;
 
-        // Only filter mode-changing commands (DOCKING, LOCKING, IDLE, etc.)
-        // Do NOT filter critical, single-shot action commands like SETUPDATA (83)
         if (RfIn.cmd != REMOTE && RfIn.cmd != TGDIRSPEED && RfIn.cmd != DIRDIST && RfIn.cmd != LOCKING && RfIn.cmd != DOCKING && RfIn.cmd != IDELING && RfIn.cmd != SETUPDATA)
         {
             if (RfIn.cmd == lastInCmd && RfIn.status == lastInStatus && (millis() - lastInTime < 2000))
             {
-                // Duplicate command received within 2 seconds, ignore it
                 return;
             }
             lastInCmd = RfIn.cmd;
@@ -872,15 +885,25 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             lastInTime = millis();
         }
 
-        RfOut->IDs = RfOut->mac;
-        RfOut->IDr = RfIn.IDs;
-        RfOut->ack = LORAINF;
-        RfOut->cmd = RfIn.cmd;
-        if (RfIn.IDr == RfOut->mac || RfIn.IDr == BUOYIDALL) // yes for me
+        // --- BRIDGING LOGIC ---
+        // If the message is NOT for us and NOT for all, bridge it to the other interface
+        if (RfIn.IDr != RfOut->mac && RfIn.IDr != BUOYIDALL && RfIn.IDr != 0)
+        {
+            if (from_udp) {
+                xQueueSend(loraOut, (void *)&RfIn, 0);
+                // printf("Bridged UDP -> LoRa for IDr: %lX\r\n", (unsigned long)RfIn.IDr);
+            } else {
+                xQueueSend(udpOut, (void *)&RfIn, 0);
+                // printf("Bridged LoRa -> UDP for IDr: %lX\r\n", (unsigned long)RfIn.IDr);
+            }
+            return; // Done with bridging
+        }
+
+        // --- LOCAL HANDLING (For this buoy or ALL) ---
+        if (RfIn.IDr == RfOut->mac || RfIn.IDr == BUOYIDALL)
         {
             switch (RfIn.cmd)
             {
-            
             case SUBDATA:
                 RfOut->dirMag = RfIn.dirMag;
                 RfOut->speedBb = RfIn.speedBb;
@@ -914,8 +937,9 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 else
                 {
-                    xQueueSend(udpOut, (void *)&RfIn, 0); // For status updates from other buoys
-                    xQueueSend(loraOut, (void *)&RfIn, 0); // For status updates from other buoys
+                    // Forward across interfaces
+                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             case PIDRUDDER:
@@ -926,9 +950,9 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 else
                 {
-                    // For status updates from other buoys, only forward to UDP for local display
-                    xQueueSend(udpOut, (void *)&RfIn, 0);
-                    xQueueSend(loraOut, (void *)&RfIn, 0); // For status updates from other buoys
+                    // Forward across interfaces
+                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             case PIDRUDDERSET:
@@ -946,9 +970,9 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 else
                 {
-                    // For status updates from other buoys, only forward to UDP for local display
-                    xQueueSend(udpOut, (void *)&RfIn, 0);
-                    xQueueSend(loraOut, (void *)&RfIn, 0); // For status updates from other buoys
+                    // Forward across interfaces
+                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             case SETUPDATA:
@@ -958,10 +982,22 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                         thrusterInversion(&RfIn, SET); // Persist if it's a SET command
                         RfOut->revBB = RfIn.revBB;
                         RfOut->revSB = RfIn.revSB;
-                          RfOut->swap_BB_SB = RfIn.swap_BB_SB;
+                        RfOut->swap_BB_SB = RfIn.swap_BB_SB;
+                    } else if (RfIn.ack == LORAGET || RfIn.ack == LORAGETACK) {
+                        // Respond IMMEDIATELY with cached data if we have it
+                        if (RfOut->Kpr != 0.0) {
+                            RoboStruct resp = *RfOut;
+                            resp.IDr = RfIn.IDs;
+                            resp.IDs = RfOut->mac;
+                            resp.cmd = SETUPDATA;
+                            resp.ack = LORAINF;
+                            if (from_udp) xQueueSend(udpOut, (void *)&resp, 0);
+                            else xQueueSend(loraOut, (void *)&resp, 0);
+                            printf("Responded to SETUPDATA request from cache\r\n");
+                        }
                     }
                     RfIn.IDr = BUOYIDALL;
-                    xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                    xQueueSend(serOut, (void *)&RfIn, 0); // Always forward to sub to trigger a fresh update
                 }
                 else
                 {
@@ -972,9 +1008,9 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                             break;
                         }
                     }
-                    // For status updates from other buoys, only forward to UDP for local display
-                    xQueueSend(udpOut, (void *)&RfIn, 0);
-                    xQueueSend(loraOut, (void *)&RfIn, 0); // For status updates from other buoys
+                    // Forward across interfaces
+                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             case PIDSPEEDSET:
@@ -1233,14 +1269,16 @@ void handelSerialData(RoboStruct *ser)
                 // IMPORTANT: Send the actual protocol string to the PC via Serial so RoboControl.py sees it!
                 Serial.println(rfCode(&serDataIn));
 
+                // FORWARD to LoRa/UDP BEFORE transforming into ACK
+                xQueueSend(udpOut, (void *)&serDataIn, 0);
+                xQueueSend(loraOut, (void *)&serDataIn, 0);
+
                 // Send an explicit ACK back to the Sub to clear its retransmission queue
                 serDataIn.ack = LORAACK;
                 serDataIn.IDr = serDataIn.IDs; // Send back to the sender
                 serDataIn.IDs = espMac();
                 xQueueSend(serOut, (void *)&serDataIn, 0);
 
-                xQueueSend(udpOut, (void *)&serDataIn, 0);
-                xQueueSend(loraOut, (void *)&serDataIn, 0);
                 printf("DEBUG: Received Kpr=%f, Kir=%f, Kdr=%f, Kps=%f, Kis=%f, Kds=%f\r\n", serDataIn.Kpr, serDataIn.Kir, serDataIn.Kdr, serDataIn.Kps, serDataIn.Kis, serDataIn.Kds);
                 printf("Setup data PID and Compass received from Sub and updated locally\r\n");
             }
@@ -1315,12 +1353,13 @@ void handelSerialData(RoboStruct *ser)
                 // IMPORTANT: Send the actual protocol string to the PC via Serial so RoboControl.py sees it!
                 Serial.println(rfCode(&serDataIn));
 
+                // FORWARD info to LoRa/UDP BEFORE transforming into ACK
+                xQueueSend(udpOut, (void *)&serDataIn, 0);
+                xQueueSend(loraOut, (void *)&serDataIn, 0);
+
                 // Acknowledge the Sub to stop its retry loop
                 serDataIn.ack = LORAGETACK;
                 xQueueSend(serOut, (void *)&serDataIn, 0);
-
-                xQueueSend(udpOut, (void *)&serDataIn, 0);
-                xQueueSend(loraOut, (void *)&serDataIn, 0);
             }
             break;
 

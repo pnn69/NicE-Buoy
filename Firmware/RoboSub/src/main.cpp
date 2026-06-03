@@ -101,6 +101,8 @@ void setup()
     printf("Setup running!");
     printf("Robobuoy Sub Version: %0.1f Sub Build: %s %s", SUBVERSION, __DATE__, __TIME__);
     mainData.mac = espMac();
+    mainData.IDs = mainData.mac;
+    mainData.IDr = BUOYIDALL;
     printf("Robobuoy ID: %08x", mainData.mac);
     initwifi(); // buoyID is mac adress esp32
     initMemory();
@@ -304,6 +306,26 @@ void handelSerandRfdata(RoboStruct *ser)
     
     if (dataIn.IDr != -1)
     {
+        // For SETUPDATA, we respond even if the ID doesn't match ours (e.g. addressed to Top or Broadcast)
+        if (dataIn.cmd == SETUPDATA) {
+            global_params_rev++;
+            if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK) {
+                ser->IDs = mainData.mac;
+                ser->IDr = dataIn.IDs;
+                ser->cmd = SETUPDATA;
+                ser->ack = LORAGET; // 1 = Full Data
+                pidRudderParameters(ser, GET);
+                pidSpeedParameters(ser, GET);
+                speedMaxMin(ser, GET);
+                CompasOffset(ser, GET);
+                thrusterSwap(ser, GET);
+                thrusterInversion(ser, GET);
+                xQueueSend(serOut, (void *)ser, 10);
+                printf("Sent SETUPDATA (Full) back to %X\r\n", ser->IDr);
+                dataIn.cmd = -1; // Done
+            }
+        }
+
         switch (dataIn.cmd)
         {
         case IDLE:
@@ -498,9 +520,10 @@ void handelSerandRfdata(RoboStruct *ser)
             global_params_rev++;
             if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
             {
+                ser->IDs = mainData.mac;
                 ser->IDr = dataIn.IDs;
                 ser->cmd = SETUPDATA;
-                ser->ack = LORAINF;
+                ser->ack = LORAGET;
                 // Fetch all data before sending
                 pidRudderParameters(ser, GET);
                 pidSpeedParameters(ser, GET);
@@ -509,7 +532,7 @@ void handelSerandRfdata(RoboStruct *ser)
                 thrusterSwap(ser, GET);
                 thrusterInversion(ser, GET); // Ensure latest inversion flags are sent
                 xQueueSend(serOut, (void *)ser, 10);
-                printf("Sent SETUPDATA back\r\n");
+                printf("Sent SETUPDATA back to %X\r\n", ser->IDr);
             }
             else if (dataIn.ack == LORASET)
             {
@@ -708,16 +731,19 @@ void handleTimerRoutines(RoboStruct *in)
     if (nextSamp < millis())
     {
         nextSamp = 250 + millis();
-        in->cmd = SUBDATA; xQueueSend(serOut, (void *)in, 10);
+        mainData.cmd = SUBDATA;
+        mainData.ack = 6; // Full Status packet
+        xQueueSend(serOut, (void *)&mainData, 0);
+        if (udpOut) xQueueSend(udpOut, (void *)&mainData, 0);
     }
 
     if (logtimer < millis())
     {
         logtimer = millis() + 1000;
-        battVoltage(in->subAccuV, in->subAccuP);
-        battCurrent(in->subAccuI);
-        printf("V31 TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", in->tgDist - 2, in->tgSpeed, in->dirMag, in->tgDir, smallestAngle(in->tgDir, in->dirMag), rudderOutput, in->speedBb, in->speedSb);
-        printf("  ip: %05.3f ir: %05.3f\r\n", in->ip, in->ir);
+        battVoltage(mainData.subAccuV, mainData.subAccuP);
+        battCurrent(mainData.subAccuI);
+        printf("V31 TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", mainData.tgDist - 2, mainData.tgSpeed, mainData.dirMag, mainData.tgDir, smallestAngle(mainData.tgDir, mainData.dirMag), rudderOutput, mainData.speedBb, mainData.speedSb);
+        printf("  ip: %05.3f ir: %05.3f rev: %d\r\n", mainData.ip, mainData.ir, global_params_rev);
     }
 }
 

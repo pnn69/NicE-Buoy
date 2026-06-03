@@ -10,9 +10,46 @@ import webbrowser
 from datetime import datetime
 import serial
 import serial.tools.list_ports
-
 import sys
 import os
+
+class MsgType:
+    IDLE = 7
+    IDELING = 8
+    PING = 9
+    PONG = 10
+    ERROR = 11
+    LOCKING = 12
+    LOCKED = 13
+    LOCK_POS = 14
+    DOCKING = 15
+    DOCKED = 16
+    DOC = 17
+    STOREASDOC = 18
+    BUOYPOS = 19
+    SETLOCKPOS = 20
+    LOCKPOS = 21
+    SETDOCKPOS = 22
+    DOCKPOS = 23
+    UNLOCK = 24
+    REMOTE = 25
+    REMOTEING = 26
+    DIRDIST = 47
+    TOPDATA = 51
+    PIDRUDDER = 55
+    PIDRUDDERSET = 56
+    PIDSPEED = 57
+    PIDSPEEDSET = 58
+    MAXMINPWR = 68
+    MAXMINPWRSET = 69
+    STORE_COMPASS_OFFSET = 75
+    INFIELD_CALIBRATE = 77
+    INFIELD_OFFSET_CALIBRATE = 78
+    RESET_RUDDER_PID = 79
+    RESET_SPEED_PID = 80
+    RESET_SPEED_RUD_PID = 81
+    WAKEUP = 82
+    SETUPDATA = 83
 
 class RoboMonitor:
     def __init__(self, master):
@@ -21,27 +58,27 @@ class RoboMonitor:
         master.geometry("1400x950")
         master.resizable(True, False)
 
-        self.udp_ip = "0.0.0.0"  # Listen on all available interfaces
-        self.udp_port = 1001     # Port RobobuoyTop sends UDP messages to
+        self.udp_ip = "0.0.0.0"
+        self.udp_port = 1001
         
-        # Concurrency and Network state
         self.data_lock = threading.Lock()
         self.networking_ok = True
         self.serial_conn = None
         self.serial_thread = None
         self.running = True
+        self.running_serial = False
 
         self.buoy_frames = []
         self.create_widgets()
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.settimeout(1.0) # Set timeout so recvfrom doesn't block forever
+        self.sock.settimeout(1.0)
         try:
             self.sock.bind((self.udp_ip, self.udp_port))
         except Exception as e:
             print(f"Error binding UDP: {e}")
             self.networking_ok = False
-            self.log_message(f"CRITICAL: Failed to bind UDP port {self.udp_port}. Check if another app is using it.")
+            self.log_message(f"CRITICAL: Failed to bind UDP port {self.udp_port}.")
 
         if self.networking_ok:
             self.udp_thread = threading.Thread(target=self.udp_listener)
@@ -57,24 +94,20 @@ class RoboMonitor:
         return crc
 
     def create_widgets(self):
-        # Serial Control Bar at the very top
         self.serial_bar = ttk.Frame(self.master)
         self.serial_bar.pack(fill="x", padx=10, pady=5)
         
         tk.Label(self.serial_bar, text="LoRa Controller Port:", font=("Arial", 9, "bold")).pack(side="left", padx=5)
-        
         self.port_var = tk.StringVar()
         self.port_combo = ttk.Combobox(self.serial_bar, textvariable=self.port_var, width=15)
         self.port_combo.pack(side="left", padx=5)
         
         self.refresh_btn = ttk.Button(self.serial_bar, text="↻", width=3, command=self.refresh_ports)
         self.refresh_btn.pack(side="left", padx=2)
-        
         self.refresh_ports()
         
         self.connect_btn = ttk.Button(self.serial_bar, text="Connect LoRa", command=self.toggle_serial)
         self.connect_btn.pack(side="left", padx=5)
-        
         self.serial_status_label = tk.Label(self.serial_bar, text="Disconnected", fg="red")
         self.serial_status_label.pack(side="left", padx=10)
 
@@ -86,48 +119,38 @@ class RoboMonitor:
             frame.grid(row=0, column=i, sticky="nsew", padx=5, pady=5)
             self.columns_frame.columnconfigure(i, weight=1)
             
-            # IP Label at top right of the frame
             ip_header_label = tk.Label(frame, text="", font=("Arial", 8), fg="gray")
             ip_header_label.place(relx=1.0, x=-5, y=-15, anchor="ne")
             
             network_frame = tk.Frame(frame)
             network_frame.place(relx=1.0, x=-5, y=5, anchor="ne")
-            
             udp_indicator = tk.Label(network_frame, text="UDP: --", font=("Arial", 8, "bold"))
             udp_indicator.pack(anchor="e")
-            
             lora_indicator = tk.Label(network_frame, text="LoRa: --", font=("Arial", 8, "bold"))
             lora_indicator.pack(anchor="e")
-            
             sync_indicator = tk.Label(network_frame, text="Data: --", font=("Arial", 8, "bold"))
             sync_indicator.pack(anchor="e")
             
-            # Windrose and Bars Area
             visual_frame = tk.Frame(frame)
             visual_frame.pack(padx=5, pady=5)
             
-            # Left Bar: BB Power
             bb_frame = tk.Frame(visual_frame)
             bb_frame.pack(side="left", fill="y", padx=(0, 5))
             tk.Label(bb_frame, text="BB", font=("Arial", 8)).pack()
-            bb_bar = tk.Canvas(bb_frame, width=20, height=180, bg="lightgray", highlightthickness=1, highlightbackground="gray")
+            bb_bar = tk.Canvas(bb_frame, width=20, height=180, bg="lightgray", highlightthickness=1)
             bb_bar.pack(expand=True, fill="y")
-            bb_bar.create_line(0, 90, 20, 90, fill="black", width=2) # Center line
+            bb_bar.create_line(0, 90, 20, 90, fill="black", width=2)
             bb_val_label = tk.Label(bb_frame, text="0%", font=("Arial", 8, "bold"), width=5)
             bb_val_label.pack()
             
-            # Center: Windrose + Voltage
             center_frame = tk.Frame(visual_frame)
             center_frame.pack(side="left")
-            
             status_label = tk.Label(center_frame, text="UNKNOWN", font=("Arial", 12, "bold"), fg="darkblue")
             status_label.pack(pady=(0, 5))
             
             windrose_canvas = tk.Canvas(center_frame, width=200, height=200, bg="white")
             windrose_canvas.pack()
             self.draw_windrose_background(windrose_canvas)
-            
-            # Info overlay on canvas (on the border of the windrose field)
             dist_text = windrose_canvas.create_text(2, 2, anchor="nw", text="-", font=("Arial", 12, "bold"), fill="red")
             pid_i_text = windrose_canvas.create_text(198, 2, anchor="ne", text="*", font=("Arial", 12, "bold"), fill="purple")
             tg_dir_text = windrose_canvas.create_text(2, 198, anchor="sw", text="", font=("Arial", 12, "bold"), fill="red")
@@ -140,17 +163,15 @@ class RoboMonitor:
             volt_bar.pack(side="left", expand=True, fill="x", padx=2)
             tk.Label(volt_frame, text="25V", font=("Arial", 7)).pack(side="left")
             
-            # Right Bar: SB Power
             sb_frame = tk.Frame(visual_frame)
             sb_frame.pack(side="left", fill="y", padx=(5, 0))
             tk.Label(sb_frame, text="SB", font=("Arial", 8)).pack()
-            sb_bar = tk.Canvas(sb_frame, width=20, height=180, bg="lightgray", highlightthickness=1, highlightbackground="gray")
+            sb_bar = tk.Canvas(sb_frame, width=20, height=180, bg="lightgray", highlightthickness=1)
             sb_bar.pack(expand=True, fill="y")
-            sb_bar.create_line(0, 90, 20, 90, fill="black", width=2) # Center line
+            sb_bar.create_line(0, 90, 20, 90, fill="black", width=2)
             sb_val_label = tk.Label(sb_frame, text="0%", font=("Arial", 8, "bold"), width=5)
             sb_val_label.pack()
             
-            # Legend for the vectors
             legend_frame = ttk.Frame(frame)
             legend_frame.pack(fill="x", padx=5, pady=(0, 5))
             tk.Label(legend_frame, text="■ Target", fg="red", font=("Arial", 8)).pack(side="left", expand=True)
@@ -158,601 +179,85 @@ class RoboMonitor:
             tk.Label(legend_frame, text="■ Wind", fg="blue", font=("Arial", 8)).pack(side="left", expand=True)
             tk.Label(legend_frame, text="■ GPS", fg="black", font=("Arial", 8)).pack(side="left", expand=True)
             
-            # Control Buttons
             btn_frame = ttk.Frame(frame)
             btn_frame.pack(fill="x", padx=5, pady=5)
-            
             lock_btn = ttk.Button(btn_frame, text="LOCK", command=lambda idx=i: self.on_lock_click(idx))
             lock_btn.pack(side="left", expand=True, fill="x", padx=1)
-            
             dock_btn = ttk.Button(btn_frame, text="DOCK", command=lambda idx=i: self.on_dock_click(idx))
             dock_btn.pack(side="left", expand=True, fill="x", padx=1)
-            
             setup_btn = ttk.Button(btn_frame, text="SETUP", command=lambda idx=i: self.on_setup_click(idx))
             setup_btn.pack(side="left", expand=True, fill="x", padx=1)
 
-            # DIRDIST Inputs
             dirdist_frame = ttk.Frame(frame)
             dirdist_frame.pack(fill="x", padx=5, pady=2)
-            
             tk.Label(dirdist_frame, text="Dir:", font=("Arial", 8)).pack(side="left")
             dir_entry = ttk.Entry(dirdist_frame, width=8)
             dir_entry.pack(side="left", padx=(0, 5))
-            
             tk.Label(dirdist_frame, text="Dist:", font=("Arial", 8)).pack(side="left")
             dist_entry = ttk.Entry(dirdist_frame, width=8)
             dist_entry.pack(side="left", padx=(0, 5))
-            
             def send_dirdist(buoy_idx=i, de=dir_entry, dste=dist_entry):
                 self.on_dirdist_click(buoy_idx, de.get(), dste.get())
-                
             dirdist_send_btn = ttk.Button(dirdist_frame, text="Send", width=6, command=send_dirdist)
             dirdist_send_btn.pack(side="left", padx=2)
-            
             map_btn = ttk.Button(dirdist_frame, text="Map", width=6, command=lambda idx=i: self.on_map_click(idx))
             map_btn.pack(side="left", padx=2)
 
-            # Parameters below
             params_frame = ttk.Frame(frame)
             params_frame.pack(expand=True, fill="both", padx=5, pady=5)
-            
             labels = self.create_params_widgets(params_frame)
             
             udp_enabled_var = tk.BooleanVar(value=True)
-            udp_toggle = ttk.Checkbutton(frame, text="UDP Enabled", variable=udp_enabled_var)
-            udp_toggle.pack(anchor="w", padx=10, pady=(0, 5))
+            ttk.Checkbutton(frame, text="UDP Enabled", variable=udp_enabled_var).pack(anchor="w", padx=10, pady=(0, 5))
             
-            # Pre-create arrows (hidden initially)
             tg_arrow = windrose_canvas.create_line(100, 100, 100, 100, arrow=tk.LAST, width=4, fill="red", state="hidden")
             mag_arrow = windrose_canvas.create_line(100, 100, 100, 100, arrow=tk.LAST, width=3, fill="green", state="hidden")
             wind_arrow = windrose_canvas.create_line(100, 100, 100, 100, arrow=tk.LAST, width=2, fill="blue", state="hidden")
             gps_arrow = windrose_canvas.create_line(100, 100, 100, 100, arrow=tk.LAST, width=3, fill="black", state="hidden")
 
             self.buoy_frames.append({
-                'frame': frame,
-                'windrose_canvas': windrose_canvas,
-                'bb_bar': bb_bar,
-                'sb_bar': sb_bar,
-                'bb_val_label': bb_val_label,
-                'sb_val_label': sb_val_label,
-                'volt_bar': volt_bar,
-                'status_label': status_label,
-                'ip_header_label': ip_header_label,
-                'udp_indicator': udp_indicator,
-                'lora_indicator': lora_indicator,
-                'sync_indicator': sync_indicator,
-                'last_udp_time': 0,
-                'last_lora_time': 0,
-                'last_udp_content': "",
-                'last_lora_content': "",
-                'lock_btn': lock_btn,
-                'dock_btn': dock_btn,
-                'dirdist_send_btn': dirdist_send_btn,
-                'map_btn': map_btn,
-                'udp_enabled_var': udp_enabled_var,
-                'dist_text': dist_text,
-                'pid_i_text': pid_i_text,
-                'tg_dir_text': tg_dir_text,
-                'mag_dir_text': mag_dir_text,
-                'wind_arrow': wind_arrow,
-                'tg_arrow': tg_arrow,
-                'mag_arrow': mag_arrow,
-                'gps_arrow': gps_arrow,
-                'gps_dir_first_seen': None,
-                'params_frame': params_frame,
-                'labels': labels,
-                'id': None,
-                'setup_entries': None,
-                'data': {}.fromkeys(["Latitude (Lat)", "Longitude (Lon)", "Bow Thruster (BB)", "Stern Thruster (SB)"] + list(labels.keys()), "N/A")
+                'frame': frame, 'windrose_canvas': windrose_canvas, 'bb_bar': bb_bar, 'sb_bar': sb_bar,
+                'bb_val_label': bb_val_label, 'sb_val_label': sb_val_label, 'volt_bar': volt_bar,
+                'status_label': status_label, 'ip_header_label': ip_header_label,
+                'udp_indicator': udp_indicator, 'lora_indicator': lora_indicator, 'sync_indicator': sync_indicator,
+                'last_udp_time': 0, 'last_lora_time': 0, 'last_udp_content': "", 'last_lora_content': "",
+                'lock_btn': lock_btn, 'dock_btn': dock_btn, 'dirdist_send_btn': dirdist_send_btn, 'map_btn': map_btn,
+                'udp_enabled_var': udp_enabled_var, 'dist_text': dist_text, 'pid_i_text': pid_i_text,
+                'tg_dir_text': tg_dir_text, 'mag_dir_text': mag_dir_text, 'wind_arrow': wind_arrow,
+                'tg_arrow': tg_arrow, 'mag_arrow': mag_arrow, 'gps_arrow': gps_arrow,
+                'params_frame': params_frame, 'labels': labels, 'id': None, 'data': {}
             })
 
-        # Raw Data Logs at the bottom
         self.logs_container = ttk.Frame(self.master)
         self.logs_container.pack(expand=True, fill="both", padx=15, pady=5)
-        
         self.log_windows = {}
-        log_configs = [
-            ("UDP IN", 0, 0, "lime"),
-            ("UDP OUT", 0, 1, "cyan"),
-            ("LORA IN", 1, 0, "yellow"),
-            ("LORA OUT", 1, 1, "orange")
-        ]
-        
+        log_configs = [("UDP IN", 0, 0, "lime"), ("UDP OUT", 0, 1, "cyan"), ("LORA IN", 1, 0, "yellow"), ("LORA OUT", 1, 1, "orange")]
         for name, row, col, color in log_configs:
-            frame = ttk.LabelFrame(self.logs_container, text=name)
-            frame.grid(row=row, column=col, sticky="nsew", padx=2, pady=2)
+            f = ttk.LabelFrame(self.logs_container, text=name)
+            f.grid(row=row, column=col, sticky="nsew", padx=2, pady=2)
             self.logs_container.grid_columnconfigure(col, weight=1)
             self.logs_container.grid_rowconfigure(row, weight=1)
-            
-            text_widget = tk.Text(frame, height=5, bg="black", fg=color, font=("Consolas", 8))
-            scrollbar = ttk.Scrollbar(frame, command=text_widget.yview)
-            text_widget.configure(yscrollcommand=scrollbar.set)
-            
-            text_widget.pack(side="left", expand=True, fill="both")
-            scrollbar.pack(side="right", fill="y")
-            self.log_windows[name] = text_widget
+            txt = tk.Text(f, height=5, bg="black", fg=color, font=("Consolas", 8))
+            sb = ttk.Scrollbar(f, command=txt.yview)
+            txt.configure(yscrollcommand=sb.set)
+            txt.pack(side="left", expand=True, fill="both")
+            sb.pack(side="right", fill="y")
+            self.log_windows[name] = txt
 
-    def on_map_click(self, idx):
-        b = self.buoy_frames[idx]
-        with self.data_lock:
-            if not b['id']: return
-            lat = b['data'].get("Latitude (Lat)")
-            lon = b['data'].get("Longitude (Lon)")
-        
-        if lat and lon and lat not in ["N/A", "nan", ""] and lon not in ["N/A", "nan", ""]:
-            try:
-                # Basic validation
-                float(lat)
-                float(lon)
-                url = f"https://www.openstreetmap.org/?mlat={lat}&mlon={lon}#map=18/{lat}/{lon}"
-                webbrowser.open(url)
-            except ValueError:
-                pass
-
-    def on_lock_click(self, idx):
-        b = self.buoy_frames[idx]
-        with self.data_lock:
-            if not b['id']: return
-            current_status = str(b['data'].get("Status", "0")).strip()
-        
-        # Action-oriented: if currently locked (12, 13, 14), send IDELING (8), otherwise send LOCKING (12)
-        cmd = 8 if current_status in ["12", "13", "14"] else 12
-        self.send_udp_command(b['id'], cmd)
-
-    def on_dock_click(self, idx):
-        b = self.buoy_frames[idx]
-        with self.data_lock:
-            if not b['id']: return
-            current_status = str(b['data'].get("Status", "0")).strip()
-        
-        # Action-oriented: if currently docking (15, 16, 17), send IDELING (8), otherwise send DOCKING (15)
-        cmd = 8 if current_status in ["15", "16", "17"] else 15
-        self.send_udp_command(b['id'], cmd)
-
-    def on_dirdist_click(self, idx, dir_val, dist_val):
-        b = self.buoy_frames[idx]
-        with self.data_lock:
-            if not b['id']: return
-        try:
-            d = float(dir_val)
-            dist = float(dist_val)
-            # CMD=47 (DIRDIST), STATUS=7 (IDLE)
-            val_str = f"{format(d, '.2f')},{format(dist, '.2f')}"
-            base_msg = f"{b['id']},99,6,47,7,{val_str}"
-            self.send_custom_udp_command(b['id'], base_msg)
-        except ValueError:
-            pass
-
-    def on_setup_click(self, idx):
-        b = self.buoy_frames[idx]
-        with self.data_lock:
-            if not b['id']: return
-            
-            # Clear existing setup data to ensure we fetch fresh values
-            for key in ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "pivotSpeed", "compassOffset", "minOfsetDist", "revBB", "revSB", "swap_BB_SB"]:
-                b['data'].pop(key, None)
-            
-        loading_win = tk.Toplevel(self.master)
-        loading_win.title("Loading Setup...")
-        loading_win.geometry("300x200")
-        loading_win.resizable(False, False)
-        
-        ttk.Label(loading_win, text=f"Getting Setup info for Buoy {b['id']}", font=("Arial", 10, "bold")).pack(pady=(15, 10))
-        
-        status_frame = ttk.Frame(loading_win)
-        status_frame.pack(fill="x", padx=20)
-        
-        ttk.Label(status_frame, text="Rudder PID:").grid(row=0, column=0, sticky="w", pady=2)
-        rudder_status_lbl = tk.Label(status_frame, text="Waiting...", fg="red", font=("Arial", 9))
-        rudder_status_lbl.grid(row=0, column=1, sticky="w", padx=10, pady=2)
-        
-        ttk.Label(status_frame, text="Speed PID:").grid(row=1, column=0, sticky="w", pady=2)
-        speed_status_lbl = tk.Label(status_frame, text="Waiting...", fg="red", font=("Arial", 9))
-        speed_status_lbl.grid(row=1, column=1, sticky="w", padx=10, pady=2)
-        
-        ttk.Label(status_frame, text="Speed Limits:").grid(row=2, column=0, sticky="w", pady=2)
-        limits_status_lbl = tk.Label(status_frame, text="Waiting...", fg="red", font=("Arial", 9))
-        limits_status_lbl.grid(row=2, column=1, sticky="w", padx=10, pady=2)
-
-        info_lbl = ttk.Label(loading_win, text="Please wait...", font=("Arial", 8, "italic"))
-        info_lbl.pack(pady=(15, 0))
-        
-        current_t = time.time()
-        udp_active = b['last_udp_time'] > 0 and (current_t - b['last_udp_time'] < 5)
-        
-        def check_data_and_open(retries=0):
-            if not loading_win.winfo_exists():
-                return # User closed the loading window
-            
-            has_rudder = all(k in b['data'] for k in ["Kpr", "Kir", "Kdr"])
-            has_speed = all(k in b['data'] for k in ["Kps", "Kis", "Kds"])
-            has_maxmin = all(k in b['data'] for k in ["maxSpeed", "minSpeed", "pivotSpeed"])
-            has_compass = "compassOffset" in b['data']
-
-            # Anti-Echo Logic: ensure data is not just an empty/zero ACK from Top buoy
-            is_valid_data = b['data'].get("ACK") in ["3", "6"] or (has_maxmin and b['data'].get("maxSpeed", "0") != "0")
-
-            if has_rudder and has_speed and has_maxmin and has_compass and is_valid_data:
-                loading_win.destroy()
-                self.open_setup_window(b)
-
-            else:
-                if retries >= 75: # 15 seconds total max (75 * 200ms)
-                    self.log_message(f"Timeout: Could not retrieve setup data for Buoy {b['id']}")
-                    self.log_message(f"DEBUG TIMEOUT: has_rud={has_rudder}, has_speed={has_speed}, has_max={has_maxmin}, has_comp={has_compass}, valid={is_valid_data}")
-                    self.log_message(f"DEBUG DATA: {b['data']}")
-                    info_lbl.config(text="Timeout occurred.", foreground="red")
-                    loading_win.after(2000, loading_win.destroy)
-                    return
-
-                # Dynamically check UDP status
-                current_t = time.time()
-                udp_active = b['last_udp_time'] > 0 and (current_t - b['last_udp_time'] < 5) and b['udp_enabled_var'].get()
-
-                # Request ALL data via new SETUPDATA command (CMD 83)
-                if udp_active:
-                    if retries % 5 == 0: # Every 1.0 second for UDP
-                        self.master.after(0, lambda: self.send_custom_udp_command(b['id'], f"{b['id']},99,1,83,,,,,,,", use_udp=True, use_lora=False))
-                else:
-                    if retries % 15 == 0: # Every 3.0 seconds for LoRa
-                        # Use ACK=3 (LORAGETACK) for LoRa to trigger retries on RoboLora side
-                        self.send_custom_udp_command(b['id'], f"{b['id']},99,3,83,,,,,,,", use_udp=False, use_lora=True)
-                
-                self.master.after(200, check_data_and_open, retries + 1)
-
-        check_data_and_open()
-
-    def open_setup_window(self, b):
-        setup_win = tk.Toplevel(self.master)
-        setup_win.title(f"Setup Buoy {b['id']}")
-        setup_win.geometry("350x850")
-        setup_win.resizable(True, True)
-        
-        def on_setup_close():
-            b['setup_entries'] = None
-            setup_win.destroy()
-        setup_win.protocol("WM_DELETE_WINDOW", on_setup_close)
-
-        # Create a canvas and a scrollbar for scrolling
-        canvas = tk.Canvas(setup_win)
-        scrollbar = ttk.Scrollbar(setup_win, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas, padding="20")
-
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(
-                scrollregion=canvas.bbox("all")
-            )
-        )
-
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        # Main container (now inside the scrollable_frame)
-        main_setup_frame = scrollable_frame
-
-        # --- Define all entries first for reliable closure access ---
-        # Rudder entries
-        kpr_entry = ttk.Entry(main_setup_frame, width=15)
-        kir_entry = ttk.Entry(main_setup_frame, width=15)
-        kdr_entry = ttk.Entry(main_setup_frame, width=15)
-        
-        # Speed entries
-        kps_entry = ttk.Entry(main_setup_frame, width=15)
-        kis_entry = ttk.Entry(main_setup_frame, width=15)
-        kds_entry = ttk.Entry(main_setup_frame, width=15)
-        
-        # Limit entries
-        max_speed_entry = ttk.Entry(main_setup_frame, width=15)
-        min_speed_entry = ttk.Entry(main_setup_frame, width=15)
-        pivot_speed_entry = ttk.Entry(main_setup_frame, width=15)
-        
-        # Compass entry
-        compass_offset_entry = ttk.Entry(main_setup_frame, width=15)
-        # ----------------------------------------------------------
-
-        ttk.Label(main_setup_frame, text="Rudder PID", font=("Arial", 11, "bold")).grid(row=0, column=0, columnspan=2, pady=(0, 10))
-        
-        ttk.Label(main_setup_frame, text="P:").grid(row=1, column=0, sticky="e", padx=10, pady=5)
-        kpr_entry.grid(row=1, column=1, sticky="w", pady=5)
-        
-        ttk.Label(main_setup_frame, text="I:").grid(row=2, column=0, sticky="e", padx=10, pady=5)
-        kir_entry.grid(row=2, column=1, sticky="w", pady=5)
-        
-        ttk.Label(main_setup_frame, text="D:").grid(row=3, column=0, sticky="e", padx=10, pady=5)
-        kdr_entry.grid(row=3, column=1, sticky="w", pady=5)
-        
-        def send_rudder_pid():
-            try:
-                kpr = float(kpr_entry.get() or 0)
-                kir = float(kir_entry.get() or 0)
-                kdr = float(kdr_entry.get() or 0)
-                val_str = f"{format(kpr, '.10g')},{format(kir, '.10g')},{format(kdr, '.10g')}"
-                base_msg = f"{b['id']},99,3,56,,{val_str},,,"
-                self.send_custom_udp_command(b['id'], base_msg)
-            except ValueError:
-                pass
-
-        ttk.Button(main_setup_frame, text="Send Rudder PID", command=send_rudder_pid).grid(row=4, column=0, columnspan=2, pady=(10, 20))
-        
-        ttk.Label(main_setup_frame, text="Speed PID", font=("Arial", 11, "bold")).grid(row=5, column=0, columnspan=2, pady=(0, 10))
-        
-        ttk.Label(main_setup_frame, text="P:").grid(row=6, column=0, sticky="e", padx=10, pady=5)
-        kps_entry.grid(row=6, column=1, sticky="w", pady=5)
-        
-        ttk.Label(main_setup_frame, text="I:").grid(row=7, column=0, sticky="e", padx=10, pady=5)
-        kis_entry.grid(row=7, column=1, sticky="w", pady=5)
-        
-        ttk.Label(main_setup_frame, text="D:").grid(row=8, column=0, sticky="e", padx=10, pady=5)
-        kds_entry.grid(row=8, column=1, sticky="w", pady=5)
-        
-        def send_speed_pid():
-            try:
-                kps = float(kps_entry.get() or 0)
-                kis = float(kis_entry.get() or 0)
-                kds = float(kds_entry.get() or 0)
-                val_str = f"{format(kps, '.10g')},{format(kis, '.10g')},{format(kds, '.10g')}"
-                base_msg = f"{b['id']},99,3,58,,{val_str},,,"
-                self.send_custom_udp_command(b['id'], base_msg)
-            except ValueError:
-                pass
-
-        ttk.Button(main_setup_frame, text="Send Speed PID", command=send_speed_pid).grid(row=9, column=0, columnspan=2, pady=(10, 5))
-        
-        ttk.Label(main_setup_frame, text="Speed Limits & Motor Config", font=("Arial", 11, "bold")).grid(row=10, column=0, columnspan=2, pady=(0, 10))
-        
-        ttk.Label(main_setup_frame, text="Max Speed:").grid(row=11, column=0, sticky="e", padx=10, pady=5)
-        max_speed_entry.grid(row=11, column=1, sticky="w", pady=5)
-        
-        ttk.Label(main_setup_frame, text="Min Speed:").grid(row=12, column=0, sticky="e", padx=10, pady=5)
-        min_speed_entry.grid(row=12, column=1, sticky="w", pady=5)
-
-        ttk.Label(main_setup_frame, text="Pivot Speed:").grid(row=13, column=0, sticky="e", padx=10, pady=5)
-        pivot_speed_entry.grid(row=13, column=1, sticky="w", pady=5)
-
-        rev_bb_var = tk.BooleanVar()
-        rev_bb_check = ttk.Checkbutton(main_setup_frame, text="Reverse Bow Thruster (BB)", variable=rev_bb_var)
-        rev_bb_check.grid(row=14, column=0, columnspan=2, pady=2)
-
-        rev_sb_var = tk.BooleanVar()
-        rev_sb_check = ttk.Checkbutton(main_setup_frame, text="Reverse Stern Thruster (SB)", variable=rev_sb_var)
-        rev_sb_check.grid(row=15, column=0, columnspan=2, pady=2)
-
-        swap_var = tk.BooleanVar()
-        swap_check = ttk.Checkbutton(main_setup_frame, text="Swap BB/SB Thruster Channels", variable=swap_var)
-        swap_check.grid(row=16, column=0, columnspan=2, pady=2)
-        
-        def send_speed_limits_and_motors():
-            try:
-                # Fetch all existing values since CMD 83 overwrites the full config block
-                kpr = format(float(kpr_entry.get() or 0), '.10g')
-                kir = format(float(kir_entry.get() or 0), '.10g')
-                kdr = format(float(kdr_entry.get() or 0), '.10g')
-                kps = format(float(kps_entry.get() or 0), '.10g')
-                kis = format(float(kis_entry.get() or 0), '.10g')
-                kds = format(float(kds_entry.get() or 0), '.10g')
-                
-                max_s = int(max_speed_entry.get() or 0)
-                min_s = int(min_speed_entry.get() or 0)
-                piv_s = format(float(pivot_speed_entry.get() or 0.2), '.2f')
-                
-                coff = format(float(compass_offset_entry.get() or 0), '.2f')
-                min_off = b['data'].get("minOfsetDist", "0") # Assuming default 0 if missing
-                
-                rev_bb_int = 1 if rev_bb_var.get() else 0
-                rev_sb_int = 1 if rev_sb_var.get() else 0
-                swap_int = 1 if swap_var.get() else 0
-
-                # Construct full SETUPDATA string: CMD=83
-                # Send coff for both offset fields for consistency
-                val_str = f"{kpr},{kir},{kdr},{kps},{kis},{kds},{max_s},{min_s},{piv_s},{coff},{min_off},{rev_bb_int},{rev_sb_int},{swap_int}"
-                
-                # Send with ACK=false (0) or LORASET (2)? We'll use 2 for LORASET to trigger persist
-                base_msg = f"{b['id']},99,2,83,,{val_str}"
-                self.send_custom_udp_command(b['id'], base_msg)
-                
-                self.log_message(f"Sent full setup configuration to Buoy {b['id']} (CMD 83)")
-            except ValueError as e:
-                self.log_message(f"Input validation error: {e}")
-
-        ttk.Button(main_setup_frame, text="Save Speed Limits & Motors", command=send_speed_limits_and_motors).grid(row=19, column=0, columnspan=2, pady=(10, 5))
-
-        ttk.Label(main_setup_frame, text="Compass Configuration", font=("Arial", 11, "bold")).grid(row=19, column=0, columnspan=2, pady=(10, 10))
-        
-        ttk.Label(main_setup_frame, text="Compass Offset:").grid(row=19, column=0, sticky="e", padx=10, pady=2)
-        compass_offset_entry.grid(row=19, column=1, sticky="w", pady=2)
-
-        def send_compass_offset():
-            try:
-                coff = float(compass_offset_entry.get() or 0)
-                # Send same offset to both internal variables
-                val_str = f"{format(coff, '.2f')}"
-                # CMD 75 is STORE_COMPASS_OFFSET
-                base_msg = f"{b['id']},99,3,75,,{val_str},,,,,"
-                self.send_custom_udp_command(b['id'], base_msg)
-            except ValueError:
-                pass
-
-        ttk.Button(main_setup_frame, text="Send Compass Offset", command=send_compass_offset).grid(row=20, column=0, columnspan=2, pady=(10, 5))
-
-        # --- In-Field Calibration Section ---
-        calib_frame = ttk.LabelFrame(main_setup_frame, text="In-Field Calibration", padding="10")
-        calib_frame.grid(row=21, column=0, columnspan=2, sticky="ew", pady=(15, 0))        
-        calib_comp_btn = ttk.Button(calib_frame, text="Compass Calibration", command=lambda: self.on_infield_calib_click(b))
-        calib_comp_btn.pack(fill="x", pady=2)
-        
-        calib_off_btn = ttk.Button(calib_frame, text="Offset Calibration", command=lambda: self.on_infield_offset_click(b))
-        calib_off_btn.pack(fill="x", pady=2)
-        # ------------------------------------
-        
-        b['setup_entries'] = {
-            "Kpr": kpr_entry, "Kir": kir_entry, "Kdr": kdr_entry,
-            "Kps": kps_entry, "Kis": kis_entry, "Kds": kds_entry,
-            "maxSpeed": max_speed_entry, "minSpeed": min_speed_entry,
-            "pivotSpeed": pivot_speed_entry, "compassOffset": compass_offset_entry
-        }
-        b['setup_vars'] = {
-            "revBB": rev_bb_var,
-            "revSB": rev_sb_var,
-              "swap_BB_SB": swap_var
-        }
-        # Pre-fill if we have data already
-        with self.data_lock:
-            for key, entry in b['setup_entries'].items():
-                val = b['data'].get(key, "")
-                if val:
-                    entry.delete(0, tk.END)
-                    entry.insert(0, val)
-            
-            # Pre-fill checkbuttons
-            if b.get('setup_vars'):
-                b['setup_vars']['revBB'].set(b['data'].get('revBB') == "1")
-                b['setup_vars']['revSB'].set(b['data'].get('revSB') == "1")
-                b['setup_vars']['swap_BB_SB'].set(b['data'].get('swap_BB_SB') == "1")
-
-    def on_infield_calib_click(self, b):
-        with self.data_lock:
-            if not b['id']: return
-        
-        response = messagebox.askyesno(
-            "Confirm In-Field Compass Calibration",
-            f"Deploying In-Field Compass Calibration will cause Buoy {b['id']} to move autonomously in circles for ~3 minutes.\n\nEnsure the area is clear. Continue?"
-        )
-        if response:
-            # CMD=77, STATUS=0
-            base_msg = f"{b['id']},99,6,77,,,,,,,"
-            self.send_custom_udp_command(b['id'], base_msg)
-            self.log_message(f"Triggered In-Field Compass Calibration for Buoy {b['id']}")
-
-    def on_infield_offset_click(self, b):
-        with self.data_lock:
-            if not b['id']: return
-        
-        response = messagebox.askyesno(
-            "Confirm In-Field Offset Calibration",
-            f"Deploying In-Field Offset Calibration will cause Buoy {b['id']} to sail South for ~2 minutes, then return North.\n\nEnsure you have enough open water to the South. Continue?"
-        )
-        if response:
-            # CMD=78, STATUS=0
-            base_msg = f"{b['id']},99,6,78,,,,,,,"
-            self.send_custom_udp_command(b['id'], base_msg)
-            self.log_message(f"Triggered In-Field Offset Calibration for Buoy {b['id']}")
-
-    def send_custom_udp_command(self, target_id, base_msg, use_udp=True, use_lora=None):
-        # Determine if UDP is allowed for this target
-        udp_allowed = True
-        target_buoy = None
-        with self.data_lock:
-            for b in self.buoy_frames:
-                if b['id'] == target_id:
-                    target_buoy = b
-                    udp_allowed = b['udp_enabled_var'].get()
-                    break
-
-            # If use_lora is None, treat LoRa as a backup: only use if UDP is inactive or disabled
-            if use_lora is None:
-                use_lora = True # Default to True
-                if target_buoy:
-                    current_t = time.time()
-                    # If UDP is healthy AND enabled, we don't need LoRa backup
-                    if udp_allowed and target_buoy['last_udp_time'] > 0 and (current_t - target_buoy['last_udp_time'] < 5):
-                        use_lora = False
-
-        crc = 0
-        for char in base_msg:
-            crc ^= ord(char)
-        full_msg = f"${base_msg}*{crc:02X}"
-        
-        if use_udp and udp_allowed:
-            target_ip = "255.255.255.255"
-            with self.data_lock:
-                if target_buoy and target_buoy['data'].get("IP"):
-                    target_ip = target_buoy['data']["IP"]
-            
-            try:
-                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-                    s.sendto(full_msg.encode(), (target_ip, 1001))
-                self.log_message(full_msg, "UDP OUT")
-            except Exception as e:
-                self.log_message(f"UDP SEND ERROR: {e}", "UDP OUT")
-        elif use_udp and not udp_allowed:
-            self.log_message(f"UDP SEND SKIPPED (DISABLED) - {target_id}", "UDP OUT")
-            
-        if use_lora:
-            # Send via Serial (LoRa)
-            if self.serial_conn and self.serial_conn.is_open:
-                try:
-                    self.serial_conn.write((full_msg + "\n").encode())
-                    self.log_message(full_msg, "LORA OUT")
-                except Exception as e:
-                    self.log_message(f"LORA SEND ERROR: {e}", "LORA OUT")
-            else:
-                self.log_message(f"LORA BACKUP SKIPPED (NOT CONNECTED) - {target_id}", "LORA OUT")
-
-    def send_udp_command(self, target_id, cmd_id, use_udp=True, use_lora=None):
-        if target_id is None:
-            target_id = "1"
-
-        # Determine if UDP is allowed for this target
-        udp_allowed = True
-        target_buoy = None
-        with self.data_lock:
-            for b in self.buoy_frames:
-                if b['id'] == target_id:
-                    target_buoy = b
-                    udp_allowed = b['udp_enabled_var'].get()
-                    break
-
-            # If use_lora is None, treat LoRa as a backup: only use if UDP is inactive or disabled
-            if use_lora is None:
-                use_lora = True 
-                if target_buoy:
-                    current_t = time.time()
-                    if udp_allowed and target_buoy['last_udp_time'] > 0 and (current_t - target_buoy['last_udp_time'] < 5):
-                        use_lora = False
-        
-        base_msg = f"{target_id},99,3,{cmd_id},7"
-        crc = 0
-        for char in base_msg:
-            crc ^= ord(char)
-        full_msg = f"${base_msg}*{crc:02X}"
-        
-        if use_udp and udp_allowed:
-            target_ip = "255.255.255.255"
-            with self.data_lock:
-                if target_buoy and target_buoy['data'].get("IP"):
-                    target_ip = target_buoy['data']["IP"]
-            
-            try:
-                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-                    s.sendto(full_msg.encode(), (target_ip, 1001))
-                self.log_message(full_msg, "UDP OUT")
-            except Exception as e:
-                self.log_message(f"UDP SEND ERROR: {e}", "UDP OUT")
-        elif use_udp and not udp_allowed:
-            self.log_message(f"UDP SEND SKIPPED (DISABLED) - {target_id}", "UDP OUT")
-            
-        if use_lora:
-            # Send via Serial (LoRa)
-            if self.serial_conn and self.serial_conn.is_open:
-                try:
-                    self.serial_conn.write((full_msg + "\n").encode())
-                    self.log_message(full_msg, "LORA OUT")
-                except Exception as e:
-                    self.log_message(f"LORA SEND ERROR: {e}", "LORA OUT")
-            else:
-                self.log_message(f"LORA BACKUP SKIPPED (NOT CONNECTED) - {target_id}", "LORA OUT")
+    def log_message(self, message, source="UDP IN"):
+        def _log():
+            ts = datetime.now().strftime("%H:%M:%S")
+            entry = f"[{ts}] {message}\n"
+            target = self.log_windows.get(source, self.log_windows["UDP IN"])
+            target.insert("end", entry)
+            target.see("end")
+            if float(target.index("end-1c")) > 100: target.delete("1.0", "2.0")
+        self.master.after(0, _log)
 
     def refresh_ports(self):
-        ports = [port.device for port in serial.tools.list_ports.comports()]
+        ports = [p.device for p in serial.tools.list_ports.comports()]
         self.port_combo['values'] = ports
-        if ports and not self.port_var.get():
-            self.port_var.set(ports[0])
+        if ports and not self.port_var.get(): self.port_var.set(ports[0])
 
     def toggle_serial(self):
         if self.serial_conn and self.serial_conn.is_open:
@@ -764,15 +269,9 @@ class RoboMonitor:
             port = self.port_var.get()
             if not port: return
             try:
-                self.serial_conn = serial.Serial()
-                self.serial_conn.port = port
-                self.serial_conn.baudrate = 115200
-                self.serial_conn.timeout = 1
-                # Prevent ESP32 auto-reset by disabling DTR and RTS
+                self.serial_conn = serial.Serial(port, 115200, timeout=1)
                 self.serial_conn.dtr = False
                 self.serial_conn.rts = False
-                self.serial_conn.open()
-                
                 self.running_serial = True
                 self.serial_thread = threading.Thread(target=self.serial_reader)
                 self.serial_thread.daemon = True
@@ -789,67 +288,75 @@ class RoboMonitor:
                     line = self.serial_conn.readline().decode('utf-8', errors='ignore').strip()
                     if line:
                         self.log_message(line, "LORA IN")
-                        # Fix late-binding in lambda by explicitly passing line as a default argument
                         self.master.after(0, lambda msg=line: self.parse_message(msg, "LoRa"))
-                except Exception as e:
-                    print(f"Serial Read Error: {e}")
-                    break
+                except: break
             time.sleep(0.01)
-
-    def log_message(self, message, source="UDP IN"):
-        """Thread-safe logging of raw messages to the specific text widget"""
-        def _log():
-            timestamp = datetime.now().strftime("%H:%M:%S")
-            log_entry = f"[{timestamp}] {message}\n"
-            
-            target = self.log_windows.get(source, self.log_windows["UDP IN"])
-            target.insert("end", log_entry)
-            target.see("end")
-            
-            if float(target.index("end-1c")) > 100:
-                target.delete("1.0", "2.0")
-        
-        self.master.after(0, _log)
-
-    def draw_windrose_background(self, canvas):
-        center_x, center_y = 100, 100
-        radius = 80
-        canvas.create_oval(center_x - radius, center_y - radius,
-                           center_x + radius, center_y + radius,
-                           outline="black")
-        
-        for angle_deg, label in [(0, "N"), (90, "E"), (180, "S"), (270, "W")]:
-            angle_rad = math.radians(angle_deg - 90) # Adjust for canvas Y-axis inverted
-            x = center_x + radius * math.cos(angle_rad)
-            y = center_y + radius * math.sin(angle_rad)
-            canvas.create_text(x, y, text=label, fill="black", font=("Arial", 10, "bold"))
-
-    def create_params_widgets(self, frame):
-        labels = {}
-        param_names = [
-            "Timestamp",
-            "Wind Dir", "Wind StdDev",
-            "PID I-term", "PID R-term",
-            "Battery", "Current",
-            "GPS Fix", "GPS Satellites"
-        ]
-        for i, name in enumerate(param_names):
-            ttk.Label(frame, text=f"{name}:").grid(row=i, column=0, sticky="w", padx=2, pady=1)
-            labels[name] = ttk.Label(frame, text="N/A", foreground="blue")
-            labels[name].grid(row=i, column=1, sticky="w", padx=2, pady=1)
-        return labels
 
     def udp_listener(self):
         while self.running:
             try:
                 data, addr = self.sock.recvfrom(1024)
-                message = data.decode('utf-8').strip()
-                self.log_message(message, "UDP IN")
-                self.parse_message(message, addr[0])
-            except socket.timeout:
-                pass
-            except Exception as e:
-                print(f"UDP Error: {e}")
+                msg = data.decode('utf-8').strip()
+                self.log_message(msg, "UDP IN")
+                self.parse_message(msg, addr[0])
+            except socket.timeout: pass
+            except Exception as e: print(f"UDP Error: {e}")
+
+    def parse_message(self, message, sender_ip):
+        ts = datetime.now().strftime("%H:%M:%S")
+        log_source = "LORA IN" if sender_ip == "LoRa" else "UDP IN"
+        if not message.startswith('$') or '*' not in message: return
+        try:
+            content, crc_str = message[1:].split('*', 1)
+            if int(crc_str, 16) != self.calculate_crc(content):
+                self.log_message(f"CRC ERROR in message: {message}", log_source)
+                return
+            fields = [f if f != "" else "0" for f in content.split(',')]
+            if len(fields) < 5: return
+            
+            # Echo prevention: if the sender is "99", it's from us. Ignore.
+            if fields[1] == "99": return
+            
+            cmd = int(fields[3])
+            buoy_id = fields[1]
+            data = {"Timestamp": ts, "IP": sender_ip, "ACK": fields[2], "Status": fields[4]}
+
+            for b in self.buoy_frames:
+                if b['id'] == buoy_id or b['id'] is None:
+                    if sender_ip != "LoRa" and not b['udp_enabled_var'].get(): return
+                    if sender_ip == "LoRa":
+                        b['last_lora_time'], b['last_lora_content'] = time.time(), content
+                    else:
+                        b['last_udp_time'], b['last_udp_content'] = time.time(), content
+                    break
+
+            if cmd == MsgType.TOPDATA and len(fields) >= 21:
+                data.update({
+                    "Magnetic Dir": fields[5], "GPS Dir": fields[6], "Target Dir": fields[7], "Target Dist": fields[8],
+                    "Wind Dir": fields[9], "Wind StdDev": fields[10], "Bow Thruster (BB)": fields[11], "Stern Thruster (SB)": fields[12],
+                    "PID I-term": fields[13], "PID R-term": fields[14], "Sub Battery V": fields[15], "Sub Battery %": fields[16],
+                    "Latitude (Lat)": fields[17], "Longitude (Lon)": fields[18], "GPS Fix": fields[19], "GPS Satellites": fields[20], 
+                    "Current": fields[21] if len(fields)>21 else "0"
+                })
+            elif cmd == MsgType.DIRDIST and len(fields) >= 7:
+                data.update({"Target Dir": fields[5], "Target Dist": fields[6]})
+            elif cmd == MsgType.BUOYPOS and len(fields) >= 14:
+                data.update({"Latitude (Lat)": fields[5], "Longitude (Lon)": fields[6], "Magnetic Dir": fields[7], "Wind Dir": fields[8], "Bow Thruster (BB)": fields[10], "Stern Thruster (SB)": fields[11]})
+            elif cmd in [MsgType.PIDRUDDER, MsgType.PIDRUDDERSET] and len(fields) >= 8:
+                data.update({"Kpr": fields[5], "Kir": fields[6], "Kdr": fields[7]})
+            elif cmd in [MsgType.PIDSPEED, MsgType.PIDSPEEDSET] and len(fields) >= 8:
+                data.update({"Kps": fields[5], "Kis": fields[6], "Kds": fields[7]})
+            elif cmd in [MsgType.MAXMINPWR, MsgType.MAXMINPWRSET] and len(fields) >= 7:
+                data.update({"maxSpeed": fields[5], "minSpeed": fields[6], "pivotSpeed": fields[7] if len(fields)>7 else "0.2"})
+            elif cmd == MsgType.SETUPDATA and len(fields) >= 14:
+                data.update({
+                    "Kpr": fields[5], "Kir": fields[6], "Kdr": fields[7], "Kps": fields[8], "Kis": fields[9], "Kds": fields[10],
+                    "maxSpeed": fields[11], "minSpeed": fields[12], "pivotSpeed": fields[13], "compassOffset": fields[14] if len(fields)>14 else "0",
+                    "minOfsetDist": fields[15] if len(fields)>15 else "2", "revBB": fields[16] if len(fields)>16 else "0",
+                    "revSB": fields[17] if len(fields)>17 else "0", "swap_BB_SB": fields[18] if len(fields)>18 else "0"
+                })
+            self.update_buoy_data(buoy_id, data)
+        except Exception as e: print(f"Parse error: {e}")
 
     def update_buoy_data(self, buoy_id, data):
         with self.data_lock:
@@ -857,7 +364,6 @@ class RoboMonitor:
                 if b['id'] == buoy_id:
                     b['data'].update(data)
                     return
-            
             for b in self.buoy_frames:
                 if b['id'] is None:
                     b['id'] = buoy_id
@@ -865,414 +371,187 @@ class RoboMonitor:
                     b['data'].update(data)
                     return
 
-    def parse_message(self, message, sender_ip):
-        current_timestamp = datetime.now().strftime("%H:%M:%S")
-        log_source = "LORA IN" if sender_ip == "LoRa" else "UDP IN"
-        
-        if not message.startswith('$') or '*' not in message:
-            return
-            
-        try:
-            content, crc_str = message[1:].split('*', 1)
-            
-            # --- CRC Validation ---
-            try:
-                received_crc = int(crc_str, 16)
-                calculated_crc = self.calculate_crc(content)
-                if received_crc != calculated_crc:
-                    self.log_message(f"CRC ERROR: Expected {calculated_crc:02X}, got {received_crc:02X} in message: {message}", log_source)
-                    return
-            except ValueError:
-                self.log_message(f"CRC FORMAT ERROR in message: {message}", log_source)
-                return
-            # ----------------------
-
-            fields = content.split(',')
-
-            # --- Echo Prevention ---
-            # If the sender ID (IDs) is "99", this is a command from this script (or an echo). Ignore it.
-            if len(fields) > 1 and fields[1] == "99":
-                return
-            # -----------------------
-
-            # Normalize empty fields to "0" (supports compressed zero-value transmission)
-            fields = [f if f != "" else "0" for f in fields]
-            
-            if len(fields) < 5:
-                return
-                
-            cmd = fields[3]
-            buoy_id = fields[0]
-            data = {"Timestamp": current_timestamp, "IP": sender_ip}
-            
-            # --- Network Monitor and Filtering Logic ---
-            for b in self.buoy_frames:
-                if b['id'] == buoy_id or b['id'] is None:
-                    # If this is UDP data but UDP is disabled for this buoy, ignore it
-                    if sender_ip != "LoRa" and not b['udp_enabled_var'].get():
-                        return
-                        
-                    if sender_ip == "LoRa":
-                        b['last_lora_time'] = time.time()
-                        b['last_lora_content'] = content
-                    else:
-                        b['last_udp_time'] = time.time()
-                        b['last_udp_content'] = content
-                    break
-            # --------------------------------------------
-            
-            if cmd == "51" and len(fields) >= 21: # TOPDATA
-                data.update({
-                    "IDr": fields[0], "IDs": fields[1], "ACK": fields[2], "CMD": fields[3], "Status": fields[4],
-                    "Magnetic Dir": fields[5] or "0", "GPS Dir": fields[6] or "0",
-                    "Target Dir": fields[7] or "0", "Target Dist": fields[8] or "0",
-                    "Wind Dir": fields[9] or "0", "Wind StdDev": fields[10] or "0",
-                    "Bow Thruster (BB)": fields[11] or "0", "Stern Thruster (SB)": fields[12] or "0",
-                    "PID I-term": fields[13] or "0", "PID R-term": fields[14] or "0",
-                    "Sub Battery V": fields[15] or "0", "Sub Battery %": fields[16] or "0",
-                    "Latitude (Lat)": fields[17] or "0", "Longitude (Lon)": fields[18] or "0",
-                    "GPS Fix": fields[19] or "0", "GPS Satellites": fields[20] or "0",
-                    "Current": fields[21] or "0.0"
-                })
-                self.update_buoy_data(buoy_id, data)
-                
-            elif cmd == "47" and len(fields) >= 7: # DIRDIST
-                data.update({
-                    "IDr": fields[0], "IDs": fields[1], "ACK": fields[2], "CMD": fields[3], "Status": fields[4],
-                    "Target Dir": fields[5], "Target Dist": fields[6]
-                })
-                self.update_buoy_data(buoy_id, data)
-                
-            elif cmd == "7" and len(fields) >= 5: # IDLE
-                data.update({
-                    "IDr": fields[0], "IDs": fields[1], "ACK": fields[2], "CMD": fields[3], "Status": fields[4],
-                    "Bow Thruster (BB)": "0", "Stern Thruster (SB)": "0"
-                })
-                self.update_buoy_data(buoy_id, data)
-                
-            elif cmd == "19" and len(fields) >= 14: # BUOYPOS
-                data.update({
-                    "IDr": fields[0], "IDs": fields[1], "ACK": fields[2], "CMD": fields[3], "Status": fields[4],
-                    "Latitude (Lat)": fields[5], "Longitude (Lon)": fields[6],
-                    "Magnetic Dir": fields[7], "Wind Dir": fields[8], "Wind StdDev": fields[9],
-                    "Bow Thruster (BB)": fields[10], "Stern Thruster (SB)": fields[11],
-                    "GPS Fix": fields[12], "GPS Satellites": fields[13]
-                })
-                self.update_buoy_data(buoy_id, data)
-                
-            elif cmd in ["54", "55"] and len(fields) >= 8: # PIDRUDDER and PIDRUDDERSET
-                if fields[2] == "4": return
-                data.update({
-                    "Kpr": fields[5], "Kir": fields[6], "Kdr": fields[7]
-                })
-                self.update_buoy_data(buoy_id, data)
-
-            elif cmd in ["56", "57", "58"] and len(fields) >= 8: # PIDSPEED (56) and PIDSPEEDSET (58)
-                if fields[2] == "4": return
-                data.update({
-                    "Kps": fields[5], "Kis": fields[6], "Kds": fields[7]
-                })
-                self.update_buoy_data(buoy_id, data)
-
-            elif cmd in ["67", "68"] and len(fields) >= 7: # MAXMINPWR (67) and MAXMINPWRSET (68)
-                if fields[2] == "4": return
-                piv_s = "0.2"
-                if len(fields) >= 8:
-                    piv_s = fields[7]
-                data.update({
-                    "maxSpeed": fields[5], "minSpeed": fields[6], "pivotSpeed": piv_s
-                })
-                self.update_buoy_data(buoy_id, data)
-            elif cmd == "83" and len(fields) >= 14: # SETUPDATA (83)
-                  if fields[2] == "4": return # Ignore LORAACK packets which contain empty structs
-
-                  piv_s = fields[13] if len(fields) >= 14 else "0.2"
-                  comp_off = fields[14] if len(fields) >= 15 else "0.0"
-                  min_off = fields[15] if len(fields) >= 16 else "2"
-                  rev_bb = fields[16] if len(fields) >= 17 else "0"
-                  rev_sb = fields[17] if len(fields) >= 18 else "0"
-                  swap_bb_sb = fields[18] if len(fields) >= 19 else "0"
-
-                  data.update({
-                      "IDr": fields[0], "IDs": fields[1], "ACK": fields[2], "CMD": fields[3], "Status": fields[4],
-                      "Kpr": fields[5], "Kir": fields[6], "Kdr": fields[7],
-                      "Kps": fields[8], "Kis": fields[9], "Kds": fields[10],
-                      "maxSpeed": fields[11], "minSpeed": fields[12], "pivotSpeed": piv_s,
-                      "compassOffset": comp_off, "minOfsetDist": min_off,
-                      "revBB": rev_bb, "revSB": rev_sb, "swap_BB_SB": swap_bb_sb
-                  })
-                  self.update_buoy_data(buoy_id, data)
-                
-        except Exception as e:
-            print(f"Parse error: {e}")
-
     def update_gui(self):
-        current_t = time.time()
+        ct = time.time()
         with self.data_lock:
             for b in self.buoy_frames:
-                data = b['data']
-                current_status = str(data.get("Status", "0")).strip()
+                d = b['data']
+                try: curr_stat = int(d.get("Status", "0"))
+                except: curr_stat = 0
                 
-                # --- Network Monitor Update ---
-                if b['last_udp_time'] > 0 and (current_t - b['last_udp_time'] < 5):
-                    b['udp_indicator'].config(text="UDP: OK", fg="green")
-                else:
-                    b['udp_indicator'].config(text="UDP: --", fg="gray")
-                    
-                if b['last_lora_time'] > 0 and (current_t - b['last_lora_time'] < 5):
-                    b['lora_indicator'].config(text="LoRa: OK", fg="green")
-                else:
-                    b['lora_indicator'].config(text="LoRa: --", fg="gray")
-                    
+                b['udp_indicator'].config(text="UDP: OK" if b['last_udp_time']>0 and (ct-b['last_udp_time']<5) else "UDP: --", fg="green" if b['last_udp_time']>0 and (ct-b['last_udp_time']<5) else "gray")
+                b['lora_indicator'].config(text="LoRa: OK" if b['last_lora_time']>0 and (ct-b['last_lora_time']<5) else "LoRa: --", fg="green" if b['last_lora_time']>0 and (ct-b['last_lora_time']<5) else "gray")
                 if b['last_udp_content'] and b['last_lora_content']:
-                    if b['last_udp_content'] == b['last_lora_content']:
-                        b['sync_indicator'].config(text="Data: SYNC", fg="green")
-                    else:
-                        b['sync_indicator'].config(text="Data: DIFF", fg="red")
-                else:
-                    b['sync_indicator'].config(text="Data: WAIT", fg="gray")
-                # ------------------------------
-                
-                # Update Canvas Texts (Always show, even if waiting for ID)
-                m_dir_val = data.get("Magnetic Dir", "N/A")
-                if m_dir_val != "N/A" and m_dir_val != "nan" and m_dir_val != "":
-                    try:
-                        m_dir_val = f"{float(m_dir_val):.0f}°"
-                    except ValueError:
-                        m_dir_val = "-"
-                else:
-                    m_dir_val = "-"
-                b['windrose_canvas'].itemconfig(b['mag_dir_text'], text=m_dir_val)
+                    b['sync_indicator'].config(text="Data: SYNC" if b['last_udp_content']==b['last_lora_content'] else "Data: DIFF", fg="green" if b['last_udp_content']==b['last_lora_content'] else "red")
+                else: b['sync_indicator'].config(text="Data: WAIT", fg="gray")
 
-                if current_status == "7": # IDLE
+                m_dir = d.get("Magnetic Dir", "N/A")
+                b['windrose_canvas'].itemconfig(b['mag_dir_text'], text=f"{float(m_dir):.0f}°" if m_dir not in ["N/A", "nan", ""] else "-")
+
+                if curr_stat == MsgType.IDLE:
                     b['windrose_canvas'].itemconfig(b['dist_text'], text="-")
                     b['windrose_canvas'].itemconfig(b['pid_i_text'], text="*")
                     b['windrose_canvas'].itemconfig(b['tg_dir_text'], text="")
                 else:
-                    dist_val = data.get("Target Dist", "N/A")
-                    if dist_val != "N/A" and dist_val != "nan" and dist_val != "":
-                        try:
-                            dist_val = f"{float(dist_val):.2f}m"
-                        except ValueError: 
-                            dist_val = "0.00m"
-                    else:
-                        dist_val = "0.00m"
-                    b['windrose_canvas'].itemconfig(b['dist_text'], text=dist_val)
-                    
-                    pid_i_val = data.get("PID I-term", "N/A")
-                    pid_r_val = data.get("PID R-term", "N/A")
-                    
-                    if pid_i_val != "N/A" and pid_i_val != "nan" and pid_i_val != "":
-                        try:
-                            pid_i_val = f"{float(pid_i_val):.1f}"
-                        except ValueError:
-                            pid_i_val = "0.0"
-                    else:
-                        pid_i_val = "0.0"
-                        
-                    if pid_r_val != "N/A" and pid_r_val != "nan" and pid_r_val != "":
-                        try:
-                            pid_r_val = f"{float(pid_r_val):.1f}"
-                        except ValueError:
-                            pid_r_val = "0.0"
-                    else:
-                        pid_r_val = "0.0"
-
-                    b['windrose_canvas'].itemconfig(b['pid_i_text'], text=f"Is:{pid_i_val}\nIr:{pid_r_val}", justify="right")
-
-                    if current_status in ["12", "13", "14", "15", "16", "17"]: # LOCKED or DOCKING
-                        tg_dir_val = data.get("Target Dir", "N/A")
-                        if tg_dir_val != "N/A" and tg_dir_val != "nan" and tg_dir_val != "":
-                            try:
-                                tg_dir_val = f"{float(tg_dir_val):.0f}°"
-                            except ValueError:
-                                tg_dir_val = ""
-                        else:
-                            tg_dir_val = ""
-                        b['windrose_canvas'].itemconfig(b['tg_dir_text'], text=tg_dir_val)
-                    else:
-                        b['windrose_canvas'].itemconfig(b['tg_dir_text'], text="")
-                
-                # Ensure text stays on top of arrows
-                b['windrose_canvas'].tag_raise(b['dist_text'])
-                b['windrose_canvas'].tag_raise(b['pid_i_text'])
-                b['windrose_canvas'].tag_raise(b['tg_dir_text'])
-                b['windrose_canvas'].tag_raise(b['mag_dir_text'])
+                    dist = d.get("Target Dist", "0")
+                    b['windrose_canvas'].itemconfig(b['dist_text'], text=f"{float(dist):.2f}m" if dist not in ["N/A", "nan", ""] else "0.00m")
+                    pi, pr = d.get("PID I-term", "0"), d.get("PID R-term", "0")
+                    try: b['windrose_canvas'].itemconfig(b['pid_i_text'], text=f"Is:{float(pi):.1f}\nIr:{float(pr):.1f}")
+                    except: pass
+                    tdir = d.get("Target Dir", "N/A")
+                    b['windrose_canvas'].itemconfig(b['tg_dir_text'], text=f"{float(tdir):.0f}°" if tdir not in ["N/A", "nan", ""] else "")
 
                 if b['id'] is not None:
-                    labels = b['labels']
-                    # Update Lock Button Text (Action-oriented)
+                    st_txt = "IDLE" if curr_stat==MsgType.IDLE else "LOCKED" if curr_stat in [MsgType.LOCKING, MsgType.LOCKED] else "DOCKING" if curr_stat in [MsgType.DOCKING, MsgType.DOCKED] else f"STATUS {curr_stat}"
+                    b['status_label'].config(text=st_txt)
+                    b['ip_header_label'].config(text=d.get("IP", ""))
+                    b['lock_btn'].config(text="IDLE" if curr_stat in [MsgType.LOCKING, MsgType.LOCKED] else "LOCK")
+                    b['dock_btn'].config(text="IDLE" if curr_stat in [MsgType.DOCKING, MsgType.DOCKED] else "DOCK")
                     
-                    status_text = "UNKNOWN"
-                    if current_status == "7":
-                        status_text = "IDLE"
-                    elif current_status in ["12", "13", "14"]:
-                        status_text = "LOCKED"
-                    elif current_status in ["15", "16", "17"]:
-                        status_text = "DOCKING"
-                    elif current_status == "25":
-                        status_text = "REMOTE"
-                    elif current_status == "49":
-                        status_text = "SETUP"
-                    else:
-                        status_text = f"STATUS {current_status}"
-                    b['status_label'].config(text=status_text)
-                    
-                    # Update IP Header Label
-                    b['ip_header_label'].config(text=data.get("IP", ""))
-                    
-                    if current_status in ["12", "13", "14"]: # LOCKED
-                        b['lock_btn'].config(text="IDLE")
-                        b['dock_btn'].config(text="DOCK")
-                    elif current_status in ["15", "16", "17"]: # DOCKING
-                        b['lock_btn'].config(text="LOCK")
-                        b['dock_btn'].config(text="IDLE")
-                    else:
-                        b['lock_btn'].config(text="LOCK")
-                        b['dock_btn'].config(text="DOCK")                
-                    # Update DIRDIST Send Button state based on GPS Fix
-                    gps_fix = str(data.get("GPS Fix", "0")).strip()
-                    if gps_fix == "1" or gps_fix.lower() == "true":
-                        b['dirdist_send_btn'].config(state="normal")
-                    else:
-                        b['dirdist_send_btn'].config(state="disabled")
-                    
-                    tg_dir = data.get("Target Dir", "N/A")
-                    w_dir = data.get("Wind Dir", "N/A")
-                    if current_status == "7": # Hide in IDLE
-                        tg_dir = "N/A"
-                        w_dir = "N/A"
-                    
-                    gps_dir = data.get("GPS Dir", "N/A")
-                    dist_val = data.get("Target Dist", "0")
+                    try: f_dist = float(d.get("Target Dist", "0"))
+                    except: f_dist = 0
+                    self.update_windrose(b, d.get("Wind Dir", "N/A") if curr_stat in [MsgType.LOCKING, MsgType.LOCKED] and f_dist<=10.0 else "N/A", d.get("Target Dir", "N/A") if curr_stat!=MsgType.IDLE else "N/A", d.get("Magnetic Dir", "N/A"), d.get("GPS Dir", "N/A") if f_dist>10.0 else "N/A")
 
-                    try:
-                        f_dist = float(dist_val)
-                    except:
-                        f_dist = 0.0
-
-                    is_locked = current_status in ["12", "13", "14"]
+                    for thrust in ["Bow Thruster (BB)", "Stern Thruster (SB)"]:
+                        try: val = float(d.get(thrust, "0")) if curr_stat!=MsgType.IDLE else 0
+                        except: val = 0
+                        canv, lbl = (b['bb_bar'], b['bb_val_label']) if thrust=="Bow Thruster (BB)" else (b['sb_bar'], b['sb_val_label'])
+                        canv.delete("bar")
+                        if val!=0: canv.create_rectangle(0, 90, 20, 90+abs(val)*0.9, fill="red" if val<0 else "green", tags="bar")
+                        lbl.config(text=f"{int(val)}%")
                     
-                    # 1. Show Wind vector (w_dir) only if LOCKED and within 10m
-                    show_wind = is_locked and (f_dist <= 10.0)
-                    w_dir_to_show = w_dir if show_wind else "N/A"
-
-                    # 2. Show GPS vector (gps_dir) only if distance > 10m
-                    show_gps = (f_dist > 10.0)
-                    gps_dir_to_show = gps_dir if show_gps else "N/A"
+                    try: v_val = float(d.get("Sub Battery V", "17"))
+                    except: v_val = 17
+                    b['volt_bar']['value'] = max(0, min(8.2, v_val - 17.0))
                     
-                    self.update_windrose(b, w_dir_to_show, tg_dir, data.get("Magnetic Dir", "N/A"), gps_dir_to_show)
-                    
-                    # Update Setup Window entries if open
-                    if b.get('setup_entries'):
-                        for key, entry in b['setup_entries'].items():
-                            val = data.get(key, "")
-                            # Only update if the entry is empty (first time)
-                            if val and not entry.get():
-                                entry.insert(0, val)
-                                
-                    # Update setup checkbuttons
-                    if b.get('setup_vars'):
-                        # Only set the checkbox value from incoming data if it hasn't been initialized yet
-                        # We check if the entry fields are empty as a proxy for "first time load"
-                        if b.get('setup_entries') and not b['setup_entries']['maxSpeed'].get():
-                            b['setup_vars']['revBB'].set(data.get('revBB') == "1")
-                            b['setup_vars']['revSB'].set(data.get('revSB') == "1")
-                            b['setup_vars']['swap_BB_SB'].set(data.get('swap_BB_SB') == "1")
-
-                    # --- Update visual indicators independently of the labels list ---
-                    for thrust_name in ["Bow Thruster (BB)", "Stern Thruster (SB)"]:
-                        val = data.get(thrust_name, "N/A")
-                        if current_status == "7":
-                            val = "0"
-
-                        canvas = b['bb_bar'] if thrust_name == "Bow Thruster (BB)" else b['sb_bar']
-                        bar_label = b['bb_val_label'] if thrust_name == "Bow Thruster (BB)" else b['sb_val_label']
-
-                        canvas.delete("bar")
-                        if val != "N/A":
-                            try:
-                                v = float(val) 
-                                bar_height = abs(v) * 0.9
-                                if v < 0:
-                                    canvas.create_rectangle(0, 90, 20, 90 + bar_height, fill="red", outline="red", tags="bar")
-                                else:
-                                    canvas.create_rectangle(0, 90 - bar_height, 20, 90, fill="green", outline="green", tags="bar")
-                                bar_label.config(text=f"{int(v)}%")
-                            except ValueError: pass
-                        else:
-                            bar_label.config(text="N/A")
-                    volt_val = data.get("Sub Battery V", "N/A")
-                    if volt_val != "N/A":
-                        try:
-                            v = float(volt_val)
-                            b['volt_bar']['value'] = max(0, min(8.2, v - 17.0))
-                        except ValueError: pass
-                    # ---------------------------------------------------------------
-
-                    for name, label_widget in labels.items():
-                        if name == "Battery":
-                            if volt_val != "N/A":
-                                try:
-                                    label_widget.config(text=f"{float(volt_val):.1f}V")
-                                except ValueError:
-                                    label_widget.config(text=f"{volt_val}V")
-                            else:
-                                label_widget.config(text="N/A")
-                        elif name == "Current":
-                            curr_val = data.get("Current", "N/A")
-                            if curr_val != "N/A":
-                                try:
-                                    label_widget.config(text=f"{float(curr_val):.1f}A")
-                                except ValueError:
-                                    label_widget.config(text=f"{curr_val}A")
-                            else:
-                                label_widget.config(text="N/A")
-                        elif name in ["GPS Dir", "Wind Dir"]:
-                            val = data.get(name, "N/A")
-                            if val != "N/A":
-                                try:
-                                    val = f"{float(val):.0f}"
-                                except ValueError: pass
-                            label_widget.config(text=val)
-                        else:
-                            label_widget.config(text=data.get(name, "N/A"))
+                    for name, widget in b['labels'].items():
+                        if name == "Battery": widget.config(text=f"{v_val:.1f}V")
+                        elif name == "Current": 
+                            try: widget.config(text=f"{float(d.get('Current','0')):.1f}A")
+                            except: widget.config(text="0.0A")
+                        else: widget.config(text=d.get(name, "N/A"))
 
         self.master.after(500, self.update_gui)
 
-    def update_windrose(self, b, w_dir_str, tg_dir_str, m_dir_str, gps_dir_str="N/A"):
-        canvas = b['windrose_canvas']
-        def draw_arrow(dir_str, arrow_id, length):
-            if dir_str != "N/A" and dir_str != "nan":
+    def update_windrose(self, b, w, t, m, g):
+        def draw(val, aid, length):
+            if val not in ["N/A", "nan", None]:
                 try:
-                    angle_rad = math.radians(float(dir_str) - 90)
-                    end_x = 100 + length * math.cos(angle_rad)
-                    end_y = 100 + length * math.sin(angle_rad)
-                    canvas.coords(arrow_id, 100, 100, end_x, end_y)
-                    canvas.itemconfig(arrow_id, state="normal")
-                except ValueError:
-                    canvas.itemconfig(arrow_id, state="hidden")
+                    rad = math.radians(float(val)-90)
+                    b['windrose_canvas'].coords(aid, 100, 100, 100+length*math.cos(rad), 100+length*math.sin(rad))
+                    b['windrose_canvas'].itemconfig(aid, state="normal")
+                except: b['windrose_canvas'].itemconfig(aid, state="hidden")
+            else: b['windrose_canvas'].itemconfig(aid, state="hidden")
+        draw(t, b['tg_arrow'], 80); draw(m, b['mag_arrow'], 70); draw(w, b['wind_arrow'], 60); draw(g, b['gps_arrow'], 50)
+
+    def draw_windrose_background(self, canvas):
+        canvas.create_oval(20, 20, 180, 180, outline="black")
+        for a, l in [(0,"N"),(90,"E"),(180,"S"),(270,"W")]:
+            rad = math.radians(a-90)
+            canvas.create_text(100+80*math.cos(rad), 100+80*math.sin(rad), text=l, font=("Arial",10,"bold"))
+
+    def create_params_widgets(self, frame):
+        labels = {}
+        for i, n in enumerate(["Timestamp", "Wind Dir", "Wind StdDev", "PID I-term", "PID R-term", "Battery", "Current", "GPS Fix", "GPS Satellites"]):
+            ttk.Label(frame, text=f"{n}:").grid(row=i, column=0, sticky="w", padx=2, pady=1)
+            labels[n] = ttk.Label(frame, text="N/A", foreground="blue")
+            labels[n].grid(row=i, column=1, sticky="w", padx=2, pady=1)
+        return labels
+
+    def on_lock_click(self, idx):
+        b = self.buoy_frames[idx]
+        if not b['id']: return
+        cmd = MsgType.IDELING if int(b['data'].get("Status", "0")) in [MsgType.LOCKING, MsgType.LOCKED, MsgType.LOCK_POS] else MsgType.LOCKING
+        self.send_udp_command(b['id'], cmd)
+
+    def on_dock_click(self, idx):
+        b = self.buoy_frames[idx]
+        if not b['id']: return
+        cmd = MsgType.IDELING if int(b['data'].get("Status", "0")) in [MsgType.DOCKING, MsgType.DOCKED, MsgType.DOC] else MsgType.DOCKING
+        self.send_udp_command(b['id'], cmd)
+
+    def on_dirdist_click(self, idx, d_val, dist_val):
+        b = self.buoy_frames[idx]
+        if not b['id']: return
+        try:
+            msg = f"{b['id']},99,6,{MsgType.DIRDIST},{MsgType.IDLE},{float(d_val):.2f},{float(dist_val):.2f}"
+            self.send_custom_udp_command(b['id'], msg)
+        except: pass
+
+    def on_map_click(self, idx):
+        b = self.buoy_frames[idx]
+        lat, lon = b['data'].get("Latitude (Lat)"), b['data'].get("Longitude (Lon)")
+        if lat and lon and lat not in ["N/A", "nan"] and lon not in ["N/A", "nan"]:
+            webbrowser.open(f"https://www.openstreetmap.org/?mlat={lat}&mlon={lon}#map=18/{lat}/{lon}")
+
+    def on_setup_click(self, idx):
+        b = self.buoy_frames[idx]
+        if not b['id']: return
+        with self.data_lock:
+            for key in ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "pivotSpeed", "compassOffset", "revBB", "revSB", "swap_BB_SB"]:
+                b['data'].pop(key, None)
+        loading_win = tk.Toplevel(self.master)
+        loading_win.title("Loading...")
+        loading_win.geometry("250x100")
+        ttk.Label(loading_win, text=f"Fetching Setup for Buoy {b['id']}...", font=("Arial", 10)).pack(pady=20)
+        def check_data(retries=0):
+            if not loading_win.winfo_exists(): return
+            if all(k in b['data'] for k in ["Kpr", "maxSpeed", "pivotSpeed"]):
+                loading_win.destroy(); self.open_setup_window(b)
+            elif retries > 50:
+                loading_win.destroy(); messagebox.showerror("Timeout", f"Could not retrieve setup data for Buoy {b['id']}")
             else:
-                canvas.itemconfig(arrow_id, state="hidden")
-        
-        draw_arrow(tg_dir_str, b['tg_arrow'], 80)
-        draw_arrow(m_dir_str, b['mag_arrow'], 70)
-        draw_arrow(w_dir_str, b['wind_arrow'], 60)
-        draw_arrow(gps_dir_str, b['gps_arrow'], 50)
+                if retries % 10 == 0: self.send_custom_udp_command(b['id'], f"{b['id']},99,1,{MsgType.SETUPDATA},,,,,,,")
+                self.master.after(200, lambda: check_data(retries + 1))
+        check_data()
+
+    def open_setup_window(self, b):
+        setup_win = tk.Toplevel(self.master)
+        setup_win.title(f"Setup Buoy {b['id']}")
+        setup_win.geometry("350x650")
+        main_frame = ttk.Frame(setup_win, padding="20"); main_frame.pack(fill="both", expand=True)
+        def create_entry(parent, label, key, row):
+            ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", pady=5)
+            ent = ttk.Entry(parent, width=15); ent.grid(row=row, column=1, sticky="e", pady=5)
+            ent.insert(0, b['data'].get(key, "")); return ent
+        ttk.Label(main_frame, text="Rudder PID", font=("Arial", 10, "bold")).grid(row=0, column=0, columnspan=2, pady=(0, 10))
+        kpr, kir, kdr = create_entry(main_frame, "P:", "Kpr", 1), create_entry(main_frame, "I:", "Kir", 2), create_entry(main_frame, "D:", "Kdr", 3)
+        ttk.Label(main_frame, text="Speed PID", font=("Arial", 10, "bold")).grid(row=4, column=0, columnspan=2, pady=(15, 10))
+        kps, kis, kds = create_entry(main_frame, "P:", "Kps", 5), create_entry(main_frame, "I:", "Kis", 6), create_entry(main_frame, "D:", "Kds", 7)
+        ttk.Label(main_frame, text="Limits & Motors", font=("Arial", 10, "bold")).grid(row=8, column=0, columnspan=2, pady=(15, 10))
+        max_s, min_s, piv_s, c_off = create_entry(main_frame, "Max Speed:", "maxSpeed", 9), create_entry(main_frame, "Min Speed:", "minSpeed", 10), create_entry(main_frame, "Pivot Speed:", "pivotSpeed", 11), create_entry(main_frame, "Compass Offset:", "compassOffset", 12)
+        rev_bb_var, rev_sb_var = tk.BooleanVar(value=b['data'].get("revBB")=="1"), tk.BooleanVar(value=b['data'].get("revSB")=="1")
+        ttk.Checkbutton(main_frame, text="Reverse BB", variable=rev_bb_var).grid(row=13, column=0, sticky="w")
+        ttk.Checkbutton(main_frame, text="Reverse SB", variable=rev_sb_var).grid(row=13, column=1, sticky="e")
+        def save_all():
+            try:
+                vals = [kpr.get(), kir.get(), kdr.get(), kps.get(), kis.get(), kds.get(), max_s.get(), min_s.get(), piv_s.get(), c_off.get(), "2", "1" if rev_bb_var.get() else "0", "1" if rev_sb_var.get() else "0", "0"]
+                self.send_custom_udp_command(b['id'], f"{b['id']},99,2,{MsgType.SETUPDATA},0,{','.join(vals)}"); setup_win.destroy()
+            except Exception as e: messagebox.showerror("Error", f"Failed to save: {e}")
+        ttk.Button(main_frame, text="Save & Close", command=save_all).grid(row=15, column=0, columnspan=2, pady=20)
+
+    def send_custom_udp_command(self, tid, base, use_udp=True, use_lora=None):
+        target_buoy = next((b for b in self.buoy_frames if b['id'] == tid), None)
+        udp_allowed = target_buoy['udp_enabled_var'].get() if target_buoy else True
+        if use_lora is None: use_lora = not (udp_allowed and target_buoy and time.time()-target_buoy['last_udp_time']<5)
+        full = f"${base}*{self.calculate_crc(base):02X}"
+        if use_udp and udp_allowed:
+            tip = target_buoy['data'].get("IP", "255.255.255.255") if target_buoy else "255.255.255.255"
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1); s.sendto(full.encode(), (tip, 1001))
+                self.log_message(full, "UDP OUT")
+            except Exception as e: self.log_message(f"UDP ERROR: {e}", "UDP OUT")
+        if use_lora and self.serial_conn and self.serial_conn.is_open:
+            try: self.serial_conn.write((full + "\n").encode()); self.log_message(full, "LORA OUT")
+            except Exception as e: self.log_message(f"LORA ERROR: {e}", "LORA OUT")
+
+    def send_udp_command(self, tid, cid): self.send_custom_udp_command(tid, f"{tid},99,3,{cid},7")
 
     def on_closing(self):
-        self.running = False
-        self.running_serial = False
-        if self.serial_conn and self.serial_conn.is_open:
-            self.serial_conn.close()
-        self.sock.close()
-        if hasattr(self, 'udp_thread') and self.udp_thread.is_alive():
-            self.udp_thread.join(timeout=1.0)
-        self.master.destroy()
-        sys.exit(0)
+        self.running = False; self.running_serial = False
+        if self.serial_conn: self.serial_conn.close()
+        self.sock.close(); self.master.destroy(); sys.exit(0)
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = RoboMonitor(root)
-    root.protocol("WM_DELETE_WINDOW", app.on_closing)
-    root.mainloop()
+    root = tk.Tk(); app = RoboMonitor(root); root.protocol("WM_DELETE_WINDOW", app.on_closing); root.mainloop()

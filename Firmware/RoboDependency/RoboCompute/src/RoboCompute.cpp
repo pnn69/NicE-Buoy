@@ -41,11 +41,16 @@ void RoboDecode(String data, RoboStruct *dataStore)
           if (numbers[15].length() > 0) dataStore->swap_BB_SB = (bool)numbers[15].toInt();
           break;
     case IDLE:
+    case IDELING:
         dataStore->speed = 0;
         dataStore->tgDist = 0;
         break;
     case DOCKED:
+    case DOCKING:
+    case DOC:
+    case STOREASDOC:
     case LOCKED:
+    case LOCKING:
         dataStore->tgDir = numbers[2].toDouble();
         dataStore->tgDist = numbers[3].toDouble();
         dataStore->tgSpeed = numbers[4].toDouble();
@@ -53,6 +58,7 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->wStd = numbers[6].toDouble();
         break;
     case REMOTE:
+    case REMOTEING:
         dataStore->tgDir = numbers[2].toDouble();
         dataStore->tgSpeed = numbers[3].toDouble();
         break;
@@ -217,6 +223,11 @@ void RoboDecode(String data, RoboStruct *dataStore)
     case STORE_COMPASS_OFFSET:
         dataStore->compassOffset = numbers[2].toDouble();
         break;
+    case RESET_RUDDER_PID:
+    case RESET_SPEED_PID:
+    case RESET_SPEED_RUD_PID:
+    case WAKEUP:
+        break; // No extra parameters
     default:
         printf("RoboDecode: Unknown CMD %d\r\n", dataStore->cmd);
         break;
@@ -227,7 +238,13 @@ String RoboCode(const RoboStruct *dataOut)
 {
     String out = String(dataOut->cmd);
     out += "," + String(dataOut->status);
-    if (dataOut->ack == LORAACK) return out;
+    
+    // Optimization: If this is a simple 'GET' request or an ACK,
+    // return early to avoid broadcasting long strings of empty/zeroed fields.
+    if (dataOut->ack == LORAACK || dataOut->ack == LORAGET || dataOut->ack == LORAGETACK) {
+        return out;
+    }
+
     switch (dataOut->cmd)
     {
     case SETUPDATA:
@@ -400,7 +417,11 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->compassOffset, 2);
         break;
     case DOCKED:
+    case DOCKING:
+    case DOC:
+    case STOREASDOC:
     case LOCKED:
+    case LOCKING:
         out += "," + String(dataOut->tgDir, 1);
         out += "," + String(dataOut->tgDist, 1);
         out += "," + String(dataOut->tgSpeed, 1);
@@ -408,16 +429,23 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->wStd, 1);
         break;
     case REMOTE:
+    case REMOTEING:
         out += "," + String(dataOut->tgDir, 0);
         out += "," + String(dataOut->tgSpeed, 0);
         break;
     case IDLE:
+    case IDELING:
         out += ",0,0";
         break;
     case PING:
         return String(PING);
     case PONG:
         return String(PONG);
+    case RESET_RUDDER_PID:
+    case RESET_SPEED_PID:
+    case RESET_SPEED_RUD_PID:
+    case WAKEUP:
+        return out; // No extra fields
     default:
         printf("RoboCode: Unknown formatter <%d>\r\n", dataOut->cmd);
         break;

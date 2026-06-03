@@ -270,7 +270,7 @@ void LoraTask(void *arg)
         if (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
         {
             // IDr,IDs,ACK,MSG,<data>
-            loraMsgout.IDs = buoyId;
+            if (loraMsgout.IDs == 0) loraMsgout.IDs = buoyId;
             String loraString = rfCode(&loraMsgout);
             while (sendLora(String(loraString)) != true)
             {
