@@ -11,5 +11,6 @@
         "initializer_list": "cpp",
         "cmath": "cpp"
     },
-    "idf.currentSetup": "C:\\Users\\Peter.d.Nijs\\esp\\v5.3\\esp-idf"
+    "idf.currentSetup": "C:\\Users\\Peter.d.Nijs\\esp\\v5.3\\esp-idf",
+    "liveServer.settings.port": 5501
 }

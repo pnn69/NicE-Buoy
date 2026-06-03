@@ -152,7 +152,6 @@ struct RoboStruct
     int maxSpeed = 80;
     double declination = 0;
     double compassOffset = 0;
-    double icmCompassOffset = 0;
     double mechanicCorrection = 0;
     unsigned long buoyId = 0;
     unsigned long lastLoraIn = 0;

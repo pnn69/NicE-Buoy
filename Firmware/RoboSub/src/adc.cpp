@@ -46,17 +46,20 @@ void battCurrent(float &current_a)
 {
 #ifdef IMON_PIN
     int adc_mv = analogReadMilliVolts(IMON_PIN);
-
     // Formula: I = (V - 1.65V) * (20A / 1.55V)
     // I = (adc_mv - 1650) * (20 / 1550)
+    // 0 mV → ≈ -21.3 A
+    // 100mV → ≈ -19.4 A
+    // 1650 mV → 0 A
+    // 3200 mV → ≈ +22.6 A
     float instant_current = (float)(adc_mv - 1650) * (20.0f / 1550.0f);
 
     if (first_read_i) {
         smoothed_current = instant_current;
         first_read_i = false;
     } else {
-        // Simple IIR filter: 90% old, 10% new
-        smoothed_current = (smoothed_current * 0.9f) + (instant_current * 0.1f);
+        // Simple IIR filter: 20% old, 80% new
+        smoothed_current = (smoothed_current * 0.2f) + (instant_current * 0.8f);
     }
     current_a = smoothed_current;
 #else

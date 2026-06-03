@@ -53,7 +53,9 @@ extern AsyncUDP udp;
 extern SemaphoreHandle_t mainDataMutex;
 
 // Global state for web dashboard telemetry
+float global_hdg = 0;
 float global_icmHdg = 0;
+bool icm_ready = false;
 uint8_t bno_cal_sys = 0, bno_cal_gyro = 0, bno_cal_accel = 0, bno_cal_mag = 0;
 float last_raw_x = 0, last_raw_y = 0, last_raw_z = 0;
 float last_raw_ax = 0, last_raw_ay = 0, last_raw_az = 0;
@@ -341,8 +343,10 @@ void CompassTask(void *arg) {
                 heading += mainData.compassOffset;
                 while (heading < 0) heading += 360.0f;
                 while (heading >= 360.0f) heading -= 360.0f;
+                global_hdg = heading;
                 global_icmHdg = heading;
-                float activeHdg = CompassAverage(heading);
+                // float activeHdg = CompassAverage(heading);
+                float activeHdg = heading;
                 mainData.dirMag = activeHdg;
                 if (compass) xQueueOverwrite(compass, (void *)&activeHdg);
                 xSemaphoreGive(mainDataMutex);
@@ -358,8 +362,8 @@ void CompassTask(void *arg) {
     }
 }
 
-float GetHeading(void) { return global_icmHdg; }
-float GetHeadingRaw(void) { return global_icmHdg; }
+float GetHeading(void) { return global_hdg; }
+float GetHeadingRaw(void) { return global_hdg; }
 int linMagCalib(int *corr) { return 0; }
 bool CalibrateCompass(void) { return true; }
 int get_cal_point_count() { return bno_cal_mag; }

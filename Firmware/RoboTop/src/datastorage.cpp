@@ -83,21 +83,6 @@ void CompasOffset(RoboStruct *buoy, bool get)
     stopMem();
 }
 
-void CompasIcmOffset(RoboStruct *buoy, bool get)
-{
-    startMem();
-    if (get)
-    {
-        buoy->icmCompassOffset = storage.getDouble("icmMagCorr", 0);
-        if (isnan(buoy->icmCompassOffset)) buoy->icmCompassOffset = 0;
-    }
-    else
-    {
-        storage.putDouble("icmMagCorr", buoy->icmCompassOffset);
-    }
-    stopMem();
-}
-
 /**
  * @brief Gets or sets the mechanical correction delta in memory.
  */
@@ -217,6 +202,20 @@ void pidRudderParameters(RoboStruct *buoy, bool get)
         storage.putDouble("Kpr", buoy->Kpr);
         storage.putDouble("Kir", buoy->Kir);
         storage.putDouble("Kdr", buoy->Kdr);
+    }
+    stopMem();
+}
+
+void thrusterSwap(RoboStruct *buoy, bool get)
+{
+    startMem();
+    if (get)
+    {
+        buoy->swap_BB_SB = storage.getBool("tSwap", false);
+    }
+    else
+    {
+        storage.putBool("tSwap", buoy->swap_BB_SB);
     }
     stopMem();
 }
