@@ -294,8 +294,10 @@ void handelSerandRfdata(RoboStruct *ser)
     //***************************************************************************************************
     //      new udp message (handle only if no new serial data)
     //***************************************************************************************************
-    if (xQueueReceive(udpIn, (void *)&udpInMain, 0)) // New UDP data
+    if (dataIn.IDr == -1 && xQueueReceive(udpIn, (void *)&udpInMain, 0)) // New UDP data
     {
+        dataIn = udpInMain;
+        printf("UDP command recieved %d\r\n", dataIn.cmd);
     }
     
     

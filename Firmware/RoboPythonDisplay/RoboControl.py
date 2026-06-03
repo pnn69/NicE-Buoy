@@ -18,8 +18,8 @@ class RoboMonitor:
     def __init__(self, master):
         self.master = master
         master.title("Robobuoy Monitor - 3 Buoys")
-        master.geometry("1000x950")
-        master.resizable(False, False)
+        master.geometry("1400x950")
+        master.resizable(True, False)
 
         self.udp_ip = "0.0.0.0"  # Listen on all available interfaces
         self.udp_port = 1001     # Port RobobuoyTop sends UDP messages to
@@ -246,16 +246,31 @@ class RoboMonitor:
                 'data': {}.fromkeys(["Latitude (Lat)", "Longitude (Lon)", "Bow Thruster (BB)", "Stern Thruster (SB)"] + list(labels.keys()), "N/A")
             })
 
-        # Incoming Data Log at the bottom
-        self.log_frame = ttk.LabelFrame(self.master, text="Incoming Raw Data")
-        self.log_frame.pack(expand=False, fill="both", padx=15, pady=10)
+        # Raw Data Logs at the bottom
+        self.logs_container = ttk.Frame(self.master)
+        self.logs_container.pack(expand=True, fill="both", padx=15, pady=5)
         
-        self.log_text = tk.Text(self.log_frame, height=8, bg="black", fg="lime", font=("Consolas", 9))
-        self.scrollbar = ttk.Scrollbar(self.log_frame, command=self.log_text.yview)
-        self.log_text.configure(yscrollcommand=self.scrollbar.set)
+        self.log_windows = {}
+        log_configs = [
+            ("UDP IN", 0, 0, "lime"),
+            ("UDP OUT", 0, 1, "cyan"),
+            ("LORA IN", 1, 0, "yellow"),
+            ("LORA OUT", 1, 1, "orange")
+        ]
         
-        self.log_text.pack(side="left", expand=True, fill="both")
-        self.scrollbar.pack(side="right", fill="y")
+        for name, row, col, color in log_configs:
+            frame = ttk.LabelFrame(self.logs_container, text=name)
+            frame.grid(row=row, column=col, sticky="nsew", padx=2, pady=2)
+            self.logs_container.grid_columnconfigure(col, weight=1)
+            self.logs_container.grid_rowconfigure(row, weight=1)
+            
+            text_widget = tk.Text(frame, height=5, bg="black", fg=color, font=("Consolas", 8))
+            scrollbar = ttk.Scrollbar(frame, command=text_widget.yview)
+            text_widget.configure(yscrollcommand=scrollbar.set)
+            
+            text_widget.pack(side="left", expand=True, fill="both")
+            scrollbar.pack(side="right", fill="y")
+            self.log_windows[name] = text_widget
 
     def on_map_click(self, idx):
         b = self.buoy_frames[idx]
@@ -661,22 +676,22 @@ class RoboMonitor:
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
                     s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                     s.sendto(full_msg.encode(), (target_ip, 1001))
-                self.log_message(f"SENT UDP TO {target_id} ({target_ip}): {full_msg}")
+                self.log_message(full_msg, "UDP OUT")
             except Exception as e:
-                self.log_message(f"UDP SEND ERROR: {e}")
+                self.log_message(f"UDP SEND ERROR: {e}", "UDP OUT")
         elif use_udp and not udp_allowed:
-            self.log_message(f"UDP SEND SKIPPED (DISABLED) - {target_id}")
+            self.log_message(f"UDP SEND SKIPPED (DISABLED) - {target_id}", "UDP OUT")
             
         if use_lora:
             # Send via Serial (LoRa)
             if self.serial_conn and self.serial_conn.is_open:
                 try:
                     self.serial_conn.write((full_msg + "\n").encode())
-                    self.log_message(f"SENT LORA TO {target_id}: {full_msg}")
+                    self.log_message(full_msg, "LORA OUT")
                 except Exception as e:
-                    self.log_message(f"LORA SEND ERROR: {e}")
+                    self.log_message(f"LORA SEND ERROR: {e}", "LORA OUT")
             else:
-                self.log_message(f"LORA BACKUP SKIPPED (NOT CONNECTED) - {target_id}")
+                self.log_message(f"LORA BACKUP SKIPPED (NOT CONNECTED) - {target_id}", "LORA OUT")
 
     def send_udp_command(self, target_id, cmd_id, use_udp=True, use_lora=None):
         if target_id is None:
@@ -716,22 +731,22 @@ class RoboMonitor:
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
                     s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                     s.sendto(full_msg.encode(), (target_ip, 1001))
-                self.log_message(f"SENT UDP TO {target_id} ({target_ip}): {full_msg}")
+                self.log_message(full_msg, "UDP OUT")
             except Exception as e:
-                self.log_message(f"UDP SEND ERROR: {e}")
+                self.log_message(f"UDP SEND ERROR: {e}", "UDP OUT")
         elif use_udp and not udp_allowed:
-            self.log_message(f"UDP SEND SKIPPED (DISABLED) - {target_id}")
+            self.log_message(f"UDP SEND SKIPPED (DISABLED) - {target_id}", "UDP OUT")
             
         if use_lora:
             # Send via Serial (LoRa)
             if self.serial_conn and self.serial_conn.is_open:
                 try:
                     self.serial_conn.write((full_msg + "\n").encode())
-                    self.log_message(f"SENT LORA TO {target_id}: {full_msg}")
+                    self.log_message(full_msg, "LORA OUT")
                 except Exception as e:
-                    self.log_message(f"LORA SEND ERROR: {e}")
+                    self.log_message(f"LORA SEND ERROR: {e}", "LORA OUT")
             else:
-                self.log_message(f"LORA BACKUP SKIPPED (NOT CONNECTED) - {target_id}")
+                self.log_message(f"LORA BACKUP SKIPPED (NOT CONNECTED) - {target_id}", "LORA OUT")
 
     def refresh_ports(self):
         ports = [port.device for port in serial.tools.list_ports.comports()]
@@ -773,8 +788,7 @@ class RoboMonitor:
                 try:
                     line = self.serial_conn.readline().decode('utf-8', errors='ignore').strip()
                     if line:
-                        self.log_message(f"LORA IN: {line}")
-                        # We treat LoRa incoming the same as UDP incoming
+                        self.log_message(line, "LORA IN")
                         # Fix late-binding in lambda by explicitly passing line as a default argument
                         self.master.after(0, lambda msg=line: self.parse_message(msg, "LoRa"))
                 except Exception as e:
@@ -782,17 +796,18 @@ class RoboMonitor:
                     break
             time.sleep(0.01)
 
-    def log_message(self, message):
-        """Thread-safe logging of raw messages to the text widget"""
+    def log_message(self, message, source="UDP IN"):
+        """Thread-safe logging of raw messages to the specific text widget"""
         def _log():
             timestamp = datetime.now().strftime("%H:%M:%S")
             log_entry = f"[{timestamp}] {message}\n"
             
-            self.log_text.insert("end", log_entry)
-            self.log_text.see("end")
+            target = self.log_windows.get(source, self.log_windows["UDP IN"])
+            target.insert("end", log_entry)
+            target.see("end")
             
-            if float(self.log_text.index("end-1c")) > 50:
-                self.log_text.delete("1.0", "2.0")
+            if float(target.index("end-1c")) > 100:
+                target.delete("1.0", "2.0")
         
         self.master.after(0, _log)
 
@@ -829,7 +844,7 @@ class RoboMonitor:
             try:
                 data, addr = self.sock.recvfrom(1024)
                 message = data.decode('utf-8').strip()
-                self.log_message(message)
+                self.log_message(message, "UDP IN")
                 self.parse_message(message, addr[0])
             except socket.timeout:
                 pass
@@ -852,6 +867,7 @@ class RoboMonitor:
 
     def parse_message(self, message, sender_ip):
         current_timestamp = datetime.now().strftime("%H:%M:%S")
+        log_source = "LORA IN" if sender_ip == "LoRa" else "UDP IN"
         
         if not message.startswith('$') or '*' not in message:
             return
@@ -864,10 +880,10 @@ class RoboMonitor:
                 received_crc = int(crc_str, 16)
                 calculated_crc = self.calculate_crc(content)
                 if received_crc != calculated_crc:
-                    self.log_message(f"CRC ERROR: Expected {calculated_crc:02X}, got {received_crc:02X} in message: {message}")
+                    self.log_message(f"CRC ERROR: Expected {calculated_crc:02X}, got {received_crc:02X} in message: {message}", log_source)
                     return
             except ValueError:
-                self.log_message(f"CRC FORMAT ERROR in message: {message}")
+                self.log_message(f"CRC FORMAT ERROR in message: {message}", log_source)
                 return
             # ----------------------
 
@@ -886,7 +902,7 @@ class RoboMonitor:
                 return
                 
             cmd = fields[3]
-            buoy_id = fields[1]
+            buoy_id = fields[0]
             data = {"Timestamp": current_timestamp, "IP": sender_ip}
             
             # --- Network Monitor and Filtering Logic ---
