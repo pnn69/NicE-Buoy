@@ -843,22 +843,6 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
     else if (xQueueReceive(udpIn, (void *)&RfIn, 1) == pdTRUE) // new udp data
     {
         from_udp = true;
-        // printf("handelRfData: Received from UDP\r\n");
-    }
-
-void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
-{
-    RoboStruct RfIn;
-    RfIn.IDr = -1;
-    bool from_udp = false;
-
-    if (xQueueReceive(loraIn, (void *)&RfIn, 1) == pdTRUE) // new lora data
-    {
-        // printf("handelRfData: Received from LoRa\r\n");
-    }
-    else if (xQueueReceive(udpIn, (void *)&RfIn, 1) == pdTRUE) // new udp data
-    {
-        from_udp = true;
     }
 
     if (RfIn.IDr != -1)
