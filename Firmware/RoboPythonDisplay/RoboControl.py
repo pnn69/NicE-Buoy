@@ -641,14 +641,15 @@ class RoboMonitor:
         kps, kis, kds = create_entry(main_frame, "P:", "Kps", 5), create_entry(main_frame, "I:", "Kis", 6), create_entry(main_frame, "D:", "Kds", 7)
         ttk.Label(main_frame, text="Limits & Motors", font=("Arial", 10, "bold")).grid(row=8, column=0, columnspan=2, pady=(15, 10))
         max_s, min_s, piv_s, c_off = create_entry(main_frame, "Max Speed:", "maxSpeed", 9), create_entry(main_frame, "Min Speed:", "minSpeed", 10), create_entry(main_frame, "Pivot Speed:", "pivotSpeed", 11), create_entry(main_frame, "Compass Offset:", "compassOffset", 12)
-        rev_bb_var, rev_sb_var = tk.BooleanVar(value=b['data'].get("revBB")=="1"), tk.BooleanVar(value=b['data'].get("revSB")=="1")
+        rev_bb_var, rev_sb_var, swap_var = tk.BooleanVar(value=b['data'].get("revBB")=="1"), tk.BooleanVar(value=b['data'].get("revSB")=="1"), tk.BooleanVar(value=b['data'].get("swap_BB_SB")=="1")
         ttk.Checkbutton(main_frame, text="Reverse BB", variable=rev_bb_var).grid(row=13, column=0, sticky="w")
         ttk.Checkbutton(main_frame, text="Reverse SB", variable=rev_sb_var).grid(row=13, column=1, sticky="e")
+        ttk.Checkbutton(main_frame, text="Swap BB/SB", variable=swap_var).grid(row=14, column=0, sticky="w", pady=5)
         def save_all():
             try:
                 # Use ACK=3 for "Command" and Status=7 (or current status) to ensure the buoy accepts it as an instruction
                 curr_status = b['data'].get("Status", "7")
-                vals = [kpr.get(), kir.get(), kdr.get(), kps.get(), kis.get(), kds.get(), max_s.get(), min_s.get(), piv_s.get(), c_off.get(), "2", "1" if rev_bb_var.get() else "0", "1" if rev_sb_var.get() else "0", "0"]
+                vals = [kpr.get(), kir.get(), kdr.get(), kps.get(), kis.get(), kds.get(), max_s.get(), min_s.get(), piv_s.get(), c_off.get(), "2", "1" if rev_bb_var.get() else "0", "1" if rev_sb_var.get() else "0", "1" if swap_var.get() else "0"]
                 
                 # 1. Send the bulk setup data update
                 self.send_custom_udp_command(b['id'], f"{b['id']},99,3,{MsgType.SETUPDATA},{curr_status},{','.join(vals)}")

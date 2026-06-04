@@ -237,6 +237,9 @@ void WiFiTask(void *arg)
         json += "\"compassOffset\":\"" + String(mainData.compassOffset, 2) + "\",";
         json += "\"Lat\":\"" + String(mainData.lat, 6) + "\",";
         json += "\"Lng\":\"" + String(mainData.lng, 6) + "\",";
+        json += "\"revBB\":\"" + String(mainData.revBB ? "true" : "false") + "\",";
+        json += "\"revSB\":\"" + String(mainData.revSB ? "true" : "false") + "\",";
+        json += "\"swap_BB_SB\":\"" + String(mainData.swap_BB_SB ? "true" : "false") + "\",";
         json += "\"GpsFix\":\"" + String(mainData.gpsFix ? "true" : "false") + "\"";
         json += "},";
 
@@ -270,6 +273,9 @@ void WiFiTask(void *arg)
             json += "\"compassOffset\":\"" + String(buoyPara[i].compassOffset, 2) + "\",";
             json += "\"Lat\":\"" + String(buoyPara[i].lat, 6) + "\",";
             json += "\"Lng\":\"" + String(buoyPara[i].lng, 6) + "\",";
+            json += "\"revBB\":\"" + String(buoyPara[i].revBB ? "true" : "false") + "\",";
+            json += "\"revSB\":\"" + String(buoyPara[i].revSB ? "true" : "false") + "\",";
+            json += "\"swap_BB_SB\":\"" + String(buoyPara[i].swap_BB_SB ? "true" : "false") + "\",";
             json += "\"GpsFix\":\"" + String(buoyPara[i].gpsFix ? "true" : "false") + "\"";
             json += "}";
             if (i < 2) json += ",";
@@ -341,6 +347,9 @@ void WiFiTask(void *arg)
                     mainData.minSpeed = server.arg("minSpeed").toInt();
                     mainData.pivotSpeed = server.arg("pivotSpeed").toFloat();
                     mainData.compassOffset = server.arg("compassOffset").toFloat();
+                    mainData.revBB = server.arg("revBB").toInt();
+                    mainData.revSB = server.arg("revSB").toInt();
+                    mainData.swap_BB_SB = server.arg("swap_BB_SB").toInt();
 
                     pidRudderParameters(&mainData, SET);
                     pidSpeedParameters(&mainData, SET);
@@ -404,6 +413,9 @@ void WiFiTask(void *arg)
                     msg.minSpeed = server.arg("minSpeed").toInt();
                     msg.pivotSpeed = server.arg("pivotSpeed").toFloat();
                     msg.compassOffset = server.arg("compassOffset").toFloat();
+                    msg.revBB = server.arg("revBB").toInt();
+                    msg.revSB = server.arg("revSB").toInt();
+                    msg.swap_BB_SB = server.arg("swap_BB_SB").toInt();
                     msg.ack = LORASET;
                 } else {
                     msg.ack = LORAGET;

@@ -331,6 +331,23 @@ input {
 
         <h4 style="margin: 5px 0 2px 0;">Compass</h4>
         <div class="inputRow" style="margin-top: 0;">Compass Offset <input id="compassOffset" type="number" step="0.1" style="width:50px;"></div>
+        
+        <h4 style="margin: 8px 0 5px 0;">Thruster Settings</h4>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:5px;">
+                <input id="revBB" type="checkbox" style="width:20px; height:20px;">
+                <label for="revBB">BB Inverted</label>
+            </div>
+            <div style="display:flex; align-items:center; gap:5px;">
+                <input id="revSB" type="checkbox" style="width:20px; height:20px;">
+                <label for="revSB">SB Inverted</label>
+            </div>
+            <div style="display:flex; align-items:center; gap:5px; grid-column: span 2;">
+                <input id="swap_BB_SB" type="checkbox" style="width:20px; height:20px;">
+                <label for="swap_BB_SB">Swap BB/SB Thrusters</label>
+            </div>
+        </div>
+        
         <hr style="margin: 15px 0 10px 0;">
         
         <button onclick="updateConfig()" style="width:100%; background:#28a745; color:white; font-weight:bold; height: 45px; font-size: 18px; margin: 0 0 15px 0;">UPDATE CONFIG</button>
@@ -371,7 +388,10 @@ function updateConfig() {
         maxSpeed: document.getElementById('maxSpeed').value,
         minSpeed: document.getElementById('minSpeed').value,
         pivotSpeed: document.getElementById('pivotSpeed').value,
-        compassOffset: document.getElementById('compassOffset').value
+        compassOffset: document.getElementById('compassOffset').value,
+        revBB: document.getElementById('revBB').checked ? 1 : 0,
+        revSB: document.getElementById('revSB').checked ? 1 : 0,
+        swap_BB_SB: document.getElementById('swap_BB_SB').checked ? 1 : 0
     };
 
     let url = `/command?bid=${currentBuoy}&cmd=SETUPDATA`;
@@ -507,6 +527,14 @@ function updateSetupModal() {
             setVal("minSpeed", b.minSpeed);
             setVal("pivotSpeed", b.pivotSpeed);
             setVal("compassOffset", b.compassOffset);
+
+            const setChecked = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.checked = (String(val).toLowerCase() === "true" || val === 1 || val === "1");
+            };
+            setChecked("revBB", b.revBB);
+            setChecked("revSB", b.revSB);
+            setChecked("swap_BB_SB", b.swap_BB_SB);
         }
     }
 }
