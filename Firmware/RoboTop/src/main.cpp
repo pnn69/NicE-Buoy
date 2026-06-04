@@ -800,14 +800,13 @@ void handleTimerRoutines(RoboStruct *timer)
         timer->wStd = wind.wStd;
         timer->wDir = wind.wDir; // averige wind dir
         timer->cmd = TOPDATA;
-        // xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
+        xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
         xQueueSend(udpOut, (void *)timer, 10); // send out trough wifi
 
         // RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
-        printf("DEBUG MEM: &Kdr=%p, &wStd=%p, Kdr=%f, wStd=%f\r\n", &mainData.Kdr, &mainData.wStd, mainData.Kdr, mainData.wStd); printf("Status:%d Lat: %.8f Lon:%.8f tgDist:%.2f tgDir:%.0f mDir:%.0f wDir:%.0f wStd:%.2f ", timer->status, timer->lat, timer->lng, timer->tgDist,
-    timer->tgDir, timer->dirMag, timer->wDir, timer->wStd);
-        printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %d%% BB:%02d SB:%02d\r\n", timer->topAccuV, timer->topAccuP, timer->subAccuV, timer->subAccuP, timer->speedBb,
-    timer->speedSb);
+        // printf("DEBUG MEM: &Kdr=%p, &wStd=%p, Kdr=%f, wStd=%f\r\n", &mainData.Kdr, &mainData.wStd, mainData.Kdr, mainData.wStd); 
+        printf("Status:%d Lat: %.8f Lon:%.8f tgDist:%.2f tgDir:%.0f mDir:%.0f wDir:%.0f wStd:%.2f ", timer->status, timer->lat, timer->lng, timer->tgDist,timer->tgDir, timer->dirMag, timer->wDir, timer->wStd);
+        printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %d%% BB:%02d SB:%02d\r\n", timer->topAccuV, timer->topAccuP, timer->subAccuV, timer->subAccuP, timer->speedBb,timer->speedSb);
     }
     if (udpTimerOut + 2000 < millis() && !((timer->status == LOCKED || timer->status == DOCKED)))
     {
@@ -849,8 +848,8 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
     {
         // Fix corruption by using correct format specifiers for 32-bit hex IDs
         if(from_udp) {
-            printf("handelRfData: Processing UDP message. Target: %08X, Sender: %08X, cmd: %d, ack: %d\r\n",
-                   (unsigned int)RfIn.IDr, (unsigned int)RfIn.IDs, (int)RfIn.cmd, (int)RfIn.ack);
+            // printf("handelRfData: Processing UDP message. Target: %08X, Sender: %08X, cmd: %d, ack: %d\r\n",
+            //        (unsigned int)RfIn.IDr, (unsigned int)RfIn.IDs, (int)RfIn.cmd, (int)RfIn.ack);
         }
         
         // Deduplication Filter for Mode Commands
@@ -1227,7 +1226,7 @@ void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
         
         // Update local identity if the sub reports a different ID
         if (serDataIn.IDs != 0 && serDataIn.IDs != ser->IDs) {
-            printf("Syncing local buoy ID from %08X to %08X\r\n", (unsigned int)ser->IDs, (unsigned int)serDataIn.IDs);
+            // printf("Syncing local buoy ID from %08X to %08X\r\n", (unsigned int)ser->IDs, (unsigned int)serDataIn.IDs);
             ser->IDs = serDataIn.IDs;
         }
 

@@ -260,7 +260,7 @@ void handelStatus(RoboStruct *stat)
         // Note: speedBb and speedSb are NOT zeroed here to allow smooth ramping in rudderPid
         stat->status = IDLE;
         xQueueSend(serOut, (void *)stat, 10);
-        printf("Entering IDLE state (ramping down)\r\n");
+// printf("Entering IDLE state (ramping down)\r\n");
     }
 }
 //***************************************************************************************************
@@ -293,16 +293,6 @@ void handelSerandRfdata(RoboStruct *ser)
             xQueueSend(ledStatus, (void *)&mainLedStatus, 0); // update util led
         }
     }
-    //***************************************************************************************************
-    //      new udp message (handle only if no new serial data)
-    //***************************************************************************************************
-    if (dataIn.IDr == -1 && xQueueReceive(udpIn, (void *)&udpInMain, 0)) // New UDP data
-    {
-        dataIn = udpInMain;
-        printf("UDP command recieved %d\r\n", dataIn.cmd);
-    }
-    
-    
     
     if (dataIn.IDr != -1)
     {
@@ -321,7 +311,7 @@ void handelSerandRfdata(RoboStruct *ser)
                     ser->status = IDELING;
                     initRudPid(ser);
                     initSpeedPid(ser);
-                    printf("IDLE command recieved (ramping down)\r\n");
+// printf("IDLE command recieved (ramping down)\r\n");
                 }
                 break;
             case DIRDIST:
@@ -393,11 +383,11 @@ void handelSerandRfdata(RoboStruct *ser)
                 break;
             case PIDRUDDERSET:
                 global_params_rev++;
-                printf("New rudder PID settings pr:%0.2f ir:%0.2f dr:%0.2f\r\n", dataIn.Kpr, dataIn.Kir, dataIn.Kdr);
+// printf("New rudder PID settings pr:%0.2f ir:%0.2f dr:%0.2f\r\n", dataIn.Kpr, dataIn.Kir, dataIn.Kdr);
                 pidRudderParameters(&dataIn, SET);
                 pidRudderParameters(ser, GET);
                 initRudPid(ser);
-                printf("Rudder PID stored pr:%0.2f ir:%0.2f dr:%0.2f\r\n", ser->Kpr, ser->Kir, ser->Kdr);
+// printf("Rudder PID stored pr:%0.2f ir:%0.2f dr:%0.2f\r\n", ser->Kpr, ser->Kir, ser->Kdr);
                 
                 {
                     RoboStruct response = *ser;
@@ -420,11 +410,11 @@ void handelSerandRfdata(RoboStruct *ser)
                 break;
             case PIDSPEEDSET:
                 global_params_rev++;
-                printf("New speed PID settings ps:%0.2f is:%0.2f ds:%0.2f\r\n", dataIn.Kps, dataIn.Kis, dataIn.Kds);
+// printf("New speed PID settings ps:%0.2f is:%0.2f ds:%0.2f\r\n", dataIn.Kps, dataIn.Kis, dataIn.Kds);
                 pidSpeedParameters(&dataIn, SET);
                 pidSpeedParameters(ser, GET);
                 initSpeedPid(ser);
-                printf("Speed PID stored ps:%0.2f is:%0.2f ds:%0.2f\r\n", ser->Kps, ser->Kis, ser->Kds);
+// printf("Speed PID stored ps:%0.2f is:%0.2f ds:%0.2f\r\n", ser->Kps, ser->Kis, ser->Kds);
                 
                 {
                     RoboStruct response = *ser;
@@ -534,11 +524,11 @@ void handelSerandRfdata(RoboStruct *ser)
                     thrusterSwap(&response, GET);
                     thrusterInversion(&response, GET); 
                     xQueueSend(serOut, (void *)&response, 10);
-                    printf("Sent SETUPDATA back to %X\r\n", response.IDr);
+// printf("Sent SETUPDATA back to %X\r\n", response.IDr);
                 }
                 else if (dataIn.ack == LORASET)
                 {
-                    printf("New setup received. Updating PID and Inversion flags.\r\n");
+// printf("New setup received. Updating PID and Inversion flags.\r\n");
                     pidRudderParameters(&dataIn, SET);
                     pidSpeedParameters(&dataIn, SET);
                     speedMaxMin(&dataIn, SET);
@@ -579,17 +569,17 @@ void handelSerandRfdata(RoboStruct *ser)
                 break;
             case RESET_RUDDER_PID:
                 resetRudPid();
-                printf("Resetting PID RUDDER!!\r\n");
+// printf("Resetting PID RUDDER!!\r\n");
                 break;
             case RESET_SPEED_PID:
                 resetSpeedPid();
-                printf("Resetting PID SPEED!!\r\n");
+// printf("Resetting PID SPEED!!\r\n");
                 break;
             case RESET_SPEED_RUD_PID:
                 resetSpeedPid();
-                printf("Resetting PID SPEED!!\r\n");
+// printf("Resetting PID SPEED!!\r\n");
                 resetRudPid();
-                printf("Resetting PID RUDDER!!\r\n");
+// printf("Resetting PID RUDDER!!\r\n");
                 ser->locked = false; // Reset the locked flag so speed target initializes properly
                 break;
             case PING:

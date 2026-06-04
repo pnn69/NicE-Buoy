@@ -37,7 +37,7 @@ void SerstoreAckMsg(RoboStruct ackBuffer)
         {
             pendingMsg[i] = ackBuffer;
             pendingMsg[i].retry = 5;
-            printf("ACK_STORE: Updated msg cmd=%d for IDr=%X at pos=%d\r\n", ackBuffer.cmd, ackBuffer.IDr, i);
+            // printf("ACK_STORE: Updated msg cmd=%d for IDr=%X at pos=%d\r\n", ackBuffer.cmd, ackBuffer.IDr, i);
             return;
         }
     }
@@ -47,11 +47,11 @@ void SerstoreAckMsg(RoboStruct ackBuffer)
         if (pendingMsg[i].cmd == 0)
         {
             pendingMsg[i] = ackBuffer;
-            printf("ACK_STORE: Stored msg cmd=%d for IDr=%X at pos=%d\r\n", ackBuffer.cmd, ackBuffer.IDr, i);
+            // printf("ACK_STORE: Stored msg cmd=%d for IDr=%X at pos=%d\r\n", ackBuffer.cmd, ackBuffer.IDr, i);
             return;
         }
     }
-    printf("ACK_STORE: ERROR - Buffer full!\r\n");
+    // printf("ACK_STORE: ERROR - Buffer full!\r\n");
 }
 
 //***************************************************************************************************
@@ -64,7 +64,7 @@ void SerremoveAckMsg(RoboStruct ackBuffer)
     {
         if (pendingMsg[i].cmd != 0 && pendingMsg[i].cmd == ackBuffer.cmd)
         {
-            printf("ACK_REMOVE: Removed msg cmd=%d from pos=%d\r\n", pendingMsg[i].cmd, i);
+            // printf("ACK_REMOVE: Removed msg cmd=%d from pos=%d\r\n", pendingMsg[i].cmd, i);
             pendingMsg[i].ack = 0;
             pendingMsg[i].cmd = 0;
             pendingMsg[i].IDs = 0;
@@ -74,7 +74,7 @@ void SerremoveAckMsg(RoboStruct ackBuffer)
         }
     }
     if (!found) {
-        printf("ACK_REMOVE: No pending msg found for cmd=%d\r\n", ackBuffer.cmd);
+        // printf("ACK_REMOVE: No pending msg found for cmd=%d\r\n", ackBuffer.cmd);
     }
 }
 
@@ -94,13 +94,13 @@ RoboStruct SerchkAckMsg(void)
             pendingMsg[i].retry--;
             if (pendingMsg[i].retry == 0)
             {
-                printf("ACK_RETRY: Failed after max retries cmd=%d\r\n", pendingMsg[i].cmd);
+                // printf("ACK_RETRY: Failed after max retries cmd=%d\r\n", pendingMsg[i].cmd);
                 pendingMsg[i].cmd = 0;
                 pendingMsg[i].ack = 0;
                 pendingMsg[i].IDs = 0;
                 pendingMsg[i].IDr = 0;
             } else {
-                printf("ACK_RETRY: Resending cmd=%d to IDr=%X, retries left=%d\r\n", in.cmd, in.IDr, pendingMsg[i].retry);
+                // printf("ACK_RETRY: Resending cmd=%d to IDr=%X, retries left=%d\r\n", in.cmd, in.IDr, pendingMsg[i].retry);
             }
             return in;
         }
@@ -156,7 +156,7 @@ void SercomTask(void *arg)
                     }
                     else
                     {
-                        printf("SER_SUB_IN CMD=%d from IDs=%X\n", serDataIn.cmd, serDataIn.IDs);
+                        // printf("SER_SUB_IN CMD=%d from IDs=%X\n", serDataIn.cmd, serDataIn.IDs);
                         xQueueSend(serIn, (void *)&serDataIn, 10);
                         lastSerMsg = millis();
 
@@ -194,7 +194,7 @@ void SercomTask(void *arg)
                 
                 String out = rfCode(&serDataOut);
                 Serial1.println(out);
-                printf("SER_SUB_OUT>%s<\r\n", out.c_str());
+                // printf("SER_SUB_OUT>%s<\r\n", out.c_str());
 
                 if (serDataOut.ack == LORAGETACK)
                 {

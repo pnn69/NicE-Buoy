@@ -282,7 +282,7 @@ void WiFiTask(void *arg)
         int bid = server.arg("bid").toInt();
         String cmdStr = server.arg("cmd");
         int cmdEnum = -1;
-        printf("Web Command received: bid=%d, cmd=%s\r\n", bid, cmdStr.c_str());
+        // printf("Web Command received: bid=%d, cmd=%s\r\n", bid, cmdStr.c_str());
 
         if (cmdStr == "LOCK") {
             if (bid == 1) {
@@ -323,7 +323,7 @@ void WiFiTask(void *arg)
         else if (cmdStr == "COMPUTESTART") cmdEnum = COMPUTESTART;
         else if (cmdStr == "COMPUTETRACK") cmdEnum = COMPUTETRACK;
 
-        printf("Resolved cmdEnum: %d\r\n", cmdEnum);
+        // printf("Resolved cmdEnum: %d\r\n", cmdEnum);
 
         if (bid == 1) {
             RoboStruct msg = {};
@@ -370,7 +370,7 @@ void WiFiTask(void *arg)
                     msg.ack = LORAINF;
                 }
             }
-            printf("Sending command %d to udpIn (local/forward to sub)\r\n", msg.cmd);
+            // printf("Sending command %d to udpIn (local/forward to sub)\r\n", msg.cmd);
             xQueueSend(udpIn, (void *)&msg, 10);
         } else {
             RoboStruct msg = buoyPara[bid-1]; 
