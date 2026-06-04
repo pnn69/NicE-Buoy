@@ -142,6 +142,8 @@ class RoboMonitor:
             bb_bar.create_line(0, 90, 20, 90, fill="black", width=2)
             bb_val_label = tk.Label(bb_frame, text="0%", font=("Arial", 8, "bold"), width=5)
             bb_val_label.pack()
+            is_label = tk.Label(bb_frame, text="Is: -", font=("Arial", 8), fg="purple")
+            is_label.pack()
             
             center_frame = tk.Frame(visual_frame)
             center_frame.pack(side="left")
@@ -152,16 +154,39 @@ class RoboMonitor:
             windrose_canvas.pack()
             self.draw_windrose_background(windrose_canvas)
             dist_text = windrose_canvas.create_text(2, 2, anchor="nw", text="-", font=("Arial", 12, "bold"), fill="red")
-            pid_i_text = windrose_canvas.create_text(198, 2, anchor="ne", text="*", font=("Arial", 12, "bold"), fill="purple")
-            tg_dir_text = windrose_canvas.create_text(2, 198, anchor="sw", text="", font=("Arial", 12, "bold"), fill="red")
-            mag_dir_text = windrose_canvas.create_text(198, 198, anchor="se", text="-", font=("Arial", 12, "bold"), fill="green")
+            wind_text = windrose_canvas.create_text(198, 2, anchor="ne", text="-", font=("Arial", 10, "bold"), fill="blue")
+            tg_dir_text = windrose_canvas.create_text(2, 198, anchor="sw", text="", font=("Arial", 11, "bold"), fill="red")
+            mag_dir_text = windrose_canvas.create_text(198, 198, anchor="se", text="Mag:-", font=("Arial", 11, "bold"), fill="green")
             
             volt_frame = tk.Frame(center_frame)
             volt_frame.pack(fill="x", pady=(5, 0))
             tk.Label(volt_frame, text="17V", font=("Arial", 7)).pack(side="left")
-            volt_bar = ttk.Progressbar(volt_frame, orient="horizontal", length=150, mode="determinate", maximum=8.2)
-            volt_bar.pack(side="left", expand=True, fill="x", padx=2)
+            
+            volt_bar_container = tk.Frame(volt_frame)
+            volt_bar_container.pack(side="left", expand=True, fill="x", padx=2)
+            
+            volt_bar = ttk.Progressbar(volt_bar_container, orient="horizontal", mode="determinate", maximum=8.2)
+            volt_bar.pack(expand=True, fill="both")
+            
+            volt_val_label = tk.Label(volt_bar_container, text="0.0V", font=("Arial", 8, "bold"))
+            volt_val_label.place(relx=0.5, rely=0.5, anchor="center")
+            
             tk.Label(volt_frame, text="25V", font=("Arial", 7)).pack(side="left")
+            
+            curr_frame = tk.Frame(center_frame)
+            curr_frame.pack(fill="x", pady=(2, 0))
+            tk.Label(curr_frame, text="-5A", font=("Arial", 7)).pack(side="left")
+            
+            curr_bar_container = tk.Frame(curr_frame)
+            curr_bar_container.pack(side="left", expand=True, fill="x", padx=2)
+            
+            curr_bar = ttk.Progressbar(curr_bar_container, orient="horizontal", mode="determinate", maximum=25.0)
+            curr_bar.pack(expand=True, fill="both")
+            
+            curr_val_label = tk.Label(curr_bar_container, text="0.0A", font=("Arial", 8, "bold"))
+            curr_val_label.place(relx=0.5, rely=0.5, anchor="center")
+            
+            tk.Label(curr_frame, text="20A", font=("Arial", 7)).pack(side="left")
             
             sb_frame = tk.Frame(visual_frame)
             sb_frame.pack(side="left", fill="y", padx=(5, 0))
@@ -171,6 +196,8 @@ class RoboMonitor:
             sb_bar.create_line(0, 90, 20, 90, fill="black", width=2)
             sb_val_label = tk.Label(sb_frame, text="0%", font=("Arial", 8, "bold"), width=5)
             sb_val_label.pack()
+            ir_label = tk.Label(sb_frame, text="Ir: -", font=("Arial", 8), fg="purple")
+            ir_label.pack()
             
             legend_frame = ttk.Frame(frame)
             legend_frame.pack(fill="x", padx=5, pady=(0, 5))
@@ -216,17 +243,31 @@ class RoboMonitor:
             gps_arrow = windrose_canvas.create_line(100, 100, 100, 100, arrow=tk.LAST, width=3, fill="black", state="hidden")
 
             self.buoy_frames.append({
-                'frame': frame, 'windrose_canvas': windrose_canvas, 'bb_bar': bb_bar, 'sb_bar': sb_bar,
-                'bb_val_label': bb_val_label, 'sb_val_label': sb_val_label, 'volt_bar': volt_bar,
+                'frame': frame, 'windrose_canvas': windrose_canvas, 'bb_bar': bb_bar, 'syn_indicator': sync_indicator, # placeholder to keep alignment
+                'bb_bar': bb_bar, 'sb_bar': sb_bar,
+                'bb_val_label': bb_val_label, 'sb_val_label': sb_val_label, 
+                'volt_bar': volt_bar, 'volt_val_label': volt_val_label,
+                'curr_bar': curr_bar, 'curr_val_label': curr_val_label,
+                'is_label': is_label, 'ir_label': ir_label,
                 'status_label': status_label, 'ip_header_label': ip_header_label,
                 'udp_indicator': udp_indicator, 'lora_indicator': lora_indicator, 'sync_indicator': sync_indicator,
                 'last_udp_time': 0, 'last_lora_time': 0, 'last_udp_content': "", 'last_lora_content': "",
                 'lock_btn': lock_btn, 'dock_btn': dock_btn, 'dirdist_send_btn': dirdist_send_btn, 'map_btn': map_btn,
-                'udp_enabled_var': udp_enabled_var, 'dist_text': dist_text, 'pid_i_text': pid_i_text,
+                'udp_enabled_var': udp_enabled_var, 'dist_text': dist_text,
+                'wind_text': wind_text,
                 'tg_dir_text': tg_dir_text, 'mag_dir_text': mag_dir_text, 'wind_arrow': wind_arrow,
                 'tg_arrow': tg_arrow, 'mag_arrow': mag_arrow, 'gps_arrow': gps_arrow,
                 'params_frame': params_frame, 'labels': labels, 'id': None, 'data': {}
             })
+
+        self.global_btn_frame = ttk.Frame(self.master)
+        self.global_btn_frame.pack(fill="x", padx=10, pady=5)
+        self.align_startline_btn = ttk.Button(self.global_btn_frame, text="Align Startline", command=self.on_align_startline)
+        self.align_startline_btn.pack(side="left", expand=True, fill="x", padx=5)
+        self.align_track_btn = ttk.Button(self.global_btn_frame, text="Align Track", command=self.on_align_track)
+        self.align_track_btn.pack(side="left", expand=True, fill="x", padx=5)
+        self.dock_all_btn = ttk.Button(self.global_btn_frame, text="Dock All", command=self.on_dock_all)
+        self.dock_all_btn.pack(side="left", expand=True, fill="x", padx=5)
 
         self.logs_container = ttk.Frame(self.master)
         self.logs_container.pack(expand=True, fill="both", padx=15, pady=5)
@@ -407,20 +448,41 @@ class RoboMonitor:
                 else: b['sync_indicator'].config(text="Data: WAIT", fg="gray")
 
                 m_dir = d.get("Magnetic Dir", "N/A")
-                b['windrose_canvas'].itemconfig(b['mag_dir_text'], text=f"{float(m_dir):.0f}°" if m_dir not in ["N/A", "nan", ""] else "-")
+                b['windrose_canvas'].itemconfig(b['mag_dir_text'], text=f"Mag:{float(m_dir):.0f}°" if m_dir not in ["N/A", "nan", ""] else "Mag:-")
 
                 if curr_stat == MsgType.IDLE:
                     b['windrose_canvas'].itemconfig(b['dist_text'], text="-")
-                    b['windrose_canvas'].itemconfig(b['pid_i_text'], text="*")
-                    b['windrose_canvas'].itemconfig(b['tg_dir_text'], text="")
+                    b['windrose_canvas'].itemconfig(b['tg_dir_text'], text="-")
+                    b['windrose_canvas'].itemconfig(b['wind_text'], text="-")
+                    b['is_label'].config(text="Is: -")
+                    b['ir_label'].config(text="Ir: -")
                 else:
-                    dist = d.get("Target Dist", "0")
-                    b['windrose_canvas'].itemconfig(b['dist_text'], text=f"{float(dist):.2f}m" if dist not in ["N/A", "nan", ""] else "0.00m")
+                    if curr_stat in [MsgType.LOCKING, MsgType.LOCKED, MsgType.DOCKING, MsgType.DOCKED]:
+                        dist = d.get("Target Dist", "0")
+                        b['windrose_canvas'].itemconfig(b['dist_text'], text=f"{float(dist):.2f}m" if dist not in ["N/A", "nan", ""] else "0.00m")
+                    else:
+                        b['windrose_canvas'].itemconfig(b['dist_text'], text="-")
+                    
+                    if curr_stat in [MsgType.LOCKING, MsgType.LOCKED]:
+                        w_dir = d.get("Wind Dir", "0")
+                        w_std = d.get("Wind StdDev", "0")
+                        try:
+                            b['windrose_canvas'].itemconfig(b['wind_text'], text=f"Wind:{float(w_dir):.0f}°\nstd:{float(w_std):.0f}")
+                        except:
+                            b['windrose_canvas'].itemconfig(b['wind_text'], text="-")
+                    else:
+                        b['windrose_canvas'].itemconfig(b['wind_text'], text="-")
+
                     pi, pr = d.get("PID I-term", "0"), d.get("PID R-term", "0")
-                    try: b['windrose_canvas'].itemconfig(b['pid_i_text'], text=f"Is:{float(pi):.1f}\nIr:{float(pr):.1f}")
+                    try:
+                        b['is_label'].config(text=f"Is:{float(pi):.1f}")
+                        b['ir_label'].config(text=f"Ir:{float(pr):.1f}")
                     except: pass
-                    tdir = d.get("Target Dir", "N/A")
-                    b['windrose_canvas'].itemconfig(b['tg_dir_text'], text=f"{float(tdir):.0f}°" if tdir not in ["N/A", "nan", ""] else "")
+                    if curr_stat in [MsgType.LOCKING, MsgType.LOCKED, MsgType.DOCKING, MsgType.DOCKED]:
+                        tdir = d.get("Target Dir", "N/A")
+                        b['windrose_canvas'].itemconfig(b['tg_dir_text'], text=f"Tg:{float(tdir):.0f}°" if tdir not in ["N/A", "nan", ""] else "-")
+                    else:
+                        b['windrose_canvas'].itemconfig(b['tg_dir_text'], text="-")
 
                 if b['id'] is not None:
                     st_txt = "IDLE" if curr_stat==MsgType.IDLE else "LOCKED" if curr_stat in [MsgType.LOCKING, MsgType.LOCKED] else "DOCKING" if curr_stat in [MsgType.DOCKING, MsgType.DOCKED] else f"STATUS {curr_stat}"
@@ -441,9 +503,15 @@ class RoboMonitor:
                         if val!=0: canv.create_rectangle(0, 90, 20, 90+abs(val)*0.9, fill="red" if val<0 else "green", tags="bar")
                         lbl.config(text=f"{int(val)}%")
                     
-                    try: v_val = float(d.get("Sub Battery V", "17"))
-                    except: v_val = 17
+                    try: v_val = float(d.get("Sub Battery V", "0.0"))
+                    except: v_val = 0.0
                     b['volt_bar']['value'] = max(0, min(8.2, v_val - 17.0))
+                    b['volt_val_label'].config(text=f"{v_val:.1f}V")
+                    
+                    try: c_val = float(d.get("Current", "0.0"))
+                    except: c_val = 0.0
+                    b['curr_bar']['value'] = max(0, min(25.0, c_val + 5.0))
+                    b['curr_val_label'].config(text=f"{c_val:.1f}A")
                     
                     for name, widget in b['labels'].items():
                         if name == "Battery": widget.config(text=f"{v_val:.1f}V")
@@ -451,6 +519,24 @@ class RoboMonitor:
                             try: widget.config(text=f"{float(d.get('Current','0')):.1f}A")
                             except: widget.config(text="0.0A")
                         else: widget.config(text=d.get(name, "N/A"))
+
+            active_count = sum(1 for b in self.buoy_frames if b['id'] is not None)
+            if active_count == 0:
+                self.align_startline_btn.config(state="disabled")
+                self.align_track_btn.config(state="disabled")
+                self.dock_all_btn.config(state="disabled")
+            elif active_count == 1:
+                self.align_startline_btn.config(state="disabled")
+                self.align_track_btn.config(state="disabled")
+                self.dock_all_btn.config(state="normal")
+            elif active_count == 2:
+                self.align_startline_btn.config(state="normal")
+                self.align_track_btn.config(state="disabled")
+                self.dock_all_btn.config(state="normal")
+            else: # 3 or more
+                self.align_startline_btn.config(state="normal")
+                self.align_track_btn.config(state="normal")
+                self.dock_all_btn.config(state="normal")
 
         self.master.after(500, self.update_gui)
 
@@ -568,6 +654,20 @@ class RoboMonitor:
             except Exception as e: self.log_message(f"LORA ERROR: {e}", "LORA OUT")
 
     def send_udp_command(self, tid, cid): self.send_custom_udp_command(tid, f"{tid},99,3,{cid},7")
+
+    def on_align_startline(self):
+        self.log_message("Global: Align Startline Clicked", "UDP OUT")
+        # Placeholder for startline alignment logic
+
+    def on_align_track(self):
+        self.log_message("Global: Align Track Clicked", "UDP OUT")
+        # Placeholder for track alignment logic
+
+    def on_dock_all(self):
+        self.log_message("Global: Dock All Clicked", "UDP OUT")
+        for i in range(len(self.buoy_frames)):
+            if self.buoy_frames[i]['id']:
+                self.on_dock_click(i)
 
     def on_closing(self):
         self.running = False; self.running_serial = False
