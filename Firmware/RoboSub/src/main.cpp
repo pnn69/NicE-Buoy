@@ -730,7 +730,7 @@ void handleTimerRoutines(RoboStruct *in)
 
     if (nextSamp < millis())
     {
-        nextSamp = 250 + millis();
+        nextSamp = 100 + millis();
         mainData.cmd = SUBDATA;
         mainData.ack = 6; // Full Status packet
         xQueueSend(serOut, (void *)&mainData, 0);

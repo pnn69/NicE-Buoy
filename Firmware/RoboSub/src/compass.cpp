@@ -54,7 +54,6 @@ extern SemaphoreHandle_t mainDataMutex;
 
 // Global state for web dashboard telemetry
 float global_hdg = 0;
-float global_icmHdg = 0;
 bool icm_ready = false;
 uint8_t bno_cal_sys = 0, bno_cal_gyro = 0, bno_cal_accel = 0, bno_cal_mag = 0;
 float last_raw_x = 0, last_raw_y = 0, last_raw_z = 0;
@@ -344,11 +343,8 @@ void CompassTask(void *arg) {
                 while (heading < 0) heading += 360.0f;
                 while (heading >= 360.0f) heading -= 360.0f;
                 global_hdg = heading;
-                global_icmHdg = heading;
-                // float activeHdg = CompassAverage(heading);
-                float activeHdg = heading;
-                mainData.dirMag = activeHdg;
-                if (compass) xQueueOverwrite(compass, (void *)&activeHdg);
+                mainData.dirMag = heading;
+                if (compass) xQueueOverwrite(compass, (void *)&heading);
                 xSemaphoreGive(mainDataMutex);
             }
 
@@ -358,7 +354,7 @@ void CompassTask(void *arg) {
             last_raw_x = magV.x(); last_raw_y = magV.y(); last_raw_z = magV.z();
             last_raw_ax = accV.x(); last_raw_ay = accV.y(); last_raw_az = accV.z();
         }
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 

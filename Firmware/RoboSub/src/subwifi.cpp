@@ -32,7 +32,7 @@ AsyncUDP udp;
 extern float global_speed_bb;
 extern float global_speed_sb;
 extern bool icm_ready;
-extern float global_icmHdg;
+extern float global_hdg;
 extern RoboStruct mainData;
 extern SemaphoreHandle_t mainDataMutex;
 extern QueueHandle_t compassIn;
@@ -166,7 +166,7 @@ void WiFiTask(void *arg) {
 
     subServer.on("/data", [](){
         static int last_sbb = 0, last_ssb = 0;
-        float icm = global_icmHdg;
+        float icm = global_hdg;
         int sbb = last_sbb, ssb = last_ssb;
         
         if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(50))) {
@@ -179,6 +179,16 @@ void WiFiTask(void *arg) {
         j+="\"icm\":"+String(icm,2)+",";
         j+="\"speed_bb\":"+String(sbb)+",";
         j+="\"speed_sb\":"+String(ssb)+",";
+        
+        if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(50))) {
+            j+="\"ir\":"+String(mainData.ir,2)+",";
+            j+="\"ip\":"+String(mainData.ip,2)+",";
+            xSemaphoreGive(mainDataMutex);
+        } else {
+            j+="\"ir\":0.0,";
+            j+="\"ip\":0.0,";
+        }
+
         j+="\"cal_load\":\""+global_cal_load+"\",";
         j+="\"cal_ver\":\""+global_cal_ver+"\",";
         j+="\"mac\":\""+global_mac_str+"\",";
