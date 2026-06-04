@@ -343,6 +343,15 @@ input {
     </div>
 </div>
 
+<!-- Collecting Data Overlay -->
+<div id="collectingOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1100; justify-content:center; align-items:center;">
+    <div style="background:#fff; padding:30px; border-radius:10px; text-align:center; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+        <h2 style="margin-bottom:15px; color:#003366;">Collecting data...</h2>
+        <div style="font-size:18px; font-weight:bold; color:#555;">Please wait for Sub Buoy response</div>
+        <div id="collectingTimer" style="margin-top:10px; font-size:14px; color:#888;">Timeout in 2s</div>
+    </div>
+</div>
+
 <script>
 let currentBuoy = 1;
 let buoyData = {
@@ -421,30 +430,44 @@ function openMap() {
 }
 
 let waitingForSetupData = false;
+let setupTimeoutTimer = null;
 
 function openSetup(bid) {
     if (bid !== undefined) currentBuoy = bid;
-    document.getElementById("setupBuoyId").innerText = currentBuoy;
-    document.getElementById("setupModal").style.display = "block";
     
-    // Reset fields to "Wait..." and trigger a fetch
+    // 1. Show "Collecting data..." overlay
+    document.getElementById("collectingOverlay").style.display = "flex";
+    
+    // 2. Clear old data from buoyData to force waiting for fresh update
     const fields = ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "pivotSpeed", "compassOffset"];
-    fields.forEach(f => {
-        const el = document.getElementById(f);
-        if (el) el.value = "Wait...";
-    });
-    
-    // Invalidate cached data in buoyData so updateSetupModal waits for fresh fetch
     const b = buoyData[currentBuoy];
     if (b) {
-        fields.forEach(f => delete b[f]);
+        fields.forEach(f => {
+            b[f] = 0; // Set to 0 so we know it's not "fresh"
+        });
     }
     
     waitingForSetupData = true;
-    // Trigger a SETUPDATA command with no params to GET the current config
+
+    // 3. Set a 2-second timeout to close the overlay if no response
+    if (setupTimeoutTimer) clearTimeout(setupTimeoutTimer);
+    setupTimeoutTimer = setTimeout(() => {
+        if (waitingForSetupData) {
+            waitingForSetupData = false;
+            document.getElementById("collectingOverlay").style.display = "none";
+            alert("Timeout: Sub Buoy did not respond in time.");
+        }
+    }, 5000);
+
+    // 4. Trigger a SETUPDATA command with no params to GET the current config from Sub
     fetch(`/command?bid=${currentBuoy}&cmd=SETUPDATA`)
         .then(r => r.text())
-        .then(d => console.log("Fetch current config:", d));
+        .then(d => console.log("Fetch request sent to Top-Sub:", d))
+        .catch(e => {
+            console.error("Fetch failed:", e);
+            document.getElementById("collectingOverlay").style.display = "none";
+            waitingForSetupData = false;
+        });
 }
 
 function closeSetup() {
@@ -453,38 +476,39 @@ function closeSetup() {
 }
 
 function updateSetupModal() {
-    if (document.getElementById("setupModal").style.display !== "block") return;
-    const b = buoyData[currentBuoy];
-    if (!b) return;
-
+    // If we are waiting for data, check if we've received non-zero values yet
     if (waitingForSetupData) {
-        // Anti-Echo Logic: verify data is valid before populating
-        if (!b.maxSpeed || parseFloat(b.maxSpeed) === 0) {
-            return; 
+        const b = buoyData[currentBuoy];
+        if (!b) return;
+
+        // Verify we have fresh data (non-zero speed/PID)
+        if (parseFloat(b.maxSpeed) > 0 || parseFloat(b.Kpr) > 0 || parseFloat(b.Kis) > 0) {
+            waitingForSetupData = false;
+            if (setupTimeoutTimer) clearTimeout(setupTimeoutTimer);
+            
+            // Hide "Collecting" and show "Setup"
+            document.getElementById("collectingOverlay").style.display = "none";
+            document.getElementById("setupBuoyId").innerText = currentBuoy;
+            document.getElementById("setupModal").style.display = "block";
+            
+            // Populate fields
+            const setVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.value = parseFloat(val || 0);
+            };
+
+            setVal("Kpr", b.Kpr);
+            setVal("Kir", b.Kir);
+            setVal("Kdr", b.Kdr);
+            setVal("Kps", b.Kps);
+            setVal("Kis", b.Kis);
+            setVal("Kds", b.Kds);
+            setVal("maxSpeed", b.maxSpeed);
+            setVal("minSpeed", b.minSpeed);
+            setVal("pivotSpeed", b.pivotSpeed);
+            setVal("compassOffset", b.compassOffset);
         }
-        waitingForSetupData = false; 
-    } else {
-        // If we are not waiting for a fresh fetch, DON'T overwrite what the user might be editing
-        return; 
     }
-
-    const setVal = (id, val) => {
-        if (val !== undefined && val !== null && !isNaN(parseFloat(val))) {
-            const el = document.getElementById(id);
-            if (el) el.value = parseFloat(val);
-        }
-    };
-
-    setVal("Kpr", b.Kpr);
-    setVal("Kir", b.Kir);
-    setVal("Kdr", b.Kdr);
-    setVal("Kps", b.Kps);
-    setVal("Kis", b.Kis);
-    setVal("Kds", b.Kds);
-    setVal("maxSpeed", b.maxSpeed);
-    setVal("minSpeed", b.minSpeed);
-    setVal("pivotSpeed", b.pivotSpeed);
-    setVal("compassOffset", b.compassOffset);
 }
 
 function sendSetupCommand(cmd) {

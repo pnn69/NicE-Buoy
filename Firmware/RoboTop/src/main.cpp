@@ -987,11 +987,26 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 else
                 {
                     // Update buoyPara base so web interface shows correct remote setup
+                    // Prioritize Buoy 0 (Main) if its IDs matches or if it hasn't synced its Sub ID yet.
+                    int targetIdx = -1;
                     for (int i = 0; i < 3; i++) {
-                        if (buoyPara[i]->IDs == RfIn.IDs || buoyPara[i]->IDs == 0) {
-                            *buoyPara[i] = RfIn;
+                        if (buoyPara[i]->IDs == RfIn.IDs) {
+                            targetIdx = i;
                             break;
                         }
+                    }
+                    if (targetIdx == -1) {
+                        for (int i = 0; i < 3; i++) {
+                            if (buoyPara[i]->IDs == 0) {
+                                targetIdx = i;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (targetIdx != -1) {
+                        *buoyPara[targetIdx] = RfIn;
+                        if (targetIdx == 0) RfOut->IDs = RfIn.IDs; // Sync mainData ID
                     }
                     // Forward across interfaces
                     if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
@@ -1201,12 +1216,22 @@ void handelGpsData(RoboStruct *gps)
  * 
  * @param ser Pointer to the RoboStruct to be updated with serial data.
  */
-void handelSerialData(RoboStruct *ser)
+void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
 {
     RoboStruct serDataIn;
     if (xQueueReceive(serIn, (void *)&serDataIn, 1) == pdTRUE)
     {
-        ser->lastSerIn = millis();
+        // For serial data, we ALWAYS update the local 'ser' (mainData)
+        // This prevents remote buoy slots from "stealing" the update if IDs match.
+        RoboStruct *target = ser;
+        
+        // Update local identity if the sub reports a different ID
+        if (serDataIn.IDs != 0 && serDataIn.IDs != ser->IDs) {
+            printf("Syncing local buoy ID from %08X to %08X\r\n", (unsigned int)ser->IDs, (unsigned int)serDataIn.IDs);
+            ser->IDs = serDataIn.IDs;
+        }
+
+        target->lastSerIn = millis();
         if (mainCollorUtil.color != CRGB::DarkBlue)
         {
             mainCollorUtil.color = CRGB::DarkBlue;
@@ -1216,17 +1241,17 @@ void handelSerialData(RoboStruct *ser)
         switch (serDataIn.cmd)
         {
         case SUBDATA:
-            ser->dirMag = serDataIn.dirMag;
-            ser->speedBb = serDataIn.speedBb;
-            ser->speedSb = serDataIn.speedSb;
-            ser->ip = serDataIn.ip;
-            ser->ir = serDataIn.ir;
-            ser->subAccuV = serDataIn.subAccuV;
-            ser->subAccuP = serDataIn.subAccuP;
-            ser->subAccuI = serDataIn.subAccuI;
+            target->dirMag = serDataIn.dirMag;
+            target->speedBb = serDataIn.speedBb;
+            target->speedSb = serDataIn.speedSb;
+            target->ip = serDataIn.ip;
+            target->ir = serDataIn.ir;
+            target->subAccuV = serDataIn.subAccuV;
+            target->subAccuP = serDataIn.subAccuP;
+            target->subAccuI = serDataIn.subAccuI;
             
-            mainPwrData.ledBb = ser->speedBb;
-            mainPwrData.ledSb = ser->speedSb;
+            mainPwrData.ledBb = target->speedBb;
+            mainPwrData.ledSb = target->speedSb;
             xQueueSend(ledPwr, (void *)&mainPwrData, 0);
             break;
         case SETUPDATA:
@@ -1236,20 +1261,20 @@ void handelSerialData(RoboStruct *ser)
                 xQueueSend(serOut, (void *)&serDataIn, 0);
             } else if (serDataIn.ack == LORAINF) {
                 // This is the response coming FROM the Sub
-                // Update local mainData so web interface sees the correct values
-                mainData.Kpr = serDataIn.Kpr;
-                mainData.Kir = serDataIn.Kir;
-                mainData.Kdr = serDataIn.Kdr;
-                mainData.Kps = serDataIn.Kps;
-                mainData.Kis = serDataIn.Kis;
-                mainData.Kds = serDataIn.Kds;
-                mainData.maxSpeed = serDataIn.maxSpeed;
-                mainData.minSpeed = serDataIn.minSpeed;
-                mainData.pivotSpeed = serDataIn.pivotSpeed;
-                mainData.compassOffset = serDataIn.compassOffset;
-                mainData.revBB = serDataIn.revBB;
-                mainData.revSB = serDataIn.revSB;
-                mainData.swap_BB_SB = serDataIn.swap_BB_SB;
+                // Update the correct buoy's data
+                target->Kpr = serDataIn.Kpr;
+                target->Kir = serDataIn.Kir;
+                target->Kdr = serDataIn.Kdr;
+                target->Kps = serDataIn.Kps;
+                target->Kis = serDataIn.Kis;
+                target->Kds = serDataIn.Kds;
+                target->maxSpeed = serDataIn.maxSpeed;
+                target->minSpeed = serDataIn.minSpeed;
+                target->pivotSpeed = serDataIn.pivotSpeed;
+                target->compassOffset = serDataIn.compassOffset;
+                target->revBB = serDataIn.revBB;
+                target->revSB = serDataIn.revSB;
+                target->swap_BB_SB = serDataIn.swap_BB_SB;
 
                 // IMPORTANT: Send the actual protocol string to the PC via Serial so RoboControl.py sees it!
                 Serial.println(rfCode(&serDataIn));
@@ -1265,7 +1290,7 @@ void handelSerialData(RoboStruct *ser)
                 xQueueSend(serOut, (void *)&serDataIn, 0);
 
                 printf("DEBUG: Received Kpr=%f, Kir=%f, Kdr=%f, Kps=%f, Kis=%f, Kds=%f\r\n", serDataIn.Kpr, serDataIn.Kir, serDataIn.Kdr, serDataIn.Kps, serDataIn.Kis, serDataIn.Kds);
-                printf("Setup data PID and Compass received from Sub and updated locally\r\n");
+                printf("Setup data PID and Compass received from Sub and updated\r\n");
             }
             break;
         case PONG:
@@ -1413,7 +1438,7 @@ void loop(void)
         //      New serial data
         //***************************************************************************************************
         // mainData = handelSerialData(mainData);
-        handelSerialData(&mainData);
+        handelSerialData(&mainData, buoyParaPtrs);
         //***************************************************************************************************
         //      Light button control
         //***************************************************************************************************

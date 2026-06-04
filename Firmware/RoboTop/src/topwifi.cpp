@@ -227,7 +227,7 @@ void WiFiTask(void *arg)
         json += "\"PIDR\":\"" + String(mainData.ir, 2) + "\",";
         json += "\"Kpr\":\"" + String(mainData.Kpr, 4) + "\",";
         json += "\"Kir\":\"" + String(mainData.Kir, 4) + "\",";
-        printf("JSON DEBUG: mainData.Kdr=%f\r\n", mainData.Kdr); json += "\"Kdr\":\"" + String(mainData.Kdr, 4) + "\",";
+        json += "\"Kdr\":\"" + String(mainData.Kdr, 4) + "\",";
         json += "\"Kps\":\"" + String(mainData.Kps, 4) + "\",";
         json += "\"Kis\":\"" + String(mainData.Kis, 4) + "\",";
         json += "\"Kds\":\"" + String(mainData.Kds, 4) + "\",";
@@ -341,19 +341,22 @@ void WiFiTask(void *arg)
                     mainData.minSpeed = server.arg("minSpeed").toInt();
                     mainData.pivotSpeed = server.arg("pivotSpeed").toFloat();
                     mainData.compassOffset = server.arg("compassOffset").toFloat();
-                    
+
                     pidRudderParameters(&mainData, SET);
                     pidSpeedParameters(&mainData, SET);
                     computeParameters(&mainData, SET);
                     int offset = (int)mainData.compassOffset;
                     CompassOffsetCorrection(&offset, SET);
-                    
+
                     msg = mainData;
                     msg.IDs = 0x99; msg.IDr = mainData.mac;
                     msg.cmd = (msg_t)cmdEnum;
                     msg.ack = LORASET;
                 } else {
                     msg.ack = LORAGET;
+                    // Clear cache to force fresh update from sub
+                    mainData.Kpr = 0;
+                    mainData.maxSpeed = 0;
                 }
             } else {
                 msg = mainData; // For other commands, we might need existing state
@@ -404,6 +407,9 @@ void WiFiTask(void *arg)
                     msg.ack = LORASET;
                 } else {
                     msg.ack = LORAGET;
+                    // Clear cache to force fresh update
+                    buoyPara[bid-1].Kpr = 0;
+                    buoyPara[bid-1].maxSpeed = 0;
                 }
             }
 

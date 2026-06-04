@@ -45,9 +45,10 @@ void initMemory(void)
     unsigned long id = espMac();
     uint64_t stored_id = storage.getULong64("NicE_BuoyID", 0);
     double kpr_check = storage.getDouble("Kpr", 1.0);
+    int maxSpeed_check = storage.getInt("maxSpeed", 0);
 
-    // If Kpr is detected to be a Speed P value (e.g. 20.0), reset to defaults
-    if (id != stored_id || kpr_check > 10.0)
+    // If Kpr is detected to be a Speed P value (e.g. 20.0), or if parameters are zeroed/corrupted, reset to defaults
+    if (id != stored_id || kpr_check > 10.0 || kpr_check == 0.0 || maxSpeed_check == 0)
     {
         storage.putULong64("NicE_BuoyID", id);
         storage.putDouble("Docklat", 0.0);

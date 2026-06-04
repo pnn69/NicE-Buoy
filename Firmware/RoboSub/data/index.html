@@ -1,19 +1,20 @@
 <!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>NicE-Buoy Sub</title><style>
-body{font-family:Arial,sans-serif;background:#1a1a1a;color:#fff;text-align:center;margin:0;padding:10px}
-canvas{background:#2a2a2a;border-radius:50%;margin:10px auto;border:2px solid #444;max-width:90%;height:auto;display:block}
-h2{margin:5px 0;color:#00d1ff}
-.info{font-size:1.1em;margin-bottom:10px;display:flex;justify-content:center;gap:20px}
+*{box-sizing:border-box}
+body{font-family:Arial,sans-serif;background:#1a1a1a;color:#fff;text-align:center;margin:0;padding:5px;overflow-x:hidden}
+canvas{background:#2a2a2a;border-radius:50%;border:2px solid #444;max-width:100%;height:auto;display:block;flex:1;min-width:0}
+h2{margin:5px 0;color:#00d1ff;font-size:1.5em}
+.info{font-size:1.1em;margin-bottom:5px;display:flex;justify-content:center;gap:15px}
 .icm{color:#00d1ff;font-weight:bold}
-.raw-container{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
-.raw-box{text-align:left;border:1px solid #333;padding:10px;border-radius:8px;background:#252525;min-width:280px}
+.raw-container{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;padding:5px}
+.raw-box{text-align:left;border:1px solid #333;padding:10px;border-radius:8px;background:#252525;width:100%;max-width:300px;min-width:260px}
 .axis-row{display:flex;align-items:center;margin:8px 0;font-size:0.9em;justify-content:space-between}
-.axis-row label{width:60px;text-align:right;margin-right:10px}
-input,select{background:#333;color:#fff;border:1px solid #555;padding:4px;border-radius:3px;width:70px;flex-grow:1;max-width:80px}
-button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:pointer;border-radius:4px;font-weight:bold;margin-left:5px;min-width:50px}
-.main-row{display:flex;justify-content:center;align-items:center;gap:10px;margin:10px auto;max-width:600px}
-.side-panel{width:60px;font-size:0.9em;font-weight:bold}
-.side-bar{width:30px;height:250px;background:#333;border:1px solid #555;border-radius:4px;position:relative;margin:5px auto;overflow:hidden}
+.axis-row label{width:50px;text-align:right;margin-right:8px}
+input,select{background:#333;color:#fff;border:1px solid #555;padding:4px;border-radius:3px;width:60px;flex-grow:1;max-width:80px}
+button{padding:6px 10px;background:#00d1ff;color:#1a1a1a;border:none;cursor:pointer;border-radius:4px;font-weight:bold;margin-left:5px;min-width:45px}
+.main-row{display:flex;justify-content:center;align-items:center;gap:5px;margin:5px auto;width:100%;max-width:550px}
+.side-panel{width:55px;font-size:0.8em;font-weight:bold;flex-shrink:0}
+.side-bar{width:28px;height:200px;background:#333;border:1px solid #555;border-radius:4px;position:relative;margin:5px auto;overflow:hidden}
 .thruster-bar{width:100%;position:absolute;left:0;transition:height 0.1s,top 0.1s,bottom 0.1s}
 .zero-line{position:absolute;width:100%;height:2px;background:#888;top:50%;z-index:1}
 .cal-msg{color:#ffcc00;font-size:0.9em;margin:5px 0;min-height:1.2em;font-weight:bold}
@@ -22,9 +23,9 @@ button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:poin
 <div class="info"><span>Heading: <span id="icmVal" class="icm">0.0</span>&deg;</span></div>
 <div id="calMsg" class="cal-msg">Initializing...</div>
 <div class="main-row">
-<div class="side-panel"><div>BB</div><div class="side-bar"><div class="zero-line"></div><div id="bb_bar" class="thruster-bar"></div></div><div><span id="bb_val">0</span>%</div></div>
+<div class="side-panel"><div>BB</div><div class="side-bar"><div class="zero-line"></div><div id="bb_bar" class="thruster-bar"></div></div><div><span id="bb_val">0</span>%</div><div style="font-size:1.1em;color:#00d1ff;margin-top:5px;font-weight:bold">is:<span id="ip_val2">0.00</span></div></div>
 <canvas id="compassCanvas" width="400" height="400"></canvas>
-<div class="side-panel"><div>SB</div><div class="side-bar"><div class="zero-line"></div><div id="sb_bar" class="thruster-bar"></div></div><div><span id="sb_val">0</span>%</div></div>
+<div class="side-panel"><div>SB</div><div class="side-bar"><div class="zero-line"></div><div id="sb_bar" class="thruster-bar"></div></div><div><span id="sb_val">0</span>%</div><div style="font-size:1.1em;color:#00d1ff;margin-top:5px;font-weight:bold">ir:<span id="ir_val2">0.00</span></div></div>
 </div>
 <div class="raw-container">
 <div class="raw-box"><b>Rudder PID</b>
@@ -74,13 +75,18 @@ function fetchData(){fetch('/data?t='+Date.now()).then(r=>r.json()).then(d=>{
     updateThruster('bb',d.speed_bb);
     updateThruster('sb',d.speed_sb);
     drawRose(d.icm);
-    if(d.ir !== undefined) document.getElementById('ir_val').innerText=d.ir.toFixed(2);
-    if(d.ip !== undefined) document.getElementById('ip_val').innerText=d.ip.toFixed(2);
+    if(d.ir !== undefined) {
+        document.getElementById('ir_val').innerText=d.ir.toFixed(2);
+        document.getElementById('ir_val2').innerText=d.ir.toFixed(2);
+    }
+    if(d.ip !== undefined) {
+        document.getElementById('ip_val').innerText=d.ip.toFixed(2);
+        document.getElementById('ip_val2').innerText=d.ip.toFixed(2);
+    }
     
-    // Trigger parameter update only if revision changes
     if(d.rev !== undefined && d.rev !== current_rev) {
-        if(current_rev !== -1) fetchParams(); // Update UI
         current_rev = d.rev;
+        fetchParams();
     }
 
     const c=d.cal_levels,b=document.getElementById('calButton');
@@ -90,8 +96,8 @@ function fetchData(){fetch('/data?t='+Date.now()).then(r=>r.json()).then(d=>{
 
 function startCalib(){alert('BNO055 calibrates automatically while moving. Rotate the buoy until Mag (M) shows 3.')}
 function saveCalib(){if(confirm('Save current BNO calibration?')){fetch('/savecal').then(r=>alert('Save Sent!'))}}
-function setParam(p){const e=document.getElementById(p+'_in');if(!e)return;let v=e.value;if(p==='holdrad'&&v<1.5){alert('Locking Range must be at least 1.5m (Pivot range 1.0m + 0.5m buffer)');e.value=1.5;v=1.5}fetch('/setparam?p='+p+'&v='+v).then(()=>setTimeout(fetchParams,300))}
-function fetchParams(){fetch('/params?t='+Date.now()).then(r=>r.json()).then(d=>{let missing=false;['kpr','kir','kdr','kps','kis','kds','coff','pvspd','revbb','revsb','tswap','minspd','maxspd','holdrad'].forEach(p=>{const e=document.getElementById(p+'_in');if(e){if(d[p]!==undefined){if(document.activeElement!==e)e.value=d[p]}else missing=true}});if(missing||Object.keys(d).length<5)setTimeout(fetchParams,1000)}).catch(e=>{console.error(e);setTimeout(fetchParams,1000)})}
+function setParam(p){const e=document.getElementById(p+'_in');if(!e)return;let v=e.value;if(p==='holdrad'&&v<1.5){alert('Locking Range must be at least 1.5m (Pivot range 1.0m + 0.5m buffer)');e.value=1.5;v=1.5}fetch('/setparam?p='+p+'&v='+v)}
+function fetchParams(){fetch('/params?t='+Date.now()).then(r=>r.json()).then(d=>{Object.keys(d).forEach(p=>{const e=document.getElementById(p+'_in');if(e&&document.activeElement!==e)e.value=d[p]})}).catch(e=>{console.error(e)})}
 fetchParams();
 
 setInterval(fetchData, 100);

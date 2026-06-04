@@ -142,6 +142,7 @@ void WiFiTask(void *arg) {
             else if(p=="revbb"){mainData.revBB=(v>0.5);thrusterInversion(&mainData,SET);}
             else if(p=="revsb"){mainData.revSB=(v>0.5);thrusterInversion(&mainData,SET);}
             else if(p=="tswap"){mainData.swap_BB_SB=(v>0.5);thrusterSwap(&mainData,SET);}
+            global_params_rev++;
             xSemaphoreGive(mainDataMutex);
         }
         subServer.send(200,"text/plain","OK");
@@ -165,13 +166,15 @@ void WiFiTask(void *arg) {
     });
 
     subServer.on("/data", [](){
-        static int last_sbb = 0, last_ssb = 0;
         float icm = global_hdg;
-        int sbb = last_sbb, ssb = last_ssb;
+        int sbb = 0, ssb = 0;
+        double ir = 0, ip = 0;
         
-        if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(50))) {
-            sbb = (int)mainData.speedBb; ssb = (int)mainData.speedSb;
-            last_sbb = sbb; last_ssb = ssb;
+        if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(100))) {
+            sbb = (int)mainData.speedBb; 
+            ssb = (int)mainData.speedSb;
+            ir = mainData.ir;
+            ip = mainData.ip;
             xSemaphoreGive(mainDataMutex);
         }
 
@@ -179,16 +182,8 @@ void WiFiTask(void *arg) {
         j+="\"icm\":"+String(icm,2)+",";
         j+="\"speed_bb\":"+String(sbb)+",";
         j+="\"speed_sb\":"+String(ssb)+",";
-        
-        if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(50))) {
-            j+="\"ir\":"+String(mainData.ir,2)+",";
-            j+="\"ip\":"+String(mainData.ip,2)+",";
-            xSemaphoreGive(mainDataMutex);
-        } else {
-            j+="\"ir\":0.0,";
-            j+="\"ip\":0.0,";
-        }
-
+        j+="\"ir\":"+String(ir,2)+",";
+        j+="\"ip\":"+String(ip,2)+",";
         j+="\"cal_load\":\""+global_cal_load+"\",";
         j+="\"cal_ver\":\""+global_cal_ver+"\",";
         j+="\"mac\":\""+global_mac_str+"\",";

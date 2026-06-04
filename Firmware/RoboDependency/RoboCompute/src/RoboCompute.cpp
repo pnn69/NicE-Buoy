@@ -241,7 +241,7 @@ String RoboCode(const RoboStruct *dataOut)
     
     // Optimization: If this is a simple 'GET' request or an ACK,
     // return early to avoid broadcasting long strings of empty/zeroed fields.
-    if (dataOut->ack == LORAACK || dataOut->ack == LORAGET || dataOut->ack == LORAGETACK) {
+    if (false) {
         return out;
     }
 

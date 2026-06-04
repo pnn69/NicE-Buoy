@@ -306,293 +306,297 @@ void handelSerandRfdata(RoboStruct *ser)
     
     if (dataIn.IDr != -1)
     {
-        // For SETUPDATA, we respond even if the ID doesn't match ours (e.g. addressed to Top or Broadcast)
-        if (dataIn.cmd == SETUPDATA) {
-            global_params_rev++;
-            if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK) {
-                ser->IDs = mainData.mac;
-                ser->IDr = dataIn.IDs;
-                ser->cmd = SETUPDATA;
-                ser->ack = LORAGET; // 1 = Full Data
-                pidRudderParameters(ser, GET);
-                pidSpeedParameters(ser, GET);
-                speedMaxMin(ser, GET);
-                CompasOffset(ser, GET);
-                thrusterSwap(ser, GET);
-                thrusterInversion(ser, GET);
-                xQueueSend(serOut, (void *)ser, 10);
-                printf("Sent SETUPDATA (Full) back to %X\r\n", ser->IDr);
-                dataIn.cmd = -1; // Done
-            }
-        }
-
-        switch (dataIn.cmd)
+        // Only process packets addressed to us, or broadcast, or special SETUPDATA cases
+        if (dataIn.IDr == mainData.mac || dataIn.IDr == BUOYIDALL || dataIn.cmd == SETUPDATA)
         {
-        case IDLE:
-        case IDELING:
-            if (ser->status != IDELING)
+            switch (dataIn.cmd)
             {
-                ser->tgDist = 0;
-                ser->tgSpeed = 0;
-                ser->tgDir = 0;
-                ser->status = IDELING;
-                initRudPid(ser);
-                initSpeedPid(ser);
-                printf("IDLE command recieved (ramping down)\r\n");
-            }
-            break;
-        case DIRDIST:
-            if (ser->status != LOCKED)
-            {
-                printf("DIRDIST command recieved!");
-                initRudPid(ser);
-                initSpeedPid(ser);
-                ser->status = LOCKED;
-            }
-            ser->tgDir = dataIn.tgDir;
-            ser->tgDist = dataIn.tgDist;
-            break;
-        case TGDIRSPEED:
-            if (ser->status != TGDIRSPEED)
-            {
-                printf("TGDIRSPEED command recieved!");
-                ser->tgDist = 0;
-                initRudPid(ser);
-                initSpeedPid(ser);
-                ser->status = TGDIRSPEED;
-            }
-            ser->tgDir = dataIn.tgDir;
-            ser->speedSet = dataIn.speedSet;
-            ser->tgSpeed = dataIn.speedSet; // Important: update tgSpeed so PID uses it
-            break;
-        case REMOTE:
-            if (ser->status != REMOTE)
-            {
-                printf("REMOTE command recieved!");
-                ser->status = REMOTE;
-            }
-            ser->tgDir = dataIn.tgDir;
-            ser->tgSpeed = dataIn.tgSpeed;
-            break;
-        case LOCKED:
-            if (ser->status != LOCKED)
-            {
-                printf("LOCKED command recieved!");
-                ser->tgDist = 0;
-                initRudPid(ser);
-                initSpeedPid(ser);
-                ser->status = LOCKED;
-                ser->locked = false;
-            }
-            break;
-        case DOCKED:
-            if (ser->status != DOCKED)
-            {
-                printf("DOCKED command recieved!");
-                ser->tgDist = 0;
-                initRudPid(ser);
-                initSpeedPid(ser);
-                memDockPos(&dataIn, GET);
-                ser->status = DOCKED;
-                ser->locked = false;
-            }
-            break;
-        case PIDRUDDER:
-            if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
-            {
-                ser->IDr = dataIn.IDs;
-                ser->cmd = PIDRUDDER;
-                ser->ack = LORAINF;
-                xQueueSend(serOut, (void *)ser, 10);
-            }
-            break;
-        case PIDRUDDERSET:
-            global_params_rev++;
-            printf("New rudder PID settings pr:%0.2f ir:%0.2f dr:%0.2f\r\n", dataIn.Kpr, dataIn.Kir, dataIn.Kdr);
-            pidRudderParameters(&dataIn, SET);
-            pidRudderParameters(ser, GET);
-            initRudPid(ser);
-            printf("Rudder PID stored pr:%0.2f ir:%0.2f dr:%0.2f\r\n", ser->Kpr, ser->Kir, ser->Kdr);
-            
-            ser->IDr = dataIn.IDs;
-            ser->cmd = PIDRUDDERSET;
-            ser->ack = LORAINF;
-            xQueueSend(serOut, (void *)ser, 10);
-            break;
-        case PIDSPEED:
-            if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
-            {
-                ser->IDr = dataIn.IDs;
-                ser->cmd = PIDSPEED;
-                ser->ack = LORAINF;
-                xQueueSend(serOut, (void *)ser, 10);
-            }
-            break;
-        case PIDSPEEDSET:
-            global_params_rev++;
-            printf("New speed PID settings ps:%0.2f is:%0.2f ds:%0.2f\r\n", dataIn.Kps, dataIn.Kis, dataIn.Kds);
-            pidSpeedParameters(&dataIn, SET);
-            pidSpeedParameters(ser, GET);
-            initSpeedPid(ser);
-            printf("Speed PID stored ps:%0.2f is:%0.2f ds:%0.2f\r\n", ser->Kps, ser->Kis, ser->Kds);
-            
-            ser->IDr = dataIn.IDs;
-            ser->cmd = PIDSPEEDSET;
-            ser->ack = LORAINF;
-            xQueueSend(serOut, (void *)ser, 10);
-            break;
-        case STORE_DECLINATION:
-            printf("Declinaton set to: %f", dataIn.declination);
-            Declination(&dataIn, SET);
-            Declination(ser, GET);
-            InitCompass();
-            break;
-        case STORE_COMPASS_OFFSET:
-            CompassOffsetCorrection(&dataIn.compassOffset, false);
-            ser->compassOffset = dataIn.compassOffset; // Update running config
-            mainData.compassOffset = dataIn.compassOffset; // Ensure compassTask uses the new offset immediately!
-            printf(" (Stored)\r\n");
-            // Send an ACK back to the Top buoy so it stops retransmitting (if LORAGETACK is used)
-            if (dataIn.ack == LORAGETACK || dataIn.ack == LORASET) {
-                ser->IDr = dataIn.IDs;
-                ser->cmd = STORE_COMPASS_OFFSET;
-                ser->ack = LORAINF;
-                ser->status = IDELING; // Force a status sync back to Top
-                xQueueSend(serOut, (void *)ser, 10);
-            }
-            break;
-        case CALC_COMPASS_OFFSET:
-            vTaskSuspend(compassTaskHandle);
-            CalibrateCompass();
-            vTaskResume(compassTaskHandle);
-            ser->status = IDELING;
-            xQueueSend(serOut, (void *)ser, 10);
-            ser->status = IDLE;
-            break;
-        case CALIBRATE_MAGNETIC_COMPASS:
-            printf("Starting Desk Compass Calibration...");
-            ser->status = CALIBRATE_MAGNETIC_COMPASS;
-            {
-                // Immediate feedback
-                mainLedStatus.color = CRGB::Purple;
-                mainLedStatus.blink = BLINK_FAST;
-                xQueueSend(ledStatus, (void *)&mainLedStatus, 0);
-                beep(1, buzzer);
-
-                int cmd = CALIBRATE_MAGNETIC_COMPASS;
-                xQueueSend(compassIn, (void *)&cmd, 10);
-            }
-            break;
-        case INFIELD_CALIBRATE:
-            printf("Starting In-Field Compass Calibration...");
-            ser->status = INFIELD_CALIBRATE;
-            {
-                int cmd = INFIELD_CALIBRATE;
-                xQueueSend(compassIn, (void *)&cmd, 10);
-            }
-            break;
-        case MAXMINPWR:
-                if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
+            case IDLE:
+            case IDELING:
+                if (ser->status != IDELING)
                 {
-                    ser->IDr = dataIn.IDs;
-                    ser->cmd = MAXMINPWR;
-                    ser->ack = LORAINF;
-                    speedMaxMin(ser, GET);
-                    xQueueSend(serOut, (void *)ser, 10);
+                    ser->tgDist = 0;
+                    ser->tgSpeed = 0;
+                    ser->tgDir = 0;
+                    ser->status = IDELING;
+                    initRudPid(ser);
+                    initSpeedPid(ser);
+                    printf("IDLE command recieved (ramping down)\r\n");
                 }
                 break;
-            case MAXMINPWRSET:
-            global_params_rev++;
-            printf("New Speed settings Max:%d Min:%d Pivot:%0.2f\r\n", dataIn.maxSpeed, dataIn.minSpeed, dataIn.pivotSpeed);
-            speedMaxMin(&dataIn, SET);
-            speedMaxMin(ser, GET);
-            initRudPid(ser);
-            initSpeedPid(ser);
-            printf("Max speed %d Min speed %d\r\n", ser->maxSpeed, ser->minSpeed);
-            
-            // Send confirmation back so Top and UI get the updated values
-            ser->IDr = dataIn.IDs;
-            ser->cmd = MAXMINPWRSET;
-            ser->ack = LORAINF;
-            xQueueSend(serOut, (void *)ser, 10);
-            break;
-        case SETUPDATA:
-            global_params_rev++;
-            if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
-            {
-                ser->IDs = mainData.mac;
-                ser->IDr = dataIn.IDs;
-                ser->cmd = SETUPDATA;
-                ser->ack = LORAGET;
-                // Fetch all data before sending
-                pidRudderParameters(ser, GET);
-                pidSpeedParameters(ser, GET);
-                speedMaxMin(ser, GET);
-                CompasOffset(ser, GET);
-                thrusterSwap(ser, GET);
-                thrusterInversion(ser, GET); // Ensure latest inversion flags are sent
-                xQueueSend(serOut, (void *)ser, 10);
-                printf("Sent SETUPDATA back to %X\r\n", ser->IDr);
-            }
-            else if (dataIn.ack == LORASET)
-            {
-                printf("New setup received. Updating PID and Inversion flags.\r\n");
+            case DIRDIST:
+                if (ser->status != LOCKED)
+                {
+                    printf("DIRDIST command recieved!");
+                    initRudPid(ser);
+                    initSpeedPid(ser);
+                    ser->status = LOCKED;
+                }
+                ser->tgDir = dataIn.tgDir;
+                ser->tgDist = dataIn.tgDist;
+                break;
+            case TGDIRSPEED:
+                if (ser->status != TGDIRSPEED)
+                {
+                    printf("TGDIRSPEED command recieved!");
+                    ser->tgDist = 0;
+                    initRudPid(ser);
+                    initSpeedPid(ser);
+                    ser->status = TGDIRSPEED;
+                }
+                ser->tgDir = dataIn.tgDir;
+                ser->speedSet = dataIn.speedSet;
+                ser->tgSpeed = dataIn.speedSet; // Important: update tgSpeed so PID uses it
+                break;
+            case REMOTE:
+                if (ser->status != REMOTE)
+                {
+                    printf("REMOTE command recieved!");
+                    ser->status = REMOTE;
+                }
+                ser->tgDir = dataIn.tgDir;
+                ser->tgSpeed = dataIn.tgSpeed;
+                break;
+            case LOCKED:
+                if (ser->status != LOCKED)
+                {
+                    printf("LOCKED command recieved!");
+                    ser->tgDist = 0;
+                    initRudPid(ser);
+                    initSpeedPid(ser);
+                    ser->status = LOCKED;
+                    ser->locked = false;
+                }
+                break;
+            case DOCKED:
+                if (ser->status != DOCKED)
+                {
+                    printf("DOCKED command recieved!");
+                    ser->tgDist = 0;
+                    initRudPid(ser);
+                    initSpeedPid(ser);
+                    memDockPos(&dataIn, GET);
+                    ser->status = DOCKED;
+                    ser->locked = false;
+                }
+                break;
+            case PIDRUDDER:
+                if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
+                {
+                    RoboStruct response = mainData;
+                    response.IDr = dataIn.IDs;
+                    response.cmd = PIDRUDDER;
+                    response.ack = LORAINF;
+                    pidRudderParameters(&response, GET);
+                    xQueueSend(serOut, (void *)&response, 10);
+                }
+                break;
+            case PIDRUDDERSET:
+                global_params_rev++;
+                printf("New rudder PID settings pr:%0.2f ir:%0.2f dr:%0.2f\r\n", dataIn.Kpr, dataIn.Kir, dataIn.Kdr);
                 pidRudderParameters(&dataIn, SET);
-                pidSpeedParameters(&dataIn, SET);
-                speedMaxMin(&dataIn, SET);
-                CompasOffset(&dataIn, SET);
-                thrusterSwap(&dataIn, SET);
-                thrusterInversion(&dataIn, SET);
-                
-                // Reload into running config
                 pidRudderParameters(ser, GET);
-                pidSpeedParameters(ser, GET);
-                speedMaxMin(ser, GET);
-                CompasOffset(ser, GET);
-                  thrusterSwap(ser, GET);
-                thrusterInversion(ser, GET);
-                mainData.compassOffset = ser->compassOffset; // Ensure compassTask uses the new offset immediately!
+                initRudPid(ser);
+                printf("Rudder PID stored pr:%0.2f ir:%0.2f dr:%0.2f\r\n", ser->Kpr, ser->Kir, ser->Kdr);
                 
+                {
+                    RoboStruct response = *ser;
+                    response.IDr = dataIn.IDs;
+                    response.cmd = PIDRUDDERSET;
+                    response.ack = LORAINF;
+                    xQueueSend(serOut, (void *)&response, 10);
+                }
+                break;
+            case PIDSPEED:
+                if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
+                {
+                    RoboStruct response = mainData;
+                    response.IDr = dataIn.IDs;
+                    response.cmd = PIDSPEED;
+                    response.ack = LORAINF;
+                    pidSpeedParameters(&response, GET);
+                    xQueueSend(serOut, (void *)&response, 10);
+                }
+                break;
+            case PIDSPEEDSET:
+                global_params_rev++;
+                printf("New speed PID settings ps:%0.2f is:%0.2f ds:%0.2f\r\n", dataIn.Kps, dataIn.Kis, dataIn.Kds);
+                pidSpeedParameters(&dataIn, SET);
+                pidSpeedParameters(ser, GET);
+                initSpeedPid(ser);
+                printf("Speed PID stored ps:%0.2f is:%0.2f ds:%0.2f\r\n", ser->Kps, ser->Kis, ser->Kds);
+                
+                {
+                    RoboStruct response = *ser;
+                    response.IDr = dataIn.IDs;
+                    response.cmd = PIDSPEEDSET;
+                    response.ack = LORAINF;
+                    xQueueSend(serOut, (void *)&response, 10);
+                }
+                break;
+            case STORE_DECLINATION:
+                printf("Declinaton set to: %f", dataIn.declination);
+                Declination(&dataIn, SET);
+                Declination(ser, GET);
+                InitCompass();
+                break;
+            case STORE_COMPASS_OFFSET:
+                CompassOffsetCorrection(&dataIn.compassOffset, false);
+                ser->compassOffset = dataIn.compassOffset; // Update running config
+                mainData.compassOffset = dataIn.compassOffset; // Ensure compassTask uses the new offset immediately!
+                printf(" (Stored)\r\n");
+                // Send an ACK back to the Top buoy so it stops retransmitting (if LORAGETACK is used)
+                if (dataIn.ack == LORAGETACK || dataIn.ack == LORASET) {
+                    RoboStruct response = mainData;
+                    response.IDr = dataIn.IDs;
+                    response.cmd = STORE_COMPASS_OFFSET;
+                    response.ack = LORAINF;
+                    response.status = IDELING; // Force a status sync back to Top
+                    xQueueSend(serOut, (void *)&response, 10);
+                }
+                break;
+            case CALC_COMPASS_OFFSET:
+                vTaskSuspend(compassTaskHandle);
+                CalibrateCompass();
+                vTaskResume(compassTaskHandle);
+                {
+                    RoboStruct response = mainData;
+                    response.status = IDELING;
+                    xQueueSend(serOut, (void *)&response, 10);
+                }
+                ser->status = IDLE;
+                break;
+            case CALIBRATE_MAGNETIC_COMPASS:
+                printf("Starting Desk Compass Calibration...");
+                ser->status = CALIBRATE_MAGNETIC_COMPASS;
+                {
+                    // Immediate feedback
+                    mainLedStatus.color = CRGB::Purple;
+                    mainLedStatus.blink = BLINK_FAST;
+                    xQueueSend(ledStatus, (void *)&mainLedStatus, 0);
+                    beep(1, buzzer);
+
+                    int cmd = CALIBRATE_MAGNETIC_COMPASS;
+                    xQueueSend(compassIn, (void *)&cmd, 10);
+                }
+                break;
+            case INFIELD_CALIBRATE:
+                printf("Starting In-Field Compass Calibration...");
+                ser->status = INFIELD_CALIBRATE;
+                {
+                    int cmd = INFIELD_CALIBRATE;
+                    xQueueSend(compassIn, (void *)&cmd, 10);
+                }
+                break;
+            case MAXMINPWR:
+                    if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
+                    {
+                        RoboStruct response = mainData;
+                        response.IDr = dataIn.IDs;
+                        response.cmd = MAXMINPWR;
+                        response.ack = LORAINF;
+                        speedMaxMin(&response, GET);
+                        xQueueSend(serOut, (void *)&response, 10);
+                    }
+                    break;
+                case MAXMINPWRSET:
+                global_params_rev++;
+                printf("New Speed settings Max:%d Min:%d Pivot:%0.2f\r\n", dataIn.maxSpeed, dataIn.minSpeed, dataIn.pivotSpeed);
+                speedMaxMin(&dataIn, SET);
+                speedMaxMin(ser, GET);
                 initRudPid(ser);
                 initSpeedPid(ser);
-
+                printf("Max speed %d Min speed %d\r\n", ser->maxSpeed, ser->minSpeed);
+                
                 // Send confirmation back so Top and UI get the updated values
-                ser->IDr = dataIn.IDs;
-                ser->cmd = SETUPDATA;
-                ser->ack = LORAINF;
+                {
+                    RoboStruct response = *ser;
+                    response.IDr = dataIn.IDs;
+                    response.cmd = MAXMINPWRSET;
+                    response.ack = LORAINF;
+                    xQueueSend(serOut, (void *)&response, 10);
+                }
+                break;
+            case SETUPDATA:
+                global_params_rev++;
+                if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
+                {
+                    RoboStruct response = mainData;
+                    response.IDs = mainData.mac;
+                    response.IDr = dataIn.IDs;
+                    response.cmd = SETUPDATA;
+                    response.ack = LORAINF;
+                    // Fetch all data before sending
+                    pidRudderParameters(&response, GET);
+                    pidSpeedParameters(&response, GET);
+                    speedMaxMin(&response, GET);
+                    CompasOffset(&response, GET);
+                    thrusterSwap(&response, GET);
+                    thrusterInversion(&response, GET); 
+                    xQueueSend(serOut, (void *)&response, 10);
+                    printf("Sent SETUPDATA back to %X\r\n", response.IDr);
+                }
+                else if (dataIn.ack == LORASET)
+                {
+                    printf("New setup received. Updating PID and Inversion flags.\r\n");
+                    pidRudderParameters(&dataIn, SET);
+                    pidSpeedParameters(&dataIn, SET);
+                    speedMaxMin(&dataIn, SET);
+                    CompasOffset(&dataIn, SET);
+                    thrusterSwap(&dataIn, SET);
+                    thrusterInversion(&dataIn, SET);
+                    
+                    // Reload into running config
+                    pidRudderParameters(ser, GET);
+                    pidSpeedParameters(ser, GET);
+                    speedMaxMin(ser, GET);
+                    CompasOffset(ser, GET);
+                    thrusterSwap(ser, GET);
+                    thrusterInversion(ser, GET);
+                    mainData.compassOffset = ser->compassOffset; // Ensure compassTask uses the new offset immediately!
+                    
+                    initRudPid(ser);
+                    initSpeedPid(ser);
+
+                    // Send confirmation back so Top and UI get the updated values
+                    RoboStruct response = *ser;
+                    response.IDr = dataIn.IDs;
+                    response.cmd = SETUPDATA;
+                    response.ack = LORAINF;
+                    xQueueSend(serOut, (void *)&response, 10);
+                    printf("Sent updated SETUPDATA back\r\n");
+                }
+                break;
+            case HARDIRONFACTORS:
+                dataIn.mac = espMac();
+                hardIron(&dataIn, SET);
+                InitCompass();
+                break;
+            case SOFTIRONFACTORS:
+                dataIn.mac = espMac();
+                softIron(&dataIn, SET);
+                InitCompass();
+                break;
+            case RESET_RUDDER_PID:
+                resetRudPid();
+                printf("Resetting PID RUDDER!!\r\n");
+                break;
+            case RESET_SPEED_PID:
+                resetSpeedPid();
+                printf("Resetting PID SPEED!!\r\n");
+                break;
+            case RESET_SPEED_RUD_PID:
+                resetSpeedPid();
+                printf("Resetting PID SPEED!!\r\n");
+                resetRudPid();
+                printf("Resetting PID RUDDER!!\r\n");
+                ser->locked = false; // Reset the locked flag so speed target initializes properly
+                break;
+            case PING:
+                ser->cmd = DIRSPEED;
                 xQueueSend(serOut, (void *)ser, 10);
-                printf("Sent updated SETUPDATA back\r\n");
+                break;
             }
-            break;
-        case HARDIRONFACTORS:
-            dataIn.mac = espMac();
-            hardIron(&dataIn, SET);
-            InitCompass();
-            break;
-        case SOFTIRONFACTORS:
-            dataIn.mac = espMac();
-            softIron(&dataIn, SET);
-            InitCompass();
-            break;
-        case RESET_RUDDER_PID:
-            resetRudPid();
-            printf("Resetting PID RUDDER!!\r\n");
-            break;
-        case RESET_SPEED_PID:
-            resetSpeedPid();
-            printf("Resetting PID SPEED!!\r\n");
-            break;
-        case RESET_SPEED_RUD_PID:
-            resetSpeedPid();
-            printf("Resetting PID SPEED!!\r\n");
-            resetRudPid();
-            printf("Resetting PID RUDDER!!\r\n");
-            ser->locked = false; // Reset the locked flag so speed target initializes properly
-            break;
-        case PING:
-            ser->cmd = DIRSPEED;
-            xQueueSend(serOut, (void *)ser, 10);
-            break;
         }
         dataIn.cmd = -1; // reset command
         ser->lastSerIn = millis();
@@ -731,10 +735,11 @@ void handleTimerRoutines(RoboStruct *in)
     if (nextSamp < millis())
     {
         nextSamp = 100 + millis();
-        mainData.cmd = SUBDATA;
-        mainData.ack = 6; // Full Status packet
-        xQueueSend(serOut, (void *)&mainData, 0);
-        if (udpOut) xQueueSend(udpOut, (void *)&mainData, 0);
+        RoboStruct telemetry = mainData;
+        telemetry.cmd = SUBDATA;
+        telemetry.ack = 6; // Full Status packet
+        xQueueSend(serOut, (void *)&telemetry, 0);
+        if (udpOut) xQueueSend(udpOut, (void *)&telemetry, 0);
     }
 
     if (logtimer < millis())

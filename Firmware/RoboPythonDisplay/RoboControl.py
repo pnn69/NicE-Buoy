@@ -365,16 +365,39 @@ class RoboMonitor:
             if len(fields) < 5: return
             
             # Protocol: $Target,Sender,ACK,CMD,Status,...
-            # Sender is fields[1], Target is fields[0]
+            target_id = fields[0].lower()
+            sender_id = fields[1].lower()
             
             # 1. Echo prevention: if the sender is "99", it's from us. Ignore.
-            if fields[1] == "99": return
+            if sender_id == "99": return
             
-            # 2. Strict Hex ID check: Ignore buoys with non-hex IDs (like simulator artifacts)
-            buoy_id = fields[1].lower()
-            if not all(c in "0123456789abcdef" for c in buoy_id):
-                return
+            # 2. Identify the buoy frame
+            target_buoy = None
+            with self.data_lock:
+                # First check for an exact match of either sender or target in our known IDs
+                for b in self.buoy_frames:
+                    if b['id'] is not None and (b['id'] == sender_id or b['id'] == target_id):
+                        target_buoy = b
+                        break
+                
+                # If still no match, and sender_id looks like a hex ID, assign it to an empty frame
+                if not target_buoy and all(c in "0123456789abcdef" for c in sender_id) and len(sender_id) >= 4:
+                    for b in self.buoy_frames:
+                        if b['id'] is None:
+                            b['id'] = sender_id
+                            b['frame'].config(text=f"Buoy: {sender_id}")
+                            target_buoy = b
+                            break
             
+            if not target_buoy: return
+            buoy_id = target_buoy['id']
+            
+            if sender_ip != "LoRa" and not target_buoy['udp_enabled_var'].get(): return
+            if sender_ip == "LoRa":
+                target_buoy['last_lora_time'], target_buoy['last_lora_content'] = time.time(), content
+            else:
+                target_buoy['last_udp_time'], target_buoy['last_udp_content'] = time.time(), content
+
             cmd = int(fields[3])
             ack = fields[2]
             data = {"Timestamp": ts, "IP": sender_ip, "ACK": ack, "Status": fields[4]}
@@ -382,15 +405,6 @@ class RoboMonitor:
             # 3. Mode/Data Consistency: Only accept primary data if ACK is LORAINF (6)
             # This prevents echoed requests (ACK=1) from being treated as responses.
             is_info_packet = (ack == "6")
-
-            for b in self.buoy_frames:
-                if b['id'] == buoy_id or b['id'] is None:
-                    if sender_ip != "LoRa" and not b['udp_enabled_var'].get(): return
-                    if sender_ip == "LoRa":
-                        b['last_lora_time'], b['last_lora_content'] = time.time(), content
-                    else:
-                        b['last_udp_time'], b['last_udp_content'] = time.time(), content
-                    break
 
             if cmd == MsgType.TOPDATA and is_info_packet and len(fields) >= 21:
                 data.update({
@@ -404,13 +418,13 @@ class RoboMonitor:
                 data.update({"Target Dir": fields[5], "Target Dist": fields[6]})
             elif cmd == MsgType.BUOYPOS and len(fields) >= 14:
                 data.update({"Latitude (Lat)": fields[5], "Longitude (Lon)": fields[6], "Magnetic Dir": fields[7], "Wind Dir": fields[8], "Bow Thruster (BB)": fields[10], "Stern Thruster (SB)": fields[11]})
-            elif cmd in [MsgType.PIDRUDDER, MsgType.PIDRUDDERSET] and len(fields) >= 8:
+            elif cmd in [MsgType.PIDRUDDER, MsgType.PIDRUDDERSET] and is_info_packet and len(fields) >= 8:
                 data.update({"Kpr": fields[5], "Kir": fields[6], "Kdr": fields[7]})
-            elif cmd in [MsgType.PIDSPEED, MsgType.PIDSPEEDSET] and len(fields) >= 8:
+            elif cmd in [MsgType.PIDSPEED, MsgType.PIDSPEEDSET] and is_info_packet and len(fields) >= 8:
                 data.update({"Kps": fields[5], "Kis": fields[6], "Kds": fields[7]})
-            elif cmd in [MsgType.MAXMINPWR, MsgType.MAXMINPWRSET] and len(fields) >= 7:
+            elif cmd in [MsgType.MAXMINPWR, MsgType.MAXMINPWRSET] and is_info_packet and len(fields) >= 7:
                 data.update({"maxSpeed": fields[5], "minSpeed": fields[6], "pivotSpeed": fields[7] if len(fields)>7 else "0.2"})
-            elif cmd == MsgType.SETUPDATA and len(fields) >= 14:
+            elif cmd == MsgType.SETUPDATA and is_info_packet and len(fields) >= 14:
                 data.update({
                     "Kpr": fields[5], "Kir": fields[6], "Kdr": fields[7], "Kps": fields[8], "Kis": fields[9], "Kds": fields[10],
                     "maxSpeed": fields[11], "minSpeed": fields[12], "pivotSpeed": fields[13], "compassOffset": fields[14] if len(fields)>14 else "0",
@@ -500,7 +514,7 @@ class RoboMonitor:
                         except: val = 0
                         canv, lbl = (b['bb_bar'], b['bb_val_label']) if thrust=="Bow Thruster (BB)" else (b['sb_bar'], b['sb_val_label'])
                         canv.delete("bar")
-                        if val!=0: canv.create_rectangle(0, 90, 20, 90+abs(val)*0.9, fill="red" if val<0 else "green", tags="bar")
+                        if val!=0: canv.create_rectangle(0, 90, 20, 90-val*0.9, fill="red" if val<0 else "green", tags="bar")
                         lbl.config(text=f"{int(val)}%")
                     
                     try: v_val = float(d.get("Sub Battery V", "0.0"))
@@ -632,8 +646,19 @@ class RoboMonitor:
         ttk.Checkbutton(main_frame, text="Reverse SB", variable=rev_sb_var).grid(row=13, column=1, sticky="e")
         def save_all():
             try:
+                # Use ACK=3 for "Command" and Status=7 (or current status) to ensure the buoy accepts it as an instruction
+                curr_status = b['data'].get("Status", "7")
                 vals = [kpr.get(), kir.get(), kdr.get(), kps.get(), kis.get(), kds.get(), max_s.get(), min_s.get(), piv_s.get(), c_off.get(), "2", "1" if rev_bb_var.get() else "0", "1" if rev_sb_var.get() else "0", "0"]
-                self.send_custom_udp_command(b['id'], f"{b['id']},99,2,{MsgType.SETUPDATA},0,{','.join(vals)}"); setup_win.destroy()
+                
+                # 1. Send the bulk setup data update
+                self.send_custom_udp_command(b['id'], f"{b['id']},99,3,{MsgType.SETUPDATA},{curr_status},{','.join(vals)}")
+                
+                # 2. Also send specific set commands for Rudder, Speed, and Power to be safe
+                self.send_custom_udp_command(b['id'], f"{b['id']},99,3,{MsgType.PIDRUDDERSET},{curr_status},{kpr.get()},{kir.get()},{kdr.get()}")
+                self.send_custom_udp_command(b['id'], f"{b['id']},99,3,{MsgType.PIDSPEEDSET},{curr_status},{kps.get()},{kis.get()},{kds.get()}")
+                self.send_custom_udp_command(b['id'], f"{b['id']},99,3,{MsgType.MAXMINPWRSET},{curr_status},{max_s.get()},{min_s.get()},{piv_s.get()}")
+                
+                setup_win.destroy()
             except Exception as e: messagebox.showerror("Error", f"Failed to save: {e}")
         ttk.Button(main_frame, text="Save & Close", command=save_all).grid(row=15, column=0, columnspan=2, pady=20)
 
