@@ -402,7 +402,7 @@ class RoboMonitor:
             ack = fields[2]
             data = {"Timestamp": ts, "IP": sender_ip, "ACK": ack, "Status": fields[4]}
 
-            # 3. Mode/Data Consistency: Only accept primary data if ACK is LORAINF (6)
+            # 3. Mode/Data Consistency: Only accept primary data if ACK is INF (6)
             # This prevents echoed requests (ACK=1) from being treated as responses.
             is_info_packet = (ack == "6")
 
@@ -428,8 +428,8 @@ class RoboMonitor:
                 data.update({
                     "Kpr": fields[5], "Kir": fields[6], "Kdr": fields[7], "Kps": fields[8], "Kis": fields[9], "Kds": fields[10],
                     "maxSpeed": fields[11], "minSpeed": fields[12], "pivotSpeed": fields[13], "compassOffset": fields[14] if len(fields)>14 else "0",
-                    "minOfsetDist": fields[15] if len(fields)>15 else "2", "revBB": fields[16] if len(fields)>16 else "0",
-                    "revSB": fields[17] if len(fields)>17 else "0", "swap_BB_SB": fields[18] if len(fields)>18 else "0"
+                    "holdRad": fields[15] if len(fields)>15 else "2.0", "minOfsetDist": fields[16] if len(fields)>16 else "2",
+                    "revBB": fields[17] if len(fields)>17 else "0", "revSB": fields[18] if len(fields)>18 else "0", "swap_BB_SB": fields[19] if len(fields)>19 else "0"
                 })
             self.update_buoy_data(buoy_id, data)
         except Exception as e: print(f"Parse error: {e}")
@@ -609,7 +609,7 @@ class RoboMonitor:
         b = self.buoy_frames[idx]
         if not b['id']: return
         with self.data_lock:
-            for key in ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "pivotSpeed", "compassOffset", "revBB", "revSB", "swap_BB_SB"]:
+            for key in ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "pivotSpeed", "compassOffset", "holdRad", "revBB", "revSB", "swap_BB_SB"]:
                 b['data'].pop(key, None)
         loading_win = tk.Toplevel(self.master)
         loading_win.title("Loading...")
@@ -617,7 +617,7 @@ class RoboMonitor:
         ttk.Label(loading_win, text=f"Fetching Setup for Buoy {b['id']}...", font=("Arial", 10)).pack(pady=20)
         def check_data(retries=0):
             if not loading_win.winfo_exists(): return
-            if all(k in b['data'] for k in ["Kpr", "maxSpeed", "pivotSpeed"]):
+            if all(k in b['data'] for k in ["Kpr", "maxSpeed", "pivotSpeed", "holdRad"]):
                 loading_win.destroy(); self.open_setup_window(b)
             elif retries > 50:
                 loading_win.destroy(); messagebox.showerror("Timeout", f"Could not retrieve setup data for Buoy {b['id']}")
@@ -640,16 +640,16 @@ class RoboMonitor:
         ttk.Label(main_frame, text="Speed PID", font=("Arial", 10, "bold")).grid(row=4, column=0, columnspan=2, pady=(15, 10))
         kps, kis, kds = create_entry(main_frame, "P:", "Kps", 5), create_entry(main_frame, "I:", "Kis", 6), create_entry(main_frame, "D:", "Kds", 7)
         ttk.Label(main_frame, text="Limits & Motors", font=("Arial", 10, "bold")).grid(row=8, column=0, columnspan=2, pady=(15, 10))
-        max_s, min_s, piv_s, c_off = create_entry(main_frame, "Max Speed:", "maxSpeed", 9), create_entry(main_frame, "Min Speed:", "minSpeed", 10), create_entry(main_frame, "Pivot Speed:", "pivotSpeed", 11), create_entry(main_frame, "Compass Offset:", "compassOffset", 12)
+        max_s, min_s, piv_s, c_off, h_rad = create_entry(main_frame, "Max Speed:", "maxSpeed", 9), create_entry(main_frame, "Min Speed:", "minSpeed", 10), create_entry(main_frame, "Pivot Speed:", "pivotSpeed", 11), create_entry(main_frame, "Compass Offset:", "compassOffset", 12), create_entry(main_frame, "Hold Radius:", "holdRad", 13)
         rev_bb_var, rev_sb_var, swap_var = tk.BooleanVar(value=b['data'].get("revBB")=="1"), tk.BooleanVar(value=b['data'].get("revSB")=="1"), tk.BooleanVar(value=b['data'].get("swap_BB_SB")=="1")
-        ttk.Checkbutton(main_frame, text="Reverse BB", variable=rev_bb_var).grid(row=13, column=0, sticky="w")
-        ttk.Checkbutton(main_frame, text="Reverse SB", variable=rev_sb_var).grid(row=13, column=1, sticky="e")
-        ttk.Checkbutton(main_frame, text="Swap BB/SB", variable=swap_var).grid(row=14, column=0, sticky="w", pady=5)
+        ttk.Checkbutton(main_frame, text="Reverse BB", variable=rev_bb_var).grid(row=14, column=0, sticky="w")
+        ttk.Checkbutton(main_frame, text="Reverse SB", variable=rev_sb_var).grid(row=14, column=1, sticky="e")
+        ttk.Checkbutton(main_frame, text="Swap BB/SB", variable=swap_var).grid(row=15, column=0, sticky="w", pady=5)
         def save_all():
             try:
                 # Use ACK=3 for "Command" and Status=7 (or current status) to ensure the buoy accepts it as an instruction
                 curr_status = b['data'].get("Status", "7")
-                vals = [kpr.get(), kir.get(), kdr.get(), kps.get(), kis.get(), kds.get(), max_s.get(), min_s.get(), piv_s.get(), c_off.get(), "2", "1" if rev_bb_var.get() else "0", "1" if rev_sb_var.get() else "0", "1" if swap_var.get() else "0"]
+                vals = [kpr.get(), kir.get(), kdr.get(), kps.get(), kis.get(), kds.get(), max_s.get(), min_s.get(), piv_s.get(), c_off.get(), h_rad.get(), "2", "1" if rev_bb_var.get() else "0", "1" if rev_sb_var.get() else "0", "1" if swap_var.get() else "0"]
                 
                 # 1. Send the bulk setup data update
                 self.send_custom_udp_command(b['id'], f"{b['id']},99,3,{MsgType.SETUPDATA},{curr_status},{','.join(vals)}")
@@ -661,7 +661,7 @@ class RoboMonitor:
                 
                 setup_win.destroy()
             except Exception as e: messagebox.showerror("Error", f"Failed to save: {e}")
-        ttk.Button(main_frame, text="Save & Close", command=save_all).grid(row=15, column=0, columnspan=2, pady=20)
+        ttk.Button(main_frame, text="Save & Close", command=save_all).grid(row=16, column=0, columnspan=2, pady=20)
 
     def send_custom_udp_command(self, tid, base, use_udp=True, use_lora=None):
         target_buoy = next((b for b in self.buoy_frames if b['id'] == tid), None)
