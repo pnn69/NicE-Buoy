@@ -225,6 +225,7 @@ void WiFiTask(void *arg)
         json += "\"SubPerc\":\"" + String(mainData.subAccuP) + "\",";
         json += "\"PIDI\":\"" + String(mainData.ip, 2) + "\",";
         json += "\"PIDR\":\"" + String(mainData.ir, 2) + "\",";
+        json += "\"rev\":" + String(mainData.sub_status) + ",";
         json += "\"Kpr\":\"" + String(mainData.Kpr, 4) + "\",";
         json += "\"Kir\":\"" + String(mainData.Kir, 4) + "\",";
         json += "\"Kdr\":\"" + String(mainData.Kdr, 4) + "\",";
@@ -235,11 +236,12 @@ void WiFiTask(void *arg)
         json += "\"minSpeed\":\"" + String(mainData.minSpeed) + "\",";
         json += "\"pivotSpeed\":\"" + String(mainData.pivotSpeed, 2) + "\",";
         json += "\"compassOffset\":\"" + String(mainData.compassOffset, 2) + "\",";
-        json += "\"Lat\":\"" + String(mainData.lat, 6) + "\",";
-        json += "\"Lng\":\"" + String(mainData.lng, 6) + "\",";
+        json += "\"holdrad\":\"" + String(mainData.holdRad, 2) + "\",";
         json += "\"revBB\":\"" + String(mainData.revBB ? "true" : "false") + "\",";
         json += "\"revSB\":\"" + String(mainData.revSB ? "true" : "false") + "\",";
         json += "\"swap_BB_SB\":\"" + String(mainData.swap_BB_SB ? "true" : "false") + "\",";
+        json += "\"Lat\":\"" + String(mainData.lat, 6) + "\",";
+        json += "\"Lng\":\"" + String(mainData.lng, 6) + "\",";
         json += "\"GpsFix\":\"" + String(mainData.gpsFix ? "true" : "false") + "\"";
         json += "},";
 
@@ -261,6 +263,7 @@ void WiFiTask(void *arg)
             json += "\"SubPerc\":\"" + String(buoyPara[i].subAccuP) + "\",";
             json += "\"PIDI\":\"" + String(buoyPara[i].ip, 2) + "\",";
             json += "\"PIDR\":\"" + String(buoyPara[i].ir, 2) + "\",";
+            json += "\"rev\":" + String(buoyPara[i].sub_status) + ",";
             json += "\"Kpr\":\"" + String(buoyPara[i].Kpr, 4) + "\",";
             json += "\"Kir\":\"" + String(buoyPara[i].Kir, 4) + "\",";
             json += "\"Kdr\":\"" + String(buoyPara[i].Kdr, 4) + "\",";
@@ -271,6 +274,7 @@ void WiFiTask(void *arg)
             json += "\"minSpeed\":\"" + String(buoyPara[i].minSpeed) + "\",";
             json += "\"pivotSpeed\":\"" + String(buoyPara[i].pivotSpeed, 2) + "\",";
             json += "\"compassOffset\":\"" + String(buoyPara[i].compassOffset, 2) + "\",";
+            json += "\"holdrad\":\"" + String(buoyPara[i].holdRad, 2) + "\",";
             json += "\"Lat\":\"" + String(buoyPara[i].lat, 6) + "\",";
             json += "\"Lng\":\"" + String(buoyPara[i].lng, 6) + "\",";
             json += "\"revBB\":\"" + String(buoyPara[i].revBB ? "true" : "false") + "\",";
@@ -347,6 +351,7 @@ void WiFiTask(void *arg)
                     mainData.minSpeed = server.arg("minSpeed").toInt();
                     mainData.pivotSpeed = server.arg("pivotSpeed").toFloat();
                     mainData.compassOffset = server.arg("compassOffset").toFloat();
+                    mainData.holdRad = server.arg("holdrad").toDouble();
                     mainData.revBB = server.arg("revBB").toInt();
                     mainData.revSB = server.arg("revSB").toInt();
                     mainData.swap_BB_SB = server.arg("swap_BB_SB").toInt();
@@ -360,12 +365,9 @@ void WiFiTask(void *arg)
                     msg = mainData;
                     msg.IDs = 0x99; msg.IDr = mainData.mac;
                     msg.cmd = (msg_t)cmdEnum;
-                    msg.ack = LORASET;
+                    msg.ack = SET;
                 } else {
-                    msg.ack = LORAGET;
-                    // Clear cache to force fresh update from sub
-                    mainData.Kpr = 0;
-                    mainData.maxSpeed = 0;
+                    msg.ack = GET;
                 }
             } else {
                 msg = mainData; // For other commands, we might need existing state
@@ -374,9 +376,9 @@ void WiFiTask(void *arg)
                 if (cmdEnum == DIRDIST) {
                     msg.tgDir = server.arg("dir").toFloat();
                     msg.tgDist = server.arg("dist").toFloat();
-                    msg.ack = LORAINF;
+                    msg.ack = INF;
                 } else {
-                    msg.ack = LORAINF;
+                    msg.ack = INF;
                 }
             }
             // printf("Sending command %d to udpIn (local/forward to sub)\r\n", msg.cmd);
@@ -387,7 +389,7 @@ void WiFiTask(void *arg)
             msg.IDr = buoyPara[bid-1].IDs;
             if (msg.IDr == 0) msg.IDr = BUOYIDALL;
             msg.cmd = (msg_t)cmdEnum;
-            msg.ack = LORASET;
+            msg.ack = SET;
 
             if (cmdEnum == DIRDIST) {
                 msg.tgDir = server.arg("dir").toFloat();
@@ -413,15 +415,13 @@ void WiFiTask(void *arg)
                     msg.minSpeed = server.arg("minSpeed").toInt();
                     msg.pivotSpeed = server.arg("pivotSpeed").toFloat();
                     msg.compassOffset = server.arg("compassOffset").toFloat();
+                    msg.holdRad = server.arg("holdrad").toDouble();
                     msg.revBB = server.arg("revBB").toInt();
                     msg.revSB = server.arg("revSB").toInt();
                     msg.swap_BB_SB = server.arg("swap_BB_SB").toInt();
-                    msg.ack = LORASET;
+                    msg.ack = SET;
                 } else {
-                    msg.ack = LORAGET;
-                    // Clear cache to force fresh update
-                    buoyPara[bid-1].Kpr = 0;
-                    buoyPara[bid-1].maxSpeed = 0;
+                    msg.ack = GET;
                 }
             }
 

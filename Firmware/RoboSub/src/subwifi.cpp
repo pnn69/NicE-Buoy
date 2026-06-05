@@ -132,7 +132,7 @@ void WiFiTask(void *arg) {
             else if(p=="pvspd"){mainData.pivotSpeed=v;speedMaxMin(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
             else if(p=="holdrad"){
                 if(v < 1.5f) v = 1.5f; // Safety: Must be > Pivot range (1.0m) + 0.5m buffer
-                mainData.minOfsetDist=v;
+                mainData.holdRad=v;
                 computeParameters(&mainData,SET);
                 initSpeedPid(&mainData);
                 initRudPid(&mainData);
@@ -157,7 +157,7 @@ void WiFiTask(void *arg) {
                 "{\"kpr\":%.3f,\"kir\":%.3f,\"kdr\":%.3f,\"kps\":%.3f,\"kis\":%.3f,\"kds\":%.3f,\"coff\":%.1f,\"revbb\":%d,\"revsb\":%d,\"tswap\":%d,\"pvspd\":%.2f,\"minspd\":%d,\"maxspd\":%d,\"holdrad\":%.1f}",
                 mainData.Kpr, mainData.Kir, mainData.Kdr, mainData.Kps, mainData.Kis, mainData.Kds, 
                 (float)mainData.compassOffset, mainData.revBB?1:0, mainData.revSB?1:0, mainData.swap_BB_SB?1:0,
-                (float)mainData.pivotSpeed, mainData.minSpeed, mainData.maxSpeed, (float)mainData.minOfsetDist
+                (float)mainData.pivotSpeed, mainData.minSpeed, mainData.maxSpeed, (float)mainData.holdRad
             );
             last_params = String(buf);
             xSemaphoreGive(mainDataMutex);

@@ -66,15 +66,7 @@ void CompasOffset(RoboStruct *buoy, bool get)
     startMem();
     if (get)
     {
-        if (storage.isKey("magCorr")) {
-            buoy->compassOffset = storage.getDouble("magCorr", 0);
-        } else if (storage.isKey("Delta")) {
-            buoy->compassOffset = (double)storage.getInt("Delta", 0);
-            storage.putDouble("magCorr", buoy->compassOffset);
-        } else {
-            buoy->compassOffset = 0;
-        }
-        if (isnan(buoy->compassOffset)) buoy->compassOffset = 0;
+        buoy->compassOffset = storage.getDouble("magCorr", 0);
     }
     else
     {
@@ -152,6 +144,7 @@ void computeParameters(RoboStruct *buoy, bool get)
         buoy->maxSpeed = storage.getInt("maxSpeed", 80);
         buoy->minSpeed = storage.getInt("minSpeed", 0);
         buoy->pivotSpeed = storage.getDouble("pivotSpeed", 0.2);
+        buoy->holdRad = storage.getDouble("holdRad", 2.0);
     }
     else
     {
@@ -160,6 +153,7 @@ void computeParameters(RoboStruct *buoy, bool get)
         storage.putInt("maxSpeed", buoy->maxSpeed);
         storage.putInt("minSpeed", buoy->minSpeed);
         storage.putDouble("pivotSpeed", buoy->pivotSpeed);
+        storage.putDouble("holdRad", buoy->holdRad);
     }
     stopMem();
 }

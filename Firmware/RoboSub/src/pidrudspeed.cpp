@@ -242,7 +242,7 @@ void speedPid(RoboStruct *dist)
     else if (dist->sub_status == SUB_STATUS_IDLE_DRIFT && filtered_distance >= drift_threshold) {
         dist->sub_status = SUB_STATUS_PIVOT_PREP;
     }
-    else if (dist->sub_status == SUB_STATUS_PIVOT_PREP && filtered_distance >= dist->minOfsetDist) {
+    else if (dist->sub_status == SUB_STATUS_PIVOT_PREP && filtered_distance >= dist->holdRad) {
         // Transition point to Active Station Keeping
         dist->sub_status = SUB_STATUS_LOCKED;
         resetSpeedPid(); // Clear old errors for a clean start at the 2m line
@@ -256,13 +256,13 @@ void speedPid(RoboStruct *dist)
     // --- POWER CALCULATION BASED ON STATE ---
     if (dist->sub_status == SUB_STATUS_LOCKED) {
         speedInput = filtered_distance; // Measured distance
-        speedSetpoint = (double)dist->minOfsetDist; // The holding station distance (e.g., 2m)
+        speedSetpoint = (double)dist->holdRad; // The holding station distance (e.g., 2m)
 
         if (speedPID.Compute()) {
             double forward_power = speedOutput;
 
             // Dynamic Anti-Windup: If distance is far off (> 5 meters), force I-term to 0 natively
-            if (abs(filtered_distance - dist->minOfsetDist) > 5.0) {
+            if (abs(filtered_distance - dist->holdRad) > 5.0) {
                  // Because we cannot cleanly disable I-term without PID_v1 resetting, 
                  // we just let it run but we will mask the I-term externally or rely on standard limits.
                  // Actually, the simplest anti-windup without hacking PID_v1 more is to just let it ride the Max Limit.

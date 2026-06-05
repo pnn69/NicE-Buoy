@@ -56,10 +56,11 @@ void RoboDecode(String data, RoboStruct *dataStore)
           dataStore->minSpeed = numbers[9].toInt();
           dataStore->pivotSpeed = numbers[10].toDouble();
           dataStore->compassOffset = numbers[11].toDouble();
-          dataStore->minOfsetDist = numbers[12].toInt();
-          if (numbers[13].length() > 0) dataStore->revBB = (bool)numbers[13].toInt();
-          if (numbers[14].length() > 0) dataStore->revSB = (bool)numbers[14].toInt();
-          if (numbers[15].length() > 0) dataStore->swap_BB_SB = (bool)numbers[15].toInt();
+          dataStore->holdRad = numbers[12].toDouble();
+          dataStore->minOfsetDist = numbers[13].toInt();
+          if (numbers[14].length() > 0) dataStore->revBB = (bool)numbers[14].toInt();
+          if (numbers[15].length() > 0) dataStore->revSB = (bool)numbers[15].toInt();
+          if (numbers[16].length() > 0) dataStore->swap_BB_SB = (bool)numbers[16].toInt();
           break;
 
     case IDLE:
@@ -280,7 +281,7 @@ void RoboDecode(String data, RoboStruct *dataStore)
     case PONG:
     case CALC_COMPASS_OFFSET:
     case CALIBRATE_MAGNETIC_COMPASS:
-    case LORAACK:
+    case ACK:
         break;
 
     default:
@@ -297,7 +298,7 @@ String RoboCode(const RoboStruct *dataOut)
     String out = String(dataOut->cmd);
     out += "," + String(dataOut->status);
 
-    if (dataOut->ack == LORAACK) // only send ack data
+    if (dataOut->ack == ACK) // only send ack data
     {
         return out;
     }
@@ -890,6 +891,14 @@ void checkparameters(RoboStruct *buoy)
     {
         buoy->pivotSpeed = 1.0;
     }
+    if (buoy->holdRad < 0.5)
+    {
+        buoy->holdRad = 2.0;
+    }
+    if (buoy->holdRad > 100.0)
+    {
+        buoy->holdRad = 100.0;
+    }
     if (buoy->minOfsetDist >= buoy->maxOfsetDist)
     {
         buoy->maxOfsetDist = buoy->minOfsetDist + 2;
@@ -1010,7 +1019,7 @@ void hooverPid(RoboStruct *buoy)
     }
     double timeChange = (double)(now - buoy->lastTimes);
 
-    double error = (buoy->tgDist - 2.0); // 2 meter station-keeping threshold
+    double error = (buoy->tgDist - buoy->holdRad); // station-keeping threshold
 
     buoy->errSums += (error * timeChange);
     double dErr = (error - buoy->lastErrs) / timeChange;

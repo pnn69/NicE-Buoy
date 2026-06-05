@@ -17,12 +17,12 @@
 typedef enum
 {
     NOCMD = -1,
-    LORAGET = 1,
-    LORASET,
-    LORAGETACK,
-    LORAACK,
-    LORANAC,
-    LORAINF,
+    GET = 1,
+    SET,
+    GETACK,
+    ACK,
+    NAC,
+    INF,
     IDLE,
     IDELING,
     PING,
@@ -146,6 +146,7 @@ struct RoboStruct
     double Kps, Kis, Kds;
     double ip, ir;
     double pivotSpeed = 0.2;
+    double holdRad = 2.0;
     int minOfsetDist = 2;
     int maxOfsetDist = 20;
     int minSpeed = 0;

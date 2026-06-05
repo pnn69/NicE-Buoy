@@ -40,6 +40,7 @@ static unsigned long remotetimer = millis();
 static unsigned long updateSubtimer = millis();
 static unsigned int gpsErrorCnt = 0;
 static unsigned int distErrorCnt = 0;
+static uint64_t lastSetupRequester = 0;
 
 bool debounce = false;
 bool buttonState = false;
@@ -77,19 +78,28 @@ void setup()
     pinMode(BUZZER_PIN, OUTPUT);
     pinMode(BUTTON_LIGHT_PIN, OUTPUT);
     delay(100);
-    printf("\r\nSetup running!\r\n");
-    printf("Robobuoy Top Version: %0.1f\r\n", TOPVERSION);
-    printf("Command ID SETUPDATA: %d\r\n", SETUPDATA);
-
+    printf("\r\n\r\nRobobuoy Top Version: %0.1f\r\n", TOPVERSION);
+    printf("Build Date: %s %s\r\n", __DATE__, __TIME__);
+    printf("\r\nSetup running!...\r\n");
+    printf("Initializing memory...\r\n");
     initMemory();
+    printf("Initializing peripherals...\r\n");
     initbuzzerqueue();
+    printf("Initializing led queues...\r\n");
     initledqueue();
+    printf("Initializing WiFi queue...\r\n");
     initwifiqueue();
+    printf("Initializing GPS queue...\r\n");
     initgpsqueue();
+    printf("Initializing LoRa queue...\r\n");
     initloraqueue();
+    printf("Initializing Serial communication queue...\r\n");
     initserqueue();
+    printf("Creating task buzzer...\r\n");
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 2048, NULL, 1, NULL, 1);
+    printf("Creating task led...\r\n");
     xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
+    printf("Creating task gps...\r\n");
     xTaskCreatePinnedToCore(GpsTask, "GpsTask", 2000, NULL, configMAX_PRIORITIES - 8, NULL, 1);
     if (digitalRead(BUTTON_PIN) == true)
     {
@@ -103,8 +113,11 @@ void setup()
     {
         wifiConfig = 0; // Setup normal accespoint
     }
+    printf("Creating task WiFi...\r\n");
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 10, NULL, 0);
+    printf("Creating task Serial communication...\r\n");
     xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
+    printf("Creating task LoRa communication...\r\n");
     xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 1);
     
     // Load local params
@@ -126,9 +139,6 @@ void setup()
     int tempOffset = 0;
     CompassOffsetCorrection(&tempOffset, GET);
     mainData.compassOffset = (double)tempOffset;
-
-    Serial.println("Dock position set to: ");
-    Serial.printf("Lat: %.8lf, Lng: %.8lf\r\n", mainData.tgLat, mainData.tgLng);
     Serial.println("Main task running!");
     // defautls(&mainData);
 }
@@ -354,7 +364,7 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         stat->status = IDLE;
         xQueueSend(udpOut, (void *)stat, 0);  // update WiFi
         xQueueSend(loraOut, (void *)stat, 0); // update Lora
-        stat->ack = LORAGETACK;
+        stat->ack = GETACK;
         xQueueSend(serOut, (void *)stat, 20); // update sub
         break;
     case LOCKING:
@@ -363,7 +373,7 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
             beep(1, buzzer);
             stat->status = LOCKED;
             stat->cmd = LOCKPOS;
-            stat->ack = LORASET;
+            stat->ack = SET;
             stat->tgLat = stat->lat;
             stat->tgLng = stat->lng;
             AddDataToBuoyBase(*stat, buoyParaPtrs); // store positon for later calculations Track positioning
@@ -456,7 +466,7 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
                 LoraTx.IDr = buoyPara[i].IDs;
                 LoraTx.IDs = stat->buoyId;
                 LoraTx.cmd = SETLOCKPOS;
-                LoraTx.ack = LORAGETACK;
+                LoraTx.ack = GETACK;
                 xQueueSend(loraOut, (void *)&LoraTx, 10); // send out trough Lora
                 xQueueSend(udpOut, (void *)&LoraTx, 10);  // send out trough WiFi
             }
@@ -470,13 +480,13 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         break;
     case START_CALIBRATE_MAGNETIC_COMPASS:
         LoraTx.cmd = CALIBRATE_MAGNETIC_COMPASS;
-        LoraTx.ack = LORAGETACK;
+        LoraTx.ack = GETACK;
         xQueueSend(serOut, (void *)&LoraTx, 10); // send out trough Lora
         stat->status = CALIBRATE_MAGNETIC_COMPASS;
         break;
     case CALC_COMPASS_OFFSET:
         LoraTx.cmd = CALC_COMPASS_OFFSET;
-        LoraTx.ack = LORAGETACK;
+        LoraTx.ack = GETACK;
         xQueueSend(serOut, (void *)&LoraTx, 10); // send out trough Lora
         stat->status = IDELING;
         break;
@@ -534,7 +544,7 @@ void handleInfieldCompassCalibration(RoboStruct *timer)
             RoboStruct cmdMsg;
             cmdMsg.cmd = INFIELD_CALIBRATE;
             cmdMsg.IDs = timer->mac;
-            cmdMsg.ack = LORAINF;
+            cmdMsg.ack = INF;
             xQueueSend(serOut, (void *)&cmdMsg, 0);
         }
         else
@@ -614,7 +624,7 @@ void handleInfieldOffsetCalibration(RoboStruct *timer)
         RoboStruct cmdMsg;
         cmdMsg.cmd = TGDIRSPEED;
         cmdMsg.IDs = timer->mac;
-        cmdMsg.ack = LORAINF;
+        cmdMsg.ack = INF;
 
         if (elapsed < 10000)
         {
@@ -658,7 +668,7 @@ void handleInfieldOffsetCalibration(RoboStruct *timer)
             RoboStruct offsetMsg;
             offsetMsg.cmd = STORE_COMPASS_OFFSET;
             offsetMsg.IDs = timer->mac;
-            offsetMsg.ack = LORAINF;
+            offsetMsg.ack = INF;
             offsetMsg.compassOffset = timer->compassOffset;
             xQueueSend(serOut, (void *)&offsetMsg, 0);
             
@@ -729,7 +739,7 @@ void handleTimerRoutines(RoboStruct *timer)
 
     timer->IDs = timer->mac;
     timer->IDr = BUOYIDALL;
-    timer->ack = LORAINF;
+    timer->ack = INF;
     //***************************************************************************************************
     // sub data out
     //***************************************************************************************************
@@ -871,8 +881,8 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
         // --- BRIDGING LOGIC ---
         // If the message is NOT for us and NOT a broadcast, bridge it to the other interface
         // treat IDr == 0 as a legacy broadcast
-        bool is_for_me = (RfIn.IDr == RfOut->mac || RfIn.IDr == BUOYIDALL || RfIn.IDr == 0);
-        
+        bool is_for_me = (RfIn.IDr == RfOut->mac || RfIn.IDr == RfOut->IDs || RfIn.IDr == BUOYIDALL || RfIn.IDr == 0);
+
         if (!is_for_me)
         {
             if (from_udp) {
@@ -915,7 +925,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 break;
             case INFIELD_CALIBRATE:
             case INFIELD_OFFSET_CALIBRATE:
-                if (RfIn.ack == LORAGET || RfIn.ack == LORAGETACK)
+                if (RfIn.ack == GET || RfIn.ack == GETACK)
                 {
                     xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 }
@@ -927,7 +937,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case PIDRUDDER:
-                if (RfIn.ack == LORAGET || RfIn.ack == LORAGETACK)
+                if (RfIn.ack == GET || RfIn.ack == GETACK)
                 {
                     RfIn.IDr = BUOYIDALL;
                     xQueueSend(serOut, (void *)&RfIn, 0); // update sub
@@ -942,12 +952,12 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             case PIDRUDDERSET:
                 pidRudderParameters(&RfIn, SET);
                 printf("#PIDRUDDERSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kpr, RfIn.Kir, RfIn.Kdr);
-                RfIn.ack = LORAGETACK;
+                RfIn.ack = GETACK;
                 RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 break;
             case PIDSPEED:
-                if (RfIn.ack == LORAGET || RfIn.ack == LORAGETACK)
+                if (RfIn.ack == GET || RfIn.ack == GETACK)
                 {
                     RfIn.IDr = BUOYIDALL;
                     xQueueSend(serOut, (void *)&RfIn, 0); // update sub
@@ -960,28 +970,34 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case SETUPDATA:
-                if (RfIn.ack == LORAGET || RfIn.ack == LORAGETACK || RfIn.ack == LORASET)
+                if (RfIn.ack == GET || RfIn.ack == GETACK || RfIn.ack == SET)
                 {
-                    if (RfIn.ack == LORASET) {
-                        thrusterInversion(&RfIn, SET); // Persist if it's a SET command
+                    if (RfIn.ack == SET) {
+                        pidRudderParameters(&RfIn, SET);
+                        pidSpeedParameters(&RfIn, SET);
+                        CompasOffset(&RfIn, SET);
+                        thrusterSwap(&RfIn, SET);
+                        thrusterInversion(&RfIn, SET);
+                        computeParameters(&RfIn, SET);
+
+                        RfOut->Kpr = RfIn.Kpr; RfOut->Kir = RfIn.Kir; RfOut->Kdr = RfIn.Kdr;
+                        RfOut->Kps = RfIn.Kps; RfOut->Kis = RfIn.Kis; RfOut->Kds = RfIn.Kds;
+                        RfOut->maxSpeed = RfIn.maxSpeed; RfOut->minSpeed = RfIn.minSpeed;
+                        RfOut->pivotSpeed = RfIn.pivotSpeed;
+                        RfOut->compassOffset = RfIn.compassOffset;
+                        RfOut->holdRad = RfIn.holdRad;
                         RfOut->revBB = RfIn.revBB;
                         RfOut->revSB = RfIn.revSB;
                         RfOut->swap_BB_SB = RfIn.swap_BB_SB;
-                    } else if (RfIn.ack == LORAGET || RfIn.ack == LORAGETACK) {
-                        // Respond IMMEDIATELY with cached data if we have it
-                        if (RfOut->Kpr != 0.0) {
-                            RoboStruct resp = *RfOut;
-                            resp.IDr = RfIn.IDs;
-                            resp.IDs = RfOut->mac;
-                            resp.cmd = SETUPDATA;
-                            resp.ack = LORAINF;
-                            if (from_udp) xQueueSend(udpOut, (void *)&resp, 0);
-                            else xQueueSend(loraOut, (void *)&resp, 0);
-                            printf("Responded to SETUPDATA request from cache\r\n");
-                        }
-                    }
+                    } 
+                    
+                    // Remember who asked for the data so we can route the sub response back to them
+                    lastSetupRequester = RfIn.IDs;
+
+                    // Forward to Sub to trigger a fresh update. 
+                    // handelSerialData will broadcast the real data back to LoRa/UDP once received.
                     RfIn.IDr = BUOYIDALL;
-                    xQueueSend(serOut, (void *)&RfIn, 0); // Always forward to sub to trigger a fresh update
+                    xQueueSend(serOut, (void *)&RfIn, 0); 
                 }
                 else
                 {
@@ -1016,7 +1032,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 pidSpeedParameters(&RfIn, SET);
                 printf("#PIDSPEEDSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kps, RfIn.Kis, RfIn.Kds);
                 RfOut->cmd = PIDSPEEDSET;
-                RfIn.ack = LORAGETACK;
+                RfIn.ack = GETACK;
                 RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 RfOut->Kps = RfIn.Kps;
@@ -1107,11 +1123,11 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             case STORE_DECLINATION:
                 printf("Declinaton set to: %f\r\n", RfIn.declination);
                 RfOut->declination = RfIn.declination; // set inclination'
-                RfIn.ack = LORAGETACK;
+                RfIn.ack = GETACK;
                 xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 break;
             case MAXMINPWR:
-                if (RfIn.ack == LORAGET || RfIn.ack == LORAGETACK)
+                if (RfIn.ack == GET || RfIn.ack == GETACK)
                 {
                     xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 }
@@ -1123,7 +1139,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case MAXMINPWRSET:
-                RfIn.ack = LORAGETACK;
+                RfIn.ack = GETACK;
                 xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 break;
             case STORE_COMPASS_OFFSET:
@@ -1254,11 +1270,11 @@ void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             xQueueSend(ledPwr, (void *)&mainPwrData, 0);
             break;
         case SETUPDATA:
-            if (serDataIn.ack == LORAGET || serDataIn.ack == LORAGETACK || serDataIn.ack == LORASET) {
+            if (serDataIn.ack == GET || serDataIn.ack == GETACK || serDataIn.ack == SET) {
                 // This is a request from PC (Serial) -> Forward to Sub
                 serDataIn.IDr = BUOYIDALL; // Force Sub to accept the request
                 xQueueSend(serOut, (void *)&serDataIn, 0);
-            } else if (serDataIn.ack == LORAINF) {
+            } else if (serDataIn.ack == INF) {
                 // This is the response coming FROM the Sub
                 // Update the correct buoy's data
                 target->Kpr = serDataIn.Kpr;
@@ -1271,25 +1287,38 @@ void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                 target->minSpeed = serDataIn.minSpeed;
                 target->pivotSpeed = serDataIn.pivotSpeed;
                 target->compassOffset = serDataIn.compassOffset;
+                target->holdRad = serDataIn.holdRad;
                 target->revBB = serDataIn.revBB;
                 target->revSB = serDataIn.revSB;
                 target->swap_BB_SB = serDataIn.swap_BB_SB;
+                target->sub_status++; // Use sub_status as a local revision counter for Web UI
 
                 // IMPORTANT: Send the actual protocol string to the PC via Serial so RoboControl.py sees it!
                 Serial.println(rfCode(&serDataIn));
 
-                // FORWARD to LoRa/UDP BEFORE transforming into ACK
+                // FORWARD to LoRa/UDP
+                // If we have a remembered requester from RfData, target them specifically
+                if (lastSetupRequester != 0) {
+                    serDataIn.IDr = lastSetupRequester;
+                    // lastSetupRequester = 0; // Clear after use
+                } else {
+                    serDataIn.IDr = BUOYIDALL; // Broadcast if unknown
+                }
+
+                // Ensure sender ID is our logical ID
+                serDataIn.IDs = ser->IDs; 
+
                 xQueueSend(udpOut, (void *)&serDataIn, 0);
                 xQueueSend(loraOut, (void *)&serDataIn, 0);
 
                 // Send an explicit ACK back to the Sub to clear its retransmission queue
-                serDataIn.ack = LORAACK;
+                serDataIn.ack = ACK;
                 serDataIn.IDr = serDataIn.IDs; // Send back to the sender
                 serDataIn.IDs = espMac();
                 xQueueSend(serOut, (void *)&serDataIn, 0);
 
                 printf("DEBUG: Received Kpr=%f, Kir=%f, Kdr=%f, Kps=%f, Kis=%f, Kds=%f\r\n", serDataIn.Kpr, serDataIn.Kir, serDataIn.Kdr, serDataIn.Kps, serDataIn.Kis, serDataIn.Kds);
-                printf("Setup data PID and Compass received from Sub and updated\r\n");
+                printf("Setup data PID and Compass received from Sub and updated (Rev: %d)\r\n", target->sub_status);
             }
             break;
         case PONG:
@@ -1348,7 +1377,7 @@ void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
         case PIDSPEEDSET:
         case MAXMINPWR:
         case MAXMINPWRSET:
-            if (serDataIn.ack == LORAGET || serDataIn.ack == LORAGETACK)
+            if (serDataIn.ack == GET || serDataIn.ack == GETACK)
             {
                 // This is a request from PC (Serial) -> Forward to Sub
                 serDataIn.IDr = BUOYIDALL; // Force Sub to accept the request
@@ -1367,7 +1396,7 @@ void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                 xQueueSend(loraOut, (void *)&serDataIn, 0);
 
                 // Acknowledge the Sub to stop its retry loop
-                serDataIn.ack = LORAGETACK;
+                serDataIn.ack = GETACK;
                 xQueueSend(serOut, (void *)&serDataIn, 0);
             }
             break;
@@ -1397,7 +1426,7 @@ void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
 void loop(void)
 {
     mainData.mac = espMac();
-    mainData.IDs = espMac();
+    if (mainData.IDs == 0) mainData.IDs = espMac();
     Serial.println("Main loop running!");
     mainData.status = IDLE;
     mainCollorGps.color = CRGB::DarkRed;
@@ -1410,6 +1439,10 @@ void loop(void)
     {
         // Safety: Ensure status is never 0 (which greys out buttons)
         if (mainData.status <= 0) mainData.status = IDLE;
+
+        // Ensure mac is always set correctly
+        mainData.mac = espMac();
+
         // Keep placeholder in sync for dashboard
         buoyPara[0] = mainData;
 

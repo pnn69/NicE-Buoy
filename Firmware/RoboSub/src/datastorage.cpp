@@ -68,7 +68,8 @@ void initMemory(void)
         storage.putInt("maxSpeed", 73);
         storage.putInt("minSpeed", -73);
         storage.putDouble("pivotSpeed", 0.5);
-        storage.putDouble("magCorr", 88.7); // User's stated good value
+        storage.putDouble("magCorr", 90.0); // User's stated good value
+        storage.putDouble("holdRad", 2.0); // User's stated good value
     }
     stopMem();
 }
@@ -171,12 +172,12 @@ void computeParameters(RoboStruct *buoy, bool get)
     startMem();
     if (get)
     {
-        buoy->minOfsetDist = storage.getInt("minOfsetDist", 1);
+        buoy->holdRad = storage.getDouble("holdRad", 2.0);
         buoy->maxOfsetDist = storage.getInt("maxOfsetDist", 8);
     }
     else
     {
-        storage.putInt("minOfsetDist", buoy->minOfsetDist);
+        storage.putDouble("holdRad", buoy->holdRad);
         storage.putInt("maxOfsetDist", buoy->maxOfsetDist);
     }
     stopMem();
