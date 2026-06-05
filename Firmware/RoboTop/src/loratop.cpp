@@ -17,6 +17,7 @@ static unsigned long transmittReady = 0;
 QueueHandle_t loraOut;
 QueueHandle_t loraIn;
 static unsigned long buoyId = 0;
+static RoboStruct *pMainData = NULL;
 
 //***************************************************************************************************
 //  Lora init
@@ -32,16 +33,14 @@ bool InitLora(void)
 {
 
     SPI.begin(RADIO_SCLK_PIN, RADIO_MISO_PIN, RADIO_MOSI_PIN);
-    Serial.print("LoRa setup ");
     // LoRa.setPins(RADIO_CS_PIN, RADIO_RST_PIN, RADIO_DIO0_PIN);
     LoRa.setPins(RADIO_CS_PIN, RADIO_RST_PIN); // only polling mode so no irq needed
     if (!LoRa.begin(LoRa_frequency))
     {
-        Serial.println("Failed!");
+        Serial.println("LoRa setup Failed!");
         return false;
     }
     LoRa.enableCrc();
-    Serial.println("Succes!");
     buoyId = espMac();
     return true;
 }
@@ -77,7 +76,7 @@ void storeAckMsg(RoboStruct ackBuffer)
         if (pendingMsg[i].cmd == 0)
         {
             memcpy(&pendingMsg[i], &ackBuffer, sizeof(ackBuffer));
-            Serial.println("message stored on pos:" + String(i) + " rettrys left:" + ackBuffer.retry + " for:" + String(ackBuffer.IDr, HEX) + " msg:" + ackBuffer.cmd);
+            // Serial.println("message stored on pos:" + String(i) + " rettrys left:" + ackBuffer.retry + " for:" + String(ackBuffer.IDr, HEX) + " msg:" + ackBuffer.cmd);
             return;
         }
         i++;
@@ -94,15 +93,15 @@ void storeAckMsg(RoboStruct ackBuffer)
  */
 void removeAckMsg(RoboStruct ackBuffer)
 {
-    Serial.println("looking for msg:" + String(ackBuffer.cmd) + "Id:" + String(ackBuffer.IDs, HEX));
+    // Serial.println("looking for msg:" + String(ackBuffer.cmd) + "Id:" + String(ackBuffer.IDs, HEX));
     // printf("looking for msg%d of id %lld\r\n", ackBuffer.cmd, ackBuffer.macIDs);
     int i = 0;
     while (i < 10)
     {
         // Serial.println("ackBuffer.macIDr: " + String(ackBuffer.macIDs,HEX) +" pendingMsg[i].macIDs: " + String(pendingMsg[i].macIDr,HEX));
-        if (pendingMsg[i].cmd == ackBuffer.cmd && pendingMsg[i].IDr == ackBuffer.IDs)
+        if (pendingMsg[i].cmd == ackBuffer.cmd && (pendingMsg[i].IDr == ackBuffer.IDs || (pMainData && pendingMsg[i].IDr == pMainData->IDs)))
         {
-            Serial.println("message removed pos:" + String(i) + " rettrys left:" + pendingMsg[i].retry + " for:" + String(pendingMsg[i].IDr, HEX) + " msg:" + pendingMsg[i].cmd);
+            // Serial.println("message removed pos:" + String(i) + " rettrys left:" + pendingMsg[i].retry + " for:" + String(pendingMsg[i].IDr, HEX) + " msg:" + pendingMsg[i].cmd);
             pendingMsg[i].ack = 0;
             pendingMsg[i].cmd = 0;
             pendingMsg[i].IDs = 0;
@@ -145,7 +144,7 @@ RoboStruct chkAckMsg()
                 pendingMsg[i].IDr = 0;
             }
             // printf("message ack on pos:%d rettrys left %d to:%lld  msg:%d\r\n", i, pendingMsg[i].retry, pendingMsg[i].macIDr, pendingMsg[i].cmd);
-            Serial.println("message ack on pos:" + String(i) + " rettrys left:" + pendingMsg[i].retry + " for:" + String(pendingMsg[i].IDr, HEX) + " msg:" + pendingMsg[i].cmd);
+            // Serial.println("message ack on pos:" + String(i) + " rettrys left:" + pendingMsg[i].retry + " for:" + String(pendingMsg[i].IDr, HEX) + " msg:" + pendingMsg[i].cmd);
             return in;
         }
         i++;
@@ -203,23 +202,20 @@ void onReceive(int packetSize)
     //Serial.println("#Lora_i <" + incoming + ">");
     RoboStruct in;
     rfDeCode(incoming,&in);
-    if (in.IDr == buoyId && in.ack == LORAACK) // A message form me so check if its a ACK message
+
+    // Recognise either our physical MAC or our logical Sub-synced ID
+    bool is_addressed_to_me = (in.IDr == buoyId || (pMainData && in.IDr == pMainData->IDs));
+
+    if (is_addressed_to_me && in.ack == ACK) // A message form me so check if its a ACK message
     {
         removeAckMsg(in);
-        printf("#Lora Ack recieved buffer cleared\r\n");
+        // printf("#Lora Ack recieved buffer cleared\r\n");
         return;
     }
-    if (in.IDr == buoyId || in.IDr == BUOYIDALL) // A message form
+    if (is_addressed_to_me || in.IDr == BUOYIDALL || in.IDr == 0) // A message form
     {
-        if (in.ack == LORAGETACK) // on ack request send ack back
-        {
-            // IDr,IDs,ACK,MSG
-            loraMsgout.IDr = in.IDs;
-            loraMsgout.IDs = buoyId;
-            loraMsgout.cmd = in.cmd;
-            loraMsgout.ack = LORAACK;
-            xQueueSend(loraOut, (void *)&loraMsgout, 10); // send ACK out
-        }
+        // DO NOT send an immediate zeroed ACK for GETACK. 
+        // Let the main loop handle the fetch from Sub and send the real data.
         xQueueSend(loraIn, (void *)&in, 10); // send to main
     }
 }
@@ -259,10 +255,11 @@ bool sendLora(String loraTransmitt)
  * Continuously polls for incoming packets, checks the out queue for new messages,
  * handles transmission, and manages the retransmission logic for unacknowledged messages.
  * 
- * @param arg Task arguments (unused).
+ * @param arg Task arguments (Pointer to mainData RoboStruct).
  */
 void LoraTask(void *arg)
 {
+    pMainData = (RoboStruct *)arg;
     unsigned long retransmittReady = 0;
     while (1)
     {
@@ -270,13 +267,13 @@ void LoraTask(void *arg)
         if (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
         {
             // IDr,IDs,ACK,MSG,<data>
-            if (loraMsgout.IDs == 0) loraMsgout.IDs = buoyId;
+            if (loraMsgout.IDs == 0) loraMsgout.IDs = (pMainData && pMainData->IDs != 0) ? pMainData->IDs : buoyId;
             String loraString = rfCode(&loraMsgout);
             while (sendLora(String(loraString)) != true)
             {
                 vTaskDelay(pdMS_TO_TICKS(50));
             }
-            if (loraMsgout.ack == LORAGETACK)
+            if (loraMsgout.ack == GETACK)
             {
                 loraMsgout.retry = 5;
                 storeAckMsg(loraMsgout);                            // put data in buffer (will be removed on ack)

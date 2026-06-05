@@ -149,7 +149,7 @@ void SercomTask(void *arg)
                 if (serDataIn.IDs != -1 && serDataIn.IDs != mac && serDataIn.IDs != 0x99)
                 {
                     lastRx = millis();
-                    if (serDataIn.ack == LORAACK)
+                    if (serDataIn.ack == ACK)
                     {
                         printf("SER_SUB_ACK received cmd=%d from IDs=%X\r\n", serDataIn.cmd, serDataIn.IDs);
                         SerremoveAckMsg(serDataIn);
@@ -160,11 +160,11 @@ void SercomTask(void *arg)
                         xQueueSend(serIn, (void *)&serDataIn, 10);
                         lastSerMsg = millis();
 
-                        if (serDataIn.ack == LORAGETACK)
+                        if (serDataIn.ack == GETACK)
                         {
                             serDataIn.IDr = serDataIn.IDs;
                             serDataIn.IDs = mac;
-                            serDataIn.ack = LORAACK;
+                            serDataIn.ack = ACK;
                             xQueueSend(serOut, (void *)&serDataIn, 10);
                             printf("SER_SUB_ACK_SEND cmd=%d to IDr=%X\r\n", serDataIn.cmd, serDataIn.IDr);
                         }
@@ -196,7 +196,7 @@ void SercomTask(void *arg)
                 Serial1.println(out);
                 // printf("SER_SUB_OUT>%s<\r\n", out.c_str());
 
-                if (serDataOut.ack == LORAGETACK)
+                if (serDataOut.ack == GETACK)
                 {
                     serDataOut.retry = 5;
                     SerstoreAckMsg(serDataOut);

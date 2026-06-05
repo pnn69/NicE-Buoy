@@ -41,7 +41,7 @@ bool initledqueue(void)
     ledUtil = xQueueCreate(10, sizeof(LedData));
     ledGps = xQueueCreate(10, sizeof(LedData));
     ledPwr = xQueueCreate(10, sizeof(PwrData));
-    Serial.println("Led queue created!");
+    //Serial.println("Led queue created!");
     return true;
 }
 

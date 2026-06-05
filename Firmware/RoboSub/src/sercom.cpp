@@ -184,7 +184,7 @@ void SercomTask(void *arg)
                 if (serDataIn.IDs != -1 && serDataIn.IDs != mac)
                 {
                     lastRx = millis();
-                    if (serDataIn.ack == LORAACK)
+                    if (serDataIn.ack == ACK)
                     {
 // printf("SER_TOP_ACK received cmd=%d from IDs=%X\r\n", serDataIn.cmd, serDataIn.IDs);
                         removeAckMsg(serDataIn);
@@ -195,11 +195,11 @@ void SercomTask(void *arg)
                         xQueueSend(serIn, (void *)&serDataIn, 10);
                         lastSerMsg = millis();
                         
-                        if (serDataIn.ack == LORAGETACK)
+                        if (serDataIn.ack == GETACK)
                         {
                             serDataIn.IDr = serDataIn.IDs;
                             serDataIn.IDs = mac;
-                            serDataIn.ack = LORAACK;
+                            serDataIn.ack = ACK;
                             xQueueSend(serOut, (void *)&serDataIn, 10);
 // printf("SER_TOP_ACK_SEND cmd=%d to IDr=%X\r\n", serDataIn.cmd, serDataIn.IDr);
                         }
@@ -215,8 +215,12 @@ void SercomTask(void *arg)
             if (serDataOut.IDs == 0) serDataOut.IDs = mac;
             String out = rfCode(&serDataOut);
             Serial1.println(out);
-// printf("SER_TOP_OUT>%s<\r\n", out.c_str());
-            if (serDataOut.ack == LORAGETACK)
+            if (serDataOut.cmd == SETUPDATA)
+            {
+                printf("SER_TOP_OUT>%s<\r\n", out.c_str());
+            }
+            if (serDataOut.ack == GETACK)
+            
             {
                 serDataOut.retry = 5;
                 storeAckMsg(serDataOut);

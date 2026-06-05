@@ -371,12 +371,12 @@ void handelSerandRfdata(RoboStruct *ser)
                 }
                 break;
             case PIDRUDDER:
-                if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
+                if (dataIn.ack == GET || dataIn.ack == GETACK)
                 {
                     RoboStruct response = mainData;
                     response.IDr = dataIn.IDs;
                     response.cmd = PIDRUDDER;
-                    response.ack = LORAINF;
+                    response.ack = INF;
                     pidRudderParameters(&response, GET);
                     xQueueSend(serOut, (void *)&response, 10);
                 }
@@ -393,17 +393,17 @@ void handelSerandRfdata(RoboStruct *ser)
                     RoboStruct response = *ser;
                     response.IDr = dataIn.IDs;
                     response.cmd = PIDRUDDERSET;
-                    response.ack = LORAINF;
+                    response.ack = INF;
                     xQueueSend(serOut, (void *)&response, 10);
                 }
                 break;
             case PIDSPEED:
-                if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
+                if (dataIn.ack == GET || dataIn.ack == GETACK)
                 {
                     RoboStruct response = mainData;
                     response.IDr = dataIn.IDs;
                     response.cmd = PIDSPEED;
-                    response.ack = LORAINF;
+                    response.ack = INF;
                     pidSpeedParameters(&response, GET);
                     xQueueSend(serOut, (void *)&response, 10);
                 }
@@ -420,7 +420,7 @@ void handelSerandRfdata(RoboStruct *ser)
                     RoboStruct response = *ser;
                     response.IDr = dataIn.IDs;
                     response.cmd = PIDSPEEDSET;
-                    response.ack = LORAINF;
+                    response.ack = INF;
                     xQueueSend(serOut, (void *)&response, 10);
                 }
                 break;
@@ -435,12 +435,12 @@ void handelSerandRfdata(RoboStruct *ser)
                 ser->compassOffset = dataIn.compassOffset; // Update running config
                 mainData.compassOffset = dataIn.compassOffset; // Ensure compassTask uses the new offset immediately!
                 printf(" (Stored)\r\n");
-                // Send an ACK back to the Top buoy so it stops retransmitting (if LORAGETACK is used)
-                if (dataIn.ack == LORAGETACK || dataIn.ack == LORASET) {
+                // Send an ACK back to the Top buoy so it stops retransmitting (if GETACK is used)
+                if (dataIn.ack == GETACK || dataIn.ack == SET) {
                     RoboStruct response = mainData;
                     response.IDr = dataIn.IDs;
                     response.cmd = STORE_COMPASS_OFFSET;
-                    response.ack = LORAINF;
+                    response.ack = INF;
                     response.status = IDELING; // Force a status sync back to Top
                     xQueueSend(serOut, (void *)&response, 10);
                 }
@@ -479,12 +479,12 @@ void handelSerandRfdata(RoboStruct *ser)
                 }
                 break;
             case MAXMINPWR:
-                    if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
+                    if (dataIn.ack == GET || dataIn.ack == GETACK)
                     {
                         RoboStruct response = mainData;
                         response.IDr = dataIn.IDs;
                         response.cmd = MAXMINPWR;
-                        response.ack = LORAINF;
+                        response.ack = INF;
                         speedMaxMin(&response, GET);
                         xQueueSend(serOut, (void *)&response, 10);
                     }
@@ -503,30 +503,31 @@ void handelSerandRfdata(RoboStruct *ser)
                     RoboStruct response = *ser;
                     response.IDr = dataIn.IDs;
                     response.cmd = MAXMINPWRSET;
-                    response.ack = LORAINF;
+                    response.ack = INF;
                     xQueueSend(serOut, (void *)&response, 10);
                 }
                 break;
             case SETUPDATA:
                 global_params_rev++;
-                if (dataIn.ack == LORAGET || dataIn.ack == LORAGETACK)
+                if (dataIn.ack == GET || dataIn.ack == GETACK)
                 {
                     RoboStruct response = mainData;
                     response.IDs = mainData.mac;
                     response.IDr = dataIn.IDs;
                     response.cmd = SETUPDATA;
-                    response.ack = LORAINF;
+                    response.ack = INF;
                     // Fetch all data before sending
                     pidRudderParameters(&response, GET);
                     pidSpeedParameters(&response, GET);
                     speedMaxMin(&response, GET);
                     CompasOffset(&response, GET);
                     thrusterSwap(&response, GET);
-                    thrusterInversion(&response, GET); 
+                    thrusterInversion(&response, GET);
+                    computeParameters(&response, GET); 
                     xQueueSend(serOut, (void *)&response, 10);
 // printf("Sent SETUPDATA back to %X\r\n", response.IDr);
                 }
-                else if (dataIn.ack == LORASET)
+                else if (dataIn.ack == SET)
                 {
 // printf("New setup received. Updating PID and Inversion flags.\r\n");
                     pidRudderParameters(&dataIn, SET);
@@ -535,6 +536,7 @@ void handelSerandRfdata(RoboStruct *ser)
                     CompasOffset(&dataIn, SET);
                     thrusterSwap(&dataIn, SET);
                     thrusterInversion(&dataIn, SET);
+                    computeParameters(&dataIn, SET);
                     
                     // Reload into running config
                     pidRudderParameters(ser, GET);
@@ -543,6 +545,7 @@ void handelSerandRfdata(RoboStruct *ser)
                     CompasOffset(ser, GET);
                     thrusterSwap(ser, GET);
                     thrusterInversion(ser, GET);
+                    computeParameters(ser, GET);
                     mainData.compassOffset = ser->compassOffset; // Ensure compassTask uses the new offset immediately!
                     
                     initRudPid(ser);
@@ -552,7 +555,7 @@ void handelSerandRfdata(RoboStruct *ser)
                     RoboStruct response = *ser;
                     response.IDr = dataIn.IDs;
                     response.cmd = SETUPDATA;
-                    response.ack = LORAINF;
+                    response.ack = INF;
                     xQueueSend(serOut, (void *)&response, 10);
                     printf("Sent updated SETUPDATA back\r\n");
                 }

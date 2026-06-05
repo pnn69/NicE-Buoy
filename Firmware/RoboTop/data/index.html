@@ -329,8 +329,8 @@ input {
         <h4 style="margin: 5px 0 2px 0;">Speed Limits</h4>
         <div class="inputRow" style="margin-top: 0;">Max <input id="maxSpeed" type="number" style="width:50px;"> Min <input id="minSpeed" type="number" style="width:50px;"> Pivot <input id="pivotSpeed" type="number" step="0.1" style="width:50px;"></div>
 
-        <h4 style="margin: 5px 0 2px 0;">Compass</h4>
-        <div class="inputRow" style="margin-top: 0;">Compass Offset <input id="compassOffset" type="number" step="0.1" style="width:50px;"></div>
+        <h4 style="margin: 5px 0 2px 0;">Compass & Radius</h4>
+        <div class="inputRow" style="margin-top: 0;">Offset <input id="compassOffset" type="number" step="0.1" style="width:50px;"> Radius <input id="holdrad" type="number" step="0.1" min="1.5" style="width:50px;"></div>
         
         <h4 style="margin: 8px 0 5px 0;">Thruster Settings</h4>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
@@ -378,6 +378,16 @@ let buoyData = {
 };
 
 function updateConfig() {
+    const kpr = document.getElementById('Kpr').value;
+    const maxSpd = document.getElementById('maxSpeed').value;
+    
+    // Safety: Don't allow saving if key fields are 0 or empty (unless truly intended)
+    if ((parseFloat(kpr) === 0 && parseFloat(maxSpd) === 0) || kpr === "" || maxSpd === "") {
+        if (!confirm("Warning: You are about to save zeroed-out PID or Speed values. This will stop the motors. Continue?")) {
+            return;
+        }
+    }
+
     const params = {
         Kpr: document.getElementById('Kpr').value,
         Kir: document.getElementById('Kir').value,
@@ -389,6 +399,7 @@ function updateConfig() {
         minSpeed: document.getElementById('minSpeed').value,
         pivotSpeed: document.getElementById('pivotSpeed').value,
         compassOffset: document.getElementById('compassOffset').value,
+        holdrad: document.getElementById('holdrad').value,
         revBB: document.getElementById('revBB').checked ? 1 : 0,
         revSB: document.getElementById('revSB').checked ? 1 : 0,
         swap_BB_SB: document.getElementById('swap_BB_SB').checked ? 1 : 0
@@ -451,25 +462,20 @@ function openMap() {
 
 let waitingForSetupData = false;
 let setupTimeoutTimer = null;
+let requestedRev = 0;
 
 function openSetup(bid) {
     if (bid !== undefined) currentBuoy = bid;
-    
+
+    const b = buoyData[currentBuoy];
+    requestedRev = parseInt(b ? b.rev : 0) || 0;
+
     // 1. Show "Collecting data..." overlay
     document.getElementById("collectingOverlay").style.display = "flex";
-    
-    // 2. Clear old data from buoyData to force waiting for fresh update
-    const fields = ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "pivotSpeed", "compassOffset"];
-    const b = buoyData[currentBuoy];
-    if (b) {
-        fields.forEach(f => {
-            b[f] = 0; // Set to 0 so we know it's not "fresh"
-        });
-    }
-    
+
     waitingForSetupData = true;
 
-    // 3. Set a 2-second timeout to close the overlay if no response
+    // 2. Set a 5-second timeout to close the overlay if no response
     if (setupTimeoutTimer) clearTimeout(setupTimeoutTimer);
     setupTimeoutTimer = setTimeout(() => {
         if (waitingForSetupData) {
@@ -479,7 +485,7 @@ function openSetup(bid) {
         }
     }, 5000);
 
-    // 4. Trigger a SETUPDATA command with no params to GET the current config from Sub
+    // 3. Trigger a SETUPDATA command with no params to GET the current config from Sub
     fetch(`/command?bid=${currentBuoy}&cmd=SETUPDATA`)
         .then(r => r.text())
         .then(d => console.log("Fetch request sent to Top-Sub:", d))
@@ -496,21 +502,21 @@ function closeSetup() {
 }
 
 function updateSetupModal() {
-    // If we are waiting for data, check if we've received non-zero values yet
+    // If we are waiting for data, check if we've received a NEW revision yet
     if (waitingForSetupData) {
         const b = buoyData[currentBuoy];
         if (!b) return;
 
-        // Verify we have fresh data (non-zero speed/PID)
-        if (parseFloat(b.maxSpeed) > 0 || parseFloat(b.Kpr) > 0 || parseFloat(b.Kis) > 0) {
+        const currentRev = parseInt(b.rev) || 0;
+        if (currentRev > requestedRev) {
             waitingForSetupData = false;
             if (setupTimeoutTimer) clearTimeout(setupTimeoutTimer);
-            
+
             // Hide "Collecting" and show "Setup"
             document.getElementById("collectingOverlay").style.display = "none";
             document.getElementById("setupBuoyId").innerText = currentBuoy;
             document.getElementById("setupModal").style.display = "block";
-            
+
             // Populate fields
             const setVal = (id, val) => {
                 const el = document.getElementById(id);
@@ -527,6 +533,7 @@ function updateSetupModal() {
             setVal("minSpeed", b.minSpeed);
             setVal("pivotSpeed", b.pivotSpeed);
             setVal("compassOffset", b.compassOffset);
+            setVal("holdrad", b.holdrad);
 
             const setChecked = (id, val) => {
                 const el = document.getElementById(id);
