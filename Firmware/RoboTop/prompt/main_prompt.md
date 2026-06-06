@@ -21,7 +21,7 @@ Your goal is to recreate this project exactly as it exists today, serving as a r
    * Read Serial1 from Sub -> Decode via `RoboCompute` -> Queue to `udpOut` and `loraOut` (send to PC).
 2. **Addressing (The `SETUPDATA` Bugfix):**
    * The `SETUPDATA` (CMD 83) response from the Sub MUST be broadcasted with `IDr = BUOYIDALL` (which is `1`). Ensure you force `IDr = 1` before pushing the response to UDP and LoRa.
-   * *Anti-Echo filtering:* Because `Serial1` might be half-duplex and echo its own transmission, `RobobuoyTop` must examine incoming `SETUPDATA` packets on Serial1. If `ACK == LORAGET` or `LORAGETACK`, it is an echo from the PC -> forward it to the Sub. If `ACK == LORAINF` (or others), it is a real response from the Sub -> forward to UDP/LoRa to reach the PC.
+   * *Anti-Echo filtering:* Because `Serial1` might be half-duplex and echo its own transmission, `RobobuoyTop` must examine incoming `SETUPDATA` packets on Serial1. If `ACK == GET` or `GETACK`, it is an echo from the PC -> forward it to the Sub. If `ACK == INF` (or others), it is a real response from the Sub -> forward to UDP/LoRa to reach the PC.
 3. **Zero Compression Handling:**
    * Packets use a custom NMEA style: `$IDr,IDs,ACK,CMD,STATUS,val1,val2...*CRC`.
    * `RoboCompute` compresses zero values (`0`, `0.00`) into empty fields (`,,`) to save bandwidth. `RobobuoyTop` must decode and re-encode faithfully without breaking this protocol.

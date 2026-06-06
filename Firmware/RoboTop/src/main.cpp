@@ -952,9 +952,11 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             case PIDRUDDERSET:
                 pidRudderParameters(&RfIn, SET);
                 printf("#PIDRUDDERSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kpr, RfIn.Kir, RfIn.Kdr);
-                RfIn.ack = GETACK;
+                RfIn.ack = SET; // Tell Sub to save to EEPROM
                 RfIn.IDr = BUOYIDALL;
-                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                    printf("ERROR: Failed to queue PIDRUDDERSET to serOut!\r\n");
+                }
                 break;
             case PIDSPEED:
                 if (RfIn.ack == GET || RfIn.ack == GETACK)
@@ -972,7 +974,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             case SETUPDATA:
                 if (RfIn.ack == GET || RfIn.ack == GETACK || RfIn.ack == SET)
                 {
-                    if (RfIn.ack == SET) {
+                    if (RfIn.ack == SET || RfIn.ack == GETACK) {
                         pidRudderParameters(&RfIn, SET);
                         pidSpeedParameters(&RfIn, SET);
                         CompasOffset(&RfIn, SET);
@@ -989,15 +991,21 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                         RfOut->revBB = RfIn.revBB;
                         RfOut->revSB = RfIn.revSB;
                         RfOut->swap_BB_SB = RfIn.swap_BB_SB;
+                        
+                        // Force Sub to save permanently to EEPROM
+                        RfIn.ack = SET;
                     } 
                     
                     // Remember who asked for the data so we can route the sub response back to them
                     lastSetupRequester = RfIn.IDs;
 
                     // Forward to Sub to trigger a fresh update. 
-                    // handelSerialData will broadcast the real data back to LoRa/UDP once received.
+                    // Set sender ID to our own MAC address so low-level serial task filters out echoes.
                     RfIn.IDr = BUOYIDALL;
-                    xQueueSend(serOut, (void *)&RfIn, 0); 
+                    RfIn.IDs = espMac();
+                    if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                        printf("ERROR: Failed to queue SETUPDATA forward request to serOut!\r\n");
+                    } 
                 }
                 else
                 {
@@ -1032,9 +1040,11 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 pidSpeedParameters(&RfIn, SET);
                 printf("#PIDSPEEDSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kps, RfIn.Kis, RfIn.Kds);
                 RfOut->cmd = PIDSPEEDSET;
-                RfIn.ack = GETACK;
+                RfIn.ack = SET; // Tell Sub to save to EEPROM
                 RfIn.IDr = BUOYIDALL;
-                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                    printf("ERROR: Failed to queue PIDSPEEDSET to serOut!\r\n");
+                }
                 RfOut->Kps = RfIn.Kps;
                 RfOut->Kis = RfIn.Kis;
                 RfOut->Kds = RfIn.Kds;
@@ -1139,8 +1149,10 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case MAXMINPWRSET:
-                RfIn.ack = GETACK;
-                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                RfIn.ack = SET; // Tell Sub to save to EEPROM
+                if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                    printf("ERROR: Failed to queue MAXMINPWRSET to serOut!\r\n");
+                }
                 break;
             case STORE_COMPASS_OFFSET:
                 RfOut->compassOffset = RfIn.compassOffset; // Update Top Buoy's local data
@@ -1297,28 +1309,30 @@ void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                 Serial.println(rfCode(&serDataIn));
 
                 // FORWARD to LoRa/UDP
-                // If we have a remembered requester from RfData, target them specifically
-                if (lastSetupRequester != 0) {
-                    serDataIn.IDr = lastSetupRequester;
-                    // lastSetupRequester = 0; // Clear after use
-                } else {
-                    serDataIn.IDr = BUOYIDALL; // Broadcast if unknown
+                // The SETUPDATA response from the Sub MUST be broadcasted with IDr = BUOYIDALL (which is 1)
+                // before pushing the response to UDP and LoRa.
+                serDataIn.IDr = BUOYIDALL;
+
+                // Ensure sender ID matches the Top's MAC address so the PC's UI maps it to the correct buoy
+                serDataIn.IDs = espMac(); 
+
+                if (xQueueSend(udpOut, (void *)&serDataIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                    printf("ERROR: Failed to queue SETUPDATA response to udpOut!\r\n");
                 }
-
-                // Ensure sender ID is our logical ID
-                serDataIn.IDs = ser->IDs; 
-
-                xQueueSend(udpOut, (void *)&serDataIn, 0);
-                xQueueSend(loraOut, (void *)&serDataIn, 0);
+                if (xQueueSend(loraOut, (void *)&serDataIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                    printf("ERROR: Failed to queue SETUPDATA response to loraOut!\r\n");
+                }
 
                 // Send an explicit ACK back to the Sub to clear its retransmission queue
                 serDataIn.ack = ACK;
                 serDataIn.IDr = serDataIn.IDs; // Send back to the sender
                 serDataIn.IDs = espMac();
-                xQueueSend(serOut, (void *)&serDataIn, 0);
+                if (xQueueSend(serOut, (void *)&serDataIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                    printf("ERROR: Failed to queue SETUPDATA ACK to serOut!\r\n");
+                }
 
-                printf("DEBUG: Received Kpr=%f, Kir=%f, Kdr=%f, Kps=%f, Kis=%f, Kds=%f\r\n", serDataIn.Kpr, serDataIn.Kir, serDataIn.Kdr, serDataIn.Kps, serDataIn.Kis, serDataIn.Kds);
-                printf("Setup data PID and Compass received from Sub and updated (Rev: %d)\r\n", target->sub_status);
+                // printf("DEBUG: Received Kpr=%f, Kir=%f, Kdr=%f, Kps=%f, Kis=%f, Kds=%f\r\n", serDataIn.Kpr, serDataIn.Kir, serDataIn.Kdr, serDataIn.Kps, serDataIn.Kis, serDataIn.Kds);
+                // printf("Setup data PID and Compass received from Sub and updated (Rev: %d)\r\n", target->sub_status);
             }
             break;
         case PONG:
@@ -1386,18 +1400,29 @@ void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             else
             {
                 // This is a response from Sub -> Forward to PC/LoRa/UDP
-                printf("Received PID/PWR data from sub. CMD: %d\r\n", serDataIn.cmd);
+                // printf("Received PID/PWR data from sub. CMD: %d\r\n", serDataIn.cmd);
                 
                 // IMPORTANT: Send the actual protocol string to the PC via Serial so RoboControl.py sees it!
                 Serial.println(rfCode(&serDataIn));
 
                 // FORWARD info to LoRa/UDP BEFORE transforming into ACK
-                xQueueSend(udpOut, (void *)&serDataIn, 0);
-                xQueueSend(loraOut, (void *)&serDataIn, 0);
+                // Copy the message, then force broadcast routing and align the sender ID to our Top MAC
+                RoboStruct forwardMsg = serDataIn;
+                forwardMsg.IDr = BUOYIDALL;
+                forwardMsg.IDs = espMac();
+
+                if (xQueueSend(udpOut, (void *)&forwardMsg, pdMS_TO_TICKS(250)) != pdTRUE) {
+                    printf("ERROR: Failed to queue PID/PWR response to udpOut!\r\n");
+                }
+                if (xQueueSend(loraOut, (void *)&forwardMsg, pdMS_TO_TICKS(250)) != pdTRUE) {
+                    printf("ERROR: Failed to queue PID/PWR response to loraOut!\r\n");
+                }
 
                 // Acknowledge the Sub to stop its retry loop
                 serDataIn.ack = GETACK;
-                xQueueSend(serOut, (void *)&serDataIn, 0);
+                if (xQueueSend(serOut, (void *)&serDataIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                    printf("ERROR: Failed to queue PID/PWR ACK to serOut!\r\n");
+                }
             }
             break;
 

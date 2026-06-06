@@ -52,7 +52,7 @@ void dispatchCommand(RoboStruct *data, adcDataType *adc)
         lastPhysicalSwitchPos = adc->swPos;
         forceSend = true;
         
-        data->ack = LORAGETACK; // 3
+        data->ack = GETACK; // 3
         
         switch (adc->swPos)
         {
@@ -78,7 +78,7 @@ void dispatchCommand(RoboStruct *data, adcDataType *adc)
         {
             data->cmd = REMOTE; // 25
             forceSend = true;
-            data->ack = LORAINF; // 6 (Continuous data update)
+            data->ack = INF; // 6 (Continuous data update)
             adc->newdata = false;
         }
     }
@@ -102,7 +102,7 @@ void dispatchCommand(RoboStruct *data, adcDataType *adc)
         static unsigned long lastSendTime = 0;
 
         // Filter duplicates if it's NOT a continuous REMOTE stream
-        if (data->ack == LORAGETACK) 
+        if (data->ack == GETACK) 
         {
             if (data->cmd == lastSentCmd && data->status == lastSentStatus && (millis() - lastSendTime < 3000))
             {
@@ -215,30 +215,30 @@ void handelKeyPress(RoboStruct *key)
         case 5: 
             if (key->status != REMOTE) {
                 key->cmd = DOCKING;
-                key->ack = LORAGETACK;
+                key->ack = GETACK;
             }
             break;
         case 101: 
             key->cmd = STOREASDOC; 
-            key->ack = LORAGETACK;
+            key->ack = GETACK;
             break; // Long press
         case 105: 
             key->cmd = STOREASDOC; 
-            key->ack = LORAGETACK;
+            key->ack = GETACK;
             break; // 4 clicks + Long
         case 102: 
             if (key->status == LOCKED) {
                 key->cmd = COMPUTESTART;
-                key->ack = LORAGETACK;
+                key->ack = GETACK;
             }
             break; // 1 click + Long
         case 10: 
             key->cmd = STORE_DECLINATION; 
-            key->ack = LORAGETACK;
+            key->ack = GETACK;
             break;
         case 110: 
             key->cmd = CALIBRATE_MAGNETIC_COMPASS; 
-            key->ack = LORAGETACK;
+            key->ack = GETACK;
             break;
         }
         

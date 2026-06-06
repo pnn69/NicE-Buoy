@@ -194,14 +194,25 @@ void WiFiTask(void *arg)
     udp_setup(1001);
     SPIFFS.begin(true);
 
+    static String indexHtmlCache = "";
+    File file = SPIFFS.open("/index.html", "r");
+    if(file) {
+        indexHtmlCache = file.readString();
+        file.close();
+        Serial.println("WiFiTask: Cached index.html in RAM (" + String(indexHtmlCache.length()) + " bytes)");
+    } else {
+        Serial.println("WiFiTask: Failed to open /index.html for caching");
+    }
+
     server.on("/", HTTP_GET, [](){
         server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         server.sendHeader("Pragma", "no-cache");
         server.sendHeader("Expires", "-1");
-        File file = SPIFFS.open("/index.html", "r");
-        if(!file) { server.send(404, "text/plain", "File not found"); return; }
-        server.streamFile(file, "text/html");
-        file.close();
+        if(indexHtmlCache.length() > 0) {
+            server.send(200, "text/html", indexHtmlCache);
+        } else {
+            server.send(404, "text/plain", "File not found in RAM cache. Please check SPIFFS filesystem.");
+        }
     });
 
     server.on("/data", HTTP_GET, []()

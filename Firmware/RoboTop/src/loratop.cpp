@@ -216,6 +216,7 @@ void onReceive(int packetSize)
     {
         // DO NOT send an immediate zeroed ACK for GETACK. 
         // Let the main loop handle the fetch from Sub and send the real data.
+        Serial.println("#Lora_i <" + incoming + ">");
         xQueueSend(loraIn, (void *)&in, 10); // send to main
     }
 }
@@ -238,7 +239,7 @@ bool sendLora(String loraTransmitt)
             LoRa.write(loraTransmitt.length());
             LoRa.print(loraTransmitt);
             LoRa.endPacket(); // finish packet and send it
-            //Serial.println("#Lora_o <" + loraTransmitt + ">");
+            Serial.println("#Lora_o <" + loraTransmitt + ">");
             transmittReady = millis() + 10;
             return true;
         }

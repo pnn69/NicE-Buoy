@@ -1,4 +1,4 @@
-                // if (loraMsgout.ack == LORAGETACK)
+                // if (loraMsgout.ack == GETACK)
                 // {
                 //     loraMsgout.retry = 5;
                 //     storeAckMsg(loraMsgout); // put data in buffer (will be removed on ack)

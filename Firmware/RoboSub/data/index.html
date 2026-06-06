@@ -66,39 +66,46 @@ const ctx=document.getElementById('compassCanvas').getContext('2d'),cx=200,cy=20
 function updateThruster(id,v){const b=document.getElementById(id+'_bar'),l=document.getElementById(id+'_val');l.innerText=v;let h=Math.min(Math.abs(v),100)/2;b.style.height=h+'%';if(v<0){b.style.top='50%';b.style.bottom='auto';b.style.backgroundColor='red'}else{b.style.top='auto';b.style.bottom='50%';b.style.backgroundColor='green'}}
 function drawRose(h){ctx.clearRect(0,0,400,400);ctx.beginPath();ctx.arc(cx,cy,r,0,2*Math.PI);ctx.strokeStyle='#555';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#888';ctx.font='bold 20px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('N',cx,cy-r+20);ctx.fillText('S',cx,cy+r-20);ctx.fillText('E',cx+r-20,cy);ctx.fillText('W',cx-r+20,cy);const a=(h-90)*Math.PI/180;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+(r-40)*Math.cos(a),cy+(r-40)*Math.sin(a));ctx.strokeStyle='#00d1ff';ctx.lineWidth=4;ctx.stroke()}
 let current_rev = -1;
-function fetchData(){fetch('/data?t='+Date.now()).then(r=>r.json()).then(d=>{
-    document.getElementById('icmVal').innerText=d.icm.toFixed(1);
-    document.getElementById('calMsg').innerText=d.cal_msg;
-    document.getElementById('cal_load').innerText=d.cal_load;
-    document.getElementById('cal_ver').innerText=d.cal_ver;
-    if(d.mac)document.getElementById('mainTitle').innerText='NicE-Buoy Sub '+d.mac;
-    updateThruster('bb',d.speed_bb);
-    updateThruster('sb',d.speed_sb);
-    drawRose(d.icm);
-    if(d.ir !== undefined) {
-        document.getElementById('ir_val').innerText=d.ir.toFixed(2);
-        document.getElementById('ir_val2').innerText=d.ir.toFixed(2);
-    }
-    if(d.ip !== undefined) {
-        document.getElementById('ip_val').innerText=d.ip.toFixed(2);
-        document.getElementById('ip_val2').innerText=d.ip.toFixed(2);
-    }
-    
-    if(d.rev !== undefined && d.rev !== current_rev) {
-        current_rev = d.rev;
-        fetchParams();
-    }
+function fetchData(){
+    fetch('/data?t='+Date.now())
+    .then(r=>r.json())
+    .then(d=>{
+        document.getElementById('icmVal').innerText=d.icm.toFixed(1);
+        document.getElementById('calMsg').innerText=d.cal_msg;
+        document.getElementById('cal_load').innerText=d.cal_load;
+        document.getElementById('cal_ver').innerText=d.cal_ver;
+        if(d.mac)document.getElementById('mainTitle').innerText='NicE-Buoy Sub '+d.mac;
+        updateThruster('bb',d.speed_bb);
+        updateThruster('sb',d.speed_sb);
+        drawRose(d.icm);
+        if(d.ir !== undefined) {
+            document.getElementById('ir_val').innerText=d.ir.toFixed(2);
+            document.getElementById('ir_val2').innerText=d.ir.toFixed(2);
+        }
+        if(d.ip !== undefined) {
+            document.getElementById('ip_val').innerText=d.ip.toFixed(2);
+            document.getElementById('ip_val2').innerText=d.ip.toFixed(2);
+        }
+        
+        if(d.rev !== undefined && d.rev !== current_rev) {
+            current_rev = d.rev;
+            fetchParams();
+        }
 
-    const c=d.cal_levels,b=document.getElementById('calButton');
-    if(c&&c[3]===3){b.style.background='#2a6a2a';b.innerText='BNO Calibrated (3)'}
-    else{b.style.background='#5a32a8';b.innerText='BNO Status'}
-}).catch(e=>{})}
+        const c=d.cal_levels,b=document.getElementById('calButton');
+        if(c&&c[3]===3){b.style.background='#2a6a2a';b.innerText='BNO Calibrated (3)'}
+        else{b.style.background='#5a32a8';b.innerText='BNO Status'}
+    })
+    .catch(e=>{console.error(e)})
+    .finally(()=>{
+        setTimeout(fetchData, 100);
+    });
+}
 
 function startCalib(){alert('BNO055 calibrates automatically while moving. Rotate the buoy until Mag (M) shows 3.')}
 function saveCalib(){if(confirm('Save current BNO calibration?')){fetch('/savecal').then(r=>alert('Save Sent!'))}}
 function setParam(p){const e=document.getElementById(p+'_in');if(!e)return;let v=e.value;if(p==='holdrad'&&v<1.5){alert('Locking Range must be at least 1.5m (Pivot range 1.0m + 0.5m buffer)');e.value=1.5;v=1.5}fetch('/setparam?p='+p+'&v='+v)}
 function fetchParams(){fetch('/params?t='+Date.now()).then(r=>r.json()).then(d=>{Object.keys(d).forEach(p=>{const e=document.getElementById(p+'_in');if(e&&document.activeElement!==e)e.value=d[p]})}).catch(e=>{console.error(e)})}
 fetchParams();
-
-setInterval(fetchData, 100);
+fetchData();
 </script></body></html>

@@ -978,10 +978,11 @@ function fetchData() {
                 updateUI();
             }
         })
-        .catch(err => console.log(err));
+        .catch(err => console.log(err))
+        .finally(() => {
+            setTimeout(fetchData, 250);
+        });
 }
-
-setInterval(fetchData, 250);
 
 window.onload = () => {
     openTab(1);

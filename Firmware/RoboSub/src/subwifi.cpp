@@ -70,6 +70,8 @@ void initwifi(void) {
     udpIn = xQueueCreate(10, sizeof(RoboStruct));
 }
 
+static String indexHtmlCache = "";
+
 /**
  * @brief Core 0 Task: Manages WiFi, WebServer, and UDP communications.
  */
@@ -80,6 +82,14 @@ void WiFiTask(void *arg) {
         Serial.println("WiFiTask: LittleFS Mount Failed");
     } else {
         Serial.println("WiFiTask: LittleFS Mounted");
+        File file = LittleFS.open("/index.html", "r");
+        if(file) {
+            indexHtmlCache = file.readString();
+            file.close();
+            Serial.println("WiFiTask: Cached index.html in RAM (" + String(indexHtmlCache.length()) + " bytes)");
+        } else {
+            Serial.println("WiFiTask: Failed to open /index.html for caching");
+        }
     }
 
     WiFiManager wm; 
@@ -105,63 +115,91 @@ void WiFiTask(void *arg) {
         });
     }
 
-    // Dashboard Endpoints
+    // Dashboard Endpoints served from RAM cache
     subServer.on("/", [](){
-        File file = LittleFS.open("/index.html", "r");
-        if(!file) {
-            subServer.send(404, "text/plain", "File not found. Please upload the 'data' folder using 'Upload Filesystem Image'.");
-            return;
+        if(indexHtmlCache.length() > 0) {
+            subServer.send(200, "text/html", indexHtmlCache);
+        } else {
+            subServer.send(404, "text/plain", "File not found in RAM cache. Please check LittleFS filesystem.");
         }
-        subServer.streamFile(file, "text/html");
-        file.close();
     });
     subServer.on("/savecal", [](){ int c=34; xQueueSend(compassIn,(void*)&c,10); subServer.send(200,"text/plain","OK"); });
     
-    // Parameter Update API
+    // Parameter Update API (optimized to hold mutex for minimal duration)
     subServer.on("/setparam", [](){
         if(!subServer.hasArg("p")||!subServer.hasArg("v")){subServer.send(400,"text/plain","Err");return;}
         String p=subServer.arg("p"); float v=subServer.arg("v").toFloat();
+        bool paramUpdated = false;
+        
         if(mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500))){
-            if(p=="kpr"){mainData.Kpr=v;pidRudderParameters(&mainData,SET);initRudPid(&mainData);}
-            else if(p=="kir"){mainData.Kir=v;pidRudderParameters(&mainData,SET);initRudPid(&mainData);}
-            else if(p=="kdr"){mainData.Kdr=v;pidRudderParameters(&mainData,SET);initRudPid(&mainData);}
-            else if(p=="kps"){mainData.Kps=v;pidSpeedParameters(&mainData,SET);initSpeedPid(&mainData);}
-            else if(p=="kis"){mainData.Kis=v;pidSpeedParameters(&mainData,SET);initSpeedPid(&mainData);}
-            else if(p=="kds"){mainData.Kds=v;pidSpeedParameters(&mainData,SET);initSpeedPid(&mainData);}
-            else if(p=="coff"){mainData.compassOffset=v;CompasOffset(&mainData,SET);}
-            else if(p=="pvspd"){mainData.pivotSpeed=v;speedMaxMin(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
+            if(p=="kpr"){mainData.Kpr=v; paramUpdated = true;}
+            else if(p=="kir"){mainData.Kir=v; paramUpdated = true;}
+            else if(p=="kdr"){mainData.Kdr=v; paramUpdated = true;}
+            else if(p=="kps"){mainData.Kps=v; paramUpdated = true;}
+            else if(p=="kis"){mainData.Kis=v; paramUpdated = true;}
+            else if(p=="kds"){mainData.Kds=v; paramUpdated = true;}
+            else if(p=="coff"){mainData.compassOffset=v; paramUpdated = true;}
+            else if(p=="pvspd"){mainData.pivotSpeed=v; paramUpdated = true;}
             else if(p=="holdrad"){
                 if(v < 1.5f) v = 1.5f; // Safety: Must be > Pivot range (1.0m) + 0.5m buffer
-                mainData.holdRad=v;
-                computeParameters(&mainData,SET);
-                initSpeedPid(&mainData);
-                initRudPid(&mainData);
+                mainData.holdRad=v; paramUpdated = true;
             }
-            else if(p=="minspd"){mainData.minSpeed=(int)v;speedMaxMin(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
-            else if(p=="maxspd"){mainData.maxSpeed=(int)v;speedMaxMin(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
-            else if(p=="revbb"){mainData.revBB=(v>0.5);thrusterInversion(&mainData,SET);}
-            else if(p=="revsb"){mainData.revSB=(v>0.5);thrusterInversion(&mainData,SET);}
-            else if(p=="tswap"){mainData.swap_BB_SB=(v>0.5);thrusterSwap(&mainData,SET);}
-            global_params_rev++;
+            else if(p=="minspd"){mainData.minSpeed=(int)v; paramUpdated = true;}
+            else if(p=="maxspd"){mainData.maxSpeed=(int)v; paramUpdated = true;}
+            else if(p=="revbb"){mainData.revBB=(v>0.5); paramUpdated = true;}
+            else if(p=="revsb"){mainData.revSB=(v>0.5); paramUpdated = true;}
+            else if(p=="tswap"){mainData.swap_BB_SB=(v>0.5); paramUpdated = true;}
+            
+            if (paramUpdated) {
+                global_params_rev++;
+            }
             xSemaphoreGive(mainDataMutex);
+        }
+        
+        if (paramUpdated) {
+            // Write parameter updates to NVS flash storage and initialize PID loops outside the mutex
+            if(p=="kpr" || p=="kir" || p=="kdr"){pidRudderParameters(&mainData,SET);initRudPid(&mainData);}
+            else if(p=="kps" || p=="kis" || p=="kds"){pidSpeedParameters(&mainData,SET);initSpeedPid(&mainData);}
+            else if(p=="coff"){CompasOffset(&mainData,SET);}
+            else if(p=="pvspd"){speedMaxMin(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
+            else if(p=="holdrad"){computeParameters(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
+            else if(p=="minspd" || p=="maxspd"){speedMaxMin(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
+            else if(p=="revbb" || p=="revsb"){thrusterInversion(&mainData,SET);}
+            else if(p=="tswap"){thrusterSwap(&mainData,SET);}
         }
         subServer.send(200,"text/plain","OK");
     });
 
-    // Telemetry and Parameter Read API
+    // Telemetry and Parameter Read API (optimized to format string outside of mutex lock)
     subServer.on("/params", [](){
         static String last_params = "{\"kpr\":1.0,\"kir\":0.0,\"kdr\":0.0,\"kps\":1.0,\"kis\":0.0,\"kds\":0.0,\"coff\":0.0,\"pvspd\":0.5,\"minspd\":0,\"maxspd\":100,\"holdrad\":2.0,\"revbb\":0,\"revsb\":0,\"tswap\":0}";
+        float kpr = 1.0, kir = 0.0, kdr = 0.0, kps = 1.0, kis = 0.0, kds = 0.0, coff = 0.0, pvspd = 0.5, holdrad = 2.0;
+        int revbb = 0, revsb = 0, tswap = 0, minspd = 0, maxspd = 100;
+        
         if(mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(100))){
-            char buf[500];
-            snprintf(buf, sizeof(buf), 
-                "{\"kpr\":%.3f,\"kir\":%.3f,\"kdr\":%.3f,\"kps\":%.3f,\"kis\":%.3f,\"kds\":%.3f,\"coff\":%.1f,\"revbb\":%d,\"revsb\":%d,\"tswap\":%d,\"pvspd\":%.2f,\"minspd\":%d,\"maxspd\":%d,\"holdrad\":%.1f}",
-                mainData.Kpr, mainData.Kir, mainData.Kdr, mainData.Kps, mainData.Kis, mainData.Kds, 
-                (float)mainData.compassOffset, mainData.revBB?1:0, mainData.revSB?1:0, mainData.swap_BB_SB?1:0,
-                (float)mainData.pivotSpeed, mainData.minSpeed, mainData.maxSpeed, (float)mainData.holdRad
-            );
-            last_params = String(buf);
+            kpr = mainData.Kpr;
+            kir = mainData.Kir;
+            kdr = mainData.Kdr;
+            kps = mainData.Kps;
+            kis = mainData.Kis;
+            kds = mainData.Kds;
+            coff = (float)mainData.compassOffset;
+            revbb = mainData.revBB ? 1 : 0;
+            revsb = mainData.revSB ? 1 : 0;
+            tswap = mainData.swap_BB_SB ? 1 : 0;
+            pvspd = (float)mainData.pivotSpeed;
+            minspd = mainData.minSpeed;
+            maxspd = mainData.maxSpeed;
+            holdrad = (float)mainData.holdRad;
             xSemaphoreGive(mainDataMutex);
         }
+        
+        char buf[500];
+        snprintf(buf, sizeof(buf), 
+            "{\"kpr\":%.3f,\"kir\":%.3f,\"kdr\":%.3f,\"kps\":%.3f,\"kis\":%.3f,\"kds\":%.3f,\"coff\":%.1f,\"revbb\":%d,\"revsb\":%d,\"tswap\":%d,\"pvspd\":%.2f,\"minspd\":%d,\"maxspd\":%d,\"holdrad\":%.1f}",
+            kpr, kir, kdr, kps, kis, kds, coff, revbb, revsb, tswap, pvspd, minspd, maxspd, holdrad
+        );
+        last_params = String(buf);
         subServer.send(200,"application/json", last_params);
     });
 
@@ -223,6 +261,6 @@ void WiFiTask(void *arg) {
             subWifiOut.IDs = espMac(); 
             String out = rfCode(&subWifiOut); udp.broadcast(out.c_str()); 
         }
-        vTaskDelay(pdMS_TO_TICKS(10)); 
+        vTaskDelay(pdMS_TO_TICKS(2)); 
     }
 }

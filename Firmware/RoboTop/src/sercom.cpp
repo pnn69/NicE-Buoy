@@ -146,12 +146,17 @@ void SercomTask(void *arg)
             {
                 RoboStruct serDataIn;
                 rfDeCode(serStringIn, &serDataIn);
-                if (serDataIn.IDs != -1 && serDataIn.IDs != mac && serDataIn.IDs != 0x99)
+                
+                // Prevent processing our own echoed transmissions on the half-duplex line.
+                // An echo has IDs matching our Top MAC and an ack type of GET, GETACK, or SET.
+                bool is_echo = (serDataIn.IDs == mac && (serDataIn.ack == GET || serDataIn.ack == GETACK || serDataIn.ack == SET));
+                
+                if (serDataIn.IDs != -1 && serDataIn.IDs != 0x99 && !is_echo)
                 {
                     lastRx = millis();
                     if (serDataIn.ack == ACK)
                     {
-                        printf("SER_SUB_ACK received cmd=%d from IDs=%X\r\n", serDataIn.cmd, serDataIn.IDs);
+                        // printf("SER_SUB_ACK received cmd=%d from IDs=%X\r\n", serDataIn.cmd, serDataIn.IDs);
                         SerremoveAckMsg(serDataIn);
                     }
                     else
@@ -166,7 +171,7 @@ void SercomTask(void *arg)
                             serDataIn.IDs = mac;
                             serDataIn.ack = ACK;
                             xQueueSend(serOut, (void *)&serDataIn, 10);
-                            printf("SER_SUB_ACK_SEND cmd=%d to IDr=%X\r\n", serDataIn.cmd, serDataIn.IDr);
+                            // printf("SER_SUB_ACK_SEND cmd=%d to IDr=%X\r\n", serDataIn.cmd, serDataIn.IDr);
                         }
                     }
                 }
@@ -190,7 +195,7 @@ void SercomTask(void *arg)
                 while (lastRx + 20 > millis())
                     vTaskDelay(pdMS_TO_TICKS(1));
 
-                if (serDataOut.IDs == 0) serDataOut.IDs = mac;
+                serDataOut.IDs = mac;
                 
                 String out = rfCode(&serDataOut);
                 Serial1.println(out);
@@ -214,7 +219,7 @@ void SercomTask(void *arg)
                     delay(1);
                 String out = rfCode(&serDataOut);
                 Serial1.println(out);
-                printf("SER_SUB_RETRY>%s<\r\n", out.c_str());
+                // printf("SER_SUB_RETRY>%s<\r\n", out.c_str());
                 retransmittReady = millis() + 1000;
             } else {
                 retransmittReady = 0;

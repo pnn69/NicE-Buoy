@@ -18,7 +18,7 @@ The diagnostic monitor has been completely refactored for better visibility and 
 
 ### 2. Protocol Hardening
 - **Sender-Based Identification**: Corrected buoy mapping to use the **Sender ID** (`fields[1]`) from the `$Target,Sender...` protocol.
-- **Strict ACK Validation**: The parser now only processes primary data (TOPDATA/SETUPDATA) if the ACK field is exactly `6` (`LORAINF`). This prevents echoed requests from overwriting real data with zeros.
+- **Strict ACK Validation**: The parser now only processes primary data (TOPDATA/SETUPDATA) if the ACK field is exactly `6` (`INF`). This prevents echoed requests from overwriting real data with zeros.
 - **Hex-Only Filtering**: Added safety checks to ignore non-hex IDs, preventing simulator artifacts or serial noise from corrupting the buoy database.
 
 ---

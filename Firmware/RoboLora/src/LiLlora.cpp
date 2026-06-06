@@ -163,7 +163,7 @@ void onReceive(int packetSize)
     RoboStruct in;
     rfDeCode(incoming, &in);
     Serial.println(incoming);
-    if ((in.IDr == buoyId || in.IDr == 0x99) && in.ack == LORAACK) // A message form me so check if its a ACK message
+    if ((in.IDr == buoyId || in.IDr == 0x99) && in.ack == ACK) // A message form me so check if its a ACK message
     {
         removeAckMsg(in);
         // printf("#Lora Ack recieved buffer cleared\r\n");
@@ -171,13 +171,13 @@ void onReceive(int packetSize)
     }
     if (in.IDr == buoyId || in.IDr == BUOYIDALL || in.IDr == 0x99) // A message form me so check if its a ACK message
     {
-        if (in.ack == LORAGETACK) // on ack request send ack back
+        if (in.ack == GETACK) // on ack request send ack back
         {
             // IDr,IDs,ACK,MSG
             loraMsgout.IDr = in.IDs;
             loraMsgout.IDs = buoyId;
             loraMsgout.cmd = in.cmd;
-            loraMsgout.ack = LORAACK;
+            loraMsgout.ack = ACK;
             xQueueSend(loraOut, (void *)&loraMsgout, 10); // send ACK out
         }
     }
@@ -224,7 +224,7 @@ void LoraTask(void *arg)
                 vTaskDelay(pdMS_TO_TICKS(150));
             }
             Serial.println(loraString);
-            if (loraMsgout.ack == LORAGETACK || loraMsgout.ack == 3) // 3 is Python's LORAGETACK
+            if (loraMsgout.ack == GETACK || loraMsgout.ack == 3) // 3 is Python's GETACK
             {
                 loraMsgout.retry = 5;
                 storeAckMsg(loraMsgout);                            // put data in buffer (will be removed on ack)

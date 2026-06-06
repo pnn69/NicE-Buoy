@@ -63,7 +63,7 @@ def wait_for_valid_setupdata():
 
 print("=== STARTING FULL READ-MODIFY-STORE TEST ===")
 
-# 1. Request current data (LORAGET = 1, CMD = 83)
+# 1. Request current data (GET = 1, CMD = 83)
 print("\n1. Requesting current SETUPDATA...")
 send_cmd(f"{TOP_ID},99,1,83,,,,,,,")
 params1 = wait_for_valid_setupdata()
@@ -78,7 +78,7 @@ new_kps = params1['Kps'] + 1.5
 if new_kps > 100: new_kps = 10.0 # reset if too high
 
 print(f"\n2. Sending modified Kps: {new_kps:.2f} (CMD = 58 PIDSPEEDSET)")
-# CMD 58 (PIDSPEEDSET), ACK 3 (LORAGETACK). Fields: Kps, Kis, Kds
+# CMD 58 (PIDSPEEDSET), ACK 3 (GETACK). Fields: Kps, Kis, Kds
 send_cmd(f"{TOP_ID},99,3,58,,{new_kps:.2f},{params1['Kis']:.2f},{params1['Kds']:.2f},,,")
 
 # Wait for the ack response of the SET

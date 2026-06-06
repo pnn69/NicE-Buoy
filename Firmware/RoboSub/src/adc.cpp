@@ -3,6 +3,7 @@
 
 static float smoothed_vbatt = 0;
 static float smoothed_current = 0;
+static float instant_current = 0;
 static bool first_read_v = true;
 static bool first_read_i = true;
 
@@ -52,7 +53,7 @@ void battCurrent(float &current_a)
     // 100mV → ≈ -19.4 A
     // 1650 mV → 0 A
     // 3200 mV → ≈ +22.6 A
-    float instant_current = (float)(adc_mv - 1650) * (20.0f / 1550.0f);
+    // float instant_current = (float)(adc_mv - 1650) * (20.0f / 1550.0f);
 
     if (first_read_i) {
         smoothed_current = instant_current;
