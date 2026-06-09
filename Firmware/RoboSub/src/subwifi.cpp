@@ -2,17 +2,16 @@
  * @file subwifi.cpp
  * @brief Dashboard and WiFi Management for NicE-Buoy Sub.
  * 
- * This module handles:
- * 1. WiFi connectivity via WiFiManager.
- * 2. WebServer (Port 80) providing the real-time Windrose and PID dashboard.
- * 3. JSON API (/data, /params) for live telemetry and parameter updates.
- * 4. AsyncUDP broadcasting for fleet coordination.
+ * This module is aligned directly with RoboTop's wifi implementation:
+ * 1. Manual WiFi scanning for 'NicE_WiFi' with AP fallback (eliminates WiFiManager overhead).
+ * 2. High-performance WebServer (Port 80) serving the dashboard.
+ * 3. Lock-free, heap-allocation-free /data and /params JSON endpoints.
+ * 4. Paced loop utilizing the precise RTOS delay structure.
  * 
  * Task Strategy: Runs on Core 0 to leave Core 1 free for navigation and sensors.
  */
 
 #include <WiFi.h>
-#include <WiFiManager.h> 
 #include <AsyncUDP.h>
 #include <WebServer.h>
 #include <ArduinoOTA.h>
@@ -25,6 +24,8 @@
 #include "datastorage.h"
 #include "pidrudspeed.h"
 #include "subwifi.h"
+#include "index_html.h"
+#include "leds.h"
 
 // Global instances
 WebServer subServer(80);
@@ -43,15 +44,96 @@ extern String global_cal_load, global_cal_ver;
 extern uint32_t global_loop_cnt;
 uint32_t global_params_rev = 0;
 
-
 static RoboStruct subWifiOut;
 static RoboStruct subWifiIn;
 QueueHandle_t udpOut = NULL;
 QueueHandle_t udpIn = NULL;
 String global_mac_str = "";
+static String indexHtmlCache = "";
+static bool ota = false;
+static LedData wifiCollorUtil;
 
 /**
- * @brief Retrieves local MAC address segment for unique device identification.
+ * @brief Sets up Over-The-Air (OTA) update functionality.
+ */
+bool setup_OTA()
+{
+    char buf[32];
+    byte mac[6];
+    WiFi.macAddress(mac);
+    Serial.print("SETUP OTA...");
+    sprintf(buf, "Sub_%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    ArduinoOTA.setHostname(buf);
+    ArduinoOTA.onStart([]() { Serial.println("OTA Start"); });
+    ArduinoOTA.onEnd([]() { Serial.println("\nOTA End"); });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); });
+    ArduinoOTA.onError([](ota_error_t error) { ESP.restart(); });
+    ArduinoOTA.begin();
+    Serial.println("READY");
+    return true;
+}
+
+/**
+ * @brief Scans for a specific Wi-Fi Access Point and connects to it.
+ */
+bool scan_for_wifi_ap(String ssipap, String ww, IPAddress *tmp)
+{
+    unsigned long timeout = millis();
+    Serial.print("Scanning for ap: "); Serial.println(ssipap);
+
+    while (millis() - timeout < 120000)
+    {
+        int n = WiFi.scanNetworks();
+        if (n > 0)
+        {
+            for (int i = 0; i < n; ++i)
+            {
+                if (WiFi.SSID(i) == ssipap)
+                {
+                    Serial.print("AP found, connecting...");
+                    WiFi.begin(ssipap.c_str(), ww.c_str());
+                    unsigned long conn_timeout = millis();
+                    while (WiFi.status() != WL_CONNECTED)
+                    {
+                        delay(500); Serial.print(".");
+                        if (millis() - conn_timeout > 30000) break;
+                    }
+                    if (WiFi.status() == WL_CONNECTED) {
+                        Serial.println("CONNECTED");
+                        WiFi.setSleep(WIFI_PS_NONE); // Disable power-saving sleep for constant low-latency
+                        *tmp = WiFi.localIP();
+                        Serial.print("WiFi IP address: "); Serial.println(*tmp);
+                        return true;
+                    }
+                }
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+    return false;
+}
+
+/**
+ * @brief Sets up a Wi-Fi Access Point with a static IP.
+ */
+void setup_wifi_ap(String ap, String ww, IPAddress *tmp)
+{
+    WiFi.mode(WIFI_AP);
+    IPAddress local_IP(192, 168, 1, 85); // 192.168.1.85 to avoid collision with Top (192.168.1.84)
+    IPAddress subnet(255, 255, 255, 0);
+    IPAddress gateway(192, 168, 1, 5);
+    WiFi.softAPConfig(local_IP, gateway, subnet);
+
+    if (WiFi.softAP(ap.c_str(), ww.c_str()))
+    {
+        WiFi.setSleep(WIFI_PS_NONE); // Disable power-saving sleep in AP mode as well
+        *tmp = WiFi.softAPIP();
+        Serial.print("AP IP address: "); Serial.println(*tmp);
+    }
+}
+
+/**
+ * @brief Retrieves the device's MAC address as an unsigned long.
  */
 unsigned long espMac(void) {
     byte m[6]; WiFi.macAddress(m);
@@ -60,24 +142,76 @@ unsigned long espMac(void) {
 }
 
 /**
- * @brief Initializes WiFi telemetry structures and Queues.
+ * @brief Initializes the WiFi queues.
  */
 void initwifi(void) {
     byte m[6]; WiFi.macAddress(m);
-    char ms[25]; sprintf(ms, "%02X%02X%02X%02X%02X%02X", m[0], m[1], m[2], m[3], m[4], m[5]);
+    char ms[25]; sprintf(ms, "SUB_%02X%02X%02X%02X%02X%02X", m[0], m[1], m[2], m[3], m[4], m[5]);
     global_mac_str = String(ms);
     udpOut = xQueueCreate(10, sizeof(RoboStruct));
     udpIn = xQueueCreate(10, sizeof(RoboStruct));
 }
 
-static String indexHtmlCache = "";
+/**
+ * @brief Initializes the Async UDP listener.
+ */
+bool udp_setup(int poort)
+{
+    if (udp.listen(poort))
+    {
+        udp.onPacket([](AsyncUDPPacket packet)
+                     {
+            String s((const char*)packet.data(), packet.length());
+            if (s.startsWith("$")) {
+                RoboStruct udpDataIn = {};
+                rfDeCode(s, &udpDataIn);
+                if (udpDataIn.IDs != -1 && udpDataIn.IDs != espMac()) {
+                    xQueueSend(udpIn, (void *)&udpDataIn, 0);
+                }
+            } });
+        return true;
+    }
+    return false;
+}
 
 /**
  * @brief Core 0 Task: Manages WiFi, WebServer, and UDP communications.
  */
 void WiFiTask(void *arg) {
-    Serial.println("WiFiTask: Starting...");
+    int wifiConfig = *(int *)arg;
+    byte macarr[6];
+    char macStr[20];
+    WiFi.macAddress(macarr);
+    sprintf(macStr, "%02x%02x%02x%02x%02x%02x", macarr[0], macarr[1], macarr[2], macarr[3], macarr[4], macarr[5]);
     
+    IPAddress ip;
+    String ap = "";
+    String apww = "";
+
+    if (wifiConfig == 1) {
+        ap = "PAIR_ME_"; ap += macStr;
+        setup_wifi_ap(ap, apww, &ip);
+    } else {
+        wifiCollorUtil.color = CRGB::LightBlue;
+        wifiCollorUtil.blink = BLINK_SLOW;
+        xQueueSend(ledStatus, (void *)&wifiCollorUtil, 10);
+        
+        ap = "NicE_WiFi"; apww = "!Ni1001100110";
+        if (!scan_for_wifi_ap(ap, apww, &ip)) {
+            ap = "BUOY_SUB_"; ap += macStr;
+            apww = "";
+            setup_wifi_ap(ap, apww, &ip);
+        }
+    }
+    
+    wifiCollorUtil.color = CRGB::Black;
+    wifiCollorUtil.blink = BLINK_OFF;
+    xQueueSend(ledStatus, (void *)&wifiCollorUtil, 10);
+    
+    ota = setup_OTA();
+    udp_setup(1001);
+
+    // Mount LittleFS and cache index.html in RAM for fast execution
     if(!LittleFS.begin(true)){
         Serial.println("WiFiTask: LittleFS Mount Failed");
     } else {
@@ -88,45 +222,29 @@ void WiFiTask(void *arg) {
             file.close();
             Serial.println("WiFiTask: Cached index.html in RAM (" + String(indexHtmlCache.length()) + " bytes)");
         } else {
-            Serial.println("WiFiTask: Failed to open /index.html for caching");
+            Serial.println("WiFiTask: Failed to open /index.html from LittleFS, using compiled fallback");
         }
     }
 
-    WiFiManager wm; 
-    Serial.println("WiFiTask: Connecting WiFi...");
-    if (!wm.autoConnect("NicE-Buoy-Sub")) {
-        Serial.println("WiFiTask: Failed to connect and hit timeout");
-        delay(3000);
-        ESP.restart();
-    }
-    Serial.print("WiFiTask: Connected. IP: ");
-    Serial.println(WiFi.localIP());
-    
-    // Broadcast/Listen for other buoys on port 1001
-    if (udp.listen(1001)) {
-        Serial.println("WiFiTask: UDP Listening on 1001");
-        udp.onPacket([](AsyncUDPPacket p) {
-            RoboStruct d; 
-            String s=String((const char*)p.data(),p.length()); 
-            rfDeCode(s,&d);
-            if(d.IDs!=-1 && d.IDs!=espMac()){
-                xQueueSend(udpIn,(void*)&d,10);
-            }
-        });
-    }
-
-    // Dashboard Endpoints served from RAM cache
-    subServer.on("/", [](){
+    // Dashboard Endpoints with anti-cache headers exactly like RoboTop
+    subServer.on("/", HTTP_GET, [](){
+        subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        subServer.sendHeader("Pragma", "no-cache");
+        subServer.sendHeader("Expires", "-1");
         if(indexHtmlCache.length() > 0) {
             subServer.send(200, "text/html", indexHtmlCache);
         } else {
-            subServer.send(404, "text/plain", "File not found in RAM cache. Please check LittleFS filesystem.");
+            subServer.send_P(200, "text/html", INDEX_HTML);
         }
     });
-    subServer.on("/savecal", [](){ int c=34; xQueueSend(compassIn,(void*)&c,10); subServer.send(200,"text/plain","OK"); });
+    subServer.on("/savecal", HTTP_GET, [](){ 
+        int c=34; 
+        xQueueSend(compassIn,(void*)&c,10); 
+        subServer.send(200,"text/plain","OK"); 
+    });
     
-    // Parameter Update API (optimized to hold mutex for minimal duration)
-    subServer.on("/setparam", [](){
+    // Parameter Update API
+    subServer.on("/setparam", HTTP_GET, [](){
         if(!subServer.hasArg("p")||!subServer.hasArg("v")){subServer.send(400,"text/plain","Err");return;}
         String p=subServer.arg("p"); float v=subServer.arg("v").toFloat();
         bool paramUpdated = false;
@@ -141,7 +259,7 @@ void WiFiTask(void *arg) {
             else if(p=="coff"){mainData.compassOffset=v; paramUpdated = true;}
             else if(p=="pvspd"){mainData.pivotSpeed=v; paramUpdated = true;}
             else if(p=="holdrad"){
-                if(v < 1.5f) v = 1.5f; // Safety: Must be > Pivot range (1.0m) + 0.5m buffer
+                if(v < 1.5f) v = 1.5f;
                 mainData.holdRad=v; paramUpdated = true;
             }
             else if(p=="minspd"){mainData.minSpeed=(int)v; paramUpdated = true;}
@@ -157,7 +275,6 @@ void WiFiTask(void *arg) {
         }
         
         if (paramUpdated) {
-            // Write parameter updates to NVS flash storage and initialize PID loops outside the mutex
             if(p=="kpr" || p=="kir" || p=="kdr"){pidRudderParameters(&mainData,SET);initRudPid(&mainData);}
             else if(p=="kps" || p=="kis" || p=="kds"){pidSpeedParameters(&mainData,SET);initSpeedPid(&mainData);}
             else if(p=="coff"){CompasOffset(&mainData,SET);}
@@ -170,97 +287,70 @@ void WiFiTask(void *arg) {
         subServer.send(200,"text/plain","OK");
     });
 
-    // Telemetry and Parameter Read API (optimized to format string outside of mutex lock)
-    subServer.on("/params", [](){
-        static String last_params = "{\"kpr\":1.0,\"kir\":0.0,\"kdr\":0.0,\"kps\":1.0,\"kis\":0.0,\"kds\":0.0,\"coff\":0.0,\"pvspd\":0.5,\"minspd\":0,\"maxspd\":100,\"holdrad\":2.0,\"revbb\":0,\"revsb\":0,\"tswap\":0}";
-        float kpr = 1.0, kir = 0.0, kdr = 0.0, kps = 1.0, kis = 0.0, kds = 0.0, coff = 0.0, pvspd = 0.5, holdrad = 2.0;
-        int revbb = 0, revsb = 0, tswap = 0, minspd = 0, maxspd = 100;
-        
-        if(mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(100))){
-            kpr = mainData.Kpr;
-            kir = mainData.Kir;
-            kdr = mainData.Kdr;
-            kps = mainData.Kps;
-            kis = mainData.Kis;
-            kds = mainData.Kds;
-            coff = (float)mainData.compassOffset;
-            revbb = mainData.revBB ? 1 : 0;
-            revsb = mainData.revSB ? 1 : 0;
-            tswap = mainData.swap_BB_SB ? 1 : 0;
-            pvspd = (float)mainData.pivotSpeed;
-            minspd = mainData.minSpeed;
-            maxspd = mainData.maxSpeed;
-            holdrad = (float)mainData.holdRad;
-            xSemaphoreGive(mainDataMutex);
-        }
+    // Telemetry and Parameter Read API (fully lock-free, atomic reads of primitive fields)
+    subServer.on("/params", HTTP_GET, [](){
+        float kpr = mainData.Kpr;
+        float kir = mainData.Kir;
+        float kdr = mainData.Kdr;
+        float kps = mainData.Kps;
+        float kis = mainData.Kis;
+        float kds = mainData.Kds;
+        float coff = (float)mainData.compassOffset;
+        int revbb = mainData.revBB ? 1 : 0;
+        int revsb = mainData.revSB ? 1 : 0;
+        int tswap = mainData.swap_BB_SB ? 1 : 0;
+        float pvspd = (float)mainData.pivotSpeed;
+        int minspd = mainData.minSpeed;
+        int maxspd = mainData.maxSpeed;
+        float holdrad = (float)mainData.holdRad;
         
         char buf[500];
         snprintf(buf, sizeof(buf), 
             "{\"kpr\":%.3f,\"kir\":%.3f,\"kdr\":%.3f,\"kps\":%.3f,\"kis\":%.3f,\"kds\":%.3f,\"coff\":%.1f,\"revbb\":%d,\"revsb\":%d,\"tswap\":%d,\"pvspd\":%.2f,\"minspd\":%d,\"maxspd\":%d,\"holdrad\":%.1f}",
             kpr, kir, kdr, kps, kis, kds, coff, revbb, revsb, tswap, pvspd, minspd, maxspd, holdrad
         );
-        last_params = String(buf);
-        subServer.send(200,"application/json", last_params);
+        subServer.send(200, "application/json", buf);
     });
 
-    subServer.on("/data", [](){
+    subServer.on("/data", HTTP_GET, [](){
         float icm = global_hdg;
-        int sbb = 0, ssb = 0;
-        double ir = 0, ip = 0;
-        
-        if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(100))) {
-            sbb = (int)mainData.speedBb; 
-            ssb = (int)mainData.speedSb;
-            ir = mainData.ir;
-            ip = mainData.ip;
-            xSemaphoreGive(mainDataMutex);
-        }
+        int sbb = (int)mainData.speedBb; 
+        int ssb = (int)mainData.speedSb;
+        double ir = mainData.ir;
+        double ip = mainData.ip;
 
-        String j="{"; 
-        j+="\"icm\":"+String(icm,2)+",";
-        j+="\"speed_bb\":"+String(sbb)+",";
-        j+="\"speed_sb\":"+String(ssb)+",";
-        j+="\"ir\":"+String(ir,2)+",";
-        j+="\"ip\":"+String(ip,2)+",";
-        j+="\"cal_load\":\""+global_cal_load+"\",";
-        j+="\"cal_ver\":\""+global_cal_ver+"\",";
-        j+="\"mac\":\""+global_mac_str+"\",";
-        j+="\"cal_levels\":["+String(bno_cal_sys)+","+String(bno_cal_gyro)+","+String(bno_cal_accel)+","+String(bno_cal_mag)+"],";
-        j+="\"cal_msg\":\""+global_cal_msg+"\",";
-        j+="\"rev\":"+String(global_params_rev);
-        j+="}";
-        subServer.send(200,"application/json",j);
+        char buf[512];
+        snprintf(buf, sizeof(buf),
+            "{\"icm\":%.2f,\"speed_bb\":%d,\"speed_sb\":%d,\"ir\":%.2f,\"ip\":%.2f,\"cal_load\":\"%s\",\"cal_ver\":\"%s\",\"mac\":\"%s\",\"cal_levels\":[%d,%d,%d,%d],\"cal_msg\":\"%s\",\"rev\":%u}",
+            icm, sbb, ssb, ir, ip, 
+            global_cal_load.c_str(), global_cal_ver.c_str(), global_mac_str.c_str(),
+            bno_cal_sys, bno_cal_gyro, bno_cal_accel, bno_cal_mag,
+            global_cal_msg.c_str(), global_params_rev
+        );
+        subServer.send(200, "application/json", buf);
     });
 
     subServer.begin(); 
     Serial.println("WiFiTask: WebServer started");
-    
-    // OTA Listener Setup
-    ArduinoOTA.setHostname("RoboBuoySub");
-    ArduinoOTA.onStart([]() { Serial.println("\nOTA Start"); });
-    ArduinoOTA.onEnd([]() { Serial.println("\nOTA End"); });
-    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-        Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-    });
-    ArduinoOTA.onError([](ota_error_t error) {
-        Serial.printf("Error[%u]: ", error);
-        if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-        else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-        else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-        else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-        else if (error == OTA_END_ERROR) Serial.println("End Failed");
-    });
-    ArduinoOTA.begin();
-    Serial.println("WiFiTask: OTA started");
 
-    // Main Server Loop
-    while(1){ 
-        subServer.handleClient(); 
-        ArduinoOTA.handle();
-        if (udpOut && xQueueReceive(udpOut, (void *)&subWifiOut, 0) == pdTRUE) { 
-            subWifiOut.IDs = espMac(); 
-            String out = rfCode(&subWifiOut); udp.broadcast(out.c_str()); 
+    // Main Server Loop - Matching RoboTop's efficient for(;;) delay(1) loop
+    uint32_t last_ota_time = 0;
+    for (;;) {
+        subServer.handleClient();
+        
+        uint32_t now = millis();
+        if (ota && (now - last_ota_time >= 200)) {
+            last_ota_time = now;
+            ArduinoOTA.handle();
         }
-        vTaskDelay(pdMS_TO_TICKS(2)); 
+        
+        RoboStruct msgIdOut = {};
+        // Check queue instantly with 0-tick timeout to prevent any blocking in the server loop
+        if (udpOut && xQueueReceive(udpOut, (void *)&msgIdOut, 0) == pdTRUE) {
+            if (msgIdOut.IDs == 0) msgIdOut.IDs = espMac();
+            // Temporarily comment out UDP broadcast to see if it eliminates periodic 1-second hangs
+            // udp.broadcast(rfCode(&msgIdOut).c_str());
+        }
+        delay(5);
     }
 }

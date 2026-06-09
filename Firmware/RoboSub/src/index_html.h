@@ -1,3 +1,7 @@
+#ifndef INDEX_HTML_H
+#define INDEX_HTML_H
+
+const char INDEX_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>NicE-Buoy Sub</title><style>
 body{font-family:Arial,sans-serif;background:#1a1a1a;color:#fff;text-align:center;margin:0;padding:10px}
@@ -123,3 +127,6 @@ fetchParams();
 
 fetchData();
 </script></body></html>
+)rawliteral";
+
+#endif
