@@ -22,7 +22,15 @@ button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:poin
 <div id="calMsg" class="cal-msg">Initializing...</div>
 <div class="main-row">
 <div class="side-panel"><div>BB</div><div class="side-bar"><div class="zero-line"></div><div id="bb_bar" class="thruster-bar"></div></div><div><span id="bb_val">0</span>%</div></div>
-<canvas id="compassCanvas" width="400" height="400"></canvas>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
+<canvas id="compassCanvas" width="400" height="400" style="margin:0 auto;display:block;"></canvas>
+<div style="width:400px;margin-top:10px;text-align:left;">
+<div style="width:100%;height:30px;background:#333;border:1px solid #555;border-radius:4px;position:relative;overflow:hidden;">
+<div id="vattBar" style="position:absolute;left:0;top:0;height:100%;width:0%;transition:width 0.2s,background-color 0.2s;"></div>
+<div id="vattVal" style="position:absolute;width:100%;text-align:center;line-height:30px;font-weight:bold;font-size:1.1em;color:#fff;z-index:2;">0.0V</div>
+</div>
+</div>
+</div>
 <div class="side-panel"><div>SB</div><div class="side-bar"><div class="zero-line"></div><div id="sb_bar" class="thruster-bar"></div></div><div><span id="sb_val">0</span>%</div></div>
 </div>
 <div class="raw-container">
@@ -97,6 +105,24 @@ function fetchData(){
                 fetchParams();
             }
             lastParamRev = d.rev;
+        }
+
+        if (d.vatt !== undefined) {
+            const v = d.vatt;
+            const bar = document.getElementById('vattBar');
+            const val = document.getElementById('vattVal');
+            val.innerText = v.toFixed(1) + 'V';
+            
+            const pct = Math.max(0, Math.min(100, ((v - 17) / 9) * 100));
+            bar.style.width = pct + '%';
+            
+            if (v >= 22) {
+                bar.style.backgroundColor = '#2a6a2a'; // Green from 22 til 26
+            } else if (v >= 19) {
+                bar.style.backgroundColor = '#ffcc00'; // Yellow from 19 till 22
+            } else {
+                bar.style.backgroundColor = '#ff3333'; // Red from 17 till 19
+            }
         }
         
         if (!headingInitialized) {

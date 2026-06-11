@@ -318,14 +318,15 @@ void WiFiTask(void *arg) {
         int ssb = (int)mainData.speedSb;
         double ir = mainData.ir;
         double ip = mainData.ip;
+        float vatt = mainData.subAccuV;
 
         char buf[512];
         snprintf(buf, sizeof(buf),
-            "{\"icm\":%.2f,\"speed_bb\":%d,\"speed_sb\":%d,\"ir\":%.2f,\"ip\":%.2f,\"cal_load\":\"%s\",\"cal_ver\":\"%s\",\"mac\":\"%s\",\"cal_levels\":[%d,%d,%d,%d],\"cal_msg\":\"%s\",\"rev\":%u}",
+            "{\"icm\":%.2f,\"speed_bb\":%d,\"speed_sb\":%d,\"ir\":%.2f,\"ip\":%.2f,\"cal_load\":\"%s\",\"cal_ver\":\"%s\",\"mac\":\"%s\",\"cal_levels\":[%d,%d,%d,%d],\"cal_msg\":\"%s\",\"rev\":%u,\"vatt\":%.1f}",
             icm, sbb, ssb, ir, ip, 
             global_cal_load.c_str(), global_cal_ver.c_str(), global_mac_str.c_str(),
             bno_cal_sys, bno_cal_gyro, bno_cal_accel, bno_cal_mag,
-            global_cal_msg.c_str(), global_params_rev
+            global_cal_msg.c_str(), global_params_rev, vatt
         );
         subServer.send(200, "application/json", buf);
     });
