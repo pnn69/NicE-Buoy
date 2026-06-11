@@ -57,10 +57,9 @@ void RoboDecode(String data, RoboStruct *dataStore)
           dataStore->pivotSpeed = numbers[10].toDouble();
           dataStore->compassOffset = numbers[11].toDouble();
           dataStore->holdRad = numbers[12].toDouble();
-          dataStore->minOfsetDist = numbers[13].toInt();
-          if (numbers[14].length() > 0) dataStore->revBB = (bool)numbers[14].toInt();
-          if (numbers[15].length() > 0) dataStore->revSB = (bool)numbers[15].toInt();
-          if (numbers[16].length() > 0) dataStore->swap_BB_SB = (bool)numbers[16].toInt();
+          if (numbers[13].length() > 0) dataStore->revBB = (bool)numbers[13].toInt();
+          if (numbers[14].length() > 0) dataStore->revSB = (bool)numbers[14].toInt();
+          if (numbers[15].length() > 0) dataStore->swap_BB_SB = (bool)numbers[15].toInt();
           break;
 
     case IDLE:
@@ -867,10 +866,7 @@ void checkparameters(RoboStruct *buoy)
     /*
     sanety check
     */
-    if (buoy->minOfsetDist < 0)
-    {
-        buoy->minOfsetDist = 2;
-    }
+
     if (buoy->maxOfsetDist > 100)
     {
         buoy->maxOfsetDist = 20;
@@ -899,10 +895,7 @@ void checkparameters(RoboStruct *buoy)
     {
         buoy->holdRad = 100.0;
     }
-    if (buoy->minOfsetDist >= buoy->maxOfsetDist)
-    {
-        buoy->maxOfsetDist = buoy->minOfsetDist + 2;
-    }
+
 }
 
 /*

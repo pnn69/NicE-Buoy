@@ -88,10 +88,8 @@ void dispatchCommand(RoboStruct *data, adcDataType *adc)
     {
         if (data->IDs == 0)
         {
-            // We haven't discovered a buoy yet. Don't send, and don't clear the command.
-            // We will try sending again on the next loop or when a buoy is discovered.
-            // Force lastPhysicalSwitchPos to -1 so the switch logic re-triggers next loop
-            lastPhysicalSwitchPos = -1;
+            // We haven't discovered a buoy yet. Since there is no active target,
+            // we do not transmit. We keep lastPhysicalSwitchPos as-is to avoid infinite trigger loops.
             return;
         }
 

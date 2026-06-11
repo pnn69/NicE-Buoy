@@ -147,7 +147,7 @@ struct RoboStruct
     double ip, ir;
     double pivotSpeed = 0.2;
     double holdRad = 2.0;
-    int minOfsetDist = 2;
+
     int maxOfsetDist = 20;
     int minSpeed = 0;
     int maxSpeed = 80;

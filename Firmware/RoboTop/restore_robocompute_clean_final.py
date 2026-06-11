@@ -38,10 +38,9 @@ void RoboDecode(String data, RoboStruct *dataStore)
           dataStore->pivotSpeed = numbers[10].toDouble();
           dataStore->compassOffset = numbers[11].toDouble();
           dataStore->holdRad = numbers[12].toDouble();
-          dataStore->minOfsetDist = numbers[13].toInt();
-          if (numbers[14].length() > 0) dataStore->revBB = (bool)numbers[14].toInt();
-          if (numbers[15].length() > 0) dataStore->revSB = (bool)numbers[15].toInt();
-          if (numbers[16].length() > 0) dataStore->swap_BB_SB = (bool)numbers[16].toInt();
+          if (numbers[13].length() > 0) dataStore->revBB = (bool)numbers[13].toInt();
+          if (numbers[14].length() > 0) dataStore->revSB = (bool)numbers[14].toInt();
+          if (numbers[15].length() > 0) dataStore->swap_BB_SB = (bool)numbers[15].toInt();
           break;
     case IDLE:
         dataStore->speed = 0;
@@ -245,7 +244,6 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->pivotSpeed, 2);
         out += "," + String(dataOut->compassOffset, 2);
         out += "," + String(dataOut->holdRad, 2);
-        out += "," + String(dataOut->minOfsetDist);
         out += "," + String((int)dataOut->revBB);
         out += "," + String((int)dataOut->revSB);
         out += "," + String((int)dataOut->swap_BB_SB);

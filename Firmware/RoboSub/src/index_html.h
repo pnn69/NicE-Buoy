@@ -62,7 +62,7 @@ button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:poin
 </div>
 <script>
 const ctx=document.getElementById('compassCanvas').getContext('2d'),cx=200,cy=200,r=180;
-let currentHeading = 0, targetHeading = 0, headingInitialized = false;
+let currentHeading = 0, targetHeading = 0, headingInitialized = false, lastParamRev = -1;
 
 function smoothDraw() {
     let diff = targetHeading - currentHeading;
@@ -95,6 +95,13 @@ function fetchData(){
         if(d.mac)document.getElementById('mainTitle').innerText='NicE-Buoy Sub '+d.mac;
         updateThruster('bb',d.speed_bb);
         updateThruster('sb',d.speed_sb);
+        
+        if (d.rev !== undefined) {
+            if (lastParamRev !== -1 && d.rev > lastParamRev) {
+                fetchParams();
+            }
+            lastParamRev = d.rev;
+        }
         
         if (!headingInitialized) {
             currentHeading = d.icm;

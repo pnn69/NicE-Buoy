@@ -42,13 +42,15 @@ static unsigned int gpsErrorCnt = 0;
 static unsigned int distErrorCnt = 0;
 static uint64_t lastSetupRequester = 0;
 
-bool debounce = false;
-bool buttonState = false;
-bool lastButtonState = false;
+static QueueHandle_t keyPressQueue = NULL;
 bool longPressReported = false;
-unsigned long lastPressTime = 0;
-unsigned long debounceDelay = 0;
+bool isLongPress = false;
+unsigned long pressStartTime = 0;
+unsigned long lastReleaseTime = 0;
 int pressCount = 0;
+
+void buttonTask(void *arg);
+int countKeyPressesWithTimeoutAndFinalLongPress();
 
 //***************************************************************************************************
 //  new pid stuff
@@ -139,17 +141,24 @@ void setup()
     int tempOffset = 0;
     CompassOffsetCorrection(&tempOffset, GET);
     mainData.compassOffset = (double)tempOffset;
+
+    // Initialize background task-based button handling
+    keyPressQueue = xQueueCreate(5, sizeof(int));
+    xTaskCreatePinnedToCore(buttonTask, "buttonTask", 2048, NULL, 3, NULL, 1);
+
     Serial.println("Main task running!");
     // defautls(&mainData);
 }
 
 //***************************************************************************************************
-//      keypress detection
+//      keypress detection (Background Task Driven Polling)
 //***************************************************************************************************
 #define LONG_PRESS_DURATION 5000 // ms
-#define PRESS_TIMEOUT 500        // ms
+#define PRESS_TIMEOUT 500       // ms
+
 /**
  * @brief Detects and counts button presses with timeout and long-press support.
+ * Runs in the background buttonTask.
  * 
  * @return int The number of short presses, or 100 + short press count for a sequence ending in a long press. 
  *         Returns -1 if no action is completed.
@@ -157,50 +166,86 @@ void setup()
 int countKeyPressesWithTimeoutAndFinalLongPress()
 {
     unsigned long currentTime = millis();
-    int buttonState = digitalRead(BUTTON_PIN);
-    // Debounce
-    if (currentTime < debounceDelay)
-        return -1;
-
-    // Start of a new press
-    if (buttonState == HIGH && lastButtonState == LOW)
+    int rawState = digitalRead(BUTTON_PIN);
+    
+    // Integrating debounce: button state must be stable for 20ms (2 consecutive 10ms reads)
+    static int stableState = LOW;
+    static int lastRawState = LOW;
+    static unsigned long lastStateChangeTime = 0;
+    
+    if (rawState != lastRawState)
     {
-        lastPressTime = currentTime;
-        debounce = true;
-        longPressReported = false;
-        beep(2000, buzzer);
+        lastStateChangeTime = currentTime;
+        lastRawState = rawState;
     }
-
-    // Long press detection
-    if (buttonState == HIGH && (currentTime - lastPressTime > 3000) && !longPressReported)
+    
+    if ((currentTime - lastStateChangeTime) >= 20) // Must remain stable for 20ms
     {
-        beep(2000, buzzer);
-        int result = 101 + pressCount; // 100 + short press count
-        pressCount = 0;
-        longPressReported = true;
-        return result;
-    }
-
-    // Count short presses on release
-    if (buttonState == LOW && lastButtonState == HIGH && debounce)
-    {
-        if (!longPressReported)
+        if (rawState != stableState)
         {
-            pressCount++;
+            stableState = rawState;
+            
+            // Stable press transition (LOW -> HIGH)
+            if (stableState == HIGH)
+            {
+                pressStartTime = currentTime;
+                pressCount++;
+                longPressReported = false;
+                isLongPress = false;
+            }
+            // Stable release transition (HIGH -> LOW)
+            else
+            {
+                lastReleaseTime = currentTime;
+            }
         }
-        debounce = false;
-        debounceDelay = currentTime + 50;
     }
-
-    // Timeout for short press sequence (500 ms)
-    if ((currentTime - lastPressTime) > 500 && pressCount > 0 && buttonState == LOW && !longPressReported)
+    
+    // Long press detection (button held HIGH for more than 3000ms)
+    if (stableState == HIGH && (currentTime - pressStartTime > 3000) && !longPressReported)
+    {
+        isLongPress = true;
+        longPressReported = true;
+    }
+    
+    // Timeout check: button must be stable LOW, some presses registered, and PRESS_TIMEOUT elapsed since last release
+    if (stableState == LOW && pressCount > 0 && (currentTime - lastReleaseTime > PRESS_TIMEOUT))
     {
         int result = pressCount;
+        if (isLongPress)
+        {
+            result = 101 + (pressCount - 1);
+        }
+        
+        // Reset states for the next sequence
         pressCount = 0;
+        isLongPress = false;
+        longPressReported = false;
+        
         return result;
     }
-    lastButtonState = buttonState;
+    
     return -1;
+}
+
+/**
+ * @brief Background task dedicated to polling and debouncing the button at a high frequency (10ms).
+ * This eliminates missed presses completely, even when other main task operations block or run slow.
+ */
+void buttonTask(void *arg)
+{
+    while (true)
+    {
+        int presses = countKeyPressesWithTimeoutAndFinalLongPress();
+        if (presses > 0)
+        {
+            if (keyPressQueue != NULL)
+            {
+                xQueueSend(keyPressQueue, &presses, 0);
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
 }
 
 //***************************************************************************************************
@@ -224,43 +269,46 @@ int countKeyPressesWithTimeoutAndFinalLongPress()
  */
 void handelKeyPress(RoboStruct *key)
 {
-    int presses = countKeyPressesWithTimeoutAndFinalLongPress();
-    if (presses > 0)
+    int presses = -1;
+    if (keyPressQueue != NULL && xQueueReceive(keyPressQueue, &presses, 0) == pdTRUE)
     {
-        switch (presses)
+        if (presses > 0)
         {
-        case 1: // lock / unlock
-            if ((key->status != LOCKED) && (key->status != DOCKED))
+            switch (presses)
             {
-                key->status = LOCKING;
+            case 1: // lock / unlock
+                if ((key->status != LOCKED) && (key->status != DOCKED))
+                {
+                    key->status = LOCKING;
+                }
+                else
+                {
+                    key->status = IDELING;
+                }
+                key->loralstmsg = 0;
+                break;
+            case 2:
+                key->status = COMPUTESTART;
+                break;
+            case 3:
+                key->status = COMPUTETRACK;
+                break;
+            case 5:
+                key->status = DOCKING;
+                break;
+            case 105:
+                key->status = STOREASDOC;
+                break;
+            case 10:
+                key->status = CALC_COMPASS_OFFSET;
+                break;
+            case 110:
+                key->status = START_CALIBRATE_MAGNETIC_COMPASS;
+                break;
+            default:
+                beep(-1, buzzer);
+                break;
             }
-            else
-            {
-                key->status = IDELING;
-            }
-            key->loralstmsg = 0;
-            break;
-        case 2:
-            key->status = COMPUTESTART;
-            break;
-        case 3:
-            key->status = COMPUTETRACK;
-            break;
-        case 5:
-            key->status = DOCKING;
-            break;
-        case 105:
-            key->status = STOREASDOC;
-            break;
-        case 10:
-            key->status = CALC_COMPASS_OFFSET;
-            break;
-        case 110:
-            key->status = START_CALIBRATE_MAGNETIC_COMPASS;
-            break;
-        default:
-            beep(-1, buzzer);
-            break;
         }
     }
 }
@@ -768,7 +816,7 @@ void handleTimerRoutines(RoboStruct *timer)
             distErrorCnt = 0;
             timer->cmd = DIRDIST;
             xQueueSend(serOut, (void *)timer, 0); // send course and distance to sub
-            // timer->cmd = DIRMDIRTGDIRG;
+            timer->cmd = DIRMDIRTGDIRG;
             xQueueSend(udpOut, (void *)timer, 0); // send course and distance to sub
         }
         else if (timer->status == REMOTE) // Remote controlled
@@ -815,8 +863,8 @@ void handleTimerRoutines(RoboStruct *timer)
 
         // RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
         // printf("DEBUG MEM: &Kdr=%p, &wStd=%p, Kdr=%f, wStd=%f\r\n", &mainData.Kdr, &mainData.wStd, mainData.Kdr, mainData.wStd); 
-        printf("Status:%d Lat: %.8f Lon:%.8f tgDist:%.2f tgDir:%.0f mDir:%.0f wDir:%.0f wStd:%.2f ", timer->status, timer->lat, timer->lng, timer->tgDist,timer->tgDir, timer->dirMag, timer->wDir, timer->wStd);
-        printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %d%% BB:%02d SB:%02d\r\n", timer->topAccuV, timer->topAccuP, timer->subAccuV, timer->subAccuP, timer->speedBb,timer->speedSb);
+        // printf("Status:%d Lat: %.8f Lon:%.8f tgDist:%.2f tgDir:%.0f mDir:%.0f wDir:%.0f wStd:%.2f ", timer->status, timer->lat, timer->lng, timer->tgDist,timer->tgDir, timer->dirMag, timer->wDir, timer->wStd);
+        // printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %d%% BB:%02d SB:%02d\r\n", timer->topAccuV, timer->topAccuP, timer->subAccuV, timer->subAccuP, timer->speedBb,timer->speedSb);
     }
     if (udpTimerOut + 2000 < millis() && !((timer->status == LOCKED || timer->status == DOCKED)))
     {
@@ -1245,9 +1293,27 @@ void handelGpsData(RoboStruct *gps)
  */
 void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
 {
+    static bool isConnected = false;
+    static unsigned long lastRealSerIn = 0;
+
     RoboStruct serDataIn;
     if (xQueueReceive(serIn, (void *)&serDataIn, 1) == pdTRUE)
     {
+        lastRealSerIn = millis();
+        if (!isConnected)
+        {
+            isConnected = true;
+            printf("Serial connection made to the sub (Serial1). Requesting SETUPDATA...\r\n");
+            RoboStruct req = {};
+            req.cmd = SETUPDATA;
+            req.ack = GET;
+            req.IDr = BUOYIDALL;
+            req.IDs = espMac();
+            if (xQueueSend(serOut, (void *)&req, pdMS_TO_TICKS(100)) != pdTRUE) {
+                printf("ERROR: Failed to queue automated SETUPDATA request to serOut!\r\n");
+            }
+        }
+
         // For serial data, we ALWAYS update the local 'ser' (mainData)
         // This prevents remote buoy slots from "stealing" the update if IDs match.
         RoboStruct *target = ser;
@@ -1439,6 +1505,12 @@ void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             mainCollorUtil.blink = BLINK_SLOW;
             xQueueSend(ledUtil, (void *)&mainCollorUtil, 0); // update GPS led
         }
+    }
+
+    if (isConnected && (millis() - lastRealSerIn > 2000))
+    {
+        isConnected = false;
+        printf("Serial connection to the sub lost (no messages for 2000ms).\r\n");
     }
 }
 

@@ -32,7 +32,7 @@ bool setup_OTA()
     byte mac[6];
     WiFi.macAddress(mac);
     Serial.print("SETUP OTA...");
-    sprintf(buf, "Buoy_%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    sprintf(buf, "Buoy_LORA_%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     ArduinoOTA.setHostname(buf);
     ArduinoOTA.onStart([]()
                        {
@@ -220,7 +220,7 @@ void WiFiTask(void *arg)
         apww = "!Ni1001100110";
         if (scan_for_wifi_ap(ap, apww, &ipTop) == false)
         {
-            ap = "BUOY_";
+            ap = "BUOY_LORA";
             ap += macStr;
             apww = "";
             setup_wifi_ap(ap, apww, &ipTop);

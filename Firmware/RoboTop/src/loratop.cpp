@@ -199,7 +199,7 @@ void onReceive(int packetSize)
         Serial.println("#error: message length does not match length");
         return; // skip rest of function
     }
-    //Serial.println("#Lora_i <" + incoming + ">");
+    Serial.println("#Lora_i <" + incoming + ">");
     RoboStruct in;
     rfDeCode(incoming,&in);
 
@@ -239,7 +239,7 @@ bool sendLora(String loraTransmitt)
             LoRa.write(loraTransmitt.length());
             LoRa.print(loraTransmitt);
             LoRa.endPacket(); // finish packet and send it
-            Serial.println("#Lora_o <" + loraTransmitt + ">");
+            // Serial.println("#Lora_o <" + loraTransmitt + ">");
             transmittReady = millis() + 10;
             return true;
         }

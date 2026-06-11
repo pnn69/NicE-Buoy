@@ -27,8 +27,8 @@ Your goal is to recreate this project exactly as it exists today, serving as the
    * Supports `CMD 70` (Compass Calibration: spins the boat in circles to map Hard/Soft iron offsets).
    * Supports `CMD 71` (Compass Offset Calibration: sails a straight line by GPS to determine the offset between physical heading and magnetic heading).
 4. **Telemetry & Parameters:**
-   * Receives `SETUPDATA` (CMD 83) requests. Must reply with its full configuration: Rudder PID, Speed PID, `maxSpeed`, `minSpeed`, `pivotSpeed`, `compassOffset`, and `minOfsetDist`.
-   * Ensures `minOfsetDist` and `gpsDir` are correctly formatted as standard base-10 strings (without base arguments like `String(val, 0)`) before encoding.
+   * Receives `SETUPDATA` (CMD 83) requests. Must reply with its full configuration: Rudder PID, Speed PID, `maxSpeed`, `minSpeed`, `pivotSpeed`, `compassOffset`, and `holdRad`.
+   * Ensures `holdRad` and `gpsDir` are correctly formatted as standard base-10 strings (without base arguments like `String(val, 0)`) before encoding.
 
 ## Constraints
 * Ensure the ESCs have a proper initialization sequence (arming).

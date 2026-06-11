@@ -77,6 +77,7 @@ bool scan_for_wifi_ap(String ssipap, String ww, IPAddress *tmp)
                     if (WiFi.status() == WL_CONNECTED) {
                         Serial.println("CONNECTED");
                         *tmp = WiFi.localIP();
+                        Serial.print("WiFi IP address: "); Serial.println(*tmp);
                         return true;
                     }
                 }
@@ -180,7 +181,7 @@ void WiFiTask(void *arg)
         
         ap = "NicE_WiFi"; apww = "!Ni1001100110";
         if (!scan_for_wifi_ap(ap, apww, &ip)) {
-            ap = "BUOY_"; ap += macStr;
+            ap = "BUOY_SUB_"; ap += macStr;
             apww = "";
             setup_wifi_ap(ap, apww, &ip);
         }

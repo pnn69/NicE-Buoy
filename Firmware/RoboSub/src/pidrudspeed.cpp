@@ -131,7 +131,7 @@ void rudderPid(RoboStruct *rud)
             rotation_power = 0;
         }
         else if (rud->sub_status == SUB_STATUS_PIVOT_PREP) {
-            // Zone 2: 1m to minOfsetDist - Pivot ONLY
+            // Zone 2: 1m to holdRad - Pivot ONLY
             target_forward = 0;
             rotation_power = constrain(rotation_power, -rud->maxSpeed * rud->pivotSpeed, rud->maxSpeed * rud->pivotSpeed);
         }
@@ -143,7 +143,10 @@ void rudderPid(RoboStruct *rud)
             // 0.0 = Pure Pivot (Rotation only)
             double abs_error = abs(filtered_heading_error);
             double forward_factor = 1.0;
-            if (abs_error > 45.0) forward_factor = 0.0;
+            if (abs_error > 45.0) {
+                forward_factor = 0.0;
+                resetRudPid();
+            }
             else if (abs_error > 20.0) forward_factor = 1.0 - (abs_error - 20.0) / 25.0;
 
             target_forward = rud->tgSpeed * forward_factor;
@@ -215,10 +218,10 @@ void rudderPid(RoboStruct *rud)
  * 1. Low-pass filters the target distance to ignore wave-induced GPS noise.
  * 2. Manages the State Machine transitions:
  *    - < 1m: Force IDLE_DRIFT.
- *    - 1m -> minOfsetDist: Transition to PIVOT_PREP (Wind-assisted drift out).
- *    - >= minOfsetDist: Transition to LOCKED (Reset PIDs and start holding station).
+ *    - 1m -> holdRad: Transition to PIVOT_PREP (Wind-assisted drift out).
+ *    - >= holdRad: Transition to LOCKED (Reset PIDs and start holding station).
  *    - < 1m (from Locked): Reset back to IDLE_DRIFT if pushed too deep.
- * 3. Calculates forward power ONLY when in LOCKED state, targeting minOfsetDist.
+ * 3. Calculates forward power ONLY when in LOCKED state, targeting holdRad.
  */
 // Wave Filtering (Low-pass) on distance
 static double filtered_distance = 0;

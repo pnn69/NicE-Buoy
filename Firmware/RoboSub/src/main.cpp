@@ -20,6 +20,8 @@
 #define HOST_NAME "RoboBuoySub"
 TaskHandle_t compassTaskHandle = NULL; // Task handle for compass task
 
+#define POWEROFFTIME 60000 * 60 // 60 minutes
+
 // pid subparameter;
 RoboStruct mainData;
 SemaphoreHandle_t mainDataMutex = NULL;
@@ -132,7 +134,7 @@ void setup()
         }
     }
     // CORE 0: Network and Telemetry
-    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 16384, &wifiConfig, 1, NULL, 0);
+    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 16384, &wifiConfig, configMAX_PRIORITIES - 10, NULL, 0);
     
     // CORE 1: Real-time Control and Sensors
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 2048, NULL, 1, NULL, 1);
@@ -629,7 +631,7 @@ void handelSerialTimeOut(RoboStruct *ser)
     //***************************************************************************************************
     //      Shutdown the system after 5 minutes of no serial communication
     //***************************************************************************************************
-    if (PwrOff + 1000 * 60 * 5 < millis())
+    if (PwrOff + POWEROFFTIME < millis())
     // if (PwrOff + 1000 * 10 < millis())
     {
         WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // disable brownout detector
@@ -732,7 +734,12 @@ void handleTimerRoutines(RoboStruct *in)
         telemetry.cmd = SUBDATA;
         telemetry.ack = 6; // Full Status packet
         xQueueSend(serOut, (void *)&telemetry, 0);
-        if (udpOut) xQueueSend(udpOut, (void *)&telemetry, 0);
+        
+        static unsigned long nextUdpSamp = 0;
+        if (udpOut && nextUdpSamp < millis()) {
+            nextUdpSamp = 1000 + millis();
+            xQueueSend(udpOut, (void *)&telemetry, 0);
+        }
     }
 
     if (logtimer < millis())

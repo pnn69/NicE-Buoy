@@ -160,9 +160,9 @@ void onReceive(int packetSize)
         Serial.println("#error: message length does not match length");
         return; // skip rest of function
     }
+    Serial.println(incoming);
     RoboStruct in;
     rfDeCode(incoming, &in);
-    Serial.println(incoming);
     if ((in.IDr == buoyId || in.IDr == 0x99) && in.ack == ACK) // A message form me so check if its a ACK message
     {
         removeAckMsg(in);

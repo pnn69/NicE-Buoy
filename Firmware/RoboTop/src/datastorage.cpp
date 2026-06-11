@@ -139,7 +139,6 @@ void computeParameters(RoboStruct *buoy, bool get)
     startMem();
     if (get)
     {
-        buoy->minOfsetDist = storage.getInt("minOfsetDist", 1);
         buoy->maxOfsetDist = storage.getInt("maxOfsetDist", 8);
         buoy->maxSpeed = storage.getInt("maxSpeed", 80);
         buoy->minSpeed = storage.getInt("minSpeed", 0);
@@ -148,7 +147,6 @@ void computeParameters(RoboStruct *buoy, bool get)
     }
     else
     {
-        storage.putInt("minOfsetDist", buoy->minOfsetDist);
         storage.putInt("maxOfsetDist", buoy->maxOfsetDist);
         storage.putInt("maxSpeed", buoy->maxSpeed);
         storage.putInt("minSpeed", buoy->minSpeed);

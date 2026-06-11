@@ -18,7 +18,7 @@ double GetFilteredDist(void);
 
 // Sub Status constants for drift-pivot-lock logic
 #define SUB_STATUS_IDLE_DRIFT 0 // < 1m, motors off
-#define SUB_STATUS_PIVOT_PREP 1 // 1m to minOfsetDist, pivot only
-#define SUB_STATUS_LOCKED     2 // >= minOfsetDist, active holding
+#define SUB_STATUS_PIVOT_PREP 1 // 1m to holdRad, pivot only
+#define SUB_STATUS_LOCKED     2 // >= holdRad, active holding
 
 #endif // PIDRUDSPEED_H

@@ -19,9 +19,13 @@ void RoboDecode(String data, RoboStruct *dataStore)
         numbers[count++] = substring.substring(0, commaIndex);
         substring = substring.substring(commaIndex + 1);
     }
-    if (count < 2) return;
+    if (count < 1) return;
     dataStore->cmd = numbers[0].toInt();
-    dataStore->status = numbers[1].toInt();
+    if (count > 1) {
+        dataStore->status = numbers[1].toInt();
+    } else {
+        dataStore->status = 0;
+    }
     switch (dataStore->cmd)
     {
     case SETUPDATA:
@@ -36,10 +40,9 @@ void RoboDecode(String data, RoboStruct *dataStore)
           dataStore->pivotSpeed = numbers[10].toDouble();
           dataStore->compassOffset = numbers[11].toDouble();
           dataStore->holdRad = numbers[12].toDouble();
-          dataStore->minOfsetDist = numbers[13].toInt();
-          if (numbers[14].length() > 0) dataStore->revBB = (bool)numbers[14].toInt();
-          if (numbers[15].length() > 0) dataStore->revSB = (bool)numbers[15].toInt();
-          if (numbers[16].length() > 0) dataStore->swap_BB_SB = (bool)numbers[16].toInt();
+          if (numbers[13].length() > 0) dataStore->revBB = (bool)numbers[13].toInt();
+          if (numbers[14].length() > 0) dataStore->revSB = (bool)numbers[14].toInt();
+          if (numbers[15].length() > 0) dataStore->swap_BB_SB = (bool)numbers[15].toInt();
           break;
     case IDLE:
         dataStore->speed = 0;
@@ -218,6 +221,54 @@ void RoboDecode(String data, RoboStruct *dataStore)
     case STORE_COMPASS_OFFSET:
         dataStore->compassOffset = numbers[2].toDouble();
         break;
+    case GET:
+    case SET:
+    case GETACK:
+    case ACK:
+    case NAC:
+    case INF:
+    case IDELING:
+    case PING:
+    case PONG:
+    case ERROR:
+    case LOCKING:
+    case LOCK_POS:
+    case DOCKING:
+    case DOC:
+    case STOREASDOC:
+    case UNLOCK:
+    case REMOTEING:
+    case CALIBRATE_MAGNETIC_COMPASS:
+    case START_CALIBRATE_MAGNETIC_COMPASS:
+    case LINEAR_CALLIBRATING:
+    case DOCK_STORING:
+    case MUTE_ESC:
+    case BLINK_SLOW:
+    case BLINK_FAST:
+    case BLINK_OFF:
+    case FADE_ON:
+    case MDIR:
+    case GDIR:
+    case TDIR:
+    case TOPID:
+    case SUBID:
+    case REMOTEID:
+    case ROUTTOPOINT:
+    case SENDTRACK:
+    case COMPUTESTART:
+    case COMPUTETRACK:
+    case NEWBUOYPOS:
+    case TXT:
+    case ROBODEFAULTS:
+    case SOFTIRONCALIBRATION:
+    case CALC_COMPASS_OFFSET:
+    case INFIELD_CALIBRATE:
+    case INFIELD_OFFSET_CALIBRATE:
+    case RESET_RUDDER_PID:
+    case RESET_SPEED_PID:
+    case RESET_SPEED_RUD_PID:
+    case WAKEUP:
+        break;
     default:
         printf("RoboDecode: Unknown CMD %d\r\n", dataStore->cmd);
         break;
@@ -243,7 +294,6 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->pivotSpeed, 2);
         out += "," + String(dataOut->compassOffset, 2);
         out += "," + String(dataOut->holdRad, 2);
-        out += "," + String(dataOut->minOfsetDist);
         out += "," + String((int)dataOut->revBB);
         out += "," + String((int)dataOut->revSB);
         out += "," + String((int)dataOut->swap_BB_SB);
@@ -400,6 +450,58 @@ String RoboCode(const RoboStruct *dataOut)
         break;
     case STORE_COMPASS_OFFSET:
         out += "," + String(dataOut->compassOffset, 2);
+        break;
+    case CALCRUDDER:
+        out += "," + String(dataOut->tgDir, 1);
+        out += "," + String(dataOut->tgDist, 1);
+        out += "," + String(dataOut->speedSet, 2);
+        break;
+    case GET:
+    case SET:
+    case GETACK:
+    case ACK:
+    case NAC:
+    case INF:
+    case IDELING:
+    case ERROR:
+    case LOCKING:
+    case LOCK_POS:
+    case DOCKING:
+    case DOC:
+    case STOREASDOC:
+    case UNLOCK:
+    case REMOTEING:
+    case CALIBRATE_MAGNETIC_COMPASS:
+    case START_CALIBRATE_MAGNETIC_COMPASS:
+    case LINEAR_CALLIBRATING:
+    case SET_DECLINATION:
+    case DOCK_STORING:
+    case MUTE_ESC:
+    case BLINK_SLOW:
+    case BLINK_FAST:
+    case BLINK_OFF:
+    case FADE_ON:
+    case MDIR:
+    case GDIR:
+    case TDIR:
+    case TOPID:
+    case SUBID:
+    case REMOTEID:
+    case ROUTTOPOINT:
+    case SENDTRACK:
+    case COMPUTESTART:
+    case COMPUTETRACK:
+    case NEWBUOYPOS:
+    case TXT:
+    case ROBODEFAULTS:
+    case SOFTIRONCALIBRATION:
+    case CALC_COMPASS_OFFSET:
+    case INFIELD_CALIBRATE:
+    case INFIELD_OFFSET_CALIBRATE:
+    case RESET_RUDDER_PID:
+    case RESET_SPEED_PID:
+    case RESET_SPEED_RUD_PID:
+    case WAKEUP:
         break;
     case DOCKED:
     case LOCKED:

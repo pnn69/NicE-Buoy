@@ -19,7 +19,7 @@ Your goal is to recreate this project exactly as it exists today. The device sit
 2. **Zero Compression Handling:**
    * Packets use a custom NMEA style: `$IDr,IDs,ACK,CMD,STATUS,val1,val2...*CRC`.
    * `RoboCompute` compresses zero values (`0`, `0.00`) into empty fields (`,,`) to save bandwidth over the slow LoRa link. 
-   * It is strictly required that the `LoraController` correctly formats integers (e.g. `minOfsetDist`, `gpsDir`, `maxSpeed`) when re-encoding. Do NOT use `String(val, 0)` for integer values, as it breaks the base-10 formatting and corrupts the zero-compression logic.
+   * It is strictly required that the `LoraController` correctly formats integers (e.g. `gpsDir`, `maxSpeed`) when re-encoding. Do NOT use `String(val, 0)` for integer values, as it breaks the base-10 formatting and corrupts the zero-compression logic.
 
 ## Constraints
 * Use FreeRTOS tasks to keep Serial reading and LoRa reading completely non-blocking.

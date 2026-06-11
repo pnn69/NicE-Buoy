@@ -14,6 +14,12 @@ import sys
 import os
 
 class MsgType:
+    GET = 1
+    SET = 2
+    GETACK = 3
+    ACK = 4
+    NAC = 5
+    INF = 6
     IDLE = 7
     IDELING = 8
     PING = 9
@@ -257,7 +263,10 @@ class RoboMonitor:
                 'wind_text': wind_text,
                 'tg_dir_text': tg_dir_text, 'mag_dir_text': mag_dir_text, 'wind_arrow': wind_arrow,
                 'tg_arrow': tg_arrow, 'mag_arrow': mag_arrow, 'gps_arrow': gps_arrow,
-                'params_frame': params_frame, 'labels': labels, 'id': None, 'data': {}
+                'params_frame': params_frame, 'labels': labels, 'id': None, 'data': {},
+                'lock_btn_override_until': 0, 'lock_btn_override_text': "",
+                'dock_btn_override_until': 0, 'dock_btn_override_text': "",
+                'status_label_override_until': 0, 'status_label_override_text': ""
             })
 
         self.global_btn_frame = ttk.Frame(self.master)
@@ -428,8 +437,8 @@ class RoboMonitor:
                 data.update({
                     "Kpr": fields[5], "Kir": fields[6], "Kdr": fields[7], "Kps": fields[8], "Kis": fields[9], "Kds": fields[10],
                     "maxSpeed": fields[11], "minSpeed": fields[12], "pivotSpeed": fields[13], "compassOffset": fields[14] if len(fields)>14 else "0",
-                    "holdRad": fields[15] if len(fields)>15 else "2.0", "minOfsetDist": fields[16] if len(fields)>16 else "2",
-                    "revBB": fields[17] if len(fields)>17 else "0", "revSB": fields[18] if len(fields)>18 else "0", "swap_BB_SB": fields[19] if len(fields)>19 else "0"
+                    "holdRad": fields[15] if len(fields)>15 else "2.0",
+                    "revBB": fields[16] if len(fields)>16 else "0", "revSB": fields[17] if len(fields)>17 else "0", "swap_BB_SB": fields[18] if len(fields)>18 else "0"
                 })
             self.update_buoy_data(buoy_id, data)
         except Exception as e: print(f"Parse error: {e}")
@@ -499,11 +508,26 @@ class RoboMonitor:
                         b['windrose_canvas'].itemconfig(b['tg_dir_text'], text="-")
 
                 if b['id'] is not None:
-                    st_txt = "IDLE" if curr_stat==MsgType.IDLE else "LOCKED" if curr_stat in [MsgType.LOCKING, MsgType.LOCKED] else "DOCKING" if curr_stat in [MsgType.DOCKING, MsgType.DOCKED] else f"STATUS {curr_stat}"
+                    # Update status text with override fallback
+                    if ct < b.get('status_label_override_until', 0):
+                        st_txt = b.get('status_label_override_text', "UNKNOWN")
+                    else:
+                        st_txt = "IDLE" if curr_stat==MsgType.IDLE else "LOCKED" if curr_stat in [MsgType.LOCKING, MsgType.LOCKED] else "DOCKING" if curr_stat in [MsgType.DOCKING, MsgType.DOCKED] else f"STATUS {curr_stat}"
                     b['status_label'].config(text=st_txt)
+                    
                     b['ip_header_label'].config(text=d.get("IP", ""))
-                    b['lock_btn'].config(text="IDLE" if curr_stat in [MsgType.LOCKING, MsgType.LOCKED] else "LOCK")
-                    b['dock_btn'].config(text="IDLE" if curr_stat in [MsgType.DOCKING, MsgType.DOCKED] else "DOCK")
+                    
+                    # Update lock button with override fallback
+                    if ct < b.get('lock_btn_override_until', 0):
+                        b['lock_btn'].config(text=b.get('lock_btn_override_text', "LOCK"))
+                    else:
+                        b['lock_btn'].config(text="IDLE" if curr_stat in [MsgType.LOCKING, MsgType.LOCKED] else "LOCK")
+                    
+                    # Update dock button with override fallback
+                    if ct < b.get('dock_btn_override_until', 0):
+                        b['dock_btn'].config(text=b.get('dock_btn_override_text', "DOCK"))
+                    else:
+                        b['dock_btn'].config(text="IDLE" if curr_stat in [MsgType.DOCKING, MsgType.DOCKED] else "DOCK")
                     
                     try: f_dist = float(d.get("Target Dist", "0"))
                     except: f_dist = 0
@@ -583,19 +607,37 @@ class RoboMonitor:
         b = self.buoy_frames[idx]
         if not b['id']: return
         cmd = MsgType.IDELING if int(b['data'].get("Status", "0")) in [MsgType.LOCKING, MsgType.LOCKED, MsgType.LOCK_POS] else MsgType.LOCKING
-        self.send_udp_command(b['id'], cmd)
+        sent_via_lora = self.send_udp_command(b['id'], cmd)
+        if sent_via_lora:
+            target_time = time.time() + 2.0
+            b['lock_btn_override_until'] = target_time
+            b['lock_btn_override_text'] = "IDLE" if cmd == MsgType.LOCKING else "LOCK"
+            b['status_label_override_until'] = target_time
+            b['status_label_override_text'] = "LOCKED" if cmd == MsgType.LOCKING else "IDLE"
+            # Apply immediately to the GUI elements
+            b['lock_btn'].config(text=b['lock_btn_override_text'])
+            b['status_label'].config(text=b['status_label_override_text'])
 
     def on_dock_click(self, idx):
         b = self.buoy_frames[idx]
         if not b['id']: return
         cmd = MsgType.IDELING if int(b['data'].get("Status", "0")) in [MsgType.DOCKING, MsgType.DOCKED, MsgType.DOC] else MsgType.DOCKING
-        self.send_udp_command(b['id'], cmd)
+        sent_via_lora = self.send_udp_command(b['id'], cmd)
+        if sent_via_lora:
+            target_time = time.time() + 2.0
+            b['dock_btn_override_until'] = target_time
+            b['dock_btn_override_text'] = "IDLE" if cmd == MsgType.DOCKING else "DOCK"
+            b['status_label_override_until'] = target_time
+            b['status_label_override_text'] = "DOCKING" if cmd == MsgType.DOCKING else "IDLE"
+            # Apply immediately to the GUI elements
+            b['dock_btn'].config(text=b['dock_btn_override_text'])
+            b['status_label'].config(text=b['status_label_override_text'])
 
     def on_dirdist_click(self, idx, d_val, dist_val):
         b = self.buoy_frames[idx]
         if not b['id']: return
         try:
-            msg = f"{b['id']},99,6,{MsgType.DIRDIST},{MsgType.IDLE},{float(d_val):.2f},{float(dist_val):.2f}"
+            msg = f"{b['id']},99,{MsgType.INF},{MsgType.DIRDIST},{MsgType.IDLE},{float(d_val):.2f},{float(dist_val):.2f}"
             self.send_custom_udp_command(b['id'], msg)
         except: pass
 
@@ -622,7 +664,7 @@ class RoboMonitor:
             elif retries > 50:
                 loading_win.destroy(); messagebox.showerror("Timeout", f"Could not retrieve setup data for Buoy {b['id']}")
             else:
-                if retries % 10 == 0: self.send_custom_udp_command(b['id'], f"{b['id']},99,1,{MsgType.SETUPDATA},,,,,,,")
+                if retries % 10 == 0: self.send_custom_udp_command(b['id'], f"{b['id']},99,{MsgType.GET},{MsgType.SETUPDATA},,,,,,,")
                 self.master.after(200, lambda: check_data(retries + 1))
         check_data()
 
@@ -647,17 +689,17 @@ class RoboMonitor:
         ttk.Checkbutton(main_frame, text="Swap BB/SB", variable=swap_var).grid(row=15, column=0, sticky="w", pady=5)
         def save_all():
             try:
-                # Use ACK=3 for "Command" and Status=7 (or current status) to ensure the buoy accepts it as an instruction
+                # Use MsgType.SET (2) for setting parameters to ensure the buoy processes and saves the update
                 curr_status = b['data'].get("Status", "7")
-                vals = [kpr.get(), kir.get(), kdr.get(), kps.get(), kis.get(), kds.get(), max_s.get(), min_s.get(), piv_s.get(), c_off.get(), h_rad.get(), "2", "1" if rev_bb_var.get() else "0", "1" if rev_sb_var.get() else "0", "1" if swap_var.get() else "0"]
+                vals = [kpr.get(), kir.get(), kdr.get(), kps.get(), kis.get(), kds.get(), max_s.get(), min_s.get(), piv_s.get(), c_off.get(), h_rad.get(), "1" if rev_bb_var.get() else "0", "1" if rev_sb_var.get() else "0", "1" if swap_var.get() else "0"]
                 
                 # 1. Send the bulk setup data update
-                self.send_custom_udp_command(b['id'], f"{b['id']},99,3,{MsgType.SETUPDATA},{curr_status},{','.join(vals)}")
+                self.send_custom_udp_command(b['id'], f"{b['id']},99,{MsgType.SET},{MsgType.SETUPDATA},{curr_status},{','.join(vals)}")
                 
                 # 2. Also send specific set commands for Rudder, Speed, and Power to be safe
-                self.send_custom_udp_command(b['id'], f"{b['id']},99,3,{MsgType.PIDRUDDERSET},{curr_status},{kpr.get()},{kir.get()},{kdr.get()}")
-                self.send_custom_udp_command(b['id'], f"{b['id']},99,3,{MsgType.PIDSPEEDSET},{curr_status},{kps.get()},{kis.get()},{kds.get()}")
-                self.send_custom_udp_command(b['id'], f"{b['id']},99,3,{MsgType.MAXMINPWRSET},{curr_status},{max_s.get()},{min_s.get()},{piv_s.get()}")
+                self.send_custom_udp_command(b['id'], f"{b['id']},99,{MsgType.SET},{MsgType.PIDRUDDERSET},{curr_status},{kpr.get()},{kir.get()},{kdr.get()}")
+                self.send_custom_udp_command(b['id'], f"{b['id']},99,{MsgType.SET},{MsgType.PIDSPEEDSET},{curr_status},{kps.get()},{kis.get()},{kds.get()}")
+                self.send_custom_udp_command(b['id'], f"{b['id']},99,{MsgType.SET},{MsgType.MAXMINPWRSET},{curr_status},{max_s.get()},{min_s.get()},{piv_s.get()}")
                 
                 setup_win.destroy()
             except Exception as e: messagebox.showerror("Error", f"Failed to save: {e}")
@@ -666,8 +708,13 @@ class RoboMonitor:
     def send_custom_udp_command(self, tid, base, use_udp=True, use_lora=None):
         target_buoy = next((b for b in self.buoy_frames if b['id'] == tid), None)
         udp_allowed = target_buoy['udp_enabled_var'].get() if target_buoy else True
-        if use_lora is None: use_lora = not (udp_allowed and target_buoy and time.time()-target_buoy['last_udp_time']<5)
+        if use_lora is None:
+            # If the LoRa serial connection is connected and open, always send via LoRa.
+            # Otherwise, fall back to LoRa if UDP goes silent for > 5 seconds.
+            has_serial = bool(self.serial_conn and self.serial_conn.is_open)
+            use_lora = has_serial or not (udp_allowed and target_buoy and time.time()-target_buoy['last_udp_time']<5)
         full = f"${base}*{self.calculate_crc(base):02X}"
+        sent_via_lora = False
         if use_udp and udp_allowed:
             tip = target_buoy['data'].get("IP", "255.255.255.255") if target_buoy else "255.255.255.255"
             try:
@@ -676,10 +723,15 @@ class RoboMonitor:
                 self.log_message(full, "UDP OUT")
             except Exception as e: self.log_message(f"UDP ERROR: {e}", "UDP OUT")
         if use_lora and self.serial_conn and self.serial_conn.is_open:
-            try: self.serial_conn.write((full + "\n").encode()); self.log_message(full, "LORA OUT")
-            except Exception as e: self.log_message(f"LORA ERROR: {e}", "LORA OUT")
+            try:
+                self.serial_conn.write((full + "\n").encode())
+                self.log_message(full, "LORA OUT")
+                sent_via_lora = True
+            except Exception as e:
+                self.log_message(f"LORA ERROR: {e}", "LORA OUT")
+        return sent_via_lora
 
-    def send_udp_command(self, tid, cid): self.send_custom_udp_command(tid, f"{tid},99,3,{cid},7")
+    def send_udp_command(self, tid, cid): return self.send_custom_udp_command(tid, f"{tid},99,{MsgType.GETACK},{cid},{cid}")
 
     def on_align_startline(self):
         self.log_message("Global: Align Startline Clicked", "UDP OUT")

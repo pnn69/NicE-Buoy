@@ -105,7 +105,7 @@ Minimize "hunting" (oscillating around the course) and ensure the buoy arrives a
 *   **Advantage**: This is the most energy-efficient way to correct a large heading error. It prevents the buoy from sailing a large, inefficient arc while trying to turn.
 
 #### Phase 2: Differential Forward Translation (The "Transit")
-*   **Trigger**: Angle error < 30° and distance > `minOfsetDist`.
+*   **Trigger**: Angle error < 30° and distance > `holdRad`.
 *   **Action**: Both thrusters run forward with a **speed bias** based on the PID output.
     *   `BaseSpeed` = Calculated by Speed PID.
     *   `LeftThruster` = BaseSpeed - RudderPID_Output.
@@ -113,7 +113,7 @@ Minimize "hunting" (oscillating around the course) and ensure the buoy arrives a
 *   **Advantage**: Maintains forward momentum while making fine-grained course corrections.
 
 #### Phase 3: High-Precision Station Keeping (The "Hover")
-*   **Trigger**: Distance < `minOfsetDist`.
+*   **Trigger**: Distance < `holdRad`.
 *   **Action**: Switch to a sensitive "Pulse" mode or use very low duty cycles.
 *   **Refinement**: If the buoy overshoots, it should use **Reverse Thrust** immediately rather than trying to turn 180 degrees. The dual-thruster setup allows for "backing up" which is much more stable for maintaining a precise coordinate.
 
