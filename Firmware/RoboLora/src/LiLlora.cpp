@@ -190,16 +190,31 @@ void onReceive(int packetSize)
 bool sendLora(String loraTransmitt)
 {
     if (transmittReady < millis())
+    {
         if (LoRa.beginPacket()) // start packet
         {
             digitalWrite(LED_PIN, HIGH); // turn on led
             LoRa.write(loraTransmitt.length());
             LoRa.print(loraTransmitt);
-            LoRa.endPacket();           // finish packet and send it
-            digitalWrite(LED_PIN, LOW); // turn on led
-            transmittReady = millis() + 10;
-            return true; // return true if success
+            
+            if (LoRa.endPacket() == 1) // finish packet and send it (returns 1 on success)
+            {
+                digitalWrite(LED_PIN, LOW); // turn off led
+                printf("#####################Lora sent: %s\r\n", loraTransmitt.c_str());
+                transmittReady = millis() + 10;
+                return true; // return true if success
+            }
+            else
+            {
+                digitalWrite(LED_PIN, LOW); // turn off led
+                Serial.println("#Error: LoRa.endPacket() failed during transmission.");
+            }
         }
+        else
+        {
+            Serial.println("#Error: LoRa.beginPacket() failed.");
+        }
+    }
     return false;
 }
 
@@ -213,21 +228,51 @@ void LoraTask(void *arg)
     while (1)
     {
         onReceive(LoRa.parsePacket()); // check if there is new data availeble
-        
+
         // data to send from main
-        if (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
+        static RoboStruct txMsg;
+        if (xQueueReceive(loraOut, (void *)&txMsg, 1) == pdTRUE)
         {
-            loraMsgout.IDs = espMac();
-            String loraString = rfCode(&loraMsgout);
-            while (sendLora(String(loraString)) != true)
+            txMsg.IDs = espMac();
+            String loraString = rfCode(&txMsg);
+
+            int attempts = 0;
+            const int maxAttempts = 3;
+            bool sent = false;
+            while (attempts < maxAttempts)
             {
-                vTaskDelay(pdMS_TO_TICKS(150));
+                if (sendLora(String(loraString)))
+                {
+                    sent = true;
+                    break;
+                }
+                attempts++;
+                for (int d = 0; d < 15; d++) // 15 * 10ms = 150ms
+                {
+                    onReceive(LoRa.parsePacket()); // keep receiving while waiting
+                    vTaskDelay(pdMS_TO_TICKS(10));
+                }
             }
-            Serial.println(loraString);
-            if (loraMsgout.ack == GETACK || loraMsgout.ack == 3) // 3 is Python's GETACK
+
+            if (!sent)
             {
-                loraMsgout.retry = 5;
-                storeAckMsg(loraMsgout);                            // put data in buffer (will be removed on ack)
+                Serial.println("#Error: Failed to transmit LoRa packet after 3 attempts. Transceiver may be locked up.");
+                Serial.println("#Attempting LoRa transceiver self-healing...");
+                if (InitLora())
+                {
+                    Serial.println("#LoRa self-healing successful!");
+                }
+                else
+                {
+                    Serial.println("#LoRa self-healing failed!");
+                }
+            }
+
+            Serial.println(loraString);
+            if (txMsg.ack == GETACK || txMsg.ack == 3) // 3 is Python's GETACK
+            {
+                txMsg.retry = 5;
+                storeAckMsg(txMsg);                                 // put data in buffer (will be removed on ack)
                 retransmittReady = millis() + 500 + random(0, 150); // give some time for ack
             }
         }
@@ -235,17 +280,51 @@ void LoraTask(void *arg)
         /* retry one time*/
         if (retransmittReady < millis())
         {
-            loraMsgout = chkAckMsg();
-            if (loraMsgout.cmd != 0)
+            static RoboStruct retryMsg;
+            retryMsg = chkAckMsg();
+            if (retryMsg.cmd != 0)
             {
-                String loraString = rfCode(&loraMsgout);
-                while (sendLora(loraString) != true)
+                String loraString = rfCode(&retryMsg);
+                int attempts = 0;
+                const int maxAttempts = 3;
+                bool sent = false;
+                while (attempts < maxAttempts)
                 {
-                    vTaskDelay(pdMS_TO_TICKS(50));
+                    if (sendLora(loraString))
+                    {
+                        sent = true;
+                        break;
+                    }
+                    attempts++;
+                    for (int d = 0; d < 5; d++) // 5 * 10ms = 50ms
+                    {
+                        onReceive(LoRa.parsePacket()); // keep receiving while waiting
+                        vTaskDelay(pdMS_TO_TICKS(10));
+                    }
+                }
+
+                if (!sent)
+                {
+                    Serial.println("#Error: Failed to retransmit ACK-pending LoRa packet. Transceiver may be locked up.");
+                    Serial.println("#Attempting LoRa transceiver self-healing...");
+                    if (InitLora())
+                    {
+                        Serial.println("#LoRa self-healing successful!");
+                    }
+                    else
+                    {
+                        Serial.println("#LoRa self-healing failed!");
+                    }
                 }
                 retransmittReady = millis() + 900 + random(0, 150);
             }
+            else
+            {
+                // No pending messages to retry, check again in 500ms
+                retransmittReady = millis() + 500;
+            }
         }
+
+        vTaskDelay(pdMS_TO_TICKS(1)); // Yield CPU to other tasks and prevent starvation
     }
-    vTaskDelay(1);
 }

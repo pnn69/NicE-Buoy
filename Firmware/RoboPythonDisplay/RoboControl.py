@@ -328,7 +328,7 @@ class RoboMonitor:
             port = self.port_var.get()
             if not port: return
             try:
-                self.serial_conn = serial.Serial(port, 115200, timeout=1)
+                self.serial_conn = serial.Serial(port, 115200, timeout=1, write_timeout=1)
                 self.serial_conn.dtr = False
                 self.serial_conn.rts = False
                 self.running_serial = True
@@ -357,7 +357,7 @@ class RoboMonitor:
                 data, addr = self.sock.recvfrom(1024)
                 msg = data.decode('utf-8').strip()
                 self.log_message(msg, "UDP IN")
-                self.parse_message(msg, addr[0])
+                self.master.after(0, lambda m=msg, ip=addr[0]: self.parse_message(m, ip))
             except socket.timeout: pass
             except Exception as e: print(f"UDP Error: {e}")
 
@@ -691,16 +691,23 @@ class RoboMonitor:
             try:
                 # Use MsgType.SET (2) for setting parameters to ensure the buoy processes and saves the update
                 curr_status = b['data'].get("Status", "7")
-                vals = [kpr.get(), kir.get(), kdr.get(), kps.get(), kis.get(), kds.get(), max_s.get(), min_s.get(), piv_s.get(), c_off.get(), h_rad.get(), "1" if rev_bb_var.get() else "0", "1" if rev_sb_var.get() else "0", "1" if swap_var.get() else "0"]
                 
-                # 1. Send the bulk setup data update
-                self.send_custom_udp_command(b['id'], f"{b['id']},99,{MsgType.SET},{MsgType.SETUPDATA},{curr_status},{','.join(vals)}")
+                # Safely collect values from GUI elements on the main thread before destroying setup_win
+                v_kpr, v_kir, v_kdr = kpr.get(), kir.get(), kdr.get()
+                v_kps, v_kis, v_kds = kps.get(), kis.get(), kds.get()
+                v_max_s, v_min_s, v_piv_s = max_s.get(), min_s.get(), piv_s.get()
+                v_c_off, v_h_rad = c_off.get(), h_rad.get()
+                v_rev_bb = "1" if rev_bb_var.get() else "0"
+                v_rev_sb = "1" if rev_sb_var.get() else "0"
+                v_swap = "1" if swap_var.get() else "0"
                 
-                # 2. Also send specific set commands for Rudder, Speed, and Power to be safe
-                self.send_custom_udp_command(b['id'], f"{b['id']},99,{MsgType.SET},{MsgType.PIDRUDDERSET},{curr_status},{kpr.get()},{kir.get()},{kdr.get()}")
-                self.send_custom_udp_command(b['id'], f"{b['id']},99,{MsgType.SET},{MsgType.PIDSPEEDSET},{curr_status},{kps.get()},{kis.get()},{kds.get()}")
-                self.send_custom_udp_command(b['id'], f"{b['id']},99,{MsgType.SET},{MsgType.MAXMINPWRSET},{curr_status},{max_s.get()},{min_s.get()},{piv_s.get()}")
+                vals = [v_kpr, v_kir, v_kdr, v_kps, v_kis, v_kds, v_max_s, v_min_s, v_piv_s, v_c_off, v_h_rad, v_rev_bb, v_rev_sb, v_swap]
                 
+                # Send the SETUPDATA command on a background thread to prevent GUI freezing / thread blocking
+                def do_sends():
+                    self.send_custom_udp_command(b['id'], f"{b['id']},99,{MsgType.SET},{MsgType.SETUPDATA},{curr_status},{','.join(vals)}")
+                
+                threading.Thread(target=do_sends, daemon=True).start()
                 setup_win.destroy()
             except Exception as e: messagebox.showerror("Error", f"Failed to save: {e}")
         ttk.Button(main_frame, text="Save & Close", command=save_all).grid(row=16, column=0, columnspan=2, pady=20)

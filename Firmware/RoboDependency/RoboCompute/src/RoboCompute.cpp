@@ -6,6 +6,21 @@ bool startsWithDollar(const String &str)
     return str.charAt(0) == '$';
 }
 
+String formatFloat(double val, int precision)
+{
+    if (val == 0.0) return "0";
+    String s = String(val, precision);
+    if (s.indexOf('.') != -1) {
+        while (s.endsWith("0")) {
+            s.remove(s.length() - 1);
+        }
+        if (s.endsWith(".")) {
+            s.remove(s.length() - 1);
+        }
+    }
+    return s;
+}
+
 void RoboDecode(String data, RoboStruct *dataStore)
 {
     dataStore->cmd = -1;
@@ -19,13 +34,9 @@ void RoboDecode(String data, RoboStruct *dataStore)
         numbers[count++] = substring.substring(0, commaIndex);
         substring = substring.substring(commaIndex + 1);
     }
-    if (count < 1) return;
+    if (count < 2) return;
     dataStore->cmd = numbers[0].toInt();
-    if (count > 1) {
-        dataStore->status = numbers[1].toInt();
-    } else {
-        dataStore->status = 0;
-    }
+    dataStore->status = numbers[1].toInt();
     switch (dataStore->cmd)
     {
     case SETUPDATA:
@@ -221,54 +232,6 @@ void RoboDecode(String data, RoboStruct *dataStore)
     case STORE_COMPASS_OFFSET:
         dataStore->compassOffset = numbers[2].toDouble();
         break;
-    case GET:
-    case SET:
-    case GETACK:
-    case ACK:
-    case NAC:
-    case INF:
-    case IDELING:
-    case PING:
-    case PONG:
-    case ERROR:
-    case LOCKING:
-    case LOCK_POS:
-    case DOCKING:
-    case DOC:
-    case STOREASDOC:
-    case UNLOCK:
-    case REMOTEING:
-    case CALIBRATE_MAGNETIC_COMPASS:
-    case START_CALIBRATE_MAGNETIC_COMPASS:
-    case LINEAR_CALLIBRATING:
-    case DOCK_STORING:
-    case MUTE_ESC:
-    case BLINK_SLOW:
-    case BLINK_FAST:
-    case BLINK_OFF:
-    case FADE_ON:
-    case MDIR:
-    case GDIR:
-    case TDIR:
-    case TOPID:
-    case SUBID:
-    case REMOTEID:
-    case ROUTTOPOINT:
-    case SENDTRACK:
-    case COMPUTESTART:
-    case COMPUTETRACK:
-    case NEWBUOYPOS:
-    case TXT:
-    case ROBODEFAULTS:
-    case SOFTIRONCALIBRATION:
-    case CALC_COMPASS_OFFSET:
-    case INFIELD_CALIBRATE:
-    case INFIELD_OFFSET_CALIBRATE:
-    case RESET_RUDDER_PID:
-    case RESET_SPEED_PID:
-    case RESET_SPEED_RUD_PID:
-    case WAKEUP:
-        break;
     default:
         printf("RoboDecode: Unknown CMD %d\r\n", dataStore->cmd);
         break;
@@ -283,23 +246,23 @@ String RoboCode(const RoboStruct *dataOut)
     switch (dataOut->cmd)
     {
     case SETUPDATA:
-        out += "," + String(dataOut->Kpr, 5);
-        out += "," + String(dataOut->Kir, 5);
-        out += "," + String(dataOut->Kdr, 5);
-        out += "," + String(dataOut->Kps, 5);
-        out += "," + String(dataOut->Kis, 5);
-        out += "," + String(dataOut->Kds, 5);
+        out += "," + formatFloat(dataOut->Kpr, 5);
+        out += "," + formatFloat(dataOut->Kir, 5);
+        out += "," + formatFloat(dataOut->Kdr, 5);
+        out += "," + formatFloat(dataOut->Kps, 5);
+        out += "," + formatFloat(dataOut->Kis, 5);
+        out += "," + formatFloat(dataOut->Kds, 5);
         out += "," + String(dataOut->maxSpeed);
         out += "," + String(dataOut->minSpeed);
-        out += "," + String(dataOut->pivotSpeed, 2);
-        out += "," + String(dataOut->compassOffset, 2);
-        out += "," + String(dataOut->holdRad, 2);
+        out += "," + formatFloat(dataOut->pivotSpeed, 2);
+        out += "," + formatFloat(dataOut->compassOffset, 2);
+        out += "," + formatFloat(dataOut->holdRad, 2);
         out += "," + String((int)dataOut->revBB);
         out += "," + String((int)dataOut->revSB);
         out += "," + String((int)dataOut->swap_BB_SB);
         break;
     case DIRSPEED:
-        out += "," + String(dataOut->dirMag, 2);
+        out += "," + formatFloat(dataOut->dirMag, 2);
         out += "," + String(dataOut->speed);
         out += "," + String(dataOut->speedBb);
         out += "," + String(dataOut->speedSb);
@@ -313,81 +276,81 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->speed);
         break;
     case SUBACCU:
-        out += "," + String(dataOut->subAccuV, 2);
+        out += "," + formatFloat(dataOut->subAccuV, 2);
         out += "," + String(dataOut->subAccuP);
-        out += "," + String(dataOut->subAccuI, 2);
+        out += "," + formatFloat(dataOut->subAccuI, 2);
         break;
     case PIDRUDDERSET:
     case PIDRUDDER:
-        out += "," + String(dataOut->Kpr, 5);
-        out += "," + String(dataOut->Kir, 5);
-        out += "," + String(dataOut->Kdr, 5);
+        out += "," + formatFloat(dataOut->Kpr, 5);
+        out += "," + formatFloat(dataOut->Kir, 5);
+        out += "," + formatFloat(dataOut->Kdr, 5);
         break;
     case PIDSPEEDSET:
     case PIDSPEED:
-        out += "," + String(dataOut->Kps, 5);
-        out += "," + String(dataOut->Kis, 5);
-        out += "," + String(dataOut->Kds, 5);
+        out += "," + formatFloat(dataOut->Kps, 5);
+        out += "," + formatFloat(dataOut->Kis, 5);
+        out += "," + formatFloat(dataOut->Kds, 5);
         break;
     case SUBPWR:
-        out += "," + String(dataOut->speedSet, 2);
+        out += "," + formatFloat(dataOut->speedSet, 2);
         out += "," + String(dataOut->speed);
         out += "," + String(dataOut->speedBb);
         out += "," + String(dataOut->speedSb);
-        out += "," + String(dataOut->subAccuV, 2);
-        out += "," + String(dataOut->subAccuI, 2);
+        out += "," + formatFloat(dataOut->subAccuV, 2);
+        out += "," + formatFloat(dataOut->subAccuI, 2);
         break;
     case TOPPWR:
-        out += "," + String(dataOut->speedSet, 2);
+        out += "," + formatFloat(dataOut->speedSet, 2);
         out += "," + String(dataOut->speed);
         out += "," + String(dataOut->speedBb);
         out += "," + String(dataOut->speedSb);
-        out += "," + String(dataOut->topAccuV, 2);
-        out += "," + String(dataOut->topAccuI, 2);
+        out += "," + formatFloat(dataOut->topAccuV, 2);
+        out += "," + formatFloat(dataOut->topAccuI, 2);
         break;
     case BUOYPOS:
-        out += "," + String(dataOut->lat, 8);
-        out += "," + String(dataOut->lng, 8);
-        out += "," + String(dataOut->dirMag, 2);
-        out += "," + String(dataOut->wDir, 1);
-        out += "," + String(dataOut->wStd, 1);
+        out += "," + formatFloat(dataOut->lat, 8);
+        out += "," + formatFloat(dataOut->lng, 8);
+        out += "," + formatFloat(dataOut->dirMag, 2);
+        out += "," + formatFloat(dataOut->wDir, 1);
+        out += "," + formatFloat(dataOut->wStd, 1);
         out += "," + String(dataOut->topAccuP);
         out += "," + String(dataOut->subAccuP);
         out += "," + String(dataOut->gpsFix);
         out += "," + String(dataOut->gpsSat);
         break;
     case TGDIRSPEED:
-        out += "," + String(dataOut->tgDir, 2);
-        out += "," + String(dataOut->speedSet, 2);
+        out += "," + formatFloat(dataOut->tgDir, 2);
+        out += "," + formatFloat(dataOut->speedSet, 2);
         break;
     case SUBDATA:
-        out += "," + String(dataOut->dirMag, 2);
+        out += "," + formatFloat(dataOut->dirMag, 2);
         out += "," + String(dataOut->speedBb);
         out += "," + String(dataOut->speedSb);
-        out += "," + String(dataOut->ip, 2);
-        out += "," + String(dataOut->ir, 2);
-        out += "," + String(dataOut->subAccuV, 2);
+        out += "," + formatFloat(dataOut->ip, 2);
+        out += "," + formatFloat(dataOut->ir, 2);
+        out += "," + formatFloat(dataOut->subAccuV, 2);
         out += "," + String(dataOut->subAccuP);
-        out += "," + String(dataOut->subAccuI, 2);
+        out += "," + formatFloat(dataOut->subAccuI, 2);
         break;
     case TOPDATA:
-        out += "," + String(dataOut->dirMag, 0);
+        out += "," + formatFloat(dataOut->dirMag, 0);
         out += "," + String(dataOut->gpsDir);
-        out += "," + String(dataOut->tgDir, 0);
-        out += "," + String(dataOut->tgDist, 1);
-        out += "," + String(dataOut->wDir, 0);
-        out += "," + String(dataOut->wStd, 1);
+        out += "," + formatFloat(dataOut->tgDir, 0);
+        out += "," + formatFloat(dataOut->tgDist, 1);
+        out += "," + formatFloat(dataOut->wDir, 0);
+        out += "," + formatFloat(dataOut->wStd, 1);
         out += "," + String(dataOut->speedBb);
         out += "," + String(dataOut->speedSb);
-        out += "," + String(dataOut->ip, 2);
-        out += "," + String(dataOut->ir, 2);
-        out += "," + String(dataOut->subAccuV, 2);
+        out += "," + formatFloat(dataOut->ip, 2);
+        out += "," + formatFloat(dataOut->ir, 2);
+        out += "," + formatFloat(dataOut->subAccuV, 2);
         out += "," + String(dataOut->subAccuP);
-        out += "," + String(dataOut->lat, 8);
-        out += "," + String(dataOut->lng, 8);
+        out += "," + formatFloat(dataOut->lat, 8);
+        out += "," + formatFloat(dataOut->lng, 8);
         out += "," + String(dataOut->gpsFix);
         out += "," + String(dataOut->gpsSat);
-        out += "," + String(dataOut->subAccuI, 2);
+        out += "," + formatFloat(dataOut->subAccuI, 2);
         break;
     case SPBBSPSB:
         out += "," + String(dataOut->speedBb);
@@ -395,125 +358,73 @@ String RoboCode(const RoboStruct *dataOut)
         break;
     case SETLOCKPOS:
     case SETDOCKPOS:
-        out += "," + String(dataOut->tgLat, 10);
-        out += "," + String(dataOut->tgLng, 10);
+        out += "," + formatFloat(dataOut->tgLat, 10);
+        out += "," + formatFloat(dataOut->tgLng, 10);
         break;
     case LOCKPOS:
     case DOCKPOS:
-        out += "," + String(dataOut->tgLat, 10);
-        out += "," + String(dataOut->tgLng, 10);
-        out += "," + String(dataOut->wDir, 1);
-        out += "," + String(dataOut->wStd, 1);
+        out += "," + formatFloat(dataOut->tgLat, 10);
+        out += "," + formatFloat(dataOut->tgLng, 10);
+        out += "," + formatFloat(dataOut->wDir, 1);
+        out += "," + formatFloat(dataOut->wStd, 1);
         break;
     case WINDDATA:
-        out += "," + String(dataOut->wDir, 1);
-        out += "," + String(dataOut->wStd, 1);
+        out += "," + formatFloat(dataOut->wDir, 1);
+        out += "," + formatFloat(dataOut->wStd, 1);
         break;
     case DIRDIST:
-        out += "," + String(dataOut->tgDir, 1);
-        out += "," + String(dataOut->tgDist, 1);
+        out += "," + formatFloat(dataOut->tgDir, 1);
+        out += "," + formatFloat(dataOut->tgDist, 1);
         break;
     case MAXMINPWRSET:
     case MAXMINPWR:
         out += "," + String(dataOut->maxSpeed);
         out += "," + String(dataOut->minSpeed);
-        out += "," + String(dataOut->pivotSpeed, 2);
+        out += "," + formatFloat(dataOut->pivotSpeed, 2);
         break;
     case DIRMDIRTGDIRG:
-        out += "," + String(dataOut->dirMag, 0);
-        out += "," + String(dataOut->tgDir, 0);
+        out += "," + formatFloat(dataOut->dirMag, 0);
+        out += "," + formatFloat(dataOut->tgDir, 0);
         out += "," + String(dataOut->gpsDir);
         break;
     case STORE_DECLINATION:
-        out += "," + String(dataOut->declination, 2);
+        out += "," + formatFloat(dataOut->declination, 2);
         break;
     case RAWCOMPASSDATA:
-        out += "," + String(dataOut->magHard[0], 5);
-        out += "," + String(dataOut->magHard[1], 5);
-        out += "," + String(dataOut->magHard[2], 5);
+        out += "," + formatFloat(dataOut->magHard[0], 5);
+        out += "," + formatFloat(dataOut->magHard[1], 5);
+        out += "," + formatFloat(dataOut->magHard[2], 5);
         break;
     case SOFTIRONFACTORS:
-        out += "," + String(dataOut->magSoft[0][0], 5);
-        out += "," + String(dataOut->magSoft[0][1], 5);
-        out += "," + String(dataOut->magSoft[0][2], 5);
-        out += "," + String(dataOut->magSoft[1][0], 5);
-        out += "," + String(dataOut->magSoft[1][1], 5);
-        out += "," + String(dataOut->magSoft[1][2], 5);
-        out += "," + String(dataOut->magSoft[2][0], 5);
-        out += "," + String(dataOut->magSoft[2][1], 5);
-        out += "," + String(dataOut->magSoft[2][2], 5);
+        out += "," + formatFloat(dataOut->magSoft[0][0], 5);
+        out += "," + formatFloat(dataOut->magSoft[0][1], 5);
+        out += "," + formatFloat(dataOut->magSoft[0][2], 5);
+        out += "," + formatFloat(dataOut->magSoft[1][0], 5);
+        out += "," + formatFloat(dataOut->magSoft[1][1], 5);
+        out += "," + formatFloat(dataOut->magSoft[1][2], 5);
+        out += "," + formatFloat(dataOut->magSoft[2][0], 5);
+        out += "," + formatFloat(dataOut->magSoft[2][1], 5);
+        out += "," + formatFloat(dataOut->magSoft[2][2], 5);
         break;
     case HARDIRONFACTORS:
-        out += "," + String(dataOut->magHard[0], 2);
-        out += "," + String(dataOut->magHard[1], 2);
-        out += "," + String(dataOut->magHard[2], 2);
+        out += "," + formatFloat(dataOut->magHard[0], 2);
+        out += "," + formatFloat(dataOut->magHard[1], 2);
+        out += "," + formatFloat(dataOut->magHard[2], 2);
         break;
     case STORE_COMPASS_OFFSET:
-        out += "," + String(dataOut->compassOffset, 2);
-        break;
-    case CALCRUDDER:
-        out += "," + String(dataOut->tgDir, 1);
-        out += "," + String(dataOut->tgDist, 1);
-        out += "," + String(dataOut->speedSet, 2);
-        break;
-    case GET:
-    case SET:
-    case GETACK:
-    case ACK:
-    case NAC:
-    case INF:
-    case IDELING:
-    case ERROR:
-    case LOCKING:
-    case LOCK_POS:
-    case DOCKING:
-    case DOC:
-    case STOREASDOC:
-    case UNLOCK:
-    case REMOTEING:
-    case CALIBRATE_MAGNETIC_COMPASS:
-    case START_CALIBRATE_MAGNETIC_COMPASS:
-    case LINEAR_CALLIBRATING:
-    case SET_DECLINATION:
-    case DOCK_STORING:
-    case MUTE_ESC:
-    case BLINK_SLOW:
-    case BLINK_FAST:
-    case BLINK_OFF:
-    case FADE_ON:
-    case MDIR:
-    case GDIR:
-    case TDIR:
-    case TOPID:
-    case SUBID:
-    case REMOTEID:
-    case ROUTTOPOINT:
-    case SENDTRACK:
-    case COMPUTESTART:
-    case COMPUTETRACK:
-    case NEWBUOYPOS:
-    case TXT:
-    case ROBODEFAULTS:
-    case SOFTIRONCALIBRATION:
-    case CALC_COMPASS_OFFSET:
-    case INFIELD_CALIBRATE:
-    case INFIELD_OFFSET_CALIBRATE:
-    case RESET_RUDDER_PID:
-    case RESET_SPEED_PID:
-    case RESET_SPEED_RUD_PID:
-    case WAKEUP:
+        out += "," + formatFloat(dataOut->compassOffset, 2);
         break;
     case DOCKED:
     case LOCKED:
-        out += "," + String(dataOut->tgDir, 1);
-        out += "," + String(dataOut->tgDist, 1);
-        out += "," + String(dataOut->tgSpeed, 1);
-        out += "," + String(dataOut->wDir, 1);
-        out += "," + String(dataOut->wStd, 1);
+        out += "," + formatFloat(dataOut->tgDir, 1);
+        out += "," + formatFloat(dataOut->tgDist, 1);
+        out += "," + formatFloat(dataOut->tgSpeed, 1);
+        out += "," + formatFloat(dataOut->wDir, 1);
+        out += "," + formatFloat(dataOut->wStd, 1);
         break;
     case REMOTE:
-        out += "," + String(dataOut->tgDir, 0);
-        out += "," + String(dataOut->tgSpeed, 0);
+        out += "," + formatFloat(dataOut->tgDir, 0);
+        out += "," + formatFloat(dataOut->tgSpeed, 0);
         break;
     case IDLE:
         out += ",0,0";
@@ -526,7 +437,31 @@ String RoboCode(const RoboStruct *dataOut)
         printf("RoboCode: Unknown formatter <%d>\r\n", dataOut->cmd);
         break;
     }
-    return out;
+
+    // Compress zeros to empty strings to save bandwidth
+    String optimized = "";
+    int lastComma = -1;
+    for (unsigned int i = 0; i <= out.length(); i++) {
+        if (i == out.length() || out[i] == ',') {
+            String token = out.substring(lastComma + 1, i);
+            if (token.length() > 0) {
+                bool isZero = true;
+                for (unsigned int j = 0; j < token.length(); j++) {
+                    if (token[j] != '0' && token[j] != '.' && token[j] != '-') {
+                        isZero = false;
+                        break;
+                    }
+                }
+                if (isZero && token != "-" && token != "." && token != "-.") {
+                    token = "";
+                }
+            }
+            if (lastComma != -1) optimized += ",";
+            optimized += token;
+            lastComma = i;
+        }
+    }
+    return optimized;
 }
 
 String rfCode(RoboStruct *rfOut)

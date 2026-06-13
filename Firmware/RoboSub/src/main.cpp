@@ -624,7 +624,6 @@ void handelSerialTimeOut(RoboStruct *ser)
             mainLedStatus.color = CRGB::Red;
             mainLedStatus.blink = BLINK_SLOW;
             xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
-            delay(500);
             ser->status = IDELING;
         }
     }

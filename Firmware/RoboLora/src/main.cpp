@@ -144,7 +144,7 @@ void setup()
     printf("Robobuoy Lora Version: %0.1f Sub Build: %s %s\r\n", SUBVERSION, __DATE__, __TIME__);
 
     printf("Robobuoy ID: %08x\r\n", espMac());
-    xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 1);
+    xTaskCreatePinnedToCore(LoraTask, "LoraTask", 8192, NULL, configMAX_PRIORITIES - 2, NULL, 1);
     xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, (void *)&wifiConfig, configMAX_PRIORITIES - 2, NULL, 0);
     mainData.IDs = 0;

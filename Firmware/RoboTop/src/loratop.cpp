@@ -214,6 +214,9 @@ void onReceive(int packetSize)
     }
     if (is_addressed_to_me || in.IDr == BUOYIDALL || in.IDr == 0) // A message form
     {
+        if (is_addressed_to_me) {
+            removeAckMsg(in);
+        }
         // DO NOT send an immediate zeroed ACK for GETACK. 
         // Let the main loop handle the fetch from Sub and send the real data.
         Serial.println("#Lora_i <" + incoming + ">");
@@ -265,16 +268,25 @@ void LoraTask(void *arg)
     while (1)
     {
         onReceive(LoRa.parsePacket()); // check if there is new data availeble
-        if (xQueueReceive(loraOut, (void *)&loraMsgout, 10) == pdTRUE)
+        if (xQueueReceive(loraOut, (void *)&loraMsgout, 1) == pdTRUE)
         {
             // IDr,IDs,ACK,MSG,<data>
             if (loraMsgout.IDs == 0) loraMsgout.IDs = (pMainData && pMainData->IDs != 0) ? pMainData->IDs : buoyId;
             String loraString = rfCode(&loraMsgout);
+            int retries = 0;
             while (sendLora(String(loraString)) != true)
             {
-                vTaskDelay(pdMS_TO_TICKS(50));
+                onReceive(LoRa.parsePacket()); // Keep receiving while waiting to transmit!
+                vTaskDelay(pdMS_TO_TICKS(10)); // Shorter sleep (10ms instead of 50ms)
+                retries++;
+                if (retries >= 50)             // 50 * 10ms = 500ms timeout
+                {
+                    Serial.println("#Error: LoRa send failed. Hardware-resetting LoRa module...");
+                    InitLora();
+                    break;
+                }
             }
-            if (loraMsgout.ack == GETACK)
+            if (loraMsgout.ack == GETACK || loraMsgout.ack == SET)
             {
                 loraMsgout.retry = 5;
                 storeAckMsg(loraMsgout);                            // put data in buffer (will be removed on ack)
@@ -288,9 +300,18 @@ void LoraTask(void *arg)
             if (loraMsgout.cmd != 0)
             {
                 String loraString = rfCode(&loraMsgout);
+                int retries = 0;
                 while (sendLora(loraString) != true)
                 {
-                    vTaskDelay(pdMS_TO_TICKS(50));
+                    onReceive(LoRa.parsePacket()); // Keep receiving while waiting to transmit!
+                    vTaskDelay(pdMS_TO_TICKS(10)); // Shorter sleep (10ms instead of 50ms)
+                    retries++;
+                    if (retries >= 50)             // 50 * 10ms = 500ms timeout
+                    {
+                        Serial.println("#Error: LoRa retry failed. Hardware-resetting LoRa module...");
+                        InitLora();
+                        break;
+                    }
                 }
                 retransmittReady = millis() + 1500 + random(0, 150);
             }

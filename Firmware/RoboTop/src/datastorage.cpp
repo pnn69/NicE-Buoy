@@ -12,16 +12,17 @@ void initMemory(void)
 {
     storage.begin("RobobuoyTop", false);
     // Legacy migration logic here if needed
+    storage.end();
 }
 
 void startMem(void)
 {
-    // storage.begin("RobobuoyTop", false);
+    storage.begin("RobobuoyTop", false);
 }
 
 void stopMem(void)
 {
-    // storage.end();
+    storage.end();
 }
 
 /**

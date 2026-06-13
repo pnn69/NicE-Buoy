@@ -8,6 +8,21 @@ bool startsWithDollar(const String &str)
     return str.charAt(0) == '$';
 }
 
+String formatFloat(double val, int precision)
+{
+    if (val == 0.0) return "0";
+    String s = String(val, precision);
+    if (s.indexOf('.') != -1) {
+        while (s.endsWith("0")) {
+            s.remove(s.length() - 1);
+        }
+        if (s.endsWith(".")) {
+            s.remove(s.length() - 1);
+        }
+    }
+    return s;
+}
+
 void RoboDecode(String data, RoboStruct *dataStore)
 {
     dataStore->cmd = -1;
@@ -38,9 +53,9 @@ void RoboDecode(String data, RoboStruct *dataStore)
           dataStore->pivotSpeed = numbers[10].toDouble();
           dataStore->compassOffset = numbers[11].toDouble();
           dataStore->holdRad = numbers[12].toDouble();
-          if (numbers[13].length() > 0) dataStore->revBB = (bool)numbers[13].toInt();
-          if (numbers[14].length() > 0) dataStore->revSB = (bool)numbers[14].toInt();
-          if (numbers[15].length() > 0) dataStore->swap_BB_SB = (bool)numbers[15].toInt();
+          if (count > 13) dataStore->revBB = numbers[13].length() > 0 ? (bool)numbers[13].toInt() : false;
+          if (count > 14) dataStore->revSB = numbers[14].length() > 0 ? (bool)numbers[14].toInt() : false;
+          if (count > 15) dataStore->swap_BB_SB = numbers[15].length() > 0 ? (bool)numbers[15].toInt() : false;
           break;
     case IDLE:
         dataStore->speed = 0;
@@ -424,7 +439,31 @@ String RoboCode(const RoboStruct *dataOut)
         printf("RoboCode: Unknown formatter <%d>\r\n", dataOut->cmd);
         break;
     }
-    return out;
+
+    // Compress zeros to empty strings to save bandwidth
+    String optimized = "";
+    int lastComma = -1;
+    for (unsigned int i = 0; i <= out.length(); i++) {
+        if (i == out.length() || out[i] == ',') {
+            String token = out.substring(lastComma + 1, i);
+            if (token.length() > 0) {
+                bool isZero = true;
+                for (unsigned int j = 0; j < token.length(); j++) {
+                    if (token[j] != '0' && token[j] != '.' && token[j] != '-') {
+                        isZero = false;
+                        break;
+                    }
+                }
+                if (isZero && token != "-" && token != "." && token != "-.") {
+                    token = "";
+                }
+            }
+            if (lastComma != -1) optimized += ",";
+            optimized += token;
+            lastComma = i;
+        }
+    }
+    return optimized;
 }
 
 String rfCode(RoboStruct *rfOut)

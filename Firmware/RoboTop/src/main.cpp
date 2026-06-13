@@ -120,7 +120,7 @@ void setup()
     printf("Creating task Serial communication...\r\n");
     xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
     printf("Creating task LoRa communication...\r\n");
-    xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 1);
+    xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4000, &mainData, configMAX_PRIORITIES - 2, NULL, 1);
     
     // Load local params
     mainData.mac = espMac();
@@ -851,7 +851,7 @@ void handleTimerRoutines(RoboStruct *timer)
 
     if (logtimer < millis())
     {
-        logtimer = millis() + 1000;
+        logtimer = millis() + 5000;
         battVoltage(timer->topAccuV, timer->topAccuP);
         addNewSampleInBuffer(&wind, timer->dirMag); // add sample to buffer for wind direction calculation.
         deviationWindRose(&wind);
@@ -1020,8 +1020,10 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case SETUPDATA:
+                printf("Received SETUPDATA command. ack=%d\r\n", RfIn.ack);
                 if (RfIn.ack == GET || RfIn.ack == GETACK || RfIn.ack == SET)
                 {
+                    
                     if (RfIn.ack == SET || RfIn.ack == GETACK) {
                         pidRudderParameters(&RfIn, SET);
                         pidSpeedParameters(&RfIn, SET);
@@ -1042,6 +1044,13 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                         
                         // Force Sub to save permanently to EEPROM
                         RfIn.ack = SET;
+                        if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                            printf("ERROR: Failed to queue SETUPDATA forward request to serOut!\r\n");
+                        }
+                        else{
+                            printf("#SETUPDATA: Updated parameters from Sub. Forwarding to Sub to save permanently. maxSpeed=%d\r\n", RfIn.maxSpeed);
+                        } 
+
                     } 
                     
                     // Remember who asked for the data so we can route the sub response back to them
@@ -1051,14 +1060,22 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     // Set sender ID to our own MAC address so low-level serial task filters out echoes.
                     RfIn.IDr = BUOYIDALL;
                     RfIn.IDs = espMac();
+                    printf("DEBUG_SETUPDATA: Forwarding to Sub via serOut. maxSpeed=%d, ack=%d\r\n", RfIn.maxSpeed, RfIn.ack);
                     if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
                         printf("ERROR: Failed to queue SETUPDATA forward request to serOut!\r\n");
                     } 
                 }
                 else
                 {
+                    printf("Received SETUPDATA command. ack=%d Updating parameters\r\n", RfIn.ack);
                     // Update buoyPara base so web interface shows correct remote setup
                     // Prioritize Buoy 0 (Main) if its IDs matches or if it hasn't synced its Sub ID yet.
+                                    // This is a request from PC (Serial) -> Forward to Sub
+                    RoboStruct serDataOut = RfIn; // copy all data for forwarding
+                    serDataOut.IDr = BUOYIDALL; // Force Sub to accept the request
+                    serDataOut.ack = SET;
+                    xQueueSend(serOut, (void *)&serDataOut, 0);
+
                     int targetIdx = -1;
                     for (int i = 0; i < 3; i++) {
                         if (buoyPara[i]->IDs == RfIn.IDs) {
@@ -1379,6 +1396,8 @@ void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                 // before pushing the response to UDP and LoRa.
                 serDataIn.IDr = BUOYIDALL;
 
+                uint64_t subID = serDataIn.IDs; // Save Sub's actual ID before overwriting
+
                 // Ensure sender ID matches the Top's MAC address so the PC's UI maps it to the correct buoy
                 serDataIn.IDs = espMac(); 
 
@@ -1391,7 +1410,7 @@ void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
 
                 // Send an explicit ACK back to the Sub to clear its retransmission queue
                 serDataIn.ack = ACK;
-                serDataIn.IDr = serDataIn.IDs; // Send back to the sender
+                serDataIn.IDr = subID; // Send back to the Sub's actual ID
                 serDataIn.IDs = espMac();
                 if (xQueueSend(serOut, (void *)&serDataIn, pdMS_TO_TICKS(250)) != pdTRUE) {
                     printf("ERROR: Failed to queue SETUPDATA ACK to serOut!\r\n");

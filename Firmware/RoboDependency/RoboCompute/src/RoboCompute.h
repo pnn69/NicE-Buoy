@@ -17,6 +17,7 @@
 typedef enum
 {
     NOCMD = -1,
+    NOP = 0,
     GET = 1,
     SET,
     GETACK,

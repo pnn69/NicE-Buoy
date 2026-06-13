@@ -146,7 +146,7 @@ void SercomTask(void *arg)
             {
                 RoboStruct serDataIn;
                 rfDeCode(serStringIn, &serDataIn);
-                
+                // printf("DEBUG_SERCOM_IN: %s\r\n", serStringIn.c_str());
                 // Prevent processing our own echoed transmissions on the half-duplex line.
                 // An echo has IDs matching our Top MAC and an ack type of GET, GETACK, or SET.
                 bool is_echo = (serDataIn.IDs == mac && (serDataIn.ack == GET || serDataIn.ack == GETACK || serDataIn.ack == SET));
@@ -161,6 +161,8 @@ void SercomTask(void *arg)
                     }
                     else
                     {
+                        // Any valid response from the sub (like INF status response) implicitly acts as an ACK.
+                        SerremoveAckMsg(serDataIn);
                         // printf("SER_SUB_IN CMD=%d from IDs=%X\n", serDataIn.cmd, serDataIn.IDs);
                         xQueueSend(serIn, (void *)&serDataIn, 10);
                         lastSerMsg = millis();
@@ -199,9 +201,9 @@ void SercomTask(void *arg)
                 
                 String out = rfCode(&serDataOut);
                 Serial1.println(out);
-                // printf("SER_SUB_OUT>%s<\r\n", out.c_str());
+                printf("DEBUG_SERCOM_OUT: %s\r\n", out.c_str());
 
-                if (serDataOut.ack == GETACK)
+                if (serDataOut.ack == GETACK || serDataOut.ack == SET)
                 {
                     serDataOut.retry = 5;
                     SerstoreAckMsg(serDataOut);
