@@ -267,25 +267,36 @@ void LoraTask(void *arg)
     unsigned long retransmittReady = 0;
     while (1)
     {
-        onReceive(LoRa.parsePacket()); // check if there is new data availeble
+        // Continuously poll for any incoming LoRa packets to prevent RX FIFO buffer overflow
+        onReceive(LoRa.parsePacket()); 
+        
+        // Process any telemetry messages queued for LoRa transmission
         if (xQueueReceive(loraOut, (void *)&loraMsgout, 1) == pdTRUE)
         {
-            // IDr,IDs,ACK,MSG,<data>
+            // Set the sender ID to our actual hardware MAC address if not already specified
             if (loraMsgout.IDs == 0) loraMsgout.IDs = (pMainData && pMainData->IDs != 0) ? pMainData->IDs : buoyId;
             String loraString = rfCode(&loraMsgout);
             int retries = 0;
+            
+            // Non-blocking wait and send loop:
+            // Continues to listen to the radio interface while backing off to avoid missing inbound packets.
             while (sendLora(String(loraString)) != true)
             {
                 onReceive(LoRa.parsePacket()); // Keep receiving while waiting to transmit!
-                vTaskDelay(pdMS_TO_TICKS(10)); // Shorter sleep (10ms instead of 50ms)
+                vTaskDelay(pdMS_TO_TICKS(10)); // Shorter sleep (10ms instead of 50ms) to increase system responsiveness
                 retries++;
-                if (retries >= 50)             // 50 * 10ms = 500ms timeout
+                
+                // Hardware Self-Healing: If transmission fails consistently for 500ms (50 * 10ms),
+                // the radio transceiver may have locked up (SPI glitch or state machine stall).
+                // Force a full hardware-level reset and reinitialization of the LoRa module.
+                if (retries >= 50)             
                 {
                     Serial.println("#Error: LoRa send failed. Hardware-resetting LoRa module...");
                     InitLora();
                     break;
                 }
             }
+            // If the transmission expects a receipt confirmation (GETACK/SET), store it in our retry table
             if (loraMsgout.ack == GETACK || loraMsgout.ack == SET)
             {
                 loraMsgout.retry = 5;
@@ -293,7 +304,8 @@ void LoraTask(void *arg)
                 retransmittReady = millis() + 900 + random(0, 150); // give some time for ack
             }
         }
-        /* retry one time*/
+        
+        /* Retransmit any pending unacknowledged packets */
         if (retransmittReady < millis())
         {
             loraMsgout = chkAckMsg();
@@ -301,6 +313,8 @@ void LoraTask(void *arg)
             {
                 String loraString = rfCode(&loraMsgout);
                 int retries = 0;
+                
+                // Retransmission loop with non-blocking packet polling and self-healing support
                 while (sendLora(loraString) != true)
                 {
                     onReceive(LoRa.parsePacket()); // Keep receiving while waiting to transmit!
@@ -316,6 +330,6 @@ void LoraTask(void *arg)
                 retransmittReady = millis() + 1500 + random(0, 150);
             }
         }
-        vTaskDelay(1);
+        vTaskDelay(1); // Crucial task yield to avoid triggering watchdog timers on this CPU core
     }
 }

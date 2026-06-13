@@ -147,8 +147,11 @@ void SercomTask(void *arg)
                 RoboStruct serDataIn;
                 rfDeCode(serStringIn, &serDataIn);
                 // printf("DEBUG_SERCOM_IN: %s\r\n", serStringIn.c_str());
-                // Prevent processing our own echoed transmissions on the half-duplex line.
-                // An echo has IDs matching our Top MAC and an ack type of GET, GETACK, or SET.
+                // Echo Prevention inside Half-Duplex RS-485 / Single-Wire Serial Line:
+                // Since the TX and RX lines are physically tied together in half-duplex configurations,
+                // any packet we transmit is immediately echoed back and received on our own RX buffer.
+                // We identify and ignore these echoes by matching the sender ID with our Top MAC address
+                // and validating if the command intent represents a request (GET, GETACK, or SET).
                 bool is_echo = (serDataIn.IDs == mac && (serDataIn.ack == GET || serDataIn.ack == GETACK || serDataIn.ack == SET));
                 
                 if (serDataIn.IDs != -1 && serDataIn.IDs != 0x99 && !is_echo)
@@ -156,34 +159,40 @@ void SercomTask(void *arg)
                     lastRx = millis();
                     if (serDataIn.ack == ACK)
                     {
-                        // printf("SER_SUB_ACK received cmd=%d from IDs=%X\r\n", serDataIn.cmd, serDataIn.IDs);
+                        // Explicit Acknowledgement received from the Sub; remove the matching message from retries
                         SerremoveAckMsg(serDataIn);
                     }
                     else
                     {
-                        // Any valid response from the sub (like INF status response) implicitly acts as an ACK.
+                        // IMPLICIT ACKNOWLEDGEMENT:
+                        // Any valid unsolicited response or status message (like MsgType.INF) received from the Sub
+                        // implies the Sub is awake, operational, and has processed our request.
+                        // We safely remove any matching pending retry messages from our buffer.
                         SerremoveAckMsg(serDataIn);
-                        // printf("SER_SUB_IN CMD=%d from IDs=%X\n", serDataIn.cmd, serDataIn.IDs);
                         xQueueSend(serIn, (void *)&serDataIn, 10);
                         lastSerMsg = millis();
 
                         if (serDataIn.ack == GETACK)
                         {
+                            // If the Sub explicitly requested an acknowledgement, construct and send the ACK reply
                             serDataIn.IDr = serDataIn.IDs;
                             serDataIn.IDs = mac;
                             serDataIn.ack = ACK;
                             xQueueSend(serOut, (void *)&serDataIn, 10);
-                            // printf("SER_SUB_ACK_SEND cmd=%d to IDr=%X\r\n", serDataIn.cmd, serDataIn.IDr);
                         }
                     }
                 }
             }
         }
 
+        // Process any outgoing serial commands destined for the Sub unit
         if (xQueueReceive(serOut, (void *)&serDataOut, 0) == pdTRUE)
         {
             if (serDataOut.cmd == WAKEUP)
             {
+                // Physical wakeup sequence for the Sub:
+                // Terminates serial UART peripheral, pulls the TX line physically HIGH for 500ms,
+                // and then re-establishes serial communication.
                 Serial.println("Waking up Sub...");
                 Serial1.end();
                 pinMode(COM_PIN_TX, OUTPUT);
@@ -194,6 +203,7 @@ void SercomTask(void *arg)
             }
             else
             {
+                // Enforce line silence margin (20ms) after last reception to prevent packet collisions
                 while (lastRx + 20 > millis())
                     vTaskDelay(pdMS_TO_TICKS(1));
 
@@ -203,6 +213,7 @@ void SercomTask(void *arg)
                 Serial1.println(out);
                 printf("DEBUG_SERCOM_OUT: %s\r\n", out.c_str());
 
+                // If the outgoing command is GETACK or SET, record it in our retransmission list
                 if (serDataOut.ack == GETACK || serDataOut.ack == SET)
                 {
                     serDataOut.retry = 5;

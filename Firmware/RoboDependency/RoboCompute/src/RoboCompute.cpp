@@ -6,14 +6,19 @@ bool startsWithDollar(const String &str)
     return str.charAt(0) == '$';
 }
 
+// Helper function to format floating-point numbers.
+// Purpose: Reduces RF packet size and payload bandwidth by stripping redundant trailing zeros and decimal points.
+// For example: 12.50000 -> 12.5, 12.00000 -> 12, 0.00000 -> 0.
 String formatFloat(double val, int precision)
 {
     if (val == 0.0) return "0";
     String s = String(val, precision);
     if (s.indexOf('.') != -1) {
+        // Strip trailing zeros after the decimal point
         while (s.endsWith("0")) {
             s.remove(s.length() - 1);
         }
+        // If the decimal point itself is now trailing, strip it too
         if (s.endsWith(".")) {
             s.remove(s.length() - 1);
         }
@@ -21,12 +26,16 @@ String formatFloat(double val, int precision)
     return s;
 }
 
+// Decodes a comma-separated telemetry command string into a structured RoboStruct data storage object.
+// Analyzes the command identifier, status byte, and maps parameters to their respective fields based on command type.
 void RoboDecode(String data, RoboStruct *dataStore)
 {
     dataStore->cmd = -1;
     String numbers[25];
     int count = 0;
     String substring = data;
+    
+    // Parse the comma-separated tokens into the numbers array
     while (count < 25)
     {
         int commaIndex = substring.indexOf(',');
@@ -34,6 +43,7 @@ void RoboDecode(String data, RoboStruct *dataStore)
         numbers[count++] = substring.substring(0, commaIndex);
         substring = substring.substring(commaIndex + 1);
     }
+    // We expect at least two fields: the command ID and the status/ack byte
     if (count < 2) return;
     dataStore->cmd = numbers[0].toInt();
     dataStore->status = numbers[1].toInt();
@@ -438,22 +448,28 @@ String RoboCode(const RoboStruct *dataOut)
         break;
     }
 
-    // Compress zeros to empty strings to save bandwidth
+    // Bandwidth Optimization: Post-process the generated comma-separated telemetry string
+    // to compress any numeric zeros (e.g. "0", "0.0", "-0.0", etc.) to empty tokens (e.g. "").
+    // This dramatically reduces the payload size transmitted over the LoRa/RF channel,
+    // conserving airtime and increasing system-wide transmission robustness.
     String optimized = "";
     int lastComma = -1;
     for (unsigned int i = 0; i <= out.length(); i++) {
+        // Iterate through the string character-by-character to locate comma bounds or the end of string
         if (i == out.length() || out[i] == ',') {
             String token = out.substring(lastComma + 1, i);
             if (token.length() > 0) {
                 bool isZero = true;
+                // A token is considered a zero if it contains only '0', '.', or '-'
                 for (unsigned int j = 0; j < token.length(); j++) {
                     if (token[j] != '0' && token[j] != '.' && token[j] != '-') {
                         isZero = false;
                         break;
                     }
                 }
+                // Confirm it's a numeric zero and not a stray negative sign, period, or partial token
                 if (isZero && token != "-" && token != "." && token != "-.") {
-                    token = "";
+                    token = ""; // Compress to empty string
                 }
             }
             if (lastComma != -1) optimized += ",";

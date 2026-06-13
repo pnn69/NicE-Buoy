@@ -1025,6 +1025,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     
                     if (RfIn.ack == SET || RfIn.ack == GETACK) {
+                        // Unpack and commit the incoming PID and configuration values to local flash/EEPROM storage
                         pidRudderParameters(&RfIn, SET);
                         pidSpeedParameters(&RfIn, SET);
                         CompasOffset(&RfIn, SET);
@@ -1042,7 +1043,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                         RfOut->revSB = RfIn.revSB;
                         RfOut->swap_BB_SB = RfIn.swap_BB_SB;
                         
-                        // Force Sub to save permanently to EEPROM
+                        // FORWARD TO SUB: Force the Sub to physically commit these parameters to its local persistent EEPROM/flash.
                         RfIn.ack = SET;
                         if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
                             printf("ERROR: Failed to queue SETUPDATA forward request to serOut!\r\n");
@@ -1053,11 +1054,13 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
 
                     } 
                     
-                    // Remember who asked for the data so we can route the sub response back to them
+                    // Route Tracking: Record the sender ID who initiated the request,
+                    // allowing us to route the Sub's asynchronous reply back to the correct requester.
                     lastSetupRequester = RfIn.IDs;
 
                     // Forward to Sub to trigger a fresh update. 
-                    // Set sender ID to our own MAC address so low-level serial task filters out echoes.
+                    // Overwrite the sender ID with our own Top MAC address to ensure the half-duplex serial driver
+                    // recognizes and ignores self-echoed transactions.
                     RfIn.IDr = BUOYIDALL;
                     RfIn.IDs = espMac();
                     printf("DEBUG_SETUPDATA: Forwarding to Sub via serOut. maxSpeed=%d, ack=%d\r\n", RfIn.maxSpeed, RfIn.ack);

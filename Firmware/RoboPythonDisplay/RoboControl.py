@@ -692,7 +692,9 @@ class RoboMonitor:
                 # Use MsgType.SET (2) for setting parameters to ensure the buoy processes and saves the update
                 curr_status = b['data'].get("Status", "7")
                 
-                # Safely collect values from GUI elements on the main thread before destroying setup_win
+                # THREAD SAFETY: Safely extract string/numeric values from Tkinter GUI elements 
+                # (Entry widgets, Checkbuttons) on the main GUI thread before destroying the window,
+                # as Tkinter widgets cannot be safely queried or accessed from background worker threads.
                 v_kpr, v_kir, v_kdr = kpr.get(), kir.get(), kdr.get()
                 v_kps, v_kis, v_kds = kps.get(), kis.get(), kds.get()
                 v_max_s, v_min_s, v_piv_s = max_s.get(), min_s.get(), piv_s.get()
@@ -703,7 +705,9 @@ class RoboMonitor:
                 
                 vals = [v_kpr, v_kir, v_kdr, v_kps, v_kis, v_kds, v_max_s, v_min_s, v_piv_s, v_c_off, v_h_rad, v_rev_bb, v_rev_sb, v_swap]
                 
-                # Send the SETUPDATA command on a background thread to prevent GUI freezing / thread blocking
+                # RESPONSIVENESS: Offload the network transmission (UDP broadcast/unicast) to a separate 
+                # background daemon thread. This prevents the Tkinter main event loop from freezing or
+                # blocking while the socket waits to send data on slower or congested network interfaces.
                 def do_sends():
                     self.send_custom_udp_command(b['id'], f"{b['id']},99,{MsgType.SET},{MsgType.SETUPDATA},{curr_status},{','.join(vals)}")
                 

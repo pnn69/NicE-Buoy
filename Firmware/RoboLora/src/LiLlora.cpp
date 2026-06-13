@@ -185,28 +185,32 @@ void onReceive(int packetSize)
 }
 
 //***************************************************************************************************
-//  Lora data out
+//  Lora data out: Handles low-level transmission of formatted telemetry payloads.
+//  Implements safety margins, LED indicators, and explicit end-of-packet validation.
 //***************************************************************************************************
 bool sendLora(String loraTransmitt)
 {
+    // Ensure the required transmission cooldown delay has elapsed
     if (transmittReady < millis())
     {
-        if (LoRa.beginPacket()) // start packet
+        if (LoRa.beginPacket()) // Initialize the hardware packet buffer
         {
-            digitalWrite(LED_PIN, HIGH); // turn on led
+            digitalWrite(LED_PIN, HIGH); // Turn on transmission indicator LED
             LoRa.write(loraTransmitt.length());
             LoRa.print(loraTransmitt);
             
-            if (LoRa.endPacket() == 1) // finish packet and send it (returns 1 on success)
+            // Validate packet transmission success. LoRa.endPacket() returns 1 if packet sent successfully.
+            if (LoRa.endPacket() == 1) 
             {
-                digitalWrite(LED_PIN, LOW); // turn off led
+                digitalWrite(LED_PIN, LOW); // Turn off transmission indicator LED
                 printf("#####################Lora sent: %s\r\n", loraTransmitt.c_str());
+                // Enforce a brief post-transmission silence window (10ms) to allow channel recovery
                 transmittReady = millis() + 10;
-                return true; // return true if success
+                return true; 
             }
             else
             {
-                digitalWrite(LED_PIN, LOW); // turn off led
+                digitalWrite(LED_PIN, LOW); // Safeguard indicator LED state
                 Serial.println("#Error: LoRa.endPacket() failed during transmission.");
             }
         }
@@ -219,7 +223,8 @@ bool sendLora(String loraTransmitt)
 }
 
 //***************************************************************************************************
-//  Lora task
+//  Lora task: Orchestrates main outgoing queues, automated retries, and self-healing.
+//  Runs pinned to its own core to guarantee low-latency RF performance.
 //***************************************************************************************************
 void LoraTask(void *arg)
 {
@@ -227,18 +232,21 @@ void LoraTask(void *arg)
     delay(500);
     while (1)
     {
-        onReceive(LoRa.parsePacket()); // check if there is new data availeble
+        // Continuously poll the LoRa FIFO buffer to process incoming packets
+        onReceive(LoRa.parsePacket()); 
 
-        // data to send from main
+        // Process any outgoing telemetry messages queued by the main firmware loop
         static RoboStruct txMsg;
         if (xQueueReceive(loraOut, (void *)&txMsg, 1) == pdTRUE)
         {
-            txMsg.IDs = espMac();
+            txMsg.IDs = espMac(); // Attach the local device MAC address as sender ID
             String loraString = rfCode(&txMsg);
 
             int attempts = 0;
             const int maxAttempts = 3;
             bool sent = false;
+            
+            // Retry Loop: Attempt to transmit up to 3 times in case of congestion or collision
             while (attempts < maxAttempts)
             {
                 if (sendLora(String(loraString)))
@@ -247,13 +255,16 @@ void LoraTask(void *arg)
                     break;
                 }
                 attempts++;
-                for (int d = 0; d < 15; d++) // 15 * 10ms = 150ms
+                // Wait 150ms before retrying, during which we keep polling to avoid RX FIFO overflows
+                for (int d = 0; d < 15; d++) 
                 {
-                    onReceive(LoRa.parsePacket()); // keep receiving while waiting
+                    onReceive(LoRa.parsePacket()); 
                     vTaskDelay(pdMS_TO_TICKS(10));
                 }
             }
 
+            // Lock Recovery / Self-Healing: If 3 transmission attempts failed, the SPI LoRa module
+            // may have entered an unstable lock state. Trigger a hardware-level reinitialization.
             if (!sent)
             {
                 Serial.println("#Error: Failed to transmit LoRa packet after 3 attempts. Transceiver may be locked up.");
@@ -269,15 +280,16 @@ void LoraTask(void *arg)
             }
 
             Serial.println(loraString);
-            if (txMsg.ack == GETACK || txMsg.ack == 3) // 3 is Python's GETACK
+            // If the message requests a remote receipt confirmation (GETACK/SET), store it for tracking
+            if (txMsg.ack == GETACK || txMsg.ack == 3) // 3 is Python's GETACK equivalence
             {
                 txMsg.retry = 5;
-                storeAckMsg(txMsg);                                 // put data in buffer (will be removed on ack)
-                retransmittReady = millis() + 500 + random(0, 150); // give some time for ack
+                storeAckMsg(txMsg);                                 // Insert into pending acknowledgements list
+                retransmittReady = millis() + 500 + random(0, 150); // Schedule retry check with random jitter
             }
         }
 
-        /* retry one time*/
+        /* Retransmit any pending unacknowledged packets */
         if (retransmittReady < millis())
         {
             static RoboStruct retryMsg;
@@ -288,6 +300,8 @@ void LoraTask(void *arg)
                 int attempts = 0;
                 const int maxAttempts = 3;
                 bool sent = false;
+                
+                // Retry Transmission loop for pending acknowledgements
                 while (attempts < maxAttempts)
                 {
                     if (sendLora(loraString))
@@ -296,9 +310,10 @@ void LoraTask(void *arg)
                         break;
                     }
                     attempts++;
-                    for (int d = 0; d < 5; d++) // 5 * 10ms = 50ms
+                    // Short wait with continuous FIFO polling
+                    for (int d = 0; d < 5; d++) 
                     {
-                        onReceive(LoRa.parsePacket()); // keep receiving while waiting
+                        onReceive(LoRa.parsePacket()); 
                         vTaskDelay(pdMS_TO_TICKS(10));
                     }
                 }
@@ -316,15 +331,15 @@ void LoraTask(void *arg)
                         Serial.println("#LoRa self-healing failed!");
                     }
                 }
-                retransmittReady = millis() + 900 + random(0, 150);
+                retransmittReady = millis() + 900 + random(0, 150); // Reschedule retry check
             }
             else
             {
-                // No pending messages to retry, check again in 500ms
+                // No pending messages to retry, idle check schedule
                 retransmittReady = millis() + 500;
             }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(1)); // Yield CPU to other tasks and prevent starvation
+        vTaskDelay(pdMS_TO_TICKS(1)); // Critical: yield CPU core control to prevent watchdog timeout triggers
     }
 }
