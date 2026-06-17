@@ -42,6 +42,7 @@ QueueHandle_t compass = NULL;
 QueueHandle_t compassIn = NULL;
 
 bool bno_ready = false;
+bool bno_profile_exists = false;
 String bno_error = "BNO Mode";
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28, &Wire);
 uint8_t bno_i2c_addr = 0x28; // Detected dynamically (0x28 or 0x29)
@@ -227,6 +228,7 @@ bool InitCompass(void)
 
         bool hasProfile = false;
         for(int i=0; i<22; i++) if(calData[i] != 0) hasProfile = true;
+        bno_profile_exists = hasProfile;
 
         if (hasProfile) {
             uint8_t verifyData[22];
@@ -291,6 +293,7 @@ void initcompassQueue(void) {
 void CompassTask(void *arg) {
     static bool autoSaved = false;
     static bool was_timeout_active = false;
+    static uint32_t cal_achieved_time = 0;
     uint32_t loop_counter = 0;
     while (1) {
         global_loop_cnt++;
@@ -305,6 +308,7 @@ void CompassTask(void *arg) {
                     updateUIHex(calData, false);
                     setCalMsg("MANUAL SAVE SUCCESS", 0);
                     autoSaved = true;
+                    bno_profile_exists = true;
                 } else {
                     setCalMsg("SAVE FAILED - NO DATA", 0);
                 }
@@ -342,14 +346,27 @@ void CompassTask(void *arg) {
                 loop_counter = 0;
                 bno.getCalibration(&bno_cal_sys, &bno_cal_gyro, &bno_cal_accel, &bno_cal_mag);
                 
-                // AUTO-SAVE: Triggered when high accuracy is reached (M:3, G:3)
-                if (!autoSaved && bno_cal_mag == 3 && bno_cal_gyro == 3) {
-                    uint8_t calData[22];
-                    if (getBnoOffsetsDirect(calData)) {
-                        memBnoCalib(calData, false);
-                        updateUIHex(calData, false);
-                        autoSaved = true;
-                        setCalMsg("AUTO-SAVE SUCCESS", 0);
+                // AUTO-SAVE: Triggered when high accuracy is reached (M:3, G:3) and maintained for 30 minutes, ONLY IF NO PROFILE EXISTS
+                if (!autoSaved && !bno_profile_exists) {
+                    if (bno_cal_mag == 3 && bno_cal_gyro == 3) {
+                        if (cal_achieved_time == 0) {
+                            cal_achieved_time = millis();
+                            Serial.println("BNO055: High calibration (M:3, G:3) reached. Starting 30-minute auto-save countdown...");
+                        } else if (millis() - cal_achieved_time >= 1800000) { // 30 minutes = 1,800,000 ms
+                            uint8_t calData[22];
+                            if (getBnoOffsetsDirect(calData)) {
+                                memBnoCalib(calData, false);
+                                updateUIHex(calData, false);
+                                autoSaved = true;
+                                setCalMsg("AUTO-SAVE SUCCESS", 0);
+                                Serial.println("BNO055: Calibration sustained for 30 minutes. AUTO-SAVE SUCCESS!");
+                            }
+                        }
+                    } else {
+                        if (cal_achieved_time != 0) {
+                            Serial.println("BNO055: Calibration dropped below threshold. Resetting 30-minute auto-save countdown.");
+                            cal_achieved_time = 0;
+                        }
                     }
                 }
                 // Commented out to prevent continuous Flash/NVS writes and web server stalls during movement
