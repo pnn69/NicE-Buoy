@@ -1,10 +1,65 @@
-# RoboTop (Surface Unit Firmware)
+# RoboTop — Autonomous Marine Buoy Master Supervisor Firmware
 
-The `RoboTop` firmware runs on the surface ESP32 unit of the NicE-Buoy system. It acts as the central communications and routing hub for the buoy.
+The **`RoboTop`** firmware runs on the master ESP32 microcontroller of the NicE-Buoy Autonomous Marine System. It serves as the primary intelligence, networking, and supervisory node, managing global positioning, wireless telemetry channels, client-facing control dashboards, and delegating physical motor actions to the Sub Unit (`RoboSub`).
 
-## Key Features
-- **Communications Hub:** Bridges LoRa, WiFi (UDP & Web Server), and a direct Serial link to the `RoboSub` unit.
-- **Web Interface:** Hosts a captive portal / Web GUI (`index.html` via SPIFFS) for monitoring telemetry (battery, heading, GPS) and issuing commands (LOCK, DOCK, setup PIDs).
-- **GPS Navigation:** Integrates a GPS module to determine global position and calculate distance/heading to target waypoints.
-- **User Feedback:** Controls top-mounted LEDs and a buzzer for visual and auditory status indicators (e.g., locking, docking, error states).
-- **Routing Logic:** Intelligently forwards NMEA-style `$CMD` packets from remote controllers (Python UI or LoRa Handset) down to the `RoboSub`.
+---
+
+## 🏗️ Architecture & Core Tasks
+
+RoboTop leverages FreeRTOS to coordinate real-time operations across the ESP32's dual cores:
+*   **Core 0 (Communications & Wireless)**: Dedicated to hosting the web server, broadcasting UDP telemetry, running wireless client WebSockets, and managing long-range LoRa RF operations.
+*   **Core 1 (GPS, Math & Serial Bridge)**: Focuses on high-precision GPS polling (UART), Great-Circle navigation math calculations, and RS-485 serial bus scheduling.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                                RoboTop                                 │
+├───────────────────────────────────┬────────────────────────────────────┤
+│              Core 0               │               Core 1               │
+├───────────────────────────────────┼────────────────────────────────────┤
+│ - WiFiTask (Local AP Web Server)  │ - GpsTask (TinyGPS++ Polling)      │
+│ - LoraTask (SPI long-range RF)    │ - SercomTask (RS-485 Serial Bridge)│
+│ - UDP Broadcasting (Port 1001)    │ - Route Computation (Great-Circle) │
+└───────────────────────────────────┴────────────────────────────────────┘
+```
+
+---
+
+## ⚡ Core Functional Modules
+
+### 1. GPS Acquisition & Navigation Telemetry
+*   **Hardware Interface**: Interlines with a GPS module (e.g., NEO-8M) over UART, polling raw NMEA sentences.
+*   **Sentence Parsing**: Leverages the `TinyGPSPlus` parser to extract exact latitude, longitude, heading, and Speed Over Ground (SOG).
+*   **Safety Filtering**: Implements outlier detection and HDOP (Horizontal Dilution of Precision) filtering to ignore coordinate spikes caused by satellite multipath interference in marine environments.
+
+### 2. Long-Range LoRa Telemetry Gateway (`loratop.cpp`)
+*   **Hardware Interface**: Interlines with an SPI-driven LoRa transceiver to establish long-range bidirectional telemetry channels with the shore-based monitoring station.
+*   **Retry & ACK Protocol**: Implements a dedicated transmission buffer and acknowledgement checking loop. Relies on structured ASCII frames and verification IDs.
+*   **Self-Healing SPI Watchdog**: Monitors SPI transaction states. If packet transmissions hang or fail consecutively over a 500ms window, the system automatically forces a full hardware and software reset of the LoRa registers (`InitLora()`).
+
+### 3. Wi-Fi Access Point & Web Sockets (`topwifi.cpp`)
+*   **Dual Wi-Fi Modes**: Can be configured as a standalone **Access Point (AP)** (allowing users to connect directly to the buoy in the water) or **Station (STA)** (connecting to an existing local infrastructure network).
+*   **HTML5 Dashboard**: Serves a highly interactive, responsive control web-dashboard from ESP32 local storage.
+*   **Asynchronous WebSockets**: Streams high-frequency telemetry (heading, speed, position, PID error states) directly to connected client browsers.
+*   **UDP Broadcast Server**: Periodically broadcasts system status strings over UDP (Port 1001) to enable instant discovery and monitoring by nearby desktop dashboards.
+
+### 4. RS-485 Half-Duplex Serial Bridge (`sercom.cpp`)
+*   **Physical Decoupling**: Communicates with `RoboSub` over a physical serial line using half-duplex RS-485.
+*   **Single-Wire Echo Filtering**: Since physical RX/TX lines are tied, the UART hardware receives its own transmissions. `SercomTask` filters out these loopback echoes by identifying its own MAC ID as the sender, ignoring these self-reflected frames.
+*   **Implicit ACK Handling**: Telemetry responses periodically received from the Sub unit are processed as implicit acknowledgements of command delivery, clearing retry buffers and maximizing serial bus availability.
+
+---
+
+## 🛠️ Building & Flashing
+
+RoboTop is built and managed using the **PlatformIO** ecosystem:
+
+1.  **Configuration (`platformio.ini`)**: Targets the `robo-esp-v3` environment and includes dependencies such as `TinyGPSPlus`, `Adafruit_BusIO`, and `WiFiManager`.
+2.  **Compilation**:
+    ```powershell
+    C:\Users\Peter.d.Nijs\.platformio\penv\Scripts\platformio.exe run
+    ```
+3.  **OTA Upload**:
+    The system supports Over-The-Air updates using PlatformIO's OTA upload protocol:
+    ```powershell
+    C:\Users\Peter.d.Nijs\.platformio\penv\Scripts\platformio.exe run -t upload
+    ```\n
