@@ -128,9 +128,9 @@ void setup()
     mainData.status = IDLE;
     memDockPos(&mainData, GET);
     if (mainData.tgLat == 0.0) {
-        printf("Dock position was empty. Setting default: 52.29296796, 4.93254612\r\n");
-        mainData.tgLat = 52.29296796;
-        mainData.tgLng = 4.93254612;
+        printf("Dock position was empty. Setting default: 52.29297458258483, 4.932530436175406\r\n");
+        mainData.tgLat = 52.29297458258483;
+        mainData.tgLng = 4.932530436175406;
         memDockPos(&mainData, SET);
     }
     thrusterInversion(&mainData, GET);
@@ -420,21 +420,14 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         {
             beep(1, buzzer);
             stat->status = LOCKED;
+            stat->tgDist = 0.0;
             stat->cmd = LOCKPOS;
             stat->ack = SET;
             stat->tgLat = stat->lat;
             stat->tgLng = stat->lng;
             AddDataToBuoyBase(*stat, buoyParaPtrs); // store positon for later calculations Track positioning
             // IDr,IDs,ACK,MSG,LAT,LON
-            xQueueSend(udpOut, (void *)stat, 0);   // update WiFi
-            xQueueSend(loraOut, (void *)stat, 10); // send out trough Lora
-            RouteToPoint(stat->lat, stat->lng, stat->tgLat, stat->tgLng, &stat->tgDist, &stat->tgDir);
-            stat->cmd = RESET_SPEED_RUD_PID;
-            xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
-            xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
-            stat->cmd = DIRDIST;
-            xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
-            xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
+            xQueueSend(serOut, (void *)stat, 0);   // update sub
         }
         else
         {
@@ -447,20 +440,17 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         beep(1, buzzer);
         memDockPos(stat, GET);
         stat->status = DOCKED;
+        stat->tgDist = 0.0;
+        stat->tgDir = 0.0;
+        xQueueSend(serOut, (void *)stat, 0);   // update sub
         printf("Retreved data for docking tgLat:%.8f tgLng:%.8f\r\n", stat->tgLat, stat->tgLng);
-        if (stat->lat != 0.0 && stat->lng != 0.0 && stat->tgLat != 0.0 && stat->tgLng != 0.0) {
-            RouteToPoint(stat->lat, stat->lng, stat->tgLat, stat->tgLng, &stat->tgDist, &stat->tgDir);
-        } else {
-            stat->tgDist = 0;
-            stat->tgDir = 0;
-            if (stat->tgLat == 0.0) printf("WARNING: Dock position not set in memory!\r\n");
-        }
-        stat->cmd = RESET_SPEED_RUD_PID;
-        xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
-        xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
-        stat->cmd = DIRDIST;
-        xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
-        xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
+        if (stat->tgLat == 0.0) printf("WARNING: Dock position not set in memory!\r\n");
+        // stat->cmd = RESET_SPEED_RUD_PID;
+        // xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
+        // xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
+        // stat->cmd = DIRDIST;
+        // xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
+        // xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
         break;
 
     case COMPUTESTART:
@@ -528,13 +518,13 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         break;
     case START_CALIBRATE_MAGNETIC_COMPASS:
         LoraTx.cmd = CALIBRATE_MAGNETIC_COMPASS;
-        LoraTx.ack = GETACK;
+        LoraTx.ack = ACK;
         xQueueSend(serOut, (void *)&LoraTx, 10); // send out trough Lora
         stat->status = CALIBRATE_MAGNETIC_COMPASS;
         break;
     case CALC_COMPASS_OFFSET:
         LoraTx.cmd = CALC_COMPASS_OFFSET;
-        LoraTx.ack = GETACK;
+        LoraTx.ack = ACK;
         xQueueSend(serOut, (void *)&LoraTx, 10); // send out trough Lora
         stat->status = IDELING;
         break;
@@ -722,44 +712,44 @@ void handleInfieldOffsetCalibration(RoboStruct *timer)
             
             calibPhase = 4;
         }
-        else if (calibPhase == 4 && elapsed < 140000)
+        // else if (calibPhase == 4 && elapsed < 140000)
+        // {
+        //     // Phase 4: Return Leg Stabilization (wait for buoy to turn around)
+        //     cmdMsg.tgDir = 0.0;
+        //     cmdMsg.speedSet = 50;
+        //     xQueueSend(serOut, (void *)&cmdMsg, 0);
+        // }
+        // else if (calibPhase == 4 && elapsed >= 140000)
+        // {
+        //     // Phase 5: Record Stable Return Start Point
+        //     lat2_stable = timer->lat;
+        //     lon2_stable = timer->lng;
+        //     calibPhase = 6;
+        //     printf("#INFIELD_OFFSET: Phase 5 (P2_stable recorded for return leg: %f, %f)\r\n", lat2_stable, lon2_stable);
+        // }
+        // else if (calibPhase == 6 && elapsed < 260000)
+        // {
+        //     // Phase 6: Return Leg Sailing
+        //     cmdMsg.tgDir = 0.0;
+        //     cmdMsg.speedSet = 50;
+        //     xQueueSend(serOut, (void *)&cmdMsg, 0);
+        // }
+        else if (calibPhase == 4)
         {
-            // Phase 4: Return Leg Stabilization (wait for buoy to turn around)
-            cmdMsg.tgDir = 0.0;
-            cmdMsg.speedSet = 50;
-            xQueueSend(serOut, (void *)&cmdMsg, 0);
-        }
-        else if (calibPhase == 4 && elapsed >= 140000)
-        {
-            // Phase 5: Record Stable Return Start Point
-            lat2_stable = timer->lat;
-            lon2_stable = timer->lng;
-            calibPhase = 6;
-            printf("#INFIELD_OFFSET: Phase 5 (P2_stable recorded for return leg: %f, %f)\r\n", lat2_stable, lon2_stable);
-        }
-        else if (calibPhase == 6 && elapsed < 260000)
-        {
-            // Phase 6: Return Leg Sailing
-            cmdMsg.tgDir = 0.0;
-            cmdMsg.speedSet = 50;
-            xQueueSend(serOut, (void *)&cmdMsg, 0);
-        }
-        else if (calibPhase == 6 && elapsed >= 260000)
-        {
-            // Phase 7: Record Final Point P3 and Validate
-            lat3 = timer->lat;
-            lon3 = timer->lng;
+            // // Phase 7: Record Final Point P3 and Validate
+            // lat3 = timer->lat;
+            // lon3 = timer->lng;
             
-            double gpsCourse2 = calculateAngle(lat2_stable, lon2_stable, lat3, lon3);
-            double validationError = abs(gpsCourse2 - 0.0);
-            while (validationError > 180.0) validationError -= 360.0;
+            // double gpsCourse2 = calculateAngle(lat2_stable, lon2_stable, lat3, lon3);
+            // double validationError = abs(gpsCourse2 - 0.0);
+            // while (validationError > 180.0) validationError -= 360.0;
             
-            printf("#INFIELD_OFFSET: Phase 7 (P3 recorded). GPS Course: %.2f. Error: %.2f\r\n", gpsCourse2, abs(validationError));
+            // printf("#INFIELD_OFFSET: Phase 7 (P3 recorded). GPS Course: %.2f. Error: %.2f\r\n", gpsCourse2, abs(validationError));
             
-            // Stop motors
-            cmdMsg.tgDir = 0.0;
-            cmdMsg.speedSet = 0;
-            xQueueSend(serOut, (void *)&cmdMsg, 0);
+            // // Stop motors
+            // cmdMsg.tgDir = 0.0;
+            // cmdMsg.speedSet = 0;
+            // xQueueSend(serOut, (void *)&cmdMsg, 0);
             
             // Phase 8: Return Home
             timer->tgLat = lat0;
@@ -788,6 +778,16 @@ void handleTimerRoutines(RoboStruct *timer)
     timer->IDs = timer->mac;
     timer->IDr = BUOYIDALL;
     timer->ack = INF;
+
+    static int lastStatus = -1;
+    bool statusChanged = false;
+    if ((timer->status == LOCKED || timer->status == DOCKED) &&
+        (lastStatus != LOCKED && lastStatus != DOCKED))
+    {
+        statusChanged = true;
+    }
+    lastStatus = timer->status;
+
     //***************************************************************************************************
     // sub data out
     //***************************************************************************************************
@@ -797,7 +797,9 @@ void handleTimerRoutines(RoboStruct *timer)
         if (timer->status == LOCKED || timer->status == DOCKED)
         {
             timer->lastSerOut = millis() + 250;
-            if (timer->lat != 0.0 && timer->lng != 0.0 && timer->tgLat != 0.0 && timer->tgLng != 0.0) {
+            if (statusChanged) {
+                timer->tgDist = 0.0;
+            } else if (timer->lat != 0.0 && timer->lng != 0.0 && timer->tgLat != 0.0 && timer->tgLng != 0.0) {
                 RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
             } else {
                 timer->tgDist = 0;
@@ -853,7 +855,7 @@ void handleTimerRoutines(RoboStruct *timer)
     {
         logtimer = millis() + 5000;
         battVoltage(timer->topAccuV, timer->topAccuP);
-        addNewSampleInBuffer(&wind, timer->dirMag); // add sample to buffer for wind direction calculation.
+        addNewSampleInBuffer(&wind, timer->tgDir); // add sample to buffer for wind direction calculation.
         deviationWindRose(&wind);
         timer->wStd = wind.wStd;
         timer->wDir = wind.wDir; // averige wind dir
