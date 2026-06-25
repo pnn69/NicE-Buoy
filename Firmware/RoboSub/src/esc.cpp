@@ -165,6 +165,9 @@ void EscTask(void *arg)
                 servoBB.writeMicroseconds(speedToPulse(s_bb, mainData.revBB));
                 global_speed_bb = s_bb;
                 global_speed_sb = s_sb;
+            } else {
+                global_speed_bb = 0;
+                global_speed_sb = 0;
             }
         }
 

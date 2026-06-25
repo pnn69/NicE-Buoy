@@ -4,6 +4,7 @@
 static Message esc;
 static RoboStruct rudderData;
 static RoboStruct speedData;
+static bool was_pure_pivot = false;
 
 //***************************************************************************************************
 //  new pid stuff
@@ -129,11 +130,13 @@ void rudderPid(RoboStruct *rud)
             // Zone 1: < 1m - No thrust, no rotation
             target_forward = 0;
             rotation_power = 0;
+            was_pure_pivot = false;
         }
         else if (rud->sub_status == SUB_STATUS_PIVOT_PREP) {
             // Zone 2: 1m to holdRad - Pivot ONLY
             target_forward = 0;
             rotation_power = constrain(rotation_power, -rud->maxSpeed * rud->pivotSpeed, rud->maxSpeed * rud->pivotSpeed);
+            was_pure_pivot = true;
         }
         else {
             // Zone 3: Locked Mode (Active Holding)
@@ -145,24 +148,33 @@ void rudderPid(RoboStruct *rud)
             double forward_factor = 1.0;
             if (abs_error > 45.0) {
                 forward_factor = 0.0;
-                resetRudPid();
+                if (!was_pure_pivot) {
+                    resetRudPid();
+                    resetSpeedPid();
+                    was_pure_pivot = true;
+                }
             }
-            else if (abs_error > 20.0) forward_factor = 1.0 - (abs_error - 20.0) / 25.0;
+            else if (abs_error > 20.0) {
+                forward_factor = 1.0 - (abs_error - 20.0) / 25.0;
+                if (forward_factor < 0.1) {
+                    if (!was_pure_pivot) {
+                        resetRudPid();
+                        resetSpeedPid();
+                        was_pure_pivot = true;
+                    }
+                } else {
+                    was_pure_pivot = false;
+                }
+            }
+            else {
+                was_pure_pivot = false;
+            }
 
             target_forward = rud->tgSpeed * forward_factor;
 
             // Smoothly blend the rotation power limit between pivotSpeed and full power (1.0)
             double rot_limit_factor = rud->pivotSpeed + (1.0 - rud->pivotSpeed) * forward_factor;
             rotation_power = constrain(rotation_power, -rud->maxSpeed * rot_limit_factor, rud->maxSpeed * rot_limit_factor);
-
-            // Handle PID resets only on major state exits to preserve continuity
-            static bool was_pure_pivot = false;
-            if (forward_factor < 0.1) was_pure_pivot = true;
-            else if (forward_factor > 0.9 && was_pure_pivot) {
-                resetRudPid();
-                resetSpeedPid();
-                was_pure_pivot = false;
-            }
         }
     }
 
@@ -261,7 +273,12 @@ void speedPid(RoboStruct *dist)
         speedInput = filtered_distance; // Measured distance
         speedSetpoint = (double)dist->holdRad; // The holding station distance (e.g., 2m)
 
-        if (speedPID.Compute()) {
+        if (was_pure_pivot) {
+            // Pause speed PID and hold speed output at 0 during pure pivot
+            dist->tgSpeed = 0;
+            resetSpeedPid();
+        }
+        else if (speedPID.Compute()) {
             double forward_power = speedOutput;
 
             // Dynamic Anti-Windup: If distance is far off (> 5 meters), force I-term to 0 natively
