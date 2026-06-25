@@ -70,7 +70,7 @@ void setup()
     Serial.begin(115200);
     pinMode(PWRENABLE, OUTPUT);
     digitalWrite(PWRENABLE, 1); // enable powersupply
-    delay(500); // Give sensors time to power up!
+    delay(1000); // Give BNO055 and other sensors time to power up completely (BNO055 requires up to 650ms)!
     Wire.begin(21, 22);
     Wire.setClock(400000);
     
@@ -635,12 +635,11 @@ void handelSerialTimeOut(RoboStruct *ser)
     {
         WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // disable brownout detector
         PwrOff = millis();
-        triggerESC();
         beep(-1, buzzer);
         printf("Power off now!\r\n");
-        delay(5000);
-        digitalWrite(PWRENABLE, 0); // disable powersupply
         delay(1000);
+        digitalWrite(PWRENABLE, 0); // disable powersupply
+        delay(5000);
         PwrOff = millis();
     }
 }
@@ -708,19 +707,13 @@ void handleTimerRoutines(RoboStruct *in)
         break;
     case IDLE:
     case IDELING:
-        if (in->speedBb != 0 || in->speedSb != 0)
-        {
-            if (pidTimer < millis())
-            {
-                pidTimer = millis() + 20;
-                rudderPid(in);
-                escOut.speedbb = in->speedBb;
-                escOut.speedsb = in->speedSb;
-                xQueueSend(escspeed, (void *)&escOut, 10);
-            }
-        }
+        escOut.speedbb = 0;
+        escOut.speedsb = 0;
+        in->speedBb = 0;
+        in->speedSb = 0;
         in->ip = 0;
         in->ir = 0;
+        xQueueSend(escspeed, (void *)&escOut, 10);
         break;
     default:
         break;
@@ -741,13 +734,21 @@ void handleTimerRoutines(RoboStruct *in)
         }
     }
 
+    /* 
+     * Telemetry and Logging Interval Update:
+     * Reduced logtimer interval from 1000ms to 500ms to increase logging resolution.
+     * This provides more immediate physical sensor output, battery metrics, 
+     * and ESC/thruster speeds for diagnostic interfaces, ensuring that rapid 
+     * status transitions are captured clearly on the monitor without causing
+     * significant serial bus contention.
+     */
     if (logtimer < millis())
     {
-        logtimer = millis() + 1000;
+        logtimer = millis() + 500;
         battVoltage(mainData.subAccuV, mainData.subAccuP);
         battCurrent(mainData.subAccuI);
-        printf("V31 TD:%05.2f TgSpeed: %05.2f C:%03.0f T:%03.0f A:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", mainData.tgDist - 2, mainData.tgSpeed, mainData.dirMag, mainData.tgDir, smallestAngle(mainData.tgDir, mainData.dirMag), rudderOutput, mainData.speedBb, mainData.speedSb);
-        printf("  ip: %05.3f ir: %05.3f rev: %d\r\n", mainData.ip, mainData.ir, global_params_rev);
+        printf("C:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", mainData.dirMag, rudderOutput, mainData.speedBb, mainData.speedSb);
+        printf("  ip: %05.3f ir: %05.3f %0.2fV %0.2fA\r\n", mainData.ip, mainData.ir, mainData.subAccuV, mainData.subAccuI);
     }
 }
 
@@ -774,7 +775,6 @@ void loop(void)
     xQueueSend(ledPwr, (void *)&mainPwrData, 0);    // update power led
     PwrOff = millis();
     mainData.status = IDLE;
-    beep(1, buzzer);
     while (true)
     {
         //***************************************************************************************************
