@@ -47,13 +47,14 @@ void battCurrent(float &current_a)
 {
 #ifdef IMON_PIN
     int adc_mv = analogReadMilliVolts(IMON_PIN);
-    // Formula: I = (V - 1.65V) * (20A / 1.55V)
-    // I = (adc_mv - 1650) * (20 / 1550)
-    // 0 mV → ≈ -21.3 A
+    // Formula: I = (V - 1.65V) * (Gain *4) gain = 4k7/1k5 = 3.133
+    // I = (adc_mv - 1650) * 12.533
+    // 0 mV → ≈ -20.7 A
     // 100mV → ≈ -19.4 A
     // 1650 mV → 0 A
-    // 3200 mV → ≈ +22.6 A
-    // float instant_current = (float)(adc_mv - 1650) * (20.0f / 1550.0f);
+    // 2000 mV → ≈ +4.3 A
+    printf("Raw adc IMON %d\r\n",adc_mv);
+    float instant_current = (float)(adc_mv - 1650) * (4.0 * (4700/1500.0f))/1000.0f; // Convert to Amperes
 
     if (first_read_i) {
         smoothed_current = instant_current;

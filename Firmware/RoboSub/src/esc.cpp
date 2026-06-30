@@ -124,10 +124,10 @@ void EscTask(void *arg)
             offStamp = millis() + 30000; // Reset 30s timer
             if (!esc_power_on)
             {
+                printf("ESCs Waking Up from sleep.\r\n");
                 startESC();
                 esc_power_on = true;
                 spsbAct = 0; spbbAct = 0;
-                printf("ESCs Waking Up from sleep.\r\n");
             }
         }
         else if (millis() > offStamp)

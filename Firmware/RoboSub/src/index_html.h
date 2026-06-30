@@ -23,19 +23,26 @@ button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:poin
 </style></head><body>
 <h2 id="mainTitle">NicE-Buoy Sub</h2>
 <div class="info"><span>Heading: <span id="icmVal" class="icm">0.0</span>&deg;</span><span>Ping: <span id="pingVal" style="color:#ffcc00;font-weight:bold">0</span>ms</span></div>
-<div id="calMsg" class="cal-msg">Initializing...</div>
+<div style="display:flex;justify-content:center;gap:15px;align-items:center;margin:5px 0;min-height:1.2em;">
+<div id="subStatus" style="color:#00d1ff;font-size:0.9em;font-weight:bold;">STATE: UNKNOWN</div>
+<div id="calMsg" class="cal-msg" style="margin:0;">Initializing...</div>
+</div>
 <div class="main-row">
-<div class="side-panel"><div>BB</div><div class="side-bar"><div class="zero-line"></div><div id="bb_bar" class="thruster-bar"></div></div><div><span id="bb_val">0</span>%</div></div>
+<div class="side-panel"><div>BB</div><div class="side-bar"><div class="zero-line"></div><div id="bb_bar" class="thruster-bar"></div></div><div><span id="bb_val">0</span>%</div><div style="font-size:0.85em;margin-top:5px;color:#00d1ff">Is:<span id="is_val">0.00</span></div></div>
 <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
 <canvas id="compassCanvas" width="400" height="400" style="margin:0 auto;display:block;"></canvas>
 <div style="width:400px;margin-top:10px;text-align:left;">
-<div style="width:100%;height:30px;background:#333;border:1px solid #555;border-radius:4px;position:relative;overflow:hidden;">
+<div style="width:100%;height:30px;background:#333;border:1px solid #555;border-radius:4px;position:relative;overflow:hidden;margin-bottom:8px;">
 <div id="vattBar" style="position:absolute;left:0;top:0;height:100%;width:0%;transition:width 0.2s,background-color 0.2s;"></div>
 <div id="vattVal" style="position:absolute;width:100%;text-align:center;line-height:30px;font-weight:bold;font-size:1.1em;color:#fff;z-index:2;">0.0V</div>
 </div>
+<div style="width:100%;height:30px;background:#333;border:1px solid #555;border-radius:4px;position:relative;overflow:hidden;">
+<div id="currBar" style="position:absolute;left:0;top:0;height:100%;width:0%;transition:width 0.2s;background-color:#5a32a8;"></div>
+<div id="currVal" style="position:absolute;width:100%;text-align:center;line-height:30px;font-weight:bold;font-size:1.1em;color:#fff;z-index:2;">0.00A</div>
 </div>
 </div>
-<div class="side-panel"><div>SB</div><div class="side-bar"><div class="zero-line"></div><div id="sb_bar" class="thruster-bar"></div></div><div><span id="sb_val">0</span>%</div></div>
+</div>
+<div class="side-panel"><div>SB</div><div class="side-bar"><div class="zero-line"></div><div id="sb_bar" class="thruster-bar"></div></div><div><span id="sb_val">0</span>%</div><div style="font-size:0.85em;margin-top:5px;color:#ffcc00">Ir:<span id="ir_val">0.00</span></div></div>
 </div>
 <div class="raw-container">
 <div class="raw-box"><b>Rudder PID</b>
@@ -98,11 +105,24 @@ function fetchData(){
         if (pingElem) pingElem.innerText = Date.now() - startTime;
         document.getElementById('icmVal').innerText=d.icm.toFixed(1);
         document.getElementById('calMsg').innerText=d.cal_msg;
+        const statusElem = document.getElementById('subStatus');
+        if (statusElem && d.status_str) {
+            statusElem.innerText = 'STATE: ' + d.status_str;
+        }
         document.getElementById('cal_load').innerText=d.cal_load;
         document.getElementById('cal_ver').innerText=d.cal_ver;
         if(d.mac)document.getElementById('mainTitle').innerText='NicE-Buoy Sub '+d.mac;
         updateThruster('bb',d.speed_bb);
         updateThruster('sb',d.speed_sb);
+        
+        const isElem = document.getElementById('is_val');
+        if (isElem && d.ip !== undefined) {
+            isElem.innerText = d.ip.toFixed(2);
+        }
+        const irElem = document.getElementById('ir_val');
+        if (irElem && d.ir !== undefined) {
+            irElem.innerText = d.ir.toFixed(2);
+        }
         
         if (d.rev !== undefined) {
             if (lastParamRev !== -1 && d.rev > lastParamRev) {
@@ -127,6 +147,15 @@ function fetchData(){
             } else {
                 bar.style.backgroundColor = '#ff3333'; // Red from 17 till 19
             }
+        }
+
+        if (d.curr !== undefined) {
+            const c = d.curr;
+            const bar = document.getElementById('currBar');
+            const val = document.getElementById('currVal');
+            val.innerText = c.toFixed(2) + 'A';
+            const pct = Math.max(0, Math.min(100, ((c + 20) / 40) * 100));
+            bar.style.width = pct + '%';
         }
         
         if (!headingInitialized) {

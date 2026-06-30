@@ -4,7 +4,12 @@
 static Message esc;
 static RoboStruct rudderData;
 static RoboStruct speedData;
-static bool was_pure_pivot = false;
+bool was_pure_pivot = false;
+
+// File-level ramp states for smooth motor transitions
+double forward_ramp = 0;
+double rampBb = 0;
+double rampSb = 0;
 
 //***************************************************************************************************
 //  new pid stuff
@@ -29,6 +34,7 @@ void resetRudPid()
     rudderInput = 0;
     rudderSetpoint = 0;
     rudderPID.SetMode(AUTOMATIC);
+    forward_ramp = 0;
 }
 
 /**
@@ -64,6 +70,7 @@ void resetSpeedPid()
     speedInput = 0;
     speedSetpoint = 0;
     speedPID.SetMode(AUTOMATIC);
+    forward_ramp = 0;
 }
 
 /**
@@ -118,7 +125,6 @@ void rudderPid(RoboStruct *rud)
 
     // 3.3 Position PID (forward_power is calculated by speedPid and passed via tgSpeed)
     double target_forward = rud->tgSpeed;
-    static double forward_ramp = 0;
 
     // --- DRIFT & LOCK LOGIC ---
     if (rud->status == IDLE || rud->status == IDELING) {
@@ -183,10 +189,10 @@ void rudderPid(RoboStruct *rud)
     
     // Forward Ramping
     if (forward_ramp < target_forward) {
-        forward_ramp += 5.0; // Ramp up faster (approx 10% per 20ms = 500% per second)
+        forward_ramp += 1.5; // Smooth ramp up (approx 3% per 20ms = 150% per second)
         if (forward_ramp > target_forward) forward_ramp = target_forward;
     } else if (forward_ramp > target_forward) {
-        forward_ramp -= 10.0; // Ramp down even faster
+        forward_ramp -= 3.0; // Smooth ramp down (slightly faster for safety/stopping)
         if (forward_ramp < target_forward) forward_ramp = target_forward;
     }
     double forward_power = forward_ramp;
@@ -219,9 +225,26 @@ void rudderPid(RoboStruct *rud)
         left += overshoot;
     }
 
+    // Apply ramping to final motor speeds to prevent rotation spikes and ESC blocking
+    if (rampBb < left) {
+        rampBb += 1.5; // Smooth ramp up
+        if (rampBb > left) rampBb = left;
+    } else if (rampBb > left) {
+        rampBb -= 3.0; // Smooth ramp down (slightly faster for safety/stopping)
+        if (rampBb < left) rampBb = left;
+    }
+
+    if (rampSb < right) {
+        rampSb += 1.5; // Smooth ramp up
+        if (rampSb > right) rampSb = right;
+    } else if (rampSb > right) {
+        rampSb -= 3.0; // Smooth ramp down (slightly faster for safety/stopping)
+        if (rampSb < right) rampSb = right;
+    }
+
     // Clamped to ±maxSpeed bounds and store for ESC output
-    rud->speedBb = constrain(left, -rud->maxSpeed, rud->maxSpeed);
-    rud->speedSb = constrain(right, -rud->maxSpeed, rud->maxSpeed);
+    rud->speedBb = constrain(rampBb, -rud->maxSpeed, rud->maxSpeed);
+    rud->speedSb = constrain(rampSb, -rud->maxSpeed, rud->maxSpeed);
     rud->ir = rudderPID.GetITerm();
 }
 

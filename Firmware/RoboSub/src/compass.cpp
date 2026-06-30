@@ -36,6 +36,7 @@
 #define BNO055_OPR_MODE_ADDR 0x3D
 #define BNO055_PAGE_ID_ADDR 0x07
 #define BNO055_ACC_OFFSET_X_LSB_ADDR 0x55
+#define BNO055_TIMEOUT 1000*60*10 //10 min timeout
 
 extern Preferences storage;
 QueueHandle_t compass = NULL;
@@ -54,7 +55,7 @@ extern AsyncUDP udp;
 extern SemaphoreHandle_t mainDataMutex;
 
 // Global state for web dashboard telemetry
-float global_hdg = 0;
+float global_hdg = 0;`
 bool icm_ready = false;
 uint8_t bno_cal_sys = 0, bno_cal_gyro = 0, bno_cal_accel = 0, bno_cal_mag = 0;
 float last_raw_x = 0, last_raw_y = 0, last_raw_z = 0;
@@ -294,6 +295,7 @@ void CompassTask(void *arg) {
     static bool autoSaved = false;
     static bool was_timeout_active = false;
     static uint32_t cal_achieved_time = 0;
+    static uint32_t last_reinject = 0;
     uint32_t loop_counter = 0;
     while (1) {
         global_loop_cnt++;
@@ -315,6 +317,24 @@ void CompassTask(void *arg) {
             }
         }
 
+        // PERIODIC RE-INJECTION: Every 5 minutes (300,000 ms), re-inject the NVS profile 
+        // to wipe out any dynamic magnetometer auto-calibration drift caused by motor magnetic fields.
+        if (last_reinject == 0) {
+            last_reinject = millis();
+        } else if (millis() - last_reinject > 300000) { // 5 minutes
+            if (bno_profile_exists && bno_ready) {
+                uint8_t calData[22];
+                memBnoCalib(calData, true);
+                
+                uint8_t verifyData[22];
+                if (setAndVerifyOffsets(calData, verifyData)) {
+                    Serial.println("BNO055: Periodic re-injection done. Drift eliminated.");
+                    setCalMsg("RE-INJECT SUCCESS", 0); // No beep
+                }
+            }
+            last_reinject = millis();
+        }
+
         if (bno_ready) {
             sensors_event_t event;
             bno.getEvent(&event);
@@ -331,9 +351,9 @@ void CompassTask(void *arg) {
                 last_heading = heading;
                 last_heading_change_time = millis();
             } else {
-                if (millis() - last_heading_change_time > 300000) { // 5 minutes (300,000 ms)
-                    Serial.println("Compass heading stuck for 5 minutes! Reinitializing...");
-                    setCalMsg("COMPASS STUCK - REINIT", 2);
+                if (millis() - last_heading_change_time > BNO055_TIMEOUT) { // 10 min for recovery
+                    Serial.println("Compass heading stuck for 15 seconds! Reinitializing...");
+                    setCalMsg("COMPASS STUCK - REINIT", 0);
                     InitCompass();
                     last_heading = -999.0f; // Reset tracking
                     last_heading_change_time = millis();
@@ -348,7 +368,7 @@ void CompassTask(void *arg) {
                 
                 // AUTO-SAVE: Triggered when high accuracy is reached (M:3, G:3) and maintained for 30 minutes, ONLY IF NO PROFILE EXISTS
                 if (!autoSaved && !bno_profile_exists) {
-                    if (bno_cal_mag == 3 && bno_cal_gyro == 3) {
+                    if (bno_cal_mag == 3 && bno_cal_gyro == 3 && bno_cal_sys >= 2) {
                         if (cal_achieved_time == 0) {
                             cal_achieved_time = millis();
                             Serial.println("BNO055: High calibration (M:3, G:3) reached. Starting 30-minute auto-save countdown...");

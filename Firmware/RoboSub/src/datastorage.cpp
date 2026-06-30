@@ -173,6 +173,7 @@ void computeParameters(RoboStruct *buoy, bool get)
     if (get)
     {
         buoy->holdRad = storage.getDouble("holdRad", 2.0);
+        if (isnan(buoy->holdRad)) buoy->holdRad = 2.0;
         buoy->maxOfsetDist = storage.getInt("maxOfsetDist", 8);
     }
     else
@@ -194,14 +195,16 @@ void speedMaxMin(RoboStruct *buoy, bool get)
     startMem();
     if (get)
     {
-        buoy->minSpeed = storage.getInt("minSpeed", -73);
-        buoy->maxSpeed = storage.getInt("maxSpeed", 73);
+        buoy->maxSpeed = storage.getInt("maxSpeed", 0);
+        buoy->minSpeed = storage.getInt("minSpeed", 0);
         buoy->pivotSpeed = storage.getDouble("pivotSpeed", 0.5);
+        if (isnan(buoy->pivotSpeed)) buoy->pivotSpeed = 0.5;
+        if (buoy->pivotSpeed < 0.4) buoy->pivotSpeed = 0.5; // Enforce minimum floor to overcome water resistance/stiction
     }
     else
     {
-        storage.putInt("minSpeed", buoy->minSpeed);
         storage.putInt("maxSpeed", buoy->maxSpeed);
+        storage.putInt("minSpeed", buoy->minSpeed);
         storage.putDouble("pivotSpeed", buoy->pivotSpeed);
     }
     stopMem();
@@ -219,8 +222,11 @@ void pidSpeedParameters(RoboStruct *buoy, bool get)
     if (get)
     {
         buoy->Kps = storage.getDouble("Kps", 20.0);
+        if (isnan(buoy->Kps)) buoy->Kps = 20.0;
         buoy->Kis = storage.getDouble("Kis", 0.4);
+        if (isnan(buoy->Kis)) buoy->Kis = 0.4;
         buoy->Kds = storage.getDouble("Kds", 0.2);
+        if (isnan(buoy->Kds)) buoy->Kds = 0.2;
     }
     else
     {
@@ -243,8 +249,11 @@ void pidRudderParameters(RoboStruct *buoy, bool get)
     if (get)
     {
         buoy->Kpr = storage.getDouble("Kpr", 1.0);
+        if (isnan(buoy->Kpr)) buoy->Kpr = 1.0;
         buoy->Kir = storage.getDouble("Kir", 0.0);
+        if (isnan(buoy->Kir)) buoy->Kir = 0.0;
         buoy->Kdr = storage.getDouble("Kdr", 0.0);
+        if (isnan(buoy->Kdr)) buoy->Kdr = 0.0;
     }
     else
     {

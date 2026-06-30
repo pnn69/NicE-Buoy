@@ -317,15 +317,18 @@ void handelSerandRfdata(RoboStruct *ser)
                 }
                 break;
             case DIRDIST:
-                if (ser->status != LOCKED)
                 {
-                    printf("DIRDIST command recieved!");
-                    initRudPid(ser);
-                    initSpeedPid(ser);
-                    ser->status = LOCKED;
+                    int targetStatus = (dataIn.status == DOCKED) ? DOCKED : LOCKED;
+                    if (ser->status != targetStatus)
+                    {
+                        printf("DIRDIST command recieved! Transitioning to status: %d\r\n", targetStatus);
+                        initRudPid(ser);
+                        initSpeedPid(ser);
+                        ser->status = targetStatus;
+                    }
+                    ser->tgDir = dataIn.tgDir;
+                    ser->tgDist = dataIn.tgDist;
                 }
-                ser->tgDir = dataIn.tgDir;
-                ser->tgDist = dataIn.tgDist;
                 break;
             case TGDIRSPEED:
                 if (ser->status != TGDIRSPEED)

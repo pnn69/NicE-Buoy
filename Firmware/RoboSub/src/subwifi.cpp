@@ -44,6 +44,10 @@ extern String global_cal_load, global_cal_ver;
 extern uint32_t global_loop_cnt;
 uint32_t global_params_rev = 0;
 
+// Debug externs for detailed control-loop diagnostics
+extern double rudderInput, rudderOutput, rampBb, rampSb, forward_ramp;
+extern bool was_pure_pivot;
+
 static RoboStruct subWifiOut;
 static RoboStruct subWifiIn;
 QueueHandle_t udpOut = NULL;
@@ -226,16 +230,21 @@ void WiFiTask(void *arg) {
         }
     }
 
-    // Dashboard Endpoints with anti-cache headers exactly like RoboTop
+    /*
+     * Web Dashboard Router & Anti-Caching Strategy:
+     * To prevent browsers from caching stale layouts or outdated JS dashboards, 
+     * we issue HTTP/1.1 headers 'no-cache, no-store, must-revalidate' and set 'Expires: -1'.
+     *
+     * IMPORTANT DESIGN FIX:
+     * We bypass indexHtmlCache and force subServer to serve INDEX_HTML from flash (send_P).
+     * This avoids memory leak issues or potential desynchronization with filesystem changes, 
+     * guaranteeing that the compiled UI changes are consistently served and rendered.
+     */
     subServer.on("/", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");
-        if(indexHtmlCache.length() > 0) {
-            subServer.send(200, "text/html", indexHtmlCache);
-        } else {
-            subServer.send_P(200, "text/html", INDEX_HTML);
-        }
+        subServer.send_P(200, "text/html", INDEX_HTML);
     });
     subServer.on("/savecal", HTTP_GET, [](){ 
         int c=34; 
@@ -312,6 +321,17 @@ void WiFiTask(void *arg) {
         subServer.send(200, "application/json", buf);
     });
 
+    /*
+     * Real-Time Telemetry /data JSON Endpoint:
+     * This API is polled by the dashboard (index.html) at high speed (e.g. 100-250ms).
+     * To keep operations lock-free and lightweight, we copy primitive fields atomically 
+     * without blocking other tasks on the main controller core.
+     *
+     * STATE VISUALIZATION MAPPING:
+     * Maps the internal enum state integer to its corresponding human-readable string.
+     * This is sent to the dashboard so that the operator has immediate feedback on whether
+     * the buoy is idling, locking, locked, docking, docked, or in a calibration routine.
+     */
     subServer.on("/data", HTTP_GET, [](){
         float icm = global_hdg;
         int sbb = (int)mainData.speedBb; 
@@ -319,14 +339,32 @@ void WiFiTask(void *arg) {
         double ir = mainData.ir;
         double ip = mainData.ip;
         float vatt = mainData.subAccuV;
+        float curr = mainData.subAccuI;
+        int stat_val = mainData.status;
 
-        char buf[512];
+        const char* statusStr = "UNKNOWN";
+        switch (stat_val) {
+            case IDLE: statusStr = "IDLE"; break;
+            case IDELING: statusStr = "IDELING"; break;
+            case LOCKED: statusStr = "LOCKED"; break;
+            case DOCKED: statusStr = "DOCKED"; break;
+            case DIRDIST: statusStr = "DIRDIST"; break;
+            case TGDIRSPEED: statusStr = "TGDIRSPEED"; break;
+            case REMOTE: statusStr = "REMOTE"; break;
+            case SPBBSPSB: statusStr = "SPBBSPSB"; break;
+            case CALIBRATE_MAGNETIC_COMPASS: statusStr = "CAL_MAG"; break;
+            case INFIELD_CALIBRATE: statusStr = "CAL_FIELD"; break;
+        }
+
+        char buf[1024];
         snprintf(buf, sizeof(buf),
-            "{\"icm\":%.2f,\"speed_bb\":%d,\"speed_sb\":%d,\"ir\":%.2f,\"ip\":%.2f,\"cal_load\":\"%s\",\"cal_ver\":\"%s\",\"mac\":\"%s\",\"cal_levels\":[%d,%d,%d,%d],\"cal_msg\":\"%s\",\"rev\":%u,\"vatt\":%.1f}",
+            "{\"icm\":%.2f,\"speed_bb\":%d,\"speed_sb\":%d,\"ir\":%.2f,\"ip\":%.2f,\"cal_load\":\"%s\",\"cal_ver\":\"%s\",\"mac\":\"%s\",\"cal_levels\":[%d,%d,%d,%d],\"cal_msg\":\"%s\",\"rev\":%u,\"vatt\":%.1f,\"curr\":%.2f,\"status\":%d,\"status_str\":\"%s\",\"ri\":%.2f,\"ro\":%.2f,\"rbb\":%.2f,\"rsb\":%.2f,\"framp\":%.2f,\"pivot\":%d}",
             icm, sbb, ssb, ir, ip, 
             global_cal_load.c_str(), global_cal_ver.c_str(), global_mac_str.c_str(),
             bno_cal_sys, bno_cal_gyro, bno_cal_accel, bno_cal_mag,
-            global_cal_msg.c_str(), global_params_rev, vatt
+            global_cal_msg.c_str(), global_params_rev, vatt, curr,
+            stat_val, statusStr,
+            rudderInput, rudderOutput, rampBb, rampSb, forward_ramp, was_pure_pivot ? 1 : 0
         );
         subServer.send(200, "application/json", buf);
     });
