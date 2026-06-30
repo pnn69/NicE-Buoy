@@ -19,6 +19,9 @@ https://github.com/Xinyuan-LilyGO/LilyGo-LoRa-Series/blob/master/schematic/T3_V1
 #define STRUCTLEN 5
 RoboStruct IDs[STRUCTLEN];
 RoboStruct mainData = {};
+RoboStruct webDataIn = {};
+bool hasWebCommand = false;
+unsigned long showIpUntil = 0;
 static adcDataType adcmain = {0, 0, 0, 0, false}; // adc data
 static int lastPhysicalSwitchPos = -1;
 
@@ -65,6 +68,12 @@ void dispatchCommand(RoboStruct *data, adcDataType *adc)
 
         int pos = posID(data);
         if (pos >= 0) IDs[pos].status = data->cmd; // locally save the real intent
+    }
+
+    // webpage/WebSocket command injection
+    if (data->cmd != NOCMD)
+    {
+        forceSend = true;
     }
 
     // 2. Handle Continuous Remote Data (Direction/Speed)
@@ -146,7 +155,7 @@ void setup()
     printf("Robobuoy ID: %08x\r\n", espMac());
     xTaskCreatePinnedToCore(LoraTask, "LoraTask", 8192, NULL, configMAX_PRIORITIES - 2, NULL, 1);
     xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
-    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, (void *)&wifiConfig, configMAX_PRIORITIES - 2, NULL, 0);
+    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8192, (void *)&wifiConfig, configMAX_PRIORITIES - 2, NULL, 0);
     mainData.IDs = 0;
     mainData.IDr = 0;
     mainData.status = IDLE;
@@ -217,6 +226,8 @@ void handelKeyPress(RoboStruct *key)
             }
             break;
         case 101: 
+            extern unsigned long showIpUntil;
+            showIpUntil = millis() + 10000; // Display IP address on OLED for 10 seconds
             key->cmd = STOREASDOC; 
             key->ack = GETACK;
             break; // Long press
@@ -305,24 +316,24 @@ void processData(RoboStruct *RfIn)
     }
 
     // 2. Motor Power & PID: ONLY update from commands that actually contain these fields
-    if (RfIn->cmd == SUBDATA || RfIn->cmd == TOPDATA || RfIn->cmd == SPBBSPSB)
+    if (RfIn->cmd == SUBDATA || RfIn->cmd == TOPDATA || RfIn->cmd == SPBBSPSB || RfIn->cmd == LOCKED || RfIn->cmd == DOCKED)
     {
         IDs[pos].speedBb = RfIn->speedBb;
         IDs[pos].speedSb = RfIn->speedSb;
     }
-    if (RfIn->cmd == SUBDATA || RfIn->cmd == TOPDATA)
+    if (RfIn->cmd == SUBDATA || RfIn->cmd == TOPDATA || RfIn->cmd == LOCKED || RfIn->cmd == DOCKED)
     {
         IDs[pos].ip = RfIn->ip;
     }
 
     // 3. Heading
-    if (RfIn->cmd == SUBDATA || RfIn->cmd == TOPDATA || RfIn->cmd == BUOYPOS || RfIn->cmd == DIRSPEED || RfIn->cmd == MDIR)
+    if (RfIn->cmd == SUBDATA || RfIn->cmd == TOPDATA || RfIn->cmd == BUOYPOS || RfIn->cmd == DIRSPEED || RfIn->cmd == MDIR || RfIn->cmd == LOCKED || RfIn->cmd == DOCKED)
     {
         IDs[pos].dirMag = RfIn->dirMag;
     }
 
     // 4. GPS info: ONLY update from commands that carry GPS fields
-    if (RfIn->cmd == TOPDATA || RfIn->cmd == BUOYPOS)
+    if (RfIn->cmd == TOPDATA || RfIn->cmd == BUOYPOS || RfIn->cmd == LOCKED || RfIn->cmd == DOCKED)
     {
         IDs[pos].gpsFix = RfIn->gpsFix;
         IDs[pos].gpsSat = RfIn->gpsSat;
@@ -339,7 +350,7 @@ void processData(RoboStruct *RfIn)
     }
 
     // 6. Battery: Update only if command carries power data
-    if (RfIn->cmd == SUBDATA || RfIn->cmd == TOPDATA || RfIn->cmd == SUBACCU || RfIn->cmd == SUBPWR)
+    if (RfIn->cmd == SUBDATA || RfIn->cmd == TOPDATA || RfIn->cmd == SUBACCU || RfIn->cmd == SUBPWR || RfIn->cmd == LOCKED || RfIn->cmd == DOCKED)
     {
         IDs[pos].subAccuV = RfIn->subAccuV;
         IDs[pos].subAccuP = RfIn->subAccuP;
@@ -365,6 +376,18 @@ void loop()
     readAdc(&adcmain);
     handelKeyPress(&mainData);
     if (handelRfData()) getBuoyArr(&mainData);
+
+    // Non-overwritable WebSocket command injection immediately before dispatchCommand
+    extern bool hasWebCommand;
+    extern RoboStruct webDataIn;
+    if (hasWebCommand)
+    {
+        unsigned long originalBuoyID = webDataIn.IDr;
+        mainData = webDataIn;
+        mainData.IDs = originalBuoyID;
+        hasWebCommand = false;
+    }
+
     dispatchCommand(&mainData, &adcmain);
     updateOled(&mainData, &adcmain);
 

@@ -1,77 +1,522 @@
-<!-- https://www.youtube.com/watch?v=72QBpz-QY1k  -->
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <title>NicE buoy remote controller</title>
-    <Meta charset="ÜTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="discription" content="NicE buoy remote controller">
-    <link rel="stylesheet" type="text/css" href="style.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robobuoy Monitor & Control Panel</title>
+    <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-    </div>
-    <header>
-        <div class="topnav">
-            <!-- Dit is voor commentaar wordt niet weergegeven -->
-            <h1>NicE buoy remote controller</h1>
-            <p id="status"> Status window</p>
+    <header class="top-bar">
+        <div class="header-title">
+            <h1>Robobuoy Monitor - 3 Buoys</h1>
         </div>
-
-        <div id="buoybox">
-            <h2>
-                Buoy 1
-            </h2>
-
-        </div>
-        <!-- dif class="split" -->
-        <div class="card">
-            <div class="barscontainer">
-                <div class="barcontainer">
-                    <div class="bar" id="bb1" style="height:70%">
-                    </div>
-                </div>
-                <div class=" barcontainer">
-                    <div class="bar" id="sb1" style="height:70%">
-                    </div>
-                </div>
-                <div id="radioBtn"><br>
-                    <input type="radio" name="mode" id="Lock_Buoy_1">
-                    <label for="Lock_Buoy_1">Lock position</label><br>
-                    <input type="radio" name="mode" id="Remote_Buoy_1">
-                    <label for="Remote_Buoy_1">Remote Contol</label><br>
-                    <input type="radio" name="mode" id="Doc_Buoy_1">
-                    <label for="Doc_Buoy_1">Doc Buoy</label><br>
-                    <input type="radio" name="mode" id="Idle_1">
-                    <label for="Idle_1">Standby</label><br>
-                </div>
-                <p class="switch">BB<input type="range" id="Rudder1" min="-100"
-                        max="100" step="10" value="0" class="slider">SB
-                    <p class="state">Rudder: <span id="rudder1"></span>
-                        &deg;</p>
-
-                    <p>&lt;&lt; <input type="range" id="Trottle1" min="-100"
-                            max="100" step="1" value="0" class="slider">&gt;&gt;
-                    </p>
-
-                    <p class="state">Throttle: <span id="trottle1"></span>
-                        &percnt;</p>
-                    <div>
-                        <h3>
-                            Heading:<span id="mdir1"></span>&deg; Target:<span
-                                id="tdir1"></span>&deg; Target:<span
-                                id="tgdistance1"></span>M
-                        </h3>
-                    </div>
-                    <p class="rssi1"> Rssi:<span id="rssi1"></span>dBm</p>
-
-                </p>
+        <div class="connections">
+            <!-- Web Serial Section -->
+            <div class="conn-section serial-section">
+                <span class="conn-label">LoRa Controller Port:</span>
+                <button id="serial-connect-btn" class="btn btn-primary">Connect Serial (Web Serial)</button>
+                <span id="serial-status" class="status-indicator status-disconnected">Disconnected</span>
+            </div>
+            <!-- WebSocket Section -->
+            <div class="conn-section ws-section">
+                <span class="conn-label">WebSocket Gateway:</span>
+                <input type="text" id="ws-url" value="ws://192.168.1.24/ws" placeholder="ws://ip/ws">
+                <button id="ws-connect-btn" class="btn btn-secondary">Connect WS</button>
+                <span id="ws-status" class="status-indicator status-disconnected">Disconnected</span>
             </div>
         </div>
     </header>
+
+    <main class="dashboard">
+        <div class="buoy-columns">
+            <!-- Buoy 1 -->
+            <section class="buoy-card" id="buoy-card-0">
+                <div class="buoy-header">
+                    <h2 class="buoy-title" id="buoy-title-0">Buoy 1 (Waiting...)</h2>
+                    <span class="buoy-ip" id="buoy-ip-0"></span>
+                </div>
+                
+                <div class="network-indicators">
+                    <span class="net-indicator" id="udp-indicator-0">UDP: --</span>
+                    <span class="net-indicator" id="lora-indicator-0">LoRa: --</span>
+                    <span class="net-indicator" id="sync-indicator-0">Data: --</span>
+                </div>
+
+                <div class="visual-panel">
+                    <!-- Bow Thruster BB -->
+                    <div class="thruster-column">
+                        <span class="thruster-title">BB</span>
+                        <canvas id="bb-bar-0" width="20" height="180" class="thruster-canvas"></canvas>
+                        <span class="thruster-val" id="bb-val-0">0%</span>
+                        <span class="pid-val" id="is-val-0">Is: -</span>
+                    </div>
+
+                    <!-- Center Compass & Windrose -->
+                    <div class="center-gauge">
+                        <!-- 1. Status Bar -->
+                        <div class="status-banner" id="status-label-0">UNKNOWN</div>
+
+                        <!-- 2. Distance and Wind parameters below Status Bar -->
+                        <div class="windrose-top-row">
+                            <span class="windrose-label label-red" id="windrose-dist-0">-</span>
+                            <span class="windrose-label label-blue" id="windrose-wind-0">-</span>
+                        </div>
+
+                        <!-- 3. Windrose Canvas -->
+                        <canvas id="windrose-0" width="200" height="200" class="windrose-canvas"></canvas>
+                        
+                        <!-- 4. Target & Mag Headings directly above Voltage Bar -->
+                        <div class="windrose-bottom-info">
+                            <span class="windrose-sub-label text-red" id="windrose-tg-0">-</span>
+                            <span class="windrose-sub-label text-green" id="windrose-mag-0">Mag:-</span>
+                        </div>
+
+                        <!-- 5. Battery Indicator (Voltage Bar) -->
+                        <div class="gauge-bar-container">
+                            <span class="gauge-min">17V</span>
+                            <div class="progress-container">
+                                <div class="progress-bar" id="volt-bar-0" style="width: 0%;"></div>
+                                <span class="progress-text" id="volt-val-0">0.0V</span>
+                            </div>
+                            <span class="gauge-max">25V</span>
+                        </div>
+
+                        <!-- 6. Current Indicator (Current Bar) -->
+                        <div class="gauge-bar-container">
+                            <span class="gauge-min">-5A</span>
+                            <div class="progress-container">
+                                <div class="progress-bar current-bar-fill" id="curr-bar-0" style="width: 0%;"></div>
+                                <span class="progress-text" id="curr-val-0">0.0A</span>
+                            </div>
+                            <span class="gauge-max">20A</span>
+                        </div>
+                    </div>
+
+                    <!-- Stern Thruster SB -->
+                    <div class="thruster-column">
+                        <span class="thruster-title">SB</span>
+                        <canvas id="sb-bar-0" width="20" height="180" class="thruster-canvas"></canvas>
+                        <span class="thruster-val" id="sb-val-0">0%</span>
+                        <span class="pid-val" id="ir-val-0">Ir: -</span>
+                    </div>
+                </div>
+
+                <div class="color-legend">
+                    <span class="legend-item text-red">■ Target</span>
+                    <span class="legend-item text-green">■ Mag</span>
+                    <span class="legend-item text-blue">■ Wind</span>
+                    <span class="legend-item text-black">■ GPS</span>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-action" id="lock-btn-0" disabled>LOCK</button>
+                    <button class="btn btn-action" id="dock-btn-0" disabled>DOCK</button>
+                    <button class="btn btn-action" id="setup-btn-0" disabled>SETUP</button>
+                </div>
+
+                <div class="coordinate-control">
+                    <div class="input-group">
+                        <label>Dir:</label>
+                        <input type="number" id="dir-input-0" placeholder="0-360" min="0" max="360" step="1">
+                    </div>
+                    <div class="input-group">
+                        <label>Dist:</label>
+                        <input type="number" id="dist-input-0" placeholder="meters" min="0" step="0.1">
+                    </div>
+                    <button class="btn btn-send" id="dirdist-send-0" disabled>Send</button>
+                    <button class="btn btn-map" id="map-btn-0" disabled>Map</button>
+                </div>
+
+                <div class="parameters-panel">
+                    <table class="params-table">
+                        <tbody>
+                            <tr><td>Timestamp:</td><td id="param-Timestamp-0" class="param-val">N/A</td></tr>
+                            <tr><td>Wind Dir:</td><td id="param-Wind-Dir-0" class="param-val">N/A</td></tr>
+                            <tr><td>Wind StdDev:</td><td id="param-Wind-StdDev-0" class="param-val">N/A</td></tr>
+                            <tr><td>PID I-term:</td><td id="param-PID-I-term-0" class="param-val">N/A</td></tr>
+                            <tr><td>PID R-term:</td><td id="param-PID-R-term-0" class="param-val">N/A</td></tr>
+                            <tr><td>Battery:</td><td id="param-Battery-0" class="param-val">N/A</td></tr>
+                            <tr><td>Current:</td><td id="param-Current-0" class="param-val">N/A</td></tr>
+                            <tr><td>GPS Fix:</td><td id="param-GPS-Fix-0" class="param-val">N/A</td></tr>
+                            <tr><td>GPS Satellites:</td><td id="param-GPS-Satellites-0" class="param-val">N/A</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="udp-enable-wrapper">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="udp-enabled-0" checked>
+                        <span>UDP Enabled</span>
+                    </label>
+                </div>
+            </section>
+
+            <!-- Buoy 2 -->
+            <section class="buoy-card" id="buoy-card-1">
+                <div class="buoy-header">
+                    <h2 class="buoy-title" id="buoy-title-1">Buoy 2 (Waiting...)</h2>
+                    <span class="buoy-ip" id="buoy-ip-1"></span>
+                </div>
+                
+                <div class="network-indicators">
+                    <span class="net-indicator" id="udp-indicator-1">UDP: --</span>
+                    <span class="net-indicator" id="lora-indicator-1">LoRa: --</span>
+                    <span class="net-indicator" id="sync-indicator-1">Data: --</span>
+                </div>
+
+                <div class="visual-panel">
+                    <!-- Bow Thruster BB -->
+                    <div class="thruster-column">
+                        <span class="thruster-title">BB</span>
+                        <canvas id="bb-bar-1" width="20" height="180" class="thruster-canvas"></canvas>
+                        <span class="thruster-val" id="bb-val-1">0%</span>
+                        <span class="pid-val" id="is-val-1">Is: -</span>
+                    </div>
+
+                    <!-- Center Compass & Windrose -->
+                    <div class="center-gauge">
+                        <!-- 1. Status Bar -->
+                        <div class="status-banner" id="status-label-1">UNKNOWN</div>
+
+                        <!-- 2. Distance and Wind parameters below Status Bar -->
+                        <div class="windrose-top-row">
+                            <span class="windrose-label label-red" id="windrose-dist-1">-</span>
+                            <span class="windrose-label label-blue" id="windrose-wind-1">-</span>
+                        </div>
+
+                        <!-- 3. Windrose Canvas -->
+                        <canvas id="windrose-1" width="200" height="200" class="windrose-canvas"></canvas>
+                        
+                        <!-- 4. Target & Mag Headings directly above Voltage Bar -->
+                        <div class="windrose-bottom-info">
+                            <span class="windrose-sub-label text-red" id="windrose-tg-1">-</span>
+                            <span class="windrose-sub-label text-green" id="windrose-mag-1">Mag:-</span>
+                        </div>
+
+                        <!-- 5. Battery Indicator (Voltage Bar) -->
+                        <div class="gauge-bar-container">
+                            <span class="gauge-min">17V</span>
+                            <div class="progress-container">
+                                <div class="progress-bar" id="volt-bar-1" style="width: 0%;"></div>
+                                <span class="progress-text" id="volt-val-1">0.0V</span>
+                            </div>
+                            <span class="gauge-max">25V</span>
+                        </div>
+
+                        <!-- 6. Current Indicator (Current Bar) -->
+                        <div class="gauge-bar-container">
+                            <span class="gauge-min">-5A</span>
+                            <div class="progress-container">
+                                <div class="progress-bar current-bar-fill" id="curr-bar-1" style="width: 0%;"></div>
+                                <span class="progress-text" id="curr-val-1">0.0A</span>
+                            </div>
+                            <span class="gauge-max">20A</span>
+                        </div>
+                    </div>
+
+                    <!-- Stern Thruster SB -->
+                    <div class="thruster-column">
+                        <span class="thruster-title">SB</span>
+                        <canvas id="sb-bar-1" width="20" height="180" class="thruster-canvas"></canvas>
+                        <span class="thruster-val" id="sb-val-1">0%</span>
+                        <span class="pid-val" id="ir-val-1">Ir: -</span>
+                    </div>
+                </div>
+
+                <div class="color-legend">
+                    <span class="legend-item text-red">■ Target</span>
+                    <span class="legend-item text-green">■ Mag</span>
+                    <span class="legend-item text-blue">■ Wind</span>
+                    <span class="legend-item text-black">■ GPS</span>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-action" id="lock-btn-1" disabled>LOCK</button>
+                    <button class="btn btn-action" id="dock-btn-1" disabled>DOCK</button>
+                    <button class="btn btn-action" id="setup-btn-1" disabled>SETUP</button>
+                </div>
+
+                <div class="coordinate-control">
+                    <div class="input-group">
+                        <label>Dir:</label>
+                        <input type="number" id="dir-input-1" placeholder="0-360" min="0" max="360" step="1">
+                    </div>
+                    <div class="input-group">
+                        <label>Dist:</label>
+                        <input type="number" id="dist-input-1" placeholder="meters" min="0" step="0.1">
+                    </div>
+                    <button class="btn btn-send" id="dirdist-send-1" disabled>Send</button>
+                    <button class="btn btn-map" id="map-btn-1" disabled>Map</button>
+                </div>
+
+                <div class="parameters-panel">
+                    <table class="params-table">
+                        <tbody>
+                            <tr><td>Timestamp:</td><td id="param-Timestamp-1" class="param-val">N/A</td></tr>
+                            <tr><td>Wind Dir:</td><td id="param-Wind-Dir-1" class="param-val">N/A</td></tr>
+                            <tr><td>Wind StdDev:</td><td id="param-Wind-StdDev-1" class="param-val">N/A</td></tr>
+                            <tr><td>PID I-term:</td><td id="param-PID-I-term-1" class="param-val">N/A</td></tr>
+                            <tr><td>PID R-term:</td><td id="param-PID-R-term-1" class="param-val">N/A</td></tr>
+                            <tr><td>Battery:</td><td id="param-Battery-1" class="param-val">N/A</td></tr>
+                            <tr><td>Current:</td><td id="param-Current-1" class="param-val">N/A</td></tr>
+                            <tr><td>GPS Fix:</td><td id="param-GPS-Fix-1" class="param-val">N/A</td></tr>
+                            <tr><td>GPS Satellites:</td><td id="param-GPS-Satellites-1" class="param-val">N/A</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="udp-enable-wrapper">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="udp-enabled-1" checked>
+                        <span>UDP Enabled</span>
+                    </label>
+                </div>
+            </section>
+
+            <!-- Buoy 3 -->
+            <section class="buoy-card" id="buoy-card-2">
+                <div class="buoy-header">
+                    <h2 class="buoy-title" id="buoy-title-2">Buoy 3 (Waiting...)</h2>
+                    <span class="buoy-ip" id="buoy-ip-2"></span>
+                </div>
+                
+                <div class="network-indicators">
+                    <span class="net-indicator" id="udp-indicator-2">UDP: --</span>
+                    <span class="net-indicator" id="lora-indicator-2">LoRa: --</span>
+                    <span class="net-indicator" id="sync-indicator-2">Data: --</span>
+                </div>
+
+                <div class="visual-panel">
+                    <!-- Bow Thruster BB -->
+                    <div class="thruster-column">
+                        <span class="thruster-title">BB</span>
+                        <canvas id="bb-bar-2" width="20" height="180" class="thruster-canvas"></canvas>
+                        <span class="thruster-val" id="bb-val-2">0%</span>
+                        <span class="pid-val" id="is-val-2">Is: -</span>
+                    </div>
+
+                    <!-- Center Compass & Windrose -->
+                    <div class="center-gauge">
+                        <!-- 1. Status Bar -->
+                        <div class="status-banner" id="status-label-2">UNKNOWN</div>
+
+                        <!-- 2. Distance and Wind parameters below Status Bar -->
+                        <div class="windrose-top-row">
+                            <span class="windrose-label label-red" id="windrose-dist-2">-</span>
+                            <span class="windrose-label label-blue" id="windrose-wind-2">-</span>
+                        </div>
+
+                        <!-- 3. Windrose Canvas -->
+                        <canvas id="windrose-2" width="200" height="200" class="windrose-canvas"></canvas>
+                        
+                        <!-- 4. Target & Mag Headings directly above Voltage Bar -->
+                        <div class="windrose-bottom-info">
+                            <span class="windrose-sub-label text-red" id="windrose-tg-2">-</span>
+                            <span class="windrose-sub-label text-green" id="windrose-mag-2">Mag:-</span>
+                        </div>
+
+                        <!-- 5. Battery Indicator (Voltage Bar) -->
+                        <div class="gauge-bar-container">
+                            <span class="gauge-min">17V</span>
+                            <div class="progress-container">
+                                <div class="progress-bar" id="volt-bar-2" style="width: 0%;"></div>
+                                <span class="progress-text" id="volt-val-2">0.0V</span>
+                            </div>
+                            <span class="gauge-max">25V</span>
+                        </div>
+
+                        <!-- 6. Current Indicator (Current Bar) -->
+                        <div class="gauge-bar-container">
+                            <span class="gauge-min">-5A</span>
+                            <div class="progress-container">
+                                <div class="progress-bar current-bar-fill" id="curr-bar-2" style="width: 0%;"></div>
+                                <span class="progress-text" id="curr-val-2">0.0A</span>
+                            </div>
+                            <span class="gauge-max">20A</span>
+                        </div>
+                    </div>
+
+                    <!-- Stern Thruster SB -->
+                    <div class="thruster-column">
+                        <span class="thruster-title">SB</span>
+                        <canvas id="sb-bar-2" width="20" height="180" class="thruster-canvas"></canvas>
+                        <span class="thruster-val" id="sb-val-2">0%</span>
+                        <span class="pid-val" id="ir-val-2">Ir: -</span>
+                    </div>
+                </div>
+
+                <div class="color-legend">
+                    <span class="legend-item text-red">■ Target</span>
+                    <span class="legend-item text-green">■ Mag</span>
+                    <span class="legend-item text-blue">■ Wind</span>
+                    <span class="legend-item text-black">■ GPS</span>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-action" id="lock-btn-2" disabled>LOCK</button>
+                    <button class="btn btn-action" id="dock-btn-2" disabled>DOCK</button>
+                    <button class="btn btn-action" id="setup-btn-2" disabled>SETUP</button>
+                </div>
+
+                <div class="coordinate-control">
+                    <div class="input-group">
+                        <label>Dir:</label>
+                        <input type="number" id="dir-input-2" placeholder="0-360" min="0" max="360" step="1">
+                    </div>
+                    <div class="input-group">
+                        <label>Dist:</label>
+                        <input type="number" id="dist-input-2" placeholder="meters" min="0" step="0.1">
+                    </div>
+                    <button class="btn btn-send" id="dirdist-send-2" disabled>Send</button>
+                    <button class="btn btn-map" id="map-btn-2" disabled>Map</button>
+                </div>
+
+                <div class="parameters-panel">
+                    <table class="params-table">
+                        <tbody>
+                            <tr><td>Timestamp:</td><td id="param-Timestamp-2" class="param-val">N/A</td></tr>
+                            <tr><td>Wind Dir:</td><td id="param-Wind-Dir-2" class="param-val">N/A</td></tr>
+                            <tr><td>Wind StdDev:</td><td id="param-Wind-StdDev-2" class="param-val">N/A</td></tr>
+                            <tr><td>PID I-term:</td><td id="param-PID-I-term-2" class="param-val">N/A</td></tr>
+                            <tr><td>PID R-term:</td><td id="param-PID-R-term-2" class="param-val">N/A</td></tr>
+                            <tr><td>Battery:</td><td id="param-Battery-2" class="param-val">N/A</td></tr>
+                            <tr><td>Current:</td><td id="param-Current-2" class="param-val">N/A</td></tr>
+                            <tr><td>GPS Fix:</td><td id="param-GPS-Fix-2" class="param-val">N/A</td></tr>
+                            <tr><td>GPS Satellites:</td><td id="param-GPS-Satellites-2" class="param-val">N/A</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="udp-enable-wrapper">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="udp-enabled-2" checked>
+                        <span>UDP Enabled</span>
+                    </label>
+                </div>
+            </section>
+        </div>
+
+        <!-- Global Buttons -->
+        <div class="global-actions">
+            <button class="btn btn-global" id="align-startline-btn" disabled>Align Startline</button>
+            <button class="btn btn-global" id="align-track-btn" disabled>Align Track</button>
+            <button class="btn btn-global btn-danger" id="dock-all-btn" disabled>Dock All</button>
+        </div>
+
+        <!-- Console logs -->
+        <div class="console-logs">
+            <div class="log-panel">
+                <div class="log-header font-green">UDP LOG</div>
+                <pre class="log-window font-green" id="udp-log"></pre>
+            </div>
+            <div class="log-panel">
+                <div class="log-header font-yellow">LORA LOG</div>
+                <pre class="log-window font-yellow" id="lora-log"></pre>
+            </div>
+        </div>
+    </main>
+
+    <!-- Setup Modal Windows / Dialogs -->
+    <div class="modal-overlay" id="setup-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-buoy-title">Setup Buoy</h3>
+                <button class="close-btn" id="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-loading-view">
+                <div class="spinner"></div>
+                <p id="modal-loading-text">Fetching Setup Data...</p>
+            </div>
+            <form class="modal-body hidden" id="modal-form">
+                <!-- Rudder PID -->
+                <div class="form-section">
+                    <h4>Rudder PID</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>P:</label>
+                            <input type="number" step="0.01" id="setup-Kpr" required>
+                        </div>
+                        <div class="form-group">
+                            <label>I:</label>
+                            <input type="number" step="0.01" id="setup-Kir" required>
+                        </div>
+                        <div class="form-group">
+                            <label>D:</label>
+                            <input type="number" step="0.01" id="setup-Kdr" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Speed PID -->
+                <div class="form-section">
+                    <h4>Speed PID</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>P:</label>
+                            <input type="number" step="0.01" id="setup-Kps" required>
+                        </div>
+                        <div class="form-group">
+                            <label>I:</label>
+                            <input type="number" step="0.01" id="setup-Kis" required>
+                        </div>
+                        <div class="form-group">
+                            <label>D:</label>
+                            <input type="number" step="0.01" id="setup-Kds" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Limits & Motors -->
+                <div class="form-section">
+                    <h4>Limits & Motors</h4>
+                    <div class="form-row flex-wrap">
+                        <div class="form-group half-width">
+                            <label>Max Speed:</label>
+                            <input type="number" step="0.01" id="setup-maxSpeed" required>
+                        </div>
+                        <div class="form-group half-width">
+                            <label>Min Speed:</label>
+                            <input type="number" step="0.01" id="setup-minSpeed" required>
+                        </div>
+                        <div class="form-group half-width">
+                            <label>Pivot Speed:</label>
+                            <input type="number" step="0.01" id="setup-pivotSpeed" required>
+                        </div>
+                        <div class="form-group half-width">
+                            <label>Compass Offset:</label>
+                            <input type="number" step="1" id="setup-compassOffset" required>
+                        </div>
+                        <div class="form-group full-width">
+                            <label>Hold Radius (meters):</label>
+                            <input type="number" step="0.1" id="setup-holdRad" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Motor Options -->
+                <div class="form-section checkbox-section">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="setup-revBB">
+                        <span>Reverse BB</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="setup-revSB">
+                        <span>Reverse SB</span>
+                    </label>
+                    <label class="checkbox-label full-width-checkbox">
+                        <input type="checkbox" id="setup-swap">
+                        <span>Swap BB/SB</span>
+                    </label>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary btn-save" id="setup-save-btn">Save & Close</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="index.js"></script>
 </body>
-
 </html>

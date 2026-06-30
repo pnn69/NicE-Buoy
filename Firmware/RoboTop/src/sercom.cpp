@@ -211,7 +211,13 @@ void SercomTask(void *arg)
                 
                 String out = rfCode(&serDataOut);
                 Serial1.println(out);
-                printf("DEBUG_SERCOM_OUT: %s\r\n", out.c_str());
+                /* 
+                 * High-Throughput Performance Tuning:
+                 * Commented out 'DEBUG_SERCOM_OUT' to prevent excessive terminal printing 
+                 * which can lead to serial buffer overflows and timing jitter in the 500ms 
+                 * real-time telemetry loop.
+                 */
+                // printf("DEBUG_SERCOM_OUT: %s\r\n", out.c_str());
 
                 // If the outgoing command is GETACK or SET, record it in our retransmission list
                 if (serDataOut.ack == GETACK || serDataOut.ack == SET)

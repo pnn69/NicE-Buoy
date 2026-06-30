@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include <WiFi.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include "oled_ssd1306.h"
@@ -164,6 +165,52 @@ void drawRemoteScreen(RoboStruct *buoy, adcDataType *adc) {
 
 void updateOled(RoboStruct *buoy, adcDataType *adc) {
     if (!displayOK) return;
+
+    // Show website IP address screen on OLED for 5 seconds when triggered by physical button long press
+    extern unsigned long showIpUntil;
+    if (millis() < showIpUntil) {
+        display.clearDisplay();
+        display.setTextColor(SSD1306_WHITE);
+        display.setTextSize(1);
+        
+        display.setCursor(0, 0);
+        display.println("Web Controller IP:");
+        
+        // Draw controller IP in bold TextSize 1 (using double-strike rendering)
+        display.setCursor(0, 10);
+        display.print(WiFi.localIP());
+        display.setCursor(1, 10);
+        display.print(WiFi.localIP());
+        
+        display.setCursor(0, 24);
+        display.println("Known Buoys:");
+        
+        extern RoboStruct IDs[5];
+        int lineCount = 0;
+        int startY = 34;
+        for (int i = 0; i < 5; i++) {
+            if (IDs[i].IDs != 0 && IDs[i].ip > 0) {
+                char buoyLine[40];
+                sprintf(buoyLine, "ID:%04X: 192.168.1.%d", (uint16_t)(IDs[i].IDs & 0xFFFF), (int)IDs[i].ip);
+                
+                // Draw buoy IP line in bold TextSize 1 (using double-strike rendering)
+                display.setCursor(0, startY + (lineCount * 10));
+                display.print(buoyLine);
+                display.setCursor(1, startY + (lineCount * 10));
+                display.print(buoyLine);
+                
+                lineCount++;
+                if (lineCount >= 3) break; // Limit to 3 lines
+            }
+        }
+        if (lineCount == 0) {
+            display.setCursor(0, startY);
+            display.println("None connected yet");
+        }
+        
+        display.display();
+        return;
+    }
 
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);

@@ -6,6 +6,7 @@
 extern QueueHandle_t loraOut;
 extern QueueHandle_t loraIn;
 extern QueueHandle_t loraToMain;
+extern QueueHandle_t loraRawOutQueue;
 
 void initloraqueue(void);
 void LoraTask(void *arg);

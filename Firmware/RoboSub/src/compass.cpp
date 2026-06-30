@@ -296,14 +296,19 @@ void CompassTask(void *arg) {
     static bool was_timeout_active = false;
     static uint32_t cal_achieved_time = 0;
     static uint32_t last_reinject = 0;
+
+    static float stable_heading = 0;
+    static bool heading_initialized = false;
+
     uint32_t loop_counter = 0;
+
     while (1) {
         global_loop_cnt++;
         int cmd = 0;
-        
-        // Handle manual commands from web interface
+
+        // -------------------- MANUAL SAVE --------------------
         if (compassIn && xQueueReceive(compassIn, &cmd, 0) == pdTRUE) {
-            if (cmd == 34) { // Manual Save Trigger
+            if (cmd == 34) {
                 uint8_t calData[22];
                 if (getBnoOffsetsDirect(calData)) {
                     memBnoCalib(calData, false);
@@ -317,30 +322,73 @@ void CompassTask(void *arg) {
             }
         }
 
-        // PERIODIC RE-INJECTION: Every 5 minutes (300,000 ms), re-inject the NVS profile 
-        // to wipe out any dynamic magnetometer auto-calibration drift caused by motor magnetic fields.
+        // -------------------- SAFE RE-INJECTION --------------------
         if (last_reinject == 0) {
             last_reinject = millis();
-        } else if (millis() - last_reinject > 300000) { // 5 minutes
-            if (bno_profile_exists && bno_ready) {
+        } 
+        else if (millis() - last_reinject > 300000) { // 5 min
+            bool esc_active = abs(escOut.val) > 5;
+
+            if (!esc_active && bno_profile_exists && bno_ready && bno_cal_mag >= 2) {
                 uint8_t calData[22];
                 memBnoCalib(calData, true);
-                
+
                 uint8_t verifyData[22];
                 if (setAndVerifyOffsets(calData, verifyData)) {
-                    Serial.println("BNO055: Periodic re-injection done. Drift eliminated.");
-                    setCalMsg("RE-INJECT SUCCESS", 0); // No beep
+                    Serial.println("BNO055: Stable re-injection done");
+                    setCalMsg("RE-INJECT OK", 0);
                 }
             }
+
             last_reinject = millis();
         }
 
         if (bno_ready) {
             sensors_event_t event;
             bno.getEvent(&event);
-            float heading = event.orientation.x;
-            
-            // Check if compass heading has changed (watchdog for stuck sensor)
+
+            // -------------------- RAW HEADING --------------------
+            float raw_heading = event.orientation.x;
+            float heading = raw_heading;
+
+            while (heading < 0) heading += 360.0f;
+            while (heading >= 360.0f) heading -= 360.0f;
+
+            // -------------------- ESC DETECTION --------------------
+            bool esc_active = abs(escOut.val) > 5;
+
+            // -------------------- INIT STABLE HEADING --------------------
+            if (!heading_initialized) {
+                stable_heading = heading;
+                heading_initialized = true;
+            }
+
+            // -------------------- DIFFERENCE --------------------
+            float diff = heading - stable_heading;
+            if (diff > 180) diff -= 360;
+            if (diff < -180) diff += 360;
+
+            // -------------------- DRIFT FILTER --------------------
+            if (esc_active) {
+                // Reject slow drift, allow real movement
+                if (fabs(diff) < 0.5f) {
+                    heading = stable_heading;
+                } else {
+                    stable_heading = heading;
+                }
+            } else {
+                // Normal operation, reject spikes
+                if (fabs(diff) > 20.0f) {
+                    heading = stable_heading;
+                } else {
+                    stable_heading = heading;
+                }
+            }
+
+            // Smooth result
+            heading = CompassAverage(heading);
+
+            // -------------------- STUCK WATCHDOG --------------------
             static float last_heading = -999.0f;
             static uint32_t last_heading_change_time = 0;
 
@@ -351,85 +399,94 @@ void CompassTask(void *arg) {
                 last_heading = heading;
                 last_heading_change_time = millis();
             } else {
-                if (millis() - last_heading_change_time > BNO055_TIMEOUT) { // 10 min for recovery
-                    Serial.println("Compass heading stuck for 15 seconds! Reinitializing...");
+                if (millis() - last_heading_change_time > BNO055_TIMEOUT) {
+                    Serial.println("Compass stuck - reinit");
                     setCalMsg("COMPASS STUCK - REINIT", 0);
                     InitCompass();
-                    last_heading = -999.0f; // Reset tracking
+                    last_heading = -999.0f;
                     last_heading_change_time = millis();
                 }
             }
-            
-                // Monitor internal calibration status - ONLY ONCE EVERY 500ms (50 loops of 10ms)
+
+            // -------------------- CALIBRATION MONITOR --------------------
             loop_counter++;
             if (loop_counter >= 50) {
                 loop_counter = 0;
                 bno.getCalibration(&bno_cal_sys, &bno_cal_gyro, &bno_cal_accel, &bno_cal_mag);
-                
-                // AUTO-SAVE: Triggered when high accuracy is reached (M:3, G:3) and maintained for 30 minutes, ONLY IF NO PROFILE EXISTS
+
+                // Detect ESC interference
+                if (bno_cal_mag < 2 && abs(escOut.val) > 5) {
+                    setCalMsg("MAG DISTURBANCE", 0);
+                }
+
+                // AUTO SAVE (relaxed but safe)
                 if (!autoSaved && !bno_profile_exists) {
                     if (bno_cal_mag == 3 && bno_cal_gyro == 3 && bno_cal_sys >= 2) {
                         if (cal_achieved_time == 0) {
                             cal_achieved_time = millis();
-                            Serial.println("BNO055: High calibration (M:3, G:3) reached. Starting 30-minute auto-save countdown...");
-                        } else if (millis() - cal_achieved_time >= 1800000) { // 30 minutes = 1,800,000 ms
+                            Serial.println("Calibration OK - countdown started");
+                        } 
+                        else if (millis() - cal_achieved_time >= 1800000) {
                             uint8_t calData[22];
                             if (getBnoOffsetsDirect(calData)) {
                                 memBnoCalib(calData, false);
                                 updateUIHex(calData, false);
                                 autoSaved = true;
                                 setCalMsg("AUTO-SAVE SUCCESS", 0);
-                                Serial.println("BNO055: Calibration sustained for 30 minutes. AUTO-SAVE SUCCESS!");
                             }
                         }
                     } else {
-                        if (cal_achieved_time != 0) {
-                            Serial.println("BNO055: Calibration dropped below threshold. Resetting 30-minute auto-save countdown.");
-                            cal_achieved_time = 0;
-                        }
+                        cal_achieved_time = 0;
                     }
                 }
-                // Commented out to prevent continuous Flash/NVS writes and web server stalls during movement
-                // if (bno_cal_mag < 2) autoSaved = false; // Allow re-save if accuracy drops
             }
 
-            // Update UI status strings
+            // -------------------- UI STATUS --------------------
             if (millis() > cal_msg_timeout) {
                 static uint8_t last_sys = 99, last_gyro = 99, last_accel = 99, last_mag = 99;
-                
-                bool state_changed = (bno_cal_sys != last_sys || bno_cal_gyro != last_gyro || bno_cal_accel != last_accel || bno_cal_mag != last_mag);
-                
-                if (state_changed || was_timeout_active) {
-                    last_sys = bno_cal_sys; last_gyro = bno_cal_gyro; last_accel = bno_cal_accel; last_mag = bno_cal_mag;
+
+                bool changed = (bno_cal_sys != last_sys ||
+                                bno_cal_gyro != last_gyro ||
+                                bno_cal_accel != last_accel ||
+                                bno_cal_mag != last_mag);
+
+                if (changed || was_timeout_active) {
+                    last_sys = bno_cal_sys;
+                    last_gyro = bno_cal_gyro;
+                    last_accel = bno_cal_accel;
+                    last_mag = bno_cal_mag;
                     was_timeout_active = false;
-                    char buf[100];
-                    if (bno_cal_mag == 3 && bno_cal_accel == 0) snprintf(buf, sizeof(buf), "TILT BUOY! (M:3 A:0)");
-                    else snprintf(buf, sizeof(buf), "S:%d G:%d A:%d M:%d", bno_cal_sys, bno_cal_gyro, bno_cal_accel, bno_cal_mag);
+
+                    char buf[80];
+                    if (bno_cal_mag == 3 && bno_cal_accel == 0)
+                        snprintf(buf, sizeof(buf), "TILT BUOY! (M:3 A:0)");
+                    else
+                        snprintf(buf, sizeof(buf), "S:%d G:%d A:%d M:%d",
+                                 bno_cal_sys, bno_cal_gyro,
+                                 bno_cal_accel, bno_cal_mag);
+
                     global_cal_msg = String(buf);
                 }
             } else {
                 was_timeout_active = true;
             }
 
-            // Sync with main navigation structure
+            // -------------------- OUTPUT --------------------
             if (mainDataMutex && xSemaphoreTake(mainDataMutex, portMAX_DELAY)) {
                 heading += mainData.compassOffset;
+
                 while (heading < 0) heading += 360.0f;
                 while (heading >= 360.0f) heading -= 360.0f;
+
                 global_hdg = heading;
                 mainData.dirMag = heading;
+
                 if (compass) xQueueOverwrite(compass, (void *)&heading);
+
                 xSemaphoreGive(mainDataMutex);
             }
-
-            // Capture raw vectors for dashboard display - only once every 500ms to save I2C bandwidth
-            if (loop_counter == 0) {
-                imu::Vector<3> magV = bno.getVector(Adafruit_BNO055::VECTOR_MAGNETOMETER);
-                imu::Vector<3> accV = bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
-                last_raw_x = magV.x(); last_raw_y = magV.y(); last_raw_z = magV.z();
-                last_raw_ax = accV.x(); last_raw_ay = accV.y(); last_raw_az = accV.z();
-            }
         }
+
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }

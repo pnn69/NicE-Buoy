@@ -3,8 +3,57 @@
 #include <WebServer.h>
 #include <ArduinoOTA.h>
 #include <AsyncUDP.h>
+#include <SPIFFS.h>
+#include <WebSocketsServer.h>
 #include "main.h"
 #include "controlwifi.h"
+
+WebServer server(80);
+WebSocketsServer webSocket(81);
+
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
+    switch(type) {
+        case WStype_DISCONNECTED:
+            Serial.printf("[%u] Disconnected!\n", num);
+            break;
+        case WStype_CONNECTED: {
+            Serial.printf("[%u] Connected!\n", num);
+            break;
+        }
+        case WStype_TEXT: {
+            // Safe copy of payload since it is not guaranteed to be null-terminated
+            String message = "";
+            message.reserve(length);
+            for (size_t i = 0; i < length; i++) {
+                message += (char)payload[i];
+            }
+            message.trim();
+
+            Serial.print("WebSocket RX: ");
+            Serial.println(message);
+
+            RoboStruct wsDataIn = {};
+            rfDeCode(message, &wsDataIn);
+            Serial.printf("Decoded WebSocket RX -> IDr: %08x, IDs: %08x, ack: %d, cmd: %d, status: %d\n", wsDataIn.IDr, wsDataIn.IDs, wsDataIn.ack, wsDataIn.cmd, wsDataIn.status);
+
+            if (wsDataIn.IDs != -1 && wsDataIn.IDs != 0) {
+                // Queue the decoded structure safely to webDataIn and set the hasWebCommand flag
+                // This lets the main loop safely inject the webpage command right before dispatching,
+                // making it 100% immune to being overwritten by background telemetry packets!
+                extern RoboStruct webDataIn;
+                extern bool hasWebCommand;
+                webDataIn = wsDataIn;
+                hasWebCommand = true;
+                
+                // Route to udpIn for thread-safe main task signaling
+                xQueueSend(udpIn, (void *)&wsDataIn, 10);
+            }
+            break;
+        }
+        default:
+            break;
+    }
+}
 
 static int statik = IDLE;
 static RoboStruct msgIdOut;
@@ -19,6 +68,7 @@ static IPAddress ipTop;
 AsyncUDP udp;
 QueueHandle_t udpOut;
 QueueHandle_t udpIn;
+QueueHandle_t wsOutQueue;
 // static unsigned long tstart, tstop;
 static unsigned long lastUpdMsg = 0;
 
@@ -149,11 +199,28 @@ bool udp_setup(int poort)
         Serial.println(poort);
         udp.onPacket([](AsyncUDPPacket packet)
                       {
-                         String stringUdpIn = (const char *)packet.data();
-                         RoboStruct udpDataIn;
+                         String stringUdpIn = String((const char *)packet.data(), packet.length());
+                         
+                         // Push incoming UDP packets to wsOutQueue for thread-safe WebSocket broadcast
+                         if (wsOutQueue != NULL) {
+                             char packetBuf[160];
+                             memset(packetBuf, 0, sizeof(packetBuf));
+                             int len = stringUdpIn.length();
+                             if (len > 159) len = 159;
+                             for (int i = 0; i < len; i++) {
+                                 packetBuf[i] = stringUdpIn[i];
+                             }
+                             packetBuf[len] = '\0';
+                             xQueueSend(wsOutQueue, (void *)packetBuf, 10);
+                         }
+
+                         RoboStruct udpDataIn = {};
                          rfDeCode(stringUdpIn, &udpDataIn);
                          if (udpDataIn.IDs != -1 && udpDataIn.IDs != 0)
                          {
+                             // Capture the actual UDP sender remote IP address last octet
+                             udpDataIn.ip = packet.remoteIP()[3];
+                             
                              xQueueSend(udpIn, (void *)&udpDataIn, 10); // notify main there is new data
                              lastUpdMsg = millis();
                          }
@@ -190,6 +257,7 @@ unsigned long initwifiqueue(void)
 {
     udpOut = xQueueCreate(10, sizeof(RoboStruct));
     udpIn = xQueueCreate(10, sizeof(RoboStruct));
+    wsOutQueue = xQueueCreate(15, 160 * sizeof(char));
     return espMac();
 }
 
@@ -230,6 +298,53 @@ void WiFiTask(void *arg)
     Serial.println(ipTop);
     ota = setup_OTA();
     udp_setup(1001);
+
+    // Mount SPIFFS filesystem
+    if (!SPIFFS.begin(true)) {
+        Serial.println("An Error has occurred while mounting SPIFFS");
+    } else {
+        Serial.println("SPIFFS mounted successfully!");
+    }
+
+    // Configure WebServer routes
+    server.on("/", []() {
+        File file = SPIFFS.open("/index.html", "r");
+        if (file) {
+            server.streamFile(file, "text/html");
+            file.close();
+        } else {
+            server.send(404, "text/plain", "index.html not found");
+        }
+    });
+
+    server.on("/index.js", []() {
+        File file = SPIFFS.open("/index.js", "r");
+        if (file) {
+            server.streamFile(file, "application/javascript");
+            file.close();
+        } else {
+            server.send(404, "text/plain", "index.js not found");
+        }
+    });
+
+    server.on("/style.css", []() {
+        File file = SPIFFS.open("/style.css", "r");
+        if (file) {
+            server.streamFile(file, "text/css");
+            file.close();
+        } else {
+            server.send(404, "text/plain", "style.css not found");
+        }
+    });
+
+    server.begin();
+    Serial.println("HTTP WebServer started on port 80!");
+
+    // Start WebSocket Server
+    webSocket.begin();
+    webSocket.onEvent(webSocketEvent);
+    Serial.println("WebSocket Server started on port 81!");
+
     printf("WiFI task running!\r\n");
     /*
         WiFI loop
@@ -239,6 +354,17 @@ void WiFiTask(void *arg)
         if (ota == true)
         {
             ArduinoOTA.handle();
+        }
+
+        server.handleClient();
+        webSocket.loop();
+
+        // Thread-safe WebSocket transmitter queue polling
+        char wsMsg[160];
+        if (wsOutQueue != NULL && xQueueReceive(wsOutQueue, (void *)wsMsg, 1) == pdTRUE)
+        {
+            String wsMsgStr = String(wsMsg);
+            webSocket.broadcastTXT(wsMsgStr);
         }
 
         if (WiFi.softAPgetStationNum() != numClients)
@@ -260,6 +386,9 @@ void WiFiTask(void *arg)
             Serial.print("UDP BROADCAST: ");
             Serial.println(out);
             udp.broadcast(out.c_str());
+            
+            // Broadcast the compiled message string to all websocket clients
+            webSocket.broadcastTXT(out.c_str());
         }
         delay(1);
     }

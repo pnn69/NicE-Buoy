@@ -218,7 +218,10 @@ input {
   <button onclick="openTab('Field')" id="btn_Field">Field</button>
 </div>
 
-<h1 id="title">WAITING...</h1>
+<div style="margin: 10px 0; display: flex; justify-content: center; align-items: center; gap: 15px;">
+  <h1 id="title" style="margin: 0; display: inline-block; vertical-align: middle;">WAITING...</h1>
+  <span id="pingContainer" style="font-size: 22px; font-weight: bold; color: #003366; vertical-align: middle;">Ping: <span id="pingVal" style="color: #ff9900; font-weight: bold;">0</span>ms</span>
+</div>
 
 <div id="fieldWrapper" style="display:none; width:100%; max-width:800px; margin:0 auto; background:white; border:1px solid #ccc; border-radius:8px; overflow:hidden;">
     <div style="height:400px; width:100%;">
@@ -554,7 +557,7 @@ function sendSetupCommand(cmd) {
     } else if (cmd === 'PIDSPEED') {
         url += `&p=${document.getElementById('Kps').value || 0}&i=${document.getElementById('Kis').value || 0}&d=${document.getElementById('Kds').value || 0}`;
     } else if (cmd === 'LIMITS') {
-        url += `&max=${document.getElementById('maxSpeed').value || 0}&min=${document.getElementById('minSpeed').value || 0}&pivot=${document.getElementById('pivotSpeed').value || 0.2}`;
+        url += `&max=${document.getElementById('maxSpeed').value || 0}&min=${document.getElementById('minSpeed').value || 0}&pivot=${document.getElementById('pivotSpeed').value || 0.5}`;
     } else if (cmd === 'COMPASSOFFSET') {
         url += `&offset=${document.getElementById('compassOffset').value || 0}`;
     } else if (cmd === 'CALIB_COMPASS') {        if (!confirm(`Deploying In-Water Calibration will cause Buoy ${currentBuoy} to move autonomously in circles for ~3 minutes.\n\nEnsure the area is clear. Continue?`)) return;
@@ -966,9 +969,12 @@ function updateUI() {
 
 /* Fetch data */
 function fetchData() {
+    const startTime = Date.now();
     fetch('/data')
         .then(r => r.json())
         .then(data => {
+            const pingElem = document.getElementById('pingVal');
+            if (pingElem) pingElem.innerText = Date.now() - startTime;
             data.buoys.forEach((b, i) => {
                 buoyData[i + 1] = b;
             });

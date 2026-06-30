@@ -427,7 +427,25 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
             stat->tgLng = stat->lng;
             AddDataToBuoyBase(*stat, buoyParaPtrs); // store positon for later calculations Track positioning
             // IDr,IDs,ACK,MSG,LAT,LON
-            xQueueSend(serOut, (void *)stat, 0);   // update sub
+            xQueueSend(udpOut, (void *)stat, 0);   // update WiFi
+            xQueueSend(loraOut, (void *)stat, 10); // send out trough Lora
+            RouteToPoint(stat->lat, stat->lng, stat->tgLat, stat->tgLng, &stat->tgDist, &stat->tgDir);
+            
+            /* 
+             * IMPORTANT NAVIGATION SAFETY FIX:
+             * On entering the LOCKED state from LOCKING, we must reset tgDist to 0.0.
+             * This prevents any initial transient/stale distance values from being sent to the sub-unit.
+             * Without this reset, the PID speed controllers would see a non-zero distance on the very first 
+             * frame and immediately spin the motors at full burst before the routing calculations stabilize.
+             */
+            stat->tgDist = 0.0;
+            
+            stat->cmd = RESET_SPEED_RUD_PID;
+            xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
+            xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
+            stat->cmd = DIRDIST;
+            xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
+            xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
         }
         else
         {
@@ -442,15 +460,28 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         stat->status = DOCKED;
         stat->tgDist = 0.0;
         stat->tgDir = 0.0;
-        xQueueSend(serOut, (void *)stat, 0);   // update sub
         printf("Retreved data for docking tgLat:%.8f tgLng:%.8f\r\n", stat->tgLat, stat->tgLng);
-        if (stat->tgLat == 0.0) printf("WARNING: Dock position not set in memory!\r\n");
-        // stat->cmd = RESET_SPEED_RUD_PID;
-        // xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
-        // xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
-        // stat->cmd = DIRDIST;
-        // xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
-        // xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
+        if (stat->lat != 0.0 && stat->lng != 0.0 && stat->tgLat != 0.0 && stat->tgLng != 0.0) {
+            RouteToPoint(stat->lat, stat->lng, stat->tgLat, stat->tgLng, &stat->tgDist, &stat->tgDir);
+        } else {
+            if (stat->tgLat == 0.0) printf("WARNING: Dock position not set in memory!\r\n");
+        }
+        
+        /* 
+         * IMPORTANT DOCKING SAFETY FIX:
+         * To prevent thrusters from reacting at full power on entering DOCKED mode,
+         * we immediately override and reset the computed tgDist and tgDir to 0.0 during state transition.
+         * This ensures safe, quiet operation at the dock until explicit command inputs are received.
+         */
+        stat->tgDist = 0.0;
+        stat->tgDir = 0.0;
+        
+        stat->cmd = RESET_SPEED_RUD_PID;
+        xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
+        xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
+        stat->cmd = DIRDIST;
+        xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
+        xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
         break;
 
     case COMPUTESTART:
@@ -855,7 +886,7 @@ void handleTimerRoutines(RoboStruct *timer)
     {
         logtimer = millis() + 5000;
         battVoltage(timer->topAccuV, timer->topAccuP);
-        addNewSampleInBuffer(&wind, timer->tgDir); // add sample to buffer for wind direction calculation.
+        addNewSampleInBuffer(&wind, timer->dirMag); // add sample to buffer for wind direction calculation.
         deviationWindRose(&wind);
         timer->wStd = wind.wStd;
         timer->wDir = wind.wDir; // averige wind dir
@@ -868,9 +899,9 @@ void handleTimerRoutines(RoboStruct *timer)
         // printf("Status:%d Lat: %.8f Lon:%.8f tgDist:%.2f tgDir:%.0f mDir:%.0f wDir:%.0f wStd:%.2f ", timer->status, timer->lat, timer->lng, timer->tgDist,timer->tgDir, timer->dirMag, timer->wDir, timer->wStd);
         // printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %d%% BB:%02d SB:%02d\r\n", timer->topAccuV, timer->topAccuP, timer->subAccuV, timer->subAccuP, timer->speedBb,timer->speedSb);
     }
-    if (udpTimerOut + 2000 < millis() && !((timer->status == LOCKED || timer->status == DOCKED)))
+    if (udpTimerOut + 250 < millis() && !((timer->status == LOCKED || timer->status == DOCKED)))
     {
-        udpTimerOut = millis() + random(0, 150);
+        udpTimerOut = millis() + random(0, 50);
         timer->cmd = BUOYPOS;
         xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
         xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
@@ -949,18 +980,25 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             switch (RfIn.cmd)
             {
             case SUBDATA:
-                RfOut->dirMag = RfIn.dirMag;
-                RfOut->speedBb = RfIn.speedBb;
-                RfOut->speedSb = RfIn.speedSb;
-                RfOut->ip = RfIn.ip;
-                RfOut->ir = RfIn.ir;
-                RfOut->subAccuV = RfIn.subAccuV;
-                RfOut->subAccuP = RfIn.subAccuP;
-                RfOut->subAccuI = RfIn.subAccuI;
+                if (RfIn.IDs != 0 && RfIn.IDs != RfOut->IDs && RfIn.IDs != RfOut->mac)
+                {
+                    AddDataToBuoyBase(RfIn, buoyPara);
+                }
+                else
+                {
+                    RfOut->dirMag = RfIn.dirMag;
+                    RfOut->speedBb = RfIn.speedBb;
+                    RfOut->speedSb = RfIn.speedSb;
+                    RfOut->ip = RfIn.ip;
+                    RfOut->ir = RfIn.ir;
+                    RfOut->subAccuV = RfIn.subAccuV;
+                    RfOut->subAccuP = RfIn.subAccuP;
+                    RfOut->subAccuI = RfIn.subAccuI;
 
-                mainPwrData.ledBb = RfOut->speedBb;
-                mainPwrData.ledSb = RfOut->speedSb;
-                xQueueSend(ledPwr, (void *)&mainPwrData, 0);
+                    mainPwrData.ledBb = RfOut->speedBb;
+                    mainPwrData.ledSb = RfOut->speedSb;
+                    xQueueSend(ledPwr, (void *)&mainPwrData, 0);
+                }
                 break;
             case DOCKING:
                 if (RfOut->status != DOCKING && RfOut->status != DOCKED)
@@ -1192,13 +1230,27 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case SUBACCU:
-                RfOut->subAccuV = RfIn.subAccuV;
-                RfOut->subAccuP = RfIn.subAccuP;
+                if (RfIn.IDs != 0 && RfIn.IDs != RfOut->IDs && RfIn.IDs != RfOut->mac)
+                {
+                    AddDataToBuoyBase(RfIn, buoyPara);
+                }
+                else
+                {
+                    RfOut->subAccuV = RfIn.subAccuV;
+                    RfOut->subAccuP = RfIn.subAccuP;
+                }
                 break;
             case SUBPWR:
-                RfOut->speedBb = RfIn.speedBb;   // set speed for bow
-                RfOut->speedSb = RfIn.speedSb;   // set speed for stern
-                RfOut->subAccuV = RfIn.subAccuV; // set sub accu voltage
+                if (RfIn.IDs != 0 && RfIn.IDs != RfOut->IDs && RfIn.IDs != RfOut->mac)
+                {
+                    AddDataToBuoyBase(RfIn, buoyPara);
+                }
+                else
+                {
+                    RfOut->speedBb = RfIn.speedBb;   // set speed for bow
+                    RfOut->speedSb = RfIn.speedSb;   // set speed for stern
+                    RfOut->subAccuV = RfIn.subAccuV; // set sub accu voltage
+                }
                 break;
             case STORE_DECLINATION:
                 printf("Declinaton set to: %f\r\n", RfIn.declination);

@@ -3,6 +3,7 @@
 #include "main.h"
 extern QueueHandle_t udpOut;
 extern QueueHandle_t udpIn;
+extern QueueHandle_t wsOutQueue;
 
 unsigned long espMac(void);
 unsigned long initwifiqueue(void);

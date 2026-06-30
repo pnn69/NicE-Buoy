@@ -68,6 +68,7 @@ void CompasOffset(RoboStruct *buoy, bool get)
     if (get)
     {
         buoy->compassOffset = storage.getDouble("magCorr", 0);
+        if (isnan(buoy->compassOffset)) buoy->compassOffset = 0;
     }
     else
     {
@@ -143,8 +144,11 @@ void computeParameters(RoboStruct *buoy, bool get)
         buoy->maxOfsetDist = storage.getInt("maxOfsetDist", 8);
         buoy->maxSpeed = storage.getInt("maxSpeed", 80);
         buoy->minSpeed = storage.getInt("minSpeed", 0);
-        buoy->pivotSpeed = storage.getDouble("pivotSpeed", 0.2);
+        buoy->pivotSpeed = storage.getDouble("pivotSpeed", 0.5);
+        if (isnan(buoy->pivotSpeed)) buoy->pivotSpeed = 0.5;
+        if (buoy->pivotSpeed < 0.4) buoy->pivotSpeed = 0.5; // Enforce minimum safety floor to match sub and provide enough pivot torque
         buoy->holdRad = storage.getDouble("holdRad", 2.0);
+        if (isnan(buoy->holdRad)) buoy->holdRad = 2.0;
     }
     else
     {
@@ -166,8 +170,11 @@ void pidSpeedParameters(RoboStruct *buoy, bool get)
     if (get)
     {
         buoy->Kps = storage.getDouble("Kps", 20);
+        if (isnan(buoy->Kps)) buoy->Kps = 20;
         buoy->Kis = storage.getDouble("Kis", 0.05);
+        if (isnan(buoy->Kis)) buoy->Kis = 0.05;
         buoy->Kds = storage.getDouble("Kds", 0);
+        if (isnan(buoy->Kds)) buoy->Kds = 0;
     }
     else
     {
@@ -187,8 +194,11 @@ void pidRudderParameters(RoboStruct *buoy, bool get)
     if (get)
     {
         buoy->Kpr = storage.getDouble("Kpr", 0.5);
+        if (isnan(buoy->Kpr)) buoy->Kpr = 0.5;
         buoy->Kir = storage.getDouble("Kir", 0.02);
+        if (isnan(buoy->Kir)) buoy->Kir = 0.02;
         buoy->Kdr = storage.getDouble("Kdr", 0);
+        if (isnan(buoy->Kdr)) buoy->Kdr = 0;
     }
     else
     {

@@ -4,6 +4,7 @@ https://github.com/sandeepmistry/arduino-LoRa/blob/master/examples/LoRaDuplex/Lo
 #include <Arduino.h>
 #include <SPI.h> // include libraries
 #include <LoRa.h>
+#include <WebSocketsServer.h>
 #include "io.h"
 #include "LiLlora.h"
 #include <RoboCompute.h>
@@ -31,6 +32,7 @@ byte destination = 0x01;  // destination to send to
 QueueHandle_t loraOut;
 QueueHandle_t loraIn;
 QueueHandle_t loraToMain;
+QueueHandle_t loraRawOutQueue;
 
 static unsigned long buoyId = 0;
 // struct loraDataType loraIn;
@@ -62,6 +64,7 @@ void initloraqueue(void)
     loraIn = xQueueCreate(10, sizeof(RoboStruct));
     loraOut = xQueueCreate(10, sizeof(RoboStruct));
     loraToMain = xQueueCreate(10, sizeof(RoboStruct));
+    loraRawOutQueue = xQueueCreate(10, 160 * sizeof(char));
     InitLora();
     buoyId = espMac();
     Serial.print("#BuoyId=");
@@ -161,7 +164,22 @@ void onReceive(int packetSize)
         return; // skip rest of function
     }
     Serial.println(incoming);
-    RoboStruct in;
+    
+    // Broadcast incoming LoRa telemetry safely and thread-safe to WebSockets
+    extern QueueHandle_t wsOutQueue;
+    if (wsOutQueue != NULL) {
+        char packetBuf[160];
+        memset(packetBuf, 0, sizeof(packetBuf));
+        int len = incoming.length();
+        if (len > 159) len = 159;
+        for (int i = 0; i < len; i++) {
+            packetBuf[i] = incoming[i];
+        }
+        packetBuf[len] = '\0';
+        xQueueSend(wsOutQueue, (void *)packetBuf, 10);
+    }
+
+    RoboStruct in = {};
     rfDeCode(incoming, &in);
     if ((in.IDr == buoyId || in.IDr == 0x99) && in.ack == ACK) // A message form me so check if its a ACK message
     {

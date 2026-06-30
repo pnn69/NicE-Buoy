@@ -1,8 +1,0 @@
-{
-    "files.associations": {
-        "adafruit_ssd1306.h": "c",
-        "adafruit_mcp23x17.h": "c",
-        "wire.h": "c"
-    },
-    "C_Cpp.default.compilerPath": "C:/Users/hp/.platformio/packages/toolchain-xtensa32@2.50200.97/bin/xtensa-esp32-elf-gcc.exe"
-}
