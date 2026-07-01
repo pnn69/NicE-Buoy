@@ -454,6 +454,11 @@ function parseMessage(message, source) {
             targetBuoy.lastUdpContent = content;
         }
         
+        // Dual-source filtering: if UDP is actively coming in, ignore LoRa updates for the display
+        if (source === "LoRa" && (now - targetBuoy.lastUdpTime < 5000)) {
+            return;
+        }
+        
         const cmd = parseInt(fields[3]);
         const ack = fields[2];
         const status = fields[4];
