@@ -266,7 +266,12 @@ void fillBuoyArr(RoboStruct *IDin)
     for (int i = 0; i < STRUCTLEN; i++)
     {
         if (IDin->IDs == IDs[i].IDs) return;
-        if (IDs[i].IDs == 0) { IDs[i] = *IDin; return; }
+        if (IDs[i].IDs == 0) { 
+            IDs[i] = *IDin; 
+            IDs[i].cmd = NOCMD;
+            IDs[i].ack = 0;
+            return; 
+        }
     }
 }
 

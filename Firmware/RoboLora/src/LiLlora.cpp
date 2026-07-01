@@ -170,12 +170,13 @@ void onReceive(int packetSize)
     if (wsOutQueue != NULL) {
         char packetBuf[160];
         memset(packetBuf, 0, sizeof(packetBuf));
+        strcpy(packetBuf, "LORA:");
         int len = incoming.length();
-        if (len > 159) len = 159;
+        if (len > 150) len = 150; // Leave room for prefix and null terminator
         for (int i = 0; i < len; i++) {
-            packetBuf[i] = incoming[i];
+            packetBuf[5 + i] = incoming[i];
         }
-        packetBuf[len] = '\0';
+        packetBuf[5 + len] = '\0';
         xQueueSend(wsOutQueue, (void *)packetBuf, 10);
     }
 

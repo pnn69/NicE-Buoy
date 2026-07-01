@@ -205,12 +205,13 @@ bool udp_setup(int poort)
                          if (wsOutQueue != NULL) {
                              char packetBuf[160];
                              memset(packetBuf, 0, sizeof(packetBuf));
+                             strcpy(packetBuf, "UDP:");
                              int len = stringUdpIn.length();
-                             if (len > 159) len = 159;
+                             if (len > 150) len = 150; // Leave room for prefix and null terminator
                              for (int i = 0; i < len; i++) {
-                                 packetBuf[i] = stringUdpIn[i];
+                                 packetBuf[4 + i] = stringUdpIn[i];
                              }
-                             packetBuf[len] = '\0';
+                             packetBuf[4 + len] = '\0';
                              xQueueSend(wsOutQueue, (void *)packetBuf, 10);
                          }
 
@@ -387,8 +388,9 @@ void WiFiTask(void *arg)
             Serial.println(out);
             udp.broadcast(out.c_str());
             
-            // Broadcast the compiled message string to all websocket clients
-            webSocket.broadcastTXT(out.c_str());
+            // Broadcast the compiled message string to all websocket clients with UDP prefix
+            String wsMsg = "UDP:" + out;
+            webSocket.broadcastTXT(wsMsg.c_str());
         }
         delay(1);
     }

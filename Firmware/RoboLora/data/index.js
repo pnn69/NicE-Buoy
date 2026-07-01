@@ -50,6 +50,7 @@ const buoys = Array.from({ length: 3 }, (_, i) => ({
     id: null, // Hex ID assigned dynamically from incoming messages
     title: `Buoy ${i + 1} (Waiting...)`,
     udpEnabled: true,
+    loraEnabled: true,
     lastUdpTime: 0,
     lastLoraTime: 0,
     lastUdpContent: "",
@@ -305,14 +306,23 @@ function connectWebSocket() {
     
     socket.onmessage = (event) => {
         try {
-            const raw = event.data.trim();
+            let raw = event.data.trim();
             if (raw) {
-                // Log message as UDP IN (because the socket serves as our UDP link)
-                logMessage(raw, "UDP IN");
+                let source = "UDP";
+                if (raw.startsWith("LORA:")) {
+                    raw = raw.substring(5);
+                    source = "LoRa";
+                } else if (raw.startsWith("UDP:")) {
+                    raw = raw.substring(4);
+                    source = "UDP";
+                }
+                
+                // Log message to the correct panel (LORA LOG or UDP LOG)
+                logMessage(raw, source + " IN");
                 
                 // Handle raw NMEA formats
                 if (raw.startsWith("$")) {
-                    parseMessage(raw, "UDP");
+                    parseMessage(raw, source);
                 } else {
                     // Fallback: parse as JSON if it's not an NMEA sentence
                     try {
@@ -431,6 +441,9 @@ function parseMessage(message, source) {
         
         // UDP filtering
         if (source === "UDP" && !targetBuoy.udpEnabled) return;
+        
+        // LoRa filtering
+        if (source === "LoRa" && !targetBuoy.loraEnabled) return;
         
         const now = Date.now();
         if (source === "LoRa") {
@@ -861,6 +874,11 @@ function initUIEventListeners() {
         document.getElementById(`udp-enabled-${i}`).addEventListener("change", (e) => {
             b.udpEnabled = e.target.checked;
         });
+        
+        // LoRa Enabled toggle
+        document.getElementById(`lora-enabled-${i}`).addEventListener("change", (e) => {
+            b.loraEnabled = e.target.checked;
+        });
     });
     
     // Global Action Button listeners
@@ -889,6 +907,30 @@ function initUIEventListeners() {
     document.getElementById("modal-close-btn").addEventListener("click", closeSetupModal);
     document.getElementById("setup-modal").addEventListener("click", (e) => {
         if (e.target.id === "setup-modal") closeSetupModal();
+    });
+    
+    // Set as North button click handler
+    document.getElementById("setup-setNorth-btn").addEventListener("click", () => {
+        if (activeSetupBuoyIndex === null) return;
+        const b = buoys[activeSetupBuoyIndex];
+        if (!b) return;
+        
+        const mDir = b.data["Magnetic Dir"];
+        if (mDir === undefined || mDir === null || mDir === "N/A" || isNaN(parseFloat(mDir))) {
+            alert("No valid magnetic heading data available from buoy yet.");
+            return;
+        }
+        
+        const currentOffset = parseInt(document.getElementById("setup-compassOffset").value) || 0;
+        const currentHeading = parseFloat(mDir);
+        
+        let newOffset = Math.round(currentOffset - currentHeading);
+        
+        // Normalize newOffset to [-180, 180]
+        while (newOffset < -180) newOffset += 360;
+        while (newOffset > 180) newOffset -= 360;
+        
+        document.getElementById("setup-compassOffset").value = newOffset;
     });
     
     // Modal save submission

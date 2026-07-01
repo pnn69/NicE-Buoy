@@ -34,8 +34,11 @@ void SercomTask(void *arg)
                 
                 if (serDataIn.IDs != -1)
                 {
-                    // Route to LoRa transmitter queue
-                    xQueueSend(loraOut, (void *)&serDataIn, 10);
+                    // Only forward to LoRa transmitter if it is a command (GET: 1, SET: 2, GETACK: 3)
+                    if (serDataIn.ack == 1 || serDataIn.ack == 2 || serDataIn.ack == 3)
+                    {
+                        xQueueSend(loraOut, (void *)&serDataIn, 10);
+                    }
                     
                     // Also route to main task for local monitoring/display
                     xQueueSend(serIn, (void *)&serDataIn, 10);

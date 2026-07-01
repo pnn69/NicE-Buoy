@@ -78,10 +78,24 @@ def on_open(ws):
         
         print("⏳ Listening for 3 seconds...")
         time.sleep(3)
+
+        # Scenario 3: Send SETUPDATA command with updated compass offset (Set as North)
+        print("\n🧭 Sending SETUPDATA command with updated compass offset 45...")
+        # Fields: target, sender, ack, cmd, status, Kpr, Kir, Kdr, Kps, Kis, Kds, maxSpeed, minSpeed, pivotSpeed, compassOffset, holdRad, revBB, revSB, swap
+        setup_fields = ["1", "99", "2", "83", "7", "0.2", "0.01", "0.05", "0.1", "0.0", "0.0", "1.0", "0.1", "0.2", "45", "2.0", "0", "0", "0"]
+        setup_payload = ",".join(setup_fields)
+        setup_crc = calculate_crc(setup_payload)
+        setup_cmd = f"${setup_payload}*{setup_crc:02X}\r\n"
+        print(f"[SEND] {setup_cmd.strip()}")
+        ws.send(setup_cmd)
+        
+        print("⏳ Listening for 3 seconds...")
+        time.sleep(3)
         
         print("\n--- TEST SCENARIO COMPLETION REPORT ---")
         print("✅ Tested LOCK.")
         print("✅ Tested IDLE.")
+        print("✅ Tested SETUPDATA (Compass Offset/Set as North).")
         ws.close()
         
     threading.Thread(target=test_scenarios, daemon=True).start()

@@ -144,10 +144,14 @@
                     </table>
                 </div>
 
-                <div class="udp-enable-wrapper">
+                <div class="udp-enable-wrapper" style="gap: 15px;">
                     <label class="checkbox-label">
                         <input type="checkbox" id="udp-enabled-0" checked>
                         <span>UDP Enabled</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="lora-enabled-0" checked>
+                        <span>LoRa Enabled</span>
                     </label>
                 </div>
             </section>
@@ -266,10 +270,14 @@
                     </table>
                 </div>
 
-                <div class="udp-enable-wrapper">
+                <div class="udp-enable-wrapper" style="gap: 15px;">
                     <label class="checkbox-label">
                         <input type="checkbox" id="udp-enabled-1" checked>
                         <span>UDP Enabled</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="lora-enabled-1" checked>
+                        <span>LoRa Enabled</span>
                     </label>
                 </div>
             </section>
@@ -388,10 +396,14 @@
                     </table>
                 </div>
 
-                <div class="udp-enable-wrapper">
+                <div class="udp-enable-wrapper" style="gap: 15px;">
                     <label class="checkbox-label">
                         <input type="checkbox" id="udp-enabled-2" checked>
                         <span>UDP Enabled</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="lora-enabled-2" checked>
+                        <span>LoRa Enabled</span>
                     </label>
                 </div>
             </section>
@@ -486,6 +498,7 @@
                         <div class="form-group half-width">
                             <label>Compass Offset:</label>
                             <input type="number" step="1" id="setup-compassOffset" required>
+                            <button type="button" class="btn btn-secondary" id="setup-setNorth-btn" style="margin-top: 5px; padding: 4px 8px; font-size: 11px;">Set as North</button>
                         </div>
                         <div class="form-group full-width">
                             <label>Hold Radius (meters):</label>
