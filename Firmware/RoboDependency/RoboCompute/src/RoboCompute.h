@@ -100,7 +100,8 @@ typedef enum
     RESET_SPEED_PID,
     RESET_SPEED_RUD_PID,
     WAKEUP,
-    SETUPDATA
+    SETUPDATA,
+	SET_AS_NORTH = 125
 } msg_t;
 
 struct RoboStruct

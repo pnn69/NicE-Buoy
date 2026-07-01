@@ -16,7 +16,6 @@
 #include <WebServer.h>
 #include <ArduinoOTA.h>
 #include <LittleFS.h>
-#include <Adafruit_Sensor.h>
 #include <RoboCompute.h>
 #include "main.h"
 #include "io_sub.h"
@@ -25,7 +24,9 @@
 #include "pidrudspeed.h"
 #include "subwifi.h"
 #include "index_html.h"
+#include "calibration_html.h"
 #include "leds.h"
+#include "buzzer.h"
 
 // Global instances
 WebServer subServer(80);
@@ -38,7 +39,10 @@ extern RoboStruct mainData;
 extern SemaphoreHandle_t mainDataMutex;
 extern QueueHandle_t compassIn;
 extern float last_raw_x, last_raw_y, last_raw_z;
-extern uint8_t bno_cal_sys, bno_cal_gyro, bno_cal_accel, bno_cal_mag;
+extern float hi_x, hi_y, hi_z;
+extern float si_x, si_y, si_z;
+extern int icm_mode;
+extern void updateUIHexFloat();
 extern String global_cal_msg;
 extern String global_cal_load, global_cal_ver;
 extern uint32_t global_loop_cnt;
@@ -251,6 +255,89 @@ void WiFiTask(void *arg) {
         xQueueSend(compassIn,(void*)&c,10); 
         subServer.send(200,"text/plain","OK"); 
     });
+    subServer.on("/save_cal", HTTP_GET, [](){
+        if(subServer.hasArg("hx") && subServer.hasArg("hy") && subServer.hasArg("hz") &&
+           subServer.hasArg("sx") && subServer.hasArg("sy") && subServer.hasArg("sz")) {
+            
+            float hi[3], si[3];
+            hi[0] = subServer.arg("hx").toFloat();
+            hi[1] = subServer.arg("hy").toFloat();
+            hi[2] = subServer.arg("hz").toFloat();
+            si[0] = subServer.arg("sx").toFloat();
+            si[1] = subServer.arg("sy").toFloat();
+            si[2] = subServer.arg("sz").toFloat();
+
+            // Write to NVS
+            memIcmCalib(hi, si, false);
+
+            // Update runtime variables
+            hi_x = hi[0]; hi_y = hi[1]; hi_z = hi[2];
+            si_x = si[0]; si_y = si[1]; si_z = si[2];
+
+            // Re-generate user hex/text strings for telemetry
+            updateUIHexFloat();
+
+            // Success beep sequence!
+            if (buzzer != NULL) {
+                beep(-1, buzzer);
+            }
+
+            subServer.send(200, "text/plain", "OK");
+        } else {
+            subServer.send(400, "text/plain", "Err");
+        }
+    });
+    subServer.on("/start_cal", HTTP_GET, [](){
+        if (buzzer != NULL) {
+            beep(3, buzzer); // Triple beep to signal start of calibration!
+        }
+        subServer.send(200, "text/plain", "OK");
+    });
+    subServer.on("/set_icm_mode", HTTP_GET, [](){
+        if (subServer.hasArg("mode")) {
+            icm_mode = subServer.arg("mode").toInt();
+            
+            // Write to NVS
+            float hi[3] = {hi_x, hi_y, hi_z};
+            float si[3] = {si_x, si_y, si_z};
+            memIcmCalib(hi, si, false);
+
+            subServer.send(200, "text/plain", "OK");
+        } else {
+            subServer.send(400, "text/plain", "Err");
+        }
+    });
+    subServer.on("/calibration", HTTP_GET, [](){
+        subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        subServer.sendHeader("Pragma", "no-cache");
+        subServer.sendHeader("Expires", "-1");
+        subServer.send_P(200, "text/html", CALIBRATION_HTML);
+    });
+    subServer.on("/callibration", HTTP_GET, [](){
+        subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        subServer.sendHeader("Pragma", "no-cache");
+        subServer.sendHeader("Expires", "-1");
+        subServer.send_P(200, "text/html", CALIBRATION_HTML);
+    });
+    subServer.on("/set_north", HTTP_GET, [](){
+        double newOffset = 0;
+        bool success = false;
+        if(mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500))){
+            newOffset = mainData.compassOffset - global_hdg;
+            while (newOffset < -180.0) newOffset += 360.0;
+            while (newOffset > 180.0) newOffset -= 360.0;
+            mainData.compassOffset = newOffset;
+            success = true;
+            xSemaphoreGive(mainDataMutex);
+        }
+        if (success) {
+            CompasOffset(&mainData, SET);
+            global_params_rev++;
+            subServer.send(200, "text/plain", "OK");
+        } else {
+            subServer.send(500, "text/plain", "Err");
+        }
+    });
     
     // Parameter Update API
     subServer.on("/setparam", HTTP_GET, [](){
@@ -358,13 +445,14 @@ void WiFiTask(void *arg) {
 
         char buf[1024];
         snprintf(buf, sizeof(buf),
-            "{\"icm\":%.2f,\"speed_bb\":%d,\"speed_sb\":%d,\"ir\":%.2f,\"ip\":%.2f,\"cal_load\":\"%s\",\"cal_ver\":\"%s\",\"mac\":\"%s\",\"cal_levels\":[%d,%d,%d,%d],\"cal_msg\":\"%s\",\"rev\":%u,\"vatt\":%.1f,\"curr\":%.2f,\"status\":%d,\"status_str\":\"%s\",\"ri\":%.2f,\"ro\":%.2f,\"rbb\":%.2f,\"rsb\":%.2f,\"framp\":%.2f,\"pivot\":%d}",
+            "{\"icm\":%.2f,\"speed_bb\":%d,\"speed_sb\":%d,\"ir\":%.2f,\"ip\":%.2f,\"cal_load\":\"%s\",\"cal_ver\":\"%s\",\"mac\":\"%s\",\"cal_msg\":\"%s\",\"rev\":%u,\"vatt\":%.1f,\"curr\":%.2f,\"status\":%d,\"status_str\":\"%s\",\"ri\":%.2f,\"ro\":%.2f,\"rbb\":%.2f,\"rsb\":%.2f,\"framp\":%.2f,\"pivot\":%d,\"mx_raw\":%.2f,\"my_raw\":%.2f,\"mz_raw\":%.2f,\"icm_mode\":%d}",
             icm, sbb, ssb, ir, ip, 
             global_cal_load.c_str(), global_cal_ver.c_str(), global_mac_str.c_str(),
-            bno_cal_sys, bno_cal_gyro, bno_cal_accel, bno_cal_mag,
             global_cal_msg.c_str(), global_params_rev, vatt, curr,
             stat_val, statusStr,
-            rudderInput, rudderOutput, rampBb, rampSb, forward_ramp, was_pure_pivot ? 1 : 0
+            rudderInput, rudderOutput, rampBb, rampSb, forward_ramp, was_pure_pivot ? 1 : 0,
+            last_raw_x, last_raw_y, last_raw_z,
+            icm_mode
         );
         subServer.send(200, "application/json", buf);
     });

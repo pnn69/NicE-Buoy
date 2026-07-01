@@ -234,6 +234,8 @@ void RoboDecode(String data, RoboStruct *dataStore)
     case STORE_COMPASS_OFFSET:
         dataStore->compassOffset = numbers[2].toDouble();
         break;
+    case SET_AS_NORTH:
+        break;
     default:
         printf("RoboDecode: Unknown CMD %d\r\n", dataStore->cmd);
         break;
@@ -415,6 +417,8 @@ String RoboCode(const RoboStruct *dataOut)
         break;
     case STORE_COMPASS_OFFSET:
         out += "," + String(dataOut->compassOffset, 2);
+        break;
+    case SET_AS_NORTH:
         break;
     case DOCKED:
     case LOCKED:

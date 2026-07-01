@@ -342,6 +342,7 @@ void WiFiTask(void *arg)
         else if (cmdStr == "CALIB_COMPASS") cmdEnum = INFIELD_CALIBRATE;
         else if (cmdStr == "MANUAL_CALIB") cmdEnum = CALIBRATE_MAGNETIC_COMPASS;
         else if (cmdStr == "CALIB_OFFSET") cmdEnum = INFIELD_OFFSET_CALIBRATE;
+        else if (cmdStr == "SET_AS_NORTH") cmdEnum = SET_AS_NORTH;
         else if (cmdStr == "COMPUTESTART") cmdEnum = COMPUTESTART;
         else if (cmdStr == "COMPUTETRACK") cmdEnum = COMPUTETRACK;
 

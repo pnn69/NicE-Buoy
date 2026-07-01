@@ -20,6 +20,10 @@
 #define HOST_NAME "RoboBuoySub"
 TaskHandle_t compassTaskHandle = NULL; // Task handle for compass task
 
+#ifndef SET_AS_NORTH
+#define SET_AS_NORTH 125 // Custom command number for Set as North coming from Top
+#endif
+
 #define POWEROFFTIME 60000 * 60 // 60 minutes
 
 // pid subparameter;
@@ -135,11 +139,11 @@ void setup()
     }
     // CORE 0: Network and Telemetry
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 16384, &wifiConfig, configMAX_PRIORITIES - 10, NULL, 0);
+    xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 2048, NULL, 1, NULL, 0);
+    xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 0);
     
     // CORE 1: Real-time Control and Sensors
-    xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 2048, NULL, 1, NULL, 1);
     xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 5, NULL, 1);
-    xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 1);
     xTaskCreatePinnedToCore(CompassTask, "CompassTask", 8192, NULL, configMAX_PRIORITIES - 1, &compassTaskHandle, 1);
     xTaskCreatePinnedToCore(SercomTask, "SerialTask", 8192, NULL, configMAX_PRIORITIES - 3, NULL, 1);
     Serial.println("Setup done!");
@@ -448,6 +452,36 @@ void handelSerandRfdata(RoboStruct *ser)
                     response.ack = INF;
                     response.status = IDELING; // Force a status sync back to Top
                     xQueueSend(serOut, (void *)&response, 10);
+                }
+                break;
+            case SET_AS_NORTH:
+                {
+                    double newOffset = 0;
+                    bool success = false;
+                    if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500))) {
+                        newOffset = mainData.compassOffset - mainData.dirMag;
+                        while (newOffset < -180.0) newOffset += 360.0;
+                        while (newOffset > 180.0) newOffset -= 360.0;
+                        mainData.compassOffset = newOffset;
+                        ser->compassOffset = newOffset;
+                        success = true;
+                        xSemaphoreGive(mainDataMutex);
+                    }
+                    if (success) {
+                        CompasOffset(&mainData, SET);
+                        global_params_rev++;
+                        printf("SET_AS_NORTH command received via serial! Offset adjusted to %0.2f and saved to NVS.\r\n", newOffset);
+                        extern QueueHandle_t buzzer;
+                        if (buzzer != NULL) {
+                            beep(-1, buzzer);
+                        }
+                        RoboStruct response = mainData;
+                        response.IDr = dataIn.IDs;
+                        response.cmd = SET_AS_NORTH;
+                        response.ack = INF;
+                        response.status = IDELING;
+                        xQueueSend(serOut, (void *)&response, 10);
+                    }
                 }
                 break;
             case CALC_COMPASS_OFFSET:

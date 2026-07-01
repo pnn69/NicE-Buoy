@@ -1279,6 +1279,11 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             case STORE_COMPASS_OFFSET:
                 RfOut->compassOffset = RfIn.compassOffset; // Update Top Buoy's local data
                 
+                RfIn.IDr = BUOYIDALL;
+                xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
+                break;
+            case SET_AS_NORTH:
+                RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
                 break;
             case RAWCOMPASSDATA:

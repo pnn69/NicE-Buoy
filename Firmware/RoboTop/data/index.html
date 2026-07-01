@@ -358,7 +358,7 @@ input {
         <h4 style="margin: 10px 0 8px 0;">In-Field Calibration</h4>
         <div style="display:flex; flex-direction:column; gap:8px;">
             <button onclick="sendSetupCommand('MANUAL_CALIB')" style="width:100%; background:#d9534f; color:white; font-weight:bold; height: 45px; font-size: 16px; margin:0;">Desk Calibration (60s Figure-8)</button>
-            <button onclick="sendSetupCommand('CALIB_OFFSET')" style="width:100%; background:#5bc0de; color:white; font-weight:bold; height: 45px; font-size: 16px; margin:0;">Offset Calibration (South->North)</button>
+            <button onclick="sendSetupCommand('SET_AS_NORTH')" style="width:100%; background:#5bc0de; color:white; font-weight:bold; height: 45px; font-size: 16px; margin:0;">Set as North</button>
         </div>
     </div>
 </div>
@@ -417,11 +417,9 @@ function updateConfig() {
         .then(response => response.text())
         .then(data => {
             console.log("Update Config response:", data);
-            alert("Configuration updated successfully!");
         })
         .catch(error => {
             console.error('Error updating config:', error);
-            alert("Failed to update configuration.");
         });
 }
 
@@ -484,7 +482,6 @@ function openSetup(bid) {
         if (waitingForSetupData) {
             waitingForSetupData = false;
             document.getElementById("collectingOverlay").style.display = "none";
-            alert("Timeout: Sub Buoy did not respond in time.");
         }
     }, 5000);
 
@@ -560,11 +557,6 @@ function sendSetupCommand(cmd) {
         url += `&max=${document.getElementById('maxSpeed').value || 0}&min=${document.getElementById('minSpeed').value || 0}&pivot=${document.getElementById('pivotSpeed').value || 0.5}`;
     } else if (cmd === 'COMPASSOFFSET') {
         url += `&offset=${document.getElementById('compassOffset').value || 0}`;
-    } else if (cmd === 'CALIB_COMPASS') {        if (!confirm(`Deploying In-Water Calibration will cause Buoy ${currentBuoy} to move autonomously in circles for ~3 minutes.\n\nEnsure the area is clear. Continue?`)) return;
-    } else if (cmd === 'MANUAL_CALIB') {
-        if (!confirm(`Desk Calibration started for Buoy ${currentBuoy}!\n\nAs soon as you click OK, the buoy will record its compass bounds for 60 seconds.\n\nPlease pick it up and rotate it continuously in all 3D axes (Figure-8 motion). Ready?`)) return;
-    } else if (cmd === 'CALIB_OFFSET') {
-        if (!confirm(`Deploying In-Field Offset Calibration will cause Buoy ${currentBuoy} to sail South for ~2 minutes, then return North.\n\nEnsure you have enough open water to the South. Continue?`)) return;
     }
 
     fetch(url)

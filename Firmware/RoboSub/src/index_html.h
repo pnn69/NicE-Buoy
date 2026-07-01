@@ -57,22 +57,22 @@ button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:poin
 </div>
 <div class="raw-box"><b>Compass</b>
 <div class="axis-row">Off:<input type="number" id="coff_in"><button onclick="setParam('coff')">Set</button></div>
+<div class="axis-row">Rad:<input type="number" step="0.1" id="holdrad_in"><button onclick="setParam('holdrad')">Set</button></div>
+<button onclick="setAsNorth()" style="background:#ffcc00;color:#1a1a1a;width:100%;margin-top:8px;font-weight:bold;height:35px;border-radius:4px;border:none;cursor:pointer;">Set Current as North</button>
+<div style="font-size:0.95em;font-family:monospace;color:#aaa;margin-top:8px;text-align:center;line-height:1.4;font-weight:600;">Loaded Profile (NVS):<br><span id="main_cal_load" style="color:#ffcc00">Loading...</span><br>Selected Mode:<br><span id="main_icm_mode" style="color:#58a6ff">Loading...</span></div>
 </div>
 <div class="raw-box"><b>Speed Limits</b>
 <div class="axis-row">Min:<input type="number" id="minspd_in"><button onclick="setParam('minspd')">Set</button></div>
 <div class="axis-row">Max:<input type="number" id="maxspd_in"><button onclick="setParam('maxspd')">Set</button></div>
 <div class="axis-row">Piv:<input type="number" step="0.01" id="pvspd_in"><button onclick="setParam('pvspd')">Set</button></div>
-<div class="axis-row">Rad:<input type="number" step="0.1" id="holdrad_in"><button onclick="setParam('holdrad')">Set</button></div>
 </div>
 <div class="raw-box"><b>Thrusters</b>
 <div class="axis-row">BB Inv:<select id="revbb_in" onchange="setParam('revbb')"><option value="0">Normal</option><option value="1">Inverted</option></select></div>
 <div class="axis-row">SB Inv:<select id="revsb_in" onchange="setParam('revsb')"><option value="0">Normal</option><option value="1">Inverted</option></select></div>
 <div class="axis-row">Swap:<select id="tswap_in" onchange="setParam('tswap')"><option value="0">Normal</option><option value="1">Swapped</option></select></div>
 </div>
-<div class="raw-box"><b>BNO Persistence</b>
-<div style="font-size:0.7em;font-family:monospace;word-break:break-all;color:#aaa">L:<span id="cal_load">None</span><br>V:<span id="cal_ver">None</span></div>
-<button id="calButton" onclick="startCalib()" style="background:#5a32a8;color:#fff;width:100%;margin-top:5px">BNO Status</button>
-<button onclick="saveCalib()" style="background:#2a6a2a;color:#fff;width:100%;margin-top:5px">Save Calib</button>
+<div class="raw-box" style="display:flex;flex-direction:column;justify-content:center;"><b>Compass Configuration</b>
+<button onclick="location.href='/calibration'" style="background:#58a6ff;color:#0d1117;width:100%;height:50px;margin-top:10px;font-weight:bold;font-size:1em;border-radius:4px;border:none;cursor:pointer;">➔ Interactive Calibration</button>
 </div>
 </div>
 <script>
@@ -105,12 +105,22 @@ function fetchData(){
         if (pingElem) pingElem.innerText = Date.now() - startTime;
         document.getElementById('icmVal').innerText=d.icm.toFixed(1);
         document.getElementById('calMsg').innerText=d.cal_msg;
+        if(d.cal_load !== undefined) {
+            document.getElementById('main_cal_load').innerText = d.cal_load;
+        }
+        if(d.icm_mode !== undefined) {
+            const modes = {
+                1: "1. Only Hard Iron (No Soft, No Tilt)",
+                2: "2. Hard & Soft Iron (No Tilt)",
+                3: "3. Hard Iron & Pitch + Roll",
+                4: "4. Hard & Soft Iron & Pitch + Roll"
+            };
+            document.getElementById('main_icm_mode').innerText = modes[d.icm_mode] || "Unknown";
+        }
         const statusElem = document.getElementById('subStatus');
         if (statusElem && d.status_str) {
             statusElem.innerText = 'STATE: ' + d.status_str;
         }
-        document.getElementById('cal_load').innerText=d.cal_load;
-        document.getElementById('cal_ver').innerText=d.cal_ver;
         if(d.mac)document.getElementById('mainTitle').innerText='NicE-Buoy Sub '+d.mac;
         updateThruster('bb',d.speed_bb);
         updateThruster('sb',d.speed_sb);
@@ -166,10 +176,6 @@ function fetchData(){
         } else {
             targetHeading = d.icm;
         }
-
-        const c=d.cal_levels,b=document.getElementById('calButton');
-        if(c&&c[3]===3){b.style.background='#2a6a2a';b.innerText='BNO Calibrated (3)'}
-        else{b.style.background='#5a32a8';b.innerText='BNO Status'}
     })
     .catch(e=>{
         if (e.name !== 'AbortError') {
@@ -181,9 +187,19 @@ function fetchData(){
         setTimeout(fetchData, 250);
     });
 }
-function startCalib(){alert('BNO055 calibrates automatically while moving. Rotate the buoy until Mag (M) shows 3.')}
-function saveCalib(){if(confirm('Save current BNO calibration?')){fetch('/savecal').then(r=>alert('Save Sent!'))}}
 function setParam(p){const e=document.getElementById(p+'_in');if(!e)return;fetch('/setparam?p='+p+'&v='+e.value).then(()=>setTimeout(fetchParams,300))}
+function setAsNorth(){
+    fetch('/set_north')
+        .then(r => r.text())
+        .then(txt => {
+            if(txt === "OK") {
+                console.log('Compass calibrated to North successfully!');
+            } else {
+                console.error('Error calibrating North: ' + txt);
+            }
+        })
+        .catch(e => console.error('Network error: ' + e));
+}
 function fetchParams(){fetch('/params?t='+Date.now()).then(r=>r.json()).then(d=>{let missing=false;['kpr','kir','kdr','kps','kis','kds','coff','pvspd','revbb','revsb','tswap','minspd','maxspd','holdrad'].forEach(p=>{const e=document.getElementById(p+'_in');if(e){if(d[p]!==undefined){if(document.activeElement!==e)e.value=d[p]}else missing=true}});if(missing||Object.keys(d).length<5)setTimeout(fetchParams,1000)}).catch(e=>{console.error(e);setTimeout(fetchParams,1000)})}
 fetchParams();
 
@@ -191,4 +207,4 @@ fetchData();
 </script></body></html>
 )rawliteral";
 
-#endif
+#endif /* INDEX_HTML_H */
