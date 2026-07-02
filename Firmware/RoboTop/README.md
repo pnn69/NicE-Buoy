@@ -53,6 +53,10 @@ RoboTop leverages FreeRTOS to coordinate real-time operations across the ESP32's
 ### 5. Automated Regatta Start Line & Track Calculations
 To facilitate competitive sailing regattas, RoboTop coordinates the positions of multiple buoys to automatically establish a fair, geometrically synchronized starting line:
 
+*   **Dynamic Role & Slot Assignment**: The designation of each buoy's role is handled automatically in order of connection and database registration inside the master supervisor's database (`buoyPara[3]` array):
+    *   **PORT Pin (Slot 0)**: The first active registered buoy discovered in the database (`buoyPara[0]`) is dynamically assigned as the **Port starting pin**.
+    *   **STARBOARD Pin (Slot 1)**: The second active registered buoy discovered in the database (`buoyPara[1]`) is dynamically assigned as the **Starboard starting pin**.
+    *   **HEAD Buoy (Slot 2)**: The third registered buoy (`buoyPara[2]`) takes on the role of the **Head (windward) course buoy**, which marks the post-start race target.
 *   **Geographical Midpoint & Width Determination**: Identifies the participating start line buoys, computes their exact geographic midpoint using arithmetic coordinate averages, and calculates the total starting line width $d$ (Great-Circle distance) using the Haversine formula.
 *   **Wind-Aligned Perpendicular Squaring (`recalcStartLine`)**: Imports the live, filtered average wind direction ($W_{\text{dir}}$) from the master supervisor. To ensure a completely fair start, the starting line must be exactly perpendicular ($90^\circ$) to the wind direction:
     *   **Port End Bearing**: $\theta_{\text{Port}} = (W_{\text{dir}} + 270^\circ) \bmod 360^\circ$
