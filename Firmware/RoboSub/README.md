@@ -107,8 +107,8 @@ RoboSub utilizes the ESP32's **Preferences NVS (Non-Volatile Storage)** to store
 
 ### 2. Differential Locomotion Limits & Motor Flags
 *   **Thrust Boundaries (`maxSpeed`, `minSpeed`, `pivotSpeed`)**:
-    *   `maxSpeed` (Default: `80`): Maximum forward speed percentage allowed under autonomous control.
-    *   `minSpeed` (Default: `0`): Minimum thrust to overcome physical inertia.
+    *   `maxSpeed` (Default: `75`): Maximum forward speed percentage allowed under autonomous control.
+    *   `minSpeed` (Default: `-75`): Maximum reverse speed percentage allowed under autonomous control (NVS initializer writes `-75`).
     *   `pivotSpeed` (Default: `0.2`): Proportional motor speed coefficient during in-place pivoting.
 *   **Thruster Correction Flags (`revBB`, `revSB`, `swap_BB_SB`)**:
     *   `revBB` (Default: `false`): Boolean flag to invert the rotation direction of the Port (BB) thruster.

@@ -65,8 +65,8 @@ void initMemory(void)
         storage.putDouble("Kps", 20.0);
         storage.putDouble("Kis", 0.4);
         storage.putDouble("Kds", 0.2);
-        storage.putInt("maxSpeed", 73);
-        storage.putInt("minSpeed", -73);
+        storage.putInt("maxSpeed", 75);
+        storage.putInt("minSpeed", -75);
         storage.putDouble("pivotSpeed", 0.5);
         storage.putDouble("magCorr", 90.0); // User's stated good value
         storage.putDouble("holdRad", 2.0); // User's stated good value

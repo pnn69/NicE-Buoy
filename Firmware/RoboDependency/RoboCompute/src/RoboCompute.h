@@ -152,7 +152,7 @@ struct RoboStruct
 
     int maxOfsetDist = 20;
     int minSpeed = 0;
-    int maxSpeed = 80;
+    int maxSpeed = 75;
     double declination = 0;
     double compassOffset = 0;
     double mechanicCorrection = 0;

@@ -142,7 +142,7 @@ void computeParameters(RoboStruct *buoy, bool get)
     if (get)
     {
         buoy->maxOfsetDist = storage.getInt("maxOfsetDist", 8);
-        buoy->maxSpeed = storage.getInt("maxSpeed", 80);
+        buoy->maxSpeed = storage.getInt("maxSpeed", 75);
         buoy->minSpeed = storage.getInt("minSpeed", 0);
         buoy->pivotSpeed = storage.getDouble("pivotSpeed", 0.5);
         if (isnan(buoy->pivotSpeed)) buoy->pivotSpeed = 0.5;
