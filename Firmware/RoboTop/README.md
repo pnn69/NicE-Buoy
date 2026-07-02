@@ -41,6 +41,9 @@ RoboTop leverages FreeRTOS to coordinate real-time operations across the ESP32's
 *   **HTML5 Dashboard**: Serves a highly interactive, responsive control web-dashboard from ESP32 local storage.
 *   **Asynchronous WebSockets**: Streams high-frequency telemetry (heading, speed, position, PID error states) directly to connected client browsers.
 *   **UDP Broadcast Server**: Periodically broadcasts system status strings over UDP (Port 1001) to enable instant discovery and monitoring by nearby desktop dashboards.
+*   **Optimized Dual-Rate Transmit Scheduler**: Implements dynamic rate separation in the supervisory clock:
+    *   **UDP/WiFi Telemetry (High-Frequency)**: Telemetry is transmitted at a rapid **250ms** interval to guarantee fluid, real-time feedback on web monitors.
+    *   **LoRa/RF Telemetry (Low-Frequency)**: Telemetry is throttled down to **5000ms (5 seconds)** with randomized collision-avoidance jitter to prevent channel crowding, conserve battery power, and abide by legal RF duty cycles.
 
 ### 4. RS-485 Half-Duplex Serial Bridge (`sercom.cpp`)
 *   **Physical Decoupling**: Communicates with `RoboSub` over a physical serial line using half-duplex RS-485.

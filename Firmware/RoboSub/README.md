@@ -66,6 +66,7 @@ RoboSub utilizes an **Adafruit BNO055** 9-degrees-of-freedom intelligent sensor 
     *   **Automatic Resilience**: If the calibration drops below peak accuracy before the 30-minute mark (e.g., due to local magnetic interference), the countdown is immediately reset to `0` and will restart only when peak calibration is re-attained.
     *   **Manual Override**: The pilot can trigger a manual save command (`cmd == 34`) at any time through the web interface to instantly write the current active calibration offsets to NVS.
 *   **Stuck-Sensor Watchdog**: Monitors the heading data continuously. If the telemetry remains frozen for 5 consecutive minutes (indicating an I2C hang or internal sensor crash), the system automatically performs a full sensor re-initialization sequence and restores the profile.
+*   **Highly Stable Averaging Filter**: Raised `NUM_DIRECTIONS` (the size of the circular averaging buffer) from `5` to `25` inside `compass.cpp`. This increases history filtering, yielding extremely smooth, stable heading updates and dampening localized magnetic anomalies caused by high-power thruster surges.
 
 ### 3. Dual-Loop PID Navigation (`pidrudspeed.cpp` / `pidrudspeed.h`)
 Autonomy is governed by independent, high-speed PID loops running at **100Hz** inside the `PIDTask`:

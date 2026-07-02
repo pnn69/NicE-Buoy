@@ -37,9 +37,17 @@ RoboLora manages the relay of long-range telemetry frames with low latency, brid
 *   **High-Speed Uplink**: Implements a high-baudrate (115200bps) UART-to-USB bridge that streams decoded ASCII comma-separated packages directly into the host PC's operating system.
 *   **Control Reception**: Translates downstream command strings originating from the desktop Python dashboard and packages them into target-specific LoRa transmission frames.
 
-### 4. Standalone Web Config Mode (`controlwifi.cpp` / `controlwifi.h`)
-*   **Config Access Point**: Spawns a lightweight local Wi-Fi Hotspot on-demand, serving a simple HTML landing page.
-*   **Diagnostics Portal**: Allows developers to adjust RF channels, monitor raw packets, calibrate battery measurement offsets, and run diagnostics without needing physical cables or specialized debuggers.
+### 4. Advanced Web-Based Control Panel (`data/` / `controlwifi.cpp`)
+*   **Intuitive Dashboard Interface**: Serves a highly customized HTML5 dashboard (`index.html`, `index.js`, `style.css`) from the local SPIFFS partition over an integrated Wi-Fi Access Point or Local Station.
+*   **Dual-Source Telemetry Prioritization**: Real-time client-side filter prioritizes high-speed UDP Wi-Fi data (updating fluidly at **250ms** intervals) and ignores slower, redundant LoRa packets (still logged in their respective consoles) to eliminate UI lag or gauge flickering.
+*   **Responsive Dual-Column Configuration Popup**: Restructured the setup modal into a dual-column layout on wider screens, placing Speed PID vertically under Rudder PID, and featuring highly legible, enlarged labels and values in bold blue monospace. Includes:
+    *   Interactive **Set as North** auto-offset calibration based on the buoy's live heading.
+    *   Rudder and Speed PID coefficients, speed limits, battery boundaries, and motor option toggles (motor swapping, reverse BB/SB).
+*   **Isolated WebSockets Logging**: WebSocket messages are prefixed with `LORA:` and `UDP:` to safely route incoming radio traffic and local network broadcasts to separate browser monitors without console pollution.
+
+### 5. Transmission Safety & Loop Protections (`main.cpp` / `sercom.cpp`)
+*   **Telemetry Feedback Loop Prevention**: Patched a firmware bug in `fillBuoyArr` where newly discovered buoys copied telemetry directly without clearing active `cmd`/`ack` properties. This now guarantees the system does not get locked in infinite re-transmission loops of stale command packets.
+*   **Serial Commands-Only Forwarding Filter**: Configured `SercomTask` (`src/sercom.cpp`) to only forward actual commands (`GET`, `SET`, `GETACK`) from the USB Serial line to the LoRa radio. It successfully discards passive, high-frequency telemetry, preventing radio channel saturation, saving battery, and allowing local Wi-Fi scan threads to execute seamlessly without timeouts.
 
 ---
 
