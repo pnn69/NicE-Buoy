@@ -53,10 +53,11 @@ RoboTop leverages FreeRTOS to coordinate real-time operations across the ESP32's
 ### 5. Automated Regatta Start Line & Track Calculations
 To facilitate competitive sailing regattas, RoboTop coordinates the positions of multiple buoys to automatically establish a fair, geometrically synchronized starting line:
 
-*   **Dynamic Role & Slot Assignment**: The designation of each buoy's role is handled automatically in order of connection and database registration inside the master supervisor's database (`buoyPara[3]` array):
-    *   **PORT Pin (Slot 0)**: The first active registered buoy discovered in the database (`buoyPara[0]`) is dynamically assigned as the **Port starting pin**.
-    *   **STARBOARD Pin (Slot 1)**: The second active registered buoy discovered in the database (`buoyPara[1]`) is dynamically assigned as the **Starboard starting pin**.
-    *   **HEAD Buoy (Slot 2)**: The third registered buoy (`buoyPara[2]`) takes on the role of the **Head (windward) course buoy**, which marks the post-start race target.
+*   **Intelligent Triangulation & Role Determination (`calcTrackPos`)**: Rather than relying on static or arrival-order database slots, RoboTop uses geometric triangulation and wind vectors to mathematically determine the roles of the three buoys (`PORT`, `STARBOARD`, or `HEAD`):
+    *   **Starting Line Identification**: Computes the Great-Circle distances between all three buoy pairs ($d_{0-1}$, $d_{0-2}$, and $d_{1-2}$). The two buoys with the **shortest distance** between them are mathematically identified as the starting line pins. The remaining, furthest buoy is automatically designated as the upwind **HEAD (windward) buoy**.
+    *   **Port vs. Starboard Allocation**: Calculates the geographic bearing between the two starting line pin buoys. It then measures the signed smallest angular difference relative to the live wind direction vector ($W_{\text{dir}}$):
+        *   If the signed angle is **positive ($\ge 0^\circ$)**, the first buoy is designated as the **PORT** pin and the second is the **STARBOARD** pin.
+        *   If the signed angle is **negative ($< 0^\circ$)**, the first buoy is designated as the **STARBOARD** pin and the second is the **PORT** pin.
 *   **Geographical Midpoint & Width Determination**: Identifies the participating start line buoys, computes their exact geographic midpoint using arithmetic coordinate averages, and calculates the total starting line width $d$ (Great-Circle distance) using the Haversine formula.
 *   **Wind-Aligned Perpendicular Squaring (`recalcStartLine`)**: Imports the live, filtered average wind direction ($W_{\text{dir}}$) from the master supervisor. To ensure a completely fair start, the starting line must be exactly perpendicular ($90^\circ$) to the wind direction:
     *   **Port End Bearing**: $\theta_{\text{Port}} = (W_{\text{dir}} + 270^\circ) \bmod 360^\circ$
