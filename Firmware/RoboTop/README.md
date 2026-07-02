@@ -50,6 +50,16 @@ RoboTop leverages FreeRTOS to coordinate real-time operations across the ESP32's
 *   **Single-Wire Echo Filtering**: Since physical RX/TX lines are tied, the UART hardware receives its own transmissions. `SercomTask` filters out these loopback echoes by identifying its own MAC ID as the sender, ignoring these self-reflected frames.
 *   **Implicit ACK Handling**: Telemetry responses periodically received from the Sub unit are processed as implicit acknowledgements of command delivery, clearing retry buffers and maximizing serial bus availability.
 
+### 5. Automated Regatta Start Line & Track Calculations
+To facilitate competitive sailing regattas, RoboTop coordinates the positions of multiple buoys to automatically establish a fair, geometrically synchronized starting line:
+
+*   **Geographical Midpoint & Width Determination**: Identifies the participating start line buoys, computes their exact geographic midpoint using arithmetic coordinate averages, and calculates the total starting line width $d$ (Great-Circle distance) using the Haversine formula.
+*   **Wind-Aligned Perpendicular Squaring (`recalcStartLine`)**: Imports the live, filtered average wind direction ($W_{\text{dir}}$) from the master supervisor. To ensure a completely fair start, the starting line must be exactly perpendicular ($90^\circ$) to the wind direction:
+    *   **Port End Bearing**: $\theta_{\text{Port}} = (W_{\text{dir}} + 270^\circ) \bmod 360^\circ$
+    *   **Starboard End Bearing**: $\theta_{\text{Starboard}} = (W_{\text{dir}} + 90^\circ) \bmod 360^\circ$
+*   **Vector Position Projection (`adjustPositionDirDist`)**: Projects the new target coordinates outward from the calculated starting line midpoint along the Port and Starboard bearings by a distance of exactly $d / 2$. This dynamically aligns (squares) the starting line perpendicular to the wind while keeping its original midpoint and length perfectly intact.
+*   **Asynchronous Coordination Broadcast (`SENDTRACK`)**: Once starting line or course track parameters are calculated, RoboTop automatically schedules a broadcast over the long-range LoRa RF network (`loraOut`), dispatching updated coordinates to Port, Starboard, and Head buoys simultaneously to coordinate the entire fleet.
+
 ---
 
 ## 🛠️ Building & Flashing
