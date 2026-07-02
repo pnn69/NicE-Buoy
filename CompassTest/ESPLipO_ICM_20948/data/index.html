@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 ICM-20948 Compass Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --border-color: #30363d;
+            --text-main: #c9d1d9;
+            --text-muted: #8b949e;
+            --primary: #58a6ff;
+            --success: #3fb950;
+            --warning: #d29922;
+            --danger: #f85149;
+            --accent: #bc8cff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        header h1 {
+            font-size: 24px;
+            color: var(--primary);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 10px;
+            background-color: #21262d;
+            border: 1px solid var(--border-color);
+        }
+
+        .status-badge.connected {
+            color: var(--success);
+            border-color: rgba(63, 185, 80, 0.3);
+            background-color: rgba(63, 185, 80, 0.1);
+        }
+
+        .status-badge.disconnected {
+            color: var(--danger);
+            border-color: rgba(248, 81, 73, 0.3);
+            background-color: rgba(248, 81, 73, 0.1);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        .card h2 {
+            font-size: 18px;
+            color: var(--text-main);
+            margin-bottom: 20px;
+            align-self: flex-start;
+            border-left: 3px solid var(--primary);
+            padding-left: 10px;
+            width: 100%;
+        }
+
+        /* Compass Visual */
+        .compass-container {
+            position: relative;
+            width: 260px;
+            height: 260px;
+            margin: 10px 0;
+        }
+
+        .compass-dial {
+            width: 100%;
+            height: 100%;
+        }
+
+        .compass-needle {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            transition: transform 0.15s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        /* Attitude Visual (Horizon) */
+        .horizon-container {
+            position: relative;
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            border: 4px solid var(--border-color);
+            overflow: hidden;
+            background: linear-gradient(to bottom, #1d4ed8 50%, #7c2d12 50%);
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+            margin: 20px 0;
+        }
+
+        .horizon-pitch-roll {
+            position: absolute;
+            top: -110px;
+            left: -110px;
+            width: 440px;
+            height: 440px;
+            background: linear-gradient(to bottom, #2563eb 50%, #9a3412 50%);
+            transition: transform 0.15s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .horizon-pitch-scale {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+        }
+
+        .horizon-line {
+            width: 80px;
+            height: 2px;
+            background-color: rgba(255, 255, 255, 0.6);
+            margin: 15px 0;
+            position: relative;
+        }
+
+        .horizon-line::after {
+            content: attr(data-deg);
+            position: absolute;
+            right: -25px;
+            top: -7px;
+            color: white;
+            font-size: 10px;
+        }
+
+        .horizon-line::before {
+            content: attr(data-deg);
+            position: absolute;
+            left: -25px;
+            top: -7px;
+            color: white;
+            font-size: 10px;
+        }
+
+        .horizon-reticle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 120px;
+            height: 120px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .horizon-reticle-center {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--warning);
+            box-shadow: 0 0 4px var(--warning);
+        }
+
+        .horizon-reticle-wing-l, .horizon-reticle-wing-r {
+            width: 35px;
+            height: 4px;
+            background-color: var(--warning);
+            border-radius: 2px;
+            position: absolute;
+        }
+
+        .horizon-reticle-wing-l { left: 10px; }
+        .horizon-reticle-wing-r { right: 10px; }
+
+        /* Telemetry Text */
+        .telemetry-list {
+            width: 100%;
+            margin-top: 15px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .telemetry-item {
+            background-color: #21262d;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        .telemetry-label {
+            color: var(--text-muted);
+            margin-bottom: 4px;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        .telemetry-value {
+            font-weight: bold;
+            font-family: "Courier New", Courier, monospace;
+        }
+
+        /* Navigation Button */
+        .nav-container {
+            grid-column: span 2;
+            width: 100%;
+            max-width: 900px;
+            margin: 20px auto 0 auto;
+            text-align: center;
+        }
+
+        .btn-nav {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            font-size: 15px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.2s, border-color 0.2s, transform 0.1s;
+            border: 1px solid var(--primary);
+            background-color: rgba(88, 166, 255, 0.1);
+            color: var(--primary);
+            width: 100%;
+        }
+
+        .btn-nav:hover {
+            background-color: var(--primary);
+            color: #0d1117;
+            transform: translateY(-1px);
+        }
+        .btn-nav:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>ESP32 ICM-20948 IMU Compass</h1>
+        <p>Real-Time Sensor Fusion Dashboard</p>
+        <div id="status" class="status-badge disconnected">Disconnected</div>
+    </header>
+
+    <div class="grid">
+        <!-- Card 1: Compass -->
+        <div class="card">
+            <h2>Compass Heading</h2>
+            <div class="compass-container">
+                <!-- SVG Compass Dial -->
+                <svg class="compass-dial" id="compassDial" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="46" fill="none" stroke="#30363d" stroke-width="2.5" />
+                    <!-- Ticks -->
+                    <g stroke="#8b949e" stroke-width="0.5">
+                        <line x1="50" y1="4" x2="50" y2="8" />
+                        <line x1="50" y1="92" x2="50" y2="96" />
+                        <line x1="4" y1="50" x2="8" y2="50" />
+                        <line x1="92" y1="50" x2="96" y2="50" />
+                    </g>
+                    <!-- Compass Letters -->
+                    <text x="50" y="16" font-size="7" font-weight="bold" fill="#f85149" text-anchor="middle">N</text>
+                    <text x="50" y="91" font-size="7" font-weight="bold" fill="#c9d1d9" text-anchor="middle">S</text>
+                    <text x="88" y="52.5" font-size="7" font-weight="bold" fill="#c9d1d9" text-anchor="middle">E</text>
+                    <text x="12" y="52.5" font-size="7" font-weight="bold" fill="#c9d1d9" text-anchor="middle">W</text>
+                </svg>
+                <!-- Needle 1: Heading A (Hard-Iron only) -->
+                <svg class="compass-needle" id="needleA" viewBox="0 0 100 100">
+                    <polygon points="50,15 47,50 53,50" fill="var(--warning)" opacity="0.6"/>
+                    <circle cx="50" cy="50" r="3" fill="var(--warning)" opacity="0.6"/>
+                </svg>
+                <!-- Needle 2: Heading B (Hard & Soft-Iron) -->
+                <svg class="compass-needle" id="needleB" viewBox="0 0 100 100">
+                    <polygon points="50,12 46,50 54,50" fill="var(--success)" opacity="0.75"/>
+                    <circle cx="50" cy="50" r="3" fill="var(--success)" opacity="0.75"/>
+                </svg>
+                <!-- Needle 3: Madgwick Yaw (Filter-Fused) -->
+                <svg class="compass-needle" id="needleYaw" viewBox="0 0 100 100">
+                    <polygon points="50,6 45,50 55,50" fill="var(--primary)"/>
+                    <line x1="50" y1="50" x2="50" y2="92" stroke="var(--primary)" stroke-width="1.5" stroke-dasharray="2,2"/>
+                    <circle cx="50" cy="50" r="4.5" fill="var(--primary)"/>
+                </svg>
+                <!-- Needle 4: Heading Raw (Uncompensated 2D) -->
+                <svg class="compass-needle" id="needleRaw" viewBox="0 0 100 100">
+                    <polygon points="50,18 48,50 52,50" fill="var(--accent)"/>
+                    <circle cx="50" cy="50" r="2.5" fill="var(--accent)"/>
+                </svg>
+            </div>
+
+            <div class="telemetry-list">
+                <div class="telemetry-item" style="border-bottom: 2px solid var(--primary);">
+                    <div class="telemetry-label">Madgwick Yaw</div>
+                    <div class="telemetry-value" id="valYaw" style="color: var(--primary);">0.0°</div>
+                </div>
+                <div class="telemetry-item" style="border-bottom: 2px solid var(--success);">
+                    <div class="telemetry-label">Heading B (Full Cal)</div>
+                    <div class="telemetry-value" id="valHeadB" style="color: var(--success);">0.0°</div>
+                </div>
+                <div class="telemetry-item" style="border-bottom: 2px solid var(--warning);">
+                    <div class="telemetry-label">Heading A (Hard Cal)</div>
+                    <div class="telemetry-value" id="valHeadA" style="color: var(--warning);">0.0°</div>
+                </div>
+                <div class="telemetry-item" style="border-bottom: 2px solid var(--accent);">
+                    <div class="telemetry-label">Raw 2D (No Tilt)</div>
+                    <div class="telemetry-value" id="valHeadRaw" style="color: var(--accent);">0.0°</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Attitude / Level -->
+        <div class="card">
+            <h2>Pitch &amp; Roll (Attitude)</h2>
+            <div class="horizon-container">
+                <div class="horizon-pitch-roll" id="horizonBg">
+                    <div class="horizon-pitch-scale">
+                        <div class="horizon-line" data-deg="20"></div>
+                        <div class="horizon-line" data-deg="10"></div>
+                        <div class="horizon-line" data-deg="0" style="width: 140px; border-top: 1px dashed white;"></div>
+                        <div class="horizon-line" data-deg="-10"></div>
+                        <div class="horizon-line" data-deg="-20"></div>
+                    </div>
+                </div>
+                <div class="horizon-reticle">
+                    <div class="horizon-reticle-wing-l"></div>
+                    <div class="horizon-reticle-center"></div>
+                    <div class="horizon-reticle-wing-r"></div>
+                </div>
+            </div>
+
+            <div class="telemetry-list">
+                <div class="telemetry-item">
+                    <div class="telemetry-label">Pitch Angle</div>
+                    <div class="telemetry-value" id="valPitch">0.0°</div>
+                </div>
+                <div class="telemetry-item">
+                    <div class="telemetry-label">Roll Angle</div>
+                    <div class="telemetry-value" id="valRoll">0.0°</div>
+                </div>
+                <div class="telemetry-item" style="grid-column: span 2; display: flex; justify-content: space-around; font-size: 11px; padding: 4px 8px; background: transparent; border: none;">
+                    <span style="color: var(--accent);">● Raw 2D</span>
+                    <span style="color: var(--warning);">● Hard Cal</span>
+                    <span style="color: var(--success);">● Full Cal</span>
+                    <span style="color: var(--primary);">● Fused</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="nav-container">
+        <a href="/callibration" class="btn-nav">🛠 Go to Magnetometer Calibration Dashboard ➔</a>
+    </div>
+
+    <script>
+        let ws;
+
+        // Smooth rotation unwrapper state
+        let prevYaw = 0;
+        let cumulativeYaw = 0;
+        let prevHeadA = 0;
+        let cumulativeHeadA = 0;
+        let prevHeadB = 0;
+        let cumulativeHeadB = 0;
+        let prevHeadRaw = 0;
+        let cumulativeHeadRaw = 0;
+
+        const statusBadge = document.getElementById('status');
+        const needleA = document.getElementById('needleA');
+        const needleB = document.getElementById('needleB');
+        const needleYaw = document.getElementById('needleYaw');
+        const needleRaw = document.getElementById('needleRaw');
+        const horizonBg = document.getElementById('horizonBg');
+
+        const valYaw = document.getElementById('valYaw');
+        const valHeadB = document.getElementById('valHeadB');
+        const valHeadA = document.getElementById('valHeadA');
+        const valHeadRaw = document.getElementById('valHeadRaw');
+        const valPitch = document.getElementById('valPitch');
+        const valRoll = document.getElementById('valRoll');
+
+        function unwrapAngle(target, prev, cumulative) {
+            let diff = target - prev;
+            if (diff > 180) {
+                diff -= 360;
+            } else if (diff < -180) {
+                diff += 360;
+            }
+            return {
+                newPrev: target,
+                newCumulative: cumulative + diff
+            };
+        }
+
+        function connect() {
+            const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host || '192.168.1.148'; // Fallback
+            const wsUri = `${proto}//${host}/ws`;
+
+            console.log(`Connecting to WebSocket: ${wsUri}`);
+            ws = new WebSocket(wsUri);
+
+            ws.onopen = () => {
+                statusBadge.textContent = 'Connected';
+                statusBadge.className = 'status-badge connected';
+            };
+
+            ws.onclose = () => {
+                statusBadge.textContent = 'Disconnected (Retrying...)';
+                statusBadge.className = 'status-badge disconnected';
+                setTimeout(connect, 2000);
+            };
+
+            ws.onerror = (err) => {
+                console.error("WebSocket error", err);
+                ws.close();
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    updateTelemetry(data);
+                } catch (e) {
+                    console.warn("Parse error", e);
+                }
+            };
+        }
+
+        function updateTelemetry(data) {
+            const yaw = data.yaw || 0;
+            const hA = data.headingA || 0;
+            const hB = data.headingB || 0;
+            const hRaw = data.headingRaw || 0;
+            const pitch = data.pitch || 0;
+            const roll = data.roll || 0;
+
+            // Unwrap yaw
+            const unwrappedYaw = unwrapAngle(yaw, prevYaw, cumulativeYaw);
+            prevYaw = unwrappedYaw.newPrev;
+            cumulativeYaw = unwrappedYaw.newCumulative;
+
+            // Unwrap hA
+            const unwrappedHeadA = unwrapAngle(hA, prevHeadA, cumulativeHeadA);
+            prevHeadA = unwrappedHeadA.newPrev;
+            cumulativeHeadA = unwrappedHeadA.newCumulative;
+
+            // Unwrap hB
+            const unwrappedHeadB = unwrapAngle(hB, prevHeadB, cumulativeHeadB);
+            prevHeadB = unwrappedHeadB.newPrev;
+            cumulativeHeadB = unwrappedHeadB.newCumulative;
+
+            // Unwrap hRaw
+            const unwrappedHeadRaw = unwrapAngle(hRaw, prevHeadRaw, cumulativeHeadRaw);
+            prevHeadRaw = unwrappedHeadRaw.newPrev;
+            cumulativeHeadRaw = unwrappedHeadRaw.newCumulative;
+
+            // Update needle rotations (Needle rotates clockwise inside dial, dial stays static)
+            needleYaw.style.transform = `rotate(${cumulativeYaw}deg)`;
+            needleB.style.transform = `rotate(${cumulativeHeadB}deg)`;
+            needleA.style.transform = `rotate(${cumulativeHeadA}deg)`;
+            needleRaw.style.transform = `rotate(${cumulativeHeadRaw}deg)`;
+
+            // Update attitude indicator (horizon)
+            const pitchOffset = pitch * 2.5;
+            horizonBg.style.transform = `translateY(${pitchOffset}px) rotate(${-roll}deg)`;
+
+            // Update text telemetry
+            valYaw.textContent = `${yaw.toFixed(1)}°`;
+            valHeadB.textContent = `${hB.toFixed(1)}°`;
+            valHeadA.textContent = `${hA.toFixed(1)}°`;
+            valHeadRaw.textContent = `${hRaw.toFixed(1)}°`;
+            valPitch.textContent = `${pitch.toFixed(1)}°`;
+            valRoll.textContent = `${roll.toFixed(1)}°`;
+        }
+
+        connect();
+    </script>
+</body>
+</html>

@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magnetometer Calibration - ESP32 Compass</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --border-color: #30363d;
+            --text-main: #c9d1d9;
+            --text-muted: #8b949e;
+            --primary: #58a6ff;
+            --success: #3fb950;
+            --warning: #d29922;
+            --danger: #f85149;
+            --accent: #bc8cff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        header h1 {
+            font-size: 24px;
+            color: var(--warning);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 10px;
+            background-color: #21262d;
+            border: 1px solid var(--border-color);
+        }
+
+        .status-badge.connected {
+            color: var(--success);
+            border-color: rgba(63, 185, 80, 0.3);
+            background-color: rgba(63, 185, 80, 0.1);
+        }
+
+        .status-badge.disconnected {
+            color: var(--danger);
+            border-color: rgba(248, 81, 73, 0.3);
+            background-color: rgba(248, 81, 73, 0.1);
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .card h2 {
+            font-size: 18px;
+            color: var(--text-main);
+            margin-bottom: 20px;
+            align-self: flex-start;
+            border-left: 3px solid var(--warning);
+            padding-left: 10px;
+            width: 100%;
+        }
+
+        /* Buttons & Controls */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 18px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s;
+            border: 1px solid transparent;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+
+        .btn-primary {
+            background-color: #238636;
+            color: white;
+        }
+        .btn-primary:hover { background-color: #2ea043; }
+
+        .btn-danger {
+            background-color: #da3633;
+            color: white;
+        }
+        .btn-danger:hover { background-color: #f85149; }
+
+        .btn-secondary {
+            background-color: #21262d;
+            color: var(--text-main);
+            border-color: var(--border-color);
+        }
+        .btn-secondary:hover {
+            background-color: #30363d;
+            border-color: #8b949e;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Calibration Panel Specifics */
+        .cal-points-visual {
+            width: 100%;
+            height: 240px;
+            background-color: #0d1117;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 15px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cal-point-count {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: bold;
+        }
+
+        .cal-stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .cal-stat-card {
+            background-color: rgba(255,255,255,0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .cal-stat-title {
+            color: var(--text-muted);
+            margin-bottom: 4px;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        .cal-stat-val {
+            font-family: monospace;
+            font-weight: bold;
+            color: var(--warning);
+        }
+
+        /* Range Bars */
+        .range-container {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .range-bar-row {
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+        .range-axis {
+            width: 15px;
+            font-weight: bold;
+            color: var(--warning);
+        }
+        .range-track {
+            flex-grow: 1;
+            height: 10px;
+            background-color: #21262d;
+            border-radius: 5px;
+            margin: 0 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        .range-fill {
+            position: absolute;
+            height: 100%;
+            background-color: var(--success);
+            border-radius: 5px;
+            left: 0%;
+            width: 0%;
+        }
+        .range-vals {
+            width: 85px;
+            text-align: right;
+            font-family: monospace;
+            color: var(--text-muted);
+        }
+
+        .btn-nav {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            font-size: 15px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.2s, border-color 0.2s, transform 0.1s;
+            border: 1px solid var(--border-color);
+            background-color: #21262d;
+            color: var(--text-main);
+            width: 100%;
+            text-align: center;
+        }
+
+        .btn-nav:hover {
+            background-color: #30363d;
+            border-color: #8b949e;
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Magnetometer Calibration</h1>
+            <p>ESP32 ICM-20948 Hardware Calibration Tool</p>
+            <div id="status" class="status-badge disconnected">Disconnected</div>
+        </header>
+
+        <div class="card">
+            <h2>Interactive 3D Sphere Plotter (Proj: X/Y)</h2>
+            
+            <div class="cal-points-visual" id="calCanvas">
+                <svg width="100%" height="100%" id="calSvg">
+                    <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(255,255,255,0.05)" />
+                    <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(255,255,255,0.05)" />
+                    <g id="pointsGroup"></g>
+                </svg>
+                <div class="cal-point-count" id="pointCount">Points: 0</div>
+            </div>
+
+            <div class="cal-stats-grid">
+                <div class="cal-stat-card">
+                    <div class="cal-stat-title">Hard Iron Offset (HI)</div>
+                    <div class="cal-stat-val" id="calHiVal">X: 0.0, Y: 0.0, Z: 0.0</div>
+                </div>
+                <div class="cal-stat-card">
+                    <div class="cal-stat-title">Soft Iron Scaling (SI)</div>
+                    <div class="cal-stat-val" id="calSiVal">X: 1.0, Y: 1.0, Z: 1.0</div>
+                </div>
+            </div>
+
+            <div class="range-container">
+                <div class="range-bar-row">
+                    <div class="range-axis">X</div>
+                    <div class="range-track"><div id="rangeBarX" class="range-fill"></div></div>
+                    <div class="range-vals" id="rangeValsX">[-0.0, 0.0]</div>
+                </div>
+                <div class="range-bar-row">
+                    <div class="range-axis">Y</div>
+                    <div class="range-track"><div id="rangeBarY" class="range-fill"></div></div>
+                    <div class="range-vals" id="rangeValsY">[-0.0, 0.0]</div>
+                </div>
+                <div class="range-bar-row">
+                    <div class="range-axis">Z</div>
+                    <div class="range-track"><div id="rangeBarZ" class="range-fill"></div></div>
+                    <div class="range-vals" id="rangeValsZ">[-0.0, 0.0]</div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" id="btnCal">Start Interactive Calibration</button>
+            <button class="btn btn-secondary" id="btnSave" disabled>Save &amp; Upload Calibration</button>
+        </div>
+
+        <div style="margin-bottom: 40px;">
+            <a href="/" class="btn-nav">➔ Back to Compass Dashboard</a>
+        </div>
+    </div>
+
+    <script>
+        let ws;
+        let isCalibrating = false;
+        let calPoints = [];
+        let maxPoints = 500;
+
+        // Bounding limits for calibration solver
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+        let minZ = Infinity, maxZ = -Infinity;
+
+        // Final calibration parameters
+        let hix = 0.0, hiy = 0.0, hiz = 0.0;
+        let six = 1.0, siy = 1.0, siz = 1.0;
+
+        const statusBadge = document.getElementById('status');
+        const btnCal = document.getElementById('btnCal');
+        const btnSave = document.getElementById('btnSave');
+        const pointCount = document.getElementById('pointCount');
+        const pointsGroup = document.getElementById('pointsGroup');
+        const calHiVal = document.getElementById('calHiVal');
+        const calSiVal = document.getElementById('calSiVal');
+
+        const rangeBarX = document.getElementById('rangeBarX');
+        const rangeBarY = document.getElementById('rangeBarY');
+        const rangeBarZ = document.getElementById('rangeBarZ');
+        const rangeValsX = document.getElementById('rangeValsX');
+        const rangeValsY = document.getElementById('rangeValsY');
+        const rangeValsZ = document.getElementById('rangeValsZ');
+
+        function connect() {
+            const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host || '192.168.1.148'; // Fallback
+            const wsUri = `${proto}//${host}/ws`;
+
+            console.log(`Connecting to WebSocket: ${wsUri}`);
+            ws = new WebSocket(wsUri);
+
+            ws.onopen = () => {
+                statusBadge.textContent = 'Connected';
+                statusBadge.className = 'status-badge connected';
+            };
+
+            ws.onclose = () => {
+                statusBadge.textContent = 'Disconnected (Retrying...)';
+                statusBadge.className = 'status-badge disconnected';
+                setTimeout(connect, 2000);
+            };
+
+            ws.onerror = (err) => {
+                console.error("WebSocket error", err);
+                ws.close();
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (isCalibrating && data.mx_raw !== undefined) {
+                        processRawPoint(data.mx_raw, data.my_raw, data.mz_raw);
+                    }
+                } catch (e) {
+                    console.warn("Parse error", e);
+                }
+            };
+        }
+
+        function processRawPoint(x, y, z) {
+            calPoints.push({x, y, z});
+            if (calPoints.length > maxPoints) {
+                calPoints.shift();
+            }
+
+            // Update bounding limits
+            minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+            minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+            minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
+
+            // Calculate auto calibration parameters
+            hix = (maxX + minX) / 2;
+            hiy = (maxY + minY) / 2;
+            hiz = (maxZ + minZ) / 2;
+
+            const rx = maxX - minX || 1.0;
+            const ry = maxY - minY || 1.0;
+            const rz = maxZ - minZ || 1.0;
+            const rAvg = (rx + ry + rz) / 3;
+
+            six = rAvg / rx;
+            siy = rAvg / ry;
+            siz = rAvg / rz;
+
+            // Render stats
+            pointCount.textContent = `Points: ${calPoints.length}`;
+            calHiVal.textContent = `X: ${hix.toFixed(1)}, Y: ${hiy.toFixed(1)}, Z: ${hiz.toFixed(1)}`;
+            calSiVal.textContent = `X: ${six.toFixed(2)}, Y: ${siy.toFixed(2)}, Z: ${siz.toFixed(2)}`;
+
+            // Update Range Bars
+            updateRangeBar(rangeBarX, rangeValsX, minX, maxX, x);
+            updateRangeBar(rangeBarY, rangeValsY, minY, maxY, y);
+            updateRangeBar(rangeBarZ, rangeValsZ, minZ, maxZ, z);
+
+            // Draw 2D scatter cloud
+            drawPoints();
+        }
+
+        function updateRangeBar(barElement, valElement, min, max, cur) {
+            valElement.textContent = `[${min.toFixed(0)}, ${max.toFixed(0)}]`;
+            const range = max - min || 1;
+            const pct = ((cur - min) / range) * 100;
+            barElement.style.width = `${Math.max(2, Math.min(100, pct))}%`;
+            barElement.style.left = `0%`;
+        }
+
+        function drawPoints() {
+            const rX = maxX - minX || 1;
+            const rY = maxY - minY || 1;
+
+            let pointsHtml = '';
+            calPoints.forEach((pt, idx) => {
+                const alpha = idx / calPoints.length;
+                const posX = ((pt.x - minX) / rX) * 90 + 5;
+                const posY = ((pt.y - minY) / rY) * 90 + 5;
+                pointsHtml += `<circle cx="${posX}%" cy="${posY}%" r="2.5" fill="var(--warning)" opacity="${alpha * 0.7}" />`;
+            });
+
+            // Draw offset reticle
+            const offsetPctX = ((hix - minX) / rX) * 90 + 5;
+            const offsetPctY = ((hiy - minY) / rY) * 90 + 5;
+            pointsHtml += `<circle cx="${offsetPctX}%" cy="${offsetPctY}%" r="6" fill="none" stroke="var(--danger)" stroke-width="1.5" />`;
+            pointsHtml += `<line x1="${offsetPctX - 4}%" y1="${offsetPctY}%" x2="${offsetPctX + 4}%" y2="${offsetPctY}%" stroke="var(--danger)" stroke-width="1" />`;
+            pointsHtml += `<line x1="${offsetPctX}%" y1="${offsetPctY - 4}%" x2="${offsetPctX}%" y2="${offsetPctY + 4}%" stroke="var(--danger)" stroke-width="1" />`;
+
+            pointsGroup.innerHTML = pointsHtml;
+        }
+
+        btnCal.onclick = () => {
+            if (!isCalibrating) {
+                isCalibrating = true;
+                calPoints = [];
+                minX = Infinity; maxX = -Infinity;
+                minY = Infinity; maxY = -Infinity;
+                minZ = Infinity; maxZ = -Infinity;
+                
+                btnCal.textContent = 'Stop Calibration & Lock Parameters';
+                btnCal.className = 'btn btn-danger';
+                btnSave.disabled = true;
+
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send('start_cal');
+                }
+            } else {
+                isCalibrating = false;
+                btnCal.textContent = 'Start Interactive Calibration';
+                btnCal.className = 'btn btn-primary';
+                
+                if (calPoints.length > 50) {
+                    btnSave.disabled = false;
+                }
+            }
+        };
+
+        btnSave.onclick = () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const savePayload = {
+                    "save_cal": true,
+                    "hi_x": hix,
+                    "hi_y": hiy,
+                    "hi_z": hiz,
+                    "si_x": six,
+                    "si_y": siy,
+                    "si_z": siz
+                };
+                
+                const jsonStr = JSON.stringify(savePayload);
+                ws.send(jsonStr);
+                console.log("Sent calibration parameters:", jsonStr);
+                
+                btnSave.disabled = true;
+                alert("Calibration saved and uploaded successfully!");
+            }
+        };
+
+        connect();
+    </script>
+</body>
+</html>

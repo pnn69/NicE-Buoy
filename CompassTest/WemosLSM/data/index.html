@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WemosLSM Compass Dashboard</title>
+    <!-- Three.js CDN for 3D graphics -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --border: #334155;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h1 span {
+            color: var(--primary);
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.875rem;
+            background: var(--card-bg);
+            padding: 6px 12px;
+            border-radius: 9999px;
+            border: 1px solid var(--border);
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--danger);
+        }
+
+        .status-dot.connected {
+            background-color: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: var(--card-bg);
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 8px 16px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Container layouts */
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            display: none;
+            gap: 20px;
+            grid-template-columns: 1fr;
+        }
+
+        .container.active {
+            display: grid;
+        }
+
+        @media (min-width: 900px) {
+            #dashboard-container {
+                grid-template-columns: 2fr 1fr;
+            }
+            #calibration-container {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card h2 {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+        }
+
+        /* Windrose grid */
+        .windrose-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        @media (min-width: 600px) {
+            .windrose-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .windrose-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .windrose-card h3 {
+            font-size: 1rem;
+            margin-bottom: 10px;
+            color: var(--text-color);
+        }
+
+        .compass-wrapper {
+            position: relative;
+            width: 220px;
+            height: 220px;
+            margin-bottom: 10px;
+        }
+
+        .compass {
+            width: 100%;
+            height: 100%;
+        }
+
+        .needle {
+            transform-origin: 100px 100px;
+            transition: transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .heading-val {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-top: 10px;
+            font-family: monospace;
+            color: var(--primary);
+        }
+
+        /* 3D Visualizer */
+        #visualizer3d {
+            width: 100%;
+            height: 300px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #000;
+            border: 1px solid var(--border);
+        }
+
+        /* Telemetry Data Grid */
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .telemetry-item {
+            background: rgba(15, 23, 42, 0.5);
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        .telemetry-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .telemetry-value {
+            font-size: 1.1rem;
+            font-weight: bold;
+            font-family: monospace;
+        }
+
+        /* Calibration Controls */
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-bottom: 12px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .btn:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn:disabled {
+            background: var(--border);
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        .btn-success {
+            background: var(--success);
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        /* Scatter Plot Canvas */
+        #scatter-canvas {
+            width: 100%;
+            height: 300px;
+            background: #0f172a;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .calibration-status {
+            background: rgba(15, 23, 42, 0.4);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-top: 15px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .calibration-status h4 {
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+
+        .matrix-display {
+            font-family: monospace;
+            white-space: pre-wrap;
+            background: #090d16;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            margin-top: 8px;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1><span>WemosLSM</span> Tracker</h1>
+        <div class="status">
+            <div id="status-dot" class="status-dot"></div>
+            <span id="status-text">Disconnected</span>
+        </div>
+    </header>
+
+    <div class="tabs">
+        <button id="btn-dash" class="tab-btn active" onclick="switchTab('dashboard')">Dashboard</button>
+        <button id="btn-cal" class="tab-btn" onclick="switchTab('calibration')">Calibration</button>
+    </div>
+
+    <!-- DASHBOARD CONTAINER -->
+    <div id="dashboard-container" class="container active">
+        <div class="card">
+            <h2>Comparative Real-time Compass Windroses</h2>
+            <div class="windrose-grid">
+                <div class="windrose-card">
+                    <h3>Windrose A: Hard-Iron Only</h3>
+                    <div class="compass-wrapper">
+                        <svg class="compass" viewBox="0 0 200 200">
+                            <circle cx="100" cy="100" r="95" fill="#161616" stroke="#2c2c2c" stroke-width="5"/>
+                            <circle cx="100" cy="100" r="82" fill="none" stroke="#00e6ff" stroke-width="1.5" stroke-dasharray="3, 5"/>
+                            
+                            <!-- Dial ticks -->
+                            <line x1="100" y1="12" x2="100" y2="18" stroke="#ff3333" stroke-width="3"/>
+                            <line x1="100" y1="182" x2="100" y2="188" stroke="#eee" stroke-width="2"/>
+                            <line x1="12" y1="100" x2="18" y2="100" stroke="#eee" stroke-width="2"/>
+                            <line x1="182" y1="100" x2="188" y2="100" stroke="#eee" stroke-width="2"/>
+                            
+                            <!-- Dial Labels -->
+                            <text x="100" y="32" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#ff3333" text-anchor="middle">N</text>
+                            <text x="100" y="184" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#bbb" text-anchor="middle">S</text>
+                            <text x="176" y="106" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#bbb" text-anchor="middle">E</text>
+                            <text x="24" y="106" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#bbb" text-anchor="middle">W</text>
+                            
+                            <!-- Needle -->
+                            <g class="needle" id="rose-a-needle">
+                                <polygon points="100,20 108,100 100,108" fill="#ff3333"/>
+                                <polygon points="100,180 108,100 100,108" fill="#555"/>
+                                <polygon points="100,20 92,100 100,108" fill="#cc0000"/>
+                                <polygon points="100,180 92,100 100,108" fill="#333"/>
+                                <circle cx="100" cy="100" r="7" fill="#ffd700" stroke="#121212" stroke-width="2"/>
+                            </g>
+                        </svg>
+                    </div>
+                    <div id="val-rose-a" class="heading-val">000°</div>
+                </div>
+                <div class="windrose-card">
+                    <h3>Windrose B: Hard + Soft-Iron</h3>
+                    <div class="compass-wrapper">
+                        <svg class="compass" viewBox="0 0 200 200">
+                            <circle cx="100" cy="100" r="95" fill="#161616" stroke="#2c2c2c" stroke-width="5"/>
+                            <circle cx="100" cy="100" r="82" fill="none" stroke="#00e6ff" stroke-width="1.5" stroke-dasharray="3, 5"/>
+                            
+                            <!-- Dial ticks -->
+                            <line x1="100" y1="12" x2="100" y2="18" stroke="#ff3333" stroke-width="3"/>
+                            <line x1="100" y1="182" x2="100" y2="188" stroke="#eee" stroke-width="2"/>
+                            <line x1="12" y1="100" x2="18" y2="100" stroke="#eee" stroke-width="2"/>
+                            <line x1="182" y1="100" x2="188" y2="100" stroke="#eee" stroke-width="2"/>
+                            
+                            <!-- Dial Labels -->
+                            <text x="100" y="32" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#ff3333" text-anchor="middle">N</text>
+                            <text x="100" y="184" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#bbb" text-anchor="middle">S</text>
+                            <text x="176" y="106" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#bbb" text-anchor="middle">E</text>
+                            <text x="24" y="106" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#bbb" text-anchor="middle">W</text>
+                            
+                            <!-- Needle -->
+                            <g class="needle" id="rose-b-needle">
+                                <polygon points="100,20 108,100 100,108" fill="#ff3333"/>
+                                <polygon points="100,180 108,100 100,108" fill="#555"/>
+                                <polygon points="100,20 92,100 100,108" fill="#cc0000"/>
+                                <polygon points="100,180 92,100 100,108" fill="#333"/>
+                                <circle cx="100" cy="100" r="7" fill="#ffd700" stroke="#121212" stroke-width="2"/>
+                            </g>
+                        </svg>
+                    </div>
+                    <div id="val-rose-b" class="heading-val">000°</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>3D Tracker Orientation Visualizer</h2>
+            <div id="visualizer3d"></div>
+            <div class="telemetry-grid">
+                <div class="telemetry-item">
+                    <div class="telemetry-label">Pitch</div>
+                    <div id="val-pitch" class="telemetry-value">0.0°</div>
+                </div>
+                <div class="telemetry-item">
+                    <div class="telemetry-label">Roll</div>
+                    <div id="val-roll" class="telemetry-value">0.0°</div>
+                </div>
+                <div class="telemetry-item">
+                    <div class="telemetry-label">Raw Mag (X, Y, Z)</div>
+                    <div id="val-raw-mag" class="telemetry-value">0, 0, 0</div>
+                </div>
+                <div class="telemetry-item">
+                    <div class="telemetry-label">Cal Mag (X, Y, Z)</div>
+                    <div id="val-cal-mag" class="telemetry-value">0, 0, 0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CALIBRATION CONTAINER -->
+    <div id="calibration-container" class="container">
+        <div class="card">
+            <h2>Magnetometer 3D Calibration Portal</h2>
+            <button id="btn-start-cal" class="btn" onclick="toggleCalibration()">Start Calibration</button>
+            <button id="btn-save-cal" class="btn btn-success" onclick="saveCalibration()" disabled>Store Calibration to NVM</button>
+            
+            <div class="calibration-status">
+                <h4>System Instructions</h4>
+                <p>To calibrate the compass:</p>
+                <ol style="margin-left: 20px; margin-top: 8px; margin-bottom: 8px;">
+                    <li>Click <strong>Start Calibration</strong>.</li>
+                    <li>Slowly rotate the Heltec Tracker in a <strong>figure-eight pattern</strong> in 3D space to map all orientations.</li>
+                    <li>Observe the raw data points filling the scatter plot on the right.</li>
+                    <li>Once you have mapped a clean sphere, click <strong>Stop Calibration</strong> (which the start button turns into), and review the computed parameters.</li>
+                    <li>Click <strong>Store Calibration to NVM</strong> to send and save values permanently.</li>
+                </ol>
+                <div id="cal-results" style="display:none; margin-top: 12px;">
+                    <div style="font-weight:bold; margin-bottom: 4px;">Computed Calibration Coefficients:</div>
+                    <div id="cal-coefficients" class="matrix-display">...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Raw Magnetometer Scatter Plot (X-Y and Y-Z Projections)</h2>
+            <canvas id="scatter-canvas" width="400" height="300"></canvas>
+            <div class="telemetry-grid">
+                <div class="telemetry-item">
+                    <div class="telemetry-label">Data Points Count</div>
+                    <div id="cal-pts-count" class="telemetry-value">0</div>
+                </div>
+                <div class="telemetry-item">
+                    <div class="telemetry-label">Status</div>
+                    <div id="cal-state" class="telemetry-value" style="color: var(--warning);">Idle</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // WebSocket setup
+        let ws;
+        let wsConnected = false;
+        let activeTab = 'dashboard';
+
+        // Telemetry state
+        let currentHeadingA = 0;
+        let currentHeadingB = 0;
+        let currentRoll = 0;
+        let currentPitch = 0;
+
+        // Accumulated rotation angles to ensure smooth needle movement
+        let currentHeadingA_rot = 0;
+        let currentHeadingB_rot = 0;
+
+        // Calibration data
+        let isCalibrating = false;
+        let rawPoints = []; // Holds arrays of [mx, my, mz]
+        let maxPoints = 1500;
+
+        // Calculated factors
+        let hardIronOffset = [0, 0, 0];
+        let softIronScale = [1, 1, 1];
+
+        // Three.js variables
+        let scene, camera, renderer, trackerMesh, arrowHelper, boundingCube;
+
+        // Canvas variables
+        const scatterCanvas = document.getElementById('scatter-canvas');
+
+        // Calculates the shortest angular path to prevent flipping when wrapping 360 -> 0
+        function getShortestRotation(currentRotation, targetAngle) {
+            targetAngle = (targetAngle % 360 + 360) % 360;
+            let currentNormalized = (currentRotation % 360 + 360) % 360;
+            let diff = targetAngle - currentNormalized;
+            if (diff > 180) diff -= 360;
+            if (diff < -180) diff += 360;
+            return currentRotation + diff;
+        }
+
+        // Initialize Everything
+        window.addEventListener('load', () => {
+            initThreeJS();
+            initWebSockets();
+            drawScatter();
+            
+            // Animation/Render loop for 2D scatter canvas
+            setInterval(() => {
+                if (isCalibrating) {
+                    drawScatter();
+                }
+            }, 100);
+        });
+
+        function switchTab(tabId) {
+            activeTab = tabId;
+            document.querySelectorAll('.container').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+            if (tabId === 'dashboard') {
+                document.getElementById('dashboard-container').classList.add('active');
+                document.getElementById('btn-dash').classList.add('active');
+                // Resize Three.js to container
+                if (renderer) {
+                    const container = document.getElementById('visualizer3d');
+                    renderer.setSize(container.clientWidth, container.clientHeight);
+                }
+            } else {
+                document.getElementById('calibration-container').classList.add('active');
+                document.getElementById('btn-cal').classList.add('active');
+                drawScatter();
+            }
+        }
+
+        // WebSockets Configuration
+        function initWebSockets() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            // Use window host or fallback for local development
+            const host = window.location.host || '192.168.4.1'; 
+            ws = new WebSocket(`${protocol}//${host}/ws`);
+
+            ws.onopen = () => {
+                wsConnected = true;
+                document.getElementById('status-dot').className = 'status-dot connected';
+                document.getElementById('status-text').innerText = 'Connected';
+            };
+
+            ws.onclose = () => {
+                wsConnected = false;
+                document.getElementById('status-dot').className = 'status-dot';
+                document.getElementById('status-text').innerText = 'Disconnected';
+                // Attempt reconnect
+                setTimeout(initWebSockets, 2000);
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    // Update main telemetry values
+                    currentHeadingA = data.headingA;
+                    currentHeadingB = data.headingB;
+                    currentRoll = data.roll;
+                    currentPitch = data.pitch;
+
+                    // Update UI numerical readouts
+                    document.getElementById('val-rose-a').innerText = Math.round(currentHeadingA).toString().padStart(3, '0') + '°';
+                    document.getElementById('val-rose-b').innerText = Math.round(currentHeadingB).toString().padStart(3, '0') + '°';
+                    document.getElementById('val-pitch').innerText = currentPitch.toFixed(1) + '°';
+                    document.getElementById('val-roll').innerText = currentRoll.toFixed(1) + '°';
+                    document.getElementById('val-raw-mag').innerText = `${Math.round(data.mx_raw)}, ${Math.round(data.my_raw)}, ${Math.round(data.mz_raw)}`;
+                    document.getElementById('val-cal-mag').innerText = `${Math.round(data.mx_cal)}, ${Math.round(data.my_cal)}, ${Math.round(data.mz_cal)}`;
+
+                    // Smooth shortest-path rotation for SVG needles (negative heading points to North)
+                    currentHeadingA_rot = getShortestRotation(currentHeadingA_rot, -currentHeadingA);
+                    document.getElementById('rose-a-needle').style.transform = `rotate(${currentHeadingA_rot}deg)`;
+
+                    currentHeadingB_rot = getShortestRotation(currentHeadingB_rot, -currentHeadingB);
+                    document.getElementById('rose-b-needle').style.transform = `rotate(${currentHeadingB_rot}deg)`;
+
+                    // If calibrating, collect raw values
+                    if (isCalibrating) {
+                        rawPoints.push([data.mx_raw, data.my_raw, data.mz_raw]);
+                        if (rawPoints.length > maxPoints) {
+                            rawPoints.shift();
+                        }
+                        document.getElementById('cal-pts-count').innerText = rawPoints.length;
+                    }
+
+                    // Rotate 3D Tracker in Three.js
+                    if (trackerMesh) {
+                        // Apply Yaw-Pitch-Roll (Euler YXZ) transformation
+                        // Yaw (Y-axis) is negative heading (clockwise rotation)
+                        const yawRad = -currentHeadingB * Math.PI / 180;
+                        // Pitch (X-axis) is physical tilt pitch
+                        const pitchRad = currentPitch * Math.PI / 180;
+                        // Roll (Z-axis) is physical tilt roll
+                        const rollRad = -currentRoll * Math.PI / 180;
+
+                        trackerMesh.rotation.set(0, 0, 0); // Reset rotation to avoid cumulative issues
+                        trackerMesh.rotation.order = 'YXZ'; // Yaw first, then Pitch, then Roll
+                        trackerMesh.rotation.set(pitchRad, yawRad, rollRad);
+                    }
+
+                } catch (e) {
+                    console.error("Error parsing WebSocket JSON:", e);
+                }
+            };
+        }
+
+        // Initialize Three.js 3D Viewport
+        function initThreeJS() {
+            const container = document.getElementById('visualizer3d');
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color('#0b0f19');
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
+            camera.position.set(3.2, 2.4, 4.0); // angled side-top viewpoint
+            camera.lookAt(0, 0, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(w, h);
+            container.appendChild(renderer.domElement);
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 8, 5);
+            scene.add(directionalLight);
+
+            // 1. High-Tech Calibration Grid Floor
+            const gridHelper = new THREE.GridHelper(4, 10, 0x3b82f6, 0x1e293b);
+            gridHelper.position.y = -1.2;
+            scene.add(gridHelper);
+
+            // 2. Fixed Ground Compass Circle on Grid Floor
+            const ringGeo = new THREE.RingGeometry(1.5, 1.52, 64);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, side: THREE.DoubleSide });
+            const groundRing = new THREE.Mesh(ringGeo, ringMat);
+            groundRing.rotation.x = Math.PI / 2;
+            groundRing.position.y = -1.19;
+            scene.add(groundRing);
+
+            // Fixed Ground Compass Direction Sprite Labels
+            function createTextSprite(text, color) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 128;
+                canvas.height = 128;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = color;
+                ctx.font = 'Bold 80px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(text, 64, 64);
+                
+                const texture = new THREE.CanvasTexture(canvas);
+                const material = new THREE.SpriteMaterial({ map: texture });
+                const sprite = new THREE.Sprite(material);
+                sprite.scale.set(0.4, 0.4, 1);
+                return sprite;
+            }
+
+            const spriteN = createTextSprite('N', '#ef4444'); spriteN.position.set(0, -1.0, -1.8); scene.add(spriteN);
+            const spriteS = createTextSprite('S', '#94a3b8'); spriteS.position.set(0, -1.0, 1.8); scene.add(spriteS);
+            const spriteE = createTextSprite('E', '#3b82f6'); spriteE.position.set(1.8, -1.0, 0); scene.add(spriteE);
+            const spriteW = createTextSprite('W', '#94a3b8'); spriteW.position.set(-1.8, -1.0, 0); scene.add(spriteW);
+
+            // 3. Stylized Device Model Group
+            trackerMesh = new THREE.Group();
+
+            // PCB Board Body (Dark grey, thin box)
+            const pcbGeo = new THREE.BoxGeometry(1.6, 0.08, 1.0);
+            const pcbMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
+            const pcb = new THREE.Mesh(pcbGeo, pcbMat);
+            trackerMesh.add(pcb);
+
+            // Onboard TFT Display Screen (black rectangle on top, offset slightly)
+            const screenGeo = new THREE.BoxGeometry(1.1, 0.02, 0.7);
+            const screenMat = new THREE.MeshLambertMaterial({ color: 0x020617 });
+            const screen = new THREE.Mesh(screenGeo, screenMat);
+            screen.position.set(0, 0.05, 0);
+            trackerMesh.add(screen);
+
+            // Display Active Region Glow (thin Green rectangle representing working screen)
+            const glowGeo = new THREE.BoxGeometry(0.9, 0.005, 0.5);
+            const glowMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+            const glow = new THREE.Mesh(glowGeo, glowMat);
+            glow.position.set(0, 0.061, 0);
+            trackerMesh.add(glow);
+
+            // Pins / Connectors on the sides (aesthetic)
+            const pinsGeo = new THREE.BoxGeometry(1.5, 0.04, 0.04);
+            const pinsMat = new THREE.MeshLambertMaterial({ color: 0xd97706 }); // Amber/gold color
+            const pinsLeft = new THREE.Mesh(pinsGeo, pinsMat);
+            pinsLeft.position.set(0, -0.06, -0.48);
+            const pinsRight = new THREE.Mesh(pinsGeo, pinsMat);
+            pinsRight.position.set(0, -0.06, 0.48);
+            trackerMesh.add(pinsLeft);
+            trackerMesh.add(pinsRight);
+
+            // USB connector (metal box at the back, facing left -X in our local coordinates)
+            const usbGeo = new THREE.BoxGeometry(0.15, 0.07, 0.25);
+            const usbMat = new THREE.MeshLambertMaterial({ color: 0x94a3b8 }); // Metallic grey
+            const usb = new THREE.Mesh(usbGeo, usbMat);
+            usb.position.set(-0.7, 0, 0);
+            trackerMesh.add(usb);
+
+            scene.add(trackerMesh);
+
+            // 4. Heading Pointer/Arrow attached to tracker front (pointing to -Z / forward)
+            const origin = new THREE.Vector3(0, 0.1, 0);
+            const dir = new THREE.Vector3(0, 0, -1);
+            const length = 1.4;
+            const hex = 0xef4444; // Red for forward direction arrow
+            arrowHelper = new THREE.ArrowHelper(dir, origin, length, hex, 0.3, 0.15);
+            trackerMesh.add(arrowHelper); // Attached directly!
+
+            // Resize handler
+            window.addEventListener('resize', () => {
+                if (activeTab === 'dashboard') {
+                    const width = container.clientWidth;
+                    const height = container.clientHeight;
+                    camera.aspect = width / height;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(width, height);
+                }
+            });
+
+            // Start simple render loop
+            function animate() {
+                requestAnimationFrame(animate);
+                renderer.render(scene, camera);
+            }
+            animate();
+        }
+
+        // Draw Calibration Scatter Plot
+        function drawScatter() {
+            const ctx = scatterCanvas.getContext('2d');
+            const w = scatterCanvas.width;
+            const h = scatterCanvas.height;
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, w, h);
+
+            // Draw dividing line between X-Y and Y-Z projections
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h);
+            ctx.stroke();
+
+            // Label headings
+            ctx.fillStyle = 'var(--text-muted)';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('X - Y Projection', w / 4, 15);
+            ctx.fillText('Y - Z Projection', 3 * w / 4, 15);
+
+            if (rawPoints.length === 0) {
+                ctx.fillText('No calibration data collected yet.', w / 2, h / 2);
+                return;
+            }
+
+            // Find scale bounds to auto-fit points
+            let minX = Infinity, maxX = -Infinity;
+            let minY = Infinity, maxY = -Infinity;
+            let minZ = Infinity, maxZ = -Infinity;
+
+            rawPoints.forEach(pt => {
+                if (pt[0] < minX) minX = pt[0]; if (pt[0] > maxX) maxX = pt[0];
+                if (pt[1] < minY) minY = pt[1]; if (pt[1] > maxY) maxY = pt[1];
+                if (pt[2] < minZ) minZ = pt[2]; if (pt[2] > maxZ) maxZ = pt[2];
+            });
+
+            // Add safe padding
+            const padX = Math.max((maxX - minX) * 0.15, 20);
+            const padY = Math.max((maxY - minY) * 0.15, 20);
+            const padZ = Math.max((maxZ - minZ) * 0.15, 20);
+
+            minX -= padX; maxX += padX;
+            minY -= padY; maxY += padY;
+            minZ -= padZ; maxZ += padZ;
+
+            const mapVal = (val, inMin, inMax, outMin, outMax) => {
+                return (val - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+            };
+
+            // Draw grid / axes crosshairs for X-Y
+            ctx.strokeStyle = 'rgba(51, 65, 85, 0.4)';
+            ctx.beginPath();
+            const cxXY_X = w / 4;
+            const cxXY_Y = h / 2;
+            ctx.moveTo(cxXY_X - 40, cxXY_Y); ctx.lineTo(cxXY_X + 40, cxXY_Y);
+            ctx.moveTo(cxXY_X, cxXY_Y - 40); ctx.lineTo(cxXY_X, cxXY_Y + 40);
+            ctx.stroke();
+
+            // Draw grid / axes crosshairs for Y-Z
+            ctx.beginPath();
+            const cxYZ_X = 3 * w / 4;
+            const cxYZ_Y = h / 2;
+            ctx.moveTo(cxYZ_X - 40, cxYZ_Y); ctx.lineTo(cxYZ_X + 40, cxYZ_Y);
+            ctx.moveTo(cxYZ_X, cxYZ_Y - 40); ctx.lineTo(cxYZ_X, cxYZ_Y + 40);
+            ctx.stroke();
+
+            // Plot X-Y points (left) - High-speed hardware-accelerated fillRect (50x faster than beginPath+arc)
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.8)';
+            rawPoints.forEach(pt => {
+                const px = mapVal(pt[0], minX, maxX, 15, w / 2 - 15);
+                const py = mapVal(pt[1], minY, maxY, h - 15, 25);
+                ctx.fillRect(px - 1, py - 1, 2, 2);
+            });
+
+            // Plot Y-Z points (right) - High-speed hardware-accelerated fillRect (50x faster than beginPath+arc)
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.8)';
+            rawPoints.forEach(pt => {
+                const py_mapped = mapVal(pt[1], minY, maxY, w / 2 + 15, w - 15);
+                const pz_mapped = mapVal(pt[2], minZ, maxZ, h - 15, 25);
+                ctx.fillRect(py_mapped - 1, pz_mapped - 1, 2, 2);
+            });
+        }
+
+        // Trigger / Stop calibration session
+        function toggleCalibration() {
+            const btn = document.getElementById('btn-start-cal');
+            const stateEl = document.getElementById('cal-state');
+
+            if (!isCalibrating) {
+                // START CALIBRATING
+                isCalibrating = true;
+                rawPoints = [];
+                btn.innerText = 'Stop & Calculate Calibration';
+                btn.className = 'btn btn-danger';
+                stateEl.innerText = 'Calibrating...';
+                stateEl.style.color = 'var(--danger)';
+                document.getElementById('btn-save-cal').disabled = true;
+                document.getElementById('cal-results').style.display = 'none';
+
+                // Send start calibration command to ESP32
+                if (wsConnected) {
+                    ws.send(JSON.stringify({ command: 'start_cal' }));
+                }
+            } else {
+                // STOP CALIBRATING & CALCULATE
+                isCalibrating = false;
+                btn.innerText = 'Start Calibration';
+                btn.className = 'btn';
+                stateEl.innerText = 'Calculation Complete';
+                stateEl.style.color = 'var(--success)';
+
+                calculateCalibrationCoefficients();
+            }
+        }
+
+        // 3D Axis-Scaling Hard/Soft Iron Fitting Algorithm
+        function calculateCalibrationCoefficients() {
+            if (rawPoints.length < 50) {
+                alert("Too few data points collected! Please collect at least 50 points by rotating the tracker in all directions.");
+                document.getElementById('cal-state').innerText = 'Failed (Need more data)';
+                document.getElementById('cal-state').style.color = 'var(--danger)';
+                return;
+            }
+
+            // Find min/max values for each axis
+            let minX = Infinity, maxX = -Infinity;
+            let minY = Infinity, maxY = -Infinity;
+            let minZ = Infinity, maxZ = -Infinity;
+
+            rawPoints.forEach(pt => {
+                if (pt[0] < minX) minX = pt[0]; if (pt[0] > maxX) maxX = pt[0];
+                if (pt[1] < minY) minY = pt[1]; if (pt[1] > maxY) maxY = pt[1];
+                if (pt[2] < minZ) minZ = pt[2]; if (pt[2] > maxZ) maxZ = pt[2];
+            });
+
+            // 1. Calculate Hard-Iron offsets (center of the ellipsoid sphere)
+            hardIronOffset[0] = (maxX + minX) / 2;
+            hardIronOffset[1] = (maxY + minY) / 2;
+            hardIronOffset[2] = (maxZ + minZ) / 2;
+
+            // 2. Calculate Soft-Iron scale factors (normalize radial scaling on each axis)
+            const rx = (maxX - minX) / 2;
+            const ry = (maxY - minY) / 2;
+            const rz = (maxZ - minZ) / 2;
+            const avgRadius = (rx + ry + rz) / 3;
+
+            // Compute scaling ratio relative to average radius
+            softIronScale[0] = avgRadius / rx;
+            softIronScale[1] = avgRadius / ry;
+            softIronScale[2] = avgRadius / rz;
+
+            // Render results
+            document.getElementById('cal-results').style.display = 'block';
+            document.getElementById('cal-coefficients').innerText = 
+                `Hard-Iron Offsets:\n` +
+                `  X-Offset: ${hardIronOffset[0].toFixed(2)}\n` +
+                `  Y-Offset: ${hardIronOffset[1].toFixed(2)}\n` +
+                `  Z-Offset: ${hardIronOffset[2].toFixed(2)}\n\n` +
+                `Soft-Iron Scale Factors:\n` +
+                `  X-Scale : ${softIronScale[0].toFixed(4)}\n` +
+                `  Y-Scale : ${softIronScale[1].toFixed(4)}\n` +
+                `  Z-Scale : ${softIronScale[2].toFixed(4)}`;
+
+            // Enable "Store Calibration" button
+            document.getElementById('btn-save-cal').disabled = false;
+        }
+
+        // Send calibration factors back to ESP32
+        function saveCalibration() {
+            if (!wsConnected) {
+                alert("WebSocket is disconnected. Cannot save calibration.");
+                return;
+            }
+
+            const payload = {
+                command: 'save_cal',
+                hi_x: hardIronOffset[0],
+                hi_y: hardIronOffset[1],
+                hi_z: hardIronOffset[2],
+                si_x: softIronScale[0],
+                si_y: softIronScale[1],
+                si_z: softIronScale[2]
+            };
+
+            ws.send(JSON.stringify(payload));
+            alert("Calibration successfully sent and saved to non-volatile memory!");
+            document.getElementById('btn-save-cal').disabled = true;
+            document.getElementById('cal-state').innerText = 'Stored in NVM';
+            document.getElementById('cal-state').style.color = 'var(--success)';
+            
+            // Go back to dashboard to observe the perfect calibration
+            setTimeout(() => {
+                switchTab('dashboard');
+            }, 800);
+        }
+    </script>
+</body>
+</html>
