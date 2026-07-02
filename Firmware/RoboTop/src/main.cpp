@@ -861,24 +861,55 @@ void handleTimerRoutines(RoboStruct *timer)
             xQueueSend(udpOut, (void *)timer, 10); // send out trough wifi
         }
     }
-    //***************************************************************************************************
-    // RF data out
-    //***************************************************************************************************
-    if (timer->loralstmsg < millis())
+    //********************************************************************************//
+    // RF and WiFi/UDP Transmit Rates (Slowing down LoRa specifically to 5-second intervals)
+    //********************************************************************************//
+    static unsigned long lastLoraTx = 0;
+    static unsigned long lastUdpTx = 0;
+
+    // UDP/WiFi transmission (fast: every 250ms for extremely smooth/real-time web dashboard updates)
+    if (lastUdpTx + 250 < millis())
     {
+        lastUdpTx = millis();
         if ((timer->status == LOCKED || timer->status == DOCKED))
         {
-            timer->loralstmsg = millis() + 500;
             timer->cmd = TOPDATA;
-            xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
             xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
         }
-        if (timer->status == REMOTE)
+        else if (timer->status == REMOTE)
         {
-            timer->loralstmsg = millis() + 1000 + random(0, 150);
+            timer->cmd = REMOTE;
+            xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
+        }
+        else
+        {
+            timer->cmd = BUOYPOS;
+            xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
+            timer->cmd = TOPDATA;
+            xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
+        }
+    }
+
+    // LoRa transmission (slow: every 5000ms to preserve battery, bandwidth, and legal limits)
+    if (lastLoraTx + 5000 < millis())
+    {
+        lastLoraTx = millis() + random(0, 200); // Add small jitter to prevent packets colliding
+        if ((timer->status == LOCKED || timer->status == DOCKED))
+        {
+            timer->cmd = TOPDATA;
+            xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
+        }
+        else if (timer->status == REMOTE)
+        {
             timer->cmd = REMOTE;
             xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
-            xQueueSend(udpOut, (void *)timer, 10);
+        }
+        else
+        {
+            timer->cmd = BUOYPOS;
+            xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
+            timer->cmd = TOPDATA;
+            xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
         }
     }
 
@@ -891,23 +922,7 @@ void handleTimerRoutines(RoboStruct *timer)
         timer->wStd = wind.wStd;
         timer->wDir = wind.wDir; // averige wind dir
         timer->cmd = TOPDATA;
-        xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
         xQueueSend(udpOut, (void *)timer, 10); // send out trough wifi
-
-        // RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
-        // printf("DEBUG MEM: &Kdr=%p, &wStd=%p, Kdr=%f, wStd=%f\r\n", &mainData.Kdr, &mainData.wStd, mainData.Kdr, mainData.wStd); 
-        // printf("Status:%d Lat: %.8f Lon:%.8f tgDist:%.2f tgDir:%.0f mDir:%.0f wDir:%.0f wStd:%.2f ", timer->status, timer->lat, timer->lng, timer->tgDist,timer->tgDir, timer->dirMag, timer->wDir, timer->wStd);
-        // printf("Vtop: %1.1fV %3d%% Vsub: %1.1fV %d%% BB:%02d SB:%02d\r\n", timer->topAccuV, timer->topAccuP, timer->subAccuV, timer->subAccuP, timer->speedBb,timer->speedSb);
-    }
-    if (udpTimerOut + 250 < millis() && !((timer->status == LOCKED || timer->status == DOCKED)))
-    {
-        udpTimerOut = millis() + random(0, 50);
-        timer->cmd = BUOYPOS;
-        xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
-        xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
-        timer->cmd = TOPDATA;
-        xQueueSend(loraOut, (void *)timer, 10); // send out trough Lora
-        xQueueSend(udpOut, (void *)timer, 10);  // send out trough wifi
     }
 }
 

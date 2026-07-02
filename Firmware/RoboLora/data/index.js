@@ -64,10 +64,8 @@ const buoys = Array.from({ length: 3 }, (_, i) => ({
     statusLabelOverrideText: ""
 }));
 
-// Web Serial Connection State
+// Web Serial Connection State (Disabled/Removed)
 let serialPort = null;
-let serialReader = null;
-let serialStreamClosedPromise = null;
 
 // WebSocket Connection State
 let socket = null;
@@ -80,7 +78,6 @@ let setupCheckRetries = 0;
 
 // Initialize on page load
 window.addEventListener("load", () => {
-    initWebSerialSupport();
     initWebSockets();
     initUIEventListeners();
     
@@ -182,97 +179,6 @@ async function sendCommand(targetId, baseCommand, useSerial = true, useWs = true
 // Helper to send default status cmd
 function sendStatusCmd(targetId, cmdId) {
     return sendCommand(targetId, `${targetId},99,3,${cmdId},${cmdId}`);
-}
-
-// Web Serial Support & Connecting
-function initWebSerialSupport() {
-    const connBtn = document.getElementById("serial-connect-btn");
-    const statusEl = document.getElementById("serial-status");
-    
-    if (!('serial' in navigator)) {
-        connBtn.disabled = true;
-        statusEl.textContent = "Not Supported in Browser";
-        statusEl.className = "status-indicator status-disconnected";
-        return;
-    }
-    
-    connBtn.addEventListener("click", async () => {
-        if (serialPort) {
-            await disconnectSerial();
-        } else {
-            await connectSerial();
-        }
-    });
-}
-
-async function connectSerial() {
-    try {
-        serialPort = await navigator.serial.requestPort();
-        await serialPort.open({ baudRate: 115200 });
-        
-        const connBtn = document.getElementById("serial-connect-btn");
-        const statusEl = document.getElementById("serial-status");
-        connBtn.textContent = "Disconnect Serial";
-        statusEl.textContent = "Connected";
-        statusEl.className = "status-indicator status-connected";
-        
-        readSerialStream();
-    } catch (e) {
-        console.error("Failed to open serial port:", e);
-        serialPort = null;
-        logMessage(`SERIAL ERROR: ${e.message}`, "LORA");
-    }
-}
-
-async function disconnectSerial() {
-    if (serialReader) {
-        try {
-            await serialReader.cancel();
-        } catch(e) {}
-    }
-    if (serialPort) {
-        try {
-            await serialPort.close();
-        } catch(e) {}
-    }
-    serialPort = null;
-    serialReader = null;
-    
-    const connBtn = document.getElementById("serial-connect-btn");
-    const statusEl = document.getElementById("serial-status");
-    connBtn.textContent = "Connect Serial (Web Serial)";
-    statusEl.textContent = "Disconnected";
-    statusEl.className = "status-indicator status-disconnected";
-}
-
-async function readSerialStream() {
-    const decoder = new TextDecoderStream();
-    serialStreamClosedPromise = serialPort.readable.pipeTo(decoder.writable);
-    serialReader = decoder.readable.getReader();
-    
-    let buffer = "";
-    try {
-        while (true) {
-            const { value, done } = await serialReader.read();
-            if (done) break;
-            
-            buffer += value;
-            let lines = buffer.split("\n");
-            buffer = lines.pop(); // Hold onto partial lines
-            
-            for (let line of lines) {
-                line = line.trim();
-                if (line) {
-                    logMessage(line, "LORA IN");
-                    parseMessage(line, "LoRa");
-                }
-            }
-        }
-    } catch (e) {
-        console.error("Serial read error:", e);
-    } finally {
-        serialReader.releaseLock();
-    }
 }
 
 // WebSockets (Acts as a Bridge to UDP server or back to ESP32 Web Server)

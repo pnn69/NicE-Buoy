@@ -1,1 +1,0 @@
-ESP32 LoRa V2.1_1.6 Case by didzis on Thingiverse: https://www.thingiverse.com/thing:3856260

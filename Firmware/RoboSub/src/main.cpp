@@ -672,7 +672,7 @@ void handelSerialTimeOut(RoboStruct *ser)
     {
         WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // disable brownout detector
         PwrOff = millis();
-        beep(-1, buzzer);
+        // beep(-1, buzzer);
         printf("Power off now!\r\n");
         delay(1000);
         digitalWrite(PWRENABLE, 0); // disable powersupply
