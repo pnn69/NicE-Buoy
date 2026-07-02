@@ -65,6 +65,19 @@ To facilitate competitive sailing regattas, RoboTop coordinates the positions of
 *   **Vector Position Projection (`adjustPositionDirDist`)**: Projects the new target coordinates outward from the calculated starting line midpoint along the Port and Starboard bearings by a distance of exactly $d / 2$. This dynamically aligns (squares) the starting line perpendicular to the wind while keeping its original midpoint and length perfectly intact.
 *   **Asynchronous Coordination Broadcast (`SENDTRACK`)**: Once starting line or course track parameters are calculated, RoboTop automatically schedules a broadcast over the long-range LoRa RF network (`loraOut`), dispatching updated coordinates to Port, Starboard, and Head buoys simultaneously to coordinate the entire fleet.
 
+### 6. Advanced Circular Wind Telemetry & Standard Deviation
+To ensure the supervisor possesses steady, reliable, and noise-resistant wind references in turbulent marine environments, RoboTop employs specialized circular statistics to aggregate and smooth raw wind-vane angles:
+
+*   **Circular Vector Addition (`averageWindVector`)**: Simple arithmetic averaging of angles fails near the $360^\circ$ wrap-around boundary (e.g., the average of $350^\circ$ and $10^\circ$ is mathematically $180^\circ$, but physically $0^\circ$/$360^\circ$). To solve this, RoboTop decomposes each wind angle sample $A_i$ into Cartesian unit vectors:
+    $$x_i = \cos(A_i \times \frac{\pi}{180}), \quad y_i = \sin(A_i \times \frac{\pi}{180})$$
+    It then aggregates and computes the mean coordinates ($\bar{x}, \bar{y}$), resolving the correct, physically continuous circular average direction using the four-quadrant arctangent function:
+    $$W_{\text{dir}} = \operatorname{atan2}(\bar{y}, \bar{x}) \times \frac{180}{\pi}$$
+*   **Yamartino Circular Standard Deviation (`deviationWindRose`)**: Traditional linear standard deviation is highly vulnerable to wraps near North. RoboTop implements rigorous circular standard deviation by first calculating the magnitude of the mean resultant vector $R$:
+    $$R = \frac{\sqrt{(\sum \cos(A_i))^2 + (\sum \sin(A_i))^2}}{N}$$
+    The value $R$ acts as an indicator of wind vector consistency (where $R=1.0$ is perfect alignment and $R=0.0$ is complete dispersal). It then calculates the angular dispersion (circular standard deviation in degrees) using:
+    $$W_{\text{std}} = \sqrt{-2 \ln(R)} \times \frac{180}{\pi}$$
+    This establishes an incredibly stable, jitter-free Wind Standard Deviation index for navigation planning.
+
 ---
 
 ## 🛠️ Building & Flashing
