@@ -71,7 +71,7 @@ To ensure the supervisor possesses steady, reliable, and noise-resistant wind re
 *   **Circular Vector Addition (`averageWindVector`)**: Simple arithmetic averaging of angles fails near the $360^\circ$ wrap-around boundary (e.g., the average of $350^\circ$ and $10^\circ$ is mathematically $180^\circ$, but physically $0^\circ$/$360^\circ$). To solve this, RoboTop decomposes each wind angle sample $A_i$ into Cartesian unit vectors:
     $$x_i = \cos(A_i \times \frac{\pi}{180}), \quad y_i = \sin(A_i \times \frac{\pi}{180})$$
     It then aggregates and computes the mean coordinates ($\bar{x}, \bar{y}$), resolving the correct, physically continuous circular average direction using the four-quadrant arctangent function:
-    $$W_{\text{dir}} = \operatorname{atan2}(\bar{y}, \bar{x}) \times \frac{180}{\pi}$$
+    $$W_{\text{dir}} = \text{atan2}(\bar{y}, \bar{x}) \times \frac{180}{\pi}$$
 *   **Yamartino Circular Standard Deviation (`deviationWindRose`)**: Traditional linear standard deviation is highly vulnerable to wraps near North. RoboTop implements rigorous circular standard deviation by first calculating the magnitude of the mean resultant vector $R$:
     $$R = \frac{\sqrt{(\sum \cos(A_i))^2 + (\sum \sin(A_i))^2}}{N}$$
     The value $R$ acts as an indicator of wind vector consistency (where $R=1.0$ is perfect alignment and $R=0.0$ is complete dispersal). It then calculates the angular dispersion (circular standard deviation in degrees) using:
