@@ -406,29 +406,48 @@ body {
 /* Parameters Panel Table */
 .parameters-panel {
     background-color: #0f172a;
-    padding: 10px;
+    padding: 6px 10px;
     border-radius: 6px;
 }
 
 .params-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.8rem;
+}
+
+.params-table tbody {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px 12px;
+}
+
+.params-table tr {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    border-bottom: 1px solid #1e293b;
+    padding-bottom: 3px;
 }
 
 .params-table td {
-    padding: 4px 0;
+    padding: 0;
+    width: 100%;
 }
 
 .params-table td:first-child {
-    color: #94a3b8;
-    font-weight: 500;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 0.68rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .params-table td:last-child {
-    text-align: right;
+    text-align: left;
     color: #38bdf8;
     font-weight: bold;
+    font-size: 0.82rem;
     font-family: monospace;
 }
 
@@ -557,11 +576,12 @@ body {
     background-color: #111a2e;
     border: 1px solid #334155;
     border-radius: 8px;
-    width: 90%;
+    width: 95%;
     max-width: 450px;
     display: flex;
     flex-direction: column;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    transition: max-width 0.2s ease;
 }
 
 .modal-header {
@@ -595,12 +615,19 @@ body {
     display: flex;
     flex-direction: column;
     gap: 15px;
-    max-height: 70vh;
+    max-height: 85vh;
     overflow-y: auto;
 }
 
 .modal-body.hidden {
     display: none !important;
+}
+
+.modal-col {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    flex: 1;
 }
 
 #modal-loading-view {
@@ -690,6 +717,7 @@ body {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
+    margin-top: 8px;
 }
 
 .full-width-checkbox {
@@ -760,5 +788,30 @@ body {
 
 .label-green, .text-green {
     color: #22c55e !important;
+}
+
+/* Responsive Setup Modal */
+@media (min-width: 600px) {
+    .modal-content {
+        max-width: 680px;
+    }
+
+    #modal-form {
+        display: flex;
+        flex-direction: row;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+
+    .modal-col {
+        flex: 1 1 calc(50% - 8px);
+    }
+
+    .modal-footer {
+        width: 100%;
+        border-top: 1px solid #1e293b;
+        padding-top: 15px;
+        margin-top: 5px;
+    }
 }
 

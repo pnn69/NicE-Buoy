@@ -12,12 +12,6 @@
             <h1>Robobuoy Monitor - 3 Buoys</h1>
         </div>
         <div class="connections">
-            <!-- Web Serial Section -->
-            <div class="conn-section serial-section">
-                <span class="conn-label">LoRa Controller Port:</span>
-                <button id="serial-connect-btn" class="btn btn-primary">Connect Serial (Web Serial)</button>
-                <span id="serial-status" class="status-indicator status-disconnected">Disconnected</span>
-            </div>
             <!-- WebSocket Section -->
             <div class="conn-section ws-section">
                 <span class="conn-label">WebSocket Gateway:</span>
@@ -441,86 +435,93 @@
                 <p id="modal-loading-text">Fetching Setup Data...</p>
             </div>
             <form class="modal-body hidden" id="modal-form">
-                <!-- Rudder PID -->
-                <div class="form-section">
-                    <h4>Rudder PID</h4>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>P:</label>
-                            <input type="number" step="0.01" id="setup-Kpr" required>
+                <div class="modal-col">
+                    <!-- Rudder PID -->
+                    <div class="form-section">
+                        <h4>Rudder PID</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>P:</label>
+                                <input type="number" step="0.01" id="setup-Kpr" required>
+                            </div>
+                            <div class="form-group">
+                                <label>I:</label>
+                                <input type="number" step="0.01" id="setup-Kir" required>
+                            </div>
+                            <div class="form-group">
+                                <label>D:</label>
+                                <input type="number" step="0.01" id="setup-Kdr" required>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>I:</label>
-                            <input type="number" step="0.01" id="setup-Kir" required>
-                        </div>
-                        <div class="form-group">
-                            <label>D:</label>
-                            <input type="number" step="0.01" id="setup-Kdr" required>
+                    </div>
+
+                    <!-- Speed PID -->
+                    <div class="form-section">
+                        <h4>Speed PID</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>P:</label>
+                                <input type="number" step="0.01" id="setup-Kps" required>
+                            </div>
+                            <div class="form-group">
+                                <label>I:</label>
+                                <input type="number" step="0.01" id="setup-Kis" required>
+                            </div>
+                            <div class="form-group">
+                                <label>D:</label>
+                                <input type="number" step="0.01" id="setup-Kds" required>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Speed PID -->
-                <div class="form-section">
-                    <h4>Speed PID</h4>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>P:</label>
-                            <input type="number" step="0.01" id="setup-Kps" required>
-                        </div>
-                        <div class="form-group">
-                            <label>I:</label>
-                            <input type="number" step="0.01" id="setup-Kis" required>
-                        </div>
-                        <div class="form-group">
-                            <label>D:</label>
-                            <input type="number" step="0.01" id="setup-Kds" required>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Limits & Motors -->
-                <div class="form-section">
-                    <h4>Limits & Motors</h4>
-                    <div class="form-row flex-wrap">
-                        <div class="form-group half-width">
-                            <label>Max Speed:</label>
-                            <input type="number" step="0.01" id="setup-maxSpeed" required>
-                        </div>
-                        <div class="form-group half-width">
-                            <label>Min Speed:</label>
-                            <input type="number" step="0.01" id="setup-minSpeed" required>
-                        </div>
-                        <div class="form-group half-width">
-                            <label>Pivot Speed:</label>
-                            <input type="number" step="0.01" id="setup-pivotSpeed" required>
-                        </div>
-                        <div class="form-group half-width">
-                            <label>Compass Offset:</label>
-                            <input type="number" step="1" id="setup-compassOffset" required>
-                            <button type="button" class="btn btn-secondary" id="setup-setNorth-btn" style="margin-top: 5px; padding: 4px 8px; font-size: 11px;">Set as North</button>
-                        </div>
-                        <div class="form-group full-width">
-                            <label>Hold Radius (meters):</label>
-                            <input type="number" step="0.1" id="setup-holdRad" required>
+                <div class="modal-col">
+                    <!-- Limits & Motors -->
+                    <div class="form-section">
+                        <h4>Limits & Motors</h4>
+                        <div class="form-row flex-wrap">
+                            <div class="form-group half-width">
+                                <label>Max Speed:</label>
+                                <input type="number" step="0.01" id="setup-maxSpeed" required>
+                            </div>
+                            <div class="form-group half-width">
+                                <label>Min Speed:</label>
+                                <input type="number" step="0.01" id="setup-minSpeed" required>
+                            </div>
+                            <div class="form-group half-width">
+                                <label>Pivot Speed:</label>
+                                <input type="number" step="0.01" id="setup-pivotSpeed" required>
+                            </div>
+                            <div class="form-group half-width">
+                                <label>Compass Offset:</label>
+                                <input type="number" step="1" id="setup-compassOffset" required>
+                                <button type="button" class="btn btn-secondary" id="setup-setNorth-btn" style="margin-top: 5px; padding: 4px 8px; font-size: 11px;">Set as North</button>
+                            </div>
+                            <div class="form-group full-width">
+                                <label>Hold Radius (meters):</label>
+                                <input type="number" step="0.1" id="setup-holdRad" required>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Motor Options -->
-                <div class="form-section checkbox-section">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="setup-revBB">
-                        <span>Reverse BB</span>
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="setup-revSB">
-                        <span>Reverse SB</span>
-                    </label>
-                    <label class="checkbox-label full-width-checkbox">
-                        <input type="checkbox" id="setup-swap">
-                        <span>Swap BB/SB</span>
-                    </label>
+                    <!-- Motor Options -->
+                    <div class="form-section">
+                        <h4>Motor Options</h4>
+                        <div class="checkbox-section">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="setup-revBB">
+                                <span>Reverse BB</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="setup-revSB">
+                                <span>Reverse SB</span>
+                            </label>
+                            <label class="checkbox-label full-width-checkbox">
+                                <input type="checkbox" id="setup-swap">
+                                <span>Swap BB/SB</span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="modal-footer">
