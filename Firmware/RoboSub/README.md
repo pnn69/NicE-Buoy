@@ -27,9 +27,9 @@ RoboSub utilizes FreeRTOS to manage real-time tasks across the dual cores of the
                   ▼                       ▼                        ▼
 ┌────────────────────────────────┐ ┌────────────────────────┐ ┌────────────────────────┐
 │           CompassTask          │ │        PIDTask         │ │        LedTask         │
-│  - BNO055 I2C Fusion (0x28/29) │ │  - Speed PID (100Hz)   │ │  - Status NeoPixels    │
-│  - NVS Profile Injection       │ │  - Rudder PID (100Hz)  │ │  - Battery Telemetry   │
-│  - 30-Min Auto-Save Guard      │ │  - Differential Mix    │ └────────────────────────┘
+│  - ICM-20948 I2C Fusion (69/68)│ │  - Speed PID (100Hz)   │ │  - Status NeoPixels    │
+│  - Madgwick AHRS Filter (100Hz)│ │  - Rudder PID (100Hz)  │ │  - Battery Telemetry   │
+│  - 3D Copilot Web Calibration  │ │  - Differential Mix    │ └────────────────────────┘
 └────────────────────────────────┘ └──────────┬─────────────┘
                                               │ PWM Duty Cycles
                                               ▼
@@ -52,21 +52,19 @@ RoboSub translates abstract navigation instructions into physical locomotion usi
     $$Thrust_{\text{Port}} = Speed + Steering$$
     $$Thrust_{\text{Starboard}} = Speed - Steering$$
 
-### 2. Intelligent Compass Fusion (`compass.cpp` / `compass.h`)
-RoboSub utilizes an **Adafruit BNO055** 9-degrees-of-freedom intelligent sensor fusion coprocessor to track exact orientation and heading.
+### 2. High-Performance ICM-20948 Compass & Madgwick Fusion (`compass.cpp` / `compass.h`)
+RoboSub utilizes a high-performance **ICM-20948 9-DOF IMU** coupled with a mathematical **Madgwick AHRS sensor fusion filter** to compute highly precise, drift-free magnetic headings.
 
-*   **I2C Auto-Discovery**: Automatically probes I2C addresses `0x28` and `0x29` at boot, re-instantiating the driver object on the active address dynamically.
-*   **Atomic Profile Injection & Verification**: To bypass the extensive manual calibration sequence (figures-of-eight and tilting) required by the sensor at boot, RoboSub implements atomic register injection:
-    *   Reads a stored 22-byte calibration matrix from the ESP32 NVS (Flash).
-    *   Forces the BNO055 into `CONFIG` mode, burst-writes all 22 registers (comprising accelerometer, gyroscope, and magnetometer offsets + radius vectors), and switches back to `NDOF` fusion mode.
-    *   Immediately reads back the active registers and validates them byte-for-byte against the NVS data. If the verification matches, it emits a confirmation beep and displays `"Profile Loaded OK"`.
-*   **Conditional Auto-Save with 30-Minute Sustained Countdown**: To ensure the stored NVS calibration is of the highest quality (representing a broad matrix of operating angles in the water), RoboSub features a highly robust, conditional save guard:
-    *   **Startup Bypass**: If a valid profile is successfully loaded from NVS during boot, the auto-save loop is **completely disabled**. This protects your verified long-term calibration from being overwritten by a localized startup state.
-    *   **Conditional Countdown**: If the NVS is empty at boot, the system waits until the sensor hits peak calibration accuracy (`M:3` and `G:3`). Once reached, it begins a **30-minute countdown timer**.
-    *   **Automatic Resilience**: If the calibration drops below peak accuracy before the 30-minute mark (e.g., due to local magnetic interference), the countdown is immediately reset to `0` and will restart only when peak calibration is re-attained.
-    *   **Manual Override**: The pilot can trigger a manual save command (`cmd == 34`) at any time through the web interface to instantly write the current active calibration offsets to NVS.
-*   **Stuck-Sensor Watchdog**: Monitors the heading data continuously. If the telemetry remains frozen for 5 consecutive minutes (indicating an I2C hang or internal sensor crash), the system automatically performs a full sensor re-initialization sequence and restores the profile.
-*   **Highly Stable Averaging Filter**: Raised `NUM_DIRECTIONS` (the size of the circular averaging buffer) from `5` to `25` inside `compass.cpp`. This increases history filtering, yielding extremely smooth, stable heading updates and dampening localized magnetic anomalies caused by high-power thruster surges.
+*   **I2C Auto-Discovery**: Automatically probes active I2C addresses `0x69` and `0x68` at boot, dynamically instantiating the driver object on the discovered port.
+*   **Zero-Rate Gyro Bias Calibration**: Runs an automated 200-sample gyroscope calibration routine at boot to calculate static offsets, ensuring gyro drift is eliminated.
+*   **Advanced Madgwick AHRS Fusion (100Hz)**: Feeds filtered, low-passed accelerometer, gyroscope, and aligned calibrated magnetometer readings into a 100Hz Madgwick AHRS algorithm to track roll, pitch, and yaw.
+*   **Tilt-Compensated Magnetometer Math**: Employs geometrical tilt-compensation algorithms utilizing roll and pitch vectors to guarantee correct magnetic headings even when the buoy experiences severe angular tilting in turbulent seas.
+*   **NVS Persistence & Hard/Soft Iron Scaling**: Loads custom 3D calibration matrices (Hard Iron: `hi_x`, `hi_y`, `hi_z`; Soft Iron: `si_x`, `si_y`, `si_z`) from persistent Preferences NVS (Flash) to scale and offset raw magnetic distortion.
+*   **3D Copilot Interactive Calibration Web Dashboard**:
+    *   Integrates an interactive **3D Compass Calibration Tool** served via HTTP from the ESP32.
+    *   Features real-time 3D plotting and feedback to help operators execute figure-eight and pitch/roll movements (Z-span checking) in the field.
+    *   Validates point count (minimum 500 points) and multi-axis coverage before letting users commit the calculated parameters directly to NVS, playing an audio cue upon successful calibration storage.
+*   **Highly Stable Averaging Filter**: Runs heading outputs through a low-pass Exponential Moving Average (EMA) filter and caches them into a 25-step circular averaging buffer (`NUM_DIRECTIONS 25`), smoothing out MEMS noise and momentary magnetic anomalies caused by high-power thruster surges.
 
 ### 3. Dual-Loop PID Navigation (`pidrudspeed.cpp` / `pidrudspeed.h`)
 Autonomy is governed by independent, high-speed PID loops running at **100Hz** inside the `PIDTask`:
@@ -98,7 +96,7 @@ RoboSub communicates with the `RoboTop` over a single-wire half-duplex UART inte
 
 RoboSub is built and managed using the **PlatformIO** ecosystem:
 
-1.  **Configuration (`platformio.ini`)**: Defines build flags, libraries (`ESP32Servo`, `FastLED`, `Adafruit_BNO055`), and targets the `robo-esp-v3` environment.
+1.  **Configuration (`platformio.ini`)**: Defines build flags, libraries (`ESP32Servo`, `FastLED`, `ICM-20948`, `Madgwick`), and targets the `robo-esp-v3` environment.
 2.  **Compilation**:
     ```powershell
     C:\Users\Peter.d.Nijs\.platformio\penv\Scripts\platformio.exe run
