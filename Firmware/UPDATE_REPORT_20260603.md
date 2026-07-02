@@ -18,7 +18,7 @@ Significant updates have been made to both the RoboSub and RoboTop firmware to i
 ### 3. Web Interface (index.html)
 - **UI Clarity**: Renamed "Piv" to "Pivot" and "Rad" to "Lock" for better user understanding.
 - **Dynamic Updates**: The interface now reacts to the revision system, updating field values automatically if changed by another controller (e.g., Lora).
-- **Calibration Feedback**: Improved the BNO055 calibration status display logic.
+- **Calibration Feedback**: Improved the compass calibration status display logic.
 
 ## RoboTop (Surface Module)
 

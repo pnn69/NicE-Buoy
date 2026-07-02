@@ -74,7 +74,7 @@ void setup()
     Serial.begin(115200);
     pinMode(PWRENABLE, OUTPUT);
     digitalWrite(PWRENABLE, 1); // enable powersupply
-    delay(1000); // Give BNO055 and other sensors time to power up completely (BNO055 requires up to 650ms)!
+    delay(1000); // Give ICM-20948 and other sensors time to power up completely!
     Wire.begin(21, 22);
     Wire.setClock(400000);
     
