@@ -7,8 +7,8 @@ The **`RoboTop`** firmware runs on the master ESP32 microcontroller of the NicE-
 ## 🏗️ Architecture & Core Tasks
 
 RoboTop leverages FreeRTOS to coordinate real-time operations across the ESP32's dual cores:
-*   **Core 0 (Communications & Wireless)**: Dedicated to hosting the web server, broadcasting UDP telemetry, running wireless client WebSockets, and managing long-range LoRa RF operations.
-*   **Core 1 (GPS, Math & Serial Bridge)**: Focuses on high-precision GPS polling (UART), Great-Circle navigation math calculations, and RS-485 serial bus scheduling.
+*   **Core 0 (Communications & Serial Bus)**: Dedicated to hosting the web server, broadcasting UDP telemetry, running wireless client WebSockets, and managing RS-485 half-duplex serial bus scheduling (`SercomTask`).
+*   **Core 1 (GPS, Math & Long-Range RF)**: Focuses on high-precision GPS polling (UART), Great-Circle navigation math calculations, and SPI-driven long-range LoRa RF operations (`LoraTask`).
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -17,7 +17,7 @@ RoboTop leverages FreeRTOS to coordinate real-time operations across the ESP32's
 │              Core 0               │               Core 1               │
 ├───────────────────────────────────┼────────────────────────────────────┤
 │ - WiFiTask (Local AP Web Server)  │ - GpsTask (TinyGPS++ Polling)      │
-│ - LoraTask (SPI long-range RF)    │ - SercomTask (RS-485 Serial Bridge)│
+│ - SercomTask (RS-485 Serial Bridge)│ - LoraTask (SPI long-range RF)     │
 │ - UDP Broadcasting (Port 1001)    │ - Route Computation (Great-Circle) │
 └───────────────────────────────────┴────────────────────────────────────┘
 ```

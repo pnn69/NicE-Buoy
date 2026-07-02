@@ -7,8 +7,8 @@ The **`RoboSub`** firmware runs on the submerged ESP32 microcontroller of the Ni
 ## 🏗️ Subsystem Architecture & FreeRTOS Flow
 
 RoboSub utilizes FreeRTOS to manage real-time tasks across the dual cores of the ESP32:
-*   **Core 1 (High-Priority Sensors & Loops)**: Isolated from WiFi and networking to guarantee high-precision timing for I2C polling, sensor fusion, and 100Hz PID navigation loops.
-*   **Core 0 (Communications & Feedback)**: Handles asynchronous UART serial communications, LED lighting matrices, and diagnostic telemetry pipelines.
+*   **Core 1 (High-Priority Navigation & Sensors)**: Processes timing-critical I2C sensor fusion (`CompassTask`), 100Hz PID locomotion loops (`EscTask`), and high-speed RS-485 serial bridge decoding (`SercomTask`). This guarantees isolated, high-precision timing away from Wi-Fi overhead.
+*   **Core 0 (Communications & Visuals)**: Manages Wi-Fi networking client hooks (`WiFiTask`), addressable LED status animations (`LedTask`), and status buzzer audio signals (`buzzerTask`).
 
 ```
                       ┌────────────────────────────────────────┐
