@@ -26,7 +26,7 @@
 #include "subwifi.h"
 
 // Circular averaging buffer size
-#define NUM_DIRECTIONS 25
+#define NUM_DIRECTIONS 50
 
 extern Preferences storage;
 QueueHandle_t compass = NULL;

@@ -70,7 +70,15 @@ RoboSub utilizes a high-performance **ICM-20948 9-DOF IMU** coupled with a mathe
 *   **I2C Auto-Discovery**: Automatically probes active I2C addresses `0x69` and `0x68` at boot, dynamically instantiating the driver object on the discovered port.
 *   **Zero-Rate Gyro Bias Calibration**: Runs an automated 200-sample gyroscope calibration routine at boot to calculate static offsets, ensuring gyro drift is eliminated.
 *   **Advanced Madgwick AHRS Fusion (100Hz)**: Feeds filtered, low-passed accelerometer, gyroscope, and aligned calibrated magnetometer readings into a 100Hz Madgwick AHRS algorithm to track roll, pitch, and yaw.
-*   **Tilt-Compensated Magnetometer Math**: Employs geometrical tilt-compensation algorithms utilizing roll and pitch vectors to guarantee correct magnetic headings even when the buoy experiences severe angular tilting in turbulent seas.
+*   **Active Calibration & Fusion Modes (`icm_mode`)**: Users can dynamically select between four mathematical fusion modes on the web panel depending on operational conditions:
+    *   **Mode 1: Only Hard Iron (No Soft, No Tilt)**: Applies simple hard-iron offsets ($hi_{x,y,z}$) to center the magnetic sphere back to $(0,0,0)$ on the local 2D plane. Ideal for basic diagnostic checks.
+    *   **Mode 2: Hard & Soft Iron (No Tilt)**: Applies both centering offsets and soft-iron scaling matrices ($si_{x,y,z}$) to deform the magnetically squeezed ellipsoid back into a perfect sphere. Assumes the buoy remains physically level (flat-water).
+    *   **Mode 3: Hard Iron & Pitch + Roll (No Soft)**: Applies centering offsets and standard 3D trigonometric pitch ($p$) and roll ($r$) tilt-compensation. Recommended if soft-iron calibration is uninitialized but the buoy is rocking.
+    *   **Mode 4: Hard & Soft Iron & Pitch + Roll (Default)**: The most advanced mode. Combines 3D hard-iron offsets, soft-iron scaling, and live geometric pitch and roll projections to calculate extremely precise headings even during severe angular tilting in turbulent seas.
+*   **Tilt-Compensated Magnetometer Math**: When Mode 3 or 4 is active, the system calculates the pitch ($p$) and roll ($r$) vectors from the low-passed accelerometer and projects the 3D magnetometer readings back onto a virtual horizontal plane:
+    $$X_h = m_x \cos(p) + m_y \sin(r)\sin(p) + m_z \cos(r)\sin(p)$$
+    $$Y_h = m_y \cos(r) - m_z \sin(r)$$
+    This resolves the exact heading as: $\text{Heading} = \text{atan2}(Y_h, X_h) \times \frac{180}{\pi}$.
 *   **NVS Persistence & Hard/Soft Iron Scaling**: Loads custom 3D calibration matrices (Hard Iron: `hi_x`, `hi_y`, `hi_z`; Soft Iron: `si_x`, `si_y`, `si_z`) from persistent Preferences NVS (Flash) to scale and offset raw magnetic distortion.
 *   **3D Copilot Interactive Calibration Web Dashboard**:
     *   Integrates an interactive **3D Compass Calibration Tool** served via HTTP from the ESP32.

@@ -12,5 +12,6 @@
         "cmath": "cpp"
     },
     "idf.currentSetup": "C:\\Users\\Peter.d.Nijs\\esp\\v5.3\\esp-idf",
-    "liveServer.settings.port": 5501
+    "liveServer.settings.port": 5501,
+    "idf.portWin": "COM51"
 }
