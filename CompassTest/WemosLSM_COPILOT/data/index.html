@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>LSM303 Compass</title>
+style.css
+</head>
+<body>
+
+<h1>LSM303 Compass Dashboard</h1>
+
+<div class="row">
+
+<div class="card">
+<h2>Raw</h2>
+<div class="rose">
+<div id="rawNeedle" class="needle"></div>
+</div>
+</div>
+
+<div class="card">
+<h2>Calibrated</h2>
+<div class="rose">
+<div id="calNeedle" class="needle"></div>
+</div>
+</div>
+
+<div class="card">
+<h2>Tilt Compensated</h2>
+<div class="rose">
+<div id="tiltNeedle" class="needle"></div>
+</div>
+</div>
+
+</div>
+
+<div class="card">
+
+<button onclick="startCal()">Start Calibration</button>
+<button onclick="resetCal()">Reset Calibration</button>
+
+<h3 id="counter">0 / 500</h3>
+
+<div id="imageContainer">
+<img id="calImage"
+src="https://upload.wikimedia.orgArrow_rotation.svg
+</div>
+
+<progress id="progress" max="500" value="0"></progress>
+
+</div>
+
+<div class="card">
+<h3>Pitch: <span id="pitch">0</span>°</h3>
+<h3>Roll: <span id="roll">0</span>°</h3>
+</div>
+
+app.js
+
+</body>
+</html>
