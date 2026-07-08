@@ -5,11 +5,19 @@
 #include <AsyncUDP.h>
 #include <SPIFFS.h>
 #include <WebSocketsServer.h>
+#include <DNSServer.h>
 #include "main.h"
 #include "controlwifi.h"
 
+// Instantiate the global WebServer running on standard HTTP port 80 and WebSockets on port 81
 WebServer server(80);
 WebSocketsServer webSocket(81);
+
+// Captive Portal DNS Server instance to intercept and redirect network traffic.
+// All DNS queries (on standard DNS UDP Port 53) will be resolved to the ESP32's local Access Point IP address.
+// This forces operating systems (iOS, Android, Windows) to open the local landing page automatically.
+DNSServer dnsServer;
+const byte DNS_PORT = 53;
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
     switch(type) {
@@ -182,6 +190,10 @@ void setup_wifi_ap(String ap, String ww, IPAddress *tmp)
         *tmp = WiFi.softAPIP();
         Serial.print("AP IP address: ");
         Serial.println(*tmp);
+
+        // Start DNS Server redirecting every domain to the ESP32 IP
+        dnsServer.start(DNS_PORT, "*", *tmp);
+        Serial.println("DNS Server started for Captive Portal");
     }
     else
     {
@@ -338,6 +350,12 @@ void WiFiTask(void *arg)
         }
     });
 
+    // Unrecognized URL redirect for Captive Portal support
+    server.onNotFound([]() {
+        server.sendHeader("Location", "http://192.168.1.84/", true);
+        server.send(302, "text/plain", "");
+    });
+
     server.begin();
     Serial.println("HTTP WebServer started on port 80!");
 
@@ -352,6 +370,8 @@ void WiFiTask(void *arg)
     */
     for (;;)
     {
+        dnsServer.processNextRequest();
+        
         if (ota == true)
         {
             ArduinoOTA.handle();
