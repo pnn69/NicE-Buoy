@@ -26,7 +26,7 @@
 #include "subwifi.h"
 
 // Circular averaging buffer size
-#define NUM_DIRECTIONS 50
+#define NUM_DIRECTIONS 30
 
 extern Preferences storage;
 QueueHandle_t compass = NULL;
@@ -154,22 +154,52 @@ bool InitCompass(void)
 }
 
 /**
- * @brief Circular buffer averaging for smooth heading telemetry.
+ * @brief Circular buffer averaging for smooth heading telemetry using O(1) sliding window.
  */
 float CompassAverage(float in) {
-    static float directions[NUM_DIRECTIONS] = {0};
+    static float directions_x[NUM_DIRECTIONS] = {0};
+    static float directions_y[NUM_DIRECTIONS] = {0};
     static int cbufpointer = 0;
     static bool cbufFull = false;
+    static float running_sum_x = 0.0f;
+    static float running_sum_y = 0.0f;
+
     if (isnan(in)) return 0.0f;
-    directions[cbufpointer++] = in;
-    if (cbufpointer >= NUM_DIRECTIONS) { cbufpointer = 0; cbufFull = true; }
-    int count = cbufFull ? NUM_DIRECTIONS : cbufpointer;
-    float sum_x = 0.0, sum_y = 0.0;
-    for (int i = 0; i < count; i++) {
-        sum_x += cos(directions[i] * M_PI / 180.0);
-        sum_y += sin(directions[i] * M_PI / 180.0);
+
+    // Convert input angle to radians and get vector components
+    float new_x = cos(in * M_PI / 180.0);
+    float new_y = sin(in * M_PI / 180.0);
+
+    // Retrieve old values from buffer
+    float old_x = directions_x[cbufpointer];
+    float old_y = directions_y[cbufpointer];
+
+    // Overwrite oldest sample in the buffer
+    directions_x[cbufpointer] = new_x;
+    directions_y[cbufpointer] = new_y;
+
+    // Adjust the running sum O(1)
+    running_sum_x += (new_x - old_x);
+    running_sum_y += (new_y - old_y);
+
+    // Advance buffer pointer
+    cbufpointer++;
+    if (cbufpointer >= NUM_DIRECTIONS) {
+        cbufpointer = 0;
+        cbufFull = true;
     }
-    float res = atan2(sum_y, sum_x) * 180.0 / M_PI;
+
+    // Drift-protection: Recalculate sums on wrap-around to eliminate rounding drift over days of operation
+    if (cbufpointer == 0 && cbufFull) {
+        running_sum_x = 0.0f;
+        running_sum_y = 0.0f;
+        for (int i = 0; i < NUM_DIRECTIONS; i++) {
+            running_sum_x += directions_x[i];
+            running_sum_y += directions_y[i];
+        }
+    }
+
+    float res = atan2(running_sum_y, running_sum_x) * 180.0 / M_PI;
     if (res < 0) res += 360.0;
     return res;
 }
