@@ -97,3 +97,4 @@ fp-info-cache
 *.csv
 .gemini/
 gha-creds-*.json
+.claude/
