@@ -5,6 +5,7 @@ static Message esc;
 static RoboStruct rudderData;
 static RoboStruct speedData;
 bool was_pure_pivot = false;
+static double filtered_distance = 0;
 
 // File-level ramp states for smooth motor transitions
 double forward_ramp = 0;
@@ -35,6 +36,9 @@ void resetRudPid()
     rudderSetpoint = 0;
     rudderPID.SetMode(AUTOMATIC);
     forward_ramp = 0;
+    rampBb = 0;
+    rampSb = 0;
+    was_pure_pivot = false;
 }
 
 /**
@@ -71,6 +75,10 @@ void resetSpeedPid()
     speedSetpoint = 0;
     speedPID.SetMode(AUTOMATIC);
     forward_ramp = 0;
+    rampBb = 0;
+    rampSb = 0;
+    was_pure_pivot = false;
+    filtered_distance = 0;
 }
 
 /**
@@ -156,7 +164,6 @@ void rudderPid(RoboStruct *rud)
                 forward_factor = 0.0;
                 if (!was_pure_pivot) {
                     resetRudPid();
-                    resetSpeedPid();
                     was_pure_pivot = true;
                 }
             }
@@ -165,7 +172,6 @@ void rudderPid(RoboStruct *rud)
                 if (forward_factor < 0.1) {
                     if (!was_pure_pivot) {
                         resetRudPid();
-                        resetSpeedPid();
                         was_pure_pivot = true;
                     }
                 } else {
@@ -259,7 +265,6 @@ void rudderPid(RoboStruct *rud)
  * 3. Calculates forward power ONLY when in LOCKED state, targeting holdRad.
  */
 // Wave Filtering (Low-pass) on distance
-static double filtered_distance = 0;
 
 double GetFilteredDist(void) {
     return filtered_distance;
@@ -283,7 +288,6 @@ void speedPid(RoboStruct *dist)
     else if (dist->sub_status == SUB_STATUS_PIVOT_PREP && filtered_distance >= dist->holdRad) {
         // Transition point to Active Station Keeping
         dist->sub_status = SUB_STATUS_LOCKED;
-        resetSpeedPid(); // Clear old errors for a clean start at the 2m line
         resetRudPid();
     }
     else if (dist->sub_status == SUB_STATUS_LOCKED && filtered_distance < drift_threshold) {
@@ -299,7 +303,6 @@ void speedPid(RoboStruct *dist)
         if (was_pure_pivot) {
             // Pause speed PID and hold speed output at 0 during pure pivot
             dist->tgSpeed = 0;
-            resetSpeedPid();
         }
         else if (speedPID.Compute()) {
             double forward_power = speedOutput;

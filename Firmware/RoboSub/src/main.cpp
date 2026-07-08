@@ -246,6 +246,8 @@ void handelKeyPress(void)
     }
 }
 
+static int pendingStatus = -1;
+
 /**
  * @brief Handles changes in the system's operational status.
  * 
@@ -262,11 +264,18 @@ void handelStatus(RoboStruct *stat)
 {
     if (stat->status == IDELING)
     {
-        stat->speed = 0;
-        // Note: speedBb and speedSb are NOT zeroed here to allow smooth ramping in rudderPid
-        stat->status = IDLE;
-        xQueueSend(serOut, (void *)stat, 10);
-// printf("Entering IDLE state (ramping down)\r\n");
+        // Wait for motor ramps to reach 0 before fully transitioning
+        if (stat->speedBb == 0 && stat->speedSb == 0)
+        {
+            int nextStatus = (pendingStatus != -1) ? pendingStatus : IDLE;
+            stat->speed = 0;
+            stat->status = nextStatus;
+            initRudPid(stat);
+            initSpeedPid(stat);
+            xQueueSend(serOut, (void *)stat, 10);
+            printf("Ramp down complete. Transitioning to status: %d\r\n", nextStatus);
+            pendingStatus = -1;
+        }
     }
 }
 //***************************************************************************************************
@@ -309,15 +318,13 @@ void handelSerandRfdata(RoboStruct *ser)
             {
             case IDLE:
             case IDELING:
-                if (ser->status != IDELING)
+                if (ser->status != IDELING && ser->status != IDLE)
                 {
                     ser->tgDist = 0;
                     ser->tgSpeed = 0;
                     ser->tgDir = 0;
                     ser->status = IDELING;
-                    initRudPid(ser);
-                    initSpeedPid(ser);
-// printf("IDLE command recieved (ramping down)\r\n");
+                    printf("IDLE command received. Initiating smooth motor ramp down.\r\n");
                 }
                 break;
             case DIRDIST:
@@ -325,10 +332,19 @@ void handelSerandRfdata(RoboStruct *ser)
                     int targetStatus = (dataIn.status == DOCKED) ? DOCKED : LOCKED;
                     if (ser->status != targetStatus)
                     {
-                        printf("DIRDIST command recieved! Transitioning to status: %d\r\n", targetStatus);
-                        initRudPid(ser);
-                        initSpeedPid(ser);
-                        ser->status = targetStatus;
+                        if (ser->status == LOCKED || ser->status == DOCKED)
+                        {
+                            printf("DIRDIST command received! Transitioning from status %d to %d via smooth ramp down.\r\n", ser->status, targetStatus);
+                            pendingStatus = targetStatus;
+                            ser->status = IDELING;
+                        }
+                        else
+                        {
+                            printf("DIRDIST command received! Instantly transitioning to status: %d\r\n", targetStatus);
+                            initRudPid(ser);
+                            initSpeedPid(ser);
+                            ser->status = targetStatus;
+                        }
                     }
                     ser->tgDir = dataIn.tgDir;
                     ser->tgDist = dataIn.tgDist;
@@ -359,24 +375,47 @@ void handelSerandRfdata(RoboStruct *ser)
             case LOCKED:
                 if (ser->status != LOCKED)
                 {
-                    printf("LOCKED command recieved!");
-                    ser->tgDist = 0;
-                    initRudPid(ser);
-                    initSpeedPid(ser);
-                    ser->status = LOCKED;
-                    ser->locked = false;
+                    if (ser->status == DOCKED)
+                    {
+                        printf("LOCKED command received! Transitioning from DOCKED via smooth ramp down.\r\n");
+                        ser->tgDist = 0;
+                        pendingStatus = LOCKED;
+                        ser->status = IDELING;
+                        ser->locked = false;
+                    }
+                    else
+                    {
+                        printf("LOCKED command received! Instantly transitioning to LOCKED.\r\n");
+                        ser->tgDist = 0;
+                        initRudPid(ser);
+                        initSpeedPid(ser);
+                        ser->status = LOCKED;
+                        ser->locked = false;
+                    }
                 }
                 break;
             case DOCKED:
                 if (ser->status != DOCKED)
                 {
-                    printf("DOCKED command recieved!");
-                    ser->tgDist = 0;
-                    initRudPid(ser);
-                    initSpeedPid(ser);
-                    memDockPos(&dataIn, GET);
-                    ser->status = DOCKED;
-                    ser->locked = false;
+                    if (ser->status == LOCKED)
+                    {
+                        printf("DOCKED command received! Transitioning from LOCKED via smooth ramp down.\r\n");
+                        ser->tgDist = 0;
+                        pendingStatus = DOCKED;
+                        ser->status = IDELING;
+                        memDockPos(&dataIn, GET);
+                        ser->locked = false;
+                    }
+                    else
+                    {
+                        printf("DOCKED command received! Instantly transitioning to DOCKED.\r\n");
+                        ser->tgDist = 0;
+                        initRudPid(ser);
+                        initSpeedPid(ser);
+                        memDockPos(&dataIn, GET);
+                        ser->status = DOCKED;
+                        ser->locked = false;
+                    }
                 }
                 break;
             case PIDRUDDER:
@@ -742,8 +781,18 @@ void handleTimerRoutines(RoboStruct *in)
         escOut.speedsb = in->speedSb;
         xQueueSend(escspeed, (void *)&escOut, 10);
         break;
-    case IDLE:
     case IDELING:
+        if (pidTimer < millis())
+        {
+            pidTimer = millis() + 20; // 20ms
+            rudderPid(in);
+            
+            escOut.speedbb = in->speedBb;
+            escOut.speedsb = in->speedSb;
+            xQueueSend(escspeed, (void *)&escOut, 10);
+        }
+        break;
+    case IDLE:
         escOut.speedbb = 0;
         escOut.speedsb = 0;
         in->speedBb = 0;
