@@ -48,7 +48,7 @@ The codebase is structured into the following decoupled sub-projects:
     *   **Responsibilities**: Common shared library loaded by both Top and Sub units.
     *   **Features**: Holds navigation math algorithms (`RouteToPoint` shortest-path, distance, and angle calculation), the unified `RoboStruct` communication state structure, formatting libraries (`formatFloat`), and the core telemetry string encoder/decoder (`rfCode` and `rfDeCode`).
 4.  **`RoboLora` (LoRa Gateway / Controller)**:
-    *   **Responsibilities**: Serves as a standalone USB-to-LoRa serial gateway. Relays packets between the PC monitor software and the buoys over long-range RF channels.
+    *   **Responsibilities**: Serves as a standalone USB-to-LoRa serial gateway. Relays packets between the PC monitor software and the buoys over long-range RF channels. Also hosts an integrated Wi-Fi Access Point featuring a Captive Portal with automatic DNS redirection (resolving all Port 53 queries to the local IP `192.168.1.84` to automatically launch the HTML5 control dashboard on connected user devices).
 5.  **`RoboPythonDisplay` (Python GUI Monitor)**:
     *   **Responsibilities**: A desktop control dashboard (`RoboControl.py`) built with Tkinter for live telemetry tracking of up to 3 buoys.
     *   **Features**: Real-time windroses, thruster speed indicators (BB/SB), battery voltages, live socket listeners, and interactive PID parameter setting menus.

@@ -38,6 +38,7 @@ RoboLora manages the relay of long-range telemetry frames with low latency, brid
 *   **Control Reception**: Translates downstream command strings originating from the desktop Python dashboard and packages them into target-specific LoRa transmission frames.
 
 ### 4. Advanced Web-Based Control Panel (`data/` / `controlwifi.cpp`)
+*   **Captive Portal & DNS Automatic Redirection**: Integrates a lightweight `DNSServer` running on standard UDP Port 53 in Access Point mode. All DNS requests are resolved and redirected to the ESP32's local AP IP address (`192.168.1.84`). Combined with an HTTP 302 redirect for unrecognized URLs, this forces connected operating systems (iOS, Android, Windows, macOS) to automatically launch the localized HTML5 dashboard control panel.
 *   **Intuitive Dashboard Interface**: Serves a highly customized HTML5 dashboard (`index.html`, `index.js`, `style.css`) from the local SPIFFS partition over an integrated Wi-Fi Access Point or Local Station.
 *   **Dual-Source Telemetry Prioritization**: Real-time client-side filter prioritizes high-speed UDP Wi-Fi data (updating fluidly at **250ms** intervals) and ignores slower, redundant LoRa packets (still logged in their respective consoles) to eliminate UI lag or gauge flickering.
 *   **Responsive Dual-Column Configuration Popup**: Restructured the setup modal into a dual-column layout on wider screens, placing Speed PID vertically under Rudder PID, and featuring highly legible, enlarged labels and values in bold blue monospace. Includes:
