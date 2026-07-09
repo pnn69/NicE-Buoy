@@ -178,9 +178,10 @@ void updateOled(RoboStruct *buoy, adcDataType *adc) {
         
         // Draw controller IP in bold TextSize 1 (using double-strike rendering)
         display.setCursor(0, 10);
-        display.print(WiFi.localIP());
+        IPAddress displayIp = (WiFi.getMode() == WIFI_AP) ? WiFi.softAPIP() : WiFi.localIP();
+        display.print(displayIp);
         display.setCursor(1, 10);
-        display.print(WiFi.localIP());
+        display.print(displayIp);
         
         display.setCursor(0, 24);
         display.println("Known Buoys:");

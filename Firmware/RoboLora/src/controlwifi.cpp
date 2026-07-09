@@ -123,11 +123,17 @@ bool scan_for_wifi_ap(String ssipap, String ww, IPAddress *tmp)
     unsigned long timeout = millis();
     Serial.print("scan for for ap:");
     Serial.println(ssipap);
+    
+    // Explicitly set STA mode and disconnect to ensure reliable scanning
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect();
+    delay(100);
+
     int n = WiFi.scanNetworks();
     Serial.println("scan done");
     Serial.print(n);
     Serial.println(" networks found");
-    if (n == 0)
+    if (n <= 0)
     {
         return false;
     }
@@ -141,11 +147,14 @@ bool scan_for_wifi_ap(String ssipap, String ww, IPAddress *tmp)
                 WiFi.begin(ssipap.c_str(), ww.c_str());
                 while (WiFi.status() != WL_CONNECTED)
                 {
-                    delay(50);
+                    delay(500);
                     Serial.print(".");
-                    if (timeout + 120 * 1000 < millis())
+                    // Reduce timeout to 15 seconds to allow graceful fallback instead of blocking for 2 minutes
+                    if (timeout + 15 * 1000 < millis())
                     {
-                        esp_restart();
+                        Serial.println("\nConnection timeout! Falling back...");
+                        WiFi.disconnect();
+                        return false; // Return false to trigger AP fallback instead of rebooting
                     }
                 }
                 Serial.print(".\r\n");
@@ -215,15 +224,12 @@ bool udp_setup(int poort)
                          
                          // Push incoming UDP packets to wsOutQueue for thread-safe WebSocket broadcast
                          if (wsOutQueue != NULL) {
+                             String ipStr = packet.remoteIP().toString();
+                             String wsMsg = "UDP:" + ipStr + ":" + stringUdpIn;
                              char packetBuf[160];
                              memset(packetBuf, 0, sizeof(packetBuf));
-                             strcpy(packetBuf, "UDP:");
-                             int len = stringUdpIn.length();
-                             if (len > 150) len = 150; // Leave room for prefix and null terminator
-                             for (int i = 0; i < len; i++) {
-                                 packetBuf[4 + i] = stringUdpIn[i];
-                             }
-                             packetBuf[4 + len] = '\0';
+                             // Safe copy with length limit to fit inside packetBuf (159 chars + null terminator)
+                             wsMsg.substring(0, 159).toCharArray(packetBuf, sizeof(packetBuf));
                              xQueueSend(wsOutQueue, (void *)packetBuf, 10);
                          }
 

@@ -48,6 +48,7 @@ const MsgType = {
 const buoys = Array.from({ length: 3 }, (_, i) => ({
     index: i,
     id: null, // Hex ID assigned dynamically from incoming messages
+    ip: null, // Dynamic IP discovered from UDP packets
     title: `Buoy ${i + 1} (Waiting...)`,
     udpEnabled: true,
     loraEnabled: true,
@@ -215,12 +216,20 @@ function connectWebSocket() {
             let raw = event.data.trim();
             if (raw) {
                 let source = "UDP";
+                let senderIp = null;
                 if (raw.startsWith("LORA:")) {
                     raw = raw.substring(5);
                     source = "LoRa";
                 } else if (raw.startsWith("UDP:")) {
                     raw = raw.substring(4);
                     source = "UDP";
+                    
+                    // Check for optional IP prefix, e.g. "192.168.1.78:$..."
+                    const colonIdx = raw.indexOf(":$");
+                    if (colonIdx !== -1) {
+                        senderIp = raw.substring(0, colonIdx);
+                        raw = raw.substring(colonIdx + 1);
+                    }
                 }
                 
                 // Log message to the correct panel (LORA LOG or UDP LOG)
@@ -228,7 +237,7 @@ function connectWebSocket() {
                 
                 // Handle raw NMEA formats
                 if (raw.startsWith("$")) {
-                    parseMessage(raw, source);
+                    parseMessage(raw, source, senderIp);
                 } else {
                     // Fallback: parse as JSON if it's not an NMEA sentence
                     try {
@@ -293,7 +302,7 @@ function handleJsonFallback(stuff) {
 }
 
 // Parse NMEA message strings
-function parseMessage(message, source) {
+function parseMessage(message, source, senderIp = null) {
     if (!message.startsWith('$') || !message.includes('*')) return;
     
     try {
@@ -344,6 +353,11 @@ function parseMessage(message, source) {
         
         if (!targetBuoy) return;
         const buoyId = targetBuoy.id;
+        
+        // Save the IP address of the buoy if it was received via UDP
+        if (source === "UDP" && senderIp) {
+            targetBuoy.ip = senderIp;
+        }
         
         // UDP filtering
         if (source === "UDP" && !targetBuoy.udpEnabled) return;
@@ -534,6 +548,23 @@ function updateGUI() {
         const hasId = b.id !== null;
         
         if (hasId) activeCount++;
+        
+        // Dynamically update the card header title and IP address
+        const titleEl = document.getElementById(`buoy-title-${i}`);
+        const ipEl = document.getElementById(`buoy-ip-${i}`);
+        if (hasId) {
+            titleEl.textContent = `Buoy: ${b.id}`;
+            if (b.ip) {
+                if (ipEl) {
+                    ipEl.innerHTML = `<a href="http://${b.ip}/" target="_blank" style="color: #fbbf24; text-decoration: underline; cursor: pointer;">${b.ip}</a>`;
+                }
+            } else {
+                if (ipEl) ipEl.innerHTML = "";
+            }
+        } else {
+            titleEl.textContent = `Buoy ${i + 1} (Waiting...)`;
+            if (ipEl) ipEl.innerHTML = "";
+        }
         
         let currentStatus = 0;
         try {
