@@ -343,6 +343,7 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
 
             <button class="btn btn-primary" id="btnCal">Start Interactive Calibration</button>
             <button class="btn btn-secondary" id="btnSave" disabled>Save &amp; Upload Calibration</button>
+            <button class="btn btn-secondary" id="btnLevel" style="background-color: var(--accent); color: white; margin-bottom: 0px;">Calibrate Level (Horizontal)</button>
         </div>
 
         <div class="card">
@@ -405,6 +406,7 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
         const statusBadge = document.getElementById('status');
         const btnCal = document.getElementById('btnCal');
         const btnSave = document.getElementById('btnSave');
+        const btnLevel = document.getElementById('btnLevel');
         const pointCount = document.getElementById('pointCount');
         const pointsGroup = document.getElementById('pointsGroup');
         const calHiVal = document.getElementById('calHiVal');
@@ -724,6 +726,30 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                     btnSave.disabled = false;
                     console.error("Network error: " + err);
                 });
+        };
+
+        btnLevel.onclick = () => {
+            if (confirm("Make sure the buoy is perfectly flat and static. Calibrate horizontal level?")) {
+                btnLevel.textContent = "Calibrating Level...";
+                btnLevel.disabled = true;
+                fetch('/calibrate_level')
+                    .then(r => r.text())
+                    .then(txt => {
+                        btnLevel.disabled = false;
+                        if (txt === "OK") {
+                            btnLevel.textContent = "Level Calibrated!";
+                            alert("Horizontal level calibration saved successfully!");
+                        } else {
+                            btnLevel.textContent = "Calibrate Level (Horizontal)";
+                            alert("Error calibrating level: " + txt);
+                        }
+                    })
+                    .catch(err => {
+                        btnLevel.disabled = false;
+                        btnLevel.textContent = "Calibrate Level (Horizontal)";
+                        alert("Network error: " + err);
+                    });
+            }
         };
 
         function setIcmMode(m) {

@@ -25,6 +25,7 @@
 #include "subwifi.h"
 #include "index_html.h"
 #include "calibration_html.h"
+#include "compasstest_html.h"
 #include "leds.h"
 #include "buzzer.h"
 
@@ -39,8 +40,8 @@ extern RoboStruct mainData;
 extern SemaphoreHandle_t mainDataMutex;
 extern QueueHandle_t compassIn;
 extern float last_raw_x, last_raw_y, last_raw_z;
-extern float hi_x, hi_y, hi_z;
-extern float si_x, si_y, si_z;
+extern float offsetX, offsetY, offsetZ;
+extern float scaleX, scaleY, scaleZ;
 extern int icm_mode;
 extern void updateUIHexFloat();
 extern String global_cal_msg;
@@ -259,20 +260,16 @@ void WiFiTask(void *arg) {
         if(subServer.hasArg("hx") && subServer.hasArg("hy") && subServer.hasArg("hz") &&
            subServer.hasArg("sx") && subServer.hasArg("sy") && subServer.hasArg("sz")) {
             
-            float hi[3], si[3];
-            hi[0] = subServer.arg("hx").toFloat();
-            hi[1] = subServer.arg("hy").toFloat();
-            hi[2] = subServer.arg("hz").toFloat();
-            si[0] = subServer.arg("sx").toFloat();
-            si[1] = subServer.arg("sy").toFloat();
-            si[2] = subServer.arg("sz").toFloat();
+            offsetX = subServer.arg("hx").toFloat();
+            offsetY = subServer.arg("hy").toFloat();
+            offsetZ = subServer.arg("hz").toFloat();
+            scaleX = subServer.arg("sx").toFloat();
+            scaleY = subServer.arg("sy").toFloat();
+            scaleZ = subServer.arg("sz").toFloat();
 
-            // Write to NVS
-            memIcmCalib(hi, si, false);
-
-            // Update runtime variables
-            hi_x = hi[0]; hi_y = hi[1]; hi_z = hi[2];
-            si_x = si[0]; si_y = si[1]; si_z = si[2];
+            // Save to "compass" Preferences namespace
+            extern void saveCalibration();
+            saveCalibration();
 
             // Re-generate user hex/text strings for telemetry
             updateUIHexFloat();
@@ -297,21 +294,54 @@ void WiFiTask(void *arg) {
         if (subServer.hasArg("mode")) {
             icm_mode = subServer.arg("mode").toInt();
             
-            // Write to NVS
-            float hi[3] = {hi_x, hi_y, hi_z};
-            float si[3] = {si_x, si_y, si_z};
-            memIcmCalib(hi, si, false);
+            // Save to "compass" Preferences namespace
+            extern void saveCalibration();
+            saveCalibration();
 
             subServer.send(200, "text/plain", "OK");
         } else {
             subServer.send(400, "text/plain", "Err");
         }
     });
+    subServer.on("/calibrate_level", HTTP_GET, [](){
+        extern float smoothed_ax, smoothed_ay, smoothed_az;
+        extern float levelX, levelY, levelZ;
+        extern void saveLevelCalibration();
+        extern void updateUIHexFloat();
+
+        float normA = sqrt(smoothed_ax * smoothed_ax + smoothed_ay * smoothed_ay + smoothed_az * smoothed_az);
+        if (normA > 0.0f) {
+            levelX = smoothed_ax / normA;
+            levelY = smoothed_ay / normA;
+            levelZ = smoothed_az / normA;
+            
+            saveLevelCalibration();
+            updateUIHexFloat();
+            
+            Serial.printf("Level calibration saved: lx=%f, ly=%f, lz=%f\n", levelX, levelY, levelZ);
+            subServer.send(200, "text/plain", "OK");
+        } else {
+            subServer.send(400, "text/plain", "Err");
+        }
+    });
+
     subServer.on("/calibration", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");
         subServer.send_P(200, "text/html", CALIBRATION_HTML);
+    });
+    subServer.on("/compasstest", HTTP_GET, [](){
+        subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        subServer.sendHeader("Pragma", "no-cache");
+        subServer.sendHeader("Expires", "-1");
+        subServer.send_P(200, "text/html", COMPASSTEST_HTML);
+    });
+    subServer.on("/compass_test", HTTP_GET, [](){
+        subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        subServer.sendHeader("Pragma", "no-cache");
+        subServer.sendHeader("Expires", "-1");
+        subServer.send_P(200, "text/html", COMPASSTEST_HTML);
     });
     subServer.on("/callibration", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");

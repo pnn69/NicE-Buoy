@@ -476,6 +476,7 @@ void memBnoCalib(uint8_t *data, bool get)
 void memIcmCalib(float *hi, float *si, bool get)
 {
     extern int icm_mode;
+    extern float levelX, levelY, levelZ;
     startMem();
     if (get)
     {
@@ -486,7 +487,10 @@ void memIcmCalib(float *hi, float *si, bool get)
         si[1] = storage.getFloat("icm_si_y", 1.0f);
         si[2] = storage.getFloat("icm_si_z", 1.0f);
         icm_mode = storage.getInt("icm_mode", 4);
-        Serial.printf("memIcmCalib: LOADED -> HI: [%.4f, %.4f, %.4f], SI: [%.4f, %.4f, %.4f], Mode: %d\n", hi[0], hi[1], hi[2], si[0], si[1], si[2], icm_mode);
+        levelX = storage.getFloat("icm_lvl_x", 0.0f);
+        levelY = storage.getFloat("icm_lvl_y", 0.0f);
+        levelZ = storage.getFloat("icm_lvl_z", 1.0f);
+        Serial.printf("memIcmCalib: LOADED -> HI: [%.4f, %.4f, %.4f], SI: [%.4f, %.4f, %.4f], Mode: %d, LVL: [%.4f, %.4f, %.4f]\n", hi[0], hi[1], hi[2], si[0], si[1], si[2], icm_mode, levelX, levelY, levelZ);
     }
     else
     {
@@ -497,7 +501,10 @@ void memIcmCalib(float *hi, float *si, bool get)
         storage.putFloat("icm_si_y", si[1]);
         storage.putFloat("icm_si_z", si[2]);
         storage.putInt("icm_mode", icm_mode);
-        Serial.printf("memIcmCalib: SAVED -> HI: [%.4f, %.4f, %.4f], SI: [%.4f, %.4f, %.4f], Mode: %d\n", hi[0], hi[1], hi[2], si[0], si[1], si[2], icm_mode);
+        storage.putFloat("icm_lvl_x", levelX);
+        storage.putFloat("icm_lvl_y", levelY);
+        storage.putFloat("icm_lvl_z", levelZ);
+        Serial.printf("memIcmCalib: SAVED -> HI: [%.4f, %.4f, %.4f], SI: [%.4f, %.4f, %.4f], Mode: %d, LVL: [%.4f, %.4f, %.4f]\n", hi[0], hi[1], hi[2], si[0], si[1], si[2], icm_mode, levelX, levelY, levelZ);
     }
     stopMem();
 }

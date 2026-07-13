@@ -73,6 +73,7 @@ button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:poin
 </div>
 <div class="raw-box" style="display:flex;flex-direction:column;justify-content:center;"><b>Compass Configuration</b>
 <button onclick="location.href='/calibration'" style="background:#58a6ff;color:#0d1117;width:100%;height:50px;margin-top:10px;font-weight:bold;font-size:1em;border-radius:4px;border:none;cursor:pointer;">➔ Interactive Calibration</button>
+<button onclick="location.href='/compasstest'" style="background:#bc8cff;color:#0d1117;width:100%;height:50px;margin-top:10px;font-weight:bold;font-size:1em;border-radius:4px;border:none;cursor:pointer;">➔ Advanced Compass Test</button>
 </div>
 </div>
 <script>
