@@ -145,6 +145,8 @@ void Declination(RoboStruct *buoy, bool get)
  * @param buoy Pointer to the state structure containing compassOffset.
  * @param get True to read from memory, false to write to memory.
  */
+extern int compass_avg_samples;
+
 void CompasOffset(RoboStruct *buoy, bool get)
 {
     startMem();
@@ -152,10 +154,13 @@ void CompasOffset(RoboStruct *buoy, bool get)
     {
         buoy->compassOffset = storage.getDouble("magCorr", 0);
         if (isnan(buoy->compassOffset)) buoy->compassOffset = 0;
+        compass_avg_samples = storage.getInt("compass_avg", 10);
+        if (compass_avg_samples <= 0) compass_avg_samples = 10;
     }
     else
     {
         storage.putDouble("magCorr", buoy->compassOffset);
+        storage.putInt("compass_avg", compass_avg_samples);
     }
     stopMem();
 }

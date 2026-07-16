@@ -307,8 +307,7 @@ void WiFiTask(void *arg)
         apww = "!Ni1001100110";
         if (scan_for_wifi_ap(ap, apww, &ipTop) == false)
         {
-            ap = "BUOY_LORA";
-            ap += macStr;
+            ap = "ROBOBUOY";
             apww = "";
             setup_wifi_ap(ap, apww, &ipTop);
         }

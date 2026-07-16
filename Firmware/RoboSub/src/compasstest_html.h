@@ -296,11 +296,12 @@ const char COMPASSTEST_HTML[] PROGMEM = R"rawliteral(
                             <line x1="12" y1="100" x2="18" y2="100" stroke="#eee" stroke-width="2"/>
                             <line x1="182" y1="100" x2="188" y2="100" stroke="#eee" stroke-width="2"/>
                             <text x="100" y="32" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#ff3333" text-anchor="middle">N</text>
+                            <text x="100" y="174" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">S</text>
+                            <text x="170" y="106" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">E</text>
+                            <text x="30" y="106" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">W</text>
                             <g class="needle" id="rose-raw-needle">
                                 <polygon points="100,20 108,100 100,108" fill="#ff3333"/>
-                                <polygon points="100,180 108,100 100,108" fill="#555"/>
                                 <polygon points="100,20 92,100 100,108" fill="#cc0000"/>
-                                <polygon points="100,180 92,100 100,108" fill="#333"/>
                                 <circle cx="100" cy="100" r="7" fill="#ffd700" stroke="#121212" stroke-width="2"/>
                             </g>
                         </svg>
@@ -320,11 +321,12 @@ const char COMPASSTEST_HTML[] PROGMEM = R"rawliteral(
                             <line x1="12" y1="100" x2="18" y2="100" stroke="#eee" stroke-width="2"/>
                             <line x1="182" y1="100" x2="188" y2="100" stroke="#eee" stroke-width="2"/>
                             <text x="100" y="32" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#ff3333" text-anchor="middle">N</text>
+                            <text x="100" y="174" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">S</text>
+                            <text x="170" y="106" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">E</text>
+                            <text x="30" y="106" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">W</text>
                             <g class="needle" id="rose-hard-needle">
                                 <polygon points="100,20 108,100 100,108" fill="#ff3333"/>
-                                <polygon points="100,180 108,100 100,108" fill="#555"/>
                                 <polygon points="100,20 92,100 100,108" fill="#cc0000"/>
-                                <polygon points="100,180 92,100 100,108" fill="#333"/>
                                 <circle cx="100" cy="100" r="7" fill="#ffd700" stroke="#121212" stroke-width="2"/>
                             </g>
                         </svg>
@@ -344,11 +346,12 @@ const char COMPASSTEST_HTML[] PROGMEM = R"rawliteral(
                             <line x1="12" y1="100" x2="18" y2="100" stroke="#eee" stroke-width="2"/>
                             <line x1="182" y1="100" x2="188" y2="100" stroke="#eee" stroke-width="2"/>
                             <text x="100" y="32" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#ff3333" text-anchor="middle">N</text>
+                            <text x="100" y="174" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">S</text>
+                            <text x="170" y="106" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">E</text>
+                            <text x="30" y="106" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">W</text>
                             <g class="needle" id="rose-soft-needle">
                                 <polygon points="100,20 108,100 100,108" fill="#ff3333"/>
-                                <polygon points="100,180 108,100 100,108" fill="#555"/>
                                 <polygon points="100,20 92,100 100,108" fill="#cc0000"/>
-                                <polygon points="100,180 92,100 100,108" fill="#333"/>
                                 <circle cx="100" cy="100" r="7" fill="#ffd700" stroke="#121212" stroke-width="2"/>
                             </g>
                         </svg>
@@ -368,11 +371,12 @@ const char COMPASSTEST_HTML[] PROGMEM = R"rawliteral(
                             <line x1="12" y1="100" x2="18" y2="100" stroke="#eee" stroke-width="2"/>
                             <line x1="182" y1="100" x2="188" y2="100" stroke="#eee" stroke-width="2"/>
                             <text x="100" y="32" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#ff3333" text-anchor="middle">N</text>
+                            <text x="100" y="174" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">S</text>
+                            <text x="170" y="106" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">E</text>
+                            <text x="30" y="106" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">W</text>
                             <g class="needle" id="rose-tilt-needle">
                                 <polygon points="100,20 108,100 100,108" fill="#ff3333"/>
-                                <polygon points="100,180 108,100 100,108" fill="#555"/>
                                 <polygon points="100,20 92,100 100,108" fill="#cc0000"/>
-                                <polygon points="100,180 92,100 100,108" fill="#333"/>
                                 <circle cx="100" cy="100" r="7" fill="#ffd700" stroke="#121212" stroke-width="2"/>
                             </g>
                         </svg>
@@ -550,23 +554,23 @@ const char COMPASSTEST_HTML[] PROGMEM = R"rawliteral(
                     currentRoll = data.roll;
                     currentPitch = data.pitch;
 
-                    document.getElementById('val-rose-raw').innerText = Math.round(headingRaw).toString().padStart(3, '0') + '&deg;';
-                    document.getElementById('val-rose-hard').innerText = Math.round(headingHard).toString().padStart(3, '0') + '&deg;';
-                    document.getElementById('val-rose-soft').innerText = Math.round(headingSoft).toString().padStart(3, '0') + '&deg;';
-                    document.getElementById('val-rose-tilt').innerText = Math.round(headingTilt).toString().padStart(3, '0') + '&deg;';
+                    document.getElementById('val-rose-raw').innerText = Math.round(headingRaw).toString().padStart(3, '0') + '°';
+                    document.getElementById('val-rose-hard').innerText = Math.round(headingHard).toString().padStart(3, '0') + '°';
+                    document.getElementById('val-rose-soft').innerText = Math.round(headingSoft).toString().padStart(3, '0') + '°';
+                    document.getElementById('val-rose-tilt').innerText = Math.round(headingTilt).toString().padStart(3, '0') + '°';
 
-                    document.getElementById('val-pitch').innerText = currentPitch.toFixed(1) + '&deg;';
-                    document.getElementById('val-roll').innerText = currentRoll.toFixed(1) + '&deg;';
+                    document.getElementById('val-pitch').innerText = currentPitch.toFixed(1) + '°';
+                    document.getElementById('val-roll').innerText = currentRoll.toFixed(1) + '°';
                     document.getElementById('val-raw-mag').innerText = `${Math.round(data.mx_raw)}, ${Math.round(data.my_raw)}, ${Math.round(data.mz_raw)}`;
                     document.getElementById('val-cal-mag').innerText = `${Math.round(data.mx_cal)}, ${Math.round(data.my_cal)}, ${Math.round(data.mz_cal)}`;
 
-                    rotRaw = getShortestRotation(rotRaw, -headingRaw);
+                    rotRaw = getShortestRotation(rotRaw, headingRaw);
                     document.getElementById('rose-raw-needle').style.transform = `rotate(${rotRaw}deg)`;
-                    rotHard = getShortestRotation(rotHard, -headingHard);
+                    rotHard = getShortestRotation(rotHard, headingHard);
                     document.getElementById('rose-hard-needle').style.transform = `rotate(${rotHard}deg)`;
-                    rotSoft = getShortestRotation(rotSoft, -headingSoft);
+                    rotSoft = getShortestRotation(rotSoft, headingSoft);
                     document.getElementById('rose-soft-needle').style.transform = `rotate(${rotSoft}deg)`;
-                    rotTilt = getShortestRotation(rotTilt, -headingTilt);
+                    rotTilt = getShortestRotation(rotTilt, headingTilt);
                     document.getElementById('rose-tilt-needle').style.transform = `rotate(${rotTilt}deg)`;
 
                     if (isCalibrating) {

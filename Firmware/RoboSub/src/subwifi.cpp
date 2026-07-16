@@ -28,9 +28,11 @@
 #include "compasstest_html.h"
 #include "leds.h"
 #include "buzzer.h"
+#include <DNSServer.h>
 
 // Global instances
 WebServer subServer(80);
+DNSServer dnsServer;
 AsyncUDP udp;
 extern float global_speed_bb;
 extern float global_speed_sb;
@@ -138,6 +140,8 @@ void setup_wifi_ap(String ap, String ww, IPAddress *tmp)
         WiFi.setSleep(WIFI_PS_NONE); // Disable power-saving sleep in AP mode as well
         *tmp = WiFi.softAPIP();
         Serial.print("AP IP address: "); Serial.println(*tmp);
+        dnsServer.start(53, "*", *tmp);
+        Serial.println("Captive Portal: DNSServer started successfully");
     }
 }
 
@@ -207,9 +211,12 @@ void WiFiTask(void *arg) {
         
         ap = "NicE_WiFi"; apww = "!Ni1001100110";
         if (!scan_for_wifi_ap(ap, apww, &ip)) {
-            ap = "BUOY_SUB_"; ap += macStr;
-            apww = "";
-            setup_wifi_ap(ap, apww, &ip);
+            ap = "ROBOBUOY"; apww = "";
+            if (!scan_for_wifi_ap(ap, apww, &ip)) {
+                ap = "BUOY_SUB_"; ap += macStr;
+                apww = "";
+                setup_wifi_ap(ap, apww, &ip);
+            }
         }
     }
     
@@ -331,7 +338,7 @@ void WiFiTask(void *arg) {
         subServer.sendHeader("Expires", "-1");
         subServer.send_P(200, "text/html", CALIBRATION_HTML);
     });
-    subServer.on("/compasstest", HTTP_GET, [](){
+    subServer.on("/Labcallibration", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");
@@ -393,6 +400,10 @@ void WiFiTask(void *arg) {
             else if(p=="revbb"){mainData.revBB=(v>0.5); paramUpdated = true;}
             else if(p=="revsb"){mainData.revSB=(v>0.5); paramUpdated = true;}
             else if(p=="tswap"){mainData.swap_BB_SB=(v>0.5); paramUpdated = true;}
+            else if(p=="everage"){
+                extern int compass_avg_samples;
+                compass_avg_samples=(int)v; paramUpdated = true;
+            }
             
             if (paramUpdated) {
                 global_params_rev++;
@@ -403,7 +414,7 @@ void WiFiTask(void *arg) {
         if (paramUpdated) {
             if(p=="kpr" || p=="kir" || p=="kdr"){pidRudderParameters(&mainData,SET);initRudPid(&mainData);}
             else if(p=="kps" || p=="kis" || p=="kds"){pidSpeedParameters(&mainData,SET);initSpeedPid(&mainData);}
-            else if(p=="coff"){CompasOffset(&mainData,SET);}
+            else if(p=="coff" || p=="everage"){CompasOffset(&mainData,SET);}
             else if(p=="pvspd"){speedMaxMin(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
             else if(p=="holdrad"){computeParameters(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
             else if(p=="minspd" || p=="maxspd"){speedMaxMin(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
@@ -429,11 +440,13 @@ void WiFiTask(void *arg) {
         int minspd = mainData.minSpeed;
         int maxspd = mainData.maxSpeed;
         float holdrad = (float)mainData.holdRad;
+        extern int compass_avg_samples;
+        int everage = compass_avg_samples;
         
-        char buf[500];
+        char buf[600];
         snprintf(buf, sizeof(buf), 
-            "{\"kpr\":%.3f,\"kir\":%.3f,\"kdr\":%.3f,\"kps\":%.3f,\"kis\":%.3f,\"kds\":%.3f,\"coff\":%.1f,\"revbb\":%d,\"revsb\":%d,\"tswap\":%d,\"pvspd\":%.2f,\"minspd\":%d,\"maxspd\":%d,\"holdrad\":%.1f}",
-            kpr, kir, kdr, kps, kis, kds, coff, revbb, revsb, tswap, pvspd, minspd, maxspd, holdrad
+            "{\"kpr\":%.3f,\"kir\":%.3f,\"kdr\":%.3f,\"kps\":%.3f,\"kis\":%.3f,\"kds\":%.3f,\"coff\":%.1f,\"revbb\":%d,\"revsb\":%d,\"tswap\":%d,\"pvspd\":%.2f,\"minspd\":%d,\"maxspd\":%d,\"holdrad\":%.1f,\"everage\":%d}",
+            kpr, kir, kdr, kps, kis, kds, coff, revbb, revsb, tswap, pvspd, minspd, maxspd, holdrad, everage
         );
         subServer.send(200, "application/json", buf);
     });
@@ -487,12 +500,26 @@ void WiFiTask(void *arg) {
         subServer.send(200, "application/json", buf);
     });
 
+    // Captive Portal Redirect Handler: Only redirects unknown paths if in Access Point mode
+    subServer.onNotFound([](){
+        if (WiFi.getMode() == WIFI_AP) {
+            String host = subServer.hostHeader();
+            if (host != "192.168.1.85") {
+                subServer.sendHeader("Location", "http://192.168.1.85/", true);
+                subServer.send(302, "text/plain", "");
+                return;
+            }
+        }
+        subServer.send(404, "text/plain", "Not Found");
+    });
+
     subServer.begin(); 
     Serial.println("WiFiTask: WebServer started");
 
     // Main Server Loop - Matching RoboTop's efficient for(;;) delay(1) loop
     uint32_t last_ota_time = 0;
     for (;;) {
+        dnsServer.processNextRequest(); // Handle DNS queries for Captive Portal redirects
         subServer.handleClient();
         
         uint32_t now = millis();

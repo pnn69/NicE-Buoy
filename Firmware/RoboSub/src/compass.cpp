@@ -24,6 +24,7 @@ WebSocketsServer ws(81);
 LSM303 compass_sensor;
 
 float declination = 2.6f;
+int avg = 10;
 
 float offsetX = 0;
 float offsetY = 0;
@@ -47,13 +48,17 @@ float rollDeg = 0;
 float rawX = 0, rawY = 0, rawZ = 0;
 float calX = 0, calY = 0, calZ = 0;
 
+float global_hdg = 0;
+int compass_avg_samples = 10;
+int icm_mode = 4;
+
 unsigned long lastBroadcast = 0;
 bool isLIS2MDL = false;
 
 // Independent low-pass filtering for compass vs. tilt dampening
 // Highly responsive Option A (Snappy Mode) coefficients
 float magAlpha = 0.45f;    // Highly responsive magnetometer for Option A (45% new data)
-float accelAlpha = 0.45f; // Highly responsive accelerometer for Option A (45% new data)
+float accelAlpha = 0.25f; // Highly responsive accelerometer for Option A (45% new data)
 bool firstRead = true;
 
 float smoothed_ax = 0;
@@ -73,6 +78,7 @@ void saveCalibration() {
     prefs.putFloat("sx", scaleX);
     prefs.putFloat("sy", scaleY);
     prefs.putFloat("sz", scaleZ);
+    prefs.putInt("mode", icm_mode);
     prefs.end();
 }
 
@@ -94,10 +100,13 @@ void loadCalibration() {
     scaleX = prefs.getFloat("sx", 1);
     scaleY = prefs.getFloat("sy", 1);
     scaleZ = prefs.getFloat("sz", 1);
-    
+
     levelX = prefs.getFloat("lx", 0);
     levelY = prefs.getFloat("ly", 0);
     levelZ = prefs.getFloat("lz", 1);
+
+    icm_mode = prefs.getInt("mode", 4);
+    if (icm_mode < 1 || icm_mode > 4) icm_mode = 4;
     prefs.end();
 
     // Guard against uninitialized/bad values from NVM (like 0, NaN or Inf)
@@ -298,6 +307,7 @@ void broadcastData() {
     doc["hard"] = headingHard;
     doc["hardSoft"] = headingHardSoft;
     doc["tilt"] = headingTilt;
+    doc["heading"] = global_hdg;
     doc["pitch"] = pitchDeg;
     doc["roll"] = rollDeg;
     doc["mx_raw"] = rawX;
@@ -458,14 +468,12 @@ bool icm_ready = false;
 
 void updateUIHexFloat(void);
 
-float global_hdg = 0;
 float last_raw_x = 0, last_raw_y = 0, last_raw_z = 0;
 float last_raw_ax = 0, last_raw_ay = 0, last_raw_az = 0;
 uint32_t global_loop_cnt = 0;
 String global_cal_msg = "LSM Active";
 String global_cal_load = "";
 String global_cal_ver = "LSM303 Active";
-int icm_mode = 4;
 
 bool InitCompass(void) {
     Serial.println("\r\nInitializing LSM303/LIS2MDL Compass...");
@@ -500,43 +508,32 @@ void updateUIHexFloat() {
 }
 
 float CompassAverage(float in) {
-    static float directions_x[NUM_DIRECTIONS] = {0};
-    static float directions_y[NUM_DIRECTIONS] = {0};
+    static float directions_x[200] = {0};
+    static float directions_y[200] = {0};
     static int cbufpointer = 0;
-    static bool cbufFull = false;
-    static float running_sum_x = 0.0f;
-    static float running_sum_y = 0.0f;
 
     if (isnan(in)) return 0.0f;
+
+    int limit = compass_avg_samples;
+    if (limit < 1) limit = 1;
+    if (limit > 200) limit = 200;
 
     float new_x = cos(in * M_PI / 180.0);
     float new_y = sin(in * M_PI / 180.0);
 
-    float old_x = directions_x[cbufpointer];
-    float old_y = directions_y[cbufpointer];
-
     directions_x[cbufpointer] = new_x;
     directions_y[cbufpointer] = new_y;
 
-    running_sum_x += (new_x - old_x);
-    running_sum_y += (new_y - old_y);
+    cbufpointer = (cbufpointer + 1) % limit;
 
-    cbufpointer++;
-    if (cbufpointer >= NUM_DIRECTIONS) {
-        cbufpointer = 0;
-        cbufFull = true;
+    float sum_x = 0;
+    float sum_y = 0;
+    for (int i = 0; i < limit; i++) {
+        sum_x += directions_x[i];
+        sum_y += directions_y[i];
     }
 
-    if (cbufpointer == 0 && cbufFull) {
-        running_sum_x = 0.0f;
-        running_sum_y = 0.0f;
-        for (int i = 0; i < NUM_DIRECTIONS; i++) {
-            running_sum_x += directions_x[i];
-            running_sum_y += directions_y[i];
-        }
-    }
-
-    float res = atan2(running_sum_y, running_sum_x) * 180.0 / M_PI;
+    float res = atan2(sum_y, sum_x) * 180.0 / M_PI;
     if (res < 0) res += 360.0;
     return res;
 }
@@ -591,6 +588,8 @@ void CompassTask(void *arg) {
             } else if (icm_mode == 2) {
                 heading = headingHardSoft;
             }
+
+            heading = CompassAverage(heading);
 
             // Output to Queue & Globals directly with user offset
             if (mainDataMutex && xSemaphoreTake(mainDataMutex, portMAX_DELAY)) {

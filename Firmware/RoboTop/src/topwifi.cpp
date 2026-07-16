@@ -181,9 +181,12 @@ void WiFiTask(void *arg)
         
         ap = "NicE_WiFi"; apww = "!Ni1001100110";
         if (!scan_for_wifi_ap(ap, apww, &ip)) {
-            ap = "BUOY_SUB_"; ap += macStr;
-            apww = "";
-            setup_wifi_ap(ap, apww, &ip);
+            ap = "ROBOWIFI"; apww = "";
+            if (!scan_for_wifi_ap(ap, apww, &ip)) {
+                ap = "BUOY_SUB_"; ap += macStr;
+                apww = "";
+                setup_wifi_ap(ap, apww, &ip);
+            }
         }
     }
     
