@@ -158,40 +158,10 @@ void rudderPid(RoboStruct *rud)
             was_pure_pivot = true;
         }
         else {
-            // Zone 3: Locked Mode (Active Holding)
-            
-            // Calculate a smoothing factor based on heading error (20 to 45 degrees)
-            // 1.0 = Pure Normal (Forward + Differential)
-            // 0.0 = Pure Pivot (Rotation only)
-            double abs_error = abs(filtered_heading_error);
-            double forward_factor = 1.0;
-            if (abs_error > 45.0) {
-                forward_factor = 0.0;
-                if (!was_pure_pivot) {
-                    resetRudPid();
-                    was_pure_pivot = true;
-                }
-            }
-            else if (abs_error > 20.0) {
-                forward_factor = 1.0 - (abs_error - 20.0) / 25.0;
-                if (forward_factor < 0.1) {
-                    if (!was_pure_pivot) {
-                        resetRudPid();
-                        was_pure_pivot = true;
-                    }
-                } else {
-                    was_pure_pivot = false;
-                }
-            }
-            else {
-                was_pure_pivot = false;
-            }
-
-            target_forward = rud->tgSpeed * forward_factor;
-
-            // Smoothly blend the rotation power limit between pivotSpeed and full power (1.0)
-            double rot_limit_factor = rud->pivotSpeed + (1.0 - rud->pivotSpeed) * forward_factor;
-            rotation_power = constrain(rotation_power, -rud->maxSpeed * rot_limit_factor, rud->maxSpeed * rot_limit_factor);
+            // Zone 3: Locked Mode (Active Holding) - Non-adaptive, direct PID mixing
+            target_forward = rud->tgSpeed;
+            rotation_power = constrain(rotation_power, -rud->maxSpeed, rud->maxSpeed);
+            was_pure_pivot = false;
         }
     }
 
