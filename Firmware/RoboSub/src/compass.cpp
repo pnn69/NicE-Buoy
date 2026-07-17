@@ -598,8 +598,8 @@ void CompassTask(void *arg) {
             if (heading < 0.0f) heading += 360.0f;
             if (heading >= 360.0f) heading -= 360.0f;
 
-            // Smooth result (Bypassed: Madgwick AHRS is naturally stable and smooth at 100Hz ODR, eliminating 300ms averaging delay)
-            // heading = CompassAverage(heading);
+            // Smooth result using O(1) sliding window circular average to suppress minor high-frequency drift
+            heading = CompassAverage(heading);
 
             // -------------------- STUCK WATCHDOG --------------------
             static float last_heading = -999.0f;
