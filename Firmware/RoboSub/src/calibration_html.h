@@ -421,8 +421,8 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
             // Since we are running over standard HTTP polling, establish connected status immediately
             statusBadge.textContent = 'Connected';
             statusBadge.className = 'status-badge connected';
-            // Start continuous background polling immediately on connection
-            pollData();
+            // Start continuous high-speed background polling immediately on connection (100ms interval matching ShowActualData)
+            setInterval(pollData, 100);
         }
 
         function pollData() {
@@ -461,15 +461,9 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                         b.style.color = '#fff';
                         b.innerText = 'ICM Active';
                     }
-
-                    // Schedule next poll
-                    const interval = isCalibrating ? 100 : 500;
-                    pollTimer = setTimeout(pollData, interval);
                 })
                 .catch(err => {
                     console.error("Poll error", err);
-                    const interval = isCalibrating ? 500 : 2000;
-                    pollTimer = setTimeout(pollData, interval);
                 });
         }
 
@@ -477,22 +471,6 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
             // Immediate outlier filter: Discard absolute sensor glitches (zeros or extreme spikes)
             if (x === 0 && y === 0 && z === 0) return;
             if (Math.abs(x) > 1000 || Math.abs(y) > 1000 || Math.abs(z) > 1000) return;
-
-            // Distance-based jump filter to discard brief I2C read glitches or electromagnetic spikes
-            if (calPoints.length > 10) {
-                let avgX = 0, avgY = 0, avgZ = 0;
-                const lastN = calPoints.slice(-10);
-                lastN.forEach(p => { avgX += p.x; avgY += p.y; avgZ += p.z; });
-                avgX /= lastN.length;
-                avgY /= lastN.length;
-                avgZ /= lastN.length;
-
-                const dist = Math.sqrt((x - avgX)**2 + (y - avgY)**2 + (z - avgZ)**2);
-                if (dist > 40.0) {
-                    console.warn(`Outlier discarded: Dist=${dist.toFixed(1)} uT [X:${x}, Y:${y}, Z:${z}]`);
-                    return; // Ignore this outlier completely!
-                }
-            }
 
             calPoints.push({x, y, z});
 
