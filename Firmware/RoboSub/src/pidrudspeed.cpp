@@ -120,6 +120,11 @@ void rudderPid(RoboStruct *rud)
     // heading_error = desired_heading - current_heading
     double heading_error = smallestAngle(rud->tgDir, rud->dirMag);
 
+    // Apply a 1.0 degree steering deadband to prevent high-frequency thruster chatter/jumping near the setpoint
+    if (abs(heading_error) < 1.0) {
+        heading_error = 0.0;
+    }
+
     // Wave Filtering (Low-pass) on heading error
     static double filtered_heading_error = 0;
     // Set alpha to 1.0 (No filtering) to eliminate phase lag and overshoot
