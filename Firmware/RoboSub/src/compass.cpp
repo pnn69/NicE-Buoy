@@ -46,6 +46,11 @@ Madgwick filter;
 // Calibration parameters (Stored in Preferences NVM via datastorage)
 float hi_x = 0.0f, hi_y = 0.0f, hi_z = 0.0f;
 float si_x = 1.0f, si_y = 1.0f, si_z = 1.0f;
+float si_matrix[3][3] = {
+    {1.0f, 0.0f, 0.0f},
+    {0.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f}
+};
 
 // Gyroscope bias calibration parameters
 float gyro_bias_x = 0.0f;
@@ -116,6 +121,16 @@ bool InitCompass(void)
         float hi[3], si[3];
         memIcmCalib(hi, si, true);
 
+        // Validate that the loaded 3x3 soft-iron matrix contains valid finite values within sensible limits
+        bool matrix_valid = true;
+        for (int r = 0; r < 3; r++) {
+            for (int c = 0; c < 3; c++) {
+                if (!isfinite(si_matrix[r][c]) || si_matrix[r][c] < -5.0f || si_matrix[r][c] > 5.0f) {
+                    matrix_valid = false;
+                }
+            }
+        }
+
         // Validate loaded profiles (ensure finite values within sensible physical bounds)
         if (isfinite(hi[0]) && isfinite(hi[1]) && isfinite(hi[2]) &&
             isfinite(si[0]) && isfinite(si[1]) && isfinite(si[2]) &&
@@ -124,15 +139,22 @@ bool InitCompass(void)
             hi[2] > -1000.0f && hi[2] < 1000.0f &&
             si[0] >= 0.2f && si[0] <= 5.0f &&
             si[1] >= 0.2f && si[1] <= 5.0f &&
-            si[2] >= 0.2f && si[2] <= 5.0f) {
+            si[2] >= 0.2f && si[2] <= 5.0f &&
+            matrix_valid) {
             
             hi_x = hi[0]; hi_y = hi[1]; hi_z = hi[2];
             si_x = si[0]; si_y = si[1]; si_z = si[2];
-            Serial.println("ICM-20948: Calibration data successfully validated.");
+            Serial.println("ICM-20948: Calibration data and 3x3 Soft-Iron matrix successfully validated.");
         } else {
             hi_x = 0.0f; hi_y = 0.0f; hi_z = 0.0f;
             si_x = 1.0f; si_y = 1.0f; si_z = 1.0f;
-            Serial.println("ICM-20948: WARNING - Loaded calibration is invalid/NaN! Safe fallbacks applied.");
+            // Fallback: reset 3x3 matrix to standard identity matrix
+            for (int r = 0; r < 3; r++) {
+                for (int c = 0; c < 3; c++) {
+                    si_matrix[r][c] = (r == c) ? 1.0f : 0.0f;
+                }
+            }
+            Serial.println("ICM-20948: WARNING - Loaded calibration or 3x3 matrix is invalid/NaN! Safe fallbacks applied.");
         }
         updateUIHexFloat();
 

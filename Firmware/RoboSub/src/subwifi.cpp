@@ -261,9 +261,9 @@ void WiFiTask(void *arg) {
         subServer.send(200,"text/plain","OK"); 
     });
     subServer.on("/save_cal", HTTP_GET, [](){
-        if(subServer.hasArg("hx") && subServer.hasArg("hy") && subServer.hasArg("hz") &&
-           subServer.hasArg("sx") && subServer.hasArg("sy") && subServer.hasArg("sz")) {
-            
+        if (subServer.hasArg("hx") && subServer.hasArg("hy") && subServer.hasArg("hz") &&
+            subServer.hasArg("sx") && subServer.hasArg("sy") && subServer.hasArg("sz")) {
+
             float hi[3], si[3];
             hi[0] = subServer.arg("hx").toFloat();
             hi[1] = subServer.arg("hy").toFloat();
@@ -271,6 +271,34 @@ void WiFiTask(void *arg) {
             si[0] = subServer.arg("sx").toFloat();
             si[1] = subServer.arg("sy").toFloat();
             si[2] = subServer.arg("sz").toFloat();
+
+            extern float si_matrix[3][3];
+            // Handle optional full 3x3 matrix arguments
+            if (subServer.hasArg("sxx") && subServer.hasArg("sxy") && subServer.hasArg("sxz") &&
+                subServer.hasArg("syx") && subServer.hasArg("syy") && subServer.hasArg("syz") &&
+                subServer.hasArg("szx") && subServer.hasArg("szy") && subServer.hasArg("szz")) {
+
+                si_matrix[0][0] = subServer.arg("sxx").toFloat();
+                si_matrix[0][1] = subServer.arg("sxy").toFloat();
+                si_matrix[0][2] = subServer.arg("sxz").toFloat();
+                si_matrix[1][0] = subServer.arg("syx").toFloat();
+                si_matrix[1][1] = subServer.arg("syy").toFloat();
+                si_matrix[1][2] = subServer.arg("syz").toFloat();
+                si_matrix[2][0] = subServer.arg("szx").toFloat();
+                si_matrix[2][1] = subServer.arg("szy").toFloat();
+                si_matrix[2][2] = subServer.arg("szz").toFloat();
+            } else {
+                // Diagonal scale factor fallback
+                si_matrix[0][0] = si[0];
+                si_matrix[0][1] = 0.0f;
+                si_matrix[0][2] = 0.0f;
+                si_matrix[1][0] = 0.0f;
+                si_matrix[1][1] = si[1];
+                si_matrix[1][2] = 0.0f;
+                si_matrix[2][0] = 0.0f;
+                si_matrix[2][1] = 0.0f;
+                si_matrix[2][2] = si[2];
+            }
 
             // Write to NVS
             memIcmCalib(hi, si, false);

@@ -476,28 +476,61 @@ void memBnoCalib(uint8_t *data, bool get)
 void memIcmCalib(float *hi, float *si, bool get)
 {
     extern int icm_mode;
+    extern float si_matrix[3][3];
     startMem();
     if (get)
     {
         hi[0] = storage.getFloat("icm_hi_x", 0.0f);
         hi[1] = storage.getFloat("icm_hi_y", 0.0f);
         hi[2] = storage.getFloat("icm_hi_z", 0.0f);
+        
         si[0] = storage.getFloat("icm_si_x", 1.0f);
         si[1] = storage.getFloat("icm_si_y", 1.0f);
         si[2] = storage.getFloat("icm_si_z", 1.0f);
+        
         icm_mode = storage.getInt("icm_mode", 4);
-        Serial.printf("memIcmCalib: LOADED -> HI: [%.4f, %.4f, %.4f], SI: [%.4f, %.4f, %.4f], Mode: %d\n", hi[0], hi[1], hi[2], si[0], si[1], si[2], icm_mode);
+        
+        // Load the 3x3 matrix, fallback to diagonal scale factors if not found
+        si_matrix[0][0] = storage.getFloat("icm_si_xx", si[0]);
+        si_matrix[0][1] = storage.getFloat("icm_si_xy", 0.0f);
+        si_matrix[0][2] = storage.getFloat("icm_si_xz", 0.0f);
+        si_matrix[1][0] = storage.getFloat("icm_si_yx", 0.0f);
+        si_matrix[1][1] = storage.getFloat("icm_si_yy", si[1]);
+        si_matrix[1][2] = storage.getFloat("icm_si_yz", 0.0f);
+        si_matrix[2][0] = storage.getFloat("icm_si_zx", 0.0f);
+        si_matrix[2][1] = storage.getFloat("icm_si_zy", 0.0f);
+        si_matrix[2][2] = storage.getFloat("icm_si_zz", si[2]);
+        
+        Serial.printf("memIcmCalib: LOADED -> HI: [%.4f, %.4f, %.4f], SI diagonal: [%.4f, %.4f, %.4f]\n", hi[0], hi[1], hi[2], si[0], si[1], si[2]);
+        Serial.printf("memIcmCalib: LOADED 3x3 matrix ->\n");
+        Serial.printf("  [%.4f, %.4f, %.4f]\n", si_matrix[0][0], si_matrix[0][1], si_matrix[0][2]);
+        Serial.printf("  [%.4f, %.4f, %.4f]\n", si_matrix[1][0], si_matrix[1][1], si_matrix[1][2]);
+        Serial.printf("  [%.4f, %.4f, %.4f]\n", si_matrix[2][0], si_matrix[2][1], si_matrix[2][2]);
     }
     else
     {
         storage.putFloat("icm_hi_x", hi[0]);
         storage.putFloat("icm_hi_y", hi[1]);
         storage.putFloat("icm_hi_z", hi[2]);
+        
         storage.putFloat("icm_si_x", si[0]);
         storage.putFloat("icm_si_y", si[1]);
         storage.putFloat("icm_si_z", si[2]);
+        
         storage.putInt("icm_mode", icm_mode);
-        Serial.printf("memIcmCalib: SAVED -> HI: [%.4f, %.4f, %.4f], SI: [%.4f, %.4f, %.4f], Mode: %d\n", hi[0], hi[1], hi[2], si[0], si[1], si[2], icm_mode);
+        
+        // Save the 3x3 matrix
+        storage.putFloat("icm_si_xx", si_matrix[0][0]);
+        storage.putFloat("icm_si_xy", si_matrix[0][1]);
+        storage.putFloat("icm_si_xz", si_matrix[0][2]);
+        storage.putFloat("icm_si_yx", si_matrix[1][0]);
+        storage.putFloat("icm_si_yy", si_matrix[1][1]);
+        storage.putFloat("icm_si_yz", si_matrix[1][2]);
+        storage.putFloat("icm_si_zx", si_matrix[2][0]);
+        storage.putFloat("icm_si_zy", si_matrix[2][1]);
+        storage.putFloat("icm_si_zz", si_matrix[2][2]);
+        
+        Serial.printf("memIcmCalib: SAVED -> HI: [%.4f, %.4f, %.4f], SI diagonal: [%.4f, %.4f, %.4f]\n", hi[0], hi[1], hi[2], si[0], si[1], si[2]);
     }
     stopMem();
 }
