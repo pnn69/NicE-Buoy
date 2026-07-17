@@ -34,6 +34,9 @@ QueueHandle_t compassIn = NULL;
 
 bool icm_ready = false;
 bool magRejected = false;
+bool firstHeadingRun = true;
+uint32_t lastMicros = 0;
+uint32_t lastInitTime = 0;
 float baselineMag = 50.0f;
 int icm_mode = 4; // Defaults to Mode 4 (Hard & Soft Iron with Pitch & Roll tilt compensation)
 
@@ -112,8 +115,25 @@ bool InitCompass(void)
         // Retrieve calibration profiles from NVS
         float hi[3], si[3];
         memIcmCalib(hi, si, true);
-        hi_x = hi[0]; hi_y = hi[1]; hi_z = hi[2];
-        si_x = si[0]; si_y = si[1]; si_z = si[2];
+
+        // Validate loaded profiles (ensure finite values within sensible physical bounds)
+        if (isfinite(hi[0]) && isfinite(hi[1]) && isfinite(hi[2]) &&
+            isfinite(si[0]) && isfinite(si[1]) && isfinite(si[2]) &&
+            hi[0] > -1000.0f && hi[0] < 1000.0f &&
+            hi[1] > -1000.0f && hi[1] < 1000.0f &&
+            hi[2] > -1000.0f && hi[2] < 1000.0f &&
+            si[0] >= 0.2f && si[0] <= 5.0f &&
+            si[1] >= 0.2f && si[1] <= 5.0f &&
+            si[2] >= 0.2f && si[2] <= 5.0f) {
+            
+            hi_x = hi[0]; hi_y = hi[1]; hi_z = hi[2];
+            si_x = si[0]; si_y = si[1]; si_z = si[2];
+            Serial.println("ICM-20948: Calibration data successfully validated.");
+        } else {
+            hi_x = 0.0f; hi_y = 0.0f; hi_z = 0.0f;
+            si_x = 1.0f; si_y = 1.0f; si_z = 1.0f;
+            Serial.println("ICM-20948: WARNING - Loaded calibration is invalid/NaN! Safe fallbacks applied.");
+        }
         updateUIHexFloat();
 
         // 200-sample Gyro Bias (Zero-Rate) Calibration
@@ -189,8 +209,12 @@ bool InitCompass(void)
         }
 
         // Initialize Madgwick filter at 100Hz ODR
+        filter = Madgwick();
         filter.begin(100);
         filter.setBeta(0.10f); // Balanced gain to anchor heading while relying on gyroscope during fast rotations, eliminating centripetal/accelerometer overshoot
+        firstHeadingRun = true;
+        lastMicros = micros(); // Reset timing baseline to prevent huge dt jump on task resume!
+        lastInitTime = millis(); // Reset high-beta fast convergence timer!
 
         setCalMsg("ICM ONLINE", 3);
     } else {
@@ -307,8 +331,7 @@ void CompassTask(void *arg) {
     TickType_t xLastWakeTime = xTaskGetTickCount();
     const TickType_t xFrequency = pdMS_TO_TICKS(10); // Enforce highly precise 100Hz ODR
 
-    // Microsecond timing variables for mathematically perfect dt integration
-    static uint32_t lastMicros = micros();
+    // Timing baseline is managed globally and reset inside InitCompass()
 
     while (1) {
         global_loop_cnt++;
@@ -326,11 +349,22 @@ void CompassTask(void *arg) {
         }
 
         if (icm_ready) {
-            // -------------------- DATA READY VALIDATION --------------------
+            // -------------------- DATA READY VALIDATION & I2C WATCHDOG --------------------
+            static uint32_t consecutive_failures = 0;
             if (icm.dataReady()) {
                 icm.getAGMT(); // Read all sensors directly to guarantee consistent execution
+                consecutive_failures = 0; // Reset counter on successful read
             } else {
-                vTaskDelay(pdMS_TO_TICKS(1));
+                consecutive_failures++;
+                if (consecutive_failures >= 100) { // ~1 second of consecutive I2C data-ready failures
+                    Serial.println("ICM-20948: Consecutive I2C communication failures detected! Attempting self-healing recovery...");
+                    consecutive_failures = 0;
+                    
+                    // Force complete sensor and filter re-initialization
+                    icm_ready = false;
+                    InitCompass();
+                }
+                vTaskDelay(pdMS_TO_TICKS(10)); // Slower polling delay during active communication failure
                 continue;
             }
 
@@ -341,6 +375,12 @@ void CompassTask(void *arg) {
             float mx_raw_val = icm.magX();
             float my_raw_val = icm.magY();
             float mz_raw_val = icm.magZ();
+
+            // Check for NaNs to prevent corrupting the Madgwick filter's internal state
+            if (isnan(ax_raw) || isnan(ay_raw) || isnan(az_raw)) {
+                vTaskDelay(pdMS_TO_TICKS(1));
+                continue;
+            }
 
             // -------------------- I2C GLITCH & READ VALIDATION FILTER --------------------
             // Discard absolute sensor read failures or brief I2C transaction dropouts to prevent NaN filter pollution
@@ -371,11 +411,19 @@ void CompassTask(void *arg) {
             float my_cal_aligned = mxc;
             float mz_cal_aligned = -mzc;
 
+            // Check for NaNs to prevent corrupting the Madgwick filter's internal state
+            if (isnan(mx_cal_aligned) || isnan(my_cal_aligned) || isnan(mz_cal_aligned)) {
+                vTaskDelay(pdMS_TO_TICKS(1));
+                continue;
+            }
+
+            // Calculate 3D magnetometer field norm once for use in both validation and rejection logic (optimizes FPU math)
+            float magNorm = sqrtf(mx_cal_aligned * mx_cal_aligned + my_cal_aligned * my_cal_aligned + mz_cal_aligned * mz_cal_aligned);
+
             // -------------------- INSTANT 3D ATTITUDE PRE-ALIGNMENT --------------------
-            static bool firstHeadingRun = true;
             if (firstHeadingRun) {
                 // Wait until we have a valid, non-zero magnetometer reading to avoid initializing with hard-iron dummy vectors
-                if (mx_raw_val == 0.0f && my_raw_val == 0.0f) {
+                if (magNorm < 5.0f) {
                     vTaskDelay(pdMS_TO_TICKS(10));
                     continue;
                 }
@@ -413,9 +461,9 @@ void CompassTask(void *arg) {
             filter.setDeltaTime(dt);
 
             // -------------------- FAST-START DYNAMIC BETA GAIN --------------------
-            // Boost gain to 0.25f during the first 5 seconds to guarantee instant stable locking at boot,
+            // Boost gain to 0.25f during the first 5 seconds of boot or re-init to guarantee instant stable locking,
             // then relax to 0.10f for highly stable dynamic trials.
-            if (millis() < 5000) {
+            if (millis() - lastInitTime < 5000) {
                 filter.setBeta(0.25f);
             } else {
                 filter.setBeta(0.10f);
@@ -426,12 +474,17 @@ void CompassTask(void *arg) {
             float gy = icm.gyrY() - gyro_bias_y;
             float gz = icm.gyrZ() - gyro_bias_z;
 
+            // Check for gyroscope NaNs to protect the filter's internal quaternion state
+            if (isnan(gx) || isnan(gy) || isnan(gz)) {
+                vTaskDelay(pdMS_TO_TICKS(1));
+                continue;
+            }
+
             // Store raw diagnostic variables for telemetry/debugging
             last_raw_x = mx_raw_val; last_raw_y = my_raw_val; last_raw_z = mz_raw_val;
             last_raw_ax = ax_raw; last_raw_ay = ay_raw; last_raw_az = az_raw;
 
             // -------------------- ADAPTIVE MAGNETOMETER VALIDITY CHECK --------------------
-            float magNorm = sqrt(mx_cal_aligned * mx_cal_aligned + my_cal_aligned * my_cal_aligned + mz_cal_aligned * mz_cal_aligned);
             float minField = 0.5f * baselineMag;
             float maxField = 1.5f * baselineMag;
 
@@ -462,24 +515,7 @@ void CompassTask(void *arg) {
                 if (raw_heading < 0.0f) raw_heading += 360.0f;
             }
 
-            // Unwrap-safe EMA low-pass filter to eliminate any remaining output jitter
-            static float heading_f = raw_heading; // Pre-fills heading_f instantly on the very first loop cycle
-            static bool firstRun = true;
-            
-            if (firstRun) {
-                heading_f = raw_heading;
-                firstRun = false;
-            } else {
-                const float heading_alpha = 0.30f; // Snappy responsiveness while eliminating MEMS jitter completely
-                float diff = raw_heading - heading_f;
-                if (diff > 180.0f) diff -= 360.0f;
-                else if (diff < -180.0f) diff += 360.0f;
-                heading_f += heading_alpha * diff;
-                if (heading_f < 0.0f) heading_f += 360.0f;
-                else if (heading_f >= 360.0f) heading_f -= 360.0f;
-            }
-
-            float heading = heading_f;
+            float heading = raw_heading;
 
             // Reverse the direction of rotation mathematically to match the physical compass rose,
             // while preserving the correct chiral right-handed coordinate frame of the Madgwick filter.
@@ -487,8 +523,8 @@ void CompassTask(void *arg) {
             if (heading < 0.0f) heading += 360.0f;
             if (heading >= 360.0f) heading -= 360.0f;
 
-            // Smooth result
-            heading = CompassAverage(heading);
+            // Smooth result (Bypassed: Madgwick AHRS is naturally stable and smooth at 100Hz ODR, eliminating 300ms averaging delay)
+            // heading = CompassAverage(heading);
 
             // -------------------- STUCK WATCHDOG --------------------
             static float last_heading = -999.0f;
@@ -497,17 +533,38 @@ void CompassTask(void *arg) {
             if (last_heading == -999.0f) {
                 last_heading = heading;
                 last_heading_change_time = millis();
-            } else if (fabs(heading - last_heading) > 0.1f) { // Prevents false triggers from floating-point noise
-                last_heading = heading;
-                last_heading_change_time = millis();
             } else {
-                if (millis() - last_heading_change_time > 1000*60*10) { // 10 min
-                    Serial.println("Compass stuck - reinit");
-                    setCalMsg("COMPASS STUCK - REINIT", 0);
-                    InitCompass();
-                    last_heading = -999.0f;
+                // Use wrapped angular difference to prevent false triggers near 0/360 boundary
+                float diff = heading - last_heading;
+                if (diff > 180.0f) diff -= 360.0f;
+                if (diff < -180.0f) diff += 360.0f;
+
+                if (fabs(diff) > 0.1f) { // Prevents false triggers from floating-point noise
+                    last_heading = heading;
                     last_heading_change_time = millis();
+                } else {
+                    if (millis() - last_heading_change_time > 1000*60*10) { // 10 min
+                        Serial.println("Compass stuck - reinit");
+                        setCalMsg("COMPASS STUCK - REINIT", 0);
+                        InitCompass();
+                        last_heading = -999.0f;
+                        last_heading_change_time = millis();
+                    }
                 }
+            }
+
+            // -------------------- ONCE-PER-SECOND DIAGNOSTIC TELEMETRY --------------------
+            static uint32_t lastLogTime = 0;
+            static float freq_avg = 100.0f;
+            freq_avg = 0.95f * freq_avg + 0.05f * (1.0f / dt);
+
+            if (millis() - lastLogTime >= 1000) {
+                lastLogTime = millis();
+                float roll = filter.getRoll();
+                float pitch = filter.getPitch();
+                float yaw = mYaw;
+                Serial.printf("ICM-AHRS: R:%.2f P:%.2f Y:%.2f | MagNorm:%.2f baseline:%.2f rejected:%s | dt:%.4f (%.1fHz)\n",
+                              roll, pitch, yaw, magNorm, baselineMag, magRejected ? "YES" : "NO", dt, freq_avg);
             }
 
             // -------------------- UI STATUS MESSAGE --------------------

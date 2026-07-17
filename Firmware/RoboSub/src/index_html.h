@@ -5,9 +5,11 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>NicE-Buoy Sub</title><style>
 body{font-family:Arial,sans-serif;background:#1a1a1a;color:#fff;text-align:center;margin:0;padding:10px}
-canvas{background:#2a2a2a;border-radius:50%;margin:10px auto;border:2px solid #444;max-width:90%;height:auto;display:block}
+.compass-wrapper{position:relative;width:250px;height:250px;margin:10px auto;display:block;}
+.compass{width:100%;height:100%;}
+.needle{transform-origin:100px 100px;transition:transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);}
 h2{margin:5px 0;color:#00d1ff}
-.info{font-size:1.1em;margin-bottom:10px;display:flex;justify-content:center;gap:20px}
+.info{font-size:1.6em;margin-bottom:10px;display:flex;justify-content:center;gap:20px}
 .icm{color:#00d1ff;font-weight:bold}
 .raw-container{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
 .raw-box{text-align:left;border:1px solid #333;padding:10px;border-radius:8px;background:#252525;min-width:280px}
@@ -22,15 +24,34 @@ button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:poin
 .cal-msg{color:#ffcc00;font-size:0.9em;margin:5px 0;min-height:1.2em;font-weight:bold}
 </style></head><body>
 <h2 id="mainTitle">NicE-Buoy Sub</h2>
-<div class="info"><span>Heading: <span id="icmVal" class="icm">0.0</span>&deg;</span><span>Ping: <span id="pingVal" style="color:#ffcc00;font-weight:bold">0</span>ms</span></div>
+<div class="info"><span>Heading: <span id="icmVal" class="icm">0</span>&deg;</span></div>
 <div style="display:flex;justify-content:center;gap:15px;align-items:center;margin:5px 0;min-height:1.2em;">
 <div id="subStatus" style="color:#00d1ff;font-size:0.9em;font-weight:bold;">STATE: UNKNOWN</div>
 <div id="calMsg" class="cal-msg" style="margin:0;">Initializing...</div>
+<div style="font-size:0.9em;font-weight:bold;color:#aaa;">Ping: <span id="pingVal" style="color:#ffcc00;">0</span>ms</div>
 </div>
 <div class="main-row">
 <div class="side-panel"><div>BB</div><div class="side-bar"><div class="zero-line"></div><div id="bb_bar" class="thruster-bar"></div></div><div><span id="bb_val">0</span>%</div><div style="font-size:0.85em;margin-top:5px;color:#00d1ff">Is:<span id="is_val">0.00</span></div></div>
 <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
-<canvas id="compassCanvas" width="400" height="400" style="margin:0 auto;display:block;"></canvas>
+<div class="compass-wrapper">
+    <svg class="compass" viewBox="0 0 200 200">
+        <circle cx="100" cy="100" r="95" fill="#161616" stroke="#2c2c2c" stroke-width="5"/>
+        <circle cx="100" cy="100" r="82" fill="none" stroke="#00e6ff" stroke-width="1.5" stroke-dasharray="3, 5"/>
+        <line x1="100" y1="12" x2="100" y2="18" stroke="#ff3333" stroke-width="3"/>
+        <line x1="100" y1="182" x2="100" y2="188" stroke="#eee" stroke-width="2"/>
+        <line x1="12" y1="100" x2="18" y2="100" stroke="#eee" stroke-width="2"/>
+        <line x1="182" y1="100" x2="188" y2="100" stroke="#eee" stroke-width="2"/>
+        <text x="100" y="32" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#ff3333" text-anchor="middle">N</text>
+        <text x="100" y="174" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">S</text>
+        <text x="168" y="106" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">E</text>
+        <text x="32" y="106" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">W</text>
+        <g class="needle" id="rose-tilt-needle">
+            <polygon points="100,20 108,100 100,108" fill="#ff3333"/>
+            <polygon points="100,20 92,100 100,108" fill="#cc0000"/>
+            <circle cx="100" cy="100" r="7" fill="#ffd700" stroke="#121212" stroke-width="2"/>
+        </g>
+    </svg>
+</div>
 <div style="width:400px;margin-top:10px;text-align:left;">
 <div style="width:100%;height:30px;background:#333;border:1px solid #555;border-radius:4px;position:relative;overflow:hidden;margin-bottom:8px;">
 <div id="vattBar" style="position:absolute;left:0;top:0;height:100%;width:0%;transition:width 0.2s,background-color 0.2s;"></div>
@@ -77,34 +98,27 @@ button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:poin
 </div>
 </div>
 <script>
-const ctx=document.getElementById('compassCanvas').getContext('2d'),cx=200,cy=200,r=180;
-let currentHeading = 0, targetHeading = 0, headingInitialized = false, lastParamRev = -1;
+let rotTilt = 0, lastParamRev = -1;
 
-function smoothDraw() {
-    let diff = targetHeading - currentHeading;
-    while (diff < -180) diff += 360;
-    while (diff > 180) diff -= 360;
-    currentHeading += diff * 0.15;
-    while (currentHeading < 0) currentHeading += 360;
-    while (currentHeading >= 360) currentHeading -= 360;
-    drawRose(currentHeading);
-    requestAnimationFrame(smoothDraw);
+function getShortestRotation(current, target) {
+    target = (target % 360 + 360) % 360;
+    let currentNorm = (current % 360 + 360) % 360;
+    let diff = target - currentNorm;
+    if (diff > 180) diff -= 360;
+    if (diff < -180) diff += 360;
+    return current + diff;
 }
 
 function updateThruster(id,v){const b=document.getElementById(id+'_bar'),l=document.getElementById(id+'_val');l.innerText=v;let h=Math.min(Math.abs(v),100)/2;b.style.height=h+'%';if(v<0){b.style.top='50%';b.style.bottom='auto';b.style.backgroundColor='red'}else{b.style.top='auto';b.style.bottom='50%';b.style.backgroundColor='green'}}
-function drawRose(h){ctx.clearRect(0,0,400,400);ctx.beginPath();ctx.arc(cx,cy,r,0,2*Math.PI);ctx.strokeStyle='#555';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#888';ctx.font='bold 20px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('N',cx,cy-r+20);ctx.fillText('S',cx,cy+r-20);ctx.fillText('E',cx+r-20,cy);ctx.fillText('W',cx-r+20,cy);const a=(h-90)*Math.PI/180;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+(r-40)*Math.cos(a),cy+(r-40)*Math.sin(a));ctx.strokeStyle='#00d1ff';ctx.lineWidth=4;ctx.stroke()}
 function fetchData(){
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1000);
     const startTime = Date.now();
 
-    fetch('/data', { signal: controller.signal })
+    fetch('/data')
     .then(r=>r.json())
     .then(d=>{
-        clearTimeout(timeoutId);
         const pingElem = document.getElementById('pingVal');
         if (pingElem) pingElem.innerText = Date.now() - startTime;
-        document.getElementById('icmVal').innerText=d.icm.toFixed(1);
+        document.getElementById('icmVal').innerText=Math.round(d.icm);
         document.getElementById('calMsg').innerText=d.cal_msg;
         if(d.cal_load !== undefined) {
             document.getElementById('main_cal_load').innerText = d.cal_load;
@@ -169,23 +183,11 @@ function fetchData(){
             bar.style.width = pct + '%';
         }
         
-        if (!headingInitialized) {
-            currentHeading = d.icm;
-            targetHeading = d.icm;
-            headingInitialized = true;
-            requestAnimationFrame(smoothDraw);
-        } else {
-            targetHeading = d.icm;
-        }
+        rotTilt = getShortestRotation(rotTilt, d.icm);
+        document.getElementById('rose-tilt-needle').style.transform = `rotate(${rotTilt}deg)`;
     })
     .catch(e=>{
-        if (e.name !== 'AbortError') {
-            console.error("fetchData failed:", e);
-        }
-    })
-    .finally(()=>{
-        clearTimeout(timeoutId);
-        setTimeout(fetchData, 250);
+        console.error("fetchData failed:", e);
     });
 }
 function setParam(p){const e=document.getElementById(p+'_in');if(!e)return;fetch('/setparam?p='+p+'&v='+e.value).then(()=>setTimeout(fetchParams,300))}
@@ -204,7 +206,7 @@ function setAsNorth(){
 function fetchParams(){fetch('/params?t='+Date.now()).then(r=>r.json()).then(d=>{let missing=false;['kpr','kir','kdr','kps','kis','kds','coff','pvspd','revbb','revsb','tswap','minspd','maxspd','holdrad'].forEach(p=>{const e=document.getElementById(p+'_in');if(e){if(d[p]!==undefined){if(document.activeElement!==e)e.value=d[p]}else missing=true}});if(missing||Object.keys(d).length<5)setTimeout(fetchParams,1000)}).catch(e=>{console.error(e);setTimeout(fetchParams,1000)})}
 fetchParams();
 
-fetchData();
+setInterval(fetchData, 100);
 </script></body></html>
 )rawliteral";
 

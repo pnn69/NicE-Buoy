@@ -89,14 +89,11 @@ function smoothDraw() {
 function updateThruster(id,v){const b=document.getElementById(id+'_bar'),l=document.getElementById(id+'_val');l.innerText=v;let h=Math.min(Math.abs(v),100)/2;b.style.height=h+'%';if(v<0){b.style.top='50%';b.style.bottom='auto';b.style.backgroundColor='red'}else{b.style.top='auto';b.style.bottom='50%';b.style.backgroundColor='green'}}
 function drawRose(h){ctx.clearRect(0,0,400,400);ctx.beginPath();ctx.arc(cx,cy,r,0,2*Math.PI);ctx.strokeStyle='#555';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#888';ctx.font='bold 20px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('N',cx,cy-r+20);ctx.fillText('S',cx,cy+r-20);ctx.fillText('E',cx+r-20,cy);ctx.fillText('W',cx-r+20,cy);const a=(h-90)*Math.PI/180;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+(r-40)*Math.cos(a),cy+(r-40)*Math.sin(a));ctx.strokeStyle='#00d1ff';ctx.lineWidth=4;ctx.stroke()}
 function fetchData(){
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1000);
     const startTime = Date.now();
 
-    fetch('/data', { signal: controller.signal })
+    fetch('/data')
     .then(r=>r.json())
     .then(d=>{
-        clearTimeout(timeoutId);
         const pingElem = document.getElementById('pingVal');
         if (pingElem) pingElem.innerText = Date.now() - startTime;
         document.getElementById('icmVal').innerText=d.icm.toFixed(1);
@@ -174,13 +171,7 @@ function fetchData(){
         }
     })
     .catch(e=>{
-        if (e.name !== 'AbortError') {
-            console.error("fetchData failed:", e);
-        }
-    })
-    .finally(()=>{
-        clearTimeout(timeoutId);
-        setTimeout(fetchData, 250);
+        console.error("fetchData failed:", e);
     });
 }
 function setParam(p){const e=document.getElementById(p+'_in');if(!e)return;fetch('/setparam?p='+p+'&v='+e.value).then(()=>setTimeout(fetchParams,300))}
@@ -199,5 +190,5 @@ function setAsNorth(){
 function fetchParams(){fetch('/params?t='+Date.now()).then(r=>r.json()).then(d=>{let missing=false;['kpr','kir','kdr','kps','kis','kds','coff','pvspd','revbb','revsb','tswap','minspd','maxspd','holdrad'].forEach(p=>{const e=document.getElementById(p+'_in');if(e){if(d[p]!==undefined){if(document.activeElement!==e)e.value=d[p]}else missing=true}});if(missing||Object.keys(d).length<5)setTimeout(fetchParams,1000)}).catch(e=>{console.error(e);setTimeout(fetchParams,1000)})}
 fetchParams();
 
-fetchData();
+setInterval(fetchData, 100);
 </script></body></html>
