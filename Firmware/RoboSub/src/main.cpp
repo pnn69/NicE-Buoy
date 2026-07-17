@@ -797,8 +797,13 @@ void handleTimerRoutines(RoboStruct *in)
         escOut.speedsb = 0;
         in->speedBb = 0;
         in->speedSb = 0;
-        in->ip = 0;
-        in->ir = 0;
+        /*
+         * CRITICAL FIX: We must NOT clear or overwrite in->ip (pitch) or in->ir (roll) to 0 here.
+         * The pitch and roll represent real physical state values of the buoy that are calculated 
+         * asynchronously by CompassTask() running on Core 1. If we overwrite them to 0 on Core 0 
+         * during IDLE status, it creates a state-overwriting race condition, causing the telemetry 
+         * and web dashboards to intermittently drop to 0.0 depending on scheduling order.
+         */
         xQueueSend(escspeed, (void *)&escOut, 10);
         break;
     default:

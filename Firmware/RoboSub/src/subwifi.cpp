@@ -454,28 +454,37 @@ void WiFiTask(void *arg) {
             case INFIELD_CALIBRATE: statusStr = "CAL_FIELD"; break;
         }
 
-        // Calculate raw uncompensated heading
+        /*
+         * COORD REALIGNMENT & CALIBRATION CALCULATION:
+         * To feed the high-performance 'ShowActualData' dashboard, we calculate raw, hard, and soft
+         * headings dynamically inside this endpoint using the global magnetometer calibrations (NVS).
+         * This isolates the calculations to this non-blocking HTTP thread, keeping the Core 1 CompassTask() 
+         * lean and fast.
+         */
+
+        // Calculate raw uncompensated heading (direct atan2 of raw magnetometer)
         float rawHeading = atan2(last_raw_y, last_raw_x) * 180.0 / M_PI;
         if (rawHeading < 0.0f) rawHeading += 360.0f;
-        rawHeading = 360.0f - rawHeading;
+        rawHeading = 360.0f - rawHeading; // Mirror rotation direction to match screen rose
         if (rawHeading >= 360.0f) rawHeading -= 360.0f;
 
-        // Calculate Hard-iron compensated heading
+        // Calculate Hard-iron compensated heading (subtract offsets hi_x, hi_y)
         float mx_hi = last_raw_x - hi_x;
         float my_hi = last_raw_y - hi_y;
         float hardHeading = atan2(my_hi, mx_hi) * 180.0 / M_PI;
         if (hardHeading < 0.0f) hardHeading += 360.0f;
-        hardHeading = 360.0f - hardHeading;
+        hardHeading = 360.0f - hardHeading; // Mirror rotation direction to match screen rose
         if (hardHeading >= 360.0f) hardHeading -= 360.0f;
 
-        // Calculate Soft-iron compensated heading
+        // Calculate Soft-iron compensated heading (apply scaling si_x, si_y)
         float mxc = mx_hi * si_x;
         float myc = my_hi * si_y;
         float softHeading = atan2(myc, mxc) * 180.0 / M_PI;
         if (softHeading < 0.0f) softHeading += 360.0f;
-        softHeading = 360.0f - softHeading;
+        softHeading = 360.0f - softHeading; // Mirror rotation direction to match screen rose
         if (softHeading >= 360.0f) softHeading -= 360.0f;
 
+        // Align the calibrated magnetometer axes to match the accelerometer coordinate frame
         float mx_cal = myc;
         float my_cal = mxc;
         float mz_cal = -(last_raw_z - hi_z) * si_z;
