@@ -164,22 +164,22 @@ bool InitCompass(void)
         float g_sum_x = 0, g_sum_y = 0, g_sum_z = 0;
         int samples = 200;
         int count = 0;
-        int retries = 0;
+        int gyro_retries = 0;
         float last_gx = 0.0f, last_gy = 0.0f, last_gz = 0.0f;
         bool has_last = false;
-        while (count < samples && retries < 1000) {
+        while (count < samples && gyro_retries < 1000) {
             if (icm.dataReady()) {
                 icm.getAGMT();
                 float gx = icm.gyrX();
                 float gy = icm.gyrY();
                 float gz = icm.gyrZ();
                 
-                if (has_last && retries < 800) { // Apply consecutive delta check during first 800 retries, then fallback to direct average
+                if (has_last && gyro_retries < 800) { // Apply consecutive delta check during first 800 retries, then fallback to direct average
                     // We check delta-rate (change between consecutive samples) rather than absolute rate.
                     // This is completely immune to any static raw gyroscope bias offsets (which can easily exceed 3.0 deg/s at boot).
                     if (fabs(gx - last_gx) > 3.0f || fabs(gy - last_gy) > 3.0f || fabs(gz - last_gz) > 3.0f) {
                         last_gx = gx; last_gy = gy; last_gz = gz;
-                        retries++;
+                        gyro_retries++;
                         delay(10);
                         continue;
                     }
@@ -192,7 +192,7 @@ bool InitCompass(void)
                 g_sum_z += gz;
                 count++;
             }
-            retries++;
+            gyro_retries++;
             delay(10);
         }
         
