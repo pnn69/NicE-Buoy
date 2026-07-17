@@ -145,9 +145,18 @@ bool InitCompass(void)
         while (count < samples) {
             if (icm.dataReady()) {
                 icm.getAGMT();
-                g_sum_x += icm.gyrX();
-                g_sum_y += icm.gyrY();
-                g_sum_z += icm.gyrZ();
+                float gx = icm.gyrX();
+                float gy = icm.gyrY();
+                float gz = icm.gyrZ();
+                
+                // Reject outlier samples if the device is bumped or moved during calibration (threshold: 3.0 deg/s)
+                if (fabs(gx) > 3.0f || fabs(gy) > 3.0f || fabs(gz) > 3.0f) {
+                    delay(10);
+                    continue;
+                }
+                g_sum_x += gx;
+                g_sum_y += gy;
+                g_sum_z += gz;
                 count++;
             }
             delay(10);
@@ -160,7 +169,7 @@ bool InitCompass(void)
 
         // Learn magnetometer baseline at startup
         Serial.println("ICM-20948: Measuring baseline magnetometer field strength... Keep the device completely static!");
-        float mag_sum = 0.0f;
+        float norms[50] = {0};
         int baseline_samples = 50;
         int baseline_count = 0;
         int retries = 0;
@@ -193,19 +202,45 @@ bool InitCompass(void)
                 
                 float norm = sqrt(mx_aligned * mx_aligned + my_aligned * my_aligned + mz_aligned * mz_aligned);
                 if (norm > 5.0f && norm < 200.0f) {
-                    mag_sum += norm;
+                    norms[baseline_count] = norm;
                     baseline_count++;
                 }
             }
             retries++;
             delay(10);
         }
-        if (baseline_count > 0) {
-            baselineMag = mag_sum / baseline_count;
-            Serial.printf("ICM-20948: Magnetometer baseline learned: %.4f uT\n", baselineMag);
+        
+        if (baseline_count == baseline_samples) {
+            // Pass 1: Compute initial average of all samples
+            float initial_sum = 0.0f;
+            for (int i = 0; i < baseline_samples; i++) {
+                initial_sum += norms[i];
+            }
+            float initial_avg = initial_sum / baseline_samples;
+            
+            // Pass 2: Filter out outlier baseline measurements deviating by >10.0 uT from the average
+            float final_sum = 0.0f;
+            int inlier_count = 0;
+            for (int i = 0; i < baseline_samples; i++) {
+                if (fabs(norms[i] - initial_avg) < 10.0f) {
+                    final_sum += norms[i];
+                    inlier_count++;
+                } else {
+                    Serial.printf("ICM-20948: Outlier baseline measurement rejected: %.2f uT (deviation: %.2f uT)\n", 
+                                  norms[i], fabs(norms[i] - initial_avg));
+                }
+            }
+            
+            if (inlier_count > 0) {
+                baselineMag = final_sum / inlier_count;
+                Serial.printf("ICM-20948: Magnetometer baseline learned (using %d inliers): %.4f uT\n", inlier_count, baselineMag);
+            } else {
+                baselineMag = initial_avg; // Fallback to initial raw average
+                Serial.printf("ICM-20948: All baseline samples flagged as outliers! Using raw average: %.4f uT\n", baselineMag);
+            }
         } else {
             baselineMag = 50.0f; // Safe fallback
-            Serial.println("ICM-20948: Magnetometer baseline learning failed, using fallback 50.0 uT");
+            Serial.println("ICM-20948: Magnetometer baseline learning failed (insufficient samples), using fallback 50.0 uT");
         }
 
         // Initialize Madgwick filter at 100Hz ODR
