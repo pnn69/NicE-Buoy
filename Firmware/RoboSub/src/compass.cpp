@@ -164,28 +164,46 @@ bool InitCompass(void)
         float g_sum_x = 0, g_sum_y = 0, g_sum_z = 0;
         int samples = 200;
         int count = 0;
-        while (count < samples) {
+        int retries = 0;
+        float last_gx = 0.0f, last_gy = 0.0f, last_gz = 0.0f;
+        bool has_last = false;
+        while (count < samples && retries < 1000) {
             if (icm.dataReady()) {
                 icm.getAGMT();
                 float gx = icm.gyrX();
                 float gy = icm.gyrY();
                 float gz = icm.gyrZ();
                 
-                // Reject outlier samples if the device is bumped or moved during calibration (threshold: 3.0 deg/s)
-                if (fabs(gx) > 3.0f || fabs(gy) > 3.0f || fabs(gz) > 3.0f) {
-                    delay(10);
-                    continue;
+                if (has_last && retries < 800) { // Apply consecutive delta check during first 800 retries, then fallback to direct average
+                    // We check delta-rate (change between consecutive samples) rather than absolute rate.
+                    // This is completely immune to any static raw gyroscope bias offsets (which can easily exceed 3.0 deg/s at boot).
+                    if (fabs(gx - last_gx) > 3.0f || fabs(gy - last_gy) > 3.0f || fabs(gz - last_gz) > 3.0f) {
+                        last_gx = gx; last_gy = gy; last_gz = gz;
+                        retries++;
+                        delay(10);
+                        continue;
+                    }
                 }
+                last_gx = gx; last_gy = gy; last_gz = gz;
+                has_last = true;
+                
                 g_sum_x += gx;
                 g_sum_y += gy;
                 g_sum_z += gz;
                 count++;
             }
+            retries++;
             delay(10);
         }
-        gyro_bias_x = g_sum_x / samples;
-        gyro_bias_y = g_sum_y / samples;
-        gyro_bias_z = g_sum_z / samples;
+        
+        // Handle fallback if loop timeout was hit
+        if (count > 0) {
+            gyro_bias_x = g_sum_x / count;
+            gyro_bias_y = g_sum_y / count;
+            gyro_bias_z = g_sum_z / count;
+        } else {
+            gyro_bias_x = 0.0f; gyro_bias_y = 0.0f; gyro_bias_z = 0.0f;
+        }
         Serial.printf("ICM-20948: Gyroscope calibration complete. Offsets -> X: %.4f, Y: %.4f, Z: %.4f\n", 
                       gyro_bias_x, gyro_bias_y, gyro_bias_z);
 
