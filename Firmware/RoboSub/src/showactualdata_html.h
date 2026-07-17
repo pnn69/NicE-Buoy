@@ -1,9 +1,9 @@
-#ifndef COMPASSTEST_HTML_H
-#define COMPASSTEST_HTML_H
+#ifndef SHOWACTUALDATA_HTML_H
+#define SHOWACTUALDATA_HTML_H
 
 #include <Arduino.h>
 
-const char COMPASSTEST_HTML[] PROGMEM = R"rawliteral(
+const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -264,12 +264,9 @@ const char COMPASSTEST_HTML[] PROGMEM = R"rawliteral(
 
     <header>
         <h1><span>CompassTest</span> Dashboard</h1>
-        <div style="display:flex; gap:10px; align-items:center;">
-            <button class="btn" style="background-color: var(--card-bg); border: 1px solid var(--border); color: var(--text-color); margin-bottom: 0px; padding: 6px 12px; font-size: 0.875rem; width: auto;" onclick="location.href='/'">➔ Return to Main Page</button>
-            <div class="status">
-                <div id="status-dot" class="status-dot"></div>
-                <span id="status-text">Disconnected</span>
-            </div>
+        <div class="status">
+            <div id="status-dot" class="status-dot"></div>
+            <span id="status-text">Disconnected</span>
         </div>
     </header>
 
@@ -283,7 +280,7 @@ const char COMPASSTEST_HTML[] PROGMEM = R"rawliteral(
         <div class="card">
             <h2>Real-time Compasses</h2>
             <div class="windrose-grid">
-
+                
                 <!-- RAW -->
                 <div class="windrose-card">
                     <h3>Raw Values</h3>
@@ -296,17 +293,16 @@ const char COMPASSTEST_HTML[] PROGMEM = R"rawliteral(
                             <line x1="12" y1="100" x2="18" y2="100" stroke="#eee" stroke-width="2"/>
                             <line x1="182" y1="100" x2="188" y2="100" stroke="#eee" stroke-width="2"/>
                             <text x="100" y="32" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#ff3333" text-anchor="middle">N</text>
-                            <text x="100" y="174" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">S</text>
-                            <text x="170" y="106" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">E</text>
-                            <text x="30" y="106" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">W</text>
                             <g class="needle" id="rose-raw-needle">
                                 <polygon points="100,20 108,100 100,108" fill="#ff3333"/>
+                                <polygon points="100,180 108,100 100,108" fill="#555"/>
                                 <polygon points="100,20 92,100 100,108" fill="#cc0000"/>
+                                <polygon points="100,180 92,100 100,108" fill="#333"/>
                                 <circle cx="100" cy="100" r="7" fill="#ffd700" stroke="#121212" stroke-width="2"/>
                             </g>
                         </svg>
                     </div>
-                    <div id="val-rose-raw" class="heading-val">000&deg;</div>
+                    <div id="val-rose-raw" class="heading-val">000°</div>
                 </div>
 
                 <!-- HARD IRON -->
@@ -321,17 +317,16 @@ const char COMPASSTEST_HTML[] PROGMEM = R"rawliteral(
                             <line x1="12" y1="100" x2="18" y2="100" stroke="#eee" stroke-width="2"/>
                             <line x1="182" y1="100" x2="188" y2="100" stroke="#eee" stroke-width="2"/>
                             <text x="100" y="32" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#ff3333" text-anchor="middle">N</text>
-                            <text x="100" y="174" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">S</text>
-                            <text x="170" y="106" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">E</text>
-                            <text x="30" y="106" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">W</text>
                             <g class="needle" id="rose-hard-needle">
                                 <polygon points="100,20 108,100 100,108" fill="#ff3333"/>
+                                <polygon points="100,180 108,100 100,108" fill="#555"/>
                                 <polygon points="100,20 92,100 100,108" fill="#cc0000"/>
+                                <polygon points="100,180 92,100 100,108" fill="#333"/>
                                 <circle cx="100" cy="100" r="7" fill="#ffd700" stroke="#121212" stroke-width="2"/>
                             </g>
                         </svg>
                     </div>
-                    <div id="val-rose-hard" class="heading-val">000&deg;</div>
+                    <div id="val-rose-hard" class="heading-val">000°</div>
                 </div>
 
                 <!-- HARD + SOFT IRON -->
@@ -346,17 +341,16 @@ const char COMPASSTEST_HTML[] PROGMEM = R"rawliteral(
                             <line x1="12" y1="100" x2="18" y2="100" stroke="#eee" stroke-width="2"/>
                             <line x1="182" y1="100" x2="188" y2="100" stroke="#eee" stroke-width="2"/>
                             <text x="100" y="32" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#ff3333" text-anchor="middle">N</text>
-                            <text x="100" y="174" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">S</text>
-                            <text x="170" y="106" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">E</text>
-                            <text x="30" y="106" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">W</text>
                             <g class="needle" id="rose-soft-needle">
                                 <polygon points="100,20 108,100 100,108" fill="#ff3333"/>
+                                <polygon points="100,180 108,100 100,108" fill="#555"/>
                                 <polygon points="100,20 92,100 100,108" fill="#cc0000"/>
+                                <polygon points="100,180 92,100 100,108" fill="#333"/>
                                 <circle cx="100" cy="100" r="7" fill="#ffd700" stroke="#121212" stroke-width="2"/>
                             </g>
                         </svg>
                     </div>
-                    <div id="val-rose-soft" class="heading-val">000&deg;</div>
+                    <div id="val-rose-soft" class="heading-val">000°</div>
                 </div>
 
                 <!-- FULL COMP (TILT) -->
@@ -371,31 +365,30 @@ const char COMPASSTEST_HTML[] PROGMEM = R"rawliteral(
                             <line x1="12" y1="100" x2="18" y2="100" stroke="#eee" stroke-width="2"/>
                             <line x1="182" y1="100" x2="188" y2="100" stroke="#eee" stroke-width="2"/>
                             <text x="100" y="32" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#ff3333" text-anchor="middle">N</text>
-                            <text x="100" y="174" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">S</text>
-                            <text x="170" y="106" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">E</text>
-                            <text x="30" y="106" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">W</text>
                             <g class="needle" id="rose-tilt-needle">
                                 <polygon points="100,20 108,100 100,108" fill="#ff3333"/>
+                                <polygon points="100,180 108,100 100,108" fill="#555"/>
                                 <polygon points="100,20 92,100 100,108" fill="#cc0000"/>
+                                <polygon points="100,180 92,100 100,108" fill="#333"/>
                                 <circle cx="100" cy="100" r="7" fill="#ffd700" stroke="#121212" stroke-width="2"/>
                             </g>
                         </svg>
                     </div>
-                    <div id="val-rose-tilt" class="heading-val">000&deg;</div>
+                    <div id="val-rose-tilt" class="heading-val">000°</div>
                 </div>
 
             </div>
-
+            
             <div id="visualizer3d"></div>
-
+            
             <div class="telemetry-grid">
                 <div class="telemetry-item">
                     <div class="telemetry-label">Pitch</div>
-                    <div id="val-pitch" class="telemetry-value">0.0&deg;</div>
+                    <div id="val-pitch" class="telemetry-value">0.0°</div>
                 </div>
                 <div class="telemetry-item">
                     <div class="telemetry-label">Roll</div>
-                    <div id="val-roll" class="telemetry-value">0.0&deg;</div>
+                    <div id="val-roll" class="telemetry-value">0.0°</div>
                 </div>
                 <div class="telemetry-item">
                     <div class="telemetry-label">Raw Mag (X, Y, Z)</div>
@@ -435,9 +428,9 @@ const char COMPASSTEST_HTML[] PROGMEM = R"rawliteral(
             <h2>Accelerometer Level Calibration</h2>
             <button id="btn-level-cal" class="btn" style="background-color: var(--secondary);" onclick="calibrateLevel()">Calibrate Flat Level</button>
             <div id="level-cal-status" style="margin-top: 8px; font-size: 0.85rem; color: var(--text-muted); line-height: 1.3;">
-                Place the device housing on a perfectly flat horizontal surface and click the button above.
-                This calculates any mechanical mounting misalignment of the accelerometer chip and mathematically offsets it,
-                forcing pitch and roll to read exactly 0&deg; when horizontal.
+                Place the device housing on a perfectly flat horizontal surface and click the button above. 
+                This calculates any mechanical mounting misalignment of the accelerometer chip and mathematically offsets it, 
+                forcing pitch and roll to read exactly 0° when horizontal.
             </div>
         </div>
 
@@ -485,17 +478,7 @@ const char COMPASSTEST_HTML[] PROGMEM = R"rawliteral(
         }
 
         window.addEventListener('load', () => {
-            if (typeof THREE !== 'undefined') {
-                try {
-                    initThreeJS();
-                } catch (e) {
-                    console.error("Error initializing ThreeJS:", e);
-                    document.getElementById('visualizer3d').innerHTML = '<div style="color:var(--text-muted); text-align:center; padding-top:130px; font-weight:bold;">3D Visualizer Init Failed</div>';
-                }
-            } else {
-                console.warn("Three.js not loaded. Skipping 3D visualization.");
-                document.getElementById('visualizer3d').innerHTML = '<div style="color:var(--text-muted); text-align:center; padding-top:130px; font-weight:bold;">3D PCB Visualizer Offline (No Internet for CDN)</div>';
-            }
+            initThreeJS();
             initWebSockets();
             drawScatter();
             setInterval(() => { if (isCalibrating) drawScatter(); }, 100);
@@ -510,14 +493,8 @@ const char COMPASSTEST_HTML[] PROGMEM = R"rawliteral(
                 document.getElementById('dashboard-container').classList.add('active');
                 document.getElementById('btn-dash').classList.add('active');
                 if (renderer) {
-                    try {
-                        const c = document.getElementById('visualizer3d');
-                        if (c && c.clientWidth > 0 && c.clientHeight > 0) {
-                            renderer.setSize(c.clientWidth, c.clientHeight);
-                        }
-                    } catch (e) {
-                        console.warn("Could not resize WebGL renderer:", e);
-                    }
+                    const c = document.getElementById('visualizer3d');
+                    renderer.setSize(c.clientWidth, c.clientHeight);
                 }
             } else {
                 document.getElementById('calibration-container').classList.add('active');
@@ -527,67 +504,58 @@ const char COMPASSTEST_HTML[] PROGMEM = R"rawliteral(
         }
 
         function initWebSockets() {
-            const host = window.location.hostname || '192.168.4.1';
-            ws = new WebSocket(`ws://${host}:81`);
+            document.getElementById('status-dot').className = 'status-dot connected';
+            document.getElementById('status-text').innerText = 'Polling Active';
 
-            ws.onopen = () => {
-                wsConnected = true;
-                document.getElementById('status-dot').className = 'status-dot connected';
-                document.getElementById('status-text').innerText = 'Connected';
-            };
+            setInterval(() => {
+                fetch('/data')
+                    .then(response => response.json())
+                    .then(data => {
+                        headingRaw = data.raw;
+                        headingHard = data.hard;
+                        headingSoft = data.hardSoft;
+                        headingTilt = data.icm;
+                        currentRoll = data.ir;
+                        currentPitch = data.ip;
 
-            ws.onclose = () => {
-                wsConnected = false;
-                document.getElementById('status-dot').className = 'status-dot';
-                document.getElementById('status-text').innerText = 'Disconnected';
-                setTimeout(initWebSockets, 2000);
-            };
+                        document.getElementById('val-rose-raw').innerText = Math.round(headingRaw).toString().padStart(3, '0') + '°';
+                        document.getElementById('val-rose-hard').innerText = Math.round(headingHard).toString().padStart(3, '0') + '°';
+                        document.getElementById('val-rose-soft').innerText = Math.round(headingSoft).toString().padStart(3, '0') + '°';
+                        document.getElementById('val-rose-tilt').innerText = Math.round(headingTilt).toString().padStart(3, '0') + '°';
 
-            ws.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
+                        document.getElementById('val-pitch').innerText = currentPitch.toFixed(1) + '°';
+                        document.getElementById('val-roll').innerText = currentRoll.toFixed(1) + '°';
+                        document.getElementById('val-raw-mag').innerText = `${Math.round(data.mx_raw)}, ${Math.round(data.my_raw)}, ${Math.round(data.mz_raw)}`;
+                        document.getElementById('val-cal-mag').innerText = `${Math.round(data.mx_cal)}, ${Math.round(data.my_cal)}, ${Math.round(data.mz_cal)}`;
 
-                    headingRaw = data.raw;
-                    headingHard = data.hard;
-                    headingSoft = data.hardSoft;
-                    headingTilt = data.tilt;
-                    currentRoll = data.roll;
-                    currentPitch = data.pitch;
+                        rotRaw = getShortestRotation(rotRaw, -headingRaw);
+                        document.getElementById('rose-raw-needle').style.transform = `rotate(${rotRaw}deg)`;
+                        rotHard = getShortestRotation(rotHard, -headingHard);
+                        document.getElementById('rose-hard-needle').style.transform = `rotate(${rotHard}deg)`;
+                        rotSoft = getShortestRotation(rotSoft, -headingSoft);
+                        document.getElementById('rose-soft-needle').style.transform = `rotate(${rotSoft}deg)`;
+                        rotTilt = getShortestRotation(rotTilt, -headingTilt);
+                        document.getElementById('rose-tilt-needle').style.transform = `rotate(${rotTilt}deg)`;
 
-                    document.getElementById('val-rose-raw').innerText = Math.round(headingRaw).toString().padStart(3, '0') + '°';
-                    document.getElementById('val-rose-hard').innerText = Math.round(headingHard).toString().padStart(3, '0') + '°';
-                    document.getElementById('val-rose-soft').innerText = Math.round(headingSoft).toString().padStart(3, '0') + '°';
-                    document.getElementById('val-rose-tilt').innerText = Math.round(headingTilt).toString().padStart(3, '0') + '°';
+                        if (isCalibrating) {
+                            rawPoints.push([data.mx_raw, data.my_raw, data.mz_raw]);
+                            if (rawPoints.length > maxPoints) rawPoints.shift();
+                            document.getElementById('cal-pts-count').innerText = rawPoints.length;
+                        }
 
-                    document.getElementById('val-pitch').innerText = currentPitch.toFixed(1) + '°';
-                    document.getElementById('val-roll').innerText = currentRoll.toFixed(1) + '°';
-                    document.getElementById('val-raw-mag').innerText = `${Math.round(data.mx_raw)}, ${Math.round(data.my_raw)}, ${Math.round(data.mz_raw)}`;
-                    document.getElementById('val-cal-mag').innerText = `${Math.round(data.mx_cal)}, ${Math.round(data.my_cal)}, ${Math.round(data.mz_cal)}`;
-
-                    rotRaw = getShortestRotation(rotRaw, headingRaw);
-                    document.getElementById('rose-raw-needle').style.transform = `rotate(${rotRaw}deg)`;
-                    rotHard = getShortestRotation(rotHard, headingHard);
-                    document.getElementById('rose-hard-needle').style.transform = `rotate(${rotHard}deg)`;
-                    rotSoft = getShortestRotation(rotSoft, headingSoft);
-                    document.getElementById('rose-soft-needle').style.transform = `rotate(${rotSoft}deg)`;
-                    rotTilt = getShortestRotation(rotTilt, headingTilt);
-                    document.getElementById('rose-tilt-needle').style.transform = `rotate(${rotTilt}deg)`;
-
-                    if (isCalibrating) {
-                        rawPoints.push([data.mx_raw, data.my_raw, data.mz_raw]);
-                        if (rawPoints.length > maxPoints) rawPoints.shift();
-                        document.getElementById('cal-pts-count').innerText = rawPoints.length;
-                    }
-
-                    if (trackerMesh) {
-                        const yawRad = -headingTilt * Math.PI / 180;
-                        const pitchRad = currentPitch * Math.PI / 180;
-                        const rollRad = -currentRoll * Math.PI / 180;
-                        trackerMesh.rotation.order = 'YXZ';
-                        trackerMesh.rotation.set(pitchRad, yawRad, rollRad);
-                    }
-                } catch (e) {}
-            };
+                        if (trackerMesh) {
+                            const yawRad = -headingTilt * Math.PI / 180;
+                            const pitchRad = currentPitch * Math.PI / 180;
+                            const rollRad = -currentRoll * Math.PI / 180;
+                            trackerMesh.rotation.order = 'YXZ';
+                            trackerMesh.rotation.set(pitchRad, yawRad, rollRad);
+                        }
+                    })
+                    .catch(e => {
+                        document.getElementById('status-dot').className = 'status-dot';
+                        document.getElementById('status-text').innerText = 'Polling Error';
+                    });
+            }, 100);
         }
 
         function initThreeJS() {
@@ -725,4 +693,4 @@ const char COMPASSTEST_HTML[] PROGMEM = R"rawliteral(
 </html>
 )rawliteral";
 
-#endif /* COMPASSTEST_HTML_H */
+#endif

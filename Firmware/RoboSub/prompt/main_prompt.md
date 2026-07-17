@@ -6,9 +6,9 @@ Your goal is to recreate this project exactly as it exists today, serving as the
 
 ## Hardware & Architecture
 * **Microcontroller:** ESP32 (esp32dev)
-* **Sensors:** I2C Compass (LIS2MDL / LSM303), I2C ADC.
+* **Sensors:** I2C Compass (ICM-20948), I2C ADC.
 * **Actuators:** Two ESCs (Electronic Speed Controllers) for Port (BB) and Starboard (SB) thrusters.
-* **Libraries:** `PID_v1` (br3ttb), `ESP32Servo`, `Adafruit_LIS2MDL`, `RoboCompute`, `ArduinoOTA`.
+* **Libraries:** `PID_v1` (br3ttb), `ESP32Servo`, `SparkFun 9DoF IMU Breakout - ICM 20948 - Arduino Library`, `Madgwick`, `RoboCompute`, `ArduinoOTA`.
 * **RTOS Architecture:** FreeRTOS Tasks and Queues (`compassIn`, `serIn`, `serOut`, `motorCmd`). 
 * **Hardware Interfaces:**
   * `Serial1`: Receives encoded commands from `RobobuoyTop`.

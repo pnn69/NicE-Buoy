@@ -1,4 +1,6 @@
 #ifndef CALIBRATION_HTML_H
+#define CALIBRATION_HTML_H
+
 const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="en">
@@ -294,7 +296,7 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
     <div class="container" style="padding-bottom: 180px;"> <!-- Padding bottom to prevent co-pilot bar overlapping back button -->
         <header>
             <h1>Magnetometer Calibration</h1>
-            <p>ESP32 LSM303 Hardware Calibration Tool</p>
+            <p>ESP32 ICM-20948 Hardware Calibration Tool</p>
             <div id="status" class="status-badge disconnected">Disconnected</div>
         </header>
 
@@ -341,25 +343,24 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
 
             <button class="btn btn-primary" id="btnCal">Start Interactive Calibration</button>
             <button class="btn btn-secondary" id="btnSave" disabled>Save &amp; Upload Calibration</button>
-            <button class="btn btn-secondary" id="btnLevel" style="background-color: var(--accent); color: white; margin-bottom: 0px;">Calibrate Level (Horizontal)</button>
         </div>
 
         <div class="card">
-            <h2>LSM303 Profile &amp; Persistence</h2>
+            <h2>ICM Profile &amp; Persistence</h2>
             <div style="width:100%;margin-bottom:15px;text-align:left;">
                 <div style="font-size:12px;font-family:monospace;word-break:break-all;color:var(--text-muted);background:#0d1117;padding:12px;border-radius:6px;border:1px solid var(--border-color);line-height:1.6;margin-bottom:12px;">
                     <strong>Loaded Profile (NVS):</strong> <span id="cal_load" style="color:var(--warning)">Loading...</span><br>
                     <strong>Calibration Status:</strong> <span id="cal_ver" style="color:var(--accent)">Loading...</span>
                 </div>
                 <div style="display:flex;gap:10px;width:100%;">
-                    <button id="calButton" onclick="startCalib()" class="btn btn-secondary" style="margin-bottom:0;flex:1;">LSM303 Status</button>
+                    <button id="calButton" onclick="startCalib()" class="btn btn-secondary" style="margin-bottom:0;flex:1;">ICM Status</button>
                     <button onclick="saveCalib()" class="btn btn-primary" style="margin-bottom:0;flex:1;background-color:#2a6a2a;">Save Calib</button>
                 </div>
             </div>
         </div>
 
         <div class="card">
-            <h2>LSM303 Calibration Mode</h2>
+            <h2>ICM Calibration Mode</h2>
             <div style="width:100%;text-align:left;font-size:13px;line-height:1.8;padding:5px;">
                 <label style="display:flex;align-items:center;margin-bottom:12px;cursor:pointer;color:var(--text-main);font-weight:600;">
                     <input type="radio" name="icmMode" value="1" onclick="setIcmMode(1)" style="margin-right:12px;width:18px;height:18px;cursor:pointer;">
@@ -404,7 +405,6 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
         const statusBadge = document.getElementById('status');
         const btnCal = document.getElementById('btnCal');
         const btnSave = document.getElementById('btnSave');
-        const btnLevel = document.getElementById('btnLevel');
         const pointCount = document.getElementById('pointCount');
         const pointsGroup = document.getElementById('pointsGroup');
         const calHiVal = document.getElementById('calHiVal');
@@ -477,6 +477,22 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
             // Immediate outlier filter: Discard absolute sensor glitches (zeros or extreme spikes)
             if (x === 0 && y === 0 && z === 0) return;
             if (Math.abs(x) > 1000 || Math.abs(y) > 1000 || Math.abs(z) > 1000) return;
+
+            // Distance-based jump filter to discard brief I2C read glitches or electromagnetic spikes
+            if (calPoints.length > 10) {
+                let avgX = 0, avgY = 0, avgZ = 0;
+                const lastN = calPoints.slice(-10);
+                lastN.forEach(p => { avgX += p.x; avgY += p.y; avgZ += p.z; });
+                avgX /= lastN.length;
+                avgY /= lastN.length;
+                avgZ /= lastN.length;
+
+                const dist = Math.sqrt((x - avgX)**2 + (y - avgY)**2 + (z - avgZ)**2);
+                if (dist > 40.0) {
+                    console.warn(`Outlier discarded: Dist=${dist.toFixed(1)} uT [X:${x}, Y:${y}, Z:${z}]`);
+                    return; // Ignore this outlier completely!
+                }
+            }
 
             calPoints.push({x, y, z});
 
@@ -656,6 +672,8 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                 // Signal start of calibration to ESP32 to trigger buzzer beeps!
                 fetch('/start_cal')
                     .catch(err => console.warn("Failed to trigger start beep", err));
+
+                pollData();
             } else {
                 isCalibrating = false;
                 document.getElementById('calibrationCoPilot').style.display = 'none';
@@ -708,30 +726,6 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                 });
         };
 
-        btnLevel.onclick = () => {
-            if (confirm("Make sure the buoy is perfectly flat and static. Calibrate horizontal level?")) {
-                btnLevel.textContent = "Calibrating Level...";
-                btnLevel.disabled = true;
-                fetch('/calibrate_level')
-                    .then(r => r.text())
-                    .then(txt => {
-                        btnLevel.disabled = false;
-                        if (txt === "OK") {
-                            btnLevel.textContent = "Level Calibrated!";
-                            alert("Horizontal level calibration saved successfully!");
-                        } else {
-                            btnLevel.textContent = "Calibrate Level (Horizontal)";
-                            alert("Error calibrating level: " + txt);
-                        }
-                    })
-                    .catch(err => {
-                        btnLevel.disabled = false;
-                        btnLevel.textContent = "Calibrate Level (Horizontal)";
-                        alert("Network error: " + err);
-                    });
-            }
-        };
-
         function setIcmMode(m) {
             fetch(`/set_icm_mode?mode=${m}`)
                 .then(r => r.text())
@@ -746,11 +740,11 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
         }
 
         function startCalib() {
-            alert('LSM303 operates automatically with high-stability sensor fusion.');
+            alert('ICM-20948 operates automatically with high-stability Madgwick fusion.');
         }
 
         function saveCalib() {
-            if (confirm('Save current LSM303 calibration profile to NVS?')) {
+            if (confirm('Save current ICM calibration profile to NVS?')) {
                 fetch('/savecal')
                     .then(r => r.text())
                     .then(() => alert('NVS Save Command Sent!'));
@@ -762,4 +756,5 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
 </body>
 </html>
 )rawliteral";
+
 #endif /* CALIBRATION_HTML_H */

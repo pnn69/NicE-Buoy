@@ -1,539 +1,258 @@
+/**
+ * @file compass.cpp
+ * @brief ICM-20948 High-Performance Compass System with Madgwick Fusion & Persistence.
+ * 
+ * This module replaces the BNO055 sensor with an ICM-20948 9-DOF IMU, running
+ * raw sensor readings through hard/soft iron corrections and a Madgwick AHRS
+ * filter for robust drift-free heading calculations.
+ */
+
 #include <Arduino.h>
-#include <WiFi.h>
-#include <WebServer.h>
-#include <WebSocketsServer.h>
-#include <Preferences.h>
-#include <LittleFS.h>
 #include <Wire.h>
-#include <LSM303.h>
-#include <ArduinoOTA.h>
-#include <ArduinoJson.h>
-
-#define I2C_SDA      21
-#define I2C_SCL      22
-
-const char* ssid = "NicE_WiFi";
-const char* password = "!Ni1001100110";
-
-#if defined(COMPASS_STANDALONE)
-WebServer server(80);
-#endif
-WebSocketsServer ws(81);
-
-// Renamed to compass_sensor to resolve conflicting global definition with QueueHandle_t compass!
-LSM303 compass_sensor;
-
-float declination = 2.6f;
-int avg = 10;
-
-float offsetX = 0;
-float offsetY = 0;
-float offsetZ = 0;
-
-float scaleX = 1;
-float scaleY = 1;
-float scaleZ = 1;
-
-// Leveling/Accelerometer alignment variables (Default is perfectly flat)
-float levelX = 0;
-float levelY = 0;
-float levelZ = 1;
-
-float headingRaw = 0;
-float headingHard = 0;
-float headingHardSoft = 0;
-float headingTilt = 0;
-float pitchDeg = 0;
-float rollDeg = 0;
-float rawX = 0, rawY = 0, rawZ = 0;
-float calX = 0, calY = 0, calZ = 0;
-
-float global_hdg = 0;
-int compass_avg_samples = 10;
-int icm_mode = 4;
-
-unsigned long lastBroadcast = 0;
-bool isLIS2MDL = false;
-
-// Independent low-pass filtering for compass vs. tilt dampening
-// Highly responsive Option A (Snappy Mode) coefficients
-float magAlpha = 0.45f;    // Highly responsive magnetometer for Option A (45% new data)
-float accelAlpha = 0.25f; // Highly responsive accelerometer for Option A (45% new data)
-bool firstRead = true;
-
-float smoothed_ax = 0;
-float smoothed_ay = 0;
-float smoothed_az = 0;
-
-float smoothed_mx = 0;
-float smoothed_my = 0;
-float smoothed_mz = 0;
-
-void saveCalibration() {
-    Preferences prefs;
-    prefs.begin("compass", false);
-    prefs.putFloat("ox", offsetX);
-    prefs.putFloat("oy", offsetY);
-    prefs.putFloat("oz", offsetZ);
-    prefs.putFloat("sx", scaleX);
-    prefs.putFloat("sy", scaleY);
-    prefs.putFloat("sz", scaleZ);
-    prefs.putInt("mode", icm_mode);
-    prefs.end();
-}
-
-void saveLevelCalibration() {
-    Preferences prefs;
-    prefs.begin("compass", false);
-    prefs.putFloat("lx", levelX);
-    prefs.putFloat("ly", levelY);
-    prefs.putFloat("lz", levelZ);
-    prefs.end();
-}
-
-void loadCalibration() {
-    Preferences prefs;
-    prefs.begin("compass", true);
-    offsetX = prefs.getFloat("ox", 0);
-    offsetY = prefs.getFloat("oy", 0);
-    offsetZ = prefs.getFloat("oz", 0);
-    scaleX = prefs.getFloat("sx", 1);
-    scaleY = prefs.getFloat("sy", 1);
-    scaleZ = prefs.getFloat("sz", 1);
-
-    levelX = prefs.getFloat("lx", 0);
-    levelY = prefs.getFloat("ly", 0);
-    levelZ = prefs.getFloat("lz", 1);
-
-    icm_mode = prefs.getInt("mode", 4);
-    if (icm_mode < 1 || icm_mode > 4) icm_mode = 4;
-    prefs.end();
-
-    // Guard against uninitialized/bad values from NVM (like 0, NaN or Inf)
-    if (isnan(offsetX) || isinf(offsetX)) offsetX = 0;
-    if (isnan(offsetY) || isinf(offsetY)) offsetY = 0;
-    if (isnan(offsetZ) || isinf(offsetZ)) offsetZ = 0;
-
-    if (isnan(scaleX) || isinf(scaleX) || scaleX == 0) scaleX = 1.0f;
-    if (isnan(scaleY) || isinf(scaleY) || scaleY == 0) scaleY = 1.0f;
-    if (isnan(scaleZ) || isinf(scaleZ) || scaleZ == 0) scaleZ = 1.0f;
-
-    if (isnan(levelX) || isinf(levelX)) levelX = 0;
-    if (isnan(levelY) || isinf(levelY)) levelY = 0;
-    if (isnan(levelZ) || isinf(levelZ) || levelZ == 0) levelZ = 1.0f;
-}
-
-void initMagnetometer() {
-    Wire.beginTransmission(0x1E);
-    Wire.write(0x60); 
-    Wire.write(0x80); 
-    byte error = Wire.endTransmission();
-
-    if (error == 0) {
-        isLIS2MDL = true;
-        Serial.println("LIS2MDL/LSM303AGR magnetometer detected and configured successfully!");
-    } else {
-        isLIS2MDL = false;
-        Serial.println("Classic LSM303DLHC/DLM magnetometer selected.");
-    }
-}
-
-bool readMagnetometer(float &mx, float &my, float &mz) {
-    if (isLIS2MDL) {
-        Wire.beginTransmission(0x1E);
-        Wire.write(0x68); 
-        byte error = Wire.endTransmission(false);
-        if (error == 0) {
-            Wire.requestFrom(0x1E, 6);
-            if (Wire.available() == 6) {
-                int16_t x = Wire.read() | (Wire.read() << 8);
-                int16_t y = Wire.read() | (Wire.read() << 8);
-                int16_t z = Wire.read() | (Wire.read() << 8);
-                mx = x;
-                my = y;
-                mz = z;
-                return true;
-            }
-        }
-    }
-
-    mx = compass_sensor.m.x;
-    my = compass_sensor.m.y;
-    mz = compass_sensor.m.z;
-    return (mx != 0 || my != 0 || mz != 0);
-}
-
-// Helper function implementing the LSM303DLH Application Note (AN3192) Equation (13) quadrant logic
-float calculateHeading(float X, float Y) {
-    if (X > 0.0f && Y >= 0.0f) {
-        return atan(Y / X) * 180.0f / PI;
-    } else if (X > 0.0f && Y < 0.0f) {
-        return atan(Y / X) * 180.0f / PI + 360.0f;
-    } else if (X < 0.0f) {
-        return atan(Y / X) * 180.0f / PI + 180.0f;
-    } else if (X == 0.0f && Y > 0.0f) {
-        return 90.0f;
-    } else if (X == 0.0f && Y < 0.0f) {
-        return 270.0f;
-    }
-    return 0.0f; // Default/fallback for X == 0, Y == 0
-}
-
-void updateCompass() {
-    compass_sensor.read();
-
-    float mx = 0, my = 0, mz = 0;
-    readMagnetometer(mx, my, mz);
-    
-    // Invert the Y-axis of the magnetometer to correct the inverted rotation direction
-    my = -my;
-
-    float ax = compass_sensor.a.x;
-    float ay = compass_sensor.a.y;
-    float az = compass_sensor.a.z;
-
-    // Apply constant, rock-solid, ultra-slow dual-rate filtering
-    if (firstRead) {
-        smoothed_ax = ax;
-        smoothed_ay = ay;
-        smoothed_az = az;
-        smoothed_mx = mx;
-        smoothed_my = my;
-        smoothed_mz = mz;
-        firstRead = false;
-    } else {
-        // Smooth the raw accelerometer with our constant ultra-slow dampening
-        smoothed_ax = accelAlpha * ax + (1.0f - accelAlpha) * smoothed_ax;
-        smoothed_ay = accelAlpha * ay + (1.0f - accelAlpha) * smoothed_ay;
-        smoothed_az = accelAlpha * az + (1.0f - accelAlpha) * smoothed_az;
-        
-        // Snappy but filtered magnetometer (magAlpha = 0.15)
-        smoothed_mx = magAlpha * mx + (1.0f - magAlpha) * smoothed_mx;
-        smoothed_my = magAlpha * my + (1.0f - magAlpha) * smoothed_my;
-        smoothed_mz = magAlpha * mz + (1.0f - magAlpha) * smoothed_mz;
-    }
-
-    rawX = smoothed_mx; rawY = smoothed_my; rawZ = smoothed_mz;
-
-    // 1. Raw Heading
-    headingRaw = calculateHeading(smoothed_mx, smoothed_my);
-
-    // 2. Hard Iron
-    float hmx = smoothed_mx - offsetX;
-    float hmy = smoothed_my - offsetY;
-    headingHard = calculateHeading(hmx, hmy) + declination;
-    if (headingHard < 0) headingHard += 360;
-    if (headingHard >= 360) headingHard -= 360;
-
-    // 3. Hard + Soft Iron
-    float cmx = hmx * scaleX;
-    float cmy = hmy * scaleY;
-    float cmz = (smoothed_mz - offsetZ) * scaleZ;
-    calX = cmx; calY = cmy; calZ = cmz;
-
-    headingHardSoft = calculateHeading(cmx, cmy) + declination;
-    if (headingHardSoft < 0) headingHardSoft += 360;
-    if (headingHardSoft >= 360) headingHard -= 360;
-
-    // 4. Tilt Compensated (Hard + Soft + Pitch/Roll)
-    // As per LSM303DLH App Note (AN3192), normalize the accelerometer vector:
-    float normA = sqrt(smoothed_ax * smoothed_ax + smoothed_ay * smoothed_ay + smoothed_az * smoothed_az);
-    float ax1 = 0.0f, ay1 = 0.0f, az1 = 1.0f;
-    if (normA > 0.0f) {
-        ax1 = smoothed_ax / normA;
-        ay1 = smoothed_ay / normA;
-        az1 = smoothed_az / normA;
-    }
-
-    // Apply Leveling Calibration (aligning misaligned sensor axis to housing G-axis)
-    float ax_aligned = ax1;
-    float ay_aligned = ay1;
-    float az_aligned = az1;
-
-    float s2 = levelX * levelX + levelY * levelY;
-    if (s2 > 1e-6f) {
-        float k = (1.0f - levelZ) / s2;
-        float v_dot_p = levelY * ax1 - levelX * ay1;
-        ax_aligned = ax1 * levelZ - levelX * az1 + k * v_dot_p * levelY;
-        ay_aligned = ay1 * levelZ - levelY * az1 - k * v_dot_p * levelX;
-        az_aligned = az1 * levelZ + (levelY * ay1 + levelX * ax1);
-    }
-
-    // Pitch (rho) = arcsin(-ax_aligned)
-    float pitch = asin(constrain(-ax_aligned, -1.0f, 1.0f));
-    
-    // Roll (gamma) = arcsin(ay_aligned / cos(pitch))
-    float cosPitch = cos(pitch);
-    float roll = 0.0f;
-    if (fabs(cosPitch) > 1e-4f) {
-        roll = asin(constrain(ay_aligned / cosPitch, -1.0f, 1.0f));
-    } else {
-        roll = 0.0f; // Prevent division by zero / singularity at pitch = +-90 degrees
-    }
-
-    // Direct angle filtering using a constant, balanced coefficient (0.450f)
-    static float smoothed_pitch = 0.0f;
-    static float smoothed_roll = 0.0f;
-    static bool firstAngleFilter = true;
-    const float pitchRollAlpha = 0.450f; // Highly responsive filter for Option A (45% new data)
-
-    if (firstAngleFilter) {
-        smoothed_pitch = pitch;
-        smoothed_roll = roll;
-        firstAngleFilter = false;
-    } else {
-        smoothed_pitch = pitchRollAlpha * pitch + (1.0f - pitchRollAlpha) * smoothed_pitch;
-        smoothed_roll = pitchRollAlpha * roll + (1.0f - pitchRollAlpha) * smoothed_roll;
-    }
-
-    rollDeg = smoothed_roll * 180.0 / PI;
-    pitchDeg = smoothed_pitch * 180.0 / PI;
-
-    // Invert the roll angle sign strictly inside the tilt compensation equations to align it with the inverted magnetometer Y-axis orientation!
-    float roll_comp = -smoothed_roll;
-
-    // Tilt Compensation Equations using the filtered pitch and roll angles:
-    float Xh = cmx * cos(smoothed_pitch) + cmz * sin(smoothed_pitch);
-    float Yh = cmx * sin(roll_comp) * sin(smoothed_pitch) + cmy * cos(roll_comp) - cmz * sin(roll_comp) * cos(smoothed_pitch);
-
-    headingTilt = calculateHeading(Xh, Yh) + declination;
-    if (headingTilt < 0) headingTilt += 360;
-    if (headingTilt >= 360) headingTilt -= 360;
-}
-
-void broadcastData() {
-    JsonDocument doc;
-    doc["raw"] = headingRaw;
-    doc["hard"] = headingHard;
-    doc["hardSoft"] = headingHardSoft;
-    doc["tilt"] = headingTilt;
-    doc["heading"] = global_hdg;
-    doc["pitch"] = pitchDeg;
-    doc["roll"] = rollDeg;
-    doc["mx_raw"] = rawX;
-    doc["my_raw"] = rawY;
-    doc["mz_raw"] = rawZ;
-    doc["mx_cal"] = calX;
-    doc["my_cal"] = calY;
-    doc["mz_cal"] = calZ;
-    
-    String json;
-    serializeJson(doc, json);
-    ws.broadcastTXT(json);
-}
-
-void onWsEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
-    if (type == WStype_TEXT) {
-        JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, payload);
-        if (!error) {
-            if (doc["command"] == "save_cal") {
-                offsetX = doc["hi_x"];
-                offsetY = doc["hi_y"];
-                offsetZ = doc["hi_z"];
-                scaleX = doc["si_x"];
-                scaleY = doc["si_y"];
-                scaleZ = doc["si_z"];
-                saveCalibration();
-                Serial.println("Calibration saved!");
-            } else if (doc["command"] == "calibrate_level") {
-                // Read the current smoothed accelerometer vector
-                float normA = sqrt(smoothed_ax * smoothed_ax + smoothed_ay * smoothed_ay + smoothed_az * smoothed_az);
-                if (normA > 0.0f) {
-                    levelX = smoothed_ax / normA;
-                    levelY = smoothed_ay / normA;
-                    levelZ = smoothed_az / normA;
-                    saveLevelCalibration();
-                    Serial.printf("Level calibration saved: lx=%f, ly=%f, lz=%f\n", levelX, levelY, levelZ);
-                }
-            }
-        }
-    }
-}
-
-void scanI2CBus() {
-    Serial.println("\n--- I2C Bus Scan ---");
-    byte error, address;
-    int nDevices = 0;
-    for (address = 1; address < 127; address++) {
-        Wire.beginTransmission(address);
-        error = Wire.endTransmission();
-        if (error == 0) {
-            Serial.print("Found I2C device at 0x");
-            if (address < 16) Serial.print("0");
-            Serial.println(address, HEX);
-            nDevices++;
-        } else if (error == 4) {
-            Serial.print("Unknown I2C error at 0x");
-            if (address < 16) Serial.print("0");
-            Serial.println(address, HEX);
-        }
-    }
-    if (nDevices == 0) {
-        Serial.println("No I2C devices found.");
-    } else {
-        Serial.printf("Scan complete. Found %d active devices.\n", nDevices);
-    }
-    Serial.println("--------------------\n");
-}
-
-#if defined(COMPASS_STANDALONE)
-void setup() {
-    Serial.begin(115200);
-    delay(1000); 
-
-    Wire.begin(I2C_SDA, I2C_SCL, 100000);
-    scanI2CBus();
-
-    if (!compass_sensor.init()) {
-        Serial.println("LSM303 init failed! Accelerometer not detected.");
-    } else {
-        Serial.println("LSM303 Accelerometer detected successfully!");
-        compass_sensor.enableDefault();
-    }
-
-    initMagnetometer();
-    loadCalibration();
-
-    if (!LittleFS.begin(true)) {
-        Serial.println("LittleFS mount failed");
-        return;
-    }
-
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
-
-    Serial.println();
-    Serial.print("IP: ");
-    Serial.println(WiFi.localIP());
-
-    ArduinoOTA.setHostname("CompassTest");
-    ArduinoOTA.begin();
-
-    server.on("/", []() {
-        File file = LittleFS.open("/index.html", "r");
-        if (file) {
-            server.streamFile(file, "text/html");
-            file.close();
-        } else {
-            server.send(404, "text/plain", "index.html not found");
-        }
-    });
-
-    server.serveStatic("/", LittleFS, "/");
-    server.begin();
-    
-    ws.onEvent(onWsEvent);
-    ws.begin();
-
-    Serial.println("Web server started");
-}
-
-void loop() {
-    ArduinoOTA.handle();
-    updateCompass();
-    server.handleClient();
-    ws.loop();
-
-    if (millis() - lastBroadcast > 100) {
-        lastBroadcast = millis();
-        broadcastData();
-    }
-}
-#endif
-
-
-// ============================================================================
-// ROBOSUB COMPATIBILITY LAYER
-// ============================================================================
-
+#include <math.h>
+#include <RoboCompute.h>
+#include <ICM_20948.h>
+#include <MadgwickAHRS.h>
+#include "compass.h"
 #include "main.h"
-#include "io_sub.h"
-#include "esc.h"
 #include "datastorage.h"
+#include <AsyncUDP.h>
+#include <Preferences.h>
+#include "leds.h"
+#include "buzzer.h"
+#include "esc.h"
+#include "pidrudspeed.h"
+#include "sercom.h"
+#include "subwifi.h"
 
+// Circular averaging buffer size
 #define NUM_DIRECTIONS 30
+
+extern Preferences storage;
+QueueHandle_t compass = NULL;
+QueueHandle_t compassIn = NULL;
+
+bool icm_ready = false;
+bool magRejected = false;
+float baselineMag = 50.0f;
+int icm_mode = 4; // Defaults to Mode 4 (Hard & Soft Iron with Pitch & Roll tilt compensation)
+
+ICM_20948_I2C icm;
+Madgwick filter;
+
+// Calibration parameters (Stored in Preferences NVM via datastorage)
+float hi_x = 0.0f, hi_y = 0.0f, hi_z = 0.0f;
+float si_x = 1.0f, si_y = 1.0f, si_z = 1.0f;
+
+// Gyroscope bias calibration parameters
+float gyro_bias_x = 0.0f;
+float gyro_bias_y = 0.0f;
+float gyro_bias_z = 0.0f;
 
 extern RoboStruct mainData;
 extern Message escOut;
+extern int subStatus;
+extern AsyncUDP udp;
 extern SemaphoreHandle_t mainDataMutex;
 
-// Defined the global queue handles used by RoboSub
-QueueHandle_t compass = NULL;
-QueueHandle_t compassIn = NULL;
-bool icm_ready = false;
-
-void updateUIHexFloat(void);
-
+// Global state for web dashboard telemetry
+float global_hdg = 0;
 float last_raw_x = 0, last_raw_y = 0, last_raw_z = 0;
 float last_raw_ax = 0, last_raw_ay = 0, last_raw_az = 0;
 uint32_t global_loop_cnt = 0;
-String global_cal_msg = "LSM Active";
-String global_cal_load = "";
-String global_cal_ver = "LSM303 Active";
+String global_cal_msg = "ICM Active";
+String global_cal_load = "00000000000000000000000000000000000000000000";
+String global_cal_ver = "00000000000000000000000000000000000000000000";
 
-bool InitCompass(void) {
-    Serial.println("\r\nInitializing LSM303/LIS2MDL Compass...");
+uint32_t cal_msg_timeout = 0;
+
+/**
+ * @brief Updates the calibration message on the dashboard with an optional audio confirmation.
+ */
+void setCalMsg(String msg, int beeps = 0) {
+    global_cal_msg = msg;
+    cal_msg_timeout = millis() + 5000;
+    if (beeps > 0 && buzzer != NULL) beep(beeps, buzzer);
+}
+
+/**
+ * @brief Formats float ICM calibrations as user-readable strings for UI telemetry.
+ */
+void updateUIHexFloat() {
+    char hex[100];
+    snprintf(hex, sizeof(hex), "HI: [%.1f,%.1f,%.1f] SI: [%.2f,%.2f,%.2f]", 
+             hi_x, hi_y, hi_z, si_x, si_y, si_z);
+    global_cal_load = String(hex);
+    global_cal_ver = String("ICM-20948 Profile Active");
+}
+
+/**
+ * @brief Detects and initializes the ICM-20948 sensor, running zero-rate bias calibration.
+ */
+bool InitCompass(void)
+{
+    Serial.println("\r\nInitializing ICM-20948 Compass V14.0...\r\n");
+    bool sensorOk = false;
     
-    // Check if LSM303 is connected
-    bool ok = compass_sensor.init();
-    if (!ok) {
-        Serial.println("LSM303: Init failed! Accelerometer/Compass not detected.");
+    // Auto-discover Address (0x69 or 0x68)
+    if (icm.begin(Wire, 0x69) == ICM_20948_Stat_Ok) {
+        sensorOk = true;
+        Serial.println("ICM-20948: Initialized successfully at 0x69.");
     } else {
-        Serial.println("LSM303: Accelerometer/Compass detected successfully!");
-        compass_sensor.enableDefault();
+        Serial.println("ICM-20948: Failed at 0x69. Trying 0x68...");
+        if (icm.begin(Wire, 0x68) == ICM_20948_Stat_Ok) {
+            sensorOk = true;
+            Serial.println("ICM-20948: Initialized successfully at 0x68.");
+        }
     }
 
-    initMagnetometer();
-    loadCalibration();
-    updateUIHexFloat();
+    if (sensorOk) {
+        icm_ready = true;
+
+        // Retrieve calibration profiles from NVS
+        float hi[3], si[3];
+        memIcmCalib(hi, si, true);
+        hi_x = hi[0]; hi_y = hi[1]; hi_z = hi[2];
+        si_x = si[0]; si_y = si[1]; si_z = si[2];
+        updateUIHexFloat();
+
+        // 200-sample Gyro Bias (Zero-Rate) Calibration
+        Serial.println("ICM-20948: Calibrating gyroscope bias... Keep the device completely static!");
+        setCalMsg("GYRO CALIBRATING", 2);
+        float g_sum_x = 0, g_sum_y = 0, g_sum_z = 0;
+        int samples = 200;
+        int count = 0;
+        while (count < samples) {
+            if (icm.dataReady()) {
+                icm.getAGMT();
+                g_sum_x += icm.gyrX();
+                g_sum_y += icm.gyrY();
+                g_sum_z += icm.gyrZ();
+                count++;
+            }
+            delay(10);
+        }
+        gyro_bias_x = g_sum_x / samples;
+        gyro_bias_y = g_sum_y / samples;
+        gyro_bias_z = g_sum_z / samples;
+        Serial.printf("ICM-20948: Gyroscope calibration complete. Offsets -> X: %.4f, Y: %.4f, Z: %.4f\n", 
+                      gyro_bias_x, gyro_bias_y, gyro_bias_z);
+
+        // Learn magnetometer baseline at startup
+        Serial.println("ICM-20948: Measuring baseline magnetometer field strength... Keep the device completely static!");
+        float mag_sum = 0.0f;
+        int baseline_samples = 50;
+        int baseline_count = 0;
+        int retries = 0;
+        while (baseline_count < baseline_samples && retries < 500) {
+            if (icm.dataReady()) {
+                icm.getAGMT();
+                float mx = icm.magX();
+                float my = icm.magY();
+                float mz = icm.magZ();
+                
+                // Apply hard iron calibration
+                float mx_hi = mx - hi_x;
+                float my_hi = my - hi_y;
+                float mz_hi = mz - hi_z;
+                
+                // Apply soft iron calibration
+                float mxc = mx_hi;
+                float myc = my_hi;
+                float mzc = mz_hi;
+                if (icm_mode == 2 || icm_mode == 4) {
+                    mxc = mx_hi * si_x;
+                    myc = my_hi * si_y;
+                    mzc = mz_hi * si_z;
+                }
+                
+                // Realignment to accelerometer/gyro frame
+                float mx_aligned = myc;
+                float my_aligned = mxc;
+                float mz_aligned = -mzc;
+                
+                float norm = sqrt(mx_aligned * mx_aligned + my_aligned * my_aligned + mz_aligned * mz_aligned);
+                if (norm > 5.0f && norm < 200.0f) {
+                    mag_sum += norm;
+                    baseline_count++;
+                }
+            }
+            retries++;
+            delay(10);
+        }
+        if (baseline_count > 0) {
+            baselineMag = mag_sum / baseline_count;
+            Serial.printf("ICM-20948: Magnetometer baseline learned: %.4f uT\n", baselineMag);
+        } else {
+            baselineMag = 50.0f; // Safe fallback
+            Serial.println("ICM-20948: Magnetometer baseline learning failed, using fallback 50.0 uT");
+        }
+
+        // Initialize Madgwick filter at 100Hz ODR
+        filter.begin(100);
+        filter.setBeta(0.10f); // Balanced gain to anchor heading while relying on gyroscope during fast rotations, eliminating centripetal/accelerometer overshoot
+
+        setCalMsg("ICM ONLINE", 3);
+    } else {
+        icm_ready = false;
+        Serial.println("ICM-20948: CRITICAL ERROR - Sensor not found on I2C bus!\r\n");
+        setCalMsg("ICM NOT FOUND", 0);
+    }
 
     // Load remaining persistent parameters
     CompassOffsetCorrection(&mainData.compassOffset, true);
     CompasOffset(&mainData, true);
     MechanicalCorrection(&mainData.mechanicCorrection, true);
-
-    icm_ready = ok;
-    return ok;
+    return icm_ready;
 }
 
-void updateUIHexFloat() {
-    char hex[150];
-    snprintf(hex, sizeof(hex), "HI: [%.1f,%.1f,%.1f] SI: [%.2f,%.2f,%.2f] LVL: [%.2f,%.2f,%.2f]", 
-             offsetX, offsetY, offsetZ, scaleX, scaleY, scaleZ, levelX, levelY, levelZ);
-    global_cal_load = String(hex);
-}
-
+/**
+ * @brief Circular buffer averaging for smooth heading telemetry using O(1) sliding window.
+ */
 float CompassAverage(float in) {
-    static float directions_x[200] = {0};
-    static float directions_y[200] = {0};
+    static float directions_x[NUM_DIRECTIONS] = {0};
+    static float directions_y[NUM_DIRECTIONS] = {0};
     static int cbufpointer = 0;
+    static bool cbufFull = false;
+    static float running_sum_x = 0.0f;
+    static float running_sum_y = 0.0f;
 
     if (isnan(in)) return 0.0f;
 
-    int limit = compass_avg_samples;
-    if (limit < 1) limit = 1;
-    if (limit > 200) limit = 200;
-
+    // Convert input angle to radians and get vector components
     float new_x = cos(in * M_PI / 180.0);
     float new_y = sin(in * M_PI / 180.0);
 
+    // Retrieve old values from buffer
+    float old_x = directions_x[cbufpointer];
+    float old_y = directions_y[cbufpointer];
+
+    // Overwrite oldest sample in the buffer
     directions_x[cbufpointer] = new_x;
     directions_y[cbufpointer] = new_y;
 
-    cbufpointer = (cbufpointer + 1) % limit;
+    // Adjust the running sum O(1)
+    running_sum_x += (new_x - old_x);
+    running_sum_y += (new_y - old_y);
 
-    float sum_x = 0;
-    float sum_y = 0;
-    for (int i = 0; i < limit; i++) {
-        sum_x += directions_x[i];
-        sum_y += directions_y[i];
+    // Advance buffer pointer
+    cbufpointer++;
+    if (cbufpointer >= NUM_DIRECTIONS) {
+        cbufpointer = 0;
+        cbufFull = true;
     }
 
-    float res = atan2(sum_y, sum_x) * 180.0 / M_PI;
+    // Drift-protection: Recalculate sums on wrap-around to eliminate rounding drift over days of operation
+    if (cbufpointer == 0 && cbufFull) {
+        running_sum_x = 0.0f;
+        running_sum_y = 0.0f;
+        for (int i = 0; i < NUM_DIRECTIONS; i++) {
+            running_sum_x += directions_x[i];
+            running_sum_y += directions_y[i];
+        }
+    }
+
+    float res = atan2(running_sum_y, running_sum_x) * 180.0 / M_PI;
     if (res < 0) res += 360.0;
     return res;
 }
@@ -543,55 +262,220 @@ void initcompassQueue(void) {
     compassIn = xQueueCreate(10, sizeof(int));
 }
 
+/**
+ * @brief High-priority task managing compass fusion and auto-calibration.
+ * Runs on Core 1 to ensure consistent I2C polling without WiFi interference.
+ */
 void CompassTask(void *arg) {
-    // Safe initial delay of 3 seconds to let the WiFi stack and LwIP initialize fully on Core 0
-    vTaskDelay(pdMS_TO_TICKS(3000));
+    static bool was_timeout_active = false;
+    static float stable_heading = 0;
+    static bool heading_initialized = false;
 
-    // Start WebSockets server safely on Core 1
-    ws.onEvent(onWsEvent);
-    ws.begin();
+    TickType_t xLastWakeTime = xTaskGetTickCount();
+    const TickType_t xFrequency = pdMS_TO_TICKS(10); // Enforce highly precise 100Hz ODR
+
+    // Microsecond timing variables for mathematically perfect dt integration
+    static uint32_t lastMicros = micros();
 
     while (1) {
         global_loop_cnt++;
         int cmd = 0;
 
+        // -------------------- MANUAL SAVE --------------------
         if (compassIn && xQueueReceive(compassIn, &cmd, 0) == pdTRUE) {
             if (cmd == 34) {
-                saveCalibration();
+                float hi[3] = {hi_x, hi_y, hi_z};
+                float si[3] = {si_x, si_y, si_z};
+                memIcmCalib(hi, si, false);
                 updateUIHexFloat();
+                setCalMsg("MANUAL SAVE SUCCESS", 0);
             }
-        }
-
-        // Always run WebSockets task loop to allow connection even if sensor is initializing/offline
-        ws.loop();
-
-        // Broadcast real-time telemetry over WebSockets every 100ms
-        static uint32_t lastBroadcast = 0;
-        if (millis() - lastBroadcast > 100) {
-            lastBroadcast = millis();
-            broadcastData();
         }
 
         if (icm_ready) {
-            updateCompass();
-
-            last_raw_x = smoothed_mx;
-            last_raw_y = smoothed_my;
-            last_raw_z = smoothed_mz;
-            last_raw_ax = smoothed_ax;
-            last_raw_ay = smoothed_ay;
-            last_raw_az = smoothed_az;
-
-            float heading = headingHard;
-            if (icm_mode == 3 || icm_mode == 4) {
-                heading = headingTilt;
-            } else if (icm_mode == 2) {
-                heading = headingHardSoft;
+            // -------------------- DATA READY VALIDATION --------------------
+            if (icm.dataReady()) {
+                icm.getAGMT(); // Read all sensors directly to guarantee consistent execution
+            } else {
+                vTaskDelay(pdMS_TO_TICKS(1));
+                continue;
             }
 
+            float ax_raw = icm.accX();
+            float ay_raw = icm.accY();
+            float az_raw = icm.accZ();
+
+            float mx_raw_val = icm.magX();
+            float my_raw_val = icm.magY();
+            float mz_raw_val = icm.magZ();
+
+            // -------------------- I2C GLITCH & READ VALIDATION FILTER --------------------
+            // Discard absolute sensor read failures or brief I2C transaction dropouts to prevent NaN filter pollution
+            if (ax_raw == 0.0f && ay_raw == 0.0f && az_raw == 0.0f) {
+                vTaskDelay(pdMS_TO_TICKS(10));
+                continue;
+            }
+
+            // -------------------- DELTA TIME MEASUREMENT --------------------
+            uint32_t now = micros();
+            float dt = (now - lastMicros) * 1e-6f;
+            lastMicros = now;
+
+            if (dt <= 0.0f || dt > 0.5f) {
+                dt = 0.01f; // Safe fallback to 100Hz
+            }
+
+            // Dynamically synchronize filter's integration step with actual elapsed time
+            filter.setDeltaTime(dt);
+
+            // Madgwick library expects gyroscope rates in degrees per second (deg/s)
+            float gx = icm.gyrX() - gyro_bias_x;
+            float gy = icm.gyrY() - gyro_bias_y;
+            float gz = icm.gyrZ() - gyro_bias_z;
+
+            // Store raw diagnostic variables for telemetry/debugging
+            last_raw_x = mx_raw_val; last_raw_y = my_raw_val; last_raw_z = mz_raw_val;
+            last_raw_ax = ax_raw; last_raw_ay = ay_raw; last_raw_az = az_raw;
+
+            // Apply Hard Iron Offset (Always applied)
+            float mx_hi = mx_raw_val - hi_x;
+            float my_hi = my_raw_val - hi_y;
+            float mz_hi = mz_raw_val - hi_z;
+
+            // Apply Soft Iron Scaling conditionally based on active mode
+            float mxc = mx_hi;
+            float myc = my_hi;
+            float mzc = mz_hi;
+
+            if (icm_mode == 2 || icm_mode == 4) {
+                mxc = mx_hi * si_x;
+                myc = my_hi * si_y;
+                mzc = mz_hi * si_z;
+            }
+
+            // Coordinate Axis Realignment (Align ICM Magnetometer with Accelerometer/Gyroscope coordinate frame)
+            // X_aligned = Y_calibrated, Y_aligned = X_calibrated, Z_aligned = -Z_calibrated
+            float mx_cal_aligned = myc;
+            float my_cal_aligned = mxc;
+            float mz_cal_aligned = -mzc;
+
+            // -------------------- ADAPTIVE MAGNETOMETER VALIDITY CHECK --------------------
+            float magNorm = sqrt(mx_cal_aligned * mx_cal_aligned + my_cal_aligned * my_cal_aligned + mz_cal_aligned * mz_cal_aligned);
+            float minField = 0.5f * baselineMag;
+            float maxField = 1.5f * baselineMag;
+
+            // Detect magnetic anomalies (e.g. thruster interference or metal proximity)
+            bool magDisturbed = (magNorm > maxField || magNorm < minField);
+
+            if (magDisturbed) {
+                // High magnetic disturbance -> ignore magnetometer, run 6-DOF IMU filter update
+                filter.updateIMU(gx, gy, gz, ax_raw, ay_raw, az_raw);
+                magRejected = true;
+            } else {
+                // Valid magnetic field -> run full 9-DOF AHRS filter update
+                filter.update(gx, gy, gz, ax_raw, ay_raw, az_raw, mx_cal_aligned, my_cal_aligned, mz_cal_aligned);
+                magRejected = false;
+            }
+
+            float mYaw = filter.getYaw();
+            if (mYaw < 0.0f) mYaw += 360.0f;
+
+            // Calculate raw heading based on selected ICM mode
+            float raw_heading = 0.0f;
+
+            if (icm_mode == 3 || icm_mode == 4) {
+                raw_heading = mYaw; // Integrated robust Madgwick Yaw output
+            } else {
+                // Uncompensated 2D heading (no tilt)
+                raw_heading = atan2(my_cal_aligned, mx_cal_aligned) * 180.0 / M_PI;
+                if (raw_heading < 0.0f) raw_heading += 360.0f;
+            }
+
+            // Unwrap-safe EMA low-pass filter to eliminate any remaining output jitter
+            static float heading_f = 0.0f;
+            static bool firstHeadingRun = true;
+
+            if (firstHeadingRun) {
+                // Wait until we have a valid, non-zero magnetometer reading to avoid initializing with hard-iron dummy vectors
+                if (mx_raw_val == 0.0f && my_raw_val == 0.0f) {
+                    vTaskDelay(pdMS_TO_TICKS(10));
+                    continue;
+                }
+
+                // -------------------- INSTANT 3D ATTITUDE PRE-ALIGNMENT --------------------
+                // Calculate analytical 3D roll and pitch directly from gravity vector (accelerometer) at startup
+                float init_roll = atan2f(ay_raw, az_raw) * 57.29578f;
+                float init_pitch = atan2f(-ax_raw, sqrtf(ay_raw * ay_raw + az_raw * az_raw)) * 57.29578f;
+
+                // Calculate analytical heading directly from calibrated magnetometer projection
+                float init_heading = atan2(my_cal_aligned, mx_cal_aligned) * 180.0 / M_PI;
+                if (init_heading < 0.0f) init_heading += 360.0f;
+                
+                // Instantly pre-align the Madgwick filter's 3D orientation state, bypassing startup convergence time completely
+                filter.initializeAttitude(init_roll, init_pitch, init_heading);
+                
+                // Re-get the yaw to ensure mYaw starts from the initialized state
+                mYaw = filter.getYaw();
+                if (mYaw < 0.0f) mYaw += 360.0f;
+                if (icm_mode == 3 || icm_mode == 4) {
+                    raw_heading = mYaw;
+                } else {
+                    raw_heading = init_heading;
+                }
+
+                heading_f = raw_heading;
+                firstHeadingRun = false;
+            } else {
+                const float heading_alpha = 0.30f; // Snappy responsiveness while eliminating MEMS jitter completely
+                float diff = raw_heading - heading_f;
+                if (diff > 180.0f) diff -= 360.0f;
+                else if (diff < -180.0f) diff += 360.0f;
+                heading_f += heading_alpha * diff;
+                if (heading_f < 0.0f) heading_f += 360.0f;
+                else if (heading_f >= 360.0f) heading_f -= 360.0f;
+            }
+
+            float heading = heading_f;
+
+            // Reverse the direction of rotation mathematically to match the physical compass rose,
+            // while preserving the correct chiral right-handed coordinate frame of the Madgwick filter.
+            heading = 360.0f - heading;
+            if (heading < 0.0f) heading += 360.0f;
+            if (heading >= 360.0f) heading -= 360.0f;
+
+            // Smooth result
             heading = CompassAverage(heading);
 
-            // Output to Queue & Globals directly with user offset
+            // -------------------- STUCK WATCHDOG --------------------
+            static float last_heading = -999.0f;
+            static uint32_t last_heading_change_time = 0;
+
+            if (last_heading == -999.0f) {
+                last_heading = heading;
+                last_heading_change_time = millis();
+            } else if (fabs(heading - last_heading) > 0.1f) { // Prevents false triggers from floating-point noise
+                last_heading = heading;
+                last_heading_change_time = millis();
+            } else {
+                if (millis() - last_heading_change_time > 1000*60*10) { // 10 min
+                    Serial.println("Compass stuck - reinit");
+                    setCalMsg("COMPASS STUCK - REINIT", 0);
+                    InitCompass();
+                    last_heading = -999.0f;
+                    last_heading_change_time = millis();
+                }
+            }
+
+            // -------------------- UI STATUS MESSAGE --------------------
+            if (millis() > cal_msg_timeout) {
+                if (magRejected) {
+                    global_cal_msg = "IMU Fallback";
+                } else {
+                    global_cal_msg = "ICM Active";
+                }
+            }
+
+            // -------------------- OUTPUT TO QUEUE & GLOBALS --------------------
             if (mainDataMutex && xSemaphoreTake(mainDataMutex, portMAX_DELAY)) {
                 heading += mainData.compassOffset;
 
@@ -600,6 +484,8 @@ void CompassTask(void *arg) {
 
                 global_hdg = heading;
                 mainData.dirMag = heading;
+                mainData.ir = filter.getRoll();
+                mainData.ip = filter.getPitch();
 
                 if (compass) xQueueOverwrite(compass, (void *)&heading);
 
@@ -607,7 +493,7 @@ void CompassTask(void *arg) {
             }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelayUntil(&xLastWakeTime, xFrequency);
     }
 }
 

@@ -25,14 +25,12 @@
 #include "subwifi.h"
 #include "index_html.h"
 #include "calibration_html.h"
-#include "compasstest_html.h"
+#include "showactualdata_html.h"
 #include "leds.h"
 #include "buzzer.h"
-#include <DNSServer.h>
 
 // Global instances
 WebServer subServer(80);
-DNSServer dnsServer;
 AsyncUDP udp;
 extern float global_speed_bb;
 extern float global_speed_sb;
@@ -42,9 +40,10 @@ extern RoboStruct mainData;
 extern SemaphoreHandle_t mainDataMutex;
 extern QueueHandle_t compassIn;
 extern float last_raw_x, last_raw_y, last_raw_z;
-extern float offsetX, offsetY, offsetZ;
-extern float scaleX, scaleY, scaleZ;
+extern float hi_x, hi_y, hi_z;
+extern float si_x, si_y, si_z;
 extern int icm_mode;
+extern bool magRejected;
 extern void updateUIHexFloat();
 extern String global_cal_msg;
 extern String global_cal_load, global_cal_ver;
@@ -140,8 +139,6 @@ void setup_wifi_ap(String ap, String ww, IPAddress *tmp)
         WiFi.setSleep(WIFI_PS_NONE); // Disable power-saving sleep in AP mode as well
         *tmp = WiFi.softAPIP();
         Serial.print("AP IP address: "); Serial.println(*tmp);
-        dnsServer.start(53, "*", *tmp);
-        Serial.println("Captive Portal: DNSServer started successfully");
     }
 }
 
@@ -267,16 +264,20 @@ void WiFiTask(void *arg) {
         if(subServer.hasArg("hx") && subServer.hasArg("hy") && subServer.hasArg("hz") &&
            subServer.hasArg("sx") && subServer.hasArg("sy") && subServer.hasArg("sz")) {
             
-            offsetX = subServer.arg("hx").toFloat();
-            offsetY = subServer.arg("hy").toFloat();
-            offsetZ = subServer.arg("hz").toFloat();
-            scaleX = subServer.arg("sx").toFloat();
-            scaleY = subServer.arg("sy").toFloat();
-            scaleZ = subServer.arg("sz").toFloat();
+            float hi[3], si[3];
+            hi[0] = subServer.arg("hx").toFloat();
+            hi[1] = subServer.arg("hy").toFloat();
+            hi[2] = subServer.arg("hz").toFloat();
+            si[0] = subServer.arg("sx").toFloat();
+            si[1] = subServer.arg("sy").toFloat();
+            si[2] = subServer.arg("sz").toFloat();
 
-            // Save to "compass" Preferences namespace
-            extern void saveCalibration();
-            saveCalibration();
+            // Write to NVS
+            memIcmCalib(hi, si, false);
+
+            // Update runtime variables
+            hi_x = hi[0]; hi_y = hi[1]; hi_z = hi[2];
+            si_x = si[0]; si_y = si[1]; si_z = si[2];
 
             // Re-generate user hex/text strings for telemetry
             updateUIHexFloat();
@@ -301,54 +302,27 @@ void WiFiTask(void *arg) {
         if (subServer.hasArg("mode")) {
             icm_mode = subServer.arg("mode").toInt();
             
-            // Save to "compass" Preferences namespace
-            extern void saveCalibration();
-            saveCalibration();
+            // Write to NVS
+            float hi[3] = {hi_x, hi_y, hi_z};
+            float si[3] = {si_x, si_y, si_z};
+            memIcmCalib(hi, si, false);
 
             subServer.send(200, "text/plain", "OK");
         } else {
             subServer.send(400, "text/plain", "Err");
         }
     });
-    subServer.on("/calibrate_level", HTTP_GET, [](){
-        extern float smoothed_ax, smoothed_ay, smoothed_az;
-        extern float levelX, levelY, levelZ;
-        extern void saveLevelCalibration();
-        extern void updateUIHexFloat();
-
-        float normA = sqrt(smoothed_ax * smoothed_ax + smoothed_ay * smoothed_ay + smoothed_az * smoothed_az);
-        if (normA > 0.0f) {
-            levelX = smoothed_ax / normA;
-            levelY = smoothed_ay / normA;
-            levelZ = smoothed_az / normA;
-            
-            saveLevelCalibration();
-            updateUIHexFloat();
-            
-            Serial.printf("Level calibration saved: lx=%f, ly=%f, lz=%f\n", levelX, levelY, levelZ);
-            subServer.send(200, "text/plain", "OK");
-        } else {
-            subServer.send(400, "text/plain", "Err");
-        }
-    });
-
     subServer.on("/calibration", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");
         subServer.send_P(200, "text/html", CALIBRATION_HTML);
     });
-    subServer.on("/Labcallibration", HTTP_GET, [](){
+    subServer.on("/ShowActualData", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");
-        subServer.send_P(200, "text/html", COMPASSTEST_HTML);
-    });
-    subServer.on("/compass_test", HTTP_GET, [](){
-        subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-        subServer.sendHeader("Pragma", "no-cache");
-        subServer.sendHeader("Expires", "-1");
-        subServer.send_P(200, "text/html", COMPASSTEST_HTML);
+        subServer.send_P(200, "text/html", SHOWACTUALDATA_HTML);
     });
     subServer.on("/callibration", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -400,10 +374,6 @@ void WiFiTask(void *arg) {
             else if(p=="revbb"){mainData.revBB=(v>0.5); paramUpdated = true;}
             else if(p=="revsb"){mainData.revSB=(v>0.5); paramUpdated = true;}
             else if(p=="tswap"){mainData.swap_BB_SB=(v>0.5); paramUpdated = true;}
-            else if(p=="everage"){
-                extern int compass_avg_samples;
-                compass_avg_samples=(int)v; paramUpdated = true;
-            }
             
             if (paramUpdated) {
                 global_params_rev++;
@@ -414,7 +384,7 @@ void WiFiTask(void *arg) {
         if (paramUpdated) {
             if(p=="kpr" || p=="kir" || p=="kdr"){pidRudderParameters(&mainData,SET);initRudPid(&mainData);}
             else if(p=="kps" || p=="kis" || p=="kds"){pidSpeedParameters(&mainData,SET);initSpeedPid(&mainData);}
-            else if(p=="coff" || p=="everage"){CompasOffset(&mainData,SET);}
+            else if(p=="coff"){CompasOffset(&mainData,SET);}
             else if(p=="pvspd"){speedMaxMin(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
             else if(p=="holdrad"){computeParameters(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
             else if(p=="minspd" || p=="maxspd"){speedMaxMin(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
@@ -440,13 +410,11 @@ void WiFiTask(void *arg) {
         int minspd = mainData.minSpeed;
         int maxspd = mainData.maxSpeed;
         float holdrad = (float)mainData.holdRad;
-        extern int compass_avg_samples;
-        int everage = compass_avg_samples;
         
-        char buf[600];
+        char buf[500];
         snprintf(buf, sizeof(buf), 
-            "{\"kpr\":%.3f,\"kir\":%.3f,\"kdr\":%.3f,\"kps\":%.3f,\"kis\":%.3f,\"kds\":%.3f,\"coff\":%.1f,\"revbb\":%d,\"revsb\":%d,\"tswap\":%d,\"pvspd\":%.2f,\"minspd\":%d,\"maxspd\":%d,\"holdrad\":%.1f,\"everage\":%d}",
-            kpr, kir, kdr, kps, kis, kds, coff, revbb, revsb, tswap, pvspd, minspd, maxspd, holdrad, everage
+            "{\"kpr\":%.3f,\"kir\":%.3f,\"kdr\":%.3f,\"kps\":%.3f,\"kis\":%.3f,\"kds\":%.3f,\"coff\":%.1f,\"revbb\":%d,\"revsb\":%d,\"tswap\":%d,\"pvspd\":%.2f,\"minspd\":%d,\"maxspd\":%d,\"holdrad\":%.1f}",
+            kpr, kir, kdr, kps, kis, kds, coff, revbb, revsb, tswap, pvspd, minspd, maxspd, holdrad
         );
         subServer.send(200, "application/json", buf);
     });
@@ -486,31 +454,46 @@ void WiFiTask(void *arg) {
             case INFIELD_CALIBRATE: statusStr = "CAL_FIELD"; break;
         }
 
-        char buf[1024];
+        // Calculate raw uncompensated heading
+        float rawHeading = atan2(last_raw_y, last_raw_x) * 180.0 / M_PI;
+        if (rawHeading < 0.0f) rawHeading += 360.0f;
+        rawHeading = 360.0f - rawHeading;
+        if (rawHeading >= 360.0f) rawHeading -= 360.0f;
+
+        // Calculate Hard-iron compensated heading
+        float mx_hi = last_raw_x - hi_x;
+        float my_hi = last_raw_y - hi_y;
+        float hardHeading = atan2(my_hi, mx_hi) * 180.0 / M_PI;
+        if (hardHeading < 0.0f) hardHeading += 360.0f;
+        hardHeading = 360.0f - hardHeading;
+        if (hardHeading >= 360.0f) hardHeading -= 360.0f;
+
+        // Calculate Soft-iron compensated heading
+        float mxc = mx_hi * si_x;
+        float myc = my_hi * si_y;
+        float softHeading = atan2(myc, mxc) * 180.0 / M_PI;
+        if (softHeading < 0.0f) softHeading += 360.0f;
+        softHeading = 360.0f - softHeading;
+        if (softHeading >= 360.0f) softHeading -= 360.0f;
+
+        float mx_cal = myc;
+        float my_cal = mxc;
+        float mz_cal = -(last_raw_z - hi_z) * si_z;
+
+        char buf[1280];
         snprintf(buf, sizeof(buf),
-            "{\"icm\":%.2f,\"speed_bb\":%d,\"speed_sb\":%d,\"ir\":%.2f,\"ip\":%.2f,\"cal_load\":\"%s\",\"cal_ver\":\"%s\",\"mac\":\"%s\",\"cal_msg\":\"%s\",\"rev\":%u,\"vatt\":%.1f,\"curr\":%.2f,\"status\":%d,\"status_str\":\"%s\",\"ri\":%.2f,\"ro\":%.2f,\"rbb\":%.2f,\"rsb\":%.2f,\"framp\":%.2f,\"pivot\":%d,\"mx_raw\":%.2f,\"my_raw\":%.2f,\"mz_raw\":%.2f,\"icm_mode\":%d}",
+            "{\"icm\":%.2f,\"speed_bb\":%d,\"speed_sb\":%d,\"ir\":%.2f,\"ip\":%.2f,\"cal_load\":\"%s\",\"cal_ver\":\"%s\",\"mac\":\"%s\",\"cal_msg\":\"%s\",\"rev\":%u,\"vatt\":%.1f,\"curr\":%.2f,\"status\":%d,\"status_str\":\"%s\",\"ri\":%.2f,\"ro\":%.2f,\"rbb\":%.2f,\"rsb\":%.2f,\"framp\":%.2f,\"pivot\":%d,\"mx_raw\":%.2f,\"my_raw\":%.2f,\"mz_raw\":%.2f,\"icm_mode\":%d,\"mag_rejected\":%d,\"raw\":%.2f,\"hard\":%.2f,\"hardSoft\":%.2f,\"mx_cal\":%.2f,\"my_cal\":%.2f,\"mz_cal\":%.2f}",
             icm, sbb, ssb, ir, ip, 
             global_cal_load.c_str(), global_cal_ver.c_str(), global_mac_str.c_str(),
             global_cal_msg.c_str(), global_params_rev, vatt, curr,
             stat_val, statusStr,
             rudderInput, rudderOutput, rampBb, rampSb, forward_ramp, was_pure_pivot ? 1 : 0,
             last_raw_x, last_raw_y, last_raw_z,
-            icm_mode
+            icm_mode, magRejected ? 1 : 0,
+            rawHeading, hardHeading, softHeading,
+            mx_cal, my_cal, mz_cal
         );
         subServer.send(200, "application/json", buf);
-    });
-
-    // Captive Portal Redirect Handler: Only redirects unknown paths if in Access Point mode
-    subServer.onNotFound([](){
-        if (WiFi.getMode() == WIFI_AP) {
-            String host = subServer.hostHeader();
-            if (host != "192.168.1.85") {
-                subServer.sendHeader("Location", "http://192.168.1.85/", true);
-                subServer.send(302, "text/plain", "");
-                return;
-            }
-        }
-        subServer.send(404, "text/plain", "Not Found");
     });
 
     subServer.begin(); 
@@ -519,7 +502,6 @@ void WiFiTask(void *arg) {
     // Main Server Loop - Matching RoboTop's efficient for(;;) delay(1) loop
     uint32_t last_ota_time = 0;
     for (;;) {
-        dnsServer.processNextRequest(); // Handle DNS queries for Captive Portal redirects
         subServer.handleClient();
         
         uint32_t now = millis();
