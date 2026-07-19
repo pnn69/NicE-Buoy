@@ -500,6 +500,16 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                 }
             }
 
+            // Spatial density filter: Discard points that are too close to the last accepted point
+            // to ensure an even distribution around the sphere and prevent clustered ill-conditioning when stationary.
+            if (calPoints.length > 0) {
+                const lastPt = calPoints[calPoints.length - 1];
+                const distToLast = Math.sqrt((x - lastPt.x)**2 + (y - lastPt.y)**2 + (z - lastPt.z)**2);
+                if (distToLast < 1.0) {
+                    return; // Ignore redundant point when stationary or moving extremely slowly
+                }
+            }
+
             calPoints.push({x, y, z});
 
             if (calPoints.length > maxPoints) {
@@ -865,9 +875,11 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
         function runEllipsoidFitting() {
             if (calPoints.length < 50) return;
             
-            // For the first 250 points, the ellipsoid fit is highly ill-conditioned (clustered on one side),
-            // so we use a highly stable centroid average fallback to prevent wild jumps!
-            if (calPoints.length < 250) {
+            // For the first 350 points, or if the bounding box spans are too small,
+            // the ellipsoid fit is highly ill-conditioned, so we use a stable centroid fallback to prevent wild jumps!
+            const spanX = maxX - minX;
+            const spanY = maxY - minY;
+            if (calPoints.length < 350 || spanX < 30.0 || spanY < 30.0) {
                 let sumX = 0, sumY = 0, sumZ = 0;
                 calPoints.forEach(p => { sumX += p.x; sumY += p.y; sumZ += p.z; });
                 hix = sumX / calPoints.length;
