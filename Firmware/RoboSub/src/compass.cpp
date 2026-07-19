@@ -684,6 +684,7 @@ void CompassTask(void *arg) {
 
             if (icm_mode == 3 || icm_mode == 4) {
                 // Calculate analytical tilt-compensated heading (completely gyro-free) using aligned roll & pitch angles
+                // Must use the sensor's native coordinate frame angles to properly project its 3D magnetic vector!
                 float roll_rad = roll * 0.0174532925f;
                 float pitch_rad = pitch * 0.0174532925f;
 
