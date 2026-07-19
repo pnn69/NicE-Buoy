@@ -574,6 +574,11 @@ void WiFiTask(void *arg) {
         float my_cal = -mxc;
         float mz_cal = -mzc;
 
+        // Align the raw magnetometer axes to match the same accelerometer coordinate frame for direct UI comparison
+        float mx_raw_aligned = last_raw_y;
+        float my_raw_aligned = -last_raw_x;
+        float mz_raw_aligned = -last_raw_z;
+
         // Extract all pending calibration points from the ring buffer
         extern float cal_ring_x[];
         extern float cal_ring_y[];
@@ -613,9 +618,9 @@ void WiFiTask(void *arg) {
                       ",\"rsb\":" + String(rampSb, 2) +
                       ",\"framp\":" + String(forward_ramp, 2) +
                       ",\"pivot\":" + String(was_pure_pivot ? 1 : 0) +
-                      ",\"mx_raw\":" + String(last_raw_x, 2) +
-                      ",\"my_raw\":" + String(last_raw_y, 2) +
-                      ",\"mz_raw\":" + String(last_raw_z, 2) +
+                      ",\"mx_raw\":" + String(mx_raw_aligned, 2) +
+                      ",\"my_raw\":" + String(my_raw_aligned, 2) +
+                      ",\"mz_raw\":" + String(mz_raw_aligned, 2) +
                       ",\"icm_mode\":" + String(icm_mode) +
                       ",\"mag_rejected\":" + String(magRejected ? 1 : 0) +
                       ",\"raw\":" + String(rawHeading, 2) +
