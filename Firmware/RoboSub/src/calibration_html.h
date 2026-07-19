@@ -916,6 +916,75 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
             const N = points.length;
             if (N < 9) return null;
 
+            // Check if Z-span is too small relative to horizontal spans, which indicates flat 2D rotation.
+            // If flat, we run a highly stable 2D Circle Fit instead of collapsing a 3D Ellipsoid.
+            let minZ_val = Infinity, maxZ_val = -Infinity;
+            let minX_val = Infinity, maxX_val = -Infinity;
+            let minY_val = Infinity, maxY_val = -Infinity;
+            points.forEach(p => {
+                if (p[2] < minZ_val) minZ_val = p[2];
+                if (p[2] > maxZ_val) maxZ_val = p[2];
+                if (p[0] < minX_val) minX_val = p[0];
+                if (p[0] > maxX_val) maxX_val = p[0];
+                if (p[1] < minY_val) minY_val = p[1];
+                if (p[1] > maxY_val) maxY_val = p[1];
+            });
+            const spanZ = maxZ_val - minZ_val;
+            const maxSpan = Math.max(maxX_val - minX_val, maxY_val - minY_val, spanZ) || 1.0;
+            const zSpanPct = spanZ / maxSpan;
+
+            if (spanZ < 15.0 || zSpanPct < 0.35) {
+                // Perform highly stable 2D circle fit on X and Y, keeping Z offset as mean and soft-iron as identity
+                let sumZ = 0;
+                points.forEach(p => { sumZ += p[2]; });
+                const meanZ = sumZ / N;
+
+                // 2D Circle Least Squares: solve M * [a; b; c] = V
+                // where row i of design matrix is [x, y, 1] and B is -(x^2 + y^2)
+                let Sxx = 0, Syy = 0, Sxy = 0, Sx = 0, Sy = 0;
+                let Sxxx = 0, Sxyy = 0, Syyy = 0, Sxxy = 0;
+                points.forEach(p => {
+                    const x = p[0];
+                    const y = p[1];
+                    Sxx += x * x;
+                    Syy += y * y;
+                    Sxy += x * y;
+                    Sx += x;
+                    Sy += y;
+                    Sxxx += x * x * x;
+                    Sxyy += x * y * y;
+                    Syyy += y * y * y;
+                    Sxxy += x * x * y;
+                });
+
+                const M = [
+                    [Sxx, Sxy, Sx],
+                    [Sxy, Syy, Sy],
+                    [Sx,  Sy,  N ]
+                ];
+                const V = [
+                    -(Sxxx + Sxyy),
+                    -(Sxxy + Syyy),
+                    -(Sxx + Syy)
+                ];
+
+                const sol = solve3x3System(M, V);
+                if (sol) {
+                    const hix_val = -sol[0] / 2.0;
+                    const hiy_val = -sol[1] / 2.0;
+                    const hiz_val = meanZ;
+
+                    return {
+                        offset: [hix_val, hiy_val, hiz_val],
+                        softIronMatrix: [
+                            [1.0, 0.0, 0.0],
+                            [0.0, 1.0, 0.0],
+                            [0.0, 0.0, 1.0]
+                        ]
+                    };
+                }
+            }
+
             // 1. Calculate centroid of points for zero-centering (pre-conditioning)
             let meanX = 0, meanY = 0, meanZ = 0;
             points.forEach(p => {
@@ -1077,6 +1146,27 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                 x[i] = sum / M[i][i];
             }
             return x;
+        }
+
+        function solve3x3System(A, B) {
+            const det = A[0][0] * (A[1][1] * A[2][2] - A[2][1] * A[1][2]) -
+                        A[0][1] * (A[1][0] * A[2][2] - A[1][2] * A[2][0]) +
+                        A[0][2] * (A[1][0] * A[2][1] - A[1][1] * A[2][0]);
+            if (Math.abs(det) < 1e-12) return null;
+
+            const det0 = B[0] * (A[1][1] * A[2][2] - A[2][1] * A[1][2]) -
+                         A[0][1] * (B[1] * A[2][2] - A[1][2] * B[2]) +
+                         A[0][2] * (B[1] * A[2][1] - A[1][1] * B[2]);
+
+            const det1 = A[0][0] * (B[1] * A[2][2] - B[2] * A[1][2]) -
+                         B[0] * (A[1][0] * A[2][2] - A[1][2] * A[2][0]) +
+                         A[0][2] * (A[1][0] * B[2] - B[1] * A[2][0]);
+
+            const det2 = A[0][0] * (A[1][1] * B[2] - A[2][1] * B[1]) -
+                         A[0][1] * (A[1][0] * B[2] - B[1] * A[2][0]) +
+                         B[0] * (A[1][0] * A[2][1] - A[1][1] * A[2][0]);
+
+            return [det0 / det, det1 / det, det2 / det];
         }
 
         function invert3x3(A) {
