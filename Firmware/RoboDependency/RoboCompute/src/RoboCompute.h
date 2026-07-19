@@ -101,6 +101,7 @@ typedef enum
     RESET_SPEED_RUD_PID,
     WAKEUP,
     SETUPDATA,
+    ADAPTIVE_TRIM,
 	SET_AS_NORTH = 125
 } msg_t;
 
@@ -169,6 +170,10 @@ struct RoboStruct
     bool revBB = false;
     bool revSB = false;
     bool swap_BB_SB = false;
+    double compass_trim = 0.0;
+    bool compass_trim_enabled = false;
+    double pitch = 0.0;
+    double roll = 0.0;
 };
 
 struct RoboStructGps

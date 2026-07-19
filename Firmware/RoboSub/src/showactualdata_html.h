@@ -181,14 +181,37 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
             color: var(--primary);
         }
 
-        #visualizer3d {
+        .visualizer-row {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-top: 20px;
+            width: 100%;
+        }
+
+        #visualizer3d, #visualizer3d-pitchroll {
             width: 100%;
             height: 300px;
             border-radius: 8px;
             overflow: hidden;
             background: #000;
             border: 1px solid var(--border);
-            margin-top: 20px;
+            margin-top: 0;
+        }
+
+        @media (min-width: 1024px) {
+            .visualizer-row {
+                flex-direction: row;
+            }
+            #visualizer3d {
+                flex: 1.5;
+            }
+            #visualizer3d-pitchroll {
+                flex: 1.5;
+            }
+            .pitch-roll-card {
+                flex: 1;
+            }
         }
 
         .telemetry-grid {
@@ -270,13 +293,8 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
         </div>
     </header>
 
-    <div class="tabs">
-        <button id="btn-dash" class="tab-btn active" onclick="switchTab('dashboard')">Dashboard</button>
-        <button id="btn-cal" class="tab-btn" onclick="switchTab('calibration')">Calibration</button>
-    </div>
-
     <!-- DASHBOARD CONTAINER -->
-    <div id="dashboard-container" class="container active">
+    <div id="dashboard-container" class="container" style="display: grid;">
         <div class="card">
             <h2>Real-time Compasses</h2>
             <div class="windrose-grid">
@@ -383,7 +401,46 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
 
             </div>
             
-            <div id="visualizer3d"></div>
+            <div class="visualizer-row">
+                <!-- 1. FULL 3D MODEL (YAW, PITCH, ROLL) -->
+                <div id="visualizer3d"></div>
+                
+                <!-- 2. PITCH & ROLL ONLY 3D CUBE (NO YAW) -->
+                <div id="visualizer3d-pitchroll"></div>
+                
+                <!-- 3. ATTITUDE / BUBBLE LEVEL GAUGE -->
+                <div class="windrose-card pitch-roll-card" style="min-width: 250px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <h3 style="font-size: 1rem; margin-bottom: 10px; color: var(--text-color);">Attitude / Bubble Level</h3>
+                    <div style="position: relative; width: 100%; height: 180px; display: flex; align-items: center; justify-content: center;">
+                        <svg id="attitude-gauge" width="160" height="180" viewBox="0 0 200 200">
+                            <!-- Background circle -->
+                            <circle cx="100" cy="100" r="90" fill="#111827" stroke="#2d3748" stroke-width="4"/>
+                            <!-- Ring markers for 10, 20, 30 deg -->
+                            <circle cx="100" cy="100" r="30" fill="none" stroke="#4a5568" stroke-dasharray="2, 4" stroke-width="1"/>
+                            <circle cx="100" cy="100" r="60" fill="none" stroke="#4a5568" stroke-dasharray="2, 4" stroke-width="1"/>
+                            <!-- Crosshairs -->
+                            <line x1="100" y1="10" x2="100" y2="190" stroke="#4a5568" stroke-width="1.5"/>
+                            <line x1="10" y1="100" x2="190" y2="100" stroke="#4a5568" stroke-width="1.5"/>
+                            <!-- Degree labels -->
+                            <text x="100" y="65" font-size="10" fill="#718096" text-anchor="middle">10°</text>
+                            <text x="100" y="35" font-size="10" fill="#718096" text-anchor="middle">20°</text>
+                            <!-- Level Indicator Bubble (Moving dot) -->
+                            <circle id="attitude-bubble" cx="100" cy="100" r="12" fill="#38bdf8" opacity="0.8" stroke="#0284c7" stroke-width="2" style="transition: cx 0.1s ease, cy 0.1s ease;"/>
+                            <circle cx="100" cy="100" r="4" fill="#ff3333"/>
+                        </svg>
+                    </div>
+                    <div style="display: flex; justify-content: space-around; width: 100%; text-align: center; margin-top: 10px;">
+                        <div>
+                            <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Pitch</div>
+                            <div id="gauge-pitch-val" style="font-size:1.4rem; font-weight:bold; color:#ef4444;">0.0°</div>
+                        </div>
+                        <div>
+                            <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Roll</div>
+                            <div id="gauge-roll-val" style="font-size:1.4rem; font-weight:bold; color:#38bdf8;">0.0°</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             
             <div class="telemetry-grid">
                 <div class="telemetry-item">
@@ -406,52 +463,8 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
         </div>
     </div>
 
-    <!-- CALIBRATION CONTAINER -->
-    <div id="calibration-container" class="container">
-        <div class="card">
-            <h2>Magnetometer Calibration</h2>
-            <button id="btn-start-cal" class="btn" onclick="toggleCalibration()">Start Calibration</button>
-            <button id="btn-save-cal" class="btn btn-success" onclick="saveCalibration()" disabled>Store Calibration to NVM</button>
-
-            <div class="calibration-status">
-                <h4>Instructions</h4>
-                <ol style="margin-left: 20px;">
-                    <li>Click <strong>Start Calibration</strong>.</li>
-                    <li>Rotate the device in a figure-eight pattern.</li>
-                    <li>Map a sphere on the scatter plot.</li>
-                    <li>Click <strong>Stop Calibration</strong>.</li>
-                    <li>Click <strong>Store Calibration to NVM</strong>.</li>
-                </ol>
-                <div id="cal-results" style="display:none; margin-top: 12px;">
-                    <div style="font-weight:bold;">Computed Coefficients:</div>
-                    <div id="cal-coefficients" class="matrix-display">...</div>
-                </div>
-            </div>
-
-            <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--border);">
-            <h2>Accelerometer Level Calibration</h2>
-            <button id="btn-level-cal" class="btn" style="background-color: var(--secondary);" onclick="calibrateLevel()">Calibrate Flat Level</button>
-            <div id="level-cal-status" style="margin-top: 8px; font-size: 0.85rem; color: var(--text-muted); line-height: 1.3;">
-                Place the device housing on a perfectly flat horizontal surface and click the button above. 
-                This calculates any mechanical mounting misalignment of the accelerometer chip and mathematically offsets it, 
-                forcing pitch and roll to read exactly 0° when horizontal.
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>Scatter Plot</h2>
-            <canvas id="scatter-canvas" width="400" height="300"></canvas>
-            <div class="telemetry-grid">
-                <div class="telemetry-item">
-                    <div class="telemetry-label">Data Points</div>
-                    <div id="cal-pts-count" class="telemetry-value">0</div>
-                </div>
-                <div class="telemetry-item">
-                    <div class="telemetry-label">Status</div>
-                    <div id="cal-state" class="telemetry-value" style="color: var(--warning);">Idle</div>
-                </div>
-            </div>
-        </div>
+    <div style="max-width: 600px; margin: 20px auto 40px auto; padding: 0 10px;">
+        <button onclick="location.href='/'" class="btn" style="background-color: var(--card-bg); border: 1px solid var(--border); color: var(--text-main); margin-bottom: 0;">➔ Back to Main Dashboard</button>
     </div>
 
     <script>
@@ -463,14 +476,8 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
         let rotRaw = 0, rotHard = 0, rotSoft = 0, rotTilt = 0;
         let currentRoll = 0, currentPitch = 0;
 
-        let isCalibrating = false;
-        let rawPoints = [];
-        let maxPoints = 1500;
-        let hardIronOffset = [0, 0, 0];
-        let softIronScale = [1, 1, 1];
-
         let scene, camera, renderer, trackerMesh;
-        const scatterCanvas = document.getElementById('scatter-canvas');
+        let scene2, camera2, renderer2, trackerMesh2;
 
         function getShortestRotation(current, target) {
             target = (target % 360 + 360) % 360;
@@ -484,43 +491,28 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
         window.addEventListener('load', () => {
             initThreeJS();
             initWebSockets();
-            drawScatter();
-            setInterval(() => { if (isCalibrating) drawScatter(); }, 100);
         });
-
-        function switchTab(tabId) {
-            activeTab = tabId;
-            document.querySelectorAll('.container').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-
-            if (tabId === 'dashboard') {
-                document.getElementById('dashboard-container').classList.add('active');
-                document.getElementById('btn-dash').classList.add('active');
-                if (renderer) {
-                    const c = document.getElementById('visualizer3d');
-                    renderer.setSize(c.clientWidth, c.clientHeight);
-                }
-            } else {
-                document.getElementById('calibration-container').classList.add('active');
-                document.getElementById('btn-cal').classList.add('active');
-                drawScatter();
-            }
-        }
 
         function initWebSockets() {
             document.getElementById('status-dot').className = 'status-dot connected';
             document.getElementById('status-text').innerText = 'Polling Active';
 
-            setInterval(() => {
+            function poll() {
                 fetch('/data')
                     .then(response => response.json())
                     .then(data => {
                         headingRaw = data.raw;
                         headingHard = data.hard;
                         headingSoft = data.hardSoft;
-                        headingTilt = data.icm;
-                        currentRoll = data.ir;
-                        currentPitch = data.ip;
+                        // Un-mirror the ESP32's output for correct UI windrose rotation direction (N -> E/O -> S -> W)
+                        headingTilt = 360 - data.icm;
+                        if (headingTilt >= 360) headingTilt -= 360;
+                        let rollVal = Number(data.roll !== undefined ? data.roll : (data.ir || 0));
+                        let pitchVal = Number(data.pitch !== undefined ? data.pitch : (data.ip || 0));
+                        if (isNaN(rollVal)) rollVal = 0;
+                        if (isNaN(pitchVal)) pitchVal = 0;
+                        currentRoll = rollVal;
+                        currentPitch = pitchVal;
 
                         document.getElementById('val-rose-raw').innerText = Math.round(headingRaw).toString().padStart(3, '0') + '°';
                         document.getElementById('val-rose-hard').innerText = Math.round(headingHard).toString().padStart(3, '0') + '°';
@@ -541,12 +533,6 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                         rotTilt = getShortestRotation(rotTilt, headingTilt);
                         document.getElementById('rose-tilt-needle').style.transform = `rotate(${rotTilt}deg)`;
 
-                        if (isCalibrating) {
-                            rawPoints.push([data.mx_raw, data.my_raw, data.mz_raw]);
-                            if (rawPoints.length > maxPoints) rawPoints.shift();
-                            document.getElementById('cal-pts-count').innerText = rawPoints.length;
-                        }
-
                         if (trackerMesh) {
                             const yawRad = -headingTilt * Math.PI / 180;
                             const pitchRad = currentPitch * Math.PI / 180;
@@ -554,15 +540,50 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                             trackerMesh.rotation.order = 'YXZ';
                             trackerMesh.rotation.set(pitchRad, yawRad, rollRad);
                         }
+
+                        // Update Attitude Bubble Level indicator
+                        const bubble = document.getElementById('attitude-bubble');
+                        if (bubble) {
+                            const scale = 3.0; // 3 pixels per degree of tilt
+                            let dx = currentRoll * scale;
+                            let dy = -currentPitch * scale; // Invert pitch to make dot move UP when nose is pitched UP
+                            
+                            const dist = Math.sqrt(dx*dx + dy*dy);
+                            if (dist > 80) { // Keep dot within safety circle boundary
+                                dx = (dx / dist) * 80;
+                                dy = (dy / dist) * 80;
+                            }
+                            bubble.setAttribute('cx', (100 + dx).toFixed(1));
+                            bubble.setAttribute('cy', (100 + dy).toFixed(1));
+                        }
+                        const gpVal = document.getElementById('gauge-pitch-val');
+                        if (gpVal) gpVal.innerText = currentPitch.toFixed(1) + '°';
+                        const grVal = document.getElementById('gauge-roll-val');
+                        if (grVal) grVal.innerText = currentRoll.toFixed(1) + '°';
+
+                        if (trackerMesh2) {
+                            const pitchRad = currentPitch * Math.PI / 180;
+                            const rollRad = -currentRoll * Math.PI / 180;
+                            const yawRad = 0; // Lock Yaw to 0!
+                            trackerMesh2.rotation.order = 'YXZ';
+                            trackerMesh2.rotation.set(pitchRad, yawRad, rollRad);
+                        }
+
+                        // Schedule next poll - constant 100ms when idle/telemetry viewing
+                        setTimeout(poll, 100);
                     })
                     .catch(e => {
+                        console.error("Poll error on dashboard:", e);
                         document.getElementById('status-dot').className = 'status-dot';
                         document.getElementById('status-text').innerText = 'Polling Error';
+                        setTimeout(poll, 2000);
                     });
-            }, 100);
+            }
+            poll();
         }
 
         function initThreeJS() {
+            // --- First visualizer (Full 3D) ---
             const container = document.getElementById('visualizer3d');
             scene = new THREE.Scene();
             scene.background = new THREE.Color('#0b0f19');
@@ -589,108 +610,63 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
             trackerMesh.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 0.1, 0), 1.4, 0xef4444));
             scene.add(trackerMesh);
 
+            // --- Second visualizer (Pitch & Roll Only Cube) ---
+            const container2 = document.getElementById('visualizer3d-pitchroll');
+            if (container2) {
+                scene2 = new THREE.Scene();
+                scene2.background = new THREE.Color('#0b0f19');
+                camera2 = new THREE.PerspectiveCamera(45, container2.clientWidth / container2.clientHeight, 0.1, 100);
+                camera2.position.set(3, 2, 3);
+                camera2.lookAt(0, 0, 0);
+
+                renderer2 = new THREE.WebGLRenderer({ antialias: true });
+                renderer2.setSize(container2.clientWidth, container2.clientHeight);
+                container2.appendChild(renderer2.domElement);
+
+                scene2.add(new THREE.AmbientLight(0xffffff, 0.6));
+                const dl2 = new THREE.DirectionalLight(0xffffff, 0.8);
+                dl2.position.set(5, 8, 5);
+                scene2.add(dl2);
+
+                const grid2 = new THREE.GridHelper(4, 10, 0xa855f7, 0x1e293b); // Purple grid for distinction!
+                grid2.position.y = -1;
+                scene2.add(grid2);
+
+                trackerMesh2 = new THREE.Group();
+                const materials = [
+                    new THREE.MeshLambertMaterial({ color: 0xef4444 }), // Front (Red)
+                    new THREE.MeshLambertMaterial({ color: 0x3b82f6 }), // Back (Blue)
+                    new THREE.MeshLambertMaterial({ color: 0x10b981 }), // Top (Green)
+                    new THREE.MeshLambertMaterial({ color: 0xf59e0b }), // Bottom (Orange)
+                    new THREE.MeshLambertMaterial({ color: 0xbc8cff }), // Left (Purple)
+                    new THREE.MeshLambertMaterial({ color: 0x06b6d4 })  // Right (Cyan)
+                ];
+                const cube = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), materials);
+                trackerMesh2.add(cube);
+                trackerMesh2.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 0.61, 0), 1.0, 0xffffff));
+                scene2.add(trackerMesh2);
+            }
+
             window.addEventListener('resize', () => {
-                if (activeTab === 'dashboard') {
-                    camera.aspect = container.clientWidth / container.clientHeight;
-                    camera.updateProjectionMatrix();
-                    renderer.setSize(container.clientWidth, container.clientHeight);
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+
+                if (container2) {
+                    camera2.aspect = container2.clientWidth / container2.clientHeight;
+                    camera2.updateProjectionMatrix();
+                    renderer2.setSize(container2.clientWidth, container2.clientHeight);
                 }
             });
 
             function animate() {
                 requestAnimationFrame(animate);
                 renderer.render(scene, camera);
+                if (renderer2) {
+                    renderer2.render(scene2, camera2);
+                }
             }
             animate();
-        }
-
-        function drawScatter() {
-            const ctx = scatterCanvas.getContext('2d');
-            const w = scatterCanvas.width, h = scatterCanvas.height;
-
-            ctx.fillStyle = '#0f172a';
-            ctx.fillRect(0, 0, w, h);
-            ctx.strokeStyle = '#334155';
-            ctx.beginPath(); ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h); ctx.stroke();
-
-            if (rawPoints.length === 0) return;
-
-            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
-            rawPoints.forEach(p => {
-                if(p[0]<minX)minX=p[0]; if(p[0]>maxX)maxX=p[0];
-                if(p[1]<minY)minY=p[1]; if(p[1]>maxY)maxY=p[1];
-                if(p[2]<minZ)minZ=p[2]; if(p[2]>maxZ)maxZ=p[2];
-            });
-            const pad = 30;
-            minX-=pad; maxX+=pad; minY-=pad; maxY+=pad; minZ-=pad; maxZ+=pad;
-
-            const map = (v, min, max, outMin, outMax) => (v - min) * (outMax - outMin) / (max - min) + outMin;
-
-            ctx.fillStyle = 'rgba(59, 130, 246, 0.8)';
-            rawPoints.forEach(p => ctx.fillRect(map(p[0], minX, maxX, 15, w/2-15), map(p[1], minY, maxY, h-15, 25), 2, 2));
-
-            ctx.fillStyle = 'rgba(16, 185, 129, 0.8)';
-            rawPoints.forEach(p => ctx.fillRect(map(p[1], minY, maxY, w/2+15, w-15), map(p[2], minZ, maxZ, h-15, 25), 2, 2));
-        }
-
-        function toggleCalibration() {
-            const btn = document.getElementById('btn-start-cal');
-            const state = document.getElementById('cal-state');
-
-            if (!isCalibrating) {
-                isCalibrating = true;
-                rawPoints = [];
-                btn.innerText = 'Stop & Calculate Calibration';
-                btn.className = 'btn btn-danger';
-                state.innerText = 'Calibrating...';
-                state.style.color = 'var(--danger)';
-                document.getElementById('btn-save-cal').disabled = true;
-            } else {
-                isCalibrating = false;
-                btn.innerText = 'Start Calibration';
-                btn.className = 'btn';
-                state.innerText = 'Complete';
-                state.style.color = 'var(--success)';
-                calculateCalibrationCoefficients();
-            }
-        }
-
-        function calculateCalibrationCoefficients() {
-            if (rawPoints.length < 50) return alert("Need more points!");
-
-            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
-            rawPoints.forEach(p => {
-                if(p[0]<minX)minX=p[0]; if(p[0]>maxX)maxX=p[0];
-                if(p[1]<minY)minY=p[1]; if(p[1]>maxY)maxY=p[1];
-                if(p[2]<minZ)minZ=p[2]; if(p[2]>maxZ)maxZ=p[2];
-            });
-
-            hardIronOffset = [(maxX+minX)/2, (maxY+minY)/2, (maxZ+minZ)/2];
-            const rx = (maxX-minX)/2, ry = (maxY-minY)/2, rz = (maxZ-minZ)/2;
-            const avg = (rx+ry+rz)/3;
-            softIronScale = [avg/rx, avg/ry, avg/rz];
-
-            document.getElementById('cal-results').style.display = 'block';
-            document.getElementById('cal-coefficients').innerText = `Hard: ${hardIronOffset.map(v=>v.toFixed(2)).join(', ')}\nSoft: ${softIronScale.map(v=>v.toFixed(4)).join(', ')}`;
-            document.getElementById('btn-save-cal').disabled = false;
-        }
-
-        function saveCalibration() {
-            if (!wsConnected) return;
-            ws.send(JSON.stringify({
-                command: 'save_cal',
-                hi_x: hardIronOffset[0], hi_y: hardIronOffset[1], hi_z: hardIronOffset[2],
-                si_x: softIronScale[0], si_y: softIronScale[1], si_z: softIronScale[2]
-            }));
-            alert("Saved!");
-        }
-
-        function calibrateLevel() {
-            if (!wsConnected) return;
-            ws.send(JSON.stringify({
-                command: 'calibrate_level'
-            }));
-            alert("Level calibration saved!");
         }
     </script>
 </body>

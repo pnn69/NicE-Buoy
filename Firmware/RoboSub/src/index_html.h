@@ -24,7 +24,11 @@ button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:poin
 .cal-msg{color:#ffcc00;font-size:0.9em;margin:5px 0;min-height:1.2em;font-weight:bold}
 </style></head><body>
 <h2 id="mainTitle">NicE-Buoy Sub</h2>
-<div class="info"><span>Heading: <span id="icmVal" class="icm">0</span>&deg;</span></div>
+<div class="info">
+    <span>Heading: <span id="icmVal" class="icm">0</span>&deg;</span>
+    <span style="font-size:0.85em; margin-left:15px; color:#aaa;">P: <span id="pitchVal" style="color:#00e6ff;font-weight:bold;">0.0</span>&deg;</span>
+    <span style="font-size:0.85em; margin-left:15px; color:#aaa;">R: <span id="rollVal" style="color:#00e6ff;font-weight:bold;">0.0</span>&deg;</span>
+</div>
 <div style="display:flex;justify-content:center;gap:15px;align-items:center;margin:5px 0;min-height:1.2em;">
 <div id="subStatus" style="color:#00d1ff;font-size:0.9em;font-weight:bold;">STATE: UNKNOWN</div>
 <div id="calMsg" class="cal-msg" style="margin:0;">Initializing...</div>
@@ -79,8 +83,16 @@ button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:poin
 <div class="raw-box"><b>Compass</b>
 <div class="axis-row">Off:<input type="number" id="coff_in"><button onclick="setParam('coff')">Set</button></div>
 <div class="axis-row">Rad:<input type="number" step="0.1" id="holdrad_in"><button onclick="setParam('holdrad')">Set</button></div>
+<div class="axis-row">Avg:<input type="number" id="cavg_in" min="1" max="200"><button onclick="setParam('cavg')">Set</button></div>
 <button onclick="setAsNorth()" style="background:#ffcc00;color:#1a1a1a;width:100%;margin-top:8px;font-weight:bold;height:35px;border-radius:4px;border:none;cursor:pointer;">Set Current as North</button>
 <div style="font-size:0.95em;font-family:monospace;color:#aaa;margin-top:8px;text-align:center;line-height:1.4;font-weight:600;">Loaded Profile (NVS):<br><span id="main_cal_load" style="color:#ffcc00">Loading...</span><br>Selected Mode:<br><span id="main_icm_mode" style="color:#58a6ff">Loading...</span></div>
+</div>
+<div class="raw-box"><b>Adaptive Trim</b>
+<div class="axis-row" style="margin-bottom:0;">Trim:<span id="val_ctrim" style="font-weight:bold;color:#ffcc00;font-size:1.15em;">0.00°</span></div>
+<div style="display:flex;gap:6px;margin-top:8px;width:100%;">
+<button id="btn_trim_toggle" onclick="toggleTrim()" style="flex:1.2;font-weight:bold;height:32px;border-radius:4px;border:none;cursor:pointer;background:#58a6ff;color:#0d1117;font-size:0.9em;transition:all 0.15s;">Enable</button>
+<button onclick="clearTrim()" style="flex:0.8;font-weight:bold;height:32px;border-radius:4px;border:none;cursor:pointer;background:#f85149;color:white;font-size:0.9em;">Clear</button>
+</div>
 </div>
 <div class="raw-box"><b>Speed Limits</b>
 <div class="axis-row">Min:<input type="number" id="minspd_in"><button onclick="setParam('minspd')">Set</button></div>
@@ -149,6 +161,13 @@ function fetchData(){
             irElem.innerText = d.ir.toFixed(2);
         }
         
+        if (d.pitch !== undefined) {
+            document.getElementById('pitchVal').innerText = d.pitch.toFixed(1);
+        }
+        if (d.roll !== undefined) {
+            document.getElementById('rollVal').innerText = d.roll.toFixed(1);
+        }
+        
         if (d.rev !== undefined) {
             if (lastParamRev !== -1 && d.rev > lastParamRev) {
                 fetchParams();
@@ -182,13 +201,47 @@ function fetchData(){
             const pct = Math.max(0, Math.min(100, ((c + 20) / 40) * 100));
             bar.style.width = pct + '%';
         }
+
+        if (d.ctrim !== undefined && d.ctrim_en !== undefined) {
+            const t = d.ctrim;
+            const en = d.ctrim_en == 1;
+            console.log("Telemetry received -> ctrim:", t, "ctrim_en:", en);
+            currentTrimEnabled = en;
+            const valElem = document.getElementById('val_ctrim');
+            if (valElem) {
+                valElem.innerText = (t >= 0 ? '+' : '') + t.toFixed(2) + '°' + (en ? ' (Enabled)' : ' (Disabled)');
+                valElem.style.color = en ? '#56d364' : '#ffcc00'; // Green if enabled, yellow if disabled
+            }
+            const btnElem = document.getElementById('btn_trim_toggle');
+            if (btnElem) {
+                if (en) {
+                    btnElem.innerText = 'Disable';
+                    btnElem.style.backgroundColor = '#f85149';
+                    btnElem.style.color = 'white';
+                } else {
+                    btnElem.innerText = 'Enable';
+                    btnElem.style.backgroundColor = '#58a6ff';
+                    btnElem.style.color = '#0d1117';
+                }
+            }
+        }
         
-        rotTilt = getShortestRotation(rotTilt, d.icm);
+        rotTilt = getShortestRotation(rotTilt, 360 - d.icm);
         document.getElementById('rose-tilt-needle').style.transform = `rotate(${rotTilt}deg)`;
     })
     .catch(e=>{
         console.error("fetchData failed:", e);
     });
+}
+let currentTrimEnabled = false;
+function toggleTrim() {
+    const nextState = currentTrimEnabled ? 0 : 1;
+    console.log("toggleTrim clicked. currentTrimEnabled:", currentTrimEnabled, "nextState:", nextState);
+    fetch(`/setparam?p=ctrim_en&v=${nextState}`).then(() => setTimeout(fetchParams, 100));
+}
+function clearTrim() {
+    console.log("clearTrim clicked. Clearing trim instantly.");
+    fetch(`/setparam?p=ctrim_clr&v=1`).then(() => setTimeout(fetchParams, 100));
 }
 function setParam(p){const e=document.getElementById(p+'_in');if(!e)return;fetch('/setparam?p='+p+'&v='+e.value).then(()=>setTimeout(fetchParams,300))}
 function setAsNorth(){
@@ -203,7 +256,7 @@ function setAsNorth(){
         })
         .catch(e => console.error('Network error: ' + e));
 }
-function fetchParams(){fetch('/params?t='+Date.now()).then(r=>r.json()).then(d=>{let missing=false;['kpr','kir','kdr','kps','kis','kds','coff','pvspd','revbb','revsb','tswap','minspd','maxspd','holdrad'].forEach(p=>{const e=document.getElementById(p+'_in');if(e){if(d[p]!==undefined){if(document.activeElement!==e)e.value=d[p]}else missing=true}});if(missing||Object.keys(d).length<5)setTimeout(fetchParams,1000)}).catch(e=>{console.error(e);setTimeout(fetchParams,1000)})}
+function fetchParams(){fetch('/params?t='+Date.now()).then(r=>r.json()).then(d=>{let missing=false;['kpr','kir','kdr','kps','kis','kds','coff','pvspd','revbb','revsb','tswap','minspd','maxspd','holdrad','cavg'].forEach(p=>{const e=document.getElementById(p+'_in');if(e){if(d[p]!==undefined){if(document.activeElement!==e)e.value=d[p]}else missing=true}});if(missing||Object.keys(d).length<5)setTimeout(fetchParams,1000)}).catch(e=>{console.error(e);setTimeout(fetchParams,1000)})}
 fetchParams();
 
 setInterval(fetchData, 100);

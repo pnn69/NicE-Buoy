@@ -53,7 +53,7 @@ void battCurrent(float &current_a)
     // 100mV → ≈ -19.4 A
     // 1650 mV → 0 A
     // 2000 mV → ≈ +4.3 A
-    printf("Raw adc IMON %d\r\n",adc_mv);
+    // printf("Raw adc IMON %d\r\n",adc_mv);
     float instant_current = (float)(adc_mv - 1650) * (4.0 * (4700/1500.0f))/1000.0f; // Convert to Amperes
 
     if (first_read_i) {

@@ -41,14 +41,13 @@ void initMemory(void)
         storage.remove("Doclon");
     }
 
-    // 2. Check if this is a fresh processor or if we need a data fix
+    // 2. Check if this is a fresh processor or if NVS has been cleared
     unsigned long id = espMac();
     uint64_t stored_id = storage.getULong64("NicE_BuoyID", 0);
-    double kpr_check = storage.getDouble("Kpr", 1.0);
-    int maxSpeed_check = storage.getInt("maxSpeed", 0);
 
-    // If Kpr is detected to be a Speed P value (e.g. 20.0), or if parameters are zeroed/corrupted, reset to defaults
-    if (id != stored_id || kpr_check > 10.0 || kpr_check == 0.0 || maxSpeed_check == 0)
+    // Only reset to defaults on a completely fresh/cleared NVS partition (when stored_id is 0)
+    // This respects the operator's custom PIDs, speed limits, and prevents unwanted resets on reboot!
+    if (stored_id == 0 || id != stored_id)
     {
         storage.putULong64("NicE_BuoyID", id);
         storage.putDouble("Docklat", 0.0);
@@ -531,6 +530,47 @@ void memIcmCalib(float *hi, float *si, bool get)
         storage.putFloat("icm_si_zz", si_matrix[2][2]);
         
         Serial.printf("memIcmCalib: SAVED -> HI: [%.4f, %.4f, %.4f], SI diagonal: [%.4f, %.4f, %.4f]\n", hi[0], hi[1], hi[2], si[0], si[1], si[2]);
+    }
+    stopMem();
+}
+
+/**
+ * @brief Reads or writes the Compass Heading Averaging length (cavg) to Preferences NVM.
+ */
+void memCompassAvg(int *avg, bool get)
+{
+    startMem();
+    if (get)
+    {
+        *avg = storage.getInt("cavg", 1);
+        if (*avg < 1) *avg = 1;
+        if (*avg > 200) *avg = 200;
+    }
+    else
+    {
+        storage.putInt("cavg", *avg);
+    }
+    stopMem();
+}
+
+/**
+ * @brief Reads or writes the Adaptive Waypoint Bias Trim (compass_trim) to Preferences NVM.
+ */
+void memCompassTrim(float *trim, bool *enabled, bool get)
+{
+    startMem();
+    if (get)
+    {
+        *trim = storage.getFloat("c_trim", 0.0f);
+        *enabled = storage.getBool("c_trim_en", false); // Disabled by default!
+        if (!isfinite(*trim) || *trim < -15.0f || *trim > 15.0f) {
+            *trim = 0.0f;
+        }
+    }
+    else
+    {
+        storage.putFloat("c_trim", *trim);
+        storage.putBool("c_trim_en", *enabled);
     }
     stopMem();
 }

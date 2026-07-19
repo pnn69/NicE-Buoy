@@ -230,9 +230,13 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->magSoft[2][2] = numbers[10].toDouble();
         break;
     case STORE_COMPASS_OFFSET:
-        dataStore->compassOffset = numbers[2].toDouble();
+        dataStore->compass_trim = numbers[2].toDouble();
         break;
     case SET_AS_NORTH:
+        break;
+    case ADAPTIVE_TRIM:
+        dataStore->compass_trim = numbers[2].toDouble();
+        if (count > 3) dataStore->compass_trim_enabled = (bool)numbers[3].toInt();
         break;
     default:
         printf("RoboDecode: Unknown CMD %d\r\n", dataStore->cmd);
@@ -259,7 +263,7 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + formatFloat(dataOut->pivotSpeed, 2);
         out += "," + formatFloat(dataOut->compassOffset, 2);
         out += "," + formatFloat(dataOut->holdRad, 2);
-        out += "," + String((int)dataOut->revBB);
+        out += "," + String((int)dataOut->compass_trim_enabled);
         out += "," + String((int)dataOut->revSB);
         out += "," + String((int)dataOut->swap_BB_SB);
         break;
@@ -417,6 +421,10 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + formatFloat(dataOut->compassOffset, 2);
         break;
     case SET_AS_NORTH:
+        break;
+    case ADAPTIVE_TRIM:
+        out += "," + formatFloat(dataOut->compass_trim, 4);
+        out += "," + String((int)dataOut->compass_trim_enabled);
         break;
     case DOCKED:
     case LOCKED:

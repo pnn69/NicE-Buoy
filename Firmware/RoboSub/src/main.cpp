@@ -472,6 +472,39 @@ void handelSerandRfdata(RoboStruct *ser)
                     xQueueSend(serOut, (void *)&response, 10);
                 }
                 break;
+            case ADAPTIVE_TRIM:
+                if (dataIn.ack == GET || dataIn.ack == GETACK)
+                {
+                    RoboStruct response = mainData;
+                    response.IDr = dataIn.IDs;
+                    response.cmd = ADAPTIVE_TRIM;
+                    response.ack = INF;
+                    response.compass_trim = mainData.compass_trim;
+                    response.compass_trim_enabled = mainData.compass_trim_enabled;
+                    xQueueSend(serOut, (void *)&response, 10);
+                }
+                else if (dataIn.ack == SET)
+                {
+                    mainData.compass_trim = dataIn.compass_trim;
+                    mainData.compass_trim_enabled = dataIn.compass_trim_enabled;
+                    
+                    if (mainData.compass_trim < -15.0f) mainData.compass_trim = -15.0f;
+                    if (mainData.compass_trim > 15.0f) mainData.compass_trim = 15.0f;
+                    
+                    float trim_val = (float)mainData.compass_trim;
+                    bool trim_en = mainData.compass_trim_enabled;
+                    memCompassTrim(&trim_val, &trim_en, SET);
+                    global_params_rev++;
+
+                    RoboStruct response = mainData;
+                    response.IDr = dataIn.IDs;
+                    response.cmd = ADAPTIVE_TRIM;
+                    response.ack = INF;
+                    response.compass_trim = mainData.compass_trim;
+                    response.compass_trim_enabled = mainData.compass_trim_enabled;
+                    xQueueSend(serOut, (void *)&response, 10);
+                }
+                break;
             case STORE_DECLINATION:
                 printf("Declinaton set to: %f", dataIn.declination);
                 Declination(&dataIn, SET);
@@ -825,6 +858,40 @@ void handleTimerRoutines(RoboStruct *in)
         }
     }
 
+    static unsigned long nextTrimSendTime = 0;
+    if (nextTrimSendTime < millis()) {
+        nextTrimSendTime = 1000 + millis(); // Every 1 second (fast update!)
+        
+        RoboStruct trimMsg = {};
+        trimMsg.IDs = mainData.mac;
+        trimMsg.IDr = BUOYIDALL;
+        trimMsg.cmd = ADAPTIVE_TRIM;
+        trimMsg.ack = INF;
+        trimMsg.compass_trim = mainData.compass_trim;
+        trimMsg.compass_trim_enabled = mainData.compass_trim_enabled;
+        
+        xQueueSend(serOut, (void *)&trimMsg, 0);
+    }
+
+    static unsigned long nextTrimSaveTime = 0;
+    if (nextTrimSaveTime < millis()) {
+        nextTrimSaveTime = 15000 + millis(); // Check every 15 seconds
+        
+        static double last_saved_trim = -999.0;
+        static int last_saved_en = -1;
+        
+        int current_en = mainData.compass_trim_enabled ? 1 : 0;
+        if (abs(mainData.compass_trim - last_saved_trim) > 0.02 || current_en != last_saved_en) {
+            last_saved_trim = mainData.compass_trim;
+            last_saved_en = current_en;
+            
+            float trim_val = (float)mainData.compass_trim;
+            bool trim_en = mainData.compass_trim_enabled;
+            memCompassTrim(&trim_val, &trim_en, SET);
+            printf("Background Saved Compass Trim -> Val: %.3f, En: %d\r\n", trim_val, trim_en);
+        }
+    }
+
     /* 
      * Telemetry and Logging Interval Update:
      * Reduced logtimer interval from 1000ms to 500ms to increase logging resolution.
@@ -839,7 +906,7 @@ void handleTimerRoutines(RoboStruct *in)
         battVoltage(mainData.subAccuV, mainData.subAccuP);
         battCurrent(mainData.subAccuI);
         printf("C:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", mainData.dirMag, rudderOutput, mainData.speedBb, mainData.speedSb);
-        printf("  ip: %05.3f ir: %05.3f %0.2fV %0.2fA\r\n", mainData.ip, mainData.ir, mainData.subAccuV, mainData.subAccuI);
+        printf("  Is: %05.3f Ir: %05.3f P: %05.1f R: %05.1f %0.2fV %0.2fA\r\n", mainData.ip, mainData.ir, mainData.pitch, mainData.roll, mainData.subAccuV, mainData.subAccuI);
     }
 }
 

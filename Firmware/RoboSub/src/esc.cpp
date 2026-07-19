@@ -109,8 +109,17 @@ void EscTask(void *arg)
     offStamp = millis() + 60000; // 60s initial grace period
     printf("ESC control task started.\r\n");
     
+    extern bool global_is_calibrating;
     while (1)
     {
+        if (global_is_calibrating) {
+            servoBB.writeMicroseconds(1500); // Force neutral thrusters during calibration for safety and efficiency
+            servoSB.writeMicroseconds(1500);
+            spsb = 0; spbb = 0; spsbAct = 0; spbbAct = 0;
+            vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
+        }
+
         // Check for new speed commands
         if (xQueueReceive(escspeed, (void *)&rcv_msg, 0) == pdTRUE)
         {

@@ -267,26 +267,19 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
     </style>
 </head>
 <body>
-    <!-- Instructions Overlay Modal -->
-    <div id="instructionModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(13,17,23,0.95); z-index:9999; justify-content:center; align-items:center; flex-direction:column; padding:30px; text-align:center;">
-        <h1 style="color:var(--warning); font-size:32px; margin-bottom:20px; font-weight:bold; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Calibration Instructions</h1>
-        <p style="color:var(--text-main); font-size:22px; max-width:550px; line-height:1.6; margin-bottom:30px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; font-weight:500;">
-            Rotate the buoy slowly 360&deg; in all directions.<br>
-            Tilt it up and down in a slow figure-8 pattern.<br>
-            Keep rotating until points form a dense circle.
-        </p>
-        <div id="countdownTimer" style="font-size:54px; font-weight:bold; color:var(--primary); font-family:monospace; background:#161b22; padding:10px 30px; border-radius:12px; border:1px solid var(--border-color);">10</div>
-    </div>
+
 
     <!-- Co-Pilot Sticky Bottom Status and Hint Bar -->
     <div id="calibrationCoPilot" style="position: fixed; bottom: 0; left: 0; width: 100%; background: #161b22; border-top: 4px solid var(--warning); padding: 20px; z-index: 9999; display: none; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 -8px 20px rgba(0,0,0,0.6);">
         <!-- Large High-Visibility Percentages inside structured blocks -->
-        <div id="coPilotStats" style="font-size: 32px; font-weight: 900; color: var(--text-main); font-family: monospace; margin-bottom: 12px; letter-spacing: 1px; text-align: center; width: 100%; display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px;">
-            <div style="background:#0d1117; padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border-color); min-width: 110px;">Q1: <span id="cpQ1" style="color:var(--primary);">0%</span></div>
-            <div style="background:#0d1117; padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border-color); min-width: 110px;">Q2: <span id="cpQ2" style="color:var(--primary);">0%</span></div>
-            <div style="background:#0d1117; padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border-color); min-width: 110px;">Q3: <span id="cpQ3" style="color:var(--primary);">0%</span></div>
-            <div style="background:#0d1117; padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border-color); min-width: 110px;">Q4: <span id="cpQ4" style="color:var(--primary);">0%</span></div>
-            <div style="background:#0d1117; padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border-color); min-width: 110px; border-color: var(--accent);">Tilt: <span id="cpTilt" style="color:var(--accent);">0%</span></div>
+        <div id="coPilotStats" style="font-size: 24px; font-weight: 900; color: var(--text-main); font-family: monospace; margin-bottom: 12px; letter-spacing: 1px; text-align: center; width: 100%; display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px;">
+            <div style="background:#0d1117; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color); min-width: 80px;">Q1: <span id="cpQ1" style="color:var(--primary);">0%</span></div>
+            <div style="background:#0d1117; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color); min-width: 80px;">Q2: <span id="cpQ2" style="color:var(--primary);">0%</span></div>
+            <div style="background:#0d1117; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color); min-width: 80px;">Q3: <span id="cpQ3" style="color:var(--primary);">0%</span></div>
+            <div style="background:#0d1117; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color); min-width: 80px;">Q4: <span id="cpQ4" style="color:var(--primary);">0%</span></div>
+            <div style="background:#0d1117; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color); min-width: 80px; border-color: var(--accent);">XZ: <span id="cpXZ" style="color:var(--accent);">0%</span></div>
+            <div style="background:#0d1117; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color); min-width: 80px; border-color: var(--accent);">YZ: <span id="cpYZ" style="color:var(--success);">0%</span></div>
+            <div style="background:#0d1117; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color); min-width: 80px; border-color: var(--accent);">Tilt: <span id="cpTilt" style="color:var(--accent);">0%</span></div>
         </div>
         <div id="coPilotHint" style="font-size: 20px; font-weight: bold; color: var(--warning); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; line-height: 1.4;">
             ➔ Hint: Waiting for sensor data stream...
@@ -301,15 +294,15 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
         </header>
 
         <div class="card">
-            <h2>Interactive 3D Sphere Plotter (Proj: X/Y)</h2>
-            
-            <div class="cal-points-visual" id="calCanvas">
-                <svg width="100%" height="100%" id="calSvg">
-                    <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(255,255,255,0.05)" />
-                    <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(255,255,255,0.05)" />
-                    <g id="pointsGroup"></g>
-                </svg>
-                <div class="cal-point-count" id="pointCount">Points: 0</div>
+            <h2 style="margin-bottom: 5px;">Interactive Scatter Plot Projections</h2>
+            <div style="display: flex; justify-content: space-around; width: 100%; margin-bottom: 8px; font-size: 0.85rem; font-weight: bold; text-align: center;">
+                <div style="flex: 1; color: var(--primary, #58a6ff);">◀ X vs Y (Horizontal Plane)</div>
+                <div style="flex: 1; color: var(--success, #56d364);">Y vs Z (Vertical Plane) ▶</div>
+            </div>
+
+            <div class="cal-points-visual" id="calCanvas" style="padding: 0; background: none; border: none; height: 300px; position: relative;">
+                <canvas id="scatterCanvas" style="width: 100%; height: 100%; border-radius: 6px; border: 1px solid var(--border-color); background: #0d1117; display: block;"></canvas>
+                <div class="cal-point-count" id="pointCount" style="position: absolute; bottom: 10px; right: 15px; background: rgba(0,0,0,0.5); padding: 2px 6px; border-radius: 4px;">Points: 0</div>
             </div>
 
             <div class="cal-stats-grid">
@@ -389,9 +382,14 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
     <script>
         let isCalibrating = false;
         let calPoints = [];
-        let maxPoints = 1200; // Expanded memory cache to safely buffer full multi-quadrant tilt maneuvers
+        let maxPoints = 2000; // Expanded memory cache to safely buffer full multi-quadrant tilt maneuvers
         let pollTimer = null;
         let icmModeLoaded = false;
+        let enoughPointsMet = false;
+        let calTimeoutTimer = null;
+        let globalCovXY = Array(12).fill(false);
+        let globalCovXZ = Array(12).fill(false);
+        let globalCovYZ = Array(12).fill(false);
 
         // Bounding limits for calibration solver
         let minX = Infinity, maxX = -Infinity;
@@ -401,12 +399,16 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
         // Final calibration parameters
         let hix = 0.0, hiy = 0.0, hiz = 0.0;
         let six = 1.0, siy = 1.0, siz = 1.0;
+        let siMatrix = [
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0]
+        ];
 
         const statusBadge = document.getElementById('status');
         const btnCal = document.getElementById('btnCal');
         const btnSave = document.getElementById('btnSave');
         const pointCount = document.getElementById('pointCount');
-        const pointsGroup = document.getElementById('pointsGroup');
         const calHiVal = document.getElementById('calHiVal');
         const calSiVal = document.getElementById('calSiVal');
 
@@ -429,9 +431,13 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
             fetch('/data')
                 .then(r => r.json())
                 .then(data => {
-                    // Update raw points if calibrating
-                    if (isCalibrating && data.mx_raw !== undefined && data.my_raw !== undefined && data.mz_raw !== undefined) {
-                        processRawPoint(data.mx_raw, data.my_raw, data.mz_raw);
+                    // Update raw points if calibrating (handles both batched array of points and single-point fallback)
+                    if (isCalibrating) {
+                        if (data.points !== undefined && Array.isArray(data.points)) {
+                            data.points.forEach(p => processRawPoint(p[0], p[1], p[2]));
+                        } else if (data.mx_raw !== undefined && data.my_raw !== undefined && data.mz_raw !== undefined) {
+                            processRawPoint(data.mx_raw, data.my_raw, data.mz_raw);
+                        }
                     }
                     
                     // Update persistence fields (Always update so user sees NVS state!)
@@ -461,9 +467,15 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                         b.style.color = '#fff';
                         b.innerText = 'ICM Active';
                     }
+
+                    // Schedule next poll - relaxed to 100ms for perfect HTTP stability while capturing 100% of points via the ESP32 ring buffer!
+                    const interval = isCalibrating ? 100 : 500;
+                    pollTimer = setTimeout(pollData, interval);
                 })
                 .catch(err => {
                     console.error("Poll error", err);
+                    const interval = isCalibrating ? 1000 : 2000;
+                    pollTimer = setTimeout(pollData, interval);
                 });
         }
 
@@ -471,6 +483,22 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
             // Immediate outlier filter: Discard absolute sensor glitches (zeros or extreme spikes)
             if (x === 0 && y === 0 && z === 0) return;
             if (Math.abs(x) > 1000 || Math.abs(y) > 1000 || Math.abs(z) > 1000) return;
+
+            // Distance-based jump filter to discard brief I2C read glitches or electromagnetic spikes
+            if (calPoints.length > 10) {
+                let avgX = 0, avgY = 0, avgZ = 0;
+                const lastN = calPoints.slice(-10);
+                lastN.forEach(p => { avgX += p.x; avgY += p.y; avgZ += p.z; });
+                avgX /= lastN.length;
+                avgY /= lastN.length;
+                avgZ /= lastN.length;
+
+                const dist = Math.sqrt((x - avgX)**2 + (y - avgY)**2 + (z - avgZ)**2);
+                if (dist > 120.0) {
+                    console.warn(`Outlier discarded: Dist=${dist.toFixed(1)} uT [X:${x}, Y:${y}, Z:${z}]`);
+                    return; // Ignore this outlier completely!
+                }
+            }
 
             calPoints.push({x, y, z});
 
@@ -483,43 +511,58 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
             minY = Math.min(minY, y); maxY = Math.max(maxY, y);
             minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
 
-            // Calculate auto calibration parameters
-            hix = (maxX + minX) / 2;
-            hiy = (maxY + minY) / 2;
-            hiz = (maxZ + minZ) / 2;
+            // Run high-precision 3D Least-Squares Ellipsoid Fitting every 25 points (fully real-time but lightweight!)
+            if (calPoints.length >= 50 && (calPoints.length % 25) === 0) {
+                runEllipsoidFitting();
+            }
 
-            const rx = maxX - minX || 1.0;
-            const ry = maxY - minY || 1.0;
-            const rz = maxZ - minZ || 1.0;
-            const rAvg = (rx + ry + rz) / 3;
-
-            six = rAvg / rx;
-            siy = rAvg / ry;
-            siz = rAvg / rz;
-
-            // Compute coverage in all four 2D quadrants relative to the current solved center (hix, hiy)
+            // Compute coverage in all three 2D planes (XY, XZ, YZ) relative to the current solved center
             let qCounts = [0, 0, 0, 0];
+            let qxz = [0, 0, 0, 0];
+            let qyz = [0, 0, 0, 0];
+
             calPoints.forEach(pt => {
-                if (pt.x > hix && pt.y > hiy) qCounts[0]++;       // Quadrant 1 (Top-Right)
-                else if (pt.x <= hix && pt.y > hiy) qCounts[1]++;  // Quadrant 2 (Top-Left)
-                else if (pt.x <= hix && pt.y <= hiy) qCounts[2]++; // Quadrant 3 (Bottom-Left)
-                else if (pt.x > hix && pt.y <= hiy) qCounts[3]++;  // Quadrant 4 (Bottom-Right)
+                let dx = pt.x - hix;
+                let dy = pt.y - hiy;
+                let dz = pt.z - hiz;
+
+                if (dx > 0 && dy > 0) qCounts[0]++;       // Quadrant 1 (Top-Right)
+                else if (dx <= 0 && dy > 0) qCounts[1]++;  // Quadrant 2 (Top-Left)
+                else if (dx <= 0 && dy <= 0) qCounts[2]++; // Quadrant 3 (Bottom-Left)
+                else if (dx > 0 && dy <= 0) qCounts[3]++;  // Quadrant 4 (Bottom-Right)
+
+                if (dx > 0 && dz > 0) qxz[0]++;
+                else if (dx <= 0 && dz > 0) qxz[1]++;
+                else if (dx <= 0 && dz <= 0) qxz[2]++;
+                else qxz[3]++;
+
+                if (dy > 0 && dz > 0) qyz[0]++;
+                else if (dy <= 0 && dz > 0) qyz[1]++;
+                else if (dy <= 0 && dz <= 0) qyz[2]++;
+                else qyz[3]++;
             });
 
-            // Calculate active Z-axis variation (figure-8 / pitch & roll check)
-            const targetZVar = 30.0; // 30 uT target span forces deep figure-8 pitch & roll tilt movements (at least 35-45 degrees)
-            const zVar = (maxZ !== -Infinity && minZ !== Infinity) ? (maxZ - minZ) : 0.0;
-            const zPct = Math.min(100, Math.round((zVar / targetZVar) * 100));
+            // Calculate active Z-axis span percentage (geographically-independent 3D tilt-maneuver check)
+            const maxSpan = Math.max(maxX - minX, maxY - minY, maxZ - minZ) || 1.0;
+            const zSpanPct = (maxZ - minZ) / maxSpan;
+            const zPct = Math.min(100, Math.round((zSpanPct / 0.60) * 100));
 
-            // Target 150 points per quadrant to guarantee comprehensive, dense flat data collection
-            const targetQ = 150;
+            // Target 350 points per quadrant for XY plane, and 150 points for XZ and YZ planes
+            const targetQ = 350;
+            const target3D = 150;
+
             const q1Pct = Math.min(100, Math.round((qCounts[0] / targetQ) * 100));
             const q2Pct = Math.min(100, Math.round((qCounts[1] / targetQ) * 100));
             const q3Pct = Math.min(100, Math.round((qCounts[2] / targetQ) * 100));
             const q4Pct = Math.min(100, Math.round((qCounts[3] / targetQ) * 100));
 
-            // Format real-time 3D coverage telemetry (both top and sticky co-pilot progress bar)
-            const statText = `Points: ${calPoints.length} | Q1: ${q1Pct}% Q2: ${q2Pct}% Q3: ${q3Pct}% Q4: ${q4Pct}% | Tilt: ${zPct}%`;
+            const minQXZ = Math.min(...qxz);
+            const minQYZ = Math.min(...qyz);
+            const xzPct = Math.min(100, Math.round((minQXZ / target3D) * 100));
+            const yzPct = Math.min(100, Math.round((minQYZ / target3D) * 100));
+
+            // Format real-time 3D coverage telemetry
+            const statText = `Points: ${calPoints.length} | XY Q1: ${q1Pct}% Q2: ${q2Pct}% Q3: ${q3Pct}% Q4: ${q4Pct}% | XZ: ${xzPct}% | YZ: ${yzPct}% | Tilt: ${zPct}%`;
             pointCount.innerHTML = statText;
 
             // Update large-font Co-Pilot progress bar
@@ -531,6 +574,10 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
             document.getElementById('cpQ3').style.color = q3Pct === 100 ? 'var(--success)' : 'var(--primary)';
             document.getElementById('cpQ4').textContent = q4Pct + '%';
             document.getElementById('cpQ4').style.color = q4Pct === 100 ? 'var(--success)' : 'var(--primary)';
+            document.getElementById('cpXZ').textContent = xzPct + '%';
+            document.getElementById('cpXZ').style.color = xzPct === 100 ? 'var(--success)' : 'var(--accent)';
+            document.getElementById('cpYZ').textContent = yzPct + '%';
+            document.getElementById('cpYZ').style.color = yzPct === 100 ? 'var(--success)' : 'var(--success)';
             document.getElementById('cpTilt').textContent = zPct + '%';
             document.getElementById('cpTilt').style.color = zPct === 100 ? 'var(--success)' : 'var(--accent)';
 
@@ -544,33 +591,30 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                 hint = "➔ Hint: Face the buoy South-West (Bottom-Left of graph)";
             } else if (q4Pct < 100) {
                 hint = "➔ Hint: Face the buoy South-East (Bottom-Right of graph)";
+            } else if (xzPct < 100) {
+                hint = "➔ Hint: Perform slow XZ-plane pitch tilts (up/down) to calibrate XZ plane!";
+            } else if (yzPct < 100) {
+                hint = "➔ Hint: Perform slow YZ-plane roll tilts (left/right) to calibrate YZ plane!";
             } else if (zPct < 100) {
-                hint = "➔ Hint: Perform figure-8 pitch & roll tilts (up/down) to calibrate 3D Tilt!";
+                hint = "➔ Hint: Continue figure-8 pitch & roll tilts to maximize 3D Tilt scale!";
             } else {
-                hint = "➔ Calibration complete! Storing data...";
+                hint = "➔ Calibration complete! Click the green button above to save.";
             }
             document.getElementById('coPilotHint').textContent = hint;
 
-            // Intelligent 3D Stop Condition: Auto-save ONLY when flat circle (Q1-Q4) AND figure-8 tilts (Z-span) are robustly covered AND at least 500 total points!
-            if (calPoints.length >= 500 && qCounts[0] >= targetQ && qCounts[1] >= targetQ && qCounts[2] >= targetQ && qCounts[3] >= targetQ && zVar >= targetZVar) {
-                isCalibrating = false;
-                if (pollTimer) {
-                    clearTimeout(pollTimer);
-                    pollTimer = null;
-                }
-                btnCal.textContent = 'Start Interactive Calibration';
-                btnCal.className = 'btn btn-primary';
+            // Check if 3D coverage targets are satisfied
+            const isTargetMet = (calPoints.length >= 1500 && 
+                                 qCounts[0] >= targetQ && qCounts[1] >= targetQ && qCounts[2] >= targetQ && qCounts[3] >= targetQ && 
+                                 minQXZ >= target3D && minQYZ >= target3D && zSpanPct >= 0.60);
 
-                pointCount.innerHTML = `<span style="color:var(--success); font-weight:bold;">Calibration Successful! Saving &amp; Redirecting...</span>`;
-                document.getElementById('coPilotHint').textContent = "➔ Success! Calibration saved. Redirecting to main dashboard...";
-                document.getElementById('coPilotHint').style.color = "var(--success)";
-
-                // Automatically click save which sends parameter payload to NVS, plays success tune, and redirects
-                setTimeout(() => {
-                    btnSave.disabled = false;
-                    btnSave.click();
-                }, 100);
-                return;
+            if (isTargetMet && !enoughPointsMet) {
+                enoughPointsMet = true;
+                
+                // Style button as green (ready to stop & save)
+                btnCal.textContent = '➔ Stop & Save Calibration';
+                btnCal.style.backgroundColor = 'var(--success, #56d364)'; // Green
+                btnCal.style.borderColor = 'var(--success, #56d364)';
+                btnCal.style.color = '#fff';
             }
 
             // Render stats
@@ -595,25 +639,89 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
         }
 
         function drawPoints() {
-            const rX = maxX - minX || 1;
-            const rY = maxY - minY || 1;
+            const canvas = document.getElementById('scatterCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            
+            // Set internal resolution matching element size for crystal-clear high-DPI rendering
+            if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
+                canvas.width = canvas.clientWidth;
+                canvas.height = canvas.clientHeight;
+            }
+            
+            const w = canvas.width, h = canvas.height;
 
-            let pointsHtml = '';
+            // Clear with dark slate background
+            ctx.fillStyle = '#0d1117';
+            ctx.fillRect(0, 0, w, h);
+            
+            // Draw center divider
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); 
+            ctx.moveTo(w/2, 0); 
+            ctx.lineTo(w/2, h); 
+            ctx.stroke();
+
+            if (calPoints.length === 0) return;
+
+            const pad = 20;
+            // Add padding around margins to keep points inside bounds
+            const dMinX = minX - pad, dMaxX = maxX + pad;
+            const dMinY = minY - pad, dMaxY = maxY + pad;
+            const dMinZ = minZ - pad, dMaxZ = maxZ + pad;
+
+            const map = (v, min, max, outMin, outMax) => (v - min) * (outMax - outMin) / (max - min) + outMin;
+
+            // 1. Draw Left Half: X vs Y Projection (Horizontal Plane)
             calPoints.forEach((pt, idx) => {
                 const alpha = idx / calPoints.length;
-                const posX = ((pt.x - minX) / rX) * 90 + 5;
-                const posY = ((pt.y - minY) / rY) * 90 + 5;
-                pointsHtml += `<circle cx="${posX}%" cy="${posY}%" r="2.5" fill="var(--warning)" opacity="${alpha * 0.7}" />`;
+                ctx.fillStyle = `rgba(88, 166, 255, ${alpha * 0.85})`; // Theme Blue
+                const xPos = map(pt.x, dMinX, dMaxX, 15, w/2 - 15);
+                const yPos = map(pt.y, dMinY, dMaxY, h - 15, 15);
+                ctx.beginPath();
+                ctx.arc(xPos, yPos, 2.5, 0, 2 * Math.PI);
+                ctx.fill();
             });
 
-            // Draw offset reticle
-            const offsetPctX = ((hix - minX) / rX) * 90 + 5;
-            const offsetPctY = ((hiy - minY) / rY) * 90 + 5;
-            pointsHtml += `<circle cx="${offsetPctX}%" cy="${offsetPctY}%" r="6" fill="none" stroke="var(--danger)" stroke-width="1.5" />`;
-            pointsHtml += `<line x1="${offsetPctX - 4}%" y1="${offsetPctY}%" x2="${offsetPctX + 4}%" y2="${offsetPctY}%" stroke="var(--danger)" stroke-width="1" />`;
-            pointsHtml += `<line x1="${offsetPctX}%" y1="${offsetPctY - 4}%" x2="${offsetPctX}%" y2="${offsetPctY + 4}%" stroke="var(--danger)" stroke-width="1" />`;
+            // 2. Draw Right Half: Y vs Z Projection (Vertical Plane)
+            calPoints.forEach((pt, idx) => {
+                const alpha = idx / calPoints.length;
+                ctx.fillStyle = `rgba(86, 211, 100, ${alpha * 0.85})`; // Theme Green
+                const xPos = map(pt.y, dMinY, dMaxY, w/2 + 15, w - 15);
+                const yPos = map(pt.z, dMinZ, dMaxZ, h - 15, 15);
+                ctx.beginPath();
+                ctx.arc(xPos, yPos, 2.5, 0, 2 * Math.PI);
+                ctx.fill();
+            });
 
-            pointsGroup.innerHTML = pointsHtml;
+            // 3. Draw Left Reticle (Offset center)
+            const reticleLeftX = map(hix, dMinX, dMaxX, 15, w/2 - 15);
+            const reticleLeftY = map(hiy, dMinY, dMaxY, h - 15, 15);
+            ctx.strokeStyle = '#f85149'; // Theme Danger Red
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(reticleLeftX, reticleLeftY, 6, 0, 2 * Math.PI);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(reticleLeftX - 10, reticleLeftY);
+            ctx.lineTo(reticleLeftX + 10, reticleLeftY);
+            ctx.moveTo(reticleLeftX, reticleLeftY - 10);
+            ctx.lineTo(reticleLeftX, reticleLeftY + 10);
+            ctx.stroke();
+
+            // 4. Draw Right Reticle (Offset center)
+            const reticleRightX = map(hiy, dMinY, dMaxY, w/2 + 15, w - 15);
+            const reticleRightY = map(hiz, dMinZ, dMaxZ, h - 15, 15);
+            ctx.beginPath();
+            ctx.arc(reticleRightX, reticleRightY, 6, 0, 2 * Math.PI);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(reticleRightX - 10, reticleRightY);
+            ctx.lineTo(reticleRightX + 10, reticleRightY);
+            ctx.moveTo(reticleRightX, reticleRightY - 10);
+            ctx.lineTo(reticleRightX, reticleRightY + 10);
+            ctx.stroke();
         }
 
         btnCal.onclick = () => {
@@ -623,51 +731,74 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                 minX = Infinity; maxX = -Infinity;
                 minY = Infinity; maxY = -Infinity;
                 minZ = Infinity; maxZ = -Infinity;
+                enoughPointsMet = false;
                 
-                btnCal.textContent = 'Stop Calibration & Lock Parameters';
-                btnCal.className = 'btn btn-danger';
+                // Style button as gray (inactive calibrating look)
+                btnCal.textContent = 'Calibrating... (Keep Rotating)';
+                btnCal.style.backgroundColor = '#6c757d'; // Gray
+                btnCal.style.borderColor = '#6c757d';
+                btnCal.style.color = '#fff';
                 btnSave.disabled = true;
 
-                // Show instruction modal overlay with countdown for 10 seconds
-                const modal = document.getElementById('instructionModal');
-                const timer = document.getElementById('countdownTimer');
-                modal.style.display = 'flex';
-                let timeLeft = 10;
-                timer.textContent = timeLeft;
-                
                 // Show bottom Co-Pilot bar INSTANTLY so they see it from a distance at the start!
                 document.getElementById('calibrationCoPilot').style.display = 'flex';
-                
-                const interval = setInterval(() => {
-                    timeLeft--;
-                    timer.textContent = timeLeft;
-                    if (timeLeft <= 0) {
-                        clearInterval(interval);
-                        modal.style.display = 'none';
-                    }
-                }, 1000);
 
                 // Signal start of calibration to ESP32 to trigger buzzer beeps!
                 fetch('/start_cal')
                     .catch(err => console.warn("Failed to trigger start beep", err));
 
+                // 3-minute safety timeout (180 seconds)
+                if (calTimeoutTimer) clearTimeout(calTimeoutTimer);
+                calTimeoutTimer = setTimeout(() => {
+                    if (isCalibrating) {
+                        console.log("Calibration safety timeout reached (3 minutes). Auto-saving...");
+                        stopAndSaveCalibration();
+                    }
+                }, 180000); // 3 minutes in ms
+
                 pollData();
             } else {
-                isCalibrating = false;
-                document.getElementById('calibrationCoPilot').style.display = 'none';
-                btnCal.textContent = 'Start Interactive Calibration';
-                btnCal.className = 'btn btn-primary';
-                
-                if (calPoints.length > 10) {
-                    btnSave.disabled = false;
-                }
+                stopAndSaveCalibration();
             }
         };
+
+        function stopAndSaveCalibration() {
+            isCalibrating = false;
+            enoughPointsMet = false;
+            if (calTimeoutTimer) {
+                clearTimeout(calTimeoutTimer);
+                calTimeoutTimer = null;
+            }
+            if (pollTimer) {
+                clearTimeout(pollTimer);
+                pollTimer = null;
+            }
+            document.getElementById('calibrationCoPilot').style.display = 'none';
+            btnCal.textContent = 'Start Interactive Calibration';
+            btnCal.style.backgroundColor = ''; // Restore default styles
+            btnCal.style.borderColor = '';
+            btnCal.style.color = '';
+            
+            if (calPoints.length >= 50) {
+                runEllipsoidFitting();
+                pointCount.innerHTML = `<span style="color:var(--success); font-weight:bold;">Calibration Successful! Saving &amp; Redirecting...</span>`;
+                
+                // Automatically click save which sends parameter payload to NVS, plays success tune, and redirects
+                setTimeout(() => {
+                    btnSave.disabled = false;
+                    btnSave.click();
+                }, 100);
+            }
+        }
 
         btnSave.onclick = () => {
             btnSave.textContent = "Saving...";
             btnSave.disabled = true;
-            const url = `/save_cal?hx=${hix}&hy=${hiy}&hz=${hiz}&sx=${six}&sy=${siy}&sz=${siz}`;
+            const url = `/save_cal?hx=${hix}&hy=${hiy}&hz=${hiz}` +
+                        `&sx=${six}&sy=${siy}&sz=${siz}` +
+                        `&sxx=${siMatrix[0][0]}&sxy=${siMatrix[0][1]}&sxz=${siMatrix[0][2]}` +
+                        `&syx=${siMatrix[1][0]}&syy=${siMatrix[1][1]}&syz=${siMatrix[1][2]}` +
+                        `&szx=${siMatrix[2][0]}&szy=${siMatrix[2][1]}&szz=${siMatrix[2][2]}`;
             fetch(url)
                 .then(r => r.text())
                 .then(text => {
@@ -675,9 +806,9 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                         btnSave.textContent = "Success!";
                         console.log("Calibration saved and uploaded successfully!");
                         
-                        // Keep bottom co-pilot bar visible and show 30-second live countdown hint
+                        // Keep bottom co-pilot bar visible and show 5-second live countdown hint
                         document.getElementById('calibrationCoPilot').style.display = 'flex';
-                        let redirectTime = 30;
+                        let redirectTime = 5;
                         const hintElem = document.getElementById('coPilotHint');
                         hintElem.innerHTML = `➔ Success! Calibration saved. Redirecting in <span id="redirCount" style="color:var(--warning); font-weight:bold;">${redirectTime}</span> seconds, or click "Back to Compass Dashboard" below.`;
                         hintElem.style.color = "var(--success)";
@@ -727,6 +858,238 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                     .then(r => r.text())
                     .then(() => alert('NVS Save Command Sent!'));
             }
+        }
+
+
+
+        function runEllipsoidFitting() {
+            if (calPoints.length < 50) return;
+            
+            // For the first 250 points, the ellipsoid fit is highly ill-conditioned (clustered on one side),
+            // so we use a highly stable centroid average fallback to prevent wild jumps!
+            if (calPoints.length < 250) {
+                let sumX = 0, sumY = 0, sumZ = 0;
+                calPoints.forEach(p => { sumX += p.x; sumY += p.y; sumZ += p.z; });
+                hix = sumX / calPoints.length;
+                hiy = sumY / calPoints.length;
+                hiz = sumZ / calPoints.length;
+
+                // Muted diagonal scale factors (unity fallback)
+                six = 1.0; siy = 1.0; siz = 1.0;
+                siMatrix = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
+                
+                calHiVal.textContent = `X: ${hix.toFixed(1)}, Y: ${hiy.toFixed(1)}, Z: ${hiz.toFixed(1)}`;
+                calSiVal.textContent = `X: ${six.toFixed(2)}, Y: ${siy.toFixed(2)}, Z: ${siz.toFixed(2)}`;
+                drawPoints();
+                return;
+            }
+
+            const pts = calPoints.map(p => [p.x, p.y, p.z]);
+            const fit = fitEllipsoid(pts);
+            if (fit) {
+                hix = fit.offset[0];
+                hiy = fit.offset[1];
+                hiz = fit.offset[2];
+                siMatrix = fit.softIronMatrix;
+                six = siMatrix[0][0];
+                siy = siMatrix[1][1];
+                siz = siMatrix[2][2];
+                calHiVal.textContent = `X: ${hix.toFixed(1)}, Y: ${hiy.toFixed(1)}, Z: ${hiz.toFixed(1)}`;
+                calSiVal.textContent = `X: ${six.toFixed(2)}, Y: ${siy.toFixed(2)}, Z: ${siz.toFixed(2)}`;
+                drawPoints();
+            }
+        }
+
+        function fitEllipsoid(points) {
+            const N = points.length;
+            if (N < 9) return null;
+
+            // 1. Calculate centroid of points for zero-centering (pre-conditioning)
+            let meanX = 0, meanY = 0, meanZ = 0;
+            points.forEach(p => {
+                meanX += p[0];
+                meanY += p[1];
+                meanZ += p[2];
+            });
+            meanX /= N; meanY /= N; meanZ /= N;
+
+            // 2. Accumulate Design Matrix using zero-centered points to ensure excellent numerical conditioning
+            const ATA = Array(9).fill(0).map(() => Array(9).fill(0));
+            const ATB = Array(9).fill(0);
+            points.forEach(p => {
+                const x = p[0] - meanX;
+                const y = p[1] - meanY;
+                const z = p[2] - meanZ;
+                const r = [
+                    x * x,
+                    y * y,
+                    z * z,
+                    2.0 * x * y,
+                    2.0 * x * z,
+                    2.0 * y * z,
+                    2.0 * x,
+                    2.0 * y,
+                    2.0 * z
+                ];
+                for (let i = 0; i < 9; i++) {
+                    for (let j = 0; j < 9; j++) {
+                        ATA[i][j] += r[i] * r[j];
+                    }
+                    ATB[i] += r[i];
+                }
+            });
+            const coeff = solveLinearSystem(ATA, ATB);
+            if (!coeff) return null;
+            const A = [
+                [coeff[0], coeff[3], coeff[4]],
+                [coeff[3], coeff[1], coeff[5]],
+                [coeff[4], coeff[5], coeff[2]]
+            ];
+            const b = [coeff[6], coeff[7], coeff[8]];
+            const invA = invert3x3(A);
+            if (!invA) return null;
+
+            // Zero-centered offset
+            const offset_zc = [
+                -(invA[0][0] * b[0] + invA[0][1] * b[1] + invA[0][2] * b[2]),
+                -(invA[1][0] * b[0] + invA[1][1] * b[1] + invA[1][2] * b[2]),
+                -(invA[2][0] * b[0] + invA[2][1] * b[1] + invA[2][2] * b[2])
+            ];
+
+            // 3. Shift the offset back by adding the mean coordinates (un-centering)
+            const offset = [
+                offset_zc[0] + meanX,
+                offset_zc[1] + meanY,
+                offset_zc[2] + meanZ
+            ];
+
+            const vtAv = offset_zc[0] * (A[0][0] * offset_zc[0] + A[0][1] * offset_zc[1] + A[0][2] * offset_zc[2]) +
+                         offset_zc[1] * (A[1][0] * offset_zc[0] + A[1][1] * offset_zc[1] + A[1][2] * offset_zc[2]) +
+                         offset_zc[2] * (A[2][0] * offset_zc[0] + A[2][1] * offset_zc[1] + A[2][2] * offset_zc[2]);
+            const d = 1.0 + vtAv;
+            if (d <= 0) return null;
+            const M = [
+                [A[0][0]/d, A[0][1]/d, A[0][2]/d],
+                [A[1][0]/d, A[1][1]/d, A[1][2]/d],
+                [A[2][0]/d, A[2][1]/d, A[2][2]/d]
+            ];
+
+            // Calculate the exact Symmetric Matrix Square Root of M using Denman-Beavers quadratic convergence iteration
+            let W = matrixSquareRoot3x3(M);
+            if (!W) return null;
+
+            // Calculate determinant of the symmetric matrix W
+            const detW = W[0][0] * (W[1][1] * W[2][2] - W[2][1] * W[1][2]) -
+                         W[0][1] * (W[1][0] * W[2][2] - W[1][2] * W[2][0]) +
+                         W[0][2] * (W[1][0] * W[2][1] - W[1][1] * W[2][0]);
+
+            if (Math.abs(detW) < 1e-6) return null; // Prevent singular matrix divide-by-zero or NaNs
+            const scale = 1.0 / Math.cbrt(detW);
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    W[i][j] *= scale;
+                }
+            }
+            return {
+                offset: offset,
+                softIronMatrix: W
+            };
+        }
+
+        function matrixSquareRoot3x3(M) {
+            let Y = [
+                [M[0][0], M[0][1], M[0][2]],
+                [M[1][0], M[1][1], M[1][2]],
+                [M[2][0], M[2][1], M[2][2]]
+            ];
+            let Z = [
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [0.0, 0.0, 1.0]
+            ];
+
+            for (let k = 0; k < 5; k++) {
+                const invY = invert3x3(Y);
+                const invZ = invert3x3(Z);
+                if (!invY || !invZ) return null;
+
+                const nextY = [
+                    [0.5 * (Y[0][0] + invZ[0][0]), 0.5 * (Y[0][1] + invZ[0][1]), 0.5 * (Y[0][2] + invZ[0][2])],
+                    [0.5 * (Y[1][0] + invZ[1][0]), 0.5 * (Y[1][1] + invZ[1][1]), 0.5 * (Y[1][2] + invZ[1][2])],
+                    [0.5 * (Y[2][0] + invZ[2][0]), 0.5 * (Y[2][1] + invZ[2][1]), 0.5 * (Y[2][2] + invZ[2][2])]
+                ];
+
+                const nextZ = [
+                    [0.5 * (Z[0][0] + invY[0][0]), 0.5 * (Z[0][1] + invY[0][1]), 0.5 * (Z[0][2] + invY[0][2])],
+                    [0.5 * (Z[1][0] + invY[1][0]), 0.5 * (Z[1][1] + invY[1][1]), 0.5 * (Z[1][2] + invY[1][2])],
+                    [0.5 * (Z[2][0] + invY[2][0]), 0.5 * (Z[2][1] + invY[2][1]), 0.5 * (Z[2][2] + invY[2][2])]
+                ];
+
+                Y = nextY;
+                Z = nextZ;
+            }
+            return Y;
+        }
+
+        function solveLinearSystem(A, B) {
+            const n = 9;
+            const M = Array(n).fill(0).map((_, i) => {
+                const row = [...A[i]];
+                row.push(B[i]);
+                return row;
+            });
+            for (let i = 0; i < n; i++) {
+                let maxRow = i;
+                for (let k = i + 1; k < n; k++) {
+                    if (Math.abs(M[k][i]) > Math.abs(M[maxRow][i])) {
+                        maxRow = k;
+                    }
+                }
+                const temp = M[i];
+                M[i] = M[maxRow];
+                M[maxRow] = temp;
+                if (Math.abs(M[i][i]) < 1e-12) return null;
+                for (let k = i + 1; k < n; k++) {
+                    const factor = M[k][i] / M[i][i];
+                    for (let j = i; j <= n; j++) {
+                        M[k][j] -= factor * M[i][j];
+                    }
+                }
+            }
+            const x = Array(n).fill(0);
+            for (let i = n - 1; i >= 0; i--) {
+                let sum = M[i][n];
+                for (let j = i + 1; j < n; j++) {
+                    sum -= M[i][j] * x[j];
+                }
+                x[i] = sum / M[i][i];
+            }
+            return x;
+        }
+
+        function invert3x3(A) {
+            const det = A[0][0] * (A[1][1] * A[2][2] - A[2][1] * A[1][2]) -
+                        A[0][1] * (A[1][0] * A[2][2] - A[1][2] * A[2][0]) +
+                        A[0][2] * (A[1][0] * A[2][1] - A[1][1] * A[2][0]);
+            if (Math.abs(det) < 1e-12) return null;
+            const invdet = 1.0 / det;
+            return [
+                [
+                    (A[1][1] * A[2][2] - A[2][1] * A[1][2]) * invdet,
+                    (A[0][2] * A[2][1] - A[0][1] * A[2][2]) * invdet,
+                    (A[0][1] * A[1][2] - A[0][2] * A[1][1]) * invdet
+                ],
+                [
+                    (A[1][2] * A[2][0] - A[1][0] * A[2][2]) * invdet,
+                    (A[0][0] * A[2][2] - A[0][2] * A[2][0]) * invdet,
+                    (A[1][0] * A[0][2] - A[0][0] * A[1][2]) * invdet
+                ],
+                [
+                    (A[1][0] * A[2][1] - A[2][0] * A[1][1]) * invdet,
+                    (A[2][0] * A[0][1] - A[0][0] * A[2][1]) * invdet,
+                    (A[0][0] * A[2][1] - A[1][0] * A[0][1]) * invdet
+                ]
+            ];
         }
 
         connect();

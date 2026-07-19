@@ -25,5 +25,7 @@ void CompassOffsetCorrection(double *offset, bool get);
 void MechanicalCorrection(double *correction, bool get);
 void memBnoCalib(uint8_t *data, bool get);
 void memIcmCalib(float *hi, float *si, bool get);
+void memCompassAvg(int *avg, bool get);
+void memCompassTrim(float *trim, bool *enabled, bool get);
 
 #endif /* DATASTORAGE_H_ */
