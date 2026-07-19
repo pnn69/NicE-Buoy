@@ -1062,16 +1062,22 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
             let W = matrixSquareRoot3x3(M);
             if (!W) return null;
 
-            // Calculate determinant of the symmetric matrix W
-            const detW = W[0][0] * (W[1][1] * W[2][2] - W[2][1] * W[1][2]) -
-                         W[0][1] * (W[1][0] * W[2][2] - W[1][2] * W[2][0]) +
-                         W[0][2] * (W[1][0] * W[2][1] - W[1][1] * W[2][0]);
+            // Calculate the average uncalibrated radius (local Earth's magnetic field strength baseline in uT)
+            // relative to the solved hard-iron center.
+            let sumRadius = 0;
+            points.forEach(p => {
+                const dx = p[0] - offset[0];
+                const dy = p[1] - offset[1];
+                const dz = p[2] - offset[2];
+                sumRadius += Math.sqrt(dx * dx + dy * dy + dz * dz);
+            });
+            const b_earth = sumRadius / N;
 
-            if (Math.abs(detW) < 1e-6) return null; // Prevent singular matrix divide-by-zero or NaNs
-            const scale = 1.0 / Math.cbrt(detW);
+            // Scale the symmetric square root matrix W by b_earth so the corrected points
+            // lie on a sphere representing the physical Earth's magnetic field strength.
             for (let i = 0; i < 3; i++) {
                 for (let j = 0; j < 3; j++) {
-                    W[i][j] *= scale;
+                    W[i][j] *= b_earth;
                 }
             }
             return {

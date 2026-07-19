@@ -538,10 +538,9 @@ void CompassTask(void *arg) {
             }
 
             // Coordinate Axis Realignment (Align ICM Magnetometer with Accelerometer/Gyroscope coordinate frame)
-            // matching standard ICM-20948 AK09916 coordinate alignment specification:
-            // X_aligned = Y_calibrated, Y_aligned = -X_calibrated, Z_aligned = -Z_calibrated
-            float mx_cal_aligned = myc;
-            float my_cal_aligned = -mxc;
+            // Account for upside-down physical mounting of the sensor by aligning magnetometer Y with the positive gyro frame
+            float mx_cal_aligned = mxc;
+            float my_cal_aligned = myc;
             float mz_cal_aligned = -mzc;
 
             // Check for NaNs to prevent corrupting the Madgwick filter's internal state
@@ -685,10 +684,13 @@ void CompassTask(void *arg) {
 
             if (icm_mode == 3 || icm_mode == 4) {
                 // Use the high-performance, gyro-stabilized, and mathematically perfect Madgwick 3D fusion output
-                raw_heading = mYaw;
+                // Map the CCW yaw (with matching gyro direction) to un-mirrored compass heading with -216 degree offset
+                raw_heading = mYaw - 216.0f;
+                if (raw_heading < 0.0f) raw_heading += 360.0f;
+                if (raw_heading >= 360.0f) raw_heading -= 360.0f;
             } else {
                 // Uncompensated 2D heading (no tilt), matching standard CCW orientation before reversing below
-                raw_heading = -atan2f(my_cal_aligned, mx_cal_aligned) * 57.29578f;
+                raw_heading = atan2f(my_cal_aligned, mx_cal_aligned) * 57.29578f;
                 if (raw_heading < 0.0f) raw_heading += 360.0f;
             }
 
