@@ -709,9 +709,7 @@ void CompassTask(void *arg) {
 
             float heading = raw_heading;
 
-            // Reverse the direction of rotation mathematically to match the physical compass rose,
-            // while preserving the correct chiral right-handed coordinate frame.
-            heading = 360.0f - heading;
+            // Standard direction of rotation matches the physical compass rose
             if (heading < 0.0f) heading += 360.0f;
             if (heading >= 360.0f) heading -= 360.0f;
 
