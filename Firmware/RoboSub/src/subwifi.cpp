@@ -312,6 +312,11 @@ void WiFiTask(void *arg) {
             // Re-generate user hex/text strings for telemetry
             updateUIHexFloat();
 
+            extern bool firstHeadingRun;
+            extern uint32_t lastInitTime;
+            firstHeadingRun = true;
+            lastInitTime = millis();
+
             extern bool global_is_calibrating;
             global_is_calibrating = false;
 

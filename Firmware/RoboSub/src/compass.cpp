@@ -580,6 +580,7 @@ void CompassTask(void *arg) {
                 filtered_roll = init_roll;
                 filtered_pitch = init_pitch;
                 init_filters = false;
+                baselineMag = magNorm; // Re-learn local baseline from newly calibrated readings
                 firstHeadingRun = false;
             }
 
