@@ -534,3 +534,44 @@ void memIcmCalib(float *hi, float *si, bool get)
     }
     stopMem();
 }
+
+/**
+ * @brief Reads or writes the Compass Heading Averaging length (cavg) to Preferences NVM.
+ */
+void memCompassAvg(int *avg, bool get)
+{
+    startMem();
+    if (get)
+    {
+        *avg = storage.getInt("cavg", 1);
+        if (*avg < 1) *avg = 1;
+        if (*avg > 200) *avg = 200;
+    }
+    else
+    {
+        storage.putInt("cavg", *avg);
+    }
+    stopMem();
+}
+
+/**
+ * @brief Reads or writes the Adaptive Waypoint Bias Trim (compass_trim) to Preferences NVM.
+ */
+void memCompassTrim(float *trim, bool *enabled, bool get)
+{
+    startMem();
+    if (get)
+    {
+        *trim = storage.getFloat("c_trim", 0.0f);
+        *enabled = storage.getBool("c_trim_en", false); // Disabled by default!
+        if (!isfinite(*trim) || *trim < -15.0f || *trim > 15.0f) {
+            *trim = 0.0f;
+        }
+    }
+    else
+    {
+        storage.putFloat("c_trim", *trim);
+        storage.putBool("c_trim_en", *enabled);
+    }
+    stopMem();
+}

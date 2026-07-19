@@ -256,6 +256,8 @@ void WiFiTask(void *arg) {
         subServer.send_P(200, "text/html", INDEX_HTML);
     });
     subServer.on("/savecal", HTTP_GET, [](){ 
+        extern bool global_is_calibrating;
+        global_is_calibrating = false;
         int c=34; 
         xQueueSend(compassIn,(void*)&c,10); 
         subServer.send(200,"text/plain","OK"); 
@@ -310,6 +312,9 @@ void WiFiTask(void *arg) {
             // Re-generate user hex/text strings for telemetry
             updateUIHexFloat();
 
+            extern bool global_is_calibrating;
+            global_is_calibrating = false;
+
             // Success beep sequence!
             if (buzzer != NULL) {
                 beep(-1, buzzer);
@@ -321,6 +326,13 @@ void WiFiTask(void *arg) {
         }
     });
     subServer.on("/start_cal", HTTP_GET, [](){
+        extern bool global_is_calibrating;
+        extern volatile int cal_ring_write_idx;
+        extern volatile int cal_ring_read_idx;
+        cal_ring_write_idx = 0;
+        cal_ring_read_idx = 0;
+        global_is_calibrating = true;
+
         if (buzzer != NULL) {
             beep(3, buzzer); // Triple beep to signal start of calibration!
         }
@@ -402,6 +414,27 @@ void WiFiTask(void *arg) {
             else if(p=="revbb"){mainData.revBB=(v>0.5); paramUpdated = true;}
             else if(p=="revsb"){mainData.revSB=(v>0.5); paramUpdated = true;}
             else if(p=="tswap"){mainData.swap_BB_SB=(v>0.5); paramUpdated = true;}
+            else if(p=="cavg"){
+                extern int compass_avg_len;
+                compass_avg_len = (int)v;
+                if (compass_avg_len < 1) compass_avg_len = 1;
+                if (compass_avg_len > 200) compass_avg_len = 200;
+                paramUpdated = true;
+            }
+            else if(p=="ctrim"){
+                mainData.compass_trim = v;
+                if (mainData.compass_trim < -15.0f) mainData.compass_trim = -15.0f;
+                if (mainData.compass_trim > 15.0f) mainData.compass_trim = 15.0f;
+                paramUpdated = true;
+            }
+            else if(p=="ctrim_en"){
+                mainData.compass_trim_enabled = (v > 0.5);
+                paramUpdated = true;
+            }
+            else if(p=="ctrim_clr"){
+                mainData.compass_trim = 0.0f;
+                paramUpdated = true;
+            }
             
             if (paramUpdated) {
                 global_params_rev++;
@@ -418,6 +451,15 @@ void WiFiTask(void *arg) {
             else if(p=="minspd" || p=="maxspd"){speedMaxMin(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
             else if(p=="revbb" || p=="revsb"){thrusterInversion(&mainData,SET);}
             else if(p=="tswap"){thrusterSwap(&mainData,SET);}
+            else if(p=="cavg"){
+                extern int compass_avg_len;
+                memCompassAvg(&compass_avg_len, SET);
+            }
+            else if(p=="ctrim" || p=="ctrim_en" || p=="ctrim_clr"){
+                float trim_val = (float)mainData.compass_trim;
+                bool trim_en = mainData.compass_trim_enabled;
+                memCompassTrim(&trim_val, &trim_en, SET);
+            }
         }
         subServer.send(200,"text/plain","OK");
     });
@@ -438,11 +480,15 @@ void WiFiTask(void *arg) {
         int minspd = mainData.minSpeed;
         int maxspd = mainData.maxSpeed;
         float holdrad = (float)mainData.holdRad;
+        extern int compass_avg_len;
+        int cavg = compass_avg_len;
+        float ctrim = (float)mainData.compass_trim;
+        int ctrim_en = mainData.compass_trim_enabled ? 1 : 0;
         
-        char buf[500];
+        char buf[650];
         snprintf(buf, sizeof(buf), 
-            "{\"kpr\":%.3f,\"kir\":%.3f,\"kdr\":%.3f,\"kps\":%.3f,\"kis\":%.3f,\"kds\":%.3f,\"coff\":%.1f,\"revbb\":%d,\"revsb\":%d,\"tswap\":%d,\"pvspd\":%.2f,\"minspd\":%d,\"maxspd\":%d,\"holdrad\":%.1f}",
-            kpr, kir, kdr, kps, kis, kds, coff, revbb, revsb, tswap, pvspd, minspd, maxspd, holdrad
+            "{\"kpr\":%.3f,\"kir\":%.3f,\"kdr\":%.3f,\"kps\":%.3f,\"kis\":%.3f,\"kds\":%.3f,\"coff\":%.1f,\"revbb\":%d,\"revsb\":%d,\"tswap\":%d,\"pvspd\":%.2f,\"minspd\":%d,\"maxspd\":%d,\"holdrad\":%.1f,\"cavg\":%d,\"ctrim\":%.3f,\"ctrim_en\":%d}",
+            kpr, kir, kdr, kps, kis, kds, coff, revbb, revsb, tswap, pvspd, minspd, maxspd, holdrad, cavg, ctrim, ctrim_en
         );
         subServer.send(200, "application/json", buf);
     });
@@ -464,6 +510,8 @@ void WiFiTask(void *arg) {
         int ssb = (int)mainData.speedSb;
         double ir = mainData.ir;
         double ip = mainData.ip;
+        double pitch = mainData.pitch;
+        double roll = mainData.roll;
         float vatt = mainData.subAccuV;
         float curr = mainData.subAccuI;
         int stat_val = mainData.status;
@@ -496,17 +544,21 @@ void WiFiTask(void *arg) {
         rawHeading = 360.0f - rawHeading; // Mirror rotation direction to match screen rose
         if (rawHeading >= 360.0f) rawHeading -= 360.0f;
 
-        // Calculate Hard-iron compensated heading (subtract offsets hi_x, hi_y)
+        // Calculate Hard-iron compensated heading (subtract offsets hi_x, hi_y, hi_z)
         float mx_hi = last_raw_x - hi_x;
         float my_hi = last_raw_y - hi_y;
+        float mz_hi = last_raw_z - hi_z;
         float hardHeading = atan2(my_hi, mx_hi) * 180.0 / M_PI;
         if (hardHeading < 0.0f) hardHeading += 360.0f;
         hardHeading = 360.0f - hardHeading; // Mirror rotation direction to match screen rose
         if (hardHeading >= 360.0f) hardHeading -= 360.0f;
 
-        // Calculate Soft-iron compensated heading (apply scaling si_x, si_y)
-        float mxc = mx_hi * si_x;
-        float myc = my_hi * si_y;
+        // Calculate Soft-iron compensated heading (apply full 3x3 soft-iron matrix multiplication)
+        extern float si_matrix[3][3];
+        float mxc = si_matrix[0][0] * mx_hi + si_matrix[0][1] * my_hi + si_matrix[0][2] * mz_hi;
+        float myc = si_matrix[1][0] * mx_hi + si_matrix[1][1] * my_hi + si_matrix[1][2] * mz_hi;
+        float mzc = si_matrix[2][0] * mx_hi + si_matrix[2][1] * my_hi + si_matrix[2][2] * mz_hi;
+
         float softHeading = atan2(myc, mxc) * 180.0 / M_PI;
         if (softHeading < 0.0f) softHeading += 360.0f;
         softHeading = 360.0f - softHeading; // Mirror rotation direction to match screen rose
@@ -515,22 +567,65 @@ void WiFiTask(void *arg) {
         // Align the calibrated magnetometer axes to match the accelerometer coordinate frame
         float mx_cal = myc;
         float my_cal = mxc;
-        float mz_cal = -(last_raw_z - hi_z) * si_z;
+        float mz_cal = -mzc;
 
-        char buf[1280];
-        snprintf(buf, sizeof(buf),
-            "{\"icm\":%.2f,\"speed_bb\":%d,\"speed_sb\":%d,\"ir\":%.2f,\"ip\":%.2f,\"cal_load\":\"%s\",\"cal_ver\":\"%s\",\"mac\":\"%s\",\"cal_msg\":\"%s\",\"rev\":%u,\"vatt\":%.1f,\"curr\":%.2f,\"status\":%d,\"status_str\":\"%s\",\"ri\":%.2f,\"ro\":%.2f,\"rbb\":%.2f,\"rsb\":%.2f,\"framp\":%.2f,\"pivot\":%d,\"mx_raw\":%.2f,\"my_raw\":%.2f,\"mz_raw\":%.2f,\"icm_mode\":%d,\"mag_rejected\":%d,\"raw\":%.2f,\"hard\":%.2f,\"hardSoft\":%.2f,\"mx_cal\":%.2f,\"my_cal\":%.2f,\"mz_cal\":%.2f}",
-            icm, sbb, ssb, ir, ip, 
-            global_cal_load.c_str(), global_cal_ver.c_str(), global_mac_str.c_str(),
-            global_cal_msg.c_str(), global_params_rev, vatt, curr,
-            stat_val, statusStr,
-            rudderInput, rudderOutput, rampBb, rampSb, forward_ramp, was_pure_pivot ? 1 : 0,
-            last_raw_x, last_raw_y, last_raw_z,
-            icm_mode, magRejected ? 1 : 0,
-            rawHeading, hardHeading, softHeading,
-            mx_cal, my_cal, mz_cal
-        );
-        subServer.send(200, "application/json", buf);
+        // Extract all pending calibration points from the ring buffer
+        extern float cal_ring_x[];
+        extern float cal_ring_y[];
+        extern float cal_ring_z[];
+        extern volatile int cal_ring_write_idx;
+        extern volatile int cal_ring_read_idx;
+
+        String pointsJson = "[";
+        bool firstPoint = true;
+        while (cal_ring_read_idx != cal_ring_write_idx) {
+            if (!firstPoint) pointsJson += ",";
+            pointsJson += "[" + String(cal_ring_x[cal_ring_read_idx], 2) + "," +
+                          String(cal_ring_y[cal_ring_read_idx], 2) + "," +
+                          String(cal_ring_z[cal_ring_read_idx], 2) + "]";
+            firstPoint = false;
+            cal_ring_read_idx = (cal_ring_read_idx + 1) % 100; // CAL_RING_BUF_SIZE
+        }
+        pointsJson += "]";
+
+        String json = "{\"icm\":" + String(icm, 2) +
+                      ",\"speed_bb\":" + String(sbb) +
+                      ",\"speed_sb\":" + String(ssb) +
+                      ",\"ir\":" + String(ir, 2) +
+                      ",\"ip\":" + String(ip, 2) +
+                      ",\"cal_load\":\"" + global_cal_load + "\"" +
+                      ",\"cal_ver\":\"" + global_cal_ver + "\"" +
+                      ",\"mac\":\"" + global_mac_str + "\"" +
+                      ",\"cal_msg\":\"" + global_cal_msg + "\"" +
+                      ",\"rev\":" + String(global_params_rev) +
+                      ",\"vatt\":" + String(vatt, 1) +
+                      ",\"curr\":" + String(curr, 2) +
+                      ",\"status\":" + String(stat_val) +
+                      ",\"status_str\":\"" + String(statusStr) + "\"" +
+                      ",\"ri\":" + String(rudderInput, 2) +
+                      ",\"ro\":" + String(rudderOutput, 2) +
+                      ",\"rbb\":" + String(rampBb, 2) +
+                      ",\"rsb\":" + String(rampSb, 2) +
+                      ",\"framp\":" + String(forward_ramp, 2) +
+                      ",\"pivot\":" + String(was_pure_pivot ? 1 : 0) +
+                      ",\"mx_raw\":" + String(last_raw_x, 2) +
+                      ",\"my_raw\":" + String(last_raw_y, 2) +
+                      ",\"mz_raw\":" + String(last_raw_z, 2) +
+                      ",\"icm_mode\":" + String(icm_mode) +
+                      ",\"mag_rejected\":" + String(magRejected ? 1 : 0) +
+                      ",\"raw\":" + String(rawHeading, 2) +
+                      ",\"hard\":" + String(hardHeading, 2) +
+                      ",\"hardSoft\":" + String(softHeading, 2) +
+                      ",\"mx_cal\":" + String(mx_cal, 2) +
+                      ",\"my_cal\":" + String(my_cal, 2) +
+                      ",\"mz_cal\":" + String(mz_cal, 2) +
+                      ",\"ctrim\":" + String(mainData.compass_trim, 3) +
+                      ",\"ctrim_en\":" + String(mainData.compass_trim_enabled ? 1 : 0) +
+                      ",\"pitch\":" + String(pitch, 2) +
+                      ",\"roll\":" + String(roll, 2) +
+                      ",\"points\":" + pointsJson + "}";
+
+        subServer.send(200, "application/json", json);
     });
 
     subServer.begin(); 
@@ -538,11 +633,13 @@ void WiFiTask(void *arg) {
 
     // Main Server Loop - Matching RoboTop's efficient for(;;) delay(1) loop
     uint32_t last_ota_time = 0;
+    extern bool global_is_calibrating;
     for (;;) {
         subServer.handleClient();
         
         uint32_t now = millis();
-        if (ota && (now - last_ota_time >= 200)) {
+        // Skip ArduinoOTA.handle() during active calibration to eliminate periodic 200ms network stalls
+        if (ota && !global_is_calibrating && (now - last_ota_time >= 200)) {
             last_ota_time = now;
             ArduinoOTA.handle();
         }

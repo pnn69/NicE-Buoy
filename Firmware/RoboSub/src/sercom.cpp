@@ -116,8 +116,15 @@ void SercomTask(void *arg)
     Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL);
     Serial1.setTimeout(100);
     Serial.setTimeout(100);
+    
+    extern bool global_is_calibrating;
     while (1)
     {
+        if (global_is_calibrating) {
+            vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
+        }
+
         if (Serial.available())
         {
             String serStringIn = Serial.readStringUntil('\n');

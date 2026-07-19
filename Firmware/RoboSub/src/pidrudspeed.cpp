@@ -134,6 +134,23 @@ void rudderPid(RoboStruct *rud)
     // 3.3 Position PID (forward_power is calculated by speedPid and passed via tgSpeed)
     double target_forward = rud->tgSpeed;
 
+    // 3.4 Adaptive Waypoint Bias Trim
+    if (rud->compass_trim_enabled && (rud->status == LOCKED || rud->status == DOCKED || rud->status == DIRDIST)) {
+        if (rud->sub_status != SUB_STATUS_IDLE_DRIFT && rud->sub_status != SUB_STATUS_PIVOT_PREP) {
+            // Only update when actively moving forward (not pure pivoting)
+            if (target_forward > 5 && !was_pure_pivot) {
+                // Extremely damped correction (gain = 0.000005 per 100Hz steering cycle)
+                // This ensures it is a very slow, long-term outer-loop estimator that never competes
+                // with the inner-loop rudder PID's I-term (Kir)
+                rud->compass_trim -= heading_error * 0.000005;
+                
+                // Maximum safety hard limit of ±15 degrees
+                if (rud->compass_trim < -15.0) rud->compass_trim = -15.0;
+                if (rud->compass_trim > 15.0) rud->compass_trim = 15.0;
+            }
+        }
+    }
+
     // --- DRIFT & LOCK LOGIC ---
     if (rud->status == IDLE || rud->status == IDELING) {
         target_forward = 0;
