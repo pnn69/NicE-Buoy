@@ -532,9 +532,13 @@ void CompassTask(void *arg) {
             float mzc = mz_hi;
 
             if (icm_mode == 2 || icm_mode == 4) {
-                mxc = si_matrix[0][0] * mx_hi + si_matrix[0][1] * my_hi + si_matrix[0][2] * mz_hi;
-                myc = si_matrix[1][0] * mx_hi + si_matrix[1][1] * my_hi + si_matrix[1][2] * mz_hi;
-                mzc = si_matrix[2][0] * mx_hi + si_matrix[2][1] * my_hi + si_matrix[2][2] * mz_hi;
+                // Force positive diagonal gains in real-time to prevent axis inversion and dynamic creeping
+                float sxx = fabs(si_matrix[0][0]);
+                float syy = fabs(si_matrix[1][1]);
+                float szz = fabs(si_matrix[2][2]);
+                mxc = sxx * mx_hi + si_matrix[0][1] * my_hi + si_matrix[0][2] * mz_hi;
+                myc = si_matrix[1][0] * mx_hi + syy * my_hi + si_matrix[1][2] * mz_hi;
+                mzc = si_matrix[2][0] * mx_hi + si_matrix[2][1] * my_hi + szz * mz_hi;
             }
 
             // Coordinate Axis Realignment (Align ICM Magnetometer with Accelerometer/Gyroscope coordinate frame)
