@@ -605,10 +605,10 @@ void CompassTask(void *arg) {
                 filter.setBeta(0.10f);
             }
 
-            // Madgwick library expects gyroscope rates in degrees per second (deg/s)
-            float gx = icm.gyrX() - gyro_bias_x;
-            float gy = icm.gyrY() - gyro_bias_y;
-            float gz = icm.gyrZ() - gyro_bias_z;
+            // Madgwick library expects gyroscope rates in degrees per second (deg/s) and converts internally
+            float gx = (icm.gyrX() - gyro_bias_x);
+            float gy = (icm.gyrY() - gyro_bias_y);
+            float gz = (icm.gyrZ() - gyro_bias_z);
 
             // Check for gyroscope NaNs to protect the filter's internal quaternion state
             if (isnan(gx) || isnan(gy) || isnan(gz)) {
@@ -683,33 +683,19 @@ void CompassTask(void *arg) {
             float raw_heading = 0.0f;
 
             if (icm_mode == 3 || icm_mode == 4) {
-                // Calculate analytical tilt-compensated heading (completely gyro-free) using aligned roll & pitch angles
-                // Must use the sensor's native coordinate frame angles to properly project its 3D magnetic vector!
-                float roll_rad = roll * 0.0174532925f;
-                float pitch_rad = pitch * 0.0174532925f;
-
-                float cosRoll = cosf(roll_rad);
-                float sinRoll = sinf(roll_rad);
-                float cosPitch = cosf(pitch_rad);
-                float sinPitch = sinf(pitch_rad);
-
-                // Project calibrated magnetometer readings onto the horizontal plane using the aligned angles:
-                // X_h = m_x cos(p) + m_y sin(r) sin(p) + m_z cos(r) sin(p)
-                // Y_h = m_y cos(r) - m_z sin(r)
-                float Xh = mx_cal_aligned * cosPitch + my_cal_aligned * sinRoll * sinPitch + mz_cal_aligned * cosRoll * sinPitch;
-                float Yh = my_cal_aligned * cosRoll - mz_cal_aligned * sinRoll;
-
-                raw_heading = atan2f(Yh, Xh) * 57.29578f;
-                if (raw_heading < 0.0f) raw_heading += 360.0f;
+                // Use the high-performance, gyro-stabilized, and mathematically perfect Madgwick 3D fusion output
+                raw_heading = mYaw;
             } else {
-                // Uncompensated 2D heading (no tilt)
-                raw_heading = atan2f(my_cal_aligned, mx_cal_aligned) * 57.29578f;
+                // Uncompensated 2D heading (no tilt), matching standard CCW orientation before reversing below
+                raw_heading = -atan2f(my_cal_aligned, mx_cal_aligned) * 57.29578f;
                 if (raw_heading < 0.0f) raw_heading += 360.0f;
             }
 
             float heading = raw_heading;
 
-            // Standard direction of rotation matches the physical compass rose
+            // Reverse the direction of rotation mathematically to match the physical compass rose,
+            // while preserving the correct chiral right-handed coordinate frame.
+            heading = 360.0f - heading;
             if (heading < 0.0f) heading += 360.0f;
             if (heading >= 360.0f) heading -= 360.0f;
 

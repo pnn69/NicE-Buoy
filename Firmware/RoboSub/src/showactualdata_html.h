@@ -504,9 +504,8 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                         headingRaw = data.raw;
                         headingHard = data.hard;
                         headingSoft = data.hardSoft;
-                        // Un-mirror the ESP32's output for correct UI windrose rotation direction (N -> E/O -> S -> W)
-                        headingTilt = 360 - data.icm;
-                        if (headingTilt >= 360) headingTilt -= 360;
+                        // Use direct clockwise heading from ESP32
+                        headingTilt = data.icm;
                         let rollVal = Number(data.roll !== undefined ? data.roll : (data.ir || 0));
                         let pitchVal = Number(data.pitch !== undefined ? data.pitch : (data.ip || 0));
                         if (isNaN(rollVal)) rollVal = 0;

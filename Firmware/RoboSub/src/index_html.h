@@ -226,7 +226,7 @@ function fetchData(){
             }
         }
         
-        rotTilt = getShortestRotation(rotTilt, 360 - d.icm);
+        rotTilt = getShortestRotation(rotTilt, d.icm);
         document.getElementById('rose-tilt-needle').style.transform = `rotate(${rotTilt}deg)`;
     })
     .catch(e=>{
