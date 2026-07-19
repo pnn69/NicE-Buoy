@@ -270,9 +270,9 @@ void WiFiTask(void *arg) {
             hi[0] = subServer.arg("hx").toFloat();
             hi[1] = subServer.arg("hy").toFloat();
             hi[2] = subServer.arg("hz").toFloat();
-            si[0] = subServer.arg("sx").toFloat();
-            si[1] = subServer.arg("sy").toFloat();
-            si[2] = subServer.arg("sz").toFloat();
+            si[0] = fabs(subServer.arg("sx").toFloat());
+            si[1] = fabs(subServer.arg("sy").toFloat());
+            si[2] = fabs(subServer.arg("sz").toFloat());
 
             extern float si_matrix[3][3];
             // Handle optional full 3x3 matrix arguments
@@ -280,15 +280,15 @@ void WiFiTask(void *arg) {
                 subServer.hasArg("syx") && subServer.hasArg("syy") && subServer.hasArg("syz") &&
                 subServer.hasArg("szx") && subServer.hasArg("szy") && subServer.hasArg("szz")) {
 
-                si_matrix[0][0] = subServer.arg("sxx").toFloat();
+                si_matrix[0][0] = fabs(subServer.arg("sxx").toFloat());
                 si_matrix[0][1] = subServer.arg("sxy").toFloat();
                 si_matrix[0][2] = subServer.arg("sxz").toFloat();
                 si_matrix[1][0] = subServer.arg("syx").toFloat();
-                si_matrix[1][1] = subServer.arg("syy").toFloat();
+                si_matrix[1][1] = fabs(subServer.arg("syy").toFloat());
                 si_matrix[1][2] = subServer.arg("syz").toFloat();
                 si_matrix[2][0] = subServer.arg("szx").toFloat();
                 si_matrix[2][1] = subServer.arg("szy").toFloat();
-                si_matrix[2][2] = subServer.arg("szz").toFloat();
+                si_matrix[2][2] = fabs(subServer.arg("szz").toFloat());
             } else {
                 // Diagonal scale factor fallback
                 si_matrix[0][0] = si[0];

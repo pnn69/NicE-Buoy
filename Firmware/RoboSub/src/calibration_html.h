@@ -903,9 +903,12 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                 hiy = fit.offset[1];
                 hiz = fit.offset[2];
                 siMatrix = fit.softIronMatrix;
-                six = siMatrix[0][0];
-                siy = siMatrix[1][1];
-                siz = siMatrix[2][2];
+                six = Math.abs(siMatrix[0][0]);
+                siy = Math.abs(siMatrix[1][1]);
+                siz = Math.abs(siMatrix[2][2]);
+                siMatrix[0][0] = six;
+                siMatrix[1][1] = siy;
+                siMatrix[2][2] = siz;
                 calHiVal.textContent = `X: ${hix.toFixed(1)}, Y: ${hiy.toFixed(1)}, Z: ${hiz.toFixed(1)}`;
                 calSiVal.textContent = `X: ${six.toFixed(2)}, Y: ${siy.toFixed(2)}, Z: ${siz.toFixed(2)}`;
                 drawPoints();
