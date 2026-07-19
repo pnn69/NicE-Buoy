@@ -272,7 +272,7 @@ input {
             <span>25V</span>
         </div>
 
-        <div style="margin-top:10px;">
+        <div style="margin-top:10px; display:none;">
             <div style="display:flex;gap:10px;align-items:center;justify-content:center;margin-top:2px;">
                 <span style="color:orange;font-weight:bold;">-5A</span>
                 <div class="battery" style="background:#ddd; position:relative;">
@@ -312,6 +312,14 @@ input {
         <button id="btnSend" onclick="sendCommand('DIRDIST')">Send</button>
         <button id="btnMap" onclick="openMap()">Map</button>
     </div>
+
+    <!-- Active Trim Controls -->
+    <div style="margin-top:15px; display:flex; justify-content:space-around; align-items:center; background:#f8f9fa; padding:10px; border-radius:8px; border:1px solid #ddd; gap: 8px;">
+        <div style="font-size:14px; font-weight:bold; color:black; white-space:nowrap;">Active Trim: <span id="activeTrimText" style="color:red;">Disabled</span></div>
+        <div style="font-size:14px; font-weight:bold; color:black; white-space:nowrap;">Correction: <span id="correctionText">0.00</span></div>
+        <button id="btnToggleTrim" onclick="toggleActiveTrim()" style="background:#ffc107; color:black; font-weight:bold; margin:0; padding:5px 12px; width:auto; height:32px; font-size:13px; border-radius:4px; border:none; cursor:pointer;">Toggle Trim</button>
+        <button id="btnClearTrim" onclick="clearActiveTrim()" style="background:#f85149; color:white; font-weight:bold; margin:0; padding:5px 12px; width:auto; height:32px; font-size:13px; border-radius:4px; border:none; cursor:pointer;">Clear</button>
+    </div>
 </div>
 
 <!-- Setup Modal -->
@@ -334,6 +342,17 @@ input {
 
         <h4 style="margin: 5px 0 2px 0;">Compass & Radius</h4>
         <div class="inputRow" style="margin-top: 0;">Offset <input id="compassOffset" type="number" step="0.1" style="width:50px;"> Radius <input id="holdrad" type="number" step="0.1" min="1.5" style="width:50px;"></div>
+        
+        <h4 style="margin: 5px 0 2px 0;">Compass Active Trim</h4>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:5px;">
+                <input id="compass_trim_enabled" type="checkbox" style="width:20px; height:20px; margin:0;">
+                <label for="compass_trim_enabled" style="font-size:14px; font-weight:bold;">Active Trim Enabled</label>
+            </div>
+            <div style="font-size:14px; font-weight:bold;">
+                Mech Corr <input id="mechanicCorrection" type="number" step="0.01" style="width:60px; height:25px; text-align:center;">
+            </div>
+        </div>
         
         <h4 style="margin: 8px 0 5px 0;">Thruster Settings</h4>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
@@ -405,7 +424,9 @@ function updateConfig() {
         holdrad: document.getElementById('holdrad').value,
         revBB: document.getElementById('revBB').checked ? 1 : 0,
         revSB: document.getElementById('revSB').checked ? 1 : 0,
-        swap_BB_SB: document.getElementById('swap_BB_SB').checked ? 1 : 0
+        swap_BB_SB: document.getElementById('swap_BB_SB').checked ? 1 : 0,
+        compass_trim_enabled: document.getElementById('compass_trim_enabled').checked ? 1 : 0,
+        mech: document.getElementById('mechanicCorrection').value
     };
 
     let url = `/command?bid=${currentBuoy}&cmd=SETUPDATA`;
@@ -420,6 +441,70 @@ function updateConfig() {
         })
         .catch(error => {
             console.error('Error updating config:', error);
+        });
+}
+
+function toggleActiveTrim() {
+    const b = buoyData[currentBuoy];
+    if (!b) return;
+
+    const trimEnabled = (String(b.compass_trim_enabled).toLowerCase() === "true" || b.compass_trim_enabled === 1 || b.compass_trim_enabled === "1" || b.compass_trim_enabled === true);
+    const nextTrimState = trimEnabled ? 0 : 1;
+
+    const params = {
+        Kpr: b.Kpr !== undefined ? b.Kpr : 0.5,
+        Kir: b.Kir !== undefined ? b.Kir : 0.02,
+        Kdr: b.Kdr !== undefined ? b.Kdr : 0,
+        Kps: b.Kps !== undefined ? b.Kps : 20,
+        Kis: b.Kis !== undefined ? b.Kis : 0.05,
+        Kds: b.Kds !== undefined ? b.Kds : 0,
+        maxSpeed: b.maxSpeed !== undefined ? b.maxSpeed : 75,
+        minSpeed: b.minSpeed !== undefined ? b.minSpeed : 0,
+        pivotSpeed: b.pivotSpeed !== undefined ? b.pivotSpeed : 0.5,
+        compassOffset: b.compassOffset !== undefined ? b.compassOffset : 0,
+        holdrad: b.holdrad !== undefined ? b.holdrad : 2.0,
+        revBB: (String(b.revBB).toLowerCase() === "true" || b.revBB === 1 || b.revBB === "1" || b.revBB === true) ? 1 : 0,
+        revSB: (String(b.revSB).toLowerCase() === "true" || b.revSB === 1 || b.revSB === "1" || b.revSB === true) ? 1 : 0,
+        swap_BB_SB: (String(b.swap_BB_SB).toLowerCase() === "true" || b.swap_BB_SB === 1 || b.swap_BB_SB === "1" || b.swap_BB_SB === true) ? 1 : 0,
+        compass_trim_enabled: nextTrimState,
+        mech: 0
+    };
+
+    let url = `/command?bid=${currentBuoy}&cmd=SETUPDATA`;
+    for (const key in params) {
+        url += `&${key}=${params[key]}`;
+    }
+
+    fetch(url)
+        .then(response => response.text())
+        .then(data => {
+            console.log("Toggle Active Trim response:", data);
+            b.compass_trim_enabled = nextTrimState;
+            b.mechanicCorrection = 0;
+            updateUI();
+        })
+        .catch(error => {
+            console.error('Error toggling active trim:', error);
+        });
+}
+
+function clearActiveTrim() {
+    const b = buoyData[currentBuoy];
+    if (!b) return;
+    console.log("clearActiveTrim clicked. Clearing trim instantly.");
+
+    const enStatus = (String(b.compass_trim_enabled).toLowerCase() === "true" || b.compass_trim_enabled === 1 || b.compass_trim_enabled === "1" || b.compass_trim_enabled === true);
+    let url = `/command?bid=${currentBuoy}&cmd=ADAPTIVE_TRIM&compass_trim=0.0&compass_trim_enabled=${enStatus ? 1 : 0}`;
+
+    fetch(url)
+        .then(response => response.text())
+        .then(data => {
+            console.log("Clear Active Trim response:", data);
+            b.compass_trim = 0.0;
+            updateUI();
+        })
+        .catch(error => {
+            console.error('Error clearing active trim:', error);
         });
 }
 
@@ -534,14 +619,16 @@ function updateSetupModal() {
             setVal("pivotSpeed", b.pivotSpeed);
             setVal("compassOffset", b.compassOffset);
             setVal("holdrad", b.holdrad);
+            setVal("mechanicCorrection", b.mechanicCorrection);
 
             const setChecked = (id, val) => {
                 const el = document.getElementById(id);
-                if (el) el.checked = (String(val).toLowerCase() === "true" || val === 1 || val === "1");
+                if (el) el.checked = (String(val).toLowerCase() === "true" || val === 1 || val === "1" || val === true);
             };
             setChecked("revBB", b.revBB);
             setChecked("revSB", b.revSB);
             setChecked("swap_BB_SB", b.swap_BB_SB);
+            setChecked("compass_trim_enabled", b.compass_trim_enabled);
         }
     }
 }
@@ -854,7 +941,18 @@ function updateUI() {
     document.getElementById("isVal").innerText = (!isNaN(pidIs)) ? "Is:" + pidIs.toFixed(2) : "Is:---";
     document.getElementById("irVal").innerText = (!isNaN(pidIr)) ? "Ir:" + pidIr.toFixed(2) : "Ir:---";
     document.getElementById("targetDirText").innerText = (!isNaN(tgDir)) ? "Tg:" + tgDir.toFixed(0) + "°" : "Tg:---";
-    document.getElementById("magDirText").innerText = (!isNaN(magDir)) ? "Mag:" + magDir.toFixed(0) + "°" : "Mag:---";
+    document.getElementById("magDirText").innerText = (!isNaN(magDir)) ? "Mag:" + magDir.toFixed(0).padStart(3, '0') + "°" : "Mag:---";
+
+    const activeTrimText = document.getElementById("activeTrimText");
+    const correctionText = document.getElementById("correctionText");
+    if (activeTrimText && correctionText) {
+        const trimEnabled = (String(b.compass_trim_enabled).toLowerCase() === "true" || b.compass_trim_enabled === 1 || b.compass_trim_enabled === "1" || b.compass_trim_enabled === true);
+        activeTrimText.innerText = trimEnabled ? "Enabled" : "Disabled";
+        activeTrimText.style.color = trimEnabled ? "green" : "red";
+        
+        const corrFactor = parseFloat(b.compass_trim !== undefined ? b.compass_trim : (b.mechanicCorrection || 0));
+        correctionText.innerText = (corrFactor >= 0 ? "+" : "") + corrFactor.toFixed(2) + "°";
+    }
 
     // Bars
     setBar("barBB", parseFloat(b.BB || 0), "bbValue");

@@ -515,11 +515,52 @@ void CompassTask(void *arg) {
                 continue;
             }
 
-            // -------------------- I2C GLITCH & READ VALIDATION FILTER --------------------
+            // -------------------- AEROSPACE-GRADE I2C GLITCH GUARD & OUTLIER REJECTION --------------------
             // Discard absolute sensor read failures or brief I2C transaction dropouts to prevent NaN filter pollution
             if (ax_raw == 0.0f && ay_raw == 0.0f && az_raw == 0.0f) {
                 vTaskDelay(pdMS_TO_TICKS(10));
                 continue;
+            }
+
+            // Calculate raw accelerometer 3D magnitude (gravity vector norm)
+            float accel_magnitude = sqrtf(ax_raw * ax_raw + ay_raw * ay_raw + az_raw * az_raw);
+
+            // If the magnitude is physically impossible (e.g. I2C register corruption returning -32768 or garbage),
+            // or if the change is an extreme spike, instantly discard this corrupted reading!
+            static float last_valid_ax = 0.0f;
+            static float last_valid_ay = 0.0f;
+            static float last_valid_az = 1.0f; // Default gravity down (1.0 G)
+            static bool has_valid_accel = false;
+
+            // Normal buoy acceleration is close to 1G. We reject anything > 2.5G or < 0.2G as I2C noise.
+            bool is_accel_glitched = (accel_magnitude > 2.5f || accel_magnitude < 0.2f);
+
+            if (!is_accel_glitched && has_valid_accel) {
+                // Slew-rate check: buoy cannot physically accelerate by > 1.2G in 10ms!
+                if (fabs(ax_raw - last_valid_ax) > 1.2f || 
+                    fabs(ay_raw - last_valid_ay) > 1.2f || 
+                    fabs(az_raw - last_valid_az) > 1.2f) {
+                    is_accel_glitched = true;
+                }
+            }
+
+            if (is_accel_glitched) {
+                if (has_valid_accel) {
+                    // Recover smoothly by replacing the corrupted glitch with the last verified valid sample!
+                    // This keeps the loop executing in perfect 100Hz synchrony with absolutely zero data gaps.
+                    ax_raw = last_valid_ax;
+                    ay_raw = last_valid_ay;
+                    az_raw = last_valid_az;
+                } else {
+                    vTaskDelay(pdMS_TO_TICKS(1));
+                    continue;
+                }
+            } else {
+                // Save the verified valid sample
+                last_valid_ax = ax_raw;
+                last_valid_ay = ay_raw;
+                last_valid_az = az_raw;
+                has_valid_accel = true;
             }
 
             // Apply Hard Iron Offset (Always applied)
@@ -639,7 +680,7 @@ void CompassTask(void *arg) {
             }
 
             // Smooth raw accelerometer readings SPECIFICALLY for analytical pitch/roll to reject high-frequency motor vibration.
-            // Stage 1: Pre-angle gravity vector smoothing (98% old, 2% new) to prevent non-linear atan2f amplification
+            // Stage 1: Pre-angle gravity vector smoothing (97% old, 3% new) to prevent non-linear atan2f amplification
             static float ax_smoothed = 0.0f;
             static float ay_smoothed = 0.0f;
             static float az_smoothed = 0.0f;
@@ -651,16 +692,16 @@ void CompassTask(void *arg) {
                 az_smoothed = az_raw;
                 first_accel = false;
             } else {
-                ax_smoothed = 0.98f * ax_smoothed + 0.02f * ax_raw;
-                ay_smoothed = 0.98f * ay_smoothed + 0.02f * ay_raw;
-                az_smoothed = 0.98f * az_smoothed + 0.02f * az_raw;
+                ax_smoothed = 0.97f * ax_smoothed + 0.03f * ax_raw;
+                ay_smoothed = 0.97f * ay_smoothed + 0.03f * ay_raw;
+                az_smoothed = 0.97f * az_smoothed + 0.03f * az_raw;
             }
 
             // Calculate raw angles from Stage 1 smoothed gravity vector
             float roll_raw = atan2f(ay_smoothed, az_smoothed) * 57.29578f;
             float pitch_raw = atan2f(-ax_smoothed, sqrtf(ay_smoothed * ay_smoothed + az_smoothed * az_smoothed)) * 57.29578f;
 
-            // Stage 2: Post-angle exponential moving average smoothing (98% old, 2% new) for massive high-frequency attenuation
+            // Stage 2: Post-angle exponential moving average smoothing (97% old, 3% new) for massive high-frequency attenuation
             static float roll_smoothed = 0.0f;
             static float pitch_smoothed = 0.0f;
             static bool first_angle = true;
@@ -670,8 +711,8 @@ void CompassTask(void *arg) {
                 pitch_smoothed = pitch_raw;
                 first_angle = false;
             } else {
-                roll_smoothed = 0.98f * roll_smoothed + 0.02f * roll_raw;
-                pitch_smoothed = 0.98f * pitch_smoothed + 0.02f * pitch_raw;
+                roll_smoothed = 0.97f * roll_smoothed + 0.03f * roll_raw;
+                pitch_smoothed = 0.97f * pitch_smoothed + 0.03f * pitch_raw;
             }
 
             float roll = roll_smoothed;

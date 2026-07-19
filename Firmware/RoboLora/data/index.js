@@ -41,7 +41,8 @@ const MsgType = {
     RESET_SPEED_PID: 80,
     RESET_SPEED_RUD_PID: 81,
     WAKEUP: 82,
-    SETUPDATA: 83
+    SETUPDATA: 83,
+    ADAPTIVE_TRIM: 84
 };
 
 // Buoy State Configuration (stores 3 buoys)
@@ -427,7 +428,13 @@ function parseMessage(message, source, senderIp = null) {
                 "Kpr": fields[5], "Kir": fields[6], "Kdr": fields[7], "Kps": fields[8], "Kis": fields[9], "Kds": fields[10],
                 "maxSpeed": fields[11], "minSpeed": fields[12], "pivotSpeed": fields[13], "compassOffset": fields[14] || "0",
                 "holdRad": fields[15] || "2.0",
-                "revBB": fields[16] || "0", "revSB": fields[17] || "0", "swap_BB_SB": fields[18] || "0"
+                "revBB": fields[16] || "0", "revSB": fields[17] || "0", "swap_BB_SB": fields[18] || "0",
+                "compass_trim_enabled": fields[16] || "0"
+            });
+        } else if (cmd === MsgType.ADAPTIVE_TRIM && fields.length >= 6) {
+            Object.assign(parsedData, {
+                "compass_trim": fields[5],
+                "compass_trim_enabled": fields[6]
             });
         }
         
@@ -720,16 +727,29 @@ function updateGUI() {
         document.getElementById(`curr-val-${i}`).textContent = `${currentA.toFixed(1)}A`;
         
         // 8. Parameters panel tables updates
-        const paramFields = ["Timestamp", "Wind Dir", "Wind StdDev", "PID I-term", "PID R-term", "Battery", "Current", "GPS Fix", "GPS Satellites"];
+        const paramFields = ["Timestamp", "Wind Dir", "Wind StdDev", "PID I-term", "PID R-term", "Battery", "Current", "GPS Fix", "GPS Satellites", "Active Trim"];
         paramFields.forEach(field => {
             let value = "N/A";
             if (field === "Battery") value = `${subBatV.toFixed(1)}V`;
             else if (field === "Current") value = `${currentA.toFixed(1)}A`;
             else if (field === "Wind Dir") value = d["Wind Dir"] ? `${parseFloat(d["Wind Dir"]).toFixed(0)}°` : "N/A";
             else if (field === "Wind StdDev") value = d["Wind StdDev"] ? `${parseFloat(d["Wind StdDev"]).toFixed(0)}` : "N/A";
+            else if (field === "Active Trim") {
+                const en = d["compass_trim_enabled"] === "1" || d["compass_trim_enabled"] === 1 || d["compass_trim_enabled"] === true || d["compass_trim_enabled"] === "true";
+                const trim = parseFloat(d["compass_trim"] || "0.0");
+                value = en ? `ON (${trim >= 0 ? '+' : ''}${trim.toFixed(2)}°)` : `OFF (${trim >= 0 ? '+' : ''}${trim.toFixed(2)}°)`;
+            }
             else value = d[field] !== undefined ? d[field] : "N/A";
             
-            document.getElementById(`param-${field.replace(/\s+/g, '-')}-${i}`).textContent = value;
+            const paramEl = document.getElementById(`param-${field.replace(/\s+/g, '-')}-${i}`);
+            if (paramEl) {
+                paramEl.textContent = value;
+                if (field === "Active Trim") {
+                    const en = d["compass_trim_enabled"] === "1" || d["compass_trim_enabled"] === 1 || d["compass_trim_enabled"] === true || d["compass_trim_enabled"] === "true";
+                    paramEl.style.color = en ? "#22c55e" : "#ef4444";
+                    paramEl.style.fontWeight = "bold";
+                }
+            }
         });
     });
     
@@ -892,7 +912,7 @@ function openSetupModal(buoyIndex) {
     if (!b.id) return;
     
     // Reset any setup fields to force fetch reload
-    const setupKeys = ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "pivotSpeed", "compassOffset", "holdRad", "revBB", "revSB", "swap_BB_SB"];
+    const setupKeys = ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "pivotSpeed", "compassOffset", "holdRad", "revBB", "revSB", "swap_BB_SB", "compass_trim", "compass_trim_enabled"];
     setupKeys.forEach(key => delete b.data[key]);
     
     document.getElementById("modal-buoy-title").textContent = `Setup Buoy ${b.id.toUpperCase()}`;
@@ -936,12 +956,16 @@ function querySetupAndPoll() {
         document.getElementById("setup-compassOffset").value = parseInt(b.data["compassOffset"]) || 0;
         document.getElementById("setup-holdRad").value = parseFloat(b.data["holdRad"]) || 2.0;
         
-        document.getElementById("setup-revBB").checked = b.data["revBB"] === "1";
+        const trimEn = b.data["compass_trim_enabled"] === "1" || b.data["compass_trim_enabled"] === 1 || b.data["compass_trim_enabled"] === true || b.data["compass_trim_enabled"] === "true";
+        document.getElementById("setup-compassTrimEnabled").checked = trimEn;
         document.getElementById("setup-revSB").checked = b.data["revSB"] === "1";
         document.getElementById("setup-swap").checked = b.data["swap_BB_SB"] === "1";
     } else {
         // Send fetch query request ($buoyId,99,MsgType.GET,MsgType.SETUPDATA,,,,,,,)
         sendCommand(b.id, `${b.id},99,${MsgType.GET},${MsgType.SETUPDATA},,,,,,,`);
+        
+        // Also query ADAPTIVE_TRIM
+        sendCommand(b.id, `${b.id},99,${MsgType.GET},${MsgType.ADAPTIVE_TRIM},,,,,,,`);
         
         // Wait 1500ms and retry to prevent LoRa channel congestion
         setupCheckRetries++;
@@ -962,6 +986,7 @@ function saveSetupForm() {
     if (!b.id) return;
     
     const currStatus = b.data.Status || "7";
+    const trimEn = document.getElementById("setup-compassTrimEnabled").checked ? "1" : "0";
     
     const values = [
         document.getElementById("setup-Kpr").value,
@@ -975,7 +1000,7 @@ function saveSetupForm() {
         document.getElementById("setup-pivotSpeed").value,
         document.getElementById("setup-compassOffset").value,
         document.getElementById("setup-holdRad").value,
-        document.getElementById("setup-revBB").checked ? "1" : "0",
+        trimEn, // Index 16 on the wire (corresponds to compass_trim_enabled in newer builds)
         document.getElementById("setup-revSB").checked ? "1" : "0",
         document.getElementById("setup-swap").checked ? "1" : "0"
     ];
@@ -983,6 +1008,11 @@ function saveSetupForm() {
     // Construct message: Target,99,SET,SETUPDATA,Status,vals...
     const commandPayload = `${b.id},99,${MsgType.SET},${MsgType.SETUPDATA},${currStatus},${values.join(",")}`;
     sendCommand(b.id, commandPayload);
+    
+    // Also explicitly send an ADAPTIVE_TRIM (CMD 84) set command to sync right away
+    const currentTrimVal = parseFloat(b.data["compass_trim"] || "0.0");
+    const trimPayload = `${b.id},99,${MsgType.SET},${MsgType.ADAPTIVE_TRIM},${currStatus},${currentTrimVal.toFixed(4)},${trimEn}`;
+    sendCommand(b.id, trimPayload);
     
     closeSetupModal();
 }

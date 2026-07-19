@@ -41,14 +41,13 @@ void initMemory(void)
         storage.remove("Doclon");
     }
 
-    // 2. Check if this is a fresh processor or if we need a data fix
+    // 2. Check if this is a fresh processor or if NVS has been cleared
     unsigned long id = espMac();
     uint64_t stored_id = storage.getULong64("NicE_BuoyID", 0);
-    double kpr_check = storage.getDouble("Kpr", 1.0);
-    int maxSpeed_check = storage.getInt("maxSpeed", 0);
 
-    // If Kpr is detected to be a Speed P value (e.g. 20.0), or if parameters are zeroed/corrupted, reset to defaults
-    if (id != stored_id || kpr_check > 10.0 || kpr_check == 0.0 || maxSpeed_check == 0)
+    // Only reset to defaults on a completely fresh/cleared NVS partition (when stored_id is 0)
+    // This respects the operator's custom PIDs, speed limits, and prevents unwanted resets on reboot!
+    if (stored_id == 0 || id != stored_id)
     {
         storage.putULong64("NicE_BuoyID", id);
         storage.putDouble("Docklat", 0.0);

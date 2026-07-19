@@ -255,6 +255,9 @@ void WiFiTask(void *arg)
         json += "\"revBB\":\"" + String(mainData.revBB ? "true" : "false") + "\",";
         json += "\"revSB\":\"" + String(mainData.revSB ? "true" : "false") + "\",";
         json += "\"swap_BB_SB\":\"" + String(mainData.swap_BB_SB ? "true" : "false") + "\",";
+        json += "\"mechanicCorrection\":\"" + String(mainData.mechanicCorrection, 2) + "\",";
+        json += "\"compass_trim_enabled\":\"" + String(mainData.compass_trim_enabled ? "true" : "false") + "\",";
+        json += "\"compass_trim\":\"" + String(mainData.compass_trim, 3) + "\",";
         json += "\"Lat\":\"" + String(mainData.lat, 6) + "\",";
         json += "\"Lng\":\"" + String(mainData.lng, 6) + "\",";
         json += "\"GpsFix\":\"" + String(mainData.gpsFix ? "true" : "false") + "\"";
@@ -290,11 +293,14 @@ void WiFiTask(void *arg)
             json += "\"pivotSpeed\":\"" + String(buoyPara[i].pivotSpeed, 2) + "\",";
             json += "\"compassOffset\":\"" + String(buoyPara[i].compassOffset, 2) + "\",";
             json += "\"holdrad\":\"" + String(buoyPara[i].holdRad, 2) + "\",";
-            json += "\"Lat\":\"" + String(buoyPara[i].lat, 6) + "\",";
-            json += "\"Lng\":\"" + String(buoyPara[i].lng, 6) + "\",";
             json += "\"revBB\":\"" + String(buoyPara[i].revBB ? "true" : "false") + "\",";
             json += "\"revSB\":\"" + String(buoyPara[i].revSB ? "true" : "false") + "\",";
             json += "\"swap_BB_SB\":\"" + String(buoyPara[i].swap_BB_SB ? "true" : "false") + "\",";
+            json += "\"mechanicCorrection\":\"" + String(buoyPara[i].mechanicCorrection, 2) + "\",";
+            json += "\"compass_trim_enabled\":\"" + String(buoyPara[i].compass_trim_enabled ? "true" : "false") + "\",";
+            json += "\"compass_trim\":\"" + String(buoyPara[i].compass_trim, 3) + "\",";
+            json += "\"Lat\":\"" + String(buoyPara[i].lat, 6) + "\",";
+            json += "\"Lng\":\"" + String(buoyPara[i].lng, 6) + "\",";
             json += "\"GpsFix\":\"" + String(buoyPara[i].gpsFix ? "true" : "false") + "\"";
             json += "}";
             if (i < 2) json += ",";
@@ -346,6 +352,7 @@ void WiFiTask(void *arg)
         else if (cmdStr == "MANUAL_CALIB") cmdEnum = CALIBRATE_MAGNETIC_COMPASS;
         else if (cmdStr == "CALIB_OFFSET") cmdEnum = INFIELD_OFFSET_CALIBRATE;
         else if (cmdStr == "SET_AS_NORTH") cmdEnum = SET_AS_NORTH;
+        else if (cmdStr == "ADAPTIVE_TRIM") cmdEnum = ADAPTIVE_TRIM;
         else if (cmdStr == "COMPUTESTART") cmdEnum = COMPUTESTART;
         else if (cmdStr == "COMPUTETRACK") cmdEnum = COMPUTETRACK;
 
@@ -371,6 +378,8 @@ void WiFiTask(void *arg)
                     mainData.revBB = server.arg("revBB").toInt();
                     mainData.revSB = server.arg("revSB").toInt();
                     mainData.swap_BB_SB = server.arg("swap_BB_SB").toInt();
+                    if (server.hasArg("compass_trim_enabled")) mainData.compass_trim_enabled = (server.arg("compass_trim_enabled").toInt() != 0);
+                    if (server.hasArg("mech")) mainData.mechanicCorrection = server.arg("mech").toFloat();
 
                     pidRudderParameters(&mainData, SET);
                     pidSpeedParameters(&mainData, SET);
@@ -393,6 +402,10 @@ void WiFiTask(void *arg)
                     msg.tgDir = server.arg("dir").toFloat();
                     msg.tgDist = server.arg("dist").toFloat();
                     msg.ack = INF;
+                } else if (cmdEnum == ADAPTIVE_TRIM) {
+                    if (server.hasArg("compass_trim")) msg.compass_trim = server.arg("compass_trim").toFloat();
+                    if (server.hasArg("compass_trim_enabled")) msg.compass_trim_enabled = (server.arg("compass_trim_enabled").toInt() != 0);
+                    msg.ack = SET;
                 } else {
                     msg.ack = INF;
                 }
@@ -435,10 +448,16 @@ void WiFiTask(void *arg)
                     msg.revBB = server.arg("revBB").toInt();
                     msg.revSB = server.arg("revSB").toInt();
                     msg.swap_BB_SB = server.arg("swap_BB_SB").toInt();
+                    if (server.hasArg("compass_trim_enabled")) msg.compass_trim_enabled = (server.arg("compass_trim_enabled").toInt() != 0);
+                    if (server.hasArg("mech")) msg.mechanicCorrection = server.arg("mech").toFloat();
                     msg.ack = SET;
                 } else {
                     msg.ack = GET;
                 }
+            } else if (cmdEnum == ADAPTIVE_TRIM) {
+                if (server.hasArg("compass_trim")) msg.compass_trim = server.arg("compass_trim").toFloat();
+                if (server.hasArg("compass_trim_enabled")) msg.compass_trim_enabled = (server.arg("compass_trim_enabled").toInt() != 0);
+                msg.ack = SET;
             }
 
             xQueueSend(serOut, (void *)&msg, 10);

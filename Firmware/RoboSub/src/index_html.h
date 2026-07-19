@@ -240,10 +240,8 @@ function toggleTrim() {
     fetch(`/setparam?p=ctrim_en&v=${nextState}`).then(() => setTimeout(fetchParams, 100));
 }
 function clearTrim() {
-    console.log("clearTrim clicked.");
-    if (confirm("Reset adaptive compass trim back to 0.00°?")) {
-        fetch(`/setparam?p=ctrim_clr&v=1`).then(() => setTimeout(fetchParams, 100));
-    }
+    console.log("clearTrim clicked. Clearing trim instantly.");
+    fetch(`/setparam?p=ctrim_clr&v=1`).then(() => setTimeout(fetchParams, 100));
 }
 function setParam(p){const e=document.getElementById(p+'_in');if(!e)return;fetch('/setparam?p='+p+'&v='+e.value).then(()=>setTimeout(fetchParams,300))}
 function setAsNorth(){
