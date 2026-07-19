@@ -571,7 +571,7 @@ void WiFiTask(void *arg) {
 
         // Align the calibrated magnetometer axes to match the accelerometer coordinate frame
         float mx_cal = myc;
-        float my_cal = mxc;
+        float my_cal = -mxc;
         float mz_cal = -mzc;
 
         // Extract all pending calibration points from the ring buffer
