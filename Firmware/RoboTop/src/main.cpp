@@ -1293,6 +1293,31 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 break;
             case STORE_COMPASS_OFFSET:
                 RfOut->compassOffset = RfIn.compassOffset; // Update Top Buoy's local data
+                break;
+            case ADAPTIVE_TRIM:
+                {
+                    int targetIdx = -1;
+                    for (int i = 0; i < 3; i++) {
+                        if (buoyPara[i]->IDs == RfIn.IDs) {
+                            targetIdx = i;
+                            break;
+                        }
+                    }
+                    if (targetIdx == -1) {
+                        for (int i = 0; i < 3; i++) {
+                            if (buoyPara[i]->IDs == 0) {
+                                targetIdx = i;
+                                break;
+                            }
+                        }
+                    }
+                    if (targetIdx != -1) {
+                        buoyPara[targetIdx]->compass_trim = RfIn.compass_trim;
+                        buoyPara[targetIdx]->compass_trim_enabled = RfIn.compass_trim_enabled;
+                    }
+                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                }
                 
                 RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
@@ -1427,6 +1452,12 @@ void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
         }
         switch (serDataIn.cmd)
         {
+        case ADAPTIVE_TRIM:
+            if (target) {
+                target->compass_trim = serDataIn.compass_trim;
+                target->compass_trim_enabled = serDataIn.compass_trim_enabled;
+            }
+            break;
         case SUBDATA:
             target->dirMag = serDataIn.dirMag;
             target->speedBb = serDataIn.speedBb;
