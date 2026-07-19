@@ -538,10 +538,9 @@ void CompassTask(void *arg) {
             }
 
             // Coordinate Axis Realignment (Align ICM Magnetometer with Accelerometer/Gyroscope coordinate frame)
-            // matching standard ICM-20948 AK09916 coordinate alignment specification:
-            // X_aligned = X_calibrated, Y_aligned = -Y_calibrated, Z_aligned = -Z_calibrated
+            // Account for upside-down physical mounting of the sensor by aligning magnetometer Y with the positive gyro frame
             float mx_cal_aligned = mxc;
-            float my_cal_aligned = -myc;
+            float my_cal_aligned = myc;
             float mz_cal_aligned = -mzc;
 
             // Check for NaNs to prevent corrupting the Madgwick filter's internal state
