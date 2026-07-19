@@ -296,7 +296,10 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
     <!-- DASHBOARD CONTAINER -->
     <div id="dashboard-container" class="container" style="display: grid;">
         <div class="card">
-            <h2>Real-time Compasses</h2>
+            <h2 style="display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; width: 100%;">
+                Real-time Compasses
+                <span id="cal-load-text" style="font-size: 0.8rem; font-family: monospace; color: var(--text-muted); font-weight: normal; margin-left: auto; padding-left: 10px;">HI: [0.0, 0.0, 0.0] SI: [1.00, 1.00, 1.00]</span>
+            </h2>
             <div class="windrose-grid">
                 
                 <!-- RAW -->
@@ -512,6 +515,10 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                         if (isNaN(pitchVal)) pitchVal = 0;
                         currentRoll = rollVal;
                         currentPitch = pitchVal;
+
+                        if (data.cal_load !== undefined) {
+                            document.getElementById('cal-load-text').innerText = data.cal_load;
+                        }
 
                         document.getElementById('val-rose-raw').innerText = Math.round(headingRaw).toString().padStart(3, '0') + '°';
                         document.getElementById('val-rose-hard').innerText = Math.round(headingHard).toString().padStart(3, '0') + '°';
