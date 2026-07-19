@@ -515,7 +515,6 @@ void CompassTask(void *arg) {
                 continue;
             }
 
-            // -------------------- I2C GLITCH & READ VALIDATION FILTER --------------------
             // Discard absolute sensor read failures or brief I2C transaction dropouts to prevent NaN filter pollution
             if (ax_raw == 0.0f && ay_raw == 0.0f && az_raw == 0.0f) {
                 vTaskDelay(pdMS_TO_TICKS(10));
@@ -639,7 +638,7 @@ void CompassTask(void *arg) {
             }
 
             // Smooth raw accelerometer readings SPECIFICALLY for analytical pitch/roll to reject high-frequency motor vibration.
-            // Stage 1: Pre-angle gravity vector smoothing (98% old, 2% new) to prevent non-linear atan2f amplification
+            // Stage 1: Pre-angle gravity vector smoothing (97% old, 3% new) to prevent non-linear atan2f amplification
             static float ax_smoothed = 0.0f;
             static float ay_smoothed = 0.0f;
             static float az_smoothed = 0.0f;
@@ -651,16 +650,16 @@ void CompassTask(void *arg) {
                 az_smoothed = az_raw;
                 first_accel = false;
             } else {
-                ax_smoothed = 0.98f * ax_smoothed + 0.02f * ax_raw;
-                ay_smoothed = 0.98f * ay_smoothed + 0.02f * ay_raw;
-                az_smoothed = 0.98f * az_smoothed + 0.02f * az_raw;
+                ax_smoothed = 0.97f * ax_smoothed + 0.03f * ax_raw;
+                ay_smoothed = 0.97f * ay_smoothed + 0.03f * ay_raw;
+                az_smoothed = 0.97f * az_smoothed + 0.03f * az_raw;
             }
 
             // Calculate raw angles from Stage 1 smoothed gravity vector
             float roll_raw = atan2f(ay_smoothed, az_smoothed) * 57.29578f;
             float pitch_raw = atan2f(-ax_smoothed, sqrtf(ay_smoothed * ay_smoothed + az_smoothed * az_smoothed)) * 57.29578f;
 
-            // Stage 2: Post-angle exponential moving average smoothing (98% old, 2% new) for massive high-frequency attenuation
+            // Stage 2: Post-angle exponential moving average smoothing (97% old, 3% new) for massive high-frequency attenuation
             static float roll_smoothed = 0.0f;
             static float pitch_smoothed = 0.0f;
             static bool first_angle = true;
@@ -670,8 +669,8 @@ void CompassTask(void *arg) {
                 pitch_smoothed = pitch_raw;
                 first_angle = false;
             } else {
-                roll_smoothed = 0.98f * roll_smoothed + 0.02f * roll_raw;
-                pitch_smoothed = 0.98f * pitch_smoothed + 0.02f * pitch_raw;
+                roll_smoothed = 0.97f * roll_smoothed + 0.03f * roll_raw;
+                pitch_smoothed = 0.97f * pitch_smoothed + 0.03f * pitch_raw;
             }
 
             float roll = roll_smoothed;
@@ -779,8 +778,8 @@ void CompassTask(void *arg) {
 
                 global_hdg = heading;
                 mainData.dirMag = heading;
-                mainData.roll = roll;
-                mainData.pitch = pitch;
+                mainData.roll = -pitch;  // Swapped and Inverted to match physical mounting orientation
+                mainData.pitch = -roll;  // Swapped and Inverted to match physical mounting orientation
 
                 if (compass) xQueueOverwrite(compass, (void *)&heading);
 

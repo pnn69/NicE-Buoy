@@ -860,7 +860,7 @@ void handleTimerRoutines(RoboStruct *in)
 
     static unsigned long nextTrimSendTime = 0;
     if (nextTrimSendTime < millis()) {
-        nextTrimSendTime = 10000 + millis(); // Every 10 seconds
+        nextTrimSendTime = 1000 + millis(); // Every 1 second (fast update!)
         
         RoboStruct trimMsg = {};
         trimMsg.IDs = mainData.mac;
