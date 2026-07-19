@@ -130,6 +130,14 @@ bool InitCompass(void)
         float hi[3], si[3];
         memIcmCalib(hi, si, true);
 
+        // Enforce absolute values on startup to recover any older profiles with negative scale factors
+        si[0] = fabs(si[0]);
+        si[1] = fabs(si[1]);
+        si[2] = fabs(si[2]);
+        for (int r = 0; r < 3; r++) {
+            si_matrix[r][r] = fabs(si_matrix[r][r]);
+        }
+
         // Validate that the loaded 3x3 soft-iron matrix contains valid finite values within sensible limits
         bool matrix_valid = true;
         for (int r = 0; r < 3; r++) {
