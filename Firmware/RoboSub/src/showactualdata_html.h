@@ -140,10 +140,13 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
         }
 
         @media (min-width: 600px) {
-            .windrose-grid { grid-template-columns: 1fr 1fr; }
+            .windrose-grid { grid-template-columns: repeat(2, 1fr); }
         }
-        @media (min-width: 1024px) {
-            .windrose-grid { grid-template-columns: 1fr 1fr 1fr 1fr; }
+        @media (min-width: 900px) {
+            .windrose-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (min-width: 1200px) {
+            .windrose-grid { grid-template-columns: repeat(5, 1fr); }
         }
 
         .windrose-card {
@@ -377,9 +380,34 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                     <div id="val-rose-soft" class="heading-val">000°</div>
                 </div>
 
-                <!-- FULL COMP (TILT) -->
+                <!-- TILT COMPENSATED OPTION 3 -->
                 <div class="windrose-card">
                     <h3>Tilt Compensated</h3>
+                    <div class="compass-wrapper">
+                        <svg class="compass" viewBox="0 0 200 200">
+                            <circle cx="100" cy="100" r="95" fill="#161616" stroke="#2c2c2c" stroke-width="5"/>
+                            <circle cx="100" cy="100" r="82" fill="none" stroke="#00e6ff" stroke-width="1.5" stroke-dasharray="3, 5"/>
+                            <line x1="100" y1="12" x2="100" y2="18" stroke="#ff3333" stroke-width="3"/>
+                            <line x1="100" y1="182" x2="100" y2="188" stroke="#eee" stroke-width="2"/>
+                            <line x1="12" y1="100" x2="18" y2="100" stroke="#eee" stroke-width="2"/>
+                            <line x1="182" y1="100" x2="188" y2="100" stroke="#eee" stroke-width="2"/>
+                            <text x="100" y="32" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#ff3333" text-anchor="middle">N</text>
+                            <text x="100" y="174" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">S</text>
+                            <text x="168" y="106" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">E</text>
+                            <text x="32" y="106" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">W</text>
+                            <g class="needle" id="rose-opt3-needle">
+                                <polygon points="100,20 108,100 100,108" fill="#ff3333"/>
+                                <polygon points="100,20 92,100 100,108" fill="#cc0000"/>
+                                <circle cx="100" cy="100" r="7" fill="#ffd700" stroke="#121212" stroke-width="2"/>
+                            </g>
+                        </svg>
+                    </div>
+                    <div id="val-rose-opt3" class="heading-val">000°</div>
+                </div>
+
+                <!-- 9-DOF FUSION OPTION 4 -->
+                <div class="windrose-card">
+                    <h3>9-DOF Fusion Comp</h3>
                     <div class="compass-wrapper">
                         <svg class="compass" viewBox="0 0 200 200">
                             <circle cx="100" cy="100" r="95" fill="#161616" stroke="#2c2c2c" stroke-width="5"/>
@@ -475,8 +503,8 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
         let wsConnected = false;
         let activeTab = 'dashboard';
 
-        let headingRaw = 0, headingHard = 0, headingSoft = 0, headingTilt = 0;
-        let rotRaw = 0, rotHard = 0, rotSoft = 0, rotTilt = 0;
+        let headingRaw = 0, headingHard = 0, headingSoft = 0, headingOpt3 = 0, headingTilt = 0;
+        let rotRaw = 0, rotHard = 0, rotSoft = 0, rotOpt3 = 0, rotTilt = 0;
         let currentRoll = 0, currentPitch = 0;
 
         let scene, camera, renderer, trackerMesh;
@@ -507,8 +535,9 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                         headingRaw = data.raw;
                         headingHard = data.hard;
                         headingSoft = data.hardSoft;
-                        // Use direct clockwise heading from ESP32
-                        headingTilt = data.icm;
+                        headingOpt3 = data.opt3;
+                        // Use direct clockwise heading from ESP32 (offset-free)
+                        headingTilt = data.icm_no_offset;
                         let rollVal = Number(data.roll !== undefined ? data.roll : (data.ir || 0));
                         let pitchVal = Number(data.pitch !== undefined ? data.pitch : (data.ip || 0));
                         if (isNaN(rollVal)) rollVal = 0;
@@ -523,6 +552,7 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                         document.getElementById('val-rose-raw').innerText = Math.round(headingRaw).toString().padStart(3, '0') + '°';
                         document.getElementById('val-rose-hard').innerText = Math.round(headingHard).toString().padStart(3, '0') + '°';
                         document.getElementById('val-rose-soft').innerText = Math.round(headingSoft).toString().padStart(3, '0') + '°';
+                        document.getElementById('val-rose-opt3').innerText = Math.round(headingOpt3).toString().padStart(3, '0') + '°';
                         document.getElementById('val-rose-tilt').innerText = Math.round(headingTilt).toString().padStart(3, '0') + '°';
 
                         document.getElementById('val-pitch').innerText = currentPitch.toFixed(1) + '°';
@@ -536,6 +566,8 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                         document.getElementById('rose-hard-needle').style.transform = `rotate(${rotHard}deg)`;
                         rotSoft = getShortestRotation(rotSoft, headingSoft);
                         document.getElementById('rose-soft-needle').style.transform = `rotate(${rotSoft}deg)`;
+                        rotOpt3 = getShortestRotation(rotOpt3, headingOpt3);
+                        document.getElementById('rose-opt3-needle').style.transform = `rotate(${rotOpt3}deg)`;
                         rotTilt = getShortestRotation(rotTilt, headingTilt);
                         document.getElementById('rose-tilt-needle').style.transform = `rotate(${rotTilt}deg)`;
 

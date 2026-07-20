@@ -574,3 +574,23 @@ void memCompassTrim(float *trim, bool *enabled, bool get)
     }
     stopMem();
 }
+
+/**
+ * @brief Reads or writes the Pitch/Roll Damping (pr_damping) to Preferences NVM.
+ */
+void memPrDamping(float *damping, bool get)
+{
+    startMem();
+    if (get)
+    {
+        *damping = storage.getFloat("pr_damping", 0.95f);
+        if (!isfinite(*damping) || *damping < 0.0f || *damping > 0.99f) {
+            *damping = 0.95f; // Best guess default!
+        }
+    }
+    else
+    {
+        storage.putFloat("pr_damping", *damping);
+    }
+    stopMem();
+}

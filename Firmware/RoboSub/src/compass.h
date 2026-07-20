@@ -19,6 +19,7 @@ bool InitCompass(void);
 void initcompassQueue(void);
 bool CalibrateCompass(void);
 float GetHeading(void);
+float GetHeadingNoOffset(void);
 float GetHeadingRaw(void);
 float CompassAverage(float in);
 void CompassTask(void *arg);

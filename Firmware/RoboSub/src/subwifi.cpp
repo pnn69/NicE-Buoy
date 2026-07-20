@@ -43,6 +43,7 @@ extern float last_raw_x, last_raw_y, last_raw_z;
 extern float hi_x, hi_y, hi_z;
 extern float si_x, si_y, si_z;
 extern int icm_mode;
+extern float pr_damping;
 extern bool magRejected;
 extern void updateUIHexFloat();
 extern String global_cal_msg;
@@ -440,6 +441,12 @@ void WiFiTask(void *arg) {
                 mainData.compass_trim = 0.0f;
                 paramUpdated = true;
             }
+            else if(p=="prdamp"){
+                pr_damping = v;
+                if (pr_damping < 0.0f) pr_damping = 0.0f;
+                if (pr_damping > 0.99f) pr_damping = 0.99f;
+                paramUpdated = true;
+            }
             
             if (paramUpdated) {
                 global_params_rev++;
@@ -464,6 +471,9 @@ void WiFiTask(void *arg) {
                 float trim_val = (float)mainData.compass_trim;
                 bool trim_en = mainData.compass_trim_enabled;
                 memCompassTrim(&trim_val, &trim_en, SET);
+            }
+            else if(p=="prdamp"){
+                memPrDamping(&pr_damping, SET);
             }
         }
         subServer.send(200,"text/plain","OK");
@@ -490,10 +500,13 @@ void WiFiTask(void *arg) {
         float ctrim = (float)mainData.compass_trim;
         int ctrim_en = mainData.compass_trim_enabled ? 1 : 0;
         
-        char buf[650];
+        extern float pr_damping;
+        float prdamp = pr_damping;
+        
+        char buf[700];
         snprintf(buf, sizeof(buf), 
-            "{\"kpr\":%.3f,\"kir\":%.3f,\"kdr\":%.3f,\"kps\":%.3f,\"kis\":%.3f,\"kds\":%.3f,\"coff\":%.1f,\"revbb\":%d,\"revsb\":%d,\"tswap\":%d,\"pvspd\":%.2f,\"minspd\":%d,\"maxspd\":%d,\"holdrad\":%.1f,\"cavg\":%d,\"ctrim\":%.3f,\"ctrim_en\":%d}",
-            kpr, kir, kdr, kps, kis, kds, coff, revbb, revsb, tswap, pvspd, minspd, maxspd, holdrad, cavg, ctrim, ctrim_en
+            "{\"kpr\":%.3f,\"kir\":%.3f,\"kdr\":%.3f,\"kps\":%.3f,\"kis\":%.3f,\"kds\":%.3f,\"coff\":%.1f,\"revbb\":%d,\"revsb\":%d,\"tswap\":%d,\"pvspd\":%.2f,\"minspd\":%d,\"maxspd\":%d,\"holdrad\":%.1f,\"cavg\":%d,\"ctrim\":%.3f,\"ctrim_en\":%d,\"prdamp\":%.3f}",
+            kpr, kir, kdr, kps, kis, kds, coff, revbb, revsb, tswap, pvspd, minspd, maxspd, holdrad, cavg, ctrim, ctrim_en, prdamp
         );
         subServer.send(200, "application/json", buf);
     });
@@ -569,6 +582,28 @@ void WiFiTask(void *arg) {
         softHeading = 360.0f - softHeading; // Mirror rotation direction to match screen rose
         if (softHeading >= 360.0f) softHeading -= 360.0f;
 
+        // Calculate Option 3 heading: Analytical 3D tilt-compensated heading (Hard Iron, Pitch & Roll, NO gyro)
+        // pitch is inverted in mainData.pitch, so we negate it here to restore the correct positive pitch angle
+        float phi = -roll * M_PI / 180.0f;
+        float theta = -pitch * M_PI / 180.0f;
+
+        float cosRoll = cos(phi);
+        float sinRoll = sin(phi);
+        float cosPitch = cos(theta);
+        float sinPitch = sin(theta);
+
+        float mx_aligned = mx_hi;
+        float my_aligned = my_hi;
+        float mz_aligned = -mz_hi;
+
+        float mx_h = mx_aligned * cosPitch + my_aligned * sinRoll * sinPitch + mz_aligned * cosRoll * sinPitch;
+        float my_h = my_aligned * cosRoll - mz_aligned * sinRoll;
+
+        float opt3Heading = atan2f(my_h, mx_h) * 57.29578f;
+        if (opt3Heading < 0.0f) opt3Heading += 360.0f;
+        opt3Heading = 360.0f - opt3Heading; // Mirror rotation direction to match screen rose
+        if (opt3Heading >= 360.0f) opt3Heading -= 360.0f;
+
         // Align the calibrated magnetometer axes to match the accelerometer coordinate frame
         float mx_cal = myc;
         float my_cal = -mxc;
@@ -599,6 +634,7 @@ void WiFiTask(void *arg) {
         pointsJson += "]";
 
         String json = "{\"icm\":" + String(icm, 2) +
+                      ",\"icm_no_offset\":" + String(GetHeadingNoOffset(), 2) +
                       ",\"speed_bb\":" + String(sbb) +
                       ",\"speed_sb\":" + String(ssb) +
                       ",\"ir\":" + String(ir, 2) +
@@ -626,6 +662,7 @@ void WiFiTask(void *arg) {
                       ",\"raw\":" + String(rawHeading, 2) +
                       ",\"hard\":" + String(hardHeading, 2) +
                       ",\"hardSoft\":" + String(softHeading, 2) +
+                      ",\"opt3\":" + String(opt3Heading, 2) +
                       ",\"mx_cal\":" + String(mx_cal, 2) +
                       ",\"my_cal\":" + String(my_cal, 2) +
                       ",\"mz_cal\":" + String(mz_cal, 2) +
@@ -633,6 +670,7 @@ void WiFiTask(void *arg) {
                       ",\"ctrim_en\":" + String(mainData.compass_trim_enabled ? 1 : 0) +
                       ",\"pitch\":" + String(pitch, 2) +
                       ",\"roll\":" + String(roll, 2) +
+                      ",\"prdamp\":" + String(pr_damping, 3) +
                       ",\"points\":" + pointsJson + "}";
 
         subServer.send(200, "application/json", json);

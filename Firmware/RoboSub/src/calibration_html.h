@@ -593,7 +593,11 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
 
             // Select dynamic Co-Pilot Hint based on what is missing
             let hint = "➔ Hint: Rotating buoy...";
-            if (q1Pct < 100) {
+            const ptsForObs = calPoints.map(p => [p.x, p.y, p.z]);
+            const obs = evaluatePointsObservability(ptsForObs);
+            if (!obs.ok && calPoints.length >= 100) {
+                hint = "➔ Hint: Need more 3D motion! Pitch and roll the buoy in a figure-8.";
+            } else if (q1Pct < 100) {
                 hint = "➔ Hint: Face the buoy North-East (Top-Right of graph)";
             } else if (q2Pct < 100) {
                 hint = "➔ Hint: Face the buoy North-West (Top-Left of graph)";
@@ -876,27 +880,37 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
             if (calPoints.length < 50) return;
             
             // For the first 350 points, or if the bounding box spans are too small,
-            // the ellipsoid fit is highly ill-conditioned, so we use a stable centroid fallback to prevent wild jumps!
+            // the ellipsoid fit is highly ill-conditioned, so we use a stable midpoint fallback to prevent wild jumps!
             const spanX = maxX - minX;
             const spanY = maxY - minY;
             if (calPoints.length < 350 || spanX < 30.0 || spanY < 30.0) {
-                let sumX = 0, sumY = 0, sumZ = 0;
-                calPoints.forEach(p => { sumX += p.x; sumY += p.y; sumZ += p.z; });
-                hix = sumX / calPoints.length;
-                hiy = sumY / calPoints.length;
-                hiz = sumZ / calPoints.length;
+                let minX_val = Infinity, maxX_val = -Infinity;
+                let minY_val = Infinity, maxY_val = -Infinity;
+                let minZ_val = Infinity, maxZ_val = -Infinity;
+                calPoints.forEach(p => {
+                    if (p.x < minX_val) minX_val = p.x;
+                    if (p.x > maxX_val) maxX_val = p.x;
+                    if (p.y < minY_val) minY_val = p.y;
+                    if (p.y > maxY_val) maxY_val = p.y;
+                    if (p.z < minZ_val) minZ_val = p.z;
+                    if (p.z > maxZ_val) maxZ_val = p.z;
+                });
+                hix = (maxX_val + minX_val) / 2.0;
+                hiy = (maxY_val + minY_val) / 2.0;
+                hiz = (maxZ_val + minZ_val) / 2.0;
 
                 // Muted diagonal scale factors (unity fallback)
                 six = 1.0; siy = 1.0; siz = 1.0;
                 siMatrix = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
                 
                 calHiVal.textContent = `X: ${hix.toFixed(1)}, Y: ${hiy.toFixed(1)}, Z: ${hiz.toFixed(1)}`;
-                calSiVal.textContent = `X: ${six.toFixed(2)}, Y: ${siy.toFixed(2)}, Z: ${siz.toFixed(2)}`;
+                calSiVal.textContent = `X: ${six.toFixed(2)}, Y: ${siy.toFixed(2)}, Z: ${siz.toFixed(2)} (Midpoint Fallback)`;
                 drawPoints();
                 return;
             }
 
             const pts = calPoints.map(p => [p.x, p.y, p.z]);
+            const obs = evaluatePointsObservability(pts);
             const fit = fitEllipsoid(pts);
             if (fit) {
                 hix = fit.offset[0];
@@ -910,7 +924,7 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                 siMatrix[1][1] = siy;
                 siMatrix[2][2] = siz;
                 calHiVal.textContent = `X: ${hix.toFixed(1)}, Y: ${hiy.toFixed(1)}, Z: ${hiz.toFixed(1)}`;
-                calSiVal.textContent = `X: ${six.toFixed(2)}, Y: ${siy.toFixed(2)}, Z: ${siz.toFixed(2)}`;
+                calSiVal.textContent = `RMS: ${fit.rmsError.toFixed(2)}% | Cond: ${obs.cond.toFixed(1)} | Obs: ${(obs.ratio * 100).toFixed(1)}%`;
                 drawPoints();
             }
         }
@@ -937,55 +951,20 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
             const zSpanPct = spanZ / maxSpan;
 
             if (spanZ < 15.0 || zSpanPct < 0.35) {
-                // Perform highly stable 2D circle fit on X and Y, keeping Z offset as mean and soft-iron as identity
-                let sumZ = 0;
-                points.forEach(p => { sumZ += p[2]; });
-                const meanZ = sumZ / N;
+                // Perform highly stable 2D circle fit on X and Y, keeping Z offset as midpoint and soft-iron as identity
+                const hix_val = (maxX_val + minX_val) / 2.0;
+                const hiy_val = (maxY_val + minY_val) / 2.0;
+                const hiz_val = (maxZ_val + minZ_val) / 2.0;
 
-                // 2D Circle Least Squares: solve M * [a; b; c] = V
-                // where row i of design matrix is [x, y, 1] and B is -(x^2 + y^2)
-                let Sxx = 0, Syy = 0, Sxy = 0, Sx = 0, Sy = 0;
-                let Sxxx = 0, Sxyy = 0, Syyy = 0, Sxxy = 0;
-                points.forEach(p => {
-                    const x = p[0];
-                    const y = p[1];
-                    Sxx += x * x;
-                    Syy += y * y;
-                    Sxy += x * y;
-                    Sx += x;
-                    Sy += y;
-                    Sxxx += x * x * x;
-                    Sxyy += x * y * y;
-                    Syyy += y * y * y;
-                    Sxxy += x * x * y;
-                });
-
-                const M = [
-                    [Sxx, Sxy, Sx],
-                    [Sxy, Syy, Sy],
-                    [Sx,  Sy,  N ]
-                ];
-                const V = [
-                    -(Sxxx + Sxyy),
-                    -(Sxxy + Syyy),
-                    -(Sxx + Syy)
-                ];
-
-                const sol = solve3x3System(M, V);
-                if (sol) {
-                    const hix_val = -sol[0] / 2.0;
-                    const hiy_val = -sol[1] / 2.0;
-                    const hiz_val = meanZ;
-
-                    return {
-                        offset: [hix_val, hiy_val, hiz_val],
-                        softIronMatrix: [
-                            [1.0, 0.0, 0.0],
-                            [0.0, 1.0, 0.0],
-                            [0.0, 0.0, 1.0]
-                        ]
-                    };
-                }
+                return {
+                    offset: [hix_val, hiy_val, hiz_val],
+                    softIronMatrix: [
+                        [1.0, 0.0, 0.0],
+                        [0.0, 1.0, 0.0],
+                        [0.0, 0.0, 1.0]
+                    ],
+                    rmsError: 0.0
+                };
             }
 
             // 1. Calculate centroid of points for zero-centering (pre-conditioning)
@@ -997,9 +976,8 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
             });
             meanX /= N; meanY /= N; meanZ /= N;
 
-            // 2. Accumulate Design Matrix using zero-centered points to ensure excellent numerical conditioning
-            const ATA = Array(9).fill(0).map(() => Array(9).fill(0));
-            const ATB = Array(9).fill(0);
+            // 2. Accumulate Scatter Matrix S = D^T * D (size 10x10)
+            const S = Array(10).fill(0).map(() => Array(10).fill(0));
             points.forEach(p => {
                 const x = p[0] - meanX;
                 const y = p[1] - meanY;
@@ -1013,31 +991,155 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                     2.0 * y * z,
                     2.0 * x,
                     2.0 * y,
-                    2.0 * z
+                    2.0 * z,
+                    1.0
                 ];
-                for (let i = 0; i < 9; i++) {
-                    for (let j = 0; j < 9; j++) {
-                        ATA[i][j] += r[i] * r[j];
+                for (let i = 0; i < 10; i++) {
+                    for (let j = 0; j < 10; j++) {
+                        S[i][j] += r[i] * r[j];
                     }
-                    ATB[i] += r[i];
                 }
             });
-            const coeff = solveLinearSystem(ATA, ATB);
-            if (!coeff) return null;
-            const A = [
-                [coeff[0], coeff[3], coeff[4]],
-                [coeff[3], coeff[1], coeff[5]],
-                [coeff[4], coeff[5], coeff[2]]
+
+            // 3. Partition S into S11 (6x6), S12 (6x4), S22 (4x4)
+            const S11 = Array(6).fill(0).map((_, i) => S[i].slice(0, 6));
+            const S12 = Array(6).fill(0).map((_, i) => S[i].slice(6, 10));
+            const S22 = Array(4).fill(0).map((_, i) => S[i + 6].slice(6, 10));
+
+            // 4. Solve the system S22 * X = S12^T (which is of size 4x6) using 9x9 Gaussian elimination solver (for size 4)
+            const X = Array(4).fill(0).map(() => Array(6).fill(0));
+            for (let j = 0; j < 6; j++) {
+                const b_col = [S12[j][0], S12[j][1], S12[j][2], S12[j][3]];
+                const sol = solveLinearSystem(S22, b_col, 4);
+                if (!sol) return null;
+                for (let i = 0; i < 4; i++) {
+                    X[i][j] = sol[i];
+                }
+            }
+
+            // 5. Compute S_prime = S11 - S12 * X
+            const S_prime = Array(6).fill(0).map(() => Array(6).fill(0));
+            for (let i = 0; i < 6; i++) {
+                for (let j = 0; j < 6; j++) {
+                    let sum = 0;
+                    for (let k = 0; k < 4; k++) sum += S12[i][k] * X[k][j];
+                    S_prime[i][j] = S11[i][j] - sum;
+                }
+            }
+
+            // Regularize S_prime to ensure Cholesky stability on real noisy/planar datasets
+            for (let i = 0; i < 6; i++) {
+                S_prime[i][i] += 1e-9;
+            }
+
+            // 6. Define Constraint Matrix C11
+            const C11 = [
+                [-1.0,  1.0,  1.0,  0.0,  0.0,  0.0],
+                [ 1.0, -1.0,  1.0,  0.0,  0.0,  0.0],
+                [ 1.0,  1.0, -1.0,  0.0,  0.0,  0.0],
+                [ 0.0,  0.0,  0.0, -4.0,  0.0,  0.0],
+                [ 0.0,  0.0,  0.0,  0.0, -4.0,  0.0],
+                [ 0.0,  0.0,  0.0,  0.0,  0.0, -4.0]
             ];
-            const b = [coeff[6], coeff[7], coeff[8]];
-            const invA = invert3x3(A);
+
+            // 7. Solve S_prime * v1 = lambda * C11 * v1 using Cholesky + Symmetric Jacobi decomposition
+            // Compute S_prime = L * L^T Cholesky
+            const L_tri = cholesky6x6(S_prime);
+            if (!L_tri) return null;
+
+            // Invert lower triangular L
+            const invL = invertLowerTriangular6x6(L_tri);
+            if (!invL) return null;
+
+            // Compute symmetric matrix B = invL * C11 * invL^T
+            const B = computeBMatrix6x6(invL, C11);
+
+            // Solve eigenvalues and eigenvectors of B using 6x6 Symmetric Jacobi solver
+            const decomp = jacobiEigen6x6(B);
+            const L_vals = decomp.eigenvalues;
+            const V_vectors = decomp.eigenvectors;
+
+            // Find the unique positive eigenvalue (which always exists in Li & Griffiths formulation)
+            let posIdx = -1;
+            let maxPositiveVal = -Infinity;
+            for (let i = 0; i < 6; i++) {
+                if (L_vals[i] > 0 && L_vals[i] > maxPositiveVal) {
+                    maxPositiveVal = L_vals[i];
+                    posIdx = i;
+                }
+            }
+            if (posIdx === -1) return null;
+
+            // Extract eigenvector y
+            const y = [];
+            for (let i = 0; i < 6; i++) y.push(V_vectors[i][posIdx]);
+
+            // Calculate v1 = invL^T * y
+            const v1 = Array(6).fill(0);
+            for (let i = 0; i < 6; i++) {
+                let sum = 0;
+                for (let k = 0; k < 6; k++) sum += invL[k][i] * y[k];
+                v1[i] = sum;
+            }
+
+            // Normalize v1 such that v1^T * C11 * v1 = 1
+            let v1Cv1 = v1[0]*(-v1[0] + v1[1] + v1[2]) +
+                        v1[1]*(v1[0] - v1[1] + v1[2]) +
+                        v1[2]*(v1[0] + v1[1] - v1[2]) -
+                        4.0 * (v1[3]*v1[3] + v1[4]*v1[4] + v1[5]*v1[5]);
+            if (v1Cv1 > 0) {
+                const s = 1.0 / Math.sqrt(v1Cv1);
+                for (let i = 0; i < 6; i++) v1[i] *= s;
+            }
+
+            // 8. Solve S22 * a2 = -S12^T * v1 using solveLinearSystem
+            const S12Tv1 = Array(4).fill(0);
+            for (let i = 0; i < 4; i++) {
+                let sum = 0;
+                for (let k = 0; k < 6; k++) sum += S12[k][i] * v1[k];
+                S12Tv1[i] = sum;
+            }
+            const a2 = solveLinearSystem(S22, S12Tv1.map(val => -val), 4);
+            if (!a2) return null;
+
+            const coeffs = [...v1, ...a2];
+            let A_mat = [
+                [coeffs[0], coeffs[5], coeffs[4]],
+                [coeffs[5], coeffs[1], coeffs[3]],
+                [coeffs[4], coeffs[3], coeffs[2]]
+            ];
+            let b_vec = [coeffs[6], coeffs[7], coeffs[8]];
+            let j_val = coeffs[9];
+
+            // Enforce positive-definite of quadratic part A_mat
+            let decomp_A = jacobiEigen3x3(A_mat);
+            let eigenvalues_A = decomp_A.eigenvalues;
+            let negCount = 0;
+            eigenvalues_A.forEach(val => { if (val < 0) negCount++; });
+            if (negCount >= 2) {
+                for (let i = 0; i < 10; i++) coeffs[i] = -coeffs[i];
+                A_mat = [
+                    [coeffs[0], coeffs[5], coeffs[4]],
+                    [coeffs[5], coeffs[1], coeffs[3]],
+                    [coeffs[4], coeffs[3], coeffs[2]]
+                ];
+                b_vec = [coeffs[6], coeffs[7], coeffs[8]];
+                j_val = coeffs[9];
+                decomp_A = jacobiEigen3x3(A_mat);
+                eigenvalues_A = decomp_A.eigenvalues;
+            }
+
+            // Strictly enforce positive-definiteness on A_mat eigenvalues (minimum eigenvalue must be > 0)
+            if (Math.min(...eigenvalues_A) <= 0.0) return null;
+
+            const invA = invert3x3(A_mat);
             if (!invA) return null;
 
             // Zero-centered offset
             const offset_zc = [
-                -(invA[0][0] * b[0] + invA[0][1] * b[1] + invA[0][2] * b[2]),
-                -(invA[1][0] * b[0] + invA[1][1] * b[1] + invA[1][2] * b[2]),
-                -(invA[2][0] * b[0] + invA[2][1] * b[1] + invA[2][2] * b[2])
+                -(invA[0][0] * b_vec[0] + invA[0][1] * b_vec[1] + invA[0][2] * b_vec[2]),
+                -(invA[1][0] * b_vec[0] + invA[1][1] * b_vec[1] + invA[1][2] * b_vec[2]),
+                -(invA[2][0] * b_vec[0] + invA[2][1] * b_vec[1] + invA[2][2] * b_vec[2])
             ];
 
             // 3. Shift the offset back by adding the mean coordinates (un-centering)
@@ -1047,82 +1149,341 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                 offset_zc[2] + meanZ
             ];
 
-            const vtAv = offset_zc[0] * (A[0][0] * offset_zc[0] + A[0][1] * offset_zc[1] + A[0][2] * offset_zc[2]) +
-                         offset_zc[1] * (A[1][0] * offset_zc[0] + A[1][1] * offset_zc[1] + A[1][2] * offset_zc[2]) +
-                         offset_zc[2] * (A[2][0] * offset_zc[0] + A[2][1] * offset_zc[1] + A[2][2] * offset_zc[2]);
-            const d = 1.0 + vtAv;
-            if (d <= 0) return null;
+            const vtAv = b_vec[0] * offset_zc[0] + b_vec[1] * offset_zc[1] + b_vec[2] * offset_zc[2];
+            const k_val = vtAv - j_val;
+            if (k_val <= 0) return null;
+
             const M = [
-                [A[0][0]/d, A[0][1]/d, A[0][2]/d],
-                [A[1][0]/d, A[1][1]/d, A[1][2]/d],
-                [A[2][0]/d, A[2][1]/d, A[2][2]/d]
+                [A_mat[0][0]/k_val, A_mat[0][1]/k_val, A_mat[0][2]/k_val],
+                [A_mat[1][0]/k_val, A_mat[1][1]/k_val, A_mat[1][2]/k_val],
+                [A_mat[2][0]/k_val, A_mat[2][1]/k_val, A_mat[2][2]/k_val]
             ];
 
-            // Calculate the exact Symmetric Matrix Square Root of M using Denman-Beavers quadratic convergence iteration
+            // Validate that eigenvalues of M are strictly positive to avoid taking square root of negative/near-zero values (No silent clamping!)
+            const decomp_M = jacobiEigen3x3(M);
+            if (Math.min(...decomp_M.eigenvalues) <= 1e-8) return null;
+
+            // Calculate the exact Symmetric Matrix Square Root of M using Jacobi Eigen-Decomposition (never diverges!)
             let W = matrixSquareRoot3x3(M);
             if (!W) return null;
 
-            // Calculate the average uncalibrated radius (local Earth's magnetic field strength baseline in uT)
-            // relative to the solved hard-iron center.
-            let sumRadius = 0;
+            // Normalize the soft-iron matrix W such that its determinant is exactly 1.0 (shape correction only, volume-preserving)
+            const detW = determinant3x3(W);
+            if (detW > 0) {
+                const scale = 1.0 / Math.cbrt(detW);
+                for (let i = 0; i < 3; i++) {
+                    for (let j = 0; j < 3; j++) {
+                        W[i][j] *= scale;
+                    }
+                }
+            }
+
+            // Calculate residual RMS fit error of points mapped onto the sphere
+            let radii = [];
             points.forEach(p => {
                 const dx = p[0] - offset[0];
                 const dy = p[1] - offset[1];
                 const dz = p[2] - offset[2];
-                sumRadius += Math.sqrt(dx * dx + dy * dy + dz * dz);
+                // Project onto sphere: v_corr = W * (p - offset)
+                const cx = W[0][0] * dx + W[0][1] * dy + W[0][2] * dz;
+                const cy = W[1][0] * dx + W[1][1] * dy + W[1][2] * dz;
+                const cz = W[2][0] * dx + W[2][1] * dy + W[2][2] * dz;
+                radii.push(Math.sqrt(cx*cx + cy*cy + cz*cz));
             });
-            const b_earth = sumRadius / N;
+            const meanR = radii.reduce((sum, r) => sum + r, 0) / N;
+            let sumSqError = 0;
+            radii.forEach(r => {
+                const err = Math.abs(r - meanR) / meanR;
+                sumSqError += err * err;
+            });
+            const rmsError = Math.sqrt(sumSqError / N) * 100; // Percentage error!
 
-            // Scale the symmetric square root matrix W by b_earth so the corrected points
-            // lie on a sphere representing the physical Earth's magnetic field strength.
-            for (let i = 0; i < 3; i++) {
-                for (let j = 0; j < 3; j++) {
-                    W[i][j] *= b_earth;
-                }
-            }
             return {
                 offset: offset,
-                softIronMatrix: W
+                softIronMatrix: W,
+                rmsError: rmsError
             };
         }
 
-        function matrixSquareRoot3x3(M) {
-            let Y = [
+        function cholesky6x6(A) {
+            const n = 6;
+            const L = Array(n).fill(0).map(() => Array(n).fill(0));
+            for (let i = 0; i < n; i++) {
+                for (let j = 0; j <= i; j++) {
+                    let sum = 0;
+                    for (let k = 0; k < j; k++) sum += L[i][k] * L[j][k];
+                    if (i === j) {
+                        const val = A[i][i] - sum;
+                        if (val <= 0) return null; // Not positive-definite
+                        L[i][j] = Math.sqrt(val);
+                    } else {
+                        L[i][j] = (A[i][j] - sum) / L[j][j];
+                    }
+                }
+            }
+            return L;
+        }
+
+        function invertLowerTriangular6x6(L) {
+            const n = 6;
+            const inv = Array(n).fill(0).map(() => Array(n).fill(0));
+            for (let i = 0; i < n; i++) {
+                inv[i][i] = 1.0 / L[i][i];
+                for (let j = 0; j < i; j++) {
+                    let sum = 0;
+                    for (let k = j; k < i; k++) sum += L[i][k] * inv[k][j];
+                    inv[i][j] = -sum / L[i][i];
+                }
+            }
+            return inv;
+        }
+
+        function computeBMatrix6x6(invL, C11) {
+            const n = 6;
+            const Temp = Array(n).fill(0).map(() => Array(n).fill(0));
+            for (let i = 0; i < n; i++) {
+                for (let j = 0; j < n; j++) {
+                    let sum = 0;
+                    for (let k = 0; k < n; k++) sum += invL[i][k] * C11[k][j];
+                    Temp[i][j] = sum;
+                }
+            }
+            const B = Array(n).fill(0).map(() => Array(n).fill(0));
+            for (let i = 0; i < n; i++) {
+                for (let j = 0; j < n; j++) {
+                    let sum = 0;
+                    for (let k = 0; k < n; k++) sum += Temp[i][k] * invL[j][k];
+                    B[i][j] = sum;
+                }
+            }
+            return B;
+        }
+
+        function jacobiEigen6x6(B) {
+            const n = 6;
+            let A = Array(n).fill(0).map((_, i) => [...B[i]]);
+            let V = Array(n).fill(0).map((_, i) => {
+                const r = Array(n).fill(0);
+                r[i] = 1.0;
+                return r;
+            });
+
+            const maxIterations = 100;
+            const eps = 1e-15;
+
+            for (let iter = 0; iter < maxIterations; iter++) {
+                let p = 0, q = 1;
+                let maxVal = Math.abs(A[0][1]);
+                for (let i = 0; i < n; i++) {
+                    for (let j = i + 1; j < n; j++) {
+                        if (Math.abs(A[i][j]) > maxVal) {
+                            maxVal = Math.abs(A[i][j]);
+                            p = i; q = j;
+                        }
+                    }
+                }
+
+                if (maxVal < eps) break;
+
+                let phi = 0.5 * Math.atan2(2.0 * A[p][q], A[q][q] - A[p][p]);
+                let c = Math.cos(phi);
+                let s = Math.sin(phi);
+
+                let app = c * c * A[p][p] - 2.0 * s * c * A[p][q] + s * s * A[q][q];
+                let aqq = s * s * A[p][p] + 2.0 * s * c * A[p][q] + c * c * A[q][q];
+                A[p][p] = app;
+                A[q][q] = aqq;
+                A[p][q] = 0.0;
+                A[q][p] = 0.0;
+
+                for (let i = 0; i < n; i++) {
+                    if (i !== p && i !== q) {
+                        let a_ip = c * A[i][p] - s * A[i][q];
+                        let a_iq = s * A[i][p] + c * A[i][q];
+                        A[i][p] = a_ip; A[p][i] = a_ip;
+                        A[i][q] = a_iq; A[q][i] = a_iq;
+                    }
+                }
+
+                for (let i = 0; i < n; i++) {
+                    let v_ip = c * V[i][p] - s * V[i][q];
+                    let v_iq = s * V[i][p] + c * V[i][q];
+                    V[i][p] = v_ip;
+                    V[i][q] = v_iq;
+                }
+            }
+
+            const eigenvalues = [];
+            for (let i = 0; i < n; i++) eigenvalues.push(A[i][i]);
+
+            return { eigenvalues, eigenvectors: V };
+        }
+
+        function evaluatePointsObservability(points) {
+            const N = points.length;
+            if (N < 20) return { ok: false, ratio: 0, cond: Infinity };
+
+            let mean = [0, 0, 0];
+            points.forEach(p => { mean[0] += p[0]; mean[1] += p[1]; mean[2] += p[2]; });
+            mean = mean.map(val => val / N);
+
+            const Cov = [
+                [0, 0, 0],
+                [0, 0, 0],
+                [0, 0, 0]
+            ];
+            points.forEach(p => {
+                const dx = p[0] - mean[0];
+                const dy = p[1] - mean[1];
+                const dz = p[2] - mean[2];
+                Cov[0][0] += dx * dx; Cov[0][1] += dx * dy; Cov[0][2] += dx * dz;
+                Cov[1][0] += dy * dx; Cov[1][1] += dy * dy; Cov[1][2] += dy * dz;
+                Cov[2][0] += dz * dx; Cov[2][1] += dz * dy; Cov[2][2] += dz * dz;
+            });
+
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    Cov[i][j] /= (N - 1);
+                }
+            }
+
+            const decomp = jacobiEigen3x3(Cov);
+            const L = decomp.eigenvalues.map(val => Math.abs(val)).sort((a, b) => b - a);
+
+            const ratio = L[0] > 0 ? L[2] / L[0] : 0;
+            const cond = L[2] > 0 ? L[0] / L[2] : Infinity;
+            return {
+                ok: ratio >= 0.15,
+                ratio: ratio,
+                cond: cond
+            };
+        }
+
+        function determinant3x3(W) {
+            return W[0][0] * (W[1][1] * W[2][2] - W[2][1] * W[1][2]) -
+                   W[0][1] * (W[1][0] * W[2][2] - W[1][2] * W[2][0]) +
+                   W[0][2] * (W[1][0] * W[2][1] - W[1][1] * W[2][0]);
+        }
+
+        function jacobiEigen3x3(M) {
+            let A = [
                 [M[0][0], M[0][1], M[0][2]],
                 [M[1][0], M[1][1], M[1][2]],
                 [M[2][0], M[2][1], M[2][2]]
             ];
-            let Z = [
+            let V = [
                 [1.0, 0.0, 0.0],
                 [0.0, 1.0, 0.0],
                 [0.0, 0.0, 1.0]
             ];
 
-            for (let k = 0; k < 5; k++) {
-                const invY = invert3x3(Y);
-                const invZ = invert3x3(Z);
-                if (!invY || !invZ) return null;
+            const maxIterations = 50;
+            const eps = 1e-15;
 
-                const nextY = [
-                    [0.5 * (Y[0][0] + invZ[0][0]), 0.5 * (Y[0][1] + invZ[0][1]), 0.5 * (Y[0][2] + invZ[0][2])],
-                    [0.5 * (Y[1][0] + invZ[1][0]), 0.5 * (Y[1][1] + invZ[1][1]), 0.5 * (Y[1][2] + invZ[1][2])],
-                    [0.5 * (Y[2][0] + invZ[2][0]), 0.5 * (Y[2][1] + invZ[2][1]), 0.5 * (Y[2][2] + invZ[2][2])]
-                ];
+            for (let iter = 0; iter < maxIterations; iter++) {
+                let p = 0, q = 1;
+                let maxVal = Math.abs(A[0][1]);
+                if (Math.abs(A[0][2]) > maxVal) { p = 0; q = 2; maxVal = Math.abs(A[0][2]); }
+                if (Math.abs(A[1][2]) > maxVal) { p = 1; q = 2; maxVal = Math.abs(A[1][2]); }
 
-                const nextZ = [
-                    [0.5 * (Z[0][0] + invY[0][0]), 0.5 * (Z[0][1] + invY[0][1]), 0.5 * (Z[0][2] + invY[0][2])],
-                    [0.5 * (Z[1][0] + invY[1][0]), 0.5 * (Z[1][1] + invY[1][1]), 0.5 * (Z[1][2] + invY[1][2])],
-                    [0.5 * (Z[2][0] + invY[2][0]), 0.5 * (Z[2][1] + invY[2][1]), 0.5 * (Z[2][2] + invY[2][2])]
-                ];
+                if (maxVal < eps) break;
 
-                Y = nextY;
-                Z = nextZ;
+                let phi = 0.5 * Math.atan2(2.0 * A[p][q], A[q][q] - A[p][p]);
+                let c = Math.cos(phi);
+                let s = Math.sin(phi);
+
+                let app = c * c * A[p][p] - 2.0 * s * c * A[p][q] + s * s * A[q][q];
+                let aqq = s * s * A[p][p] + 2.0 * s * c * A[p][q] + c * c * A[q][q];
+                A[p][p] = app;
+                A[q][q] = aqq;
+                A[p][q] = 0.0;
+                A[q][p] = 0.0;
+
+                for (let i = 0; i < 3; i++) {
+                    if (i !== p && i !== q) {
+                        let a_ip = c * A[i][p] - s * A[i][q];
+                        let a_iq = s * A[i][p] + c * A[i][q];
+                        A[i][p] = a_ip; A[p][i] = a_ip;
+                        A[i][q] = a_iq; A[q][i] = a_iq;
+                    }
+                }
+
+                for (let i = 0; i < 3; i++) {
+                    let v_ip = c * V[i][p] - s * V[i][q];
+                    let v_iq = s * V[i][p] + c * V[i][q];
+                    V[i][p] = v_ip;
+                    V[i][q] = v_iq;
+                }
             }
-            return Y;
+
+            return {
+                eigenvalues: [A[0][0], A[1][1], A[2][2]],
+                eigenvectors: V
+            };
         }
 
-        function solveLinearSystem(A, B) {
-            const n = 9;
+        function matrixSquareRoot3x3(M) {
+            const decomp = jacobiEigen3x3(M);
+            const V = decomp.eigenvectors;
+            const L = decomp.eigenvalues;
+
+            const sqrtL = L.map(val => val > 0 ? Math.sqrt(val) : 0);
+
+            const W = [
+                [0, 0, 0],
+                [0, 0, 0],
+                [0, 0, 0]
+            ];
+
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    W[i][j] = V[i][0] * sqrtL[0] * V[j][0] +
+                              V[i][1] * sqrtL[1] * V[j][1] +
+                              V[i][2] * sqrtL[2] * V[j][2];
+                }
+            }
+            return W;
+        }
+
+        function evaluatePointsObservability(points) {
+            const N = points.length;
+            if (N < 20) return { ok: false, ratio: 0 };
+
+            let mean = [0, 0, 0];
+            points.forEach(p => { mean[0] += p[0]; mean[1] += p[1]; mean[2] += p[2]; });
+            mean = mean.map(val => val / N);
+
+            const Cov = [
+                [0, 0, 0],
+                [0, 0, 0],
+                [0, 0, 0]
+            ];
+            points.forEach(p => {
+                const dx = p[0] - mean[0];
+                const dy = p[1] - mean[1];
+                const dz = p[2] - mean[2];
+                Cov[0][0] += dx * dx; Cov[0][1] += dx * dy; Cov[0][2] += dx * dz;
+                Cov[1][0] += dy * dx; Cov[1][1] += dy * dy; Cov[1][2] += dy * dz;
+                Cov[2][0] += dz * dx; Cov[2][1] += dz * dy; Cov[2][2] += dz * dz;
+            });
+
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    Cov[i][j] /= (N - 1);
+                }
+            }
+
+            const decomp = jacobiEigen3x3(Cov);
+            const L = decomp.eigenvalues.map(val => Math.abs(val)).sort((a, b) => b - a);
+
+            const ratio = L[0] > 0 ? L[2] / L[0] : 0;
+            return {
+                ok: ratio >= 0.15,
+                ratio: ratio
+            };
+        }
+
+        function solveLinearSystem(A, B, n = 9) {
             const M = Array(n).fill(0).map((_, i) => {
                 const row = [...A[i]];
                 row.push(B[i]);

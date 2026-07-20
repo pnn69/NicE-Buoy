@@ -39,6 +39,7 @@ uint32_t lastMicros = 0;
 uint32_t lastInitTime = 0;
 float baselineMag = 50.0f;
 int icm_mode = 4; // Defaults to Mode 4 (Hard & Soft Iron with Pitch & Roll tilt compensation)
+float pr_damping = 0.95f; // Exponential damping factor for pitch and roll (0.00 = none, 0.99 = max)
 
 ICM_20948_I2C icm;
 Madgwick filter;
@@ -65,6 +66,8 @@ extern SemaphoreHandle_t mainDataMutex;
 
 // Global state for web dashboard telemetry
 float global_hdg = 0;
+float global_hdg_no_offset = 0;
+float fusion_offset = 0.0f; // Startup offset to align 3D Gyro Fusion with 2D compass exactly
 float last_raw_x = 0, last_raw_y = 0, last_raw_z = 0;
 float last_raw_ax = 0, last_raw_ay = 0, last_raw_az = 0;
 uint32_t global_loop_cnt = 0;
@@ -321,6 +324,7 @@ bool InitCompass(void)
     MechanicalCorrection(&mainData.mechanicCorrection, true);
     extern int compass_avg_len;
     memCompassAvg(&compass_avg_len, GET);
+    memPrDamping(&pr_damping, GET);
     
     float trim_val = 0.0f;
     bool trim_en = false;
@@ -649,44 +653,31 @@ void CompassTask(void *arg) {
                 magRejected = false;
             }
 
-            // Smooth raw accelerometer readings SPECIFICALLY for analytical pitch/roll to reject high-frequency motor vibration.
-            // Stage 1: Pre-angle gravity vector smoothing (97% old, 3% new) to prevent non-linear atan2f amplification
-            static float ax_smoothed = 0.0f;
-            static float ay_smoothed = 0.0f;
-            static float az_smoothed = 0.0f;
-            static bool first_accel = true;
-            
-            if (first_accel) {
-                ax_smoothed = ax_raw;
-                ay_smoothed = ay_raw;
-                az_smoothed = az_raw;
-                first_accel = false;
-            } else {
-                ax_smoothed = 0.97f * ax_smoothed + 0.03f * ax_raw;
-                ay_smoothed = 0.97f * ay_smoothed + 0.03f * ay_raw;
-                az_smoothed = 0.97f * az_smoothed + 0.03f * az_raw;
+            // Calculate raw pitch and roll from accelerometer readings
+            float roll_raw = atan2f(ay_raw, az_raw) * 57.29578f;
+            float pitch_raw = atan2f(-ax_raw, sqrtf(ay_raw * ay_raw + az_raw * az_raw)) * 57.29578f;
+
+            // Apply Pitch/Roll Damping (exponential moving average)
+            // pr_damping goes from 0.0f (no damping) to 0.99f (max damping)
+            static float roll_prev = 0.0f;
+            static float pitch_prev = 0.0f;
+            static bool first_att = true;
+            if (first_att) {
+                roll_prev = roll_raw;
+                pitch_prev = pitch_raw;
+                first_att = false;
             }
 
-            // Calculate raw angles from Stage 1 smoothed gravity vector
-            float roll_raw = atan2f(ay_smoothed, az_smoothed) * 57.29578f;
-            float pitch_raw = atan2f(-ax_smoothed, sqrtf(ay_smoothed * ay_smoothed + az_smoothed * az_smoothed)) * 57.29578f;
+            // Alpha is the response coefficient. If damping is 0.95f, alpha is 0.05f.
+            float alpha = 1.0f - pr_damping;
+            if (alpha < 0.01f) alpha = 0.01f;
+            if (alpha > 1.0f) alpha = 1.0f;
 
-            // Stage 2: Post-angle exponential moving average smoothing (97% old, 3% new) for massive high-frequency attenuation
-            static float roll_smoothed = 0.0f;
-            static float pitch_smoothed = 0.0f;
-            static bool first_angle = true;
-            
-            if (first_angle) {
-                roll_smoothed = roll_raw;
-                pitch_smoothed = pitch_raw;
-                first_angle = false;
-            } else {
-                roll_smoothed = 0.97f * roll_smoothed + 0.03f * roll_raw;
-                pitch_smoothed = 0.97f * pitch_smoothed + 0.03f * pitch_raw;
-            }
+            float roll = alpha * roll_raw + (1.0f - alpha) * roll_prev;
+            float pitch = alpha * pitch_raw + (1.0f - alpha) * pitch_prev;
 
-            float roll = roll_smoothed;
-            float pitch = pitch_smoothed;
+            roll_prev = roll;
+            pitch_prev = pitch;
 
             float mYaw = filter.getYaw();
             if (mYaw < 0.0f) mYaw += 360.0f;
@@ -694,14 +685,26 @@ void CompassTask(void *arg) {
             // Calculate raw heading based on selected ICM mode
             float raw_heading = 0.0f;
 
-            if (icm_mode == 3 || icm_mode == 4) {
-                // Use the high-performance, gyro-stabilized, and mathematically perfect Madgwick 3D fusion output
-                // Map the CCW yaw (with matching gyro direction) to un-mirrored compass heading with -216 degree offset
-                raw_heading = mYaw - 216.0f;
+            if (icm_mode == 4) {
+                // Mode 4: High-performance, gyro-stabilized, 9-DOF Madgwick 3D fusion output (with Gyro)
+                raw_heading = mYaw;
+            } else if (icm_mode == 3) {
+                // Mode 3: Analytical 3D tilt-compensated heading (Hard Iron, Pitch & Roll, NO gyro/no creep)
+                float phi = -roll * M_PI / 180.0f;
+                float theta = pitch * M_PI / 180.0f;
+
+                float cosRoll = cos(phi);
+                float sinRoll = sin(phi);
+                float cosPitch = cos(theta);
+                float sinPitch = sin(theta);
+
+                float mx_h = mx_cal_aligned * cosPitch + my_cal_aligned * sinRoll * sinPitch + mz_cal_aligned * cosRoll * sinPitch;
+                float my_h = my_cal_aligned * cosRoll - mz_cal_aligned * sinRoll;
+
+                raw_heading = atan2f(my_h, mx_h) * 57.29578f;
                 if (raw_heading < 0.0f) raw_heading += 360.0f;
-                if (raw_heading >= 360.0f) raw_heading -= 360.0f;
             } else {
-                // Uncompensated 2D heading (no tilt), matching standard CCW orientation before reversing below
+                // Mode 1 & 2: Uncompensated 2D heading (no tilt, no gyro), matching standard CCW orientation before reversing below
                 raw_heading = atan2f(my_cal_aligned, mx_cal_aligned) * 57.29578f;
                 if (raw_heading < 0.0f) raw_heading += 360.0f;
             }
@@ -766,6 +769,8 @@ void CompassTask(void *arg) {
 
             // -------------------- OUTPUT TO QUEUE & GLOBALS --------------------
             if (mainDataMutex && xSemaphoreTake(mainDataMutex, portMAX_DELAY)) {
+                global_hdg_no_offset = heading; // Reverted back to active heading!
+
                 heading += mainData.compassOffset;
 
                 // Apply adaptive waypoint bias trim if enabled
@@ -778,8 +783,8 @@ void CompassTask(void *arg) {
 
                 global_hdg = heading;
                 mainData.dirMag = heading;
-                mainData.roll = -pitch;  // Swapped and Inverted to match physical mounting orientation
-                mainData.pitch = -roll;  // Swapped and Inverted to match physical mounting orientation
+                mainData.roll = roll;    // Restored unswapped roll orientation
+                mainData.pitch = -pitch; // Inverted physical pitch orientation
 
                 if (compass) xQueueOverwrite(compass, (void *)&heading);
 
@@ -792,6 +797,7 @@ void CompassTask(void *arg) {
 }
 
 float GetHeading(void) { return global_hdg; }
+float GetHeadingNoOffset(void) { return global_hdg_no_offset; }
 float GetHeadingRaw(void) { return global_hdg; }
 int linMagCalib(int *corr) { return 0; }
 bool CalibrateCompass(void) { return true; }

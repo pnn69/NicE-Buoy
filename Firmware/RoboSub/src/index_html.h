@@ -25,9 +25,8 @@ button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:poin
 </style></head><body>
 <h2 id="mainTitle">NicE-Buoy Sub</h2>
 <div class="info">
-    <span>Heading: <span id="icmVal" class="icm">0</span>&deg;</span>
-    <span style="font-size:0.85em; margin-left:15px; color:#aaa;">P: <span id="pitchVal" style="color:#00e6ff;font-weight:bold;">0.0</span>&deg;</span>
-    <span style="font-size:0.85em; margin-left:15px; color:#aaa;">R: <span id="rollVal" style="color:#00e6ff;font-weight:bold;">0.0</span>&deg;</span>
+    <span>Heading: <span id="icmVal" class="icm">000</span>&deg;</span>
+    <span style="font-size:0.85em; margin-left:15px; color:#aaa;">Filter: <span id="main_filter_type" style="color:#ffd700;font-weight:bold;">Loading...</span></span>
 </div>
 <div style="display:flex;justify-content:center;gap:15px;align-items:center;margin:5px 0;min-height:1.2em;">
 <div id="subStatus" style="color:#00d1ff;font-size:0.9em;font-weight:bold;">STATE: UNKNOWN</div>
@@ -84,8 +83,8 @@ button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:poin
 <div class="axis-row">Off:<input type="number" id="coff_in"><button onclick="setParam('coff')">Set</button></div>
 <div class="axis-row">Rad:<input type="number" step="0.1" id="holdrad_in"><button onclick="setParam('holdrad')">Set</button></div>
 <div class="axis-row">Avg:<input type="number" id="cavg_in" min="1" max="200"><button onclick="setParam('cavg')">Set</button></div>
+<div class="axis-row">Damp:<input type="number" step="0.01" id="prdamp_in" min="0" max="0.99"><button onclick="setParam('prdamp')">Set</button></div>
 <button onclick="setAsNorth()" style="background:#ffcc00;color:#1a1a1a;width:100%;margin-top:8px;font-weight:bold;height:35px;border-radius:4px;border:none;cursor:pointer;">Set Current as North</button>
-<div style="font-size:0.95em;font-family:monospace;color:#aaa;margin-top:8px;text-align:center;line-height:1.4;font-weight:600;">Loaded Profile (NVS):<br><span id="main_cal_load" style="color:#ffcc00">Loading...</span><br>Selected Mode:<br><span id="main_icm_mode" style="color:#58a6ff">Loading...</span></div>
 </div>
 <div class="raw-box"><b>Adaptive Trim</b>
 <div class="axis-row" style="margin-bottom:0;">Trim:<span id="val_ctrim" style="font-weight:bold;color:#ffcc00;font-size:1.15em;">0.00°</span></div>
@@ -104,9 +103,30 @@ button{padding:6px 12px;background:#00d1ff;color:#1a1a1a;border:none;cursor:poin
 <div class="axis-row">SB Inv:<select id="revsb_in" onchange="setParam('revsb')"><option value="0">Normal</option><option value="1">Inverted</option></select></div>
 <div class="axis-row">Swap:<select id="tswap_in" onchange="setParam('tswap')"><option value="0">Normal</option><option value="1">Swapped</option></select></div>
 </div>
-<div class="raw-box" style="display:flex;flex-direction:column;justify-content:center;"><b>Compass Configuration</b>
-<button onclick="location.href='/calibration'" style="background:#58a6ff;color:#0d1117;width:100%;height:50px;margin-top:10px;font-weight:bold;font-size:1em;border-radius:4px;border:none;cursor:pointer;">➔ Interactive Calibration</button>
-<button onclick="location.href='/ShowActualData'" style="background:#10b981;color:white;width:100%;height:50px;margin-top:8px;font-weight:bold;font-size:1em;border-radius:4px;border:none;cursor:pointer;">➔ View 3D & Analytical Data</button>
+<div class="raw-box" style="display:flex;flex-direction:row;align-items:center;gap:15px;min-width:440px;max-width:550px;">
+    <div style="display:flex;flex-direction:column;justify-content:center;flex:1.2;">
+        <b>Compass Configuration</b>
+        <button onclick="location.href='/calibration'" style="background:#58a6ff;color:#0d1117;width:100%;height:50px;margin-top:10px;font-weight:bold;font-size:0.95em;border-radius:4px;border:none;cursor:pointer;">➔ Interactive Calibration</button>
+        <button onclick="location.href='/ShowActualData'" style="background:#10b981;color:white;width:100%;height:50px;margin-top:8px;font-weight:bold;font-size:0.95em;border-radius:4px;border:none;cursor:pointer;">➔ View 3D & Analytical Data</button>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:#1e1e1e;border:1px solid #333;border-radius:6px;padding:8px 12px;flex:0.8;min-width:160px;height:125px;margin-top:18px;">
+        <div style="font-size:0.75rem;font-weight:bold;color:#aaa;margin-bottom:4px;">Attitude Level</div>
+        <div style="position:relative;width:80px;height:80px;">
+            <svg id="attitude-gauge" width="80" height="80" viewBox="0 0 200 200">
+                <circle cx="100" cy="100" r="90" fill="#111827" stroke="#2d3748" stroke-width="4"/>
+                <circle cx="100" cy="100" r="30" fill="none" stroke="#4a5568" stroke-dasharray="2, 4" stroke-width="1"/>
+                <circle cx="100" cy="100" r="60" fill="none" stroke="#4a5568" stroke-dasharray="2, 4" stroke-width="1"/>
+                <line x1="100" y1="10" x2="100" y2="190" stroke="#4a5568" stroke-width="1.5"/>
+                <line x1="10" y1="100" x2="190" y2="100" stroke="#4a5568" stroke-width="1.5"/>
+                <circle id="attitude-bubble" cx="100" cy="100" r="12" fill="#38bdf8" opacity="0.8" stroke="#0284c7" stroke-width="2" style="transition: cx 0.1s ease, cy 0.1s ease;"/>
+                <circle cx="100" cy="100" r="4" fill="#ff3333"/>
+            </svg>
+        </div>
+        <div style="display:flex;justify-content:space-around;width:100%;font-size:0.7rem;font-weight:bold;margin-top:2px;">
+            <span style="color:#ef4444">P:<span id="g-pitch-val">0.0</span>°</span>
+            <span style="color:#38bdf8">R:<span id="g-roll-val">0.0</span>°</span>
+        </div>
+    </div>
 </div>
 </div>
 <script>
@@ -130,20 +150,8 @@ function fetchData(){
     .then(d=>{
         const pingElem = document.getElementById('pingVal');
         if (pingElem) pingElem.innerText = Date.now() - startTime;
-        document.getElementById('icmVal').innerText=Math.round(d.icm);
+        document.getElementById('icmVal').innerText=Math.round(d.icm).toString().padStart(3, '0');
         document.getElementById('calMsg').innerText=d.cal_msg;
-        if(d.cal_load !== undefined) {
-            document.getElementById('main_cal_load').innerText = d.cal_load;
-        }
-        if(d.icm_mode !== undefined) {
-            const modes = {
-                1: "1. Only Hard Iron (No Soft, No Tilt)",
-                2: "2. Hard & Soft Iron (No Tilt)",
-                3: "3. Hard Iron & Pitch + Roll",
-                4: "4. Hard & Soft Iron & Pitch + Roll"
-            };
-            document.getElementById('main_icm_mode').innerText = modes[d.icm_mode] || "Unknown";
-        }
         const statusElem = document.getElementById('subStatus');
         if (statusElem && d.status_str) {
             statusElem.innerText = 'STATE: ' + d.status_str;
@@ -161,11 +169,15 @@ function fetchData(){
             irElem.innerText = d.ir.toFixed(2);
         }
         
-        if (d.pitch !== undefined) {
-            document.getElementById('pitchVal').innerText = d.pitch.toFixed(1);
-        }
-        if (d.roll !== undefined) {
-            document.getElementById('rollVal').innerText = d.roll.toFixed(1);
+        if (d.icm_mode !== undefined) {
+            const filters = {
+                1: "2D Hard-Iron",
+                2: "2D Hard & Soft",
+                3: "3D Analytical",
+                4: "9-DOF Madgwick"
+            };
+            const fElem = document.getElementById('main_filter_type');
+            if (fElem) fElem.innerText = filters[d.icm_mode] || "Unknown";
         }
         
         if (d.rev !== undefined) {
@@ -226,6 +238,34 @@ function fetchData(){
             }
         }
         
+        let rollVal = Number(d.roll !== undefined ? d.roll : 0);
+        let pitchVal = Number(d.pitch !== undefined ? d.pitch : 0);
+
+        // Update Attitude Bubble Level indicator
+        const bubble = document.getElementById('attitude-bubble');
+        if (bubble) {
+            // Scale: 3.0 pixels of graphic shift per degree of physical tilt
+            const scale = 3.0;
+            let dx = rollVal * scale;
+            let dy = -pitchVal * scale; // Invert pitch to move UP when pitched UP
+
+            // Constrain bubble within the 90px radius border of the gauge circle
+            const r_bound = 80.0;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > r_bound) {
+                dx = (dx / dist) * r_bound;
+                dy = (dy / dist) * r_bound;
+            }
+
+            bubble.setAttribute('cx', (100 + dx).toFixed(1));
+            bubble.setAttribute('cy', (100 + dy).toFixed(1));
+        }
+
+        const gpVal = document.getElementById('g-pitch-val');
+        if (gpVal) gpVal.innerText = pitchVal.toFixed(1);
+        const grVal = document.getElementById('g-roll-val');
+        if (grVal) grVal.innerText = rollVal.toFixed(1);
+        
         rotTilt = getShortestRotation(rotTilt, d.icm);
         document.getElementById('rose-tilt-needle').style.transform = `rotate(${rotTilt}deg)`;
     })
@@ -256,7 +296,7 @@ function setAsNorth(){
         })
         .catch(e => console.error('Network error: ' + e));
 }
-function fetchParams(){fetch('/params?t='+Date.now()).then(r=>r.json()).then(d=>{let missing=false;['kpr','kir','kdr','kps','kis','kds','coff','pvspd','revbb','revsb','tswap','minspd','maxspd','holdrad','cavg'].forEach(p=>{const e=document.getElementById(p+'_in');if(e){if(d[p]!==undefined){if(document.activeElement!==e)e.value=d[p]}else missing=true}});if(missing||Object.keys(d).length<5)setTimeout(fetchParams,1000)}).catch(e=>{console.error(e);setTimeout(fetchParams,1000)})}
+function fetchParams(){fetch('/params?t='+Date.now()).then(r=>r.json()).then(d=>{let missing=false;['kpr','kir','kdr','kps','kis','kds','coff','pvspd','revbb','revsb','tswap','minspd','maxspd','holdrad','cavg','prdamp'].forEach(p=>{const e=document.getElementById(p+'_in');if(e){if(d[p]!==undefined){if(document.activeElement!==e)e.value=d[p]}else missing=true}});if(missing||Object.keys(d).length<5)setTimeout(fetchParams,1000)}).catch(e=>{console.error(e);setTimeout(fetchParams,1000)})}
 fetchParams();
 
 setInterval(fetchData, 100);

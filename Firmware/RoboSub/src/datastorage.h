@@ -27,5 +27,6 @@ void memBnoCalib(uint8_t *data, bool get);
 void memIcmCalib(float *hi, float *si, bool get);
 void memCompassAvg(int *avg, bool get);
 void memCompassTrim(float *trim, bool *enabled, bool get);
+void memPrDamping(float *damping, bool get);
 
 #endif /* DATASTORAGE_H_ */
