@@ -120,8 +120,11 @@ void setup()
     thrusterInversion(&mainData, GET);
     thrusterSwap(&mainData, GET);
     
-    InitCompass();
     initledqueue();
+    // Core 0: Start LED Task immediately on boot so we can show dynamic status (e.g. fast yellow blinking) during calibration
+    xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 0);
+
+    InitCompass();
     initbuzzerqueue();
     initcompassQueue();
     initserqueue();
@@ -140,7 +143,6 @@ void setup()
     // CORE 0: Network and Telemetry
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 16384, &wifiConfig, configMAX_PRIORITIES - 10, NULL, 0);
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 2048, NULL, 1, NULL, 0);
-    xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 0);
     
     // CORE 1: Real-time Control and Sensors
     xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 5, NULL, 1);

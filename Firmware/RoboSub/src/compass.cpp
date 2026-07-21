@@ -178,6 +178,14 @@ bool InitCompass(void)
         }
         updateUIHexFloat();
 
+        // Set middle LED (LEDSTATUS) to flash yellow fast during gyro calibration
+        if (ledStatus != NULL) {
+            LedData calLed;
+            calLed.color = CRGB::Yellow;
+            calLed.blink = BLINK_FAST;
+            xQueueSend(ledStatus, (void *)&calLed, 0);
+        }
+
         // 200-sample Gyro Bias (Zero-Rate) Calibration
         Serial.println("ICM-20948: Calibrating gyroscope bias... Keep the device completely static!");
         setCalMsg("GYRO CALIBRATING", 2);
@@ -226,6 +234,14 @@ bool InitCompass(void)
         }
         Serial.printf("ICM-20948: Gyroscope calibration complete. Offsets -> X: %.4f, Y: %.4f, Z: %.4f\n", 
                       gyro_bias_x, gyro_bias_y, gyro_bias_z);
+
+        // Turn off fast blinking status LED after calibration
+        if (ledStatus != NULL) {
+            LedData calLed;
+            calLed.color = CRGB::Black;
+            calLed.blink = BLINK_OFF;
+            xQueueSend(ledStatus, (void *)&calLed, 0);
+        }
 
         // Learn magnetometer baseline at startup
         Serial.println("ICM-20948: Measuring baseline magnetometer field strength... Keep the device completely static!");

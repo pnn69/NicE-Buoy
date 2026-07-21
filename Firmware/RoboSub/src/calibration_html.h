@@ -518,6 +518,7 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
         let isCalibrating = false;
         let calPoints = [];
         let maxPoints = 1500; // Optimal performance cache buffer
+        let isPolling = false; // Flag for async polling loop
         let pollTimer = null;
         let icmModeLoaded = false;
         let enoughPointsMet = false;
@@ -566,6 +567,11 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
             [0.0, 1.0, 0.0],
             [0.0, 0.0, 1.0]
         ];
+        let cachedInvW = [
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0]
+        ];
 
         const statusBadge = document.getElementById('status');
         const btnCal = document.getElementById('btnCal');
@@ -591,16 +597,23 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
         function connect() {
             statusBadge.textContent = 'Connected';
             statusBadge.className = 'status-badge connected';
-            pollData();
+            startPolling();
         }
 
-        function pollData() {
-            fetch('/data')
-                .then(r => r.json())
-                .then(data => {
+        async function startPolling() {
+            if (isPolling) return;
+            isPolling = true;
+            while (isPolling) {
+                try {
+                    const r = await fetch('/data');
+                    const data = await r.json();
                     if (isCalibrating) {
                         if (data.points !== undefined && Array.isArray(data.points)) {
-                            data.points.forEach(p => processRawPoint(p[0], p[1], p[2]));
+                            const pts = data.points;
+                            const len = pts.length;
+                            for (let i = 0; i < len; i++) {
+                                processRawPoint(pts[i][0], pts[i][1], pts[i][2]);
+                            }
                         } else if (data.mx_raw !== undefined && data.my_raw !== undefined && data.mz_raw !== undefined) {
                             processRawPoint(data.mx_raw, data.my_raw, data.mz_raw);
                         }
@@ -631,15 +644,18 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                         b.innerText = 'ICM Active';
                     }
 
-                    // Relaxed polling interval to reduce ESP32 serving stress
                     const interval = isCalibrating ? 150 : 500;
-                    pollTimer = setTimeout(pollData, interval);
-                })
-                .catch(err => {
+                    await new Promise(resolve => setTimeout(resolve, interval));
+                } catch (err) {
                     console.error("Poll error", err);
                     const interval = isCalibrating ? 1000 : 2000;
-                    pollTimer = setTimeout(pollData, interval);
-                });
+                    await new Promise(resolve => setTimeout(resolve, interval));
+                }
+            }
+        }
+
+        function stopPolling() {
+            isPolling = false;
         }
 
         function processRawPoint(x, y, z) {
@@ -729,7 +745,7 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
             else updateInterval = 200;
 
             if (calPoints.length >= 50 && (calPoints.length % updateInterval) === 0) {
-                runEllipsoidFitting();
+                setTimeout(runEllipsoidFitting, 0);
             }
 
             // Throttled DOM HUD writes to twice a second
@@ -910,49 +926,58 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
             const dMinY = minY - pad, dMaxY = maxY + pad;
             const dMinZ = minZ - pad, dMaxZ = maxZ + pad;
 
-            const map = (v, min, max, outMin, outMax) => (v - min) * (outMax - outMin) / (max - min) + outMin;
+            const spanX = dMaxX - dMinX || 1;
+            const spanY = dMaxY - dMinY || 1;
+            const spanZ = dMaxZ - dMinZ || 1;
 
-            // 100x Speedup: Single Path Drawing per plane (Copilot suggestion 3/masterclass)
-            // Grouping arcs by plane and filling ONLY once per color group drops drawing stress to near 0ms!
+            const scaleLeftX = (w/3 - 30) / spanX;
+            const scaleLeftY = (30 - h) / spanY;
+
+            const scaleMidX = (w/3 - 30) / spanX;
+            const scaleMidY = (30 - h) / spanZ;
+
+            const scaleRightX = (w/3 - 30) / spanY;
+            const scaleRightY = (30 - h) / spanZ;
+
+            // Downsample display to maximum 500 points for rendering performance
+            const len = calPoints.length;
+            const step = len > 500 ? Math.ceil(len / 500) : 1;
             
             // 1. Draw Left Plot: X vs Y Projection (Horizontal Plane)
             ctx.fillStyle = 'rgba(88, 166, 255, 0.75)'; // Theme Blue
             ctx.beginPath();
-            calPoints.forEach(pt => {
-                const xPos = map(pt.x, dMinX, dMaxX, 15, w/3 - 15);
-                const yPos = map(pt.y, dMinY, dMaxY, h - 15, 15);
-                ctx.moveTo(xPos + 2.5, yPos);
-                ctx.arc(xPos, yPos, 2.5, 0, 2 * Math.PI);
-            });
+            for (let i = 0; i < len; i += step) {
+                const pt = calPoints[i];
+                const xPos = (pt.x - dMinX) * scaleLeftX + 15;
+                const yPos = (pt.y - dMinY) * scaleLeftY + h - 15;
+                ctx.rect(xPos - 1.5, yPos - 1.5, 3, 3);
+            }
             ctx.fill();
 
             // 2. Draw Middle Plot: X vs Z Projection (Vertical Lateral Plane)
             ctx.fillStyle = 'rgba(188, 140, 255, 0.75)'; // Theme Purple
             ctx.beginPath();
-            calPoints.forEach(pt => {
-                const xPos = map(pt.x, dMinX, dMaxX, w/3 + 15, 2*w/3 - 15);
-                const yPos = map(pt.z, dMinZ, dMaxZ, h - 15, 15);
-                ctx.moveTo(xPos + 2.5, yPos);
-                ctx.arc(xPos, yPos, 2.5, 0, 2 * Math.PI);
-            });
+            for (let i = 0; i < len; i += step) {
+                const pt = calPoints[i];
+                const xPos = (pt.x - dMinX) * scaleMidX + w/3 + 15;
+                const yPos = (pt.z - dMinZ) * scaleMidY + h - 15;
+                ctx.rect(xPos - 1.5, yPos - 1.5, 3, 3);
+            }
             ctx.fill();
 
             // 3. Draw Right Plot: Y vs Z Projection (Vertical Frontal Plane)
             ctx.fillStyle = 'rgba(86, 211, 100, 0.75)'; // Theme Green
             ctx.beginPath();
-            calPoints.forEach(pt => {
-                const xPos = map(pt.y, dMinY, dMaxY, 2*w/3 + 15, w - 15);
-                const yPos = map(pt.z, dMinZ, dMaxZ, h - 15, 15);
-                ctx.moveTo(xPos + 2.5, yPos);
-                ctx.arc(xPos, yPos, 2.5, 0, 2 * Math.PI);
-            });
+            for (let i = 0; i < len; i += step) {
+                const pt = calPoints[i];
+                const xPos = (pt.y - dMinY) * scaleRightX + 2*w/3 + 15;
+                const yPos = (pt.z - dMinZ) * scaleRightY + h - 15;
+                ctx.rect(xPos - 1.5, yPos - 1.5, 3, 3);
+            }
             ctx.fill();
 
             // Draw Mathematically Exact Rotated 3D Ellipsoid Projections (Requirement 5 refined)
-            let invW = invert3x3(siMatrix);
-            if (!invW) {
-                invW = [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0]];
-            }
+            const invW = cachedInvW;
 
             ctx.lineWidth = 1.0;
             ctx.setLineDash([4, 4]);
@@ -971,8 +996,8 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                 const ex = (invW[0][0] * px + invW[0][1] * py + invW[0][2] * pz) + hix;
                 const ey = (invW[1][0] * px + invW[1][1] * py + invW[1][2] * pz) + hiy;
                 
-                const canvasX = map(ex, dMinX, dMaxX, 15, w/3 - 15);
-                const canvasY = map(ey, dMinY, dMaxY, h - 15, 15);
+                const canvasX = (ex - dMinX) * scaleLeftX + 15;
+                const canvasY = (ey - dMinY) * scaleLeftY + h - 15;
                 if (i === 0) ctx.moveTo(canvasX, canvasY);
                 else ctx.lineTo(canvasX, canvasY);
             }
@@ -989,8 +1014,8 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                 const ex = (invW[0][0] * px + invW[0][1] * py + invW[0][2] * pz) + hix;
                 const ez = (invW[2][0] * px + invW[2][1] * py + invW[2][2] * pz) + hiz;
                 
-                const canvasX = map(ex, dMinX, dMaxX, w/3 + 15, 2*w/3 - 15);
-                const canvasY = map(ez, dMinZ, dMaxZ, h - 15, 15);
+                const canvasX = (ex - dMinX) * scaleMidX + w/3 + 15;
+                const canvasY = (ez - dMinZ) * scaleMidY + h - 15;
                 if (i === 0) ctx.moveTo(canvasX, canvasY);
                 else ctx.lineTo(canvasX, canvasY);
             }
@@ -1007,8 +1032,8 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                 const ey = (invW[1][0] * px + invW[1][1] * py + invW[1][2] * pz) + hiy;
                 const ez = (invW[2][0] * px + invW[2][1] * py + invW[2][2] * pz) + hiz;
                 
-                const canvasX = map(ey, dMinY, dMaxY, 2*w/3 + 15, w - 15);
-                const canvasY = map(ez, dMinZ, dMaxZ, h - 15, 15);
+                const canvasX = (ey - dMinY) * scaleRightX + 2*w/3 + 15;
+                const canvasY = (ez - dMinZ) * scaleRightY + h - 15;
                 if (i === 0) ctx.moveTo(canvasX, canvasY);
                 else ctx.lineTo(canvasX, canvasY);
             }
@@ -1021,20 +1046,20 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
             ctx.lineWidth = 1.5;
             
             // Reticle 1 (XY Center)
-            const cenLeftX = map(hix, dMinX, dMaxX, 15, w/3 - 15);
-            const cenLeftY = map(hiy, dMinY, dMaxY, h - 15, 15);
+            const cenLeftX = (hix - dMinX) * scaleLeftX + 15;
+            const cenLeftY = (hiy - dMinY) * scaleLeftY + h - 15;
             ctx.beginPath(); ctx.arc(cenLeftX, cenLeftY, 5, 0, 2*Math.PI); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(cenLeftX - 8, cenLeftY); ctx.lineTo(cenLeftX + 8, cenLeftY); ctx.moveTo(cenLeftX, cenLeftY - 8); ctx.lineTo(cenLeftX, cenLeftY + 8); ctx.stroke();
 
             // Reticle 2 (XZ Center)
-            const cenMidX = map(hix, dMinX, dMaxX, w/3 + 15, 2*w/3 - 15);
-            const cenMidY = map(hiz, dMinZ, dMaxZ, h - 15, 15);
+            const cenMidX = (hix - dMinX) * scaleMidX + w/3 + 15;
+            const cenMidY = (hiz - dMinZ) * scaleMidY + h - 15;
             ctx.beginPath(); ctx.arc(cenMidX, cenMidY, 5, 0, 2*Math.PI); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(cenMidX - 8, cenMidY); ctx.lineTo(cenMidX + 8, cenMidY); ctx.moveTo(cenMidX, cenMidY - 8); ctx.lineTo(cenMidX, cenMidY + 8); ctx.stroke();
 
             // Reticle 3 (YZ Center)
-            const cenRightX = map(hiy, dMinY, dMaxY, 2*w/3 + 15, w - 15);
-            const cenRightY = map(hiz, dMinZ, dMaxZ, h - 15, 15);
+            const cenRightX = (hiy - dMinY) * scaleRightX + 2*w/3 + 15;
+            const cenRightY = (hiz - dMinZ) * scaleRightY + h - 15;
             ctx.beginPath(); ctx.arc(cenRightX, cenRightY, 5, 0, 2*Math.PI); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(cenRightX - 8, cenRightY); ctx.lineTo(cenRightX + 8, cenRightY); ctx.moveTo(cenRightX, cenRightY - 8); ctx.lineTo(cenRightX, cenRightY + 8); ctx.stroke();
         }
@@ -1089,7 +1114,7 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                     }
                 }, 180000); // 3 minutes safety timeout
 
-                pollData();
+                startPolling();
             } else {
                 stopAndSaveCalibration();
             }
@@ -1099,7 +1124,7 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
             isCalibrating = false;
             enoughPointsMet = false;
             if (calTimeoutTimer) { clearTimeout(calTimeoutTimer); calTimeoutTimer = null; }
-            if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+            stopPolling();
             document.getElementById('calibrationCoPilot').style.display = 'none';
             btnCal.textContent = 'Start Interactive Calibration';
             btnCal.style.backgroundColor = ''; btnCal.style.borderColor = ''; btnCal.style.color = '';
@@ -1256,6 +1281,7 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
 
                 six = 1.0; siy = 1.0; siz = 1.0;
                 siMatrix = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
+                cachedInvW = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
                 displayRadius = 50.0;
                 
                 calHiVal.textContent = `X: ${hix.toFixed(1)}, Y: ${hiy.toFixed(1)}, Z: ${hiz.toFixed(1)}`;
@@ -1280,6 +1306,11 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                 
                 // Keep the exact, unaltered soft-iron matrix from solver! (Requirement 1 refined)
                 siMatrix = fit.softIronMatrix;
+                cachedInvW = invert3x3(siMatrix) || [
+                    [1.0, 0.0, 0.0],
+                    [0.0, 1.0, 0.0],
+                    [0.0, 0.0, 1.0]
+                ];
                 
                 // Extract absolute diagonal elements for display only
                 six = Math.abs(siMatrix[0][0]);
