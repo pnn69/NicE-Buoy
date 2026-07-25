@@ -571,8 +571,8 @@ void CompassTask(void *arg) {
 
             // Coordinate Axis Realignment (Align ICM Magnetometer with Accelerometer/Gyroscope coordinate frame)
             // Account for upside-down physical mounting of the sensor by aligning magnetometer Y with the positive gyro frame
-            float mx_cal_aligned = mxc;
-            float my_cal_aligned = myc;
+            float mx_cal_aligned = myc;
+            float my_cal_aligned = -mxc;
             float mz_cal_aligned = -mzc;
 
             // Check for NaNs to prevent corrupting the Madgwick filter's internal state
@@ -706,7 +706,7 @@ void CompassTask(void *arg) {
                 raw_heading = mYaw;
             } else if (icm_mode == 3) {
                 // Mode 3: Analytical 3D tilt-compensated heading (Hard Iron, Pitch & Roll, NO gyro/no creep)
-                float phi = -roll * M_PI / 180.0f;
+                float phi = roll * M_PI / 180.0f;
                 float theta = pitch * M_PI / 180.0f;
 
                 float cosRoll = cos(phi);
@@ -714,8 +714,8 @@ void CompassTask(void *arg) {
                 float cosPitch = cos(theta);
                 float sinPitch = sin(theta);
 
-                float mx_h = mx_cal_aligned * cosPitch + my_cal_aligned * sinRoll * sinPitch + mz_cal_aligned * cosRoll * sinPitch;
-                float my_h = my_cal_aligned * cosRoll - mz_cal_aligned * sinRoll;
+                float mx_h = mx_cal_aligned * cosPitch + my_cal_aligned * sinRoll * sinPitch - mz_cal_aligned * cosRoll * sinPitch;
+                float my_h = my_cal_aligned * cosRoll + mz_cal_aligned * sinRoll;
 
                 raw_heading = atan2f(my_h, mx_h) * 57.29578f;
                 if (raw_heading < 0.0f) raw_heading += 360.0f;
