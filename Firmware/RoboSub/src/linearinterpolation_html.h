@@ -346,10 +346,12 @@ const char LINEAR_INTERPOLATION_HTML[] PROGMEM = R"rawliteral(
                 const card = document.createElement('div');
                 card.className = 'cal-item';
                 card.innerHTML = `
-                    <div class="ref-heading">${ref}°</div>
-                    <div class="meas-heading" id="meas-val-${idx}">${meas.toFixed(1)}°</div>
-                    <div class="diff-heading" id="diff-val-${idx}">Offset: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}°</div>
-                    <button class="btn btn-blue" style="padding: 0.4rem 1rem; font-size: 0.8rem; width: 100%;" onclick="recordPoint(${idx})">Record</button>
+                    <div style="width: 100%; display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; padding: 4px;">
+                        <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Reference:</span><span class="ref-heading" style="font-weight: bold; color: var(--cyan);">${ref}°</span></div>
+                        <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Measured:</span><span class="meas-heading" id="meas-val-${idx}" style="font-family: monospace; font-weight: bold;">${meas.toFixed(1)}°</span></div>
+                        <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Offset:</span><span class="diff-heading" id="diff-val-${idx}" style="font-family: monospace; font-weight: bold; color: ${diff >= 0 ? 'var(--green)' : 'var(--red)'}">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}°</span></div>
+                    </div>
+                    <button class="btn btn-blue" style="padding: 0.4rem 1rem; font-size: 0.8rem; width: 100%; margin-top: 4px;" onclick="recordPoint(${idx})">Record</button>
                 `;
                 container.appendChild(card);
             });
@@ -402,10 +404,10 @@ const char LINEAR_INTERPOLATION_HTML[] PROGMEM = R"rawliteral(
                             // Circular wrap mirroring: if recording 0 (index 0), automatically mirror to index 8 (360 degrees) with safe wrapping
                             if (idx === 0) {
                                 let wrap360 = currentHeading + 360.0;
-                                fetch(`/set_interpolation_point?index=8&measured=${(currentHeading + 360.0).toFixed(1)}`);
+                                fetch(`/set_interpolation_point?index=8&measured=${wrap360.toFixed(1)}`);
                             }
                             renderCalibrationTable();
-                            alert(`Recorded! reference: ${refAngles[idx]}° -> actual measured: ${currentHeading.toFixed(1)}°`);
+                            console.log(`Recorded! reference: ${refAngles[idx]}° -> actual measured: ${currentHeading.toFixed(1)}°`);
                         } else {
                             alert(`Failed to record: ${text}`);
                         }
@@ -420,7 +422,7 @@ const char LINEAR_INTERPOLATION_HTML[] PROGMEM = R"rawliteral(
                     .then(r => r.text())
                     .then(text => {
                         if (text === "OK") {
-                            alert("Calibration Table successfully saved to NVS!");
+                            console.log("Calibration Table successfully saved to NVS!");
                         } else {
                             alert("Failed to save: " + text);
                         }
@@ -437,7 +439,7 @@ const char LINEAR_INTERPOLATION_HTML[] PROGMEM = R"rawliteral(
                         if (text === "OK") {
                             measuredAngles = [0, 45, 90, 135, 180, 225, 270, 315, 360];
                             renderCalibrationTable();
-                            alert("Table successfully reset to defaults!");
+                            console.log("Table successfully reset to defaults!");
                         } else {
                             alert("Failed to reset: " + text);
                         }

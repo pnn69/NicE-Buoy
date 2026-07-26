@@ -501,7 +501,7 @@ const char CALIBRATION_HTML[] PROGMEM = R"rawliteral(
                     .then(response => response.text())
                     .then(text => {
                         if (text === "OK") {
-                            alert(`Calibration Saved successfully!\nSamples collected: ${points.length}\n\nVx: ${vx.toFixed(2)}, Vy: ${vy.toFixed(2)}, Vz: ${vz.toFixed(2)}\nSx: ${sx.toFixed(3)}, Sy: ${sy.toFixed(3)}, Sz: ${sz.toFixed(3)}`);
+                            console.log(`Calibration Saved successfully both locally and on ESP32 NVS!\nSamples collected: ${points.length}\n\nVx: ${vx.toFixed(2)}, Vy: ${vy.toFixed(2)}, Vz: ${vz.toFixed(2)}\nSx: ${sx.toFixed(3)}, Sy: ${sy.toFixed(3)}, Sz: ${sz.toFixed(3)}`);
                         } else {
                             alert(`Calibration saved locally in browser, but failed to save to ESP32 NVS! Response: ${text}`);
                         }
