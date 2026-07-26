@@ -1,6 +1,8 @@
 #ifndef LINEAR_INTERPOLATION_HTML_H
 #define LINEAR_INTERPOLATION_HTML_H
 
+// linear interpolation not finished yet
+
 #include <Arduino.h>
 
 const char LINEAR_INTERPOLATION_HTML[] PROGMEM = R"rawliteral(
