@@ -594,3 +594,33 @@ void memPrDamping(float *damping, bool get)
     }
     stopMem();
 }
+
+/**
+ * @brief Reads or writes all 4 damping factors to Preferences NVM.
+ */
+void memDampingFactors(float *acc, float *gyro, float *mag, float *att, bool get)
+{
+    startMem();
+    if (get)
+    {
+        *acc = storage.getFloat("damp_acc", 0.15f);
+        if (!isfinite(*acc) || *acc < 0.01f || *acc > 1.0f) *acc = 0.15f;
+
+        *gyro = storage.getFloat("damp_gyro", 0.15f);
+        if (!isfinite(*gyro) || *gyro < 0.01f || *gyro > 1.0f) *gyro = 0.15f;
+
+        *mag = storage.getFloat("damp_mag", 0.15f);
+        if (!isfinite(*mag) || *mag < 0.01f || *mag > 1.0f) *mag = 0.15f;
+
+        *att = storage.getFloat("damp_att", 0.15f);
+        if (!isfinite(*att) || *att < 0.01f || *att > 1.0f) *att = 0.15f;
+    }
+    else
+    {
+        storage.putFloat("damp_acc", *acc);
+        storage.putFloat("damp_gyro", *gyro);
+        storage.putFloat("damp_mag", *mag);
+        storage.putFloat("damp_att", *att);
+    }
+    stopMem();
+}

@@ -28,5 +28,6 @@ void memIcmCalib(float *hi, float *si, bool get);
 void memCompassAvg(int *avg, bool get);
 void memCompassTrim(float *trim, bool *enabled, bool get);
 void memPrDamping(float *damping, bool get);
+void memDampingFactors(float *acc, float *gyro, float *mag, float *att, bool get);
 
 #endif /* DATASTORAGE_H_ */

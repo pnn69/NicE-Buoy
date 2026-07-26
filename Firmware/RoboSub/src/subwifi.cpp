@@ -333,10 +333,6 @@ void WiFiTask(void *arg) {
     });
     subServer.on("/start_cal", HTTP_GET, [](){
         extern bool global_is_calibrating;
-        extern volatile int cal_ring_write_idx;
-        extern volatile int cal_ring_read_idx;
-        cal_ring_write_idx = 0;
-        cal_ring_read_idx = 0;
         global_is_calibrating = true;
 
         if (buzzer != NULL) {
@@ -353,6 +349,39 @@ void WiFiTask(void *arg) {
             float si[3] = {si_x, si_y, si_z};
             memIcmCalib(hi, si, false);
 
+            subServer.send(200, "text/plain", "OK");
+        } else {
+            subServer.send(400, "text/plain", "Err");
+        }
+    });
+    subServer.on("/set-damping", HTTP_GET, [](){
+        if (subServer.hasArg("sensor") && subServer.hasArg("val")) {
+            String sensor = subServer.arg("sensor");
+            float val = subServer.arg("val").toFloat();
+            
+            extern float damp_acc;
+            extern float damp_gyro;
+            extern float damp_mag;
+            extern float damp_att;
+            extern float pr_damping;
+
+            if (sensor == "acc") {
+                damp_acc = val;
+            } else if (sensor == "gyro") {
+                damp_gyro = val;
+            } else if (sensor == "mag") {
+                damp_mag = val;
+            } else if (sensor == "att") {
+                damp_att = val;
+                // Sync attitude damping directly with pr_damping
+                pr_damping = 1.0f - val;
+                if (pr_damping < 0.0f) pr_damping = 0.0f;
+                if (pr_damping > 0.99f) pr_damping = 0.99f;
+                memPrDamping(&pr_damping, SET);
+            }
+
+            memDampingFactors(&damp_acc, &damp_gyro, &damp_mag, &damp_att, SET);
+            Serial.printf("subServer: Saved damping coefficient: %s = %.2f\n", sensor.c_str(), val);
             subServer.send(200, "text/plain", "OK");
         } else {
             subServer.send(400, "text/plain", "Err");
@@ -523,6 +552,11 @@ void WiFiTask(void *arg) {
      * the buoy is idling, locking, locked, docking, docked, or in a calibration routine.
      */
     subServer.on("/data", HTTP_GET, [](){
+        extern float damp_acc;
+        extern float damp_gyro;
+        extern float damp_mag;
+        extern float damp_att;
+        extern float global_fusion_hdg;
         float icm = global_hdg;
         int sbb = (int)mainData.speedBb; 
         int ssb = (int)mainData.speedSb;
@@ -556,85 +590,69 @@ void WiFiTask(void *arg) {
          * lean and fast.
          */
 
-        // Calculate raw uncompensated heading (direct atan2 of raw magnetometer)
-        float rawHeading = atan2(last_raw_y, last_raw_x) * 180.0 / M_PI;
+        // Calculate raw uncompensated heading (matching prototype)
+        float rawHeading = atan2(last_raw_x, last_raw_y) * 180.0 / M_PI;
         if (rawHeading < 0.0f) rawHeading += 360.0f;
-        rawHeading = 360.0f - rawHeading; // Mirror rotation direction to match screen rose
-        if (rawHeading >= 360.0f) rawHeading -= 360.0f;
 
-        // Calculate Hard-iron compensated heading (subtract offsets hi_x, hi_y, hi_z)
-        float mx_hi = last_raw_x - hi_x;
-        float my_hi = last_raw_y - hi_y;
-        float mz_hi = last_raw_z - hi_z;
-        float hardHeading = atan2(my_hi, mx_hi) * 180.0 / M_PI;
+        // Calculate Hard-iron compensated heading (matching prototype)
+        float hx = last_raw_x - hi_x;
+        float hy = last_raw_y - hi_y;
+        float hardHeading = atan2(hx, hy) * 180.0 / M_PI;
         if (hardHeading < 0.0f) hardHeading += 360.0f;
-        hardHeading = 360.0f - hardHeading; // Mirror rotation direction to match screen rose
-        if (hardHeading >= 360.0f) hardHeading -= 360.0f;
 
-        // Calculate Soft-iron compensated heading (apply full 3x3 soft-iron matrix multiplication)
-        extern float si_matrix[3][3];
-        float mxc = si_matrix[0][0] * mx_hi + si_matrix[0][1] * my_hi + si_matrix[0][2] * mz_hi;
-        float myc = si_matrix[1][0] * mx_hi + si_matrix[1][1] * my_hi + si_matrix[1][2] * mz_hi;
-        float mzc = si_matrix[2][0] * mx_hi + si_matrix[2][1] * my_hi + si_matrix[2][2] * mz_hi;
+        // Calculate Soft-iron compensated heading (matching prototype)
+        float sx = last_raw_x * si_x;
+        float sy = last_raw_y * si_y;
+        float headingSoft = atan2(sx, sy) * 180.0 / M_PI;
+        if (headingSoft < 0.0f) headingSoft += 360.0f;
 
-        float softHeading = atan2(myc, mxc) * 180.0 / M_PI;
+        // Calculate Both Comp (Offsets + Scaling)
+        float bx = hx * si_x;
+        float by = hy * si_y;
+        float softHeading = atan2(bx, by) * 180.0 / M_PI;
         if (softHeading < 0.0f) softHeading += 360.0f;
-        softHeading = 360.0f - softHeading; // Mirror rotation direction to match screen rose
-        if (softHeading >= 360.0f) softHeading -= 360.0f;
 
-        // Calculate Option 3 heading: Analytical 3D tilt-compensated heading (Hard Iron, Pitch & Roll, NO gyro)
-        // pitch is inverted in mainData.pitch, so we negate it here to restore the correct positive pitch angle
-        float phi = -roll * M_PI / 180.0f;
-        float theta = -pitch * M_PI / 180.0f;
+        // Calculate Option 3/5 heading: Analytical 3D tilt-compensated heading (matching prototype)
+        // roll and pitch are raw/damped pitch & roll, we convert to radians
+        float phi = roll * M_PI / 180.0f;
+        float theta = pitch * M_PI / 180.0f;
 
         float cosRoll = cos(phi);
         float sinRoll = sin(phi);
         float cosPitch = cos(theta);
         float sinPitch = sin(theta);
 
-        float mx_aligned = mx_hi;
-        float my_aligned = my_hi;
-        float mz_aligned = -mz_hi;
+        float cx_cal = hx * si_x;
+        float cy_cal = hy * si_y;
+        float cz_cal = (last_raw_z - hi_z) * si_z;
 
-        float mx_h = mx_aligned * cosPitch + my_aligned * sinRoll * sinPitch + mz_aligned * cosRoll * sinPitch;
-        float my_h = my_aligned * cosRoll - mz_aligned * sinRoll;
+        float Xh = cx_cal * cosPitch + cy_cal * sinRoll * sinPitch - cz_cal * cosRoll * sinPitch;
+        float Yh = cy_cal * cosRoll + cz_cal * sinRoll;
 
-        float opt3Heading = atan2f(my_h, mx_h) * 57.29578f;
+        float opt3Heading = atan2(Xh, Yh) * 180.0 / M_PI;
         if (opt3Heading < 0.0f) opt3Heading += 360.0f;
-        opt3Heading = 360.0f - opt3Heading; // Mirror rotation direction to match screen rose
-        if (opt3Heading >= 360.0f) opt3Heading -= 360.0f;
 
         // Align the calibrated magnetometer axes to match the accelerometer coordinate frame
-        float mx_cal = myc;
-        float my_cal = -mxc;
-        float mz_cal = -mzc;
+        float mx_cal = bx;
+        float my_cal = by;
+        float mz_cal = cz_cal;
 
-        // Align the raw magnetometer axes to match the same accelerometer coordinate frame for direct UI comparison
-        float mx_raw_aligned = last_raw_y;
-        float my_raw_aligned = -last_raw_x;
-        float mz_raw_aligned = -last_raw_z;
+        // Align the raw magnetometer axes to match the native, unaligned sensor coordinate frame
+        // This ensures calibration is calculated on the exact same coordinate system applied in CompassTask.
+        float mx_raw_aligned = last_raw_x;
+        float my_raw_aligned = last_raw_y;
+        float mz_raw_aligned = last_raw_z;
 
-        // Extract all pending calibration points from the ring buffer
-        extern float cal_ring_x[];
-        extern float cal_ring_y[];
-        extern float cal_ring_z[];
-        extern volatile int cal_ring_write_idx;
-        extern volatile int cal_ring_read_idx;
+        // The cal_ring buffer extraction has been removed since calibration data collection 
+        // is now done directly via HTTP polling of mx_raw, my_raw, mz_raw.
+        String pointsJson = "[]";
 
-        String pointsJson = "[";
-        bool firstPoint = true;
-        while (cal_ring_read_idx != cal_ring_write_idx) {
-            if (!firstPoint) pointsJson += ",";
-            pointsJson += "[" + String(cal_ring_x[cal_ring_read_idx], 2) + "," +
-                          String(cal_ring_y[cal_ring_read_idx], 2) + "," +
-                          String(cal_ring_z[cal_ring_read_idx], 2) + "]";
-            firstPoint = false;
-            cal_ring_read_idx = (cal_ring_read_idx + 1) % 100; // CAL_RING_BUF_SIZE
-        }
-        pointsJson += "]";
+        float fusion_no_offset = global_fusion_hdg - mainData.mechanicCorrection;
+        if (fusion_no_offset < 0.0f) fusion_no_offset += 360.0f;
+        if (fusion_no_offset >= 360.0f) fusion_no_offset -= 360.0f;
 
         String json = "{\"icm\":" + String(icm, 2) +
-                      ",\"icm_no_offset\":" + String(GetHeadingNoOffset(), 2) +
+                      ",\"icm_no_offset\":" + String(fusion_no_offset, 2) +
                       ",\"speed_bb\":" + String(sbb) +
                       ",\"speed_sb\":" + String(ssb) +
                       ",\"ir\":" + String(ir, 2) +
@@ -671,6 +689,10 @@ void WiFiTask(void *arg) {
                       ",\"pitch\":" + String(pitch, 2) +
                       ",\"roll\":" + String(roll, 2) +
                       ",\"prdamp\":" + String(pr_damping, 3) +
+                      ",\"damp_acc\":" + String(damp_acc, 3) +
+                      ",\"damp_gyro\":" + String(damp_gyro, 3) +
+                      ",\"damp_mag\":" + String(damp_mag, 3) +
+                      ",\"damp_att\":" + String(damp_att, 3) +
                       ",\"points\":" + pointsJson + "}";
 
         subServer.send(200, "application/json", json);
