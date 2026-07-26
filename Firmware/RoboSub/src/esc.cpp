@@ -103,6 +103,13 @@ void EscTask(void *arg)
     ESP32PWM::allocateTimer(2);
     ESP32PWM::allocateTimer(3);
 
+    // Wait until the gyroscope calibration has completely finished (icm_ready becomes true)
+    // to prevent any ESC beeps, vibrations, or initialization currents from polluting the zero-rate gyro calibration!
+    extern bool icm_ready;
+    while (!icm_ready) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+
     // Start with power enabled
     startESC();
     esc_power_on = true;
