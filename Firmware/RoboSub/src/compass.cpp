@@ -44,6 +44,7 @@ float damp_acc = 0.15f;
 float damp_gyro = 0.15f;
 float damp_mag = 0.15f;
 float damp_att = 0.15f;
+float measured_angles[9] = {0.0f, 45.0f, 90.0f, 135.0f, 180.0f, 225.0f, 270.0f, 315.0f, 360.0f};
 
 ICM_20948_I2C icm;
 
@@ -243,6 +244,21 @@ bool InitCompass(void)
         Serial.printf("ICM-20948: Gyroscope calibration complete. Offsets -> X: %.4f, Y: %.4f, Z: %.4f\n", 
                       gyro_bias_x, gyro_bias_y, gyro_bias_z);
 
+        // Play a super happy, ascending major arpeggio victory tune to celebrate successful gyro calibration!
+        if (buzzer != NULL) {
+            int notes[] = {523, 659, 784, 1047}; // C5, E5, G5, C6
+            int durations[] = {120, 120, 120, 350};
+            int pauses[] = {40, 40, 40, 200};
+            for (int i = 0; i < 4; i++) {
+                Buzz note;
+                note.hz = notes[i];
+                note.duration = durations[i];
+                note.pause = pauses[i];
+                note.repeat = 0;
+                xQueueSend(buzzer, (void *)&note, 0);
+            }
+        }
+
         // Turn off fast blinking status LED after calibration
         if (ledStatus != NULL) {
             LedData calLed;
@@ -356,6 +372,9 @@ bool InitCompass(void)
     memCompassTrim(&trim_val, &trim_en, GET);
     mainData.compass_trim = trim_val;
     mainData.compass_trim_enabled = trim_en;
+
+    // Initialize 8-point linear interpolation table from Preferences NVM
+    memInterpolationTable(measured_angles, GET);
 
     // Reset complementary yaw filter tracking state on sensor restart
     yaw_initialized = false;
@@ -678,25 +697,6 @@ void CompassTask(void *arg) {
             float gy = (gy_raw_val - gyro_bias_y);
             float gz = (gz_raw_val - gyro_bias_z);
 
-            static uint32_t lastGyroDebug = 0;
-
-            if (millis() - lastGyroDebug > 250)
-            {
-                lastGyroDebug = millis();
-
-                Serial.printf(
-                    "GYRO gx=%.2f gy=%.2f gz=%.2f | ACC ax=%.2f ay=%.2f az=%.2f\n\r",
-                    gx,
-                    gy,
-                    gz,
-                    ax_raw,
-                    ay_raw,
-                    az_raw
-                );
-            }
-
-
-
             // Check for gyroscope NaNs to protect the filter's internal quaternion state
             if (isnan(gx) || isnan(gy) || isnan(gz)) {
                 vTaskDelay(pdMS_TO_TICKS(1));
@@ -839,48 +839,6 @@ void CompassTask(void *arg) {
             if (millis() - lastDebug > 1000)
             {
                 lastDebug = millis();
-
-                float yawError = headingFull - headingFusion;
-
-                if (yawError > 180.0f)
-                    yawError -= 360.0f;
-
-                if (yawError < -180.0f)
-                    yawError += 360.0f;
-
-                float magError = headingFull - headingFilterMag;
-
-                if (magError > 180.0f)
-                    magError -= 360.0f;
-
-                if (magError < -180.0f)
-                    magError += 360.0f;
-
-                // User requested verification print for gz vs heading direction alignment
-                Serial.printf("gz=%.2f headingFull=%.1f fusion=%.1f (YErr=%.1f MErr=%.1f)\n\r", 
-                              gz, headingFull, headingFusion, yawError, magError);
-
-                // User requested raw gz and bias verification logging (Fixed to use gz_raw_val and \n\r)
-                Serial.printf("RAW_GZ=%.2f BIAS=%.2f CORR_GZ=%.2f\n\r", 
-                              gz_raw_val, gyro_bias_z, gz);
-
-                // User requested raw magnetometer projection logging (Fixed to use \n\r)
-                Serial.printf("cx_cal=%.2f cy_cal=%.2f cz_cal=%.2f headingFull=%.1f\n\r", 
-                              cx_cal, cy_cal, cz_cal, headingFull);
-
-                Serial.printf(
-                    "COMP  R=%.1f P=%.1f Y=%.1f\n\r",
-                    roll,
-                    pitch,
-                    headingFusion
-                );
-
-                Serial.printf(
-                    "ANA   R=%.1f P=%.1f Y=%.1f\n\r",
-                    roll,
-                    pitch,
-                    headingFull
-                );
                 Serial.printf(
                     "HDG=%.1f FUS=%.1f ERR=%.1f R=%.1f P=%.1f MAG=%s\n\r",
                     headingFull,
@@ -992,3 +950,78 @@ int linMagCalib(int *corr) { return 0; }
 bool CalibrateCompass(void) { return true; }
 int get_cal_point_count() { return 3; }
 bool global_is_calibrating = false;
+
+/**
+ * @brief Performs 360-degree linear interpolation over 9 reference points.
+ */
+float getInterpolatedHeading(float h) {
+    extern float measured_angles[9];
+    
+    while (h < 0.0f) h += 360.0f;
+    while (h >= 360.0f) h -= 360.0f;
+    
+    float ref_angles[9] = {0.0f, 45.0f, 90.0f, 135.0f, 180.0f, 225.0f, 270.0f, 315.0f, 360.0f};
+    
+    int idx = -1;
+    for (int i = 0; i < 8; i++) {
+        float m1 = measured_angles[i];
+        float m2 = measured_angles[i+1];
+        
+        if (m2 > m1) {
+            if (h >= m1 && h <= m2) {
+                idx = i;
+                break;
+            }
+        } else {
+            if (h >= m1 || h <= m2) {
+                idx = i;
+                break;
+            }
+        }
+    }
+    
+    if (idx == -1) {
+        float min_diff = 360.0f;
+        int closest = 0;
+        for (int i = 0; i < 9; i++) {
+            float diff = fabs(h - measured_angles[i]);
+            if (diff > 180.0f) diff = 360.0f - diff;
+            if (diff < min_diff) {
+                min_diff = diff;
+                closest = i;
+            }
+        }
+        return ref_angles[closest];
+    }
+    
+    float m1 = measured_angles[idx];
+    float m2 = measured_angles[idx+1];
+    float r1 = ref_angles[idx];
+    float r2 = ref_angles[idx+1];
+    
+    float denom = m2 - m1;
+    if (denom < -180.0f) denom += 360.0f;
+    if (denom > 180.0f) denom -= 360.0f;
+    
+    if (fabs(denom) < 0.01f) {
+        return r1;
+    }
+    
+    float num = h - m1;
+    if (num < -180.0f) num += 360.0f;
+    if (num > 180.0f) num -= 360.0f;
+    
+    float t = num / denom;
+    if (t < 0.0f) t = 0.0f;
+    if (t > 1.0f) t = 1.0f;
+    
+    float r_diff = r2 - r1;
+    if (r_diff < -180.0f) r_diff += 360.0f;
+    if (r_diff > 180.0f) r_diff -= 360.0f;
+    
+    float h_corr = r1 + t * r_diff;
+    while (h_corr < 0.0f) h_corr += 360.0f;
+    while (h_corr >= 360.0f) h_corr -= 360.0f;
+    
+    return h_corr;
+}

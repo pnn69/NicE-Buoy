@@ -26,6 +26,7 @@
 #include "index_html.h"
 #include "calibration_html.h"
 #include "showactualdata_html.h"
+#include "linearinterpolation_html.h"
 #include "leds.h"
 #include "buzzer.h"
 
@@ -387,6 +388,49 @@ void WiFiTask(void *arg) {
             subServer.send(400, "text/plain", "Err");
         }
     });
+    subServer.on("/set_interpolation_point", HTTP_GET, [](){
+        if (subServer.hasArg("index") && subServer.hasArg("measured")) {
+            int idx = subServer.arg("index").toInt();
+            float val = subServer.arg("measured").toFloat();
+            
+            extern float measured_angles[9];
+            if (idx >= 0 && idx < 9) {
+                measured_angles[idx] = val;
+                subServer.send(200, "text/plain", "OK");
+            } else {
+                subServer.send(400, "text/plain", "Invalid index");
+            }
+        } else {
+            subServer.send(400, "text/plain", "Missing args");
+        }
+    });
+    subServer.on("/save_interpolation", HTTP_GET, [](){
+        extern float measured_angles[9];
+        memInterpolationTable(measured_angles, SET);
+        subServer.send(200, "text/plain", "OK");
+    });
+    subServer.on("/reset_interpolation", HTTP_GET, [](){
+        extern float measured_angles[9];
+        for (int i = 0; i < 9; i++) {
+            measured_angles[i] = i * 45.0f;
+        }
+        memInterpolationTable(measured_angles, SET);
+        subServer.send(200, "text/plain", "OK");
+    });
+    subServer.on("/linearinterpolation", HTTP_GET, [](){
+        extern const char LINEAR_INTERPOLATION_HTML[] PROGMEM;
+        subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        subServer.sendHeader("Pragma", "no-cache");
+        subServer.sendHeader("Expires", "-1");
+        subServer.send_P(200, "text/html", LINEAR_INTERPOLATION_HTML);
+    });
+    subServer.on("/linerinterpolation", HTTP_GET, [](){
+        extern const char LINEAR_INTERPOLATION_HTML[] PROGMEM;
+        subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        subServer.sendHeader("Pragma", "no-cache");
+        subServer.sendHeader("Expires", "-1");
+        subServer.send_P(200, "text/html", LINEAR_INTERPOLATION_HTML);
+    });
     subServer.on("/calibration", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
@@ -557,7 +601,21 @@ void WiFiTask(void *arg) {
         extern float damp_mag;
         extern float damp_att;
         extern float global_fusion_hdg;
+        extern float global_hdg_no_offset;
+        extern float measured_angles[9];
+        extern float getInterpolatedHeading(float);
+
         float icm = global_hdg;
+
+        // Perform linear interpolation on the active offset-free heading, then re-apply offset correction
+        float interp_no_offset = getInterpolatedHeading(global_hdg_no_offset);
+        float interp_hdg = interp_no_offset + mainData.compassOffset;
+        if (mainData.compass_trim_enabled) {
+            interp_hdg += mainData.compass_trim;
+        }
+        while (interp_hdg < 0.0f) interp_hdg += 360.0f;
+        while (interp_hdg >= 360.0f) interp_hdg -= 360.0f;
+
         int sbb = (int)mainData.speedBb; 
         int ssb = (int)mainData.speedSb;
         double ir = mainData.ir;
@@ -643,6 +701,14 @@ void WiFiTask(void *arg) {
         float my_raw_aligned = last_raw_y;
         float mz_raw_aligned = last_raw_z;
 
+        // Serialise the 9 measured angles for linear interpolation
+        String measAngJson = "[";
+        for (int i = 0; i < 9; i++) {
+            if (i > 0) measAngJson += ",";
+            measAngJson += String(measured_angles[i], 2);
+        }
+        measAngJson += "]";
+
         // The cal_ring buffer extraction has been removed since calibration data collection 
         // is now done directly via HTTP polling of mx_raw, my_raw, mz_raw.
         String pointsJson = "[]";
@@ -653,6 +719,8 @@ void WiFiTask(void *arg) {
 
         String json = "{\"icm\":" + String(icm, 2) +
                       ",\"icm_no_offset\":" + String(fusion_no_offset, 2) +
+                      ",\"interp_hdg\":" + String(interp_hdg, 2) +
+                      ",\"meas_ang\":" + measAngJson +
                       ",\"speed_bb\":" + String(sbb) +
                       ",\"speed_sb\":" + String(ssb) +
                       ",\"ir\":" + String(ir, 2) +

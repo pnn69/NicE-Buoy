@@ -624,3 +624,27 @@ void memDampingFactors(float *acc, float *gyro, float *mag, float *att, bool get
     }
     stopMem();
 }
+
+/**
+ * @brief Reads or writes all 9 interpolation angles to Preferences NVM.
+ */
+void memInterpolationTable(float *angles, bool get)
+{
+    startMem();
+    if (get)
+    {
+        size_t len = storage.getBytes("meas_ang", angles, sizeof(float) * 9);
+        if (len != sizeof(float) * 9) {
+            // Default to 0, 45, 90, ... 360
+            for (int i = 0; i < 9; i++) {
+                angles[i] = i * 45.0f;
+            }
+            storage.putBytes("meas_ang", angles, sizeof(float) * 9);
+        }
+    }
+    else
+    {
+        storage.putBytes("meas_ang", angles, sizeof(float) * 9);
+    }
+    stopMem();
+}
