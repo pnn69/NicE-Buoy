@@ -648,3 +648,20 @@ void memInterpolationTable(float *angles, bool get)
     }
     stopMem();
 }
+
+/**
+ * @brief Reads or writes the linear interpolation enable state to Preferences NVM.
+ */
+void memInterpEnabled(bool *enabled, bool get)
+{
+    startMem();
+    if (get)
+    {
+        *enabled = storage.getBool("interp_en", false);
+    }
+    else
+    {
+        storage.putBool("interp_en", *enabled);
+    }
+    stopMem();
+}

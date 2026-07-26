@@ -388,6 +388,20 @@ void WiFiTask(void *arg) {
             subServer.send(400, "text/plain", "Err");
         }
     });
+    subServer.on("/set_interp_enabled", HTTP_GET, [](){
+        if (subServer.hasArg("enabled")) {
+            extern bool interp_enabled;
+            interp_enabled = (subServer.arg("enabled") == "1");
+            
+            // Save to Preferences NVS immediately
+            extern void memInterpEnabled(bool *, bool);
+            memInterpEnabled(&interp_enabled, SET);
+            
+            subServer.send(200, "text/plain", "OK");
+        } else {
+            subServer.send(400, "text/plain", "Err");
+        }
+    });
     subServer.on("/set_interpolation_point", HTTP_GET, [](){
         if (subServer.hasArg("index") && subServer.hasArg("measured")) {
             int idx = subServer.arg("index").toInt();
@@ -604,6 +618,7 @@ void WiFiTask(void *arg) {
         extern float global_hdg_no_offset;
         extern float measured_angles[9];
         extern float getInterpolatedHeading(float);
+        extern bool interp_enabled;
 
         float icm = global_hdg;
 
@@ -761,6 +776,7 @@ void WiFiTask(void *arg) {
                       ",\"damp_gyro\":" + String(damp_gyro, 3) +
                       ",\"damp_mag\":" + String(damp_mag, 3) +
                       ",\"damp_att\":" + String(damp_att, 3) +
+                      ",\"interp_enabled\":" + String(interp_enabled ? 1 : 0) +
                       ",\"points\":" + pointsJson + "}";
 
         subServer.send(200, "application/json", json);

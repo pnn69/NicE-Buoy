@@ -361,7 +361,7 @@ const char LINEAR_INTERPOLATION_HTML[] PROGMEM = R"rawliteral(
             fetch('/data')
                 .then(r => r.json())
                 .then(data => {
-                    currentHeading = data.icm; // Active heading
+                    currentHeading = data.icm_no_offset; // Explicitly use 9-DOF Fusion Comp as reference heading!
                     let interpHeading = data.interp_hdg; // Linear interpolated heading
                     
                     if (data.meas_ang !== undefined) {

@@ -27,6 +27,9 @@
 // Circular averaging buffer size
 #define NUM_DIRECTIONS 30
 
+// Forward declaration of linear interpolation helper
+float getInterpolatedHeading(float h);
+
 extern Preferences storage;
 QueueHandle_t compass = NULL;
 QueueHandle_t compassIn = NULL;
@@ -35,6 +38,7 @@ bool icm_ready = false;
 bool magRejected = false;
 bool firstHeadingRun = true;
 bool yaw_initialized = false;
+bool interp_enabled = false;
 uint32_t lastMicros = 0;
 uint32_t lastInitTime = 0;
 float baselineMag = 50.0f;
@@ -917,6 +921,11 @@ void CompassTask(void *arg) {
             // -------------------- OUTPUT TO QUEUE & GLOBALS --------------------
             if (mainDataMutex && xSemaphoreTake(mainDataMutex, portMAX_DELAY)) {
                 global_hdg_no_offset = heading; // Reverted back to active heading!
+
+                // Apply 8-point linear interpolation table directly as a production add-on if enabled by the user!
+                if (interp_enabled) {
+                    heading = getInterpolatedHeading(heading);
+                }
 
                 heading += mainData.compassOffset;
 

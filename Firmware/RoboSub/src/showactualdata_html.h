@@ -430,6 +430,31 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                     <div id="val-rose-tilt" class="heading-val">000°</div>
                 </div>
 
+                <!-- LINEAR INTERPOLATION -->
+                <div class="windrose-card" style="border-top: 3px solid var(--cyan);">
+                    <h3>6. Linear Interp</h3>
+                    <div style="position: relative; width: 100%; height: 180px; display: flex; align-items: center; justify-content: center;">
+                        <svg width="200" height="200" viewBox="0 0 200 200">
+                            <circle cx="100" cy="100" r="90" fill="none" stroke="rgba(6, 182, 212, 0.15)" stroke-width="4"/>
+                            <!-- Compass marks -->
+                            <line x1="100" y1="12" x2="100" y2="18" stroke="#ff3333" stroke-width="3"/>
+                            <line x1="100" y1="182" x2="100" y2="188" stroke="#eee" stroke-width="2"/>
+                            <line x1="12" y1="100" x2="18" y2="100" stroke="#eee" stroke-width="2"/>
+                            <line x1="182" y1="100" x2="188" y2="100" stroke="#eee" stroke-width="2"/>
+                            <text x="100" y="32" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#ff3333" text-anchor="middle">N</text>
+                            <text x="100" y="174" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">S</text>
+                            <text x="168" y="106" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">E</text>
+                            <text x="32" y="106" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">W</text>
+                            <g class="needle" id="rose-interp-needle">
+                                <polygon points="100,20 108,100 100,108" fill="#ff3333"/>
+                                <polygon points="100,20 92,100 100,108" fill="#cc0000"/>
+                                <circle cx="100" cy="100" r="7" fill="#ffd700" stroke="#121212" stroke-width="2"/>
+                            </g>
+                        </svg>
+                    </div>
+                    <div id="val-rose-interp" class="heading-val">000°</div>
+                </div>
+
             </div>
             
             <div class="visualizer-row">
@@ -549,6 +574,21 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                 </label>
 
             </div>
+
+            <!-- Checkbox for Linear Interpolation Add-on -->
+            <div style="width: 100%; border-top: 1px dashed rgba(255,255,255,0.05); padding-top: 15px; margin-top: 15px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                    <input type="checkbox" id="interp-addon-checkbox" style="accent-color: #10b981; transform: scale(1.35);" onchange="toggleInterpAddon(this.checked)">
+                    <div>
+                        <div style="font-weight: bold; font-size: 0.95rem; color: #10b981;">Enable Linear Interpolation Add-on</div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted);">Apply the 8-point linear interpolation lookup table on top of the active navigation heading.</div>
+                    </div>
+                </label>
+                <a href="/linearinterpolation" style="text-decoration: none; font-weight: bold; background-color: rgba(59, 130, 246, 0.15); color: #38bdf8; border: 1px solid rgba(59, 130, 246, 0.3); padding: 0.4rem 1rem; border-radius: 9999px; font-size: 0.8rem; display: flex; align-items: center; gap: 4px;">
+                    Configure Table &rarr;
+                </a>
+            </div>
+
         </div>
     </div>
 
@@ -626,8 +666,8 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
         let wsConnected = false;
         let activeTab = 'dashboard';
 
-        let headingRaw = 0, headingHard = 0, headingSoft = 0, headingOpt3 = 0, headingTilt = 0;
-        let rotRaw = 0, rotHard = 0, rotSoft = 0, rotOpt3 = 0, rotTilt = 0;
+        let headingRaw = 0, headingHard = 0, headingSoft = 0, headingOpt3 = 0, headingTilt = 0, headingInterp = 0;
+        let rotRaw = 0, rotHard = 0, rotSoft = 0, rotOpt3 = 0, rotTilt = 0, rotInterp = 0;
         let currentRoll = 0, currentPitch = 0;
         let isNvsSynced = false;
 
@@ -658,6 +698,20 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                     }
                 })
                 .catch(err => console.error("Error setting navigation filter:", err));
+        }
+
+        function toggleInterpAddon(checked) {
+            let enabledVal = checked ? 1 : 0;
+            fetch(`/set_interp_enabled?enabled=${enabledVal}`)
+                .then(response => response.text())
+                .then(text => {
+                    if (text === "OK") {
+                        console.log(`Successfully toggled linear interpolation add-on to: ${checked}`);
+                    } else {
+                        alert(`Failed to toggle add-on: ${text}`);
+                    }
+                })
+                .catch(err => console.error("Error toggling interpolation add-on:", err));
         }
 
         window.addEventListener('load', () => {
@@ -778,6 +832,7 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                         headingSoft = dampAngle(headingSoft, data.hardSoft, k_mag);
                         headingOpt3 = dampAngle(headingOpt3, data.opt3, k_mag);
                         headingTilt = dampAngle(headingTilt, data.icm_no_offset, k_mag);
+                        headingInterp = dampAngle(headingInterp, data.interp_hdg, k_mag);
 
                         let rollVal = Number(data.roll !== undefined ? data.roll : (data.ir || 0));
                         let pitchVal = Number(data.pitch !== undefined ? data.pitch : (data.ip || 0));
@@ -797,6 +852,7 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                         document.getElementById('val-rose-soft').innerText = Math.round(headingSoft).toString().padStart(3, '0') + '°';
                         document.getElementById('val-rose-opt3').innerText = Math.round(headingOpt3).toString().padStart(3, '0') + '°';
                         document.getElementById('val-rose-tilt').innerText = Math.round(headingTilt).toString().padStart(3, '0') + '°';
+                        document.getElementById('val-rose-interp').innerText = Math.round(headingInterp).toString().padStart(3, '0') + '°';
 
                         document.getElementById('val-pitch').innerText = currentPitch.toFixed(1) + '°';
                         document.getElementById('val-roll').innerText = currentRoll.toFixed(1) + '°';
@@ -829,6 +885,8 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                         document.getElementById('rose-opt3-needle').style.transform = `rotate(${rotOpt3}deg)`;
                         rotTilt = getShortestRotation(rotTilt, headingTilt);
                         document.getElementById('rose-tilt-needle').style.transform = `rotate(${rotTilt}deg)`;
+                        rotInterp = getShortestRotation(rotInterp, headingInterp);
+                        document.getElementById('rose-interp-needle').style.transform = `rotate(${rotInterp}deg)`;
 
                         if (trackerMesh) {
                             const yawRad = -headingTilt * Math.PI / 180;
@@ -866,6 +924,11 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                                     r.checked = true;
                                 }
                             }
+                        }
+
+                        // Synchronize Linear Interpolation Checkbox state
+                        if (data.interp_enabled !== undefined) {
+                            document.getElementById('interp-addon-checkbox').checked = (data.interp_enabled === 1);
                         }
 
                         if (trackerMesh2) {
