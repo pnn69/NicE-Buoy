@@ -242,7 +242,7 @@ const char LINEAR_INTERPOLATION_HTML[] PROGMEM = R"rawliteral(
                 <h1>Compass Linear Interpolation Calibration</h1>
                 <p style="color: var(--text-muted); font-size: 0.9rem;">360-Degree Non-Linear Compass Compensation Table</p>
             </div>
-            <a href="/ShowActualData" class="btn btn-outline">&larr; Back to Diagnostics</a>
+            <a href="/" class="btn btn-outline">&larr; Back to Dashboard</a>
         </header>
 
         <div class="instructions">
