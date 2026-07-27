@@ -275,10 +275,10 @@ function fetchData(){
         rotTilt = getShortestRotation(rotTilt, d.icm);
         document.getElementById('rose-tilt-needle').style.transform = `rotate(${rotTilt}deg)`;
 
-        if (d.interp_enabled !== undefined) {
+        if (d.harmonic_enabled !== undefined) {
             const harmonicChk = document.getElementById('harmonic-addon-checkbox');
             if (harmonicChk) {
-                harmonicChk.checked = (d.interp_enabled === 1);
+                harmonicChk.checked = (d.harmonic_enabled === 1);
             }
         }
     })
