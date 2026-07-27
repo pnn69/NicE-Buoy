@@ -924,12 +924,13 @@ void CompassTask(void *arg) {
             if (mainDataMutex && xSemaphoreTake(mainDataMutex, portMAX_DELAY)) {
                 global_hdg_no_offset = heading; // Reverted back to active heading!
 
-                // Apply 8-point linear interpolation table directly as a production add-on if enabled by the user!
+                // Add the manual compass offset first
+                heading += mainData.compassOffset;
+
+                // Apply 8-point smooth harmonic curve correction directly as a production add-on if enabled by the user!
                 if (interp_enabled) {
                     heading = getInterpolatedHeading(heading);
                 }
-
-                heading += mainData.compassOffset;
 
                 // Apply adaptive waypoint bias trim if enabled
                 if (mainData.compass_trim_enabled) {
