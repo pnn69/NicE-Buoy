@@ -747,12 +747,8 @@ void WiFiTask(void *arg) {
         // is now done directly via HTTP polling of mx_raw, my_raw, mz_raw.
         String pointsJson = "[]";
 
-        float fusion_no_offset = global_fusion_hdg - mainData.mechanicCorrection;
-        if (fusion_no_offset < 0.0f) fusion_no_offset += 360.0f;
-        if (fusion_no_offset >= 360.0f) fusion_no_offset -= 360.0f;
-
         String json = "{\"icm\":" + String(icm, 2) +
-                      ",\"icm_no_offset\":" + String(fusion_no_offset, 2) +
+                      ",\"icm_no_offset\":" + String(global_hdg_no_offset, 2) +
                       ",\"harmonic_hdg\":" + String(harmonic_hdg, 2) +
                       ",\"meas_ang\":" + measAngJson +
                       ",\"speed_bb\":" + String(sbb) +
