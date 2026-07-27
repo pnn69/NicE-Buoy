@@ -691,7 +691,9 @@
             return current + diff;
         }
 
+        let lastModeChangeTime = 0;
         function setIcmMode(mode) {
+            lastModeChangeTime = Date.now();
             fetch(`/set_icm_mode?mode=${mode}`)
                 .then(response => response.text())
                 .then(text => {
@@ -699,9 +701,13 @@
                         console.log(`Successfully switched navigation filter to Mode ${mode}`);
                     } else {
                         alert(`Failed to set navigation filter: ${text}`);
+                        lastModeChangeTime = 0;
                     }
                 })
-                .catch(err => console.error("Error setting navigation filter:", err));
+                .catch(err => {
+                    console.error("Error setting navigation filter:", err);
+                    lastModeChangeTime = 0;
+                });
         }
 
         window.addEventListener('load', () => {
@@ -911,7 +917,7 @@
                         if (grVal) grVal.innerText = currentRoll.toFixed(1) + '°';
 
                         // Synchronize Active Filter Radio Button with the active mode
-                        if (data.icm_mode !== undefined) {
+                        if (data.icm_mode !== undefined && (Date.now() - lastModeChangeTime > 2000)) {
                             let radios = document.getElementsByName('icm-mode');
                             for (let r of radios) {
                                 if (parseInt(r.value) === data.icm_mode) {
