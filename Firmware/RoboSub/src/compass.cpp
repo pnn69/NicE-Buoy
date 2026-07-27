@@ -381,6 +381,7 @@ bool InitCompass(void)
     // Initialize 8-point linear interpolation table from Preferences NVM
     memInterpolationTable(measured_angles, GET);
     computeFourierCoefficients();
+    memInterpEnabled(&interp_enabled, GET);
 
     // Reset complementary yaw filter tracking state on sensor restart
     yaw_initialized = false;
