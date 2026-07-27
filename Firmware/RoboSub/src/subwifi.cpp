@@ -423,29 +423,25 @@ void WiFiTask(void *arg) {
         computeFourierCoefficients();
         subServer.send(200, "text/plain", "OK");
     });
-    subServer.on("/linearinterpolation", HTTP_GET, [](){
+    subServer.on("/harmoniccorrection", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");
-        if (LittleFS.exists("/linearinterpolation.html")) {
-            File file = LittleFS.open("/linearinterpolation.html", "r");
+        if (LittleFS.exists("/harmoniccorrection.html")) {
+            File file = LittleFS.open("/harmoniccorrection.html", "r");
             subServer.streamFile(file, "text/html");
             file.close();
         } else {
-            subServer.send(404, "text/plain", "linearinterpolation page not found on LittleFS");
+            subServer.send(404, "text/plain", "harmoniccorrection page not found on LittleFS");
         }
     });
+    subServer.on("/linearinterpolation", HTTP_GET, [](){
+        subServer.sendHeader("Location", "/harmoniccorrection");
+        subServer.send(302, "text/plain", "Redirecting...");
+    });
     subServer.on("/linerinterpolation", HTTP_GET, [](){
-        subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-        subServer.sendHeader("Pragma", "no-cache");
-        subServer.sendHeader("Expires", "-1");
-        if (LittleFS.exists("/linearinterpolation.html")) {
-            File file = LittleFS.open("/linearinterpolation.html", "r");
-            subServer.streamFile(file, "text/html");
-            file.close();
-        } else {
-            subServer.send(404, "text/plain", "linearinterpolation page not found on LittleFS");
-        }
+        subServer.sendHeader("Location", "/harmoniccorrection");
+        subServer.send(302, "text/plain", "Redirecting...");
     });
     subServer.on("/calibration", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -642,14 +638,14 @@ void WiFiTask(void *arg) {
 
         float icm = global_hdg;
 
-        // Perform linear interpolation on the active offset-free heading, then re-apply offset correction
-        float interp_no_offset = getInterpolatedHeading(global_hdg_no_offset);
-        float interp_hdg = interp_no_offset + mainData.compassOffset;
+        // Perform harmonic curve correction on the active offset-free heading, then re-apply offset correction
+        float harmonic_no_offset = getInterpolatedHeading(global_hdg_no_offset);
+        float harmonic_hdg = harmonic_no_offset + mainData.compassOffset;
         if (mainData.compass_trim_enabled) {
-            interp_hdg += mainData.compass_trim;
+            harmonic_hdg += mainData.compass_trim;
         }
-        while (interp_hdg < 0.0f) interp_hdg += 360.0f;
-        while (interp_hdg >= 360.0f) interp_hdg -= 360.0f;
+        while (harmonic_hdg < 0.0f) harmonic_hdg += 360.0f;
+        while (harmonic_hdg >= 360.0f) harmonic_hdg -= 360.0f;
 
         int sbb = (int)mainData.speedBb; 
         int ssb = (int)mainData.speedSb;
@@ -754,7 +750,7 @@ void WiFiTask(void *arg) {
 
         String json = "{\"icm\":" + String(icm, 2) +
                       ",\"icm_no_offset\":" + String(fusion_no_offset, 2) +
-                      ",\"interp_hdg\":" + String(interp_hdg, 2) +
+                      ",\"harmonic_hdg\":" + String(harmonic_hdg, 2) +
                       ",\"meas_ang\":" + measAngJson +
                       ",\"speed_bb\":" + String(sbb) +
                       ",\"speed_sb\":" + String(ssb) +
@@ -796,7 +792,7 @@ void WiFiTask(void *arg) {
                       ",\"damp_gyro\":" + String(damp_gyro, 3) +
                       ",\"damp_mag\":" + String(damp_mag, 3) +
                       ",\"damp_att\":" + String(damp_att, 3) +
-                      ",\"interp_enabled\":" + String(interp_enabled ? 1 : 0) +
+                      ",\"harmonic_enabled\":" + String(interp_enabled ? 1 : 0) +
                       ",\"points\":" + pointsJson + "}";
 
         subServer.send(200, "application/json", json);

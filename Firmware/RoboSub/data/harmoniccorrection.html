@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Compass Linear Interpolation Calibration</title>
+    <title>Compass Harmonic Correction Calibration</title>
     <style>
         :root {
             --bg-color: #0b0f19;
@@ -233,7 +233,7 @@
     <div class="container">
         <header>
             <div>
-                <h1>Compass Linear Interpolation Calibration</h1>
+                <h1>Compass Harmonic Correction Calibration</h1>
                 <p style="color: var(--text-muted); font-size: 0.9rem;">360-Degree Non-Linear Compass Compensation Table</p>
             </div>
             <a href="/" class="btn btn-outline">&larr; Back to Dashboard</a>
@@ -245,7 +245,7 @@
                 <div>1. Align the buoy bow exactly towards a known reference direction (e.g. 90° East).</div>
                 <div>2. Locate the corresponding <strong>90°</strong> card below, and click its <strong>Record</strong> button.</div>
                 <div>3. The system will capture your current active heading and save it as the measured value for 90°.</div>
-                <div>4. Repeat this for all 8 reference directions. Intermediate values are automatically interpolated!</div>
+                <div>4. Repeat this for all 8 reference directions. The system automatically fits a smooth Fourier harmonic curve!</div>
                 <div>5. Click <strong>Save to ESP32 NVS</strong> once finished to permanently write the table to memory.</div>
             </div>
         </div>
@@ -270,18 +270,18 @@
                     <div id="val-as-is" class="heading-val" style="color: var(--purple);">-°</div>
                 </div>
 
-                <!-- Windrose 2: Linear Interpolated -->
+                <!-- Windrose 2: Harmonic Corrected -->
                 <div class="windrose-card" style="border-top: 3px solid var(--green);">
-                    <div class="windrose-title" style="color: var(--green);">2. Linear Interpolated Output</div>
-                    <svg width="160" height="150" id="rose-interp-canvas">
+                    <div class="windrose-title" style="color: var(--green);">2. Harmonic Corrected Output</div>
+                    <svg width="160" height="150" id="rose-harmonic-canvas">
                         <circle cx="80" cy="75" r="70" fill="none" stroke="rgba(16, 185, 129, 0.15)" stroke-width="4"/>
-                        <g id="needle-interp" style="transform-origin: 80px 75px; transition: transform 0.1s ease;">
+                        <g id="needle-harmonic" style="transform-origin: 80px 75px; transition: transform 0.1s ease;">
                             <polygon points="80,12 85,75 75,75" fill="var(--green)"/>
                             <polygon points="80,138 85,75 75,75" fill="#4b5563"/>
                             <circle cx="80" cy="75" r="5" fill="#ffffff"/>
                         </g>
                     </svg>
-                    <div id="val-interp" class="heading-val" style="color: var(--green);">-°</div>
+                    <div id="val-harmonic" class="heading-val" style="color: var(--green);">-°</div>
                 </div>
             </div>
         </div>
@@ -302,12 +302,12 @@
         </div>
     </div>
 
-    <script>
+    <script {nonce}>
         // We only present 8 reference directions in the UI (0 to 315)
         const refAngles = [0, 45, 90, 135, 180, 225, 270, 315];
         let measuredAngles = [0, 45, 90, 135, 180, 225, 270, 315, 360]; // 9-point array used internally to include 360 wrap
         let currentHeading = 0.0;
-        let rotAsIs = 0.0, rotInterp = 0.0;
+        let rotAsIs = 0.0, rotHarmonic = 0.0;
 
         function getShortestRotation(current, target) {
             target = (target % 360 + 360) % 360;
@@ -356,7 +356,7 @@
                 .then(r => r.json())
                 .then(data => {
                     currentHeading = data.icm_no_offset; // Explicitly use 9-DOF Fusion Comp as reference heading!
-                    let interpHeading = data.interp_hdg; // Linear interpolated heading
+                    let harmonicHeading = data.harmonic_hdg; // Smooth harmonic heading
                     
                     if (data.meas_ang !== undefined) {
                         measuredAngles = data.meas_ang;
@@ -364,13 +364,13 @@
                     }
 
                     document.getElementById('val-as-is').innerText = Math.round(currentHeading).toString().padStart(3, '0') + '°';
-                    document.getElementById('val-interp').innerText = Math.round(interpHeading).toString().padStart(3, '0') + '°';
+                    document.getElementById('val-harmonic').innerText = Math.round(harmonicHeading).toString().padStart(3, '0') + '°';
 
                     rotAsIs = getShortestRotation(rotAsIs, currentHeading);
                     document.getElementById('needle-as-is').style.transform = `rotate(${rotAsIs}deg)`;
 
-                    rotInterp = getShortestRotation(rotInterp, interpHeading);
-                    document.getElementById('needle-interp').style.transform = `rotate(${rotInterp}deg)`;
+                    rotHarmonic = getShortestRotation(rotHarmonic, harmonicHeading);
+                    document.getElementById('needle-harmonic').style.transform = `rotate(${rotHarmonic}deg)`;
                 })
                 .catch(err => console.error("Error polling data:", err));
         }
@@ -390,7 +390,7 @@
         function recordPoint(idx) {
             // Confirm the target angle before recording
             if (confirm(`Do you want to record current heading ${currentHeading.toFixed(1)}° as the measured value for reference direction ${refAngles[idx]}°?`)) {
-                fetch(`/set_interpolation_point?index=${idx}&measured=${currentHeading.toFixed(1)}`)
+                fetch(`/set_harmonic_point?index=${idx}&measured=${currentHeading.toFixed(1)}`)
                     .then(response => response.text())
                     .then(text => {
                         if (text === "OK") {
@@ -398,7 +398,7 @@
                             // Circular wrap mirroring: if recording 0 (index 0), automatically mirror to index 8 (360 degrees) with safe wrapping
                             if (idx === 0) {
                                 let wrap360 = currentHeading + 360.0;
-                                fetch(`/set_interpolation_point?index=8&measured=${wrap360.toFixed(1)}`);
+                                fetch(`/set_harmonic_point?index=8&measured=${wrap360.toFixed(1)}`);
                             }
                             renderCalibrationTable();
                             console.log(`Recorded! reference: ${refAngles[idx]}° -> actual measured: ${currentHeading.toFixed(1)}°`);
@@ -412,7 +412,7 @@
 
         function saveTable() {
             if (confirm("Do you want to permanently save this 8-point calibration table to ESP32 NVS?")) {
-                fetch('/save_interpolation')
+                fetch('/save_harmonic')
                     .then(r => r.text())
                     .then(text => {
                         if (text === "OK") {
@@ -426,8 +426,8 @@
         }
 
         function resetTable() {
-            if (confirm("Are you absolutely sure you want to reset the linear interpolation table to defaults?")) {
-                fetch('/reset_interpolation')
+            if (confirm("Are you absolutely sure you want to reset the harmonic correction table to defaults?")) {
+                fetch('/reset_harmonic')
                     .then(r => r.text())
                     .then(text => {
                         if (text === "OK") {

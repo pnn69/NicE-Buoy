@@ -424,9 +424,9 @@
                     <div id="val-rose-tilt" class="heading-val">000°</div>
                 </div>
 
-                <!-- LINEAR INTERPOLATION -->
+                <!-- HARMONIC CORRECTION -->
                 <div class="windrose-card" style="border-top: 3px solid var(--cyan);">
-                    <h3>6. Linear Interp</h3>
+                    <h3>6. Harmonic Corr</h3>
                     <div style="position: relative; width: 100%; height: 180px; display: flex; align-items: center; justify-content: center;">
                         <svg width="200" height="200" viewBox="0 0 200 200">
                             <circle cx="100" cy="100" r="90" fill="none" stroke="rgba(6, 182, 212, 0.15)" stroke-width="4"/>
@@ -439,14 +439,14 @@
                             <text x="100" y="174" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">S</text>
                             <text x="168" y="106" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">E</text>
                             <text x="32" y="106" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">W</text>
-                            <g class="needle" id="rose-interp-needle">
+                            <g class="needle" id="rose-harmonic-needle">
                                 <polygon points="100,20 108,100 100,108" fill="#ff3333"/>
                                 <polygon points="100,20 92,100 100,108" fill="#cc0000"/>
                                 <circle cx="100" cy="100" r="7" fill="#ffd700" stroke="#121212" stroke-width="2"/>
                             </g>
                         </svg>
                     </div>
-                    <div id="val-rose-interp" class="heading-val">000°</div>
+                    <div id="val-rose-harmonic" class="heading-val">000°</div>
                 </div>
 
             </div>
@@ -646,8 +646,8 @@
         let wsConnected = false;
         let activeTab = 'dashboard';
 
-        let headingRaw = 0, headingHard = 0, headingSoft = 0, headingOpt3 = 0, headingTilt = 0, headingInterp = 0;
-        let rotRaw = 0, rotHard = 0, rotSoft = 0, rotOpt3 = 0, rotTilt = 0, rotInterp = 0;
+        let headingRaw = 0, headingHard = 0, headingSoft = 0, headingOpt3 = 0, headingTilt = 0, headingHarmonic = 0;
+        let rotRaw = 0, rotHard = 0, rotSoft = 0, rotOpt3 = 0, rotTilt = 0, rotHarmonic = 0;
         let currentRoll = 0, currentPitch = 0;
         let isNvsSynced = false;
 
@@ -798,7 +798,7 @@
                         headingSoft = dampAngle(headingSoft, data.hardSoft, k_mag);
                         headingOpt3 = dampAngle(headingOpt3, data.opt3, k_mag);
                         headingTilt = dampAngle(headingTilt, data.icm_no_offset, k_mag);
-                        headingInterp = dampAngle(headingInterp, data.interp_hdg, k_mag);
+                        headingHarmonic = dampAngle(headingHarmonic, data.harmonic_hdg, k_mag);
 
                         let rollVal = Number(data.roll !== undefined ? data.roll : (data.ir || 0));
                         let pitchVal = Number(data.pitch !== undefined ? data.pitch : (data.ip || 0));
@@ -818,7 +818,7 @@
                         document.getElementById('val-rose-soft').innerText = Math.round(headingSoft).toString().padStart(3, '0') + '°';
                         document.getElementById('val-rose-opt3').innerText = Math.round(headingOpt3).toString().padStart(3, '0') + '°';
                         document.getElementById('val-rose-tilt').innerText = Math.round(headingTilt).toString().padStart(3, '0') + '°';
-                        document.getElementById('val-rose-interp').innerText = Math.round(headingInterp).toString().padStart(3, '0') + '°';
+                        document.getElementById('val-rose-harmonic').innerText = Math.round(headingHarmonic).toString().padStart(3, '0') + '°';
 
                         document.getElementById('val-pitch').innerText = currentPitch.toFixed(1) + '°';
                         document.getElementById('val-roll').innerText = currentRoll.toFixed(1) + '°';
@@ -851,8 +851,8 @@
                         document.getElementById('rose-opt3-needle').style.transform = `rotate(${rotOpt3}deg)`;
                         rotTilt = getShortestRotation(rotTilt, headingTilt);
                         document.getElementById('rose-tilt-needle').style.transform = `rotate(${rotTilt}deg)`;
-                        rotInterp = getShortestRotation(rotInterp, headingInterp);
-                        document.getElementById('rose-interp-needle').style.transform = `rotate(${rotInterp}deg)`;
+                        rotHarmonic = getShortestRotation(rotHarmonic, headingHarmonic);
+                        document.getElementById('rose-harmonic-needle').style.transform = `rotate(${rotHarmonic}deg)`;
 
                         if (trackerMesh) {
                             const yawRad = -headingTilt * Math.PI / 180;
