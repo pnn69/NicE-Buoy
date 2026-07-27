@@ -29,6 +29,7 @@
 
 // Forward declaration of linear interpolation helper
 float getInterpolatedHeading(float h);
+void computeFourierCoefficients();
 
 extern Preferences storage;
 QueueHandle_t compass = NULL;
@@ -379,6 +380,7 @@ bool InitCompass(void)
 
     // Initialize 8-point linear interpolation table from Preferences NVM
     memInterpolationTable(measured_angles, GET);
+    computeFourierCoefficients();
 
     // Reset complementary yaw filter tracking state on sensor restart
     yaw_initialized = false;
@@ -960,77 +962,70 @@ bool CalibrateCompass(void) { return true; }
 int get_cal_point_count() { return 3; }
 bool global_is_calibrating = false;
 
+float fourier_A0 = 0.0f;
+float fourier_A1 = 0.0f;
+float fourier_B1 = 0.0f;
+float fourier_A2 = 0.0f;
+float fourier_B2 = 0.0f;
+
 /**
- * @brief Performs 360-degree linear interpolation over 9 reference points.
+ * @brief Computes 1st and 2nd harmonic Fourier coefficients based on 8 measured calibration points.
+ */
+void computeFourierCoefficients() {
+    float ref_angles[8] = {0.0f, 45.0f, 90.0f, 135.0f, 180.0f, 225.0f, 270.0f, 315.0f};
+    float errors[8];
+    
+    for (int i = 0; i < 8; i++) {
+        float err = ref_angles[i] - measured_angles[i];
+        while (err < -180.0f) err += 360.0f;
+        while (err >= 180.0f) err -= 360.0f;
+        errors[i] = err;
+    }
+    
+    // Constant term (A0)
+    float sum = 0.0f;
+    for (int i = 0; i < 8; i++) {
+        sum += errors[i];
+    }
+    fourier_A0 = sum / 8.0f;
+    
+    // First and second harmonics
+    float sum_A1 = 0.0f, sum_B1 = 0.0f;
+    float sum_A2 = 0.0f, sum_B2 = 0.0f;
+    
+    for (int i = 0; i < 8; i++) {
+        float angle_rad = ref_angles[i] * M_PI / 180.0f;
+        sum_A1 += errors[i] * cos(angle_rad);
+        sum_B1 += errors[i] * sin(angle_rad);
+        sum_A2 += errors[i] * cos(2.0f * angle_rad);
+        sum_B2 += errors[i] * sin(2.0f * angle_rad);
+    }
+    
+    fourier_A1 = sum_A1 / 4.0f;
+    fourier_B1 = sum_B1 / 4.0f;
+    fourier_A2 = sum_A2 / 4.0f;
+    fourier_B2 = sum_B2 / 4.0f;
+    
+    Serial.printf("Fourier Coefficients updated -> A0: %.3f, A1: %.3f, B1: %.3f, A2: %.3f, B2: %.3f\n\r", 
+                  fourier_A0, fourier_A1, fourier_B1, fourier_A2, fourier_B2);
+}
+
+/**
+ * @brief Performs 360-degree Fourier 2-harmonic smooth curve correction.
  */
 float getInterpolatedHeading(float h) {
-    extern float measured_angles[9];
-    
     while (h < 0.0f) h += 360.0f;
     while (h >= 360.0f) h -= 360.0f;
     
-    float ref_angles[9] = {0.0f, 45.0f, 90.0f, 135.0f, 180.0f, 225.0f, 270.0f, 315.0f, 360.0f};
-    
-    int idx = -1;
-    for (int i = 0; i < 8; i++) {
-        float m1 = measured_angles[i];
-        float m2 = measured_angles[i+1];
-        
-        if (m2 > m1) {
-            if (h >= m1 && h <= m2) {
-                idx = i;
-                break;
-            }
-        } else {
-            if (h >= m1 || h <= m2) {
-                idx = i;
-                break;
-            }
-        }
-    }
-    
-    if (idx == -1) {
-        float min_diff = 360.0f;
-        int closest = 0;
-        for (int i = 0; i < 9; i++) {
-            float diff = fabs(h - measured_angles[i]);
-            if (diff > 180.0f) diff = 360.0f - diff;
-            if (diff < min_diff) {
-                min_diff = diff;
-                closest = i;
-            }
-        }
-        return ref_angles[closest];
-    }
-    
-    float m1 = measured_angles[idx];
-    float m2 = measured_angles[idx+1];
-    float r1 = ref_angles[idx];
-    float r2 = ref_angles[idx+1];
-    
-    float denom = m2 - m1;
-    if (denom < -180.0f) denom += 360.0f;
-    if (denom > 180.0f) denom -= 360.0f;
-    
-    if (fabs(denom) < 0.01f) {
-        return r1;
-    }
-    
-    float num = h - m1;
-    if (num < -180.0f) num += 360.0f;
-    if (num > 180.0f) num -= 360.0f;
-    
-    float t = num / denom;
-    if (t < 0.0f) t = 0.0f;
-    if (t > 1.0f) t = 1.0f;
-    
-    float r_diff = r2 - r1;
-    if (r_diff < -180.0f) r_diff += 360.0f;
-    if (r_diff > 180.0f) r_diff -= 360.0f;
-    
-    float h_corr = r1 + t * r_diff;
-    while (h_corr < 0.0f) h_corr += 360.0f;
-    while (h_corr >= 360.0f) h_corr -= 360.0f;
-    
-    return h_corr;
+    float h_rad = h * M_PI / 180.0f;
+    float err = fourier_A0 + 
+                fourier_A1 * cos(h_rad) + 
+                fourier_B1 * sin(h_rad) + 
+                fourier_A2 * cos(2.0f * h_rad) + 
+                fourier_B2 * sin(2.0f * h_rad);
+                
+    float corrected = h + err;
+    while (corrected < 0.0f) corrected += 360.0f;
+    while (corrected >= 360.0f) corrected -= 360.0f;
+    return corrected;
 }

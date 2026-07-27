@@ -398,6 +398,8 @@ void WiFiTask(void *arg) {
             extern float measured_angles[9];
             if (idx >= 0 && idx < 9) {
                 measured_angles[idx] = val;
+                extern void computeFourierCoefficients();
+                computeFourierCoefficients();
                 subServer.send(200, "text/plain", "OK");
             } else {
                 subServer.send(400, "text/plain", "Invalid index");
@@ -417,6 +419,8 @@ void WiFiTask(void *arg) {
             measured_angles[i] = i * 45.0f;
         }
         memInterpolationTable(measured_angles, SET);
+        extern void computeFourierCoefficients();
+        computeFourierCoefficients();
         subServer.send(200, "text/plain", "OK");
     });
     subServer.on("/linearinterpolation", HTTP_GET, [](){
