@@ -353,7 +353,7 @@
             fetch('/data')
                 .then(r => r.json())
                 .then(data => {
-                    currentHeading = data.icm_no_offset; // Explicitly use 9-DOF Fusion Comp as reference heading!
+                    currentHeading = data.icm_no_offset; // Explicitly use Dynamic 3D Fusion as reference heading!
                     let harmonicHeading = data.harmonic_hdg; // Smooth harmonic heading
                     
                     if (data.meas_ang !== undefined) {
