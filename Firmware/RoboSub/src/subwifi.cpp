@@ -673,12 +673,8 @@ void WiFiTask(void *arg) {
 
         float icm = global_hdg;
 
-        // Add the manual compass offset first, then perform harmonic curve correction
-        float raw_with_offset = global_hdg_no_offset + mainData.compassOffset;
-        while (raw_with_offset < 0.0f) raw_with_offset += 360.0f;
-        while (raw_with_offset >= 360.0f) raw_with_offset -= 360.0f;
-
-        float harmonic_hdg = getInterpolatedHeading(raw_with_offset);
+        // Perform harmonic curve correction on global_hdg_no_offset (which already includes compassOffset)
+        float harmonic_hdg = getInterpolatedHeading(global_hdg_no_offset);
         if (mainData.compass_trim_enabled) {
             harmonic_hdg += mainData.compass_trim;
         }
