@@ -782,6 +782,7 @@ void WiFiTask(void *arg) {
         String json = "{\"icm\":" + String(icm, 2) +
                       ",\"icm_no_offset\":" + String(global_hdg_no_offset, 2) +
                       ",\"harmonic_hdg\":" + String(harmonic_hdg, 2) +
+                      ",\"fusion_no_offset\":" + String(global_fusion_hdg, 2) +
                       ",\"meas_ang\":" + measAngJson +
                       ",\"speed_bb\":" + String(sbb) +
                       ",\"speed_sb\":" + String(ssb) +
