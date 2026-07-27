@@ -474,7 +474,7 @@ void memBnoCalib(uint8_t *data, bool get)
 
 void memIcmCalib(float *hi, float *si, bool get)
 {
-    extern int icm_mode;
+    extern volatile int icm_mode;
     extern float si_matrix[3][3];
     startMem();
     if (get)

@@ -39,11 +39,11 @@ bool icm_ready = false;
 bool magRejected = false;
 bool firstHeadingRun = true;
 bool yaw_initialized = false;
-bool interp_enabled = false;
+volatile bool interp_enabled = false;
 uint32_t lastMicros = 0;
 uint32_t lastInitTime = 0;
 float baselineMag = 50.0f;
-int icm_mode = 4; // Defaults to Mode 4 (Hard & Soft Iron with Pitch & Roll tilt compensation)
+volatile int icm_mode = 4; // Defaults to Mode 4 (Hard & Soft Iron with Pitch & Roll tilt compensation)
 float pr_damping = 0.95f; // Exponential damping factor for pitch and roll (0.00 = none, 0.99 = max)
 float damp_acc = 0.15f;
 float damp_gyro = 0.15f;
@@ -381,7 +381,9 @@ bool InitCompass(void)
     // Initialize 8-point linear interpolation table from Preferences NVM
     memInterpolationTable(measured_angles, GET);
     computeFourierCoefficients();
-    memInterpEnabled(&interp_enabled, GET);
+    bool temp_enabled = false;
+    memInterpEnabled(&temp_enabled, GET);
+    interp_enabled = temp_enabled;
 
     // Reset complementary yaw filter tracking state on sensor restart
     yaw_initialized = false;

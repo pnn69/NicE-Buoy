@@ -39,7 +39,7 @@ extern QueueHandle_t compassIn;
 extern float last_raw_x, last_raw_y, last_raw_z;
 extern float hi_x, hi_y, hi_z;
 extern float si_x, si_y, si_z;
-extern int icm_mode;
+extern volatile int icm_mode;
 extern float pr_damping;
 extern bool magRejected;
 extern void updateUIHexFloat();
@@ -378,12 +378,13 @@ void WiFiTask(void *arg) {
     });
     subServer.on("/set_interp_enabled", HTTP_GET, [](){
         if (subServer.hasArg("enabled")) {
-            extern bool interp_enabled;
-            interp_enabled = (subServer.arg("enabled") == "1");
+            extern volatile bool interp_enabled;
+            bool temp_enabled = (subServer.arg("enabled") == "1");
+            interp_enabled = temp_enabled;
             
             // Save to Preferences NVS immediately
             extern void memInterpEnabled(bool *, bool);
-            memInterpEnabled(&interp_enabled, SET);
+            memInterpEnabled(&temp_enabled, SET);
             
             subServer.send(200, "text/plain", "OK");
         } else {
@@ -669,7 +670,7 @@ void WiFiTask(void *arg) {
         extern float global_hdg_no_offset;
         extern float measured_angles[9];
         extern float getInterpolatedHeading(float);
-        extern bool interp_enabled;
+        extern volatile bool interp_enabled;
 
         float icm = global_hdg;
 
