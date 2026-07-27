@@ -350,7 +350,7 @@
         }
 
         function pollData() {
-            fetch('/data')
+            fetch('/data?t=' + Date.now())
                 .then(r => r.json())
                 .then(data => {
                     currentHeading = data.icm_no_offset; // Explicitly use Dynamic 3D Fusion as reference heading!

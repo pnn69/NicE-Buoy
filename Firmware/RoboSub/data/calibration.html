@@ -398,7 +398,7 @@
             fetch('/start_cal').catch(err => console.error("Failed to start calibration:", err));
 
             pollInterval = setInterval(function() {
-                fetch('/data')
+                fetch('/data?t=' + Date.now())
                     .then(response => response.json())
                     .then(data => {
                         // Extract mx_raw, my_raw, mz_raw representing the raw sensor values polled at startup

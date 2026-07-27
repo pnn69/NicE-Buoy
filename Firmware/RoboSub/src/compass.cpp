@@ -74,9 +74,9 @@ extern AsyncUDP udp;
 extern SemaphoreHandle_t mainDataMutex;
 
 // Global state for web dashboard telemetry
-float global_hdg = 0;
-float global_hdg_no_offset = 0;
-float global_fusion_hdg = 0;
+volatile float global_hdg = 0;
+volatile float global_hdg_no_offset = 0;
+volatile float global_fusion_hdg = 0;
 float fusion_offset = 0.0f; // Startup offset to align 3D Gyro Fusion with 2D compass exactly
 float last_raw_x = 0, last_raw_y = 0, last_raw_z = 0;
 float last_raw_ax = 0, last_raw_ay = 0, last_raw_az = 0;
@@ -861,15 +861,21 @@ void CompassTask(void *arg) {
                             
                         
             // Select heading based on active calibration mode
-            float heading = headingFull; // Defaults to Option 5 (Analytical Tilt-Compensated Mode 3)
+            float heading = headingFull; // Default fallback
             if (icm_mode == 4) {
-                // Mode 4/Button 5: High-performance, gyro-stabilized, complementary 3D fusion output (with Gyro)
+                // Mode 4/Option 5: High-performance, gyro-stabilized, complementary 3D fusion output (with Gyro)
                 heading = headingFusion;
+            } else if (icm_mode == 3) {
+                // Mode 3/Option 4: Analytical Tilt-Compensated heading
+                heading = headingFull;
             } else if (icm_mode == 2) {
+                // Mode 2/Option 3: Both Iron (Offsets + Scaling)
                 heading = headingBoth;
             } else if (icm_mode == 1) {
+                // Mode 1/Option 2: Hard Iron Comp (Offsets only)
                 heading = headingHard;
             } else if (icm_mode == 0) {
+                // Mode 0/Option 1: Raw uncompensated data
                 heading = headingRaw;
             }
 
@@ -910,8 +916,8 @@ void CompassTask(void *arg) {
 
             if (millis() - lastLogTime >= 1000) {
                 lastLogTime = millis();
-                // Serial.printf("ICM-AHRS: R:%.2f P:%.2f Y:%.2f | MagNorm:%.2f baseline:%.2f rejected:%s | dt:%.4f (%.1fHz)\n",
-                //               roll, pitch, heading, magNorm, baselineMag, magRejected ? "YES" : "NO", dt, freq_avg);
+                Serial.printf("CompassTask -> icm_mode: %d, headingRaw: %.2f, headingFusion: %.2f, heading: %.2f, offset: %.2f\n\r",
+                              icm_mode, headingRaw, headingFusion, heading, mainData.compassOffset);
             }
 
             // -------------------- UI STATUS MESSAGE --------------------

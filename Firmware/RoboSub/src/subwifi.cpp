@@ -662,12 +662,15 @@ void WiFiTask(void *arg) {
      * the buoy is idling, locking, locked, docking, docked, or in a calibration routine.
      */
     subServer.on("/data", HTTP_GET, [](){
+        subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        subServer.sendHeader("Pragma", "no-cache");
+        subServer.sendHeader("Expires", "-1");
         extern float damp_acc;
         extern float damp_gyro;
         extern float damp_mag;
         extern float damp_att;
-        extern float global_fusion_hdg;
-        extern float global_hdg_no_offset;
+        extern volatile float global_fusion_hdg;
+        extern volatile float global_hdg_no_offset;
         extern float measured_angles[9];
         extern float getInterpolatedHeading(float);
         extern volatile bool interp_enabled;

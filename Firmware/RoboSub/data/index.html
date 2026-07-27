@@ -151,7 +151,7 @@ function updateThruster(id,v){const b=document.getElementById(id+'_bar'),l=docum
 function fetchData(){
     const startTime = Date.now();
 
-    fetch('/data')
+    fetch('/data?t=' + Date.now())
     .then(r=>r.json())
     .then(d=>{
         const pingElem = document.getElementById('pingVal');
