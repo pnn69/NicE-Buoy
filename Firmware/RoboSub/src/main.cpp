@@ -79,7 +79,7 @@ void setup()
     Wire.setClock(400000);
     
     // I2C Scanner
-    Serial.println("\n--- I2C Scanner ---");
+    Serial.println("\n\r--- I2C Scanner ---");
     // mainData.IDr = BUOYIDALL;
     byte error, address;
     int nDevices = 0;
@@ -87,15 +87,15 @@ void setup()
         Wire.beginTransmission(address);
         error = Wire.endTransmission();
         if (error == 0) {
-            Serial.printf("I2C device found at address 0x%02X\n", address);
+            Serial.printf("I2C device found at address 0x%02X\n\r", address);
             nDevices++;
         }
         else if (error==4) {
-            Serial.printf("Unknown error at address 0x%02X\n", address);
+            Serial.printf("Unknown error at address 0x%02X\n\r", address);
         }    
     }
-    if (nDevices == 0) Serial.println("No I2C devices found\n");
-    else Serial.println("done\n");
+    if (nDevices == 0) Serial.println("No I2C devices found\n\r");
+    else Serial.println("done\n\r");
     Serial.println("-------------------");
 
     Serial.begin(115200);
@@ -104,12 +104,12 @@ void setup()
     digitalWrite(PWRENABLE, 1); // enable batery sample signal
     digitalWrite(PWRENABLE, true);
     mainDataMutex = xSemaphoreCreateMutex();
-    printf("Setup running!");
-    printf("Robobuoy Sub Version: %0.1f Sub Build: %s %s", SUBVERSION, __DATE__, __TIME__);
+    printf("Setup running!\n\r");
+    printf("Robobuoy Sub Version: %0.1f Sub Build: %s %s\n\r", SUBVERSION, __DATE__, __TIME__);
     mainData.mac = espMac();
     mainData.IDs = mainData.mac;
     mainData.IDr = BUOYIDALL;
-    printf("Robobuoy ID: %08x", mainData.mac);
+    printf("Robobuoy ID: %08x\n\r", mainData.mac);
     initwifi(); // buoyID is mac adress esp32
     initMemory();
     pidRudderParameters(&mainData, GET);
@@ -120,8 +120,11 @@ void setup()
     thrusterInversion(&mainData, GET);
     thrusterSwap(&mainData, GET);
     
-    InitCompass();
     initledqueue();
+    // Core 0: Start LED Task immediately on boot so we can show dynamic status (e.g. fast yellow blinking) during calibration
+    xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 0);
+
+    InitCompass();
     initbuzzerqueue();
     initcompassQueue();
     initserqueue();
@@ -140,7 +143,6 @@ void setup()
     // CORE 0: Network and Telemetry
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 16384, &wifiConfig, configMAX_PRIORITIES - 10, NULL, 0);
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 2048, NULL, 1, NULL, 0);
-    xTaskCreatePinnedToCore(LedTask, "LedTask", 2000, NULL, 2, NULL, 0);
     
     // CORE 1: Real-time Control and Sensors
     xTaskCreatePinnedToCore(EscTask, "EscTask", 2400, NULL, configMAX_PRIORITIES - 5, NULL, 1);
@@ -905,8 +907,8 @@ void handleTimerRoutines(RoboStruct *in)
         logtimer = millis() + 500;
         battVoltage(mainData.subAccuV, mainData.subAccuP);
         battCurrent(mainData.subAccuI);
-        printf("C:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", mainData.dirMag, rudderOutput, mainData.speedBb, mainData.speedSb);
-        printf("  Is: %05.3f Ir: %05.3f P: %05.1f R: %05.1f %0.2fV %0.2fA\r\n", mainData.ip, mainData.ir, mainData.pitch, mainData.roll, mainData.subAccuV, mainData.subAccuI);
+        // printf("C:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", mainData.dirMag, rudderOutput, mainData.speedBb, mainData.speedSb);
+        // printf("  Is: %05.3f Ir: %05.3f P: %05.1f R: %05.1f %0.2fV %0.2fA\r\n", mainData.ip, mainData.ir, mainData.pitch, mainData.roll, mainData.subAccuV, mainData.subAccuI);
     }
 }
 

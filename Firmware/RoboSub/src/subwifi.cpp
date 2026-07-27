@@ -23,9 +23,6 @@
 #include "datastorage.h"
 #include "pidrudspeed.h"
 #include "subwifi.h"
-#include "index_html.h"
-#include "calibration_html.h"
-#include "showactualdata_html.h"
 #include "leds.h"
 #include "buzzer.h"
 
@@ -43,6 +40,7 @@ extern float last_raw_x, last_raw_y, last_raw_z;
 extern float hi_x, hi_y, hi_z;
 extern float si_x, si_y, si_z;
 extern int icm_mode;
+extern float pr_damping;
 extern bool magRejected;
 extern void updateUIHexFloat();
 extern String global_cal_msg;
@@ -59,7 +57,6 @@ static RoboStruct subWifiIn;
 QueueHandle_t udpOut = NULL;
 QueueHandle_t udpIn = NULL;
 String global_mac_str = "";
-static String indexHtmlCache = "";
 static bool ota = false;
 static LedData wifiCollorUtil;
 
@@ -224,36 +221,29 @@ void WiFiTask(void *arg) {
     ota = setup_OTA();
     udp_setup(1001);
 
-    // Mount LittleFS and cache index.html in RAM for fast execution
+    // Mount LittleFS
     if(!LittleFS.begin(true)){
         Serial.println("WiFiTask: LittleFS Mount Failed");
     } else {
         Serial.println("WiFiTask: LittleFS Mounted");
-        File file = LittleFS.open("/index.html", "r");
-        if(file) {
-            indexHtmlCache = file.readString();
-            file.close();
-            Serial.println("WiFiTask: Cached index.html in RAM (" + String(indexHtmlCache.length()) + " bytes)");
-        } else {
-            Serial.println("WiFiTask: Failed to open /index.html from LittleFS, using compiled fallback");
-        }
     }
 
     /*
      * Web Dashboard Router & Anti-Caching Strategy:
      * To prevent browsers from caching stale layouts or outdated JS dashboards, 
      * we issue HTTP/1.1 headers 'no-cache, no-store, must-revalidate' and set 'Expires: -1'.
-     *
-     * IMPORTANT DESIGN FIX:
-     * We bypass indexHtmlCache and force subServer to serve INDEX_HTML from flash (send_P).
-     * This avoids memory leak issues or potential desynchronization with filesystem changes, 
-     * guaranteeing that the compiled UI changes are consistently served and rendered.
      */
     subServer.on("/", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");
-        subServer.send_P(200, "text/html", INDEX_HTML);
+        if (LittleFS.exists("/index.html")) {
+            File file = LittleFS.open("/index.html", "r");
+            subServer.streamFile(file, "text/html");
+            file.close();
+        } else {
+            subServer.send(404, "text/plain", "Index page not found on LittleFS");
+        }
     });
     subServer.on("/savecal", HTTP_GET, [](){ 
         extern bool global_is_calibrating;
@@ -270,9 +260,9 @@ void WiFiTask(void *arg) {
             hi[0] = subServer.arg("hx").toFloat();
             hi[1] = subServer.arg("hy").toFloat();
             hi[2] = subServer.arg("hz").toFloat();
-            si[0] = subServer.arg("sx").toFloat();
-            si[1] = subServer.arg("sy").toFloat();
-            si[2] = subServer.arg("sz").toFloat();
+            si[0] = fabs(subServer.arg("sx").toFloat());
+            si[1] = fabs(subServer.arg("sy").toFloat());
+            si[2] = fabs(subServer.arg("sz").toFloat());
 
             extern float si_matrix[3][3];
             // Handle optional full 3x3 matrix arguments
@@ -280,15 +270,15 @@ void WiFiTask(void *arg) {
                 subServer.hasArg("syx") && subServer.hasArg("syy") && subServer.hasArg("syz") &&
                 subServer.hasArg("szx") && subServer.hasArg("szy") && subServer.hasArg("szz")) {
 
-                si_matrix[0][0] = subServer.arg("sxx").toFloat();
+                si_matrix[0][0] = fabs(subServer.arg("sxx").toFloat());
                 si_matrix[0][1] = subServer.arg("sxy").toFloat();
                 si_matrix[0][2] = subServer.arg("sxz").toFloat();
                 si_matrix[1][0] = subServer.arg("syx").toFloat();
-                si_matrix[1][1] = subServer.arg("syy").toFloat();
+                si_matrix[1][1] = fabs(subServer.arg("syy").toFloat());
                 si_matrix[1][2] = subServer.arg("syz").toFloat();
                 si_matrix[2][0] = subServer.arg("szx").toFloat();
                 si_matrix[2][1] = subServer.arg("szy").toFloat();
-                si_matrix[2][2] = subServer.arg("szz").toFloat();
+                si_matrix[2][2] = fabs(subServer.arg("szz").toFloat());
             } else {
                 // Diagonal scale factor fallback
                 si_matrix[0][0] = si[0];
@@ -312,6 +302,11 @@ void WiFiTask(void *arg) {
             // Re-generate user hex/text strings for telemetry
             updateUIHexFloat();
 
+            extern bool firstHeadingRun;
+            extern uint32_t lastInitTime;
+            firstHeadingRun = true;
+            lastInitTime = millis();
+
             extern bool global_is_calibrating;
             global_is_calibrating = false;
 
@@ -327,10 +322,6 @@ void WiFiTask(void *arg) {
     });
     subServer.on("/start_cal", HTTP_GET, [](){
         extern bool global_is_calibrating;
-        extern volatile int cal_ring_write_idx;
-        extern volatile int cal_ring_read_idx;
-        cal_ring_write_idx = 0;
-        cal_ring_read_idx = 0;
         global_is_calibrating = true;
 
         if (buzzer != NULL) {
@@ -352,23 +343,176 @@ void WiFiTask(void *arg) {
             subServer.send(400, "text/plain", "Err");
         }
     });
+    subServer.on("/set-damping", HTTP_GET, [](){
+        if (subServer.hasArg("sensor") && subServer.hasArg("val")) {
+            String sensor = subServer.arg("sensor");
+            float val = subServer.arg("val").toFloat();
+            
+            extern float damp_acc;
+            extern float damp_gyro;
+            extern float damp_mag;
+            extern float damp_att;
+            extern float pr_damping;
+
+            if (sensor == "acc") {
+                damp_acc = val;
+            } else if (sensor == "gyro") {
+                damp_gyro = val;
+            } else if (sensor == "mag") {
+                damp_mag = val;
+            } else if (sensor == "att") {
+                damp_att = val;
+                // Sync attitude damping directly with pr_damping
+                pr_damping = 1.0f - val;
+                if (pr_damping < 0.0f) pr_damping = 0.0f;
+                if (pr_damping > 0.99f) pr_damping = 0.99f;
+                memPrDamping(&pr_damping, SET);
+            }
+
+            memDampingFactors(&damp_acc, &damp_gyro, &damp_mag, &damp_att, SET);
+            Serial.printf("subServer: Saved damping coefficient: %s = %.2f\n\r", sensor.c_str(), val);
+            subServer.send(200, "text/plain", "OK");
+        } else {
+            subServer.send(400, "text/plain", "Err");
+        }
+    });
+    subServer.on("/set_interp_enabled", HTTP_GET, [](){
+        if (subServer.hasArg("enabled")) {
+            extern bool interp_enabled;
+            interp_enabled = (subServer.arg("enabled") == "1");
+            
+            // Save to Preferences NVS immediately
+            extern void memInterpEnabled(bool *, bool);
+            memInterpEnabled(&interp_enabled, SET);
+            
+            subServer.send(200, "text/plain", "OK");
+        } else {
+            subServer.send(400, "text/plain", "Err");
+        }
+    });
+    subServer.on("/set_harmonic_point", HTTP_GET, [](){
+        if (subServer.hasArg("index") && subServer.hasArg("measured")) {
+            int idx = subServer.arg("index").toInt();
+            float val = subServer.arg("measured").toFloat();
+            
+            extern float measured_angles[9];
+            if (idx >= 0 && idx < 9) {
+                measured_angles[idx] = val;
+                extern void computeFourierCoefficients();
+                computeFourierCoefficients();
+                subServer.send(200, "text/plain", "OK");
+            } else {
+                subServer.send(400, "text/plain", "Invalid index");
+            }
+        } else {
+            subServer.send(400, "text/plain", "Missing args");
+        }
+    });
+    // Legacy alias
+    subServer.on("/set_interpolation_point", HTTP_GET, [](){
+        if (subServer.hasArg("index") && subServer.hasArg("measured")) {
+            int idx = subServer.arg("index").toInt();
+            float val = subServer.arg("measured").toFloat();
+            extern float measured_angles[9];
+            if (idx >= 0 && idx < 9) {
+                measured_angles[idx] = val;
+                extern void computeFourierCoefficients();
+                computeFourierCoefficients();
+                subServer.send(200, "text/plain", "OK");
+            } else {
+                subServer.send(400, "text/plain", "Invalid index");
+            }
+        } else {
+            subServer.send(400, "text/plain", "Missing args");
+        }
+    });
+    subServer.on("/save_harmonic", HTTP_GET, [](){
+        extern float measured_angles[9];
+        memInterpolationTable(measured_angles, SET);
+        subServer.send(200, "text/plain", "OK");
+    });
+    // Legacy alias
+    subServer.on("/save_interpolation", HTTP_GET, [](){
+        extern float measured_angles[9];
+        memInterpolationTable(measured_angles, SET);
+        subServer.send(200, "text/plain", "OK");
+    });
+    subServer.on("/reset_harmonic", HTTP_GET, [](){
+        extern float measured_angles[9];
+        for (int i = 0; i < 9; i++) {
+            measured_angles[i] = i * 45.0f;
+        }
+        memInterpolationTable(measured_angles, SET);
+        extern void computeFourierCoefficients();
+        computeFourierCoefficients();
+        subServer.send(200, "text/plain", "OK");
+    });
+    // Legacy alias
+    subServer.on("/reset_interpolation", HTTP_GET, [](){
+        extern float measured_angles[9];
+        for (int i = 0; i < 9; i++) {
+            measured_angles[i] = i * 45.0f;
+        }
+        memInterpolationTable(measured_angles, SET);
+        extern void computeFourierCoefficients();
+        computeFourierCoefficients();
+        subServer.send(200, "text/plain", "OK");
+    });
+    subServer.on("/harmoniccorrection", HTTP_GET, [](){
+        subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        subServer.sendHeader("Pragma", "no-cache");
+        subServer.sendHeader("Expires", "-1");
+        if (LittleFS.exists("/harmoniccorrection.html")) {
+            File file = LittleFS.open("/harmoniccorrection.html", "r");
+            subServer.streamFile(file, "text/html");
+            file.close();
+        } else {
+            subServer.send(404, "text/plain", "harmoniccorrection page not found on LittleFS");
+        }
+    });
+    subServer.on("/linearinterpolation", HTTP_GET, [](){
+        subServer.sendHeader("Location", "/harmoniccorrection");
+        subServer.send(302, "text/plain", "Redirecting...");
+    });
+    subServer.on("/linerinterpolation", HTTP_GET, [](){
+        subServer.sendHeader("Location", "/harmoniccorrection");
+        subServer.send(302, "text/plain", "Redirecting...");
+    });
     subServer.on("/calibration", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");
-        subServer.send_P(200, "text/html", CALIBRATION_HTML);
+        if (LittleFS.exists("/calibration.html")) {
+            File file = LittleFS.open("/calibration.html", "r");
+            subServer.streamFile(file, "text/html");
+            file.close();
+        } else {
+            subServer.send(404, "text/plain", "calibration page not found on LittleFS");
+        }
     });
     subServer.on("/ShowActualData", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");
-        subServer.send_P(200, "text/html", SHOWACTUALDATA_HTML);
+        if (LittleFS.exists("/showactualdata.html")) {
+            File file = LittleFS.open("/showactualdata.html", "r");
+            subServer.streamFile(file, "text/html");
+            file.close();
+        } else {
+            subServer.send(404, "text/plain", "showactualdata page not found on LittleFS");
+        }
     });
     subServer.on("/callibration", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");
-        subServer.send_P(200, "text/html", CALIBRATION_HTML);
+        if (LittleFS.exists("/calibration.html")) {
+            File file = LittleFS.open("/calibration.html", "r");
+            subServer.streamFile(file, "text/html");
+            file.close();
+        } else {
+            subServer.send(404, "text/plain", "calibration page not found on LittleFS");
+        }
     });
     subServer.on("/set_north", HTTP_GET, [](){
         double newOffset = 0;
@@ -435,6 +579,12 @@ void WiFiTask(void *arg) {
                 mainData.compass_trim = 0.0f;
                 paramUpdated = true;
             }
+            else if(p=="prdamp"){
+                pr_damping = v;
+                if (pr_damping < 0.0f) pr_damping = 0.0f;
+                if (pr_damping > 0.99f) pr_damping = 0.99f;
+                paramUpdated = true;
+            }
             
             if (paramUpdated) {
                 global_params_rev++;
@@ -459,6 +609,9 @@ void WiFiTask(void *arg) {
                 float trim_val = (float)mainData.compass_trim;
                 bool trim_en = mainData.compass_trim_enabled;
                 memCompassTrim(&trim_val, &trim_en, SET);
+            }
+            else if(p=="prdamp"){
+                memPrDamping(&pr_damping, SET);
             }
         }
         subServer.send(200,"text/plain","OK");
@@ -485,10 +638,13 @@ void WiFiTask(void *arg) {
         float ctrim = (float)mainData.compass_trim;
         int ctrim_en = mainData.compass_trim_enabled ? 1 : 0;
         
-        char buf[650];
+        extern float pr_damping;
+        float prdamp = pr_damping;
+        
+        char buf[700];
         snprintf(buf, sizeof(buf), 
-            "{\"kpr\":%.3f,\"kir\":%.3f,\"kdr\":%.3f,\"kps\":%.3f,\"kis\":%.3f,\"kds\":%.3f,\"coff\":%.1f,\"revbb\":%d,\"revsb\":%d,\"tswap\":%d,\"pvspd\":%.2f,\"minspd\":%d,\"maxspd\":%d,\"holdrad\":%.1f,\"cavg\":%d,\"ctrim\":%.3f,\"ctrim_en\":%d}",
-            kpr, kir, kdr, kps, kis, kds, coff, revbb, revsb, tswap, pvspd, minspd, maxspd, holdrad, cavg, ctrim, ctrim_en
+            "{\"kpr\":%.3f,\"kir\":%.3f,\"kdr\":%.3f,\"kps\":%.3f,\"kis\":%.3f,\"kds\":%.3f,\"coff\":%.1f,\"revbb\":%d,\"revsb\":%d,\"tswap\":%d,\"pvspd\":%.2f,\"minspd\":%d,\"maxspd\":%d,\"holdrad\":%.1f,\"cavg\":%d,\"ctrim\":%.3f,\"ctrim_en\":%d,\"prdamp\":%.3f}",
+            kpr, kir, kdr, kps, kis, kds, coff, revbb, revsb, tswap, pvspd, minspd, maxspd, holdrad, cavg, ctrim, ctrim_en, prdamp
         );
         subServer.send(200, "application/json", buf);
     });
@@ -505,7 +661,26 @@ void WiFiTask(void *arg) {
      * the buoy is idling, locking, locked, docking, docked, or in a calibration routine.
      */
     subServer.on("/data", HTTP_GET, [](){
+        extern float damp_acc;
+        extern float damp_gyro;
+        extern float damp_mag;
+        extern float damp_att;
+        extern float global_fusion_hdg;
+        extern float global_hdg_no_offset;
+        extern float measured_angles[9];
+        extern float getInterpolatedHeading(float);
+        extern bool interp_enabled;
+
         float icm = global_hdg;
+
+        // Perform harmonic curve correction on global_hdg_no_offset (which already includes compassOffset)
+        float harmonic_hdg = getInterpolatedHeading(global_hdg_no_offset);
+        if (mainData.compass_trim_enabled) {
+            harmonic_hdg += mainData.compass_trim;
+        }
+        while (harmonic_hdg < 0.0f) harmonic_hdg += 360.0f;
+        while (harmonic_hdg >= 360.0f) harmonic_hdg -= 360.0f;
+
         int sbb = (int)mainData.speedBb; 
         int ssb = (int)mainData.speedSb;
         double ir = mainData.ir;
@@ -538,57 +713,75 @@ void WiFiTask(void *arg) {
          * lean and fast.
          */
 
-        // Calculate raw uncompensated heading (direct atan2 of raw magnetometer)
-        float rawHeading = atan2(last_raw_y, last_raw_x) * 180.0 / M_PI;
+        // Calculate raw uncompensated heading (matching prototype)
+        float rawHeading = atan2(last_raw_x, last_raw_y) * 180.0 / M_PI;
         if (rawHeading < 0.0f) rawHeading += 360.0f;
-        rawHeading = 360.0f - rawHeading; // Mirror rotation direction to match screen rose
-        if (rawHeading >= 360.0f) rawHeading -= 360.0f;
 
-        // Calculate Hard-iron compensated heading (subtract offsets hi_x, hi_y, hi_z)
-        float mx_hi = last_raw_x - hi_x;
-        float my_hi = last_raw_y - hi_y;
-        float mz_hi = last_raw_z - hi_z;
-        float hardHeading = atan2(my_hi, mx_hi) * 180.0 / M_PI;
+        // Calculate Hard-iron compensated heading (matching prototype)
+        float hx = last_raw_x - hi_x;
+        float hy = last_raw_y - hi_y;
+        float hardHeading = atan2(hx, hy) * 180.0 / M_PI;
         if (hardHeading < 0.0f) hardHeading += 360.0f;
-        hardHeading = 360.0f - hardHeading; // Mirror rotation direction to match screen rose
-        if (hardHeading >= 360.0f) hardHeading -= 360.0f;
 
-        // Calculate Soft-iron compensated heading (apply full 3x3 soft-iron matrix multiplication)
-        extern float si_matrix[3][3];
-        float mxc = si_matrix[0][0] * mx_hi + si_matrix[0][1] * my_hi + si_matrix[0][2] * mz_hi;
-        float myc = si_matrix[1][0] * mx_hi + si_matrix[1][1] * my_hi + si_matrix[1][2] * mz_hi;
-        float mzc = si_matrix[2][0] * mx_hi + si_matrix[2][1] * my_hi + si_matrix[2][2] * mz_hi;
+        // Calculate Soft-iron compensated heading (matching prototype)
+        float sx = last_raw_x * si_x;
+        float sy = last_raw_y * si_y;
+        float headingSoft = atan2(sx, sy) * 180.0 / M_PI;
+        if (headingSoft < 0.0f) headingSoft += 360.0f;
 
-        float softHeading = atan2(myc, mxc) * 180.0 / M_PI;
+        // Calculate Both Comp (Offsets + Scaling)
+        float bx = hx * si_x;
+        float by = hy * si_y;
+        float softHeading = atan2(bx, by) * 180.0 / M_PI;
         if (softHeading < 0.0f) softHeading += 360.0f;
-        softHeading = 360.0f - softHeading; // Mirror rotation direction to match screen rose
-        if (softHeading >= 360.0f) softHeading -= 360.0f;
+
+        // Calculate Option 3/5 heading: Analytical 3D tilt-compensated heading (matching prototype)
+        // roll and pitch are raw/damped pitch & roll, we convert to radians
+        float phi = roll * M_PI / 180.0f;
+        float theta = pitch * M_PI / 180.0f;
+
+        float cosRoll = cos(phi);
+        float sinRoll = sin(phi);
+        float cosPitch = cos(theta);
+        float sinPitch = sin(theta);
+
+        float cx_cal = hx * si_x;
+        float cy_cal = hy * si_y;
+        float cz_cal = (last_raw_z - hi_z) * si_z;
+
+        float Xh = cx_cal * cosPitch + cy_cal * sinRoll * sinPitch - cz_cal * cosRoll * sinPitch;
+        float Yh = cy_cal * cosRoll + cz_cal * sinRoll;
+
+        float opt3Heading = atan2(Xh, Yh) * 180.0 / M_PI;
+        if (opt3Heading < 0.0f) opt3Heading += 360.0f;
 
         // Align the calibrated magnetometer axes to match the accelerometer coordinate frame
-        float mx_cal = myc;
-        float my_cal = mxc;
-        float mz_cal = -mzc;
+        float mx_cal = bx;
+        float my_cal = by;
+        float mz_cal = cz_cal;
 
-        // Extract all pending calibration points from the ring buffer
-        extern float cal_ring_x[];
-        extern float cal_ring_y[];
-        extern float cal_ring_z[];
-        extern volatile int cal_ring_write_idx;
-        extern volatile int cal_ring_read_idx;
+        // Align the raw magnetometer axes to match the native, unaligned sensor coordinate frame
+        // This ensures calibration is calculated on the exact same coordinate system applied in CompassTask.
+        float mx_raw_aligned = last_raw_x;
+        float my_raw_aligned = last_raw_y;
+        float mz_raw_aligned = last_raw_z;
 
-        String pointsJson = "[";
-        bool firstPoint = true;
-        while (cal_ring_read_idx != cal_ring_write_idx) {
-            if (!firstPoint) pointsJson += ",";
-            pointsJson += "[" + String(cal_ring_x[cal_ring_read_idx], 2) + "," +
-                          String(cal_ring_y[cal_ring_read_idx], 2) + "," +
-                          String(cal_ring_z[cal_ring_read_idx], 2) + "]";
-            firstPoint = false;
-            cal_ring_read_idx = (cal_ring_read_idx + 1) % 100; // CAL_RING_BUF_SIZE
+        // Serialise the 9 measured angles for linear interpolation
+        String measAngJson = "[";
+        for (int i = 0; i < 9; i++) {
+            if (i > 0) measAngJson += ",";
+            measAngJson += String(measured_angles[i], 2);
         }
-        pointsJson += "]";
+        measAngJson += "]";
+
+        // The cal_ring buffer extraction has been removed since calibration data collection 
+        // is now done directly via HTTP polling of mx_raw, my_raw, mz_raw.
+        String pointsJson = "[]";
 
         String json = "{\"icm\":" + String(icm, 2) +
+                      ",\"icm_no_offset\":" + String(global_hdg_no_offset, 2) +
+                      ",\"harmonic_hdg\":" + String(harmonic_hdg, 2) +
+                      ",\"meas_ang\":" + measAngJson +
                       ",\"speed_bb\":" + String(sbb) +
                       ",\"speed_sb\":" + String(ssb) +
                       ",\"ir\":" + String(ir, 2) +
@@ -608,14 +801,15 @@ void WiFiTask(void *arg) {
                       ",\"rsb\":" + String(rampSb, 2) +
                       ",\"framp\":" + String(forward_ramp, 2) +
                       ",\"pivot\":" + String(was_pure_pivot ? 1 : 0) +
-                      ",\"mx_raw\":" + String(last_raw_x, 2) +
-                      ",\"my_raw\":" + String(last_raw_y, 2) +
-                      ",\"mz_raw\":" + String(last_raw_z, 2) +
+                      ",\"mx_raw\":" + String(mx_raw_aligned, 2) +
+                      ",\"my_raw\":" + String(my_raw_aligned, 2) +
+                      ",\"mz_raw\":" + String(mz_raw_aligned, 2) +
                       ",\"icm_mode\":" + String(icm_mode) +
                       ",\"mag_rejected\":" + String(magRejected ? 1 : 0) +
                       ",\"raw\":" + String(rawHeading, 2) +
                       ",\"hard\":" + String(hardHeading, 2) +
                       ",\"hardSoft\":" + String(softHeading, 2) +
+                      ",\"opt3\":" + String(opt3Heading, 2) +
                       ",\"mx_cal\":" + String(mx_cal, 2) +
                       ",\"my_cal\":" + String(my_cal, 2) +
                       ",\"mz_cal\":" + String(mz_cal, 2) +
@@ -623,6 +817,12 @@ void WiFiTask(void *arg) {
                       ",\"ctrim_en\":" + String(mainData.compass_trim_enabled ? 1 : 0) +
                       ",\"pitch\":" + String(pitch, 2) +
                       ",\"roll\":" + String(roll, 2) +
+                      ",\"prdamp\":" + String(pr_damping, 3) +
+                      ",\"damp_acc\":" + String(damp_acc, 3) +
+                      ",\"damp_gyro\":" + String(damp_gyro, 3) +
+                      ",\"damp_mag\":" + String(damp_mag, 3) +
+                      ",\"damp_att\":" + String(damp_att, 3) +
+                      ",\"harmonic_enabled\":" + String(interp_enabled ? 1 : 0) +
                       ",\"points\":" + pointsJson + "}";
 
         subServer.send(200, "application/json", json);

@@ -1,9 +1,3 @@
-#ifndef SHOWACTUALDATA_HTML_H
-#define SHOWACTUALDATA_HTML_H
-
-#include <Arduino.h>
-
-const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -140,10 +134,13 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
         }
 
         @media (min-width: 600px) {
-            .windrose-grid { grid-template-columns: 1fr 1fr; }
+            .windrose-grid { grid-template-columns: repeat(2, 1fr); }
         }
-        @media (min-width: 1024px) {
-            .windrose-grid { grid-template-columns: 1fr 1fr 1fr 1fr; }
+        @media (min-width: 900px) {
+            .windrose-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (min-width: 1200px) {
+            .windrose-grid { grid-template-columns: repeat(5, 1fr); }
         }
 
         .windrose-card {
@@ -287,16 +284,22 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
 
     <header>
         <h1><span>CompassTest</span> Dashboard</h1>
-        <div class="status">
-            <div id="status-dot" class="status-dot"></div>
-            <span id="status-text">Disconnected</span>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <button onclick="location.href='/'" class="btn" style="background-color: var(--card-bg); border: 1px solid var(--border); color: var(--text-color); width: auto; padding: 6px 14px; margin-bottom: 0; font-size: 0.85rem; border-radius: 9999px;">&larr; Back to Main Dashboard</button>
+            <div class="status">
+                <div id="status-dot" class="status-dot"></div>
+                <span id="status-text">Disconnected</span>
+            </div>
         </div>
     </header>
 
     <!-- DASHBOARD CONTAINER -->
     <div id="dashboard-container" class="container" style="display: grid;">
         <div class="card">
-            <h2>Real-time Compasses</h2>
+            <h2 style="display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; width: 100%;">
+                Real-time Compasses
+                <span id="cal-load-text" style="font-size: 0.8rem; font-family: monospace; color: var(--text-muted); font-weight: normal; margin-left: auto; padding-left: 10px;">HI: [0.0, 0.0, 0.0] SI: [1.00, 1.00, 1.00]</span>
+            </h2>
             <div class="windrose-grid">
                 
                 <!-- RAW -->
@@ -374,9 +377,34 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                     <div id="val-rose-soft" class="heading-val">000°</div>
                 </div>
 
-                <!-- FULL COMP (TILT) -->
+                <!-- TILT COMPENSATED OPTION 3 -->
                 <div class="windrose-card">
                     <h3>Tilt Compensated</h3>
+                    <div class="compass-wrapper">
+                        <svg class="compass" viewBox="0 0 200 200">
+                            <circle cx="100" cy="100" r="95" fill="#161616" stroke="#2c2c2c" stroke-width="5"/>
+                            <circle cx="100" cy="100" r="82" fill="none" stroke="#00e6ff" stroke-width="1.5" stroke-dasharray="3, 5"/>
+                            <line x1="100" y1="12" x2="100" y2="18" stroke="#ff3333" stroke-width="3"/>
+                            <line x1="100" y1="182" x2="100" y2="188" stroke="#eee" stroke-width="2"/>
+                            <line x1="12" y1="100" x2="18" y2="100" stroke="#eee" stroke-width="2"/>
+                            <line x1="182" y1="100" x2="188" y2="100" stroke="#eee" stroke-width="2"/>
+                            <text x="100" y="32" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#ff3333" text-anchor="middle">N</text>
+                            <text x="100" y="174" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">S</text>
+                            <text x="168" y="106" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">E</text>
+                            <text x="32" y="106" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">W</text>
+                            <g class="needle" id="rose-opt3-needle">
+                                <polygon points="100,20 108,100 100,108" fill="#ff3333"/>
+                                <polygon points="100,20 92,100 100,108" fill="#cc0000"/>
+                                <circle cx="100" cy="100" r="7" fill="#ffd700" stroke="#121212" stroke-width="2"/>
+                            </g>
+                        </svg>
+                    </div>
+                    <div id="val-rose-opt3" class="heading-val">000°</div>
+                </div>
+
+                <!-- 9-DOF FUSION OPTION 4 -->
+                <div class="windrose-card">
+                    <h3>9-DOF Fusion Comp</h3>
                     <div class="compass-wrapper">
                         <svg class="compass" viewBox="0 0 200 200">
                             <circle cx="100" cy="100" r="95" fill="#161616" stroke="#2c2c2c" stroke-width="5"/>
@@ -397,6 +425,31 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                         </svg>
                     </div>
                     <div id="val-rose-tilt" class="heading-val">000°</div>
+                </div>
+
+                <!-- HARMONIC CORRECTION -->
+                <div class="windrose-card" style="border-top: 3px solid var(--cyan);">
+                    <h3>6. Harmonic Corr</h3>
+                    <div style="position: relative; width: 100%; height: 180px; display: flex; align-items: center; justify-content: center;">
+                        <svg width="200" height="200" viewBox="0 0 200 200">
+                            <circle cx="100" cy="100" r="90" fill="none" stroke="rgba(6, 182, 212, 0.15)" stroke-width="4"/>
+                            <!-- Compass marks -->
+                            <line x1="100" y1="12" x2="100" y2="18" stroke="#ff3333" stroke-width="3"/>
+                            <line x1="100" y1="182" x2="100" y2="188" stroke="#eee" stroke-width="2"/>
+                            <line x1="12" y1="100" x2="18" y2="100" stroke="#eee" stroke-width="2"/>
+                            <line x1="182" y1="100" x2="188" y2="100" stroke="#eee" stroke-width="2"/>
+                            <text x="100" y="32" font-size="18" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#ff3333" text-anchor="middle">N</text>
+                            <text x="100" y="174" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">S</text>
+                            <text x="168" y="106" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">E</text>
+                            <text x="32" y="106" font-size="16" font-family="'Segoe UI', sans-serif" font-weight="bold" fill="#eee" text-anchor="middle">W</text>
+                            <g class="needle" id="rose-harmonic-needle">
+                                <polygon points="100,20 108,100 100,108" fill="#ff3333"/>
+                                <polygon points="100,20 92,100 100,108" fill="#cc0000"/>
+                                <circle cx="100" cy="100" r="7" fill="#ffd700" stroke="#121212" stroke-width="2"/>
+                            </g>
+                        </svg>
+                    </div>
+                    <div id="val-rose-harmonic" class="heading-val">000°</div>
                 </div>
 
             </div>
@@ -463,8 +516,128 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
         </div>
     </div>
 
-    <div style="max-width: 600px; margin: 20px auto 40px auto; padding: 0 10px;">
-        <button onclick="location.href='/'" class="btn" style="background-color: var(--card-bg); border: 1px solid var(--border); color: var(--text-main); margin-bottom: 0;">➔ Back to Main Dashboard</button>
+    <!-- Heading Filter Output Selector Card -->
+    <div style="max-width: 1200px; width: 100%; margin: 20px auto 10px auto; padding: 0 20px;">
+        <div class="card" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 15px; color: var(--text-color); display: flex; align-items: center; gap: 8px;">
+                <svg width="20" height="20" fill="none" stroke="var(--primary)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+                Active Navigation Filter Selector
+            </h2>
+            <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
+                
+                <!-- Mode 0: Raw -->
+                <label style="flex: 1; min-width: 180px; background: rgba(0,0,0,0.15); padding: 12px; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.2s;">
+                    <input type="radio" name="icm-mode" value="0" style="accent-color: #9ca3af; transform: scale(1.15);" onchange="setIcmMode(0)">
+                    <div>
+                        <div style="font-weight: bold; font-size: 0.85rem; color: #9ca3af;">1. Raw Data</div>
+                        <div style="font-size: 0.65rem; color: var(--text-muted);">Uncompensated 2D heading</div>
+                    </div>
+                </label>
+
+                <!-- Mode 1: Hard Iron -->
+                <label style="flex: 1; min-width: 180px; background: rgba(0,0,0,0.15); padding: 12px; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.2s;">
+                    <input type="radio" name="icm-mode" value="1" style="accent-color: #38bdf8; transform: scale(1.15);" onchange="setIcmMode(1)">
+                    <div>
+                        <div style="font-weight: bold; font-size: 0.85rem; color: #38bdf8;">2. Hard Iron</div>
+                        <div style="font-size: 0.65rem; color: var(--text-muted);">Offsets compensation only</div>
+                    </div>
+                </label>
+
+                <!-- Mode 2: Both Iron -->
+                <label style="flex: 1; min-width: 180px; background: rgba(0,0,0,0.15); padding: 12px; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.2s;">
+                    <input type="radio" name="icm-mode" value="2" style="accent-color: #8b5cf6; transform: scale(1.15);" onchange="setIcmMode(2)">
+                    <div>
+                        <div style="font-weight: bold; font-size: 0.85rem; color: #8b5cf6;">3. Both Iron Comp</div>
+                        <div style="font-size: 0.65rem; color: var(--text-muted);">Offsets + Soft scaling</div>
+                    </div>
+                </label>
+
+                <!-- Mode 3: Tilt Compensated -->
+                <label style="flex: 1; min-width: 180px; background: rgba(0,0,0,0.15); padding: 12px; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.2s;">
+                    <input type="radio" name="icm-mode" value="3" style="accent-color: #f59e0b; transform: scale(1.15);" onchange="setIcmMode(3)">
+                    <div>
+                        <div style="font-weight: bold; font-size: 0.85rem; color: #f59e0b;">4. Tilt Compensated</div>
+                        <div style="font-size: 0.65rem; color: var(--text-muted);">Iron Comp + Pitch & Roll</div>
+                    </div>
+                </label>
+
+                <!-- Mode 4: 3D Fusion -->
+                <label id="label-mode-4" style="flex: 1; min-width: 180px; background: rgba(16, 185, 129, 0.04); padding: 12px; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.25); display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.2s;">
+                    <input type="radio" name="icm-mode" value="4" style="accent-color: #10b981; transform: scale(1.15);" onchange="setIcmMode(4)">
+                    <div>
+                        <div style="font-weight: bold; font-size: 0.85rem; color: #10b981;">5. Dynamic 3D Fusion</div>
+                        <div style="font-size: 0.65rem; color: var(--text-muted);">Full Tilt + Gyro Damped</div>
+                    </div>
+                </label>
+
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Damping Slider Settings Card -->
+    <div style="max-width: 1200px; width: 100%; margin: 20px auto 10px auto; padding: 0 20px;">
+        <div class="card" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 15px; color: var(--text-color); display: flex; align-items: center; gap: 8px;">
+                <svg width="20" height="20" fill="none" stroke="var(--primary)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                Dynamic Damping Control
+            </h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem;">
+                
+                <!-- Accelerometer Damping -->
+                <div style="background: rgba(0,0,0,0.15); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px; align-items: center;">
+                        <span style="font-weight: bold; font-size: 0.85rem; color: #38bdf8;">Accelerometer Damping</span>
+                        <span id="damping-val-acc" style="font-family: monospace; font-weight: bold; font-size: 0.95rem; color: #38bdf8;">0.15</span>
+                    </div>
+                    <input type="range" id="damping-slider-acc" min="0.01" max="1.0" step="0.01" value="0.15" style="width: 100%; accent-color: #38bdf8; background: rgba(255,255,255,0.05); border-radius: 4px; height: 6px; cursor: pointer; border: none; outline: none;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">
+                        <span>0.01 (Heavy)</span>
+                        <span>1.00 (None)</span>
+                    </div>
+                </div>
+
+                <!-- Gyroscope Damping -->
+                <div style="background: rgba(0,0,0,0.15); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px; align-items: center;">
+                        <span style="font-weight: bold; font-size: 0.85rem; color: #10b981;">Gyroscope Damping</span>
+                        <span id="damping-val-gyro" style="font-family: monospace; font-weight: bold; font-size: 0.95rem; color: #10b981;">0.15</span>
+                    </div>
+                    <input type="range" id="damping-slider-gyro" min="0.01" max="1.0" step="0.01" value="0.15" style="width: 100%; accent-color: #10b981; background: rgba(255,255,255,0.05); border-radius: 4px; height: 6px; cursor: pointer; border: none; outline: none;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">
+                        <span>0.01 (Heavy)</span>
+                        <span>1.00 (None)</span>
+                    </div>
+                </div>
+
+                <!-- Magnetometer Damping -->
+                <div style="background: rgba(0,0,0,0.15); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px; align-items: center;">
+                        <span style="font-weight: bold; font-size: 0.85rem; color: #8b5cf6;">Magnetometer Damping</span>
+                        <span id="damping-val-mag" style="font-family: monospace; font-weight: bold; font-size: 0.95rem; color: #8b5cf6;">0.15</span>
+                    </div>
+                    <input type="range" id="damping-slider-mag" min="0.01" max="1.0" step="0.01" value="0.15" style="width: 100%; accent-color: #8b5cf6; background: rgba(255,255,255,0.05); border-radius: 4px; height: 6px; cursor: pointer; border: none; outline: none;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">
+                        <span>0.01 (Heavy)</span>
+                        <span>1.00 (None)</span>
+                    </div>
+                </div>
+
+                <!-- Attitude Damping -->
+                <div style="background: rgba(0,0,0,0.15); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px; align-items: center;">
+                        <span style="font-weight: bold; font-size: 0.85rem; color: #f59e0b;">Attitude Damping</span>
+                        <span id="damping-val-att" style="font-family: monospace; font-weight: bold; font-size: 0.95rem; color: #f59e0b;">0.15</span>
+                    </div>
+                    <input type="range" id="damping-slider-att" min="0.01" max="1.0" step="0.01" value="0.15" style="width: 100%; accent-color: #f59e0b; background: rgba(255,255,255,0.05); border-radius: 4px; height: 6px; cursor: pointer; border: none; outline: none;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">
+                        <span>0.01 (Heavy)</span>
+                        <span>1.00 (None)</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
     </div>
 
     <script>
@@ -472,9 +645,14 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
         let wsConnected = false;
         let activeTab = 'dashboard';
 
-        let headingRaw = 0, headingHard = 0, headingSoft = 0, headingTilt = 0;
-        let rotRaw = 0, rotHard = 0, rotSoft = 0, rotTilt = 0;
+        let headingRaw = 0, headingHard = 0, headingSoft = 0, headingOpt3 = 0, headingTilt = 0, headingHarmonic = 0;
+        let rotRaw = 0, rotHard = 0, rotSoft = 0, rotOpt3 = 0, rotTilt = 0, rotHarmonic = 0;
         let currentRoll = 0, currentPitch = 0;
+        let isNvsSynced = false;
+
+        // Damping variables for displayed values
+        let dampedMxRaw = 0, dampedMyRaw = 0, dampedMzRaw = 0;
+        let dampedMxCal = 0, dampedMyCal = 0, dampedMzCal = 0;
 
         let scene, camera, renderer, trackerMesh;
         let scene2, camera2, renderer2, trackerMesh2;
@@ -488,10 +666,82 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
             return current + diff;
         }
 
+        function setIcmMode(mode) {
+            fetch(`/set_icm_mode?mode=${mode}`)
+                .then(response => response.text())
+                .then(text => {
+                    if (text === "OK") {
+                        console.log(`Successfully switched navigation filter to Mode ${mode}`);
+                    } else {
+                        alert(`Failed to set navigation filter: ${text}`);
+                    }
+                })
+                .catch(err => console.error("Error setting navigation filter:", err));
+        }
+
         window.addEventListener('load', () => {
             initThreeJS();
+            initDampingSliders();
             initWebSockets();
         });
+
+        function initDampingSliders() {
+            // Accelerometer Damping Slider
+            const sliderAcc = document.getElementById('damping-slider-acc');
+            const valAcc = document.getElementById('damping-val-acc');
+            let k_acc = parseFloat(localStorage.getItem('damping_factor_acc')) || 0.15;
+            sliderAcc.value = k_acc;
+            valAcc.innerText = k_acc.toFixed(2);
+            sliderAcc.oninput = function() {
+                localStorage.setItem('damping_factor_acc', this.value);
+                valAcc.innerText = parseFloat(this.value).toFixed(2);
+            };
+            sliderAcc.onchange = function() {
+                fetch(`/set-damping?sensor=acc&val=${this.value}`).catch(err => console.error(err));
+            };
+
+            // Gyroscope Damping Slider
+            const sliderGyro = document.getElementById('damping-slider-gyro');
+            const valGyro = document.getElementById('damping-val-gyro');
+            let k_gyro = parseFloat(localStorage.getItem('damping_factor_gyro')) || 0.15;
+            sliderGyro.value = k_gyro;
+            valGyro.innerText = k_gyro.toFixed(2);
+            sliderGyro.oninput = function() {
+                localStorage.setItem('damping_factor_gyro', this.value);
+                valGyro.innerText = parseFloat(this.value).toFixed(2);
+            };
+            sliderGyro.onchange = function() {
+                fetch(`/set-damping?sensor=gyro&val=${this.value}`).catch(err => console.error(err));
+            };
+
+            // Magnetometer Damping Slider
+            const sliderMag = document.getElementById('damping-slider-mag');
+            const valMag = document.getElementById('damping-val-mag');
+            let k_mag = parseFloat(localStorage.getItem('damping_factor_mag')) || 0.15;
+            sliderMag.value = k_mag;
+            valMag.innerText = k_mag.toFixed(2);
+            sliderMag.oninput = function() {
+                localStorage.setItem('damping_factor_mag', this.value);
+                valMag.innerText = parseFloat(this.value).toFixed(2);
+            };
+            sliderMag.onchange = function() {
+                fetch(`/set-damping?sensor=mag&val=${this.value}`).catch(err => console.error(err));
+            };
+
+            // Attitude Damping Slider
+            const sliderAtt = document.getElementById('damping-slider-att');
+            const valAtt = document.getElementById('damping-val-att');
+            let k_att = parseFloat(localStorage.getItem('damping_factor_att')) || 0.15;
+            sliderAtt.value = k_att;
+            valAtt.innerText = k_att.toFixed(2);
+            sliderAtt.oninput = function() {
+                localStorage.setItem('damping_factor_att', this.value);
+                valAtt.innerText = parseFloat(this.value).toFixed(2);
+            };
+            sliderAtt.onchange = function() {
+                fetch(`/set-damping?sensor=att&val=${this.value}`).catch(err => console.error(err));
+            };
+        }
 
         function initWebSockets() {
             document.getElementById('status-dot').className = 'status-dot connected';
@@ -501,27 +751,93 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                 fetch('/data')
                     .then(response => response.json())
                     .then(data => {
-                        headingRaw = data.raw;
-                        headingHard = data.hard;
-                        headingSoft = data.hardSoft;
-                        // Un-mirror the ESP32's output for correct UI windrose rotation direction (N -> E/O -> S -> W)
-                        headingTilt = 360 - data.icm;
-                        if (headingTilt >= 360) headingTilt -= 360;
+                        // Load dynamic damping coefficients from localStorage
+                        let k_acc = parseFloat(localStorage.getItem('damping_factor_acc')) || 0.15;
+                        let k_gyro = parseFloat(localStorage.getItem('damping_factor_gyro')) || 0.15;
+                        let k_mag = parseFloat(localStorage.getItem('damping_factor_mag')) || 0.15;
+                        let k_att = parseFloat(localStorage.getItem('damping_factor_att')) || 0.15;
+
+                        // Synchronize damping sliders with NVS values on the first poll
+                        if (!isNvsSynced && data.damp_acc !== undefined) {
+                            isNvsSynced = true;
+                            
+                            k_acc = parseFloat(data.damp_acc);
+                            document.getElementById('damping-slider-acc').value = k_acc;
+                            document.getElementById('damping-val-acc').innerText = k_acc.toFixed(2);
+                            localStorage.setItem('damping_factor_acc', k_acc);
+
+                            k_gyro = parseFloat(data.damp_gyro);
+                            document.getElementById('damping-slider-gyro').value = k_gyro;
+                            document.getElementById('damping-val-gyro').innerText = k_gyro.toFixed(2);
+                            localStorage.setItem('damping_factor_gyro', k_gyro);
+
+                            k_mag = parseFloat(data.damp_mag);
+                            document.getElementById('damping-slider-mag').value = k_mag;
+                            document.getElementById('damping-val-mag').innerText = k_mag.toFixed(2);
+                            localStorage.setItem('damping_factor_mag', k_mag);
+
+                            k_att = parseFloat(data.damp_att);
+                            document.getElementById('damping-slider-att').value = k_att;
+                            document.getElementById('damping-val-att').innerText = k_att.toFixed(2);
+                            localStorage.setItem('damping_factor_att', k_att);
+                        }
+
+                        // Angle EMA filter with modular wrap-around 0/360 boundary protection
+                        function dampAngle(current, target, k) {
+                            if (current === 0 && target !== 0) return target;
+                            let diff = target - current;
+                            if (diff > 180) diff -= 360;
+                            if (diff < -180) diff += 360;
+                            let damped = current + k * diff;
+                            return (damped % 360 + 360) % 360;
+                        }
+
+                        headingRaw = dampAngle(headingRaw, data.raw, k_mag);
+                        headingHard = dampAngle(headingHard, data.hard, k_mag);
+                        headingSoft = dampAngle(headingSoft, data.hardSoft, k_mag);
+                        headingOpt3 = dampAngle(headingOpt3, data.opt3, k_mag);
+                        headingTilt = dampAngle(headingTilt, data.icm_no_offset, k_mag);
+                        headingHarmonic = dampAngle(headingHarmonic, data.harmonic_hdg, k_mag);
+
                         let rollVal = Number(data.roll !== undefined ? data.roll : (data.ir || 0));
                         let pitchVal = Number(data.pitch !== undefined ? data.pitch : (data.ip || 0));
                         if (isNaN(rollVal)) rollVal = 0;
                         if (isNaN(pitchVal)) pitchVal = 0;
-                        currentRoll = rollVal;
-                        currentPitch = pitchVal;
+
+                        // Apply attitude damping
+                        currentRoll = currentRoll * (1 - k_att) + rollVal * k_att;
+                        currentPitch = currentPitch * (1 - k_att) + pitchVal * k_att;
+
+                        if (data.cal_load !== undefined) {
+                            document.getElementById('cal-load-text').innerText = data.cal_load;
+                        }
 
                         document.getElementById('val-rose-raw').innerText = Math.round(headingRaw).toString().padStart(3, '0') + '°';
                         document.getElementById('val-rose-hard').innerText = Math.round(headingHard).toString().padStart(3, '0') + '°';
                         document.getElementById('val-rose-soft').innerText = Math.round(headingSoft).toString().padStart(3, '0') + '°';
+                        document.getElementById('val-rose-opt3').innerText = Math.round(headingOpt3).toString().padStart(3, '0') + '°';
                         document.getElementById('val-rose-tilt').innerText = Math.round(headingTilt).toString().padStart(3, '0') + '°';
+                        document.getElementById('val-rose-harmonic').innerText = Math.round(headingHarmonic).toString().padStart(3, '0') + '°';
 
                         document.getElementById('val-pitch').innerText = currentPitch.toFixed(1) + '°';
                         document.getElementById('val-roll').innerText = currentRoll.toFixed(1) + '°';
-                        document.getElementById('val-raw-mag').innerText = `${Math.round(data.mx_raw)}, ${Math.round(data.my_raw)}, ${Math.round(data.mz_raw)}`;
+
+                        // Apply Accelerometer/Gyroscope damping variables to displayed raw and calibrated magnetometer arrays
+                        let mxRawTarget = data.mx_raw || 0;
+                        let myRawTarget = data.my_raw || 0;
+                        let mzRawTarget = data.mz_raw || 0;
+                        dampedMxRaw = dampedMxRaw * (1 - k_acc) + mxRawTarget * k_acc;
+                        dampedMyRaw = dampedMyRaw * (1 - k_acc) + myRawTarget * k_acc;
+                        dampedMzRaw = dampedMzRaw * (1 - k_acc) + mzRawTarget * k_acc;
+
+                        let mxCalTarget = data.mx_cal || 0;
+                        let myCalTarget = data.my_cal || 0;
+                        let mzCalTarget = data.mz_cal || 0;
+                        dampedMxCal = dampedMxCal * (1 - k_acc) + mxCalTarget * k_acc;
+                        dampedMyCal = dampedMyCal * (1 - k_acc) + myCalTarget * k_acc;
+                        dampedMzCal = dampedMzCal * (1 - k_acc) + mzCalTarget * k_acc;
+
+                        document.getElementById('val-raw-mag').innerText = `${Math.round(dampedMxRaw)}, ${Math.round(dampedMyRaw)}, ${Math.round(dampedMzRaw)}`;
                         document.getElementById('val-cal-mag').innerText = `${Math.round(data.mx_cal)}, ${Math.round(data.my_cal)}, ${Math.round(data.mz_cal)}`;
 
                         rotRaw = getShortestRotation(rotRaw, headingRaw);
@@ -530,8 +846,12 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                         document.getElementById('rose-hard-needle').style.transform = `rotate(${rotHard}deg)`;
                         rotSoft = getShortestRotation(rotSoft, headingSoft);
                         document.getElementById('rose-soft-needle').style.transform = `rotate(${rotSoft}deg)`;
+                        rotOpt3 = getShortestRotation(rotOpt3, headingOpt3);
+                        document.getElementById('rose-opt3-needle').style.transform = `rotate(${rotOpt3}deg)`;
                         rotTilt = getShortestRotation(rotTilt, headingTilt);
                         document.getElementById('rose-tilt-needle').style.transform = `rotate(${rotTilt}deg)`;
+                        rotHarmonic = getShortestRotation(rotHarmonic, headingHarmonic);
+                        document.getElementById('rose-harmonic-needle').style.transform = `rotate(${rotHarmonic}deg)`;
 
                         if (trackerMesh) {
                             const yawRad = -headingTilt * Math.PI / 180;
@@ -560,6 +880,16 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                         if (gpVal) gpVal.innerText = currentPitch.toFixed(1) + '°';
                         const grVal = document.getElementById('gauge-roll-val');
                         if (grVal) grVal.innerText = currentRoll.toFixed(1) + '°';
+
+                        // Synchronize Active Filter Radio Button with the active mode
+                        if (data.icm_mode !== undefined) {
+                            let radios = document.getElementsByName('icm-mode');
+                            for (let r of radios) {
+                                if (parseInt(r.value) === data.icm_mode) {
+                                    r.checked = true;
+                                }
+                            }
+                        }
 
                         if (trackerMesh2) {
                             const pitchRad = currentPitch * Math.PI / 180;
@@ -671,6 +1001,3 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
     </script>
 </body>
 </html>
-)rawliteral";
-
-#endif

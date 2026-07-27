@@ -12,7 +12,6 @@
 #include <math.h>
 #include <RoboCompute.h>
 #include <ICM_20948.h>
-#include <MadgwickAHRS.h>
 #include "compass.h"
 #include "main.h"
 #include "datastorage.h"
@@ -28,6 +27,10 @@
 // Circular averaging buffer size
 #define NUM_DIRECTIONS 30
 
+// Forward declaration of linear interpolation helper
+float getInterpolatedHeading(float h);
+void computeFourierCoefficients();
+
 extern Preferences storage;
 QueueHandle_t compass = NULL;
 QueueHandle_t compassIn = NULL;
@@ -35,13 +38,20 @@ QueueHandle_t compassIn = NULL;
 bool icm_ready = false;
 bool magRejected = false;
 bool firstHeadingRun = true;
+bool yaw_initialized = false;
+bool interp_enabled = false;
 uint32_t lastMicros = 0;
 uint32_t lastInitTime = 0;
 float baselineMag = 50.0f;
 int icm_mode = 4; // Defaults to Mode 4 (Hard & Soft Iron with Pitch & Roll tilt compensation)
+float pr_damping = 0.95f; // Exponential damping factor for pitch and roll (0.00 = none, 0.99 = max)
+float damp_acc = 0.15f;
+float damp_gyro = 0.15f;
+float damp_mag = 0.15f;
+float damp_att = 0.15f;
+float measured_angles[9] = {0.0f, 45.0f, 90.0f, 135.0f, 180.0f, 225.0f, 270.0f, 315.0f, 360.0f};
 
 ICM_20948_I2C icm;
-Madgwick filter;
 
 // Calibration parameters (Stored in Preferences NVM via datastorage)
 float hi_x = 0.0f, hi_y = 0.0f, hi_z = 0.0f;
@@ -65,6 +75,9 @@ extern SemaphoreHandle_t mainDataMutex;
 
 // Global state for web dashboard telemetry
 float global_hdg = 0;
+float global_hdg_no_offset = 0;
+float global_fusion_hdg = 0;
+float fusion_offset = 0.0f; // Startup offset to align 3D Gyro Fusion with 2D compass exactly
 float last_raw_x = 0, last_raw_y = 0, last_raw_z = 0;
 float last_raw_ax = 0, last_raw_ay = 0, last_raw_az = 0;
 uint32_t global_loop_cnt = 0;
@@ -82,6 +95,10 @@ float cal_ring_y[CAL_RING_BUF_SIZE];
 float cal_ring_z[CAL_RING_BUF_SIZE];
 volatile int cal_ring_write_idx = 0;
 volatile int cal_ring_read_idx = 0;
+
+float global_init_heading = 0.0f;
+float global_init_roll = 0.0f;
+float global_init_pitch = 0.0f;
 
 /**
  * @brief Updates the calibration message on the dashboard with an optional audio confirmation.
@@ -130,6 +147,14 @@ bool InitCompass(void)
         float hi[3], si[3];
         memIcmCalib(hi, si, true);
 
+        // Enforce absolute values on startup to recover any older profiles with negative scale factors
+        si[0] = fabs(si[0]);
+        si[1] = fabs(si[1]);
+        si[2] = fabs(si[2]);
+        for (int r = 0; r < 3; r++) {
+            si_matrix[r][r] = fabs(si_matrix[r][r]);
+        }
+
         // Validate that the loaded 3x3 soft-iron matrix contains valid finite values within sensible limits
         bool matrix_valid = true;
         for (int r = 0; r < 3; r++) {
@@ -166,6 +191,14 @@ bool InitCompass(void)
             Serial.println("ICM-20948: WARNING - Loaded calibration or 3x3 matrix is invalid/NaN! Safe fallbacks applied.");
         }
         updateUIHexFloat();
+
+        // Set middle LED (LEDSTATUS) to flash yellow fast during gyro calibration
+        if (ledStatus != NULL) {
+            LedData calLed;
+            calLed.color = CRGB::Yellow;
+            calLed.blink = BLINK_FAST;
+            xQueueSend(ledStatus, (void *)&calLed, 0);
+        }
 
         // 200-sample Gyro Bias (Zero-Rate) Calibration
         Serial.println("ICM-20948: Calibrating gyroscope bias... Keep the device completely static!");
@@ -213,8 +246,31 @@ bool InitCompass(void)
         } else {
             gyro_bias_x = 0.0f; gyro_bias_y = 0.0f; gyro_bias_z = 0.0f;
         }
-        Serial.printf("ICM-20948: Gyroscope calibration complete. Offsets -> X: %.4f, Y: %.4f, Z: %.4f\n", 
+        Serial.printf("ICM-20948: Gyroscope calibration complete. Offsets -> X: %.4f, Y: %.4f, Z: %.4f\n\r", 
                       gyro_bias_x, gyro_bias_y, gyro_bias_z);
+
+        // Play a super happy, ascending major arpeggio victory tune to celebrate successful gyro calibration!
+        if (buzzer != NULL) {
+            int notes[] = {523, 659, 784, 1047}; // C5, E5, G5, C6
+            int durations[] = {120, 120, 120, 350};
+            int pauses[] = {40, 40, 40, 200};
+            for (int i = 0; i < 4; i++) {
+                Buzz note;
+                note.hz = notes[i];
+                note.duration = durations[i];
+                note.pause = pauses[i];
+                note.repeat = 0;
+                xQueueSend(buzzer, (void *)&note, 0);
+            }
+        }
+
+        // Turn off fast blinking status LED after calibration
+        if (ledStatus != NULL) {
+            LedData calLed;
+            calLed.color = CRGB::Black;
+            calLed.blink = BLINK_OFF;
+            xQueueSend(ledStatus, (void *)&calLed, 0);
+        }
 
         // Learn magnetometer baseline at startup
         Serial.println("ICM-20948: Measuring baseline magnetometer field strength... Keep the device completely static!");
@@ -246,7 +302,7 @@ bool InitCompass(void)
                 
                 // Realignment to accelerometer/gyro frame matching native ICM-20948 specification
                 float mx_aligned = mxc;
-                float my_aligned = -myc;
+                float my_aligned = myc;
                 float mz_aligned = -mzc;
                 
                 float norm = sqrt(mx_aligned * mx_aligned + my_aligned * my_aligned + mz_aligned * mz_aligned);
@@ -275,27 +331,23 @@ bool InitCompass(void)
                     final_sum += norms[i];
                     inlier_count++;
                 } else {
-                    Serial.printf("ICM-20948: Outlier baseline measurement rejected: %.2f uT (deviation: %.2f uT)\n", 
+                    Serial.printf("ICM-20948: Outlier baseline measurement rejected: %.2f uT (deviation: %.2f uT)\n\r", 
                                   norms[i], fabs(norms[i] - initial_avg));
                 }
             }
             
             if (inlier_count > 0) {
                 baselineMag = final_sum / inlier_count;
-                Serial.printf("ICM-20948: Magnetometer baseline learned (using %d inliers): %.4f uT\n", inlier_count, baselineMag);
+                Serial.printf("ICM-20948: Magnetometer baseline learned (using %d inliers): %.4f uT\n\r", inlier_count, baselineMag);
             } else {
                 baselineMag = initial_avg; // Fallback to initial raw average
-                Serial.printf("ICM-20948: All baseline samples flagged as outliers! Using raw average: %.4f uT\n", baselineMag);
+                Serial.printf("ICM-20948: All baseline samples flagged as outliers! Using raw average: %.4f uT\n\r", baselineMag);
             }
         } else {
             baselineMag = 50.0f; // Safe fallback
             Serial.println("ICM-20948: Magnetometer baseline learning failed (insufficient samples), using fallback 50.0 uT");
         }
 
-        // Initialize Madgwick filter at 100Hz ODR
-        filter = Madgwick();
-        filter.begin(100);
-        filter.setBeta(0.10f); // Balanced gain to anchor heading while relying on gyroscope during fast rotations, eliminating centripetal/accelerometer overshoot
         firstHeadingRun = true;
         lastMicros = micros(); // Reset timing baseline to prevent huge dt jump on task resume!
         lastInitTime = millis(); // Reset high-beta fast convergence timer!
@@ -313,12 +365,26 @@ bool InitCompass(void)
     MechanicalCorrection(&mainData.mechanicCorrection, true);
     extern int compass_avg_len;
     memCompassAvg(&compass_avg_len, GET);
+    memPrDamping(&pr_damping, GET);
+    memDampingFactors(&damp_acc, &damp_gyro, &damp_mag, &damp_att, GET);
+    // Attitude damping dynamically maps to pr_damping (where pr_damping = 1.0f - damp_att)
+    pr_damping = 1.0f - damp_att;
+    if (pr_damping < 0.0f) pr_damping = 0.0f;
+    if (pr_damping > 0.99f) pr_damping = 0.99f;
     
     float trim_val = 0.0f;
     bool trim_en = false;
     memCompassTrim(&trim_val, &trim_en, GET);
     mainData.compass_trim = trim_val;
     mainData.compass_trim_enabled = trim_en;
+
+    // Initialize 8-point linear interpolation table from Preferences NVM
+    memInterpolationTable(measured_angles, GET);
+    computeFourierCoefficients();
+    memInterpEnabled(&interp_enabled, GET);
+
+    // Reset complementary yaw filter tracking state on sensor restart
+    yaw_initialized = false;
     return icm_ready;
 }
 
@@ -477,37 +543,40 @@ void CompassTask(void *arg) {
                 continue;
             }
 
-            float ax_raw = icm.accX();
-            float ay_raw = icm.accY();
-            float az_raw = icm.accZ();
+            float ax_raw_val = icm.accX();
+            float ay_raw_val = icm.accY();
+            float az_raw_val = icm.accZ();
 
-            float mx_raw_val = icm.magX();
-            float my_raw_val = icm.magY();
-            float mz_raw_val = icm.magZ();
-
-            extern bool global_is_calibrating;
-            if (global_is_calibrating) {
-                // Collect point cloud at 100Hz and expose raw values for fast, clean polling, bypassing heavy calculations
-                last_raw_x = mx_raw_val;
-                last_raw_y = my_raw_val;
-                last_raw_z = mz_raw_val;
-                
-                last_raw_ax = ax_raw;
-                last_raw_ay = ay_raw;
-                last_raw_az = az_raw;
-
-                // Push onto the lock-free ring buffer for smooth, complete HTTP batch polling
-                int next_idx = (cal_ring_write_idx + 1) % CAL_RING_BUF_SIZE;
-                if (next_idx != cal_ring_read_idx) { // Prevent overflow
-                    cal_ring_x[cal_ring_write_idx] = mx_raw_val;
-                    cal_ring_y[cal_ring_write_idx] = my_raw_val;
-                    cal_ring_z[cal_ring_write_idx] = mz_raw_val;
-                    cal_ring_write_idx = next_idx;
-                }
-                
-                vTaskDelayUntil(&xLastWakeTime, xFrequency);
-                continue;
+            // Apply Accelerometer Damping (EMA)
+            static float ax_prev = 0.0f, ay_prev = 0.0f, az_prev = 0.0f;
+            static bool first_acc = true;
+            if (first_acc) {
+                ax_prev = ax_raw_val; ay_prev = ay_raw_val; az_prev = az_raw_val;
+                first_acc = false;
             }
+            float ax_raw = damp_acc * ax_raw_val + (1.0f - damp_acc) * ax_prev;
+            float ay_raw = damp_acc * ay_raw_val + (1.0f - damp_acc) * ay_prev;
+            float az_raw = damp_acc * az_raw_val + (1.0f - damp_acc) * az_prev;
+            ax_prev = ax_raw; ay_prev = ay_raw; az_prev = az_raw;
+
+            float mx_raw_unfiltered = icm.magX();
+            float my_raw_unfiltered = icm.magY();
+            float mz_raw_unfiltered = icm.magZ();
+
+            // Apply Magnetometer Damping (EMA)
+            static float mx_prev = 0.0f, my_prev = 0.0f, mz_prev = 0.0f;
+            static bool first_mag = true;
+            if (first_mag) {
+                mx_prev = mx_raw_unfiltered; my_prev = my_raw_unfiltered; mz_prev = mz_raw_unfiltered;
+                first_mag = false;
+            }
+            float mx_raw_val = damp_mag * mx_raw_unfiltered + (1.0f - damp_mag) * mx_prev;
+            float my_raw_val = damp_mag * my_raw_unfiltered + (1.0f - damp_mag) * my_prev;
+            float mz_raw_val = damp_mag * mz_raw_unfiltered + (1.0f - damp_mag) * mz_prev;
+            mx_prev = mx_raw_val; my_prev = my_raw_val; mz_prev = mz_raw_val;
+
+            // The cal_ring buffer and global_is_calibrating pause block have been removed.
+            // Raw telemetry variables are stored later in the task loop.
 
             // Check for NaNs to prevent corrupting the Madgwick filter's internal state
             if (isnan(ax_raw) || isnan(ay_raw) || isnan(az_raw)) {
@@ -532,16 +601,22 @@ void CompassTask(void *arg) {
             float mzc = mz_hi;
 
             if (icm_mode == 2 || icm_mode == 4) {
-                mxc = si_matrix[0][0] * mx_hi + si_matrix[0][1] * my_hi + si_matrix[0][2] * mz_hi;
-                myc = si_matrix[1][0] * mx_hi + si_matrix[1][1] * my_hi + si_matrix[1][2] * mz_hi;
-                mzc = si_matrix[2][0] * mx_hi + si_matrix[2][1] * my_hi + si_matrix[2][2] * mz_hi;
+                // Force positive diagonal gains in real-time to prevent axis inversion and dynamic creeping
+                float sxx = fabs(si_matrix[0][0]);
+                float syy = fabs(si_matrix[1][1]);
+                float szz = fabs(si_matrix[2][2]);
+                mxc = sxx * mx_hi + si_matrix[0][1] * my_hi + si_matrix[0][2] * mz_hi;
+                myc = si_matrix[1][0] * mx_hi + syy * my_hi + si_matrix[1][2] * mz_hi;
+                mzc = si_matrix[2][0] * mx_hi + si_matrix[2][1] * my_hi + szz * mz_hi;
             }
 
             // Coordinate Axis Realignment (Align ICM Magnetometer with Accelerometer/Gyroscope coordinate frame)
-            // matching standard ICM-20948 AK09916 coordinate alignment specification:
-            // X_aligned = X_calibrated, Y_aligned = -Y_calibrated, Z_aligned = -Z_calibrated
+            // Account for upside-down physical mounting of the sensor by aligning magnetometer Y with the positive gyro frame
+            // float mx_cal_aligned = myc;
+            // float my_cal_aligned = -mxc;
+            // float mz_cal_aligned = -mzc;
             float mx_cal_aligned = mxc;
-            float my_cal_aligned = -myc;
+            float my_cal_aligned = myc;
             float mz_cal_aligned = -mzc;
 
             // Check for NaNs to prevent corrupting the Madgwick filter's internal state
@@ -552,6 +627,12 @@ void CompassTask(void *arg) {
 
             // Calculate 3D magnetometer field norm once for use in both validation and rejection logic (optimizes FPU math)
             float magNorm = sqrtf(mx_cal_aligned * mx_cal_aligned + my_cal_aligned * my_cal_aligned + mz_cal_aligned * mz_cal_aligned);
+            // Aligned with the unswapped, un-inverted, level coordinate frame of headingFull (atan2f(mxc, myc))
+            // This forces MErr (headingFull - headingFilterMag) to lock onto exactly 0.0 degrees when the buoy is level!
+            float headingFilterMag = atan2f(mxc, myc) * 57.29578f;
+            if (headingFilterMag < 0.0f)
+                headingFilterMag += 360.0f;
+
 
             // -------------------- INSTANT 3D ATTITUDE PRE-ALIGNMENT --------------------
             if (firstHeadingRun) {
@@ -562,8 +643,8 @@ void CompassTask(void *arg) {
                 }
 
                 // Calculate analytical 3D roll and pitch directly from gravity vector (accelerometer) at startup
-                float init_roll = atan2f(ay_raw, az_raw) * 57.29578f;
-                float init_pitch = atan2f(-ax_raw, sqrtf(ay_raw * ay_raw + az_raw * az_raw)) * 57.29578f;
+                float init_roll = -atan2f(ay_raw, az_raw) * 57.29578f;
+                float init_pitch = atan2f(ax_raw, sqrtf(ay_raw * ay_raw + az_raw * az_raw)) * 57.29578f;
 
                 // Calculate soft-iron compensated heading matching standard display coordinates
                 float softHeading = atan2(myc, mxc) * 180.0 / M_PI;
@@ -573,14 +654,23 @@ void CompassTask(void *arg) {
 
                 // Calculate analytical heading directly from calibrated magnetometer projection
                 // matching the filter's native, mirrored right-handed coordinate frame.
-                float init_heading = 360.0f - softHeading;
-                if (init_heading >= 360.0f) init_heading -= 360.0f;
+                float init_heading = atan2f(my_cal_aligned, mx_cal_aligned) * 57.29578f;
+                if (init_heading < 0.0f)
+                    init_heading += 360.0f;
+                init_heading = 360.0f - init_heading;
+                if (init_heading >= 360.0f)
+                    init_heading -= 360.0f;
+
+
                 
-                // Instantly pre-align the Madgwick filter's 3D orientation state BEFORE any updates are run!
-                filter.initializeAttitude(init_roll, init_pitch, init_heading);
+                // Store startup values for diagnostics
+                global_init_heading = init_heading;
+                global_init_roll = init_roll;
+                global_init_pitch = init_pitch;
                 filtered_roll = init_roll;
                 filtered_pitch = init_pitch;
                 init_filters = false;
+                baselineMag = magNorm; // Re-learn local baseline from newly calibrated readings
                 firstHeadingRun = false;
             }
 
@@ -593,22 +683,26 @@ void CompassTask(void *arg) {
                 dt = 0.01f; // Safe fallback to 100Hz
             }
 
-            // Dynamically synchronize filter's integration step with actual elapsed time
-            filter.setDeltaTime(dt);
+            float gx_raw_val = icm.gyrX();
+            float gy_raw_val = icm.gyrY();
+            float gz_raw_val = icm.gyrZ();
 
-            // -------------------- FAST-START DYNAMIC BETA GAIN --------------------
-            // Boost gain to 0.25f during the first 5 seconds of boot or re-init to guarantee instant stable locking,
-            // then relax to 0.10f for highly stable dynamic trials.
-            if (millis() - lastInitTime < 5000) {
-                filter.setBeta(0.25f);
-            } else {
-                filter.setBeta(0.10f);
+            // Apply Gyroscope Damping (EMA)
+            static float gx_prev = 0.0f, gy_prev = 0.0f, gz_prev = 0.0f;
+            static bool first_gyro = true;
+            if (first_gyro) {
+                gx_prev = gx_raw_val; gy_prev = gy_raw_val; gz_prev = gz_raw_val;
+                first_gyro = false;
             }
+            gx_raw_val = damp_gyro * gx_raw_val + (1.0f - damp_gyro) * gx_prev;
+            gy_raw_val = damp_gyro * gy_raw_val + (1.0f - damp_gyro) * gy_prev;
+            gz_raw_val = damp_gyro * gz_raw_val + (1.0f - damp_gyro) * gz_prev;
+            gx_prev = gx_raw_val; gy_prev = gy_raw_val; gz_prev = gz_raw_val;
 
-            // Madgwick library expects gyroscope rates in degrees per second (deg/s)
-            float gx = icm.gyrX() - gyro_bias_x;
-            float gy = icm.gyrY() - gyro_bias_y;
-            float gz = icm.gyrZ() - gyro_bias_z;
+            // Madgwick library expects gyroscope rates in degrees per second (deg/s) and converts internally
+            float gx = (gx_raw_val - gyro_bias_x);
+            float gy = (gy_raw_val - gyro_bias_y);
+            float gz = (gz_raw_val - gyro_bias_z);
 
             // Check for gyroscope NaNs to protect the filter's internal quaternion state
             if (isnan(gx) || isnan(gy) || isnan(gz)) {
@@ -627,91 +721,155 @@ void CompassTask(void *arg) {
             // Detect magnetic anomalies (e.g. thruster interference or metal proximity)
             bool magDisturbed = (magNorm > maxField || magNorm < minField);
 
-            if (magDisturbed) {
-                // High magnetic disturbance -> ignore magnetometer, run 6-DOF IMU filter update
-                filter.updateIMU(gx, gy, gz, ax_raw, ay_raw, az_raw);
-                magRejected = true;
-            } else {
-                // Valid magnetic field -> run full 9-DOF AHRS filter update
-                filter.update(gx, gy, gz, ax_raw, ay_raw, az_raw, mx_cal_aligned, my_cal_aligned, mz_cal_aligned);
-                magRejected = false;
+            magRejected = magDisturbed;
+
+            // Calculate raw pitch and roll from gravity vector (accelerometer) in radians
+            // Roll: -atan2(ay, az)
+            // Pitch: atan2(ax, sqrt(ay^2 + az^2))
+            float phi = -atan2f(ay_raw, az_raw);
+            float theta = atan2f(ax_raw, sqrtf(ay_raw * ay_raw + az_raw * az_raw));
+
+            // Apply Pitch/Roll Damping (exponential moving average)
+            // pr_damping goes from 0.0f (no damping) to 0.99f (max damping)
+            static float roll_prev = 0.0f;
+            static float pitch_prev = 0.0f;
+            static bool first_att = true;
+            if (first_att) {
+                roll_prev = phi;
+                pitch_prev = theta;
+                first_att = false;
             }
 
-            // Smooth raw accelerometer readings SPECIFICALLY for analytical pitch/roll to reject high-frequency motor vibration.
-            // Stage 1: Pre-angle gravity vector smoothing (97% old, 3% new) to prevent non-linear atan2f amplification
-            static float ax_smoothed = 0.0f;
-            static float ay_smoothed = 0.0f;
-            static float az_smoothed = 0.0f;
-            static bool first_accel = true;
-            
-            if (first_accel) {
-                ax_smoothed = ax_raw;
-                ay_smoothed = ay_raw;
-                az_smoothed = az_raw;
-                first_accel = false;
-            } else {
-                ax_smoothed = 0.97f * ax_smoothed + 0.03f * ax_raw;
-                ay_smoothed = 0.97f * ay_smoothed + 0.03f * ay_raw;
-                az_smoothed = 0.97f * az_smoothed + 0.03f * az_raw;
+            // Alpha is the response coefficient. If damping is 0.95f, alpha is 0.05f.
+            float alpha = 1.0f - pr_damping;
+            if (alpha < 0.01f) alpha = 0.01f;
+            if (alpha > 1.0f) alpha = 1.0f;
+
+            phi = alpha * phi + (1.0f - alpha) * roll_prev;
+            theta = alpha * theta + (1.0f - alpha) * pitch_prev;
+
+            roll_prev = phi;
+            pitch_prev = theta;
+
+            // Output Roll/Pitch in degrees
+            float roll = phi * 57.29578f;
+            float pitch = theta * 57.29578f;
+
+            // -------------------- UNIFIED HEADING CALCULATIONS (MATCHING PROTOTYPE) --------------------
+            // 1. Raw Heading
+            // float headingRaw = atan2f(mx_raw_val, my_raw_val) * 57.29578f;
+            float headingRaw = atan2f(my_raw_val, mx_raw_val) * 57.29578f;
+            if (headingRaw < 0.0f) 
+                headingRaw += 360.0f;
+
+            // 2. Hard Iron Heading
+            float hx = mx_raw_val - hi_x;
+            float hy = my_raw_val - hi_y;
+            float headingHard = atan2f(hx, hy) * 57.29578f;
+            if (headingHard < 0.0f) headingHard += 360.0f;
+
+            // 3. Soft Iron Heading
+            float sx = mx_raw_val * si_x;
+            float sy = my_raw_val * si_y;
+            float headingSoft = atan2f(sx, sy) * 57.29578f;
+            if (headingSoft < 0.0f) headingSoft += 360.0f;
+
+            // 4. Both iron comp (Offsets + Scaling)
+            float bx = hx * si_x;
+            float by = hy * si_y;
+            float headingBoth = atan2f(bx, by) * 57.29578f;
+            if (headingBoth < 0.0f) headingBoth += 360.0f;
+
+            // 5. Full Tilt + Both Iron (offsets + scaling + Pitch/Roll tilt projection)
+            float cosRoll = cos(phi);
+            float sinRoll = sin(phi);
+            float cosPitch = cos(theta);
+            float sinPitch = sin(theta);
+
+            float cx_cal = hx * si_x;
+            float cy_cal = hy * si_y;
+            float cz_cal = (mz_raw_val - hi_z) * si_z;
+
+            float Xh = cx_cal * cosPitch + cy_cal * sinRoll * sinPitch - cz_cal * cosRoll * sinPitch;
+            float Yh = cy_cal * cosRoll + cz_cal * sinRoll;
+
+            // Correct un-swapped, un-inverted tilt-compensated formula from the working prototype (atan2f(Xh, Yh))
+            // This is completely stable at high rolls and prevents any quadrant flips!
+            float headingFull = atan2f(Xh, Yh) * 57.29578f;
+            if (headingFull < 0.0f) headingFull += 360.0f;
+
+
+
+            // -------------------- GYRO-STABILIZED COMPLEMENTARY YAW FILTER (REPLACES MADGWICK AHRS) --------------------
+            // Integrates the Z-axis gyroscope rate (yaw rate) and slowly anchors onto headingFull.
+            // This is completely immune to coordinate frame mismatches and eliminates any potential gyro creep.
+            static float yaw_estimate = 0.0f;
+            if (!yaw_initialized) {
+                yaw_estimate = headingFull; // Initialize to current analytical heading immediately on startup/recovery
+                yaw_initialized = true;
             }
 
-            // Calculate raw angles from Stage 1 smoothed gravity vector
-            float roll_raw = atan2f(ay_smoothed, az_smoothed) * 57.29578f;
-            float pitch_raw = atan2f(-ax_smoothed, sqrtf(ay_smoothed * ay_smoothed + az_smoothed * az_smoothed)) * 57.29578f;
+            // Project the 3D gyroscope rates onto Earth's global vertical Z-axis (GNC Euler projection).
+            // This completely eliminates local roll/pitch rate bleed-through into the Z-gyro during heavy tilts!
+            float cosTheta = cosf(theta);
+            if (fabs(cosTheta) < 0.1f) cosTheta = (cosTheta >= 0.0f) ? 0.1f : -0.1f; // Prevent division by zero
+            float global_gz = (gy * sinf(phi) + gz * cosf(phi)) / cosTheta;
 
-            // Stage 2: Post-angle exponential moving average smoothing (97% old, 3% new) for massive high-frequency attenuation
-            static float roll_smoothed = 0.0f;
-            static float pitch_smoothed = 0.0f;
-            static bool first_angle = true;
-            
-            if (first_angle) {
-                roll_smoothed = roll_raw;
-                pitch_smoothed = pitch_raw;
-                first_angle = false;
-            } else {
-                roll_smoothed = 0.97f * roll_smoothed + 0.03f * roll_raw;
-                pitch_smoothed = 0.97f * pitch_smoothed + 0.03f * pitch_raw;
+            // For your physical mounting/sensor alignment, a clockwise (right) turn produces a negative gz value
+            // while the compass heading increases clockwise. Therefore, we subtract global_gz * dt to align them!
+            yaw_estimate -= global_gz * dt;
+
+            // Handle angular wrap-around/difference safely
+            float err = headingFull - yaw_estimate;
+            if (err > 180.0f) err -= 360.0f;
+            if (err < -180.0f) err += 360.0f;
+
+            // Apply compass anchoring ONLY when the magnetometer is not disturbed.
+            // If disturbed, we rely purely on high-precision gyroscope integration (magDisturbed -> gyro only).
+            // Once recovered, it seamlessly re-locks onto the compass!
+            if (!magDisturbed) {
+                // A complementary gain of 0.005f at 100Hz ODR gives an excellent long-term time constant,
+                // letting the Gyroscope carry short-term dynamics, while the compass removes long-term drift.
+                yaw_estimate += err * 0.005f;
             }
 
-            float roll = roll_smoothed;
-            float pitch = pitch_smoothed;
+            // Wrap yaw_estimate to [0, 360)
+            while (yaw_estimate < 0.0f) yaw_estimate += 360.0f;
+            while (yaw_estimate >= 360.0f) yaw_estimate -= 360.0f;
 
-            float mYaw = filter.getYaw();
-            if (mYaw < 0.0f) mYaw += 360.0f;
+            float headingFusion = yaw_estimate;
+            global_fusion_hdg = headingFusion;
 
-            // Calculate raw heading based on selected ICM mode
-            float raw_heading = 0.0f;
+            // Debug
+            static uint32_t lastDebug = 0;
 
-            if (icm_mode == 3 || icm_mode == 4) {
-                // Calculate analytical tilt-compensated heading (completely gyro-free) using aligned roll & pitch angles
-                // Must use the sensor's native coordinate frame angles to properly project its 3D magnetic vector!
-                float roll_rad = roll * 0.0174532925f;
-                float pitch_rad = pitch * 0.0174532925f;
-
-                float cosRoll = cosf(roll_rad);
-                float sinRoll = sinf(roll_rad);
-                float cosPitch = cosf(pitch_rad);
-                float sinPitch = sinf(pitch_rad);
-
-                // Project calibrated magnetometer readings onto the horizontal plane using the aligned angles:
-                // X_h = m_x cos(p) + m_y sin(r) sin(p) + m_z cos(r) sin(p)
-                // Y_h = m_y cos(r) - m_z sin(r)
-                float Xh = mx_cal_aligned * cosPitch + my_cal_aligned * sinRoll * sinPitch + mz_cal_aligned * cosRoll * sinPitch;
-                float Yh = my_cal_aligned * cosRoll - mz_cal_aligned * sinRoll;
-
-                raw_heading = atan2f(Yh, Xh) * 57.29578f;
-                if (raw_heading < 0.0f) raw_heading += 360.0f;
-            } else {
-                // Uncompensated 2D heading (no tilt)
-                raw_heading = atan2f(my_cal_aligned, mx_cal_aligned) * 57.29578f;
-                if (raw_heading < 0.0f) raw_heading += 360.0f;
+            if (millis() - lastDebug > 1000)
+            {
+                lastDebug = millis();
+                Serial.printf(
+                    "HDG=%.1f FUS=%.1f ERR=%.1f R=%.1f P=%.1f MAG=%s\n\r",
+                    headingFull,
+                    headingFusion,
+                    err,
+                    roll,
+                    pitch,
+                    magDisturbed ? "BAD" : "OK"
+                );
             }
-
-            float heading = raw_heading;
-
-            // Standard direction of rotation matches the physical compass rose
-            if (heading < 0.0f) heading += 360.0f;
-            if (heading >= 360.0f) heading -= 360.0f;
+                            
+                        
+            // Select heading based on active calibration mode
+            float heading = headingFull; // Defaults to Option 5 (Analytical Tilt-Compensated Mode 3)
+            if (icm_mode == 4) {
+                // Mode 4/Button 5: High-performance, gyro-stabilized, complementary 3D fusion output (with Gyro)
+                heading = headingFusion;
+            } else if (icm_mode == 2) {
+                heading = headingBoth;
+            } else if (icm_mode == 1) {
+                heading = headingHard;
+            } else if (icm_mode == 0) {
+                heading = headingRaw;
+            }
 
             // Smooth result based on the dynamic compass_avg_len parameter stored in NVS
             heading = CompassAverage(heading);
@@ -765,7 +923,17 @@ void CompassTask(void *arg) {
 
             // -------------------- OUTPUT TO QUEUE & GLOBALS --------------------
             if (mainDataMutex && xSemaphoreTake(mainDataMutex, portMAX_DELAY)) {
+                // Add the manual compass offset first
                 heading += mainData.compassOffset;
+                while (heading < 0.0f) heading += 360.0f;
+                while (heading >= 360.0f) heading -= 360.0f;
+
+                global_hdg_no_offset = heading; // Value after manual offset is added and before harmonic correction
+
+                // Apply 8-point smooth harmonic curve correction directly as a production add-on if enabled by the user!
+                if (interp_enabled) {
+                    heading = getInterpolatedHeading(heading);
+                }
 
                 // Apply adaptive waypoint bias trim if enabled
                 if (mainData.compass_trim_enabled) {
@@ -777,8 +945,8 @@ void CompassTask(void *arg) {
 
                 global_hdg = heading;
                 mainData.dirMag = heading;
-                mainData.roll = -pitch;  // Swapped and Inverted to match physical mounting orientation
-                mainData.pitch = -roll;  // Swapped and Inverted to match physical mounting orientation
+                mainData.roll = roll;    // Restored unswapped roll orientation
+                mainData.pitch = -pitch; // Inverted physical pitch orientation
 
                 if (compass) xQueueOverwrite(compass, (void *)&heading);
 
@@ -791,8 +959,77 @@ void CompassTask(void *arg) {
 }
 
 float GetHeading(void) { return global_hdg; }
+float GetHeadingNoOffset(void) { return global_hdg_no_offset; }
 float GetHeadingRaw(void) { return global_hdg; }
 int linMagCalib(int *corr) { return 0; }
 bool CalibrateCompass(void) { return true; }
 int get_cal_point_count() { return 3; }
 bool global_is_calibrating = false;
+
+float fourier_A0 = 0.0f;
+float fourier_A1 = 0.0f;
+float fourier_B1 = 0.0f;
+float fourier_A2 = 0.0f;
+float fourier_B2 = 0.0f;
+
+/**
+ * @brief Computes 1st and 2nd harmonic Fourier coefficients based on 8 measured calibration points.
+ */
+void computeFourierCoefficients() {
+    float ref_angles[8] = {0.0f, 45.0f, 90.0f, 135.0f, 180.0f, 225.0f, 270.0f, 315.0f};
+    float errors[8];
+    
+    for (int i = 0; i < 8; i++) {
+        float err = ref_angles[i] - measured_angles[i];
+        while (err < -180.0f) err += 360.0f;
+        while (err >= 180.0f) err -= 360.0f;
+        errors[i] = err;
+    }
+    
+    // Constant term (A0)
+    float sum = 0.0f;
+    for (int i = 0; i < 8; i++) {
+        sum += errors[i];
+    }
+    fourier_A0 = sum / 8.0f;
+    
+    // First and second harmonics
+    float sum_A1 = 0.0f, sum_B1 = 0.0f;
+    float sum_A2 = 0.0f, sum_B2 = 0.0f;
+    
+    for (int i = 0; i < 8; i++) {
+        float angle_rad = ref_angles[i] * M_PI / 180.0f;
+        sum_A1 += errors[i] * cos(angle_rad);
+        sum_B1 += errors[i] * sin(angle_rad);
+        sum_A2 += errors[i] * cos(2.0f * angle_rad);
+        sum_B2 += errors[i] * sin(2.0f * angle_rad);
+    }
+    
+    fourier_A1 = sum_A1 / 4.0f;
+    fourier_B1 = sum_B1 / 4.0f;
+    fourier_A2 = sum_A2 / 4.0f;
+    fourier_B2 = sum_B2 / 4.0f;
+    
+    Serial.printf("Fourier Coefficients updated -> A0: %.3f, A1: %.3f, B1: %.3f, A2: %.3f, B2: %.3f\n\r", 
+                  fourier_A0, fourier_A1, fourier_B1, fourier_A2, fourier_B2);
+}
+
+/**
+ * @brief Performs 360-degree Fourier 2-harmonic smooth curve correction.
+ */
+float getInterpolatedHeading(float h) {
+    while (h < 0.0f) h += 360.0f;
+    while (h >= 360.0f) h -= 360.0f;
+    
+    float h_rad = h * M_PI / 180.0f;
+    float err = fourier_A0 + 
+                fourier_A1 * cos(h_rad) + 
+                fourier_B1 * sin(h_rad) + 
+                fourier_A2 * cos(2.0f * h_rad) + 
+                fourier_B2 * sin(2.0f * h_rad);
+                
+    float corrected = h + err;
+    while (corrected < 0.0f) corrected += 360.0f;
+    while (corrected >= 360.0f) corrected -= 360.0f;
+    return corrected;
+}

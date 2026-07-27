@@ -4,6 +4,7 @@
 */
 #include <Arduino.h>
 #include <FastLED.h>
+#include <WiFi.h>
 #include "main.h"
 #include "leds.h"
 #include "io_sub.h"
@@ -126,6 +127,18 @@ void LedTask(void *arg)
             if (anyBlink) {
                 changed = true;
             }
+        }
+
+        // If the wifi connection is active, override the 3rd LED (LEDBB) to Magenta
+        bool wifiActive = (WiFi.status() == WL_CONNECTED || WiFi.softAPgetStationNum() > 0);
+        static bool lastWifiActive = false;
+        if (wifiActive != lastWifiActive) {
+            lastWifiActive = wifiActive;
+            changed = true;
+        }
+
+        if (wifiActive) {
+            leds[LEDBB] = CRGB::Magenta;
         }
 
         if (changed)

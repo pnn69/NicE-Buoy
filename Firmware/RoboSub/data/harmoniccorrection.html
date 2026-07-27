@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compass Harmonic Correction Calibration</title>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(17, 24, 39, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-color: #f3f4f6;
+            --text-muted: #9ca3af;
+            --cyan: #06b6d4;
+            --green: #10b981;
+            --purple: #8b5cf6;
+            --orange: #f97316;
+            --red: #ef4444;
+            --primary: #3b82f6;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-color);
+            min-height: 100vh;
+            padding: 1.5rem;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 1.5rem;
+        }
+
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            background: linear-gradient(to right, var(--primary), var(--cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--cyan);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            outline: none;
+            text-decoration: none;
+        }
+
+        .btn-blue {
+            background: linear-gradient(to right, var(--primary), #2563eb);
+            color: white;
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3);
+        }
+        .btn-blue:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-green {
+            background: linear-gradient(to right, var(--green), #059669);
+            color: white;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+        }
+        .btn-green:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-red {
+            background: linear-gradient(to right, var(--red), #dc2626);
+            color: white;
+            box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
+        }
+        .btn-red:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid var(--card-border);
+            color: var(--text-color);
+        }
+        .btn-outline:hover {
+            background-color: rgba(255, 255, 255, 0.03);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (min-width: 768px) {
+            .grid-2 {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .windrose-card {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 250px;
+        }
+
+        .windrose-title {
+            font-weight: bold;
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            text-align: center;
+        }
+
+        .heading-val {
+            font-family: monospace;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-top: 0.5rem;
+        }
+
+        .calibration-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .cal-item {
+            background: rgba(0, 0, 0, 0.15);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .ref-heading {
+            font-weight: bold;
+            font-size: 1rem;
+            color: var(--cyan);
+        }
+
+        .meas-heading {
+            font-family: monospace;
+            font-size: 1.15rem;
+            font-weight: bold;
+        }
+
+        .diff-heading {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .instructions {
+            background-color: rgba(59, 130, 246, 0.04);
+            border: 1px solid rgba(59, 130, 246, 0.15);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>Compass Harmonic Correction Calibration</h1>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">360-Degree Non-Linear Compass Compensation Table</p>
+            </div>
+            <a href="/" class="btn btn-outline">&larr; Back to Dashboard</a>
+        </header>
+
+        <div class="instructions">
+            <div style="font-weight: bold; color: var(--primary);">How it works:</div>
+            <div style="font-size: 0.9rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.25rem;">
+                <div>1. Align the buoy bow exactly towards a known reference direction (e.g. 90° East).</div>
+                <div>2. Locate the corresponding <strong>90°</strong> card below, and click its <strong>Record</strong> button.</div>
+                <div>3. The system will capture your current active heading and save it as the measured value for 90°.</div>
+                <div>4. Repeat this for all 8 reference directions. The system automatically fits a smooth Fourier harmonic curve!</div>
+                <div>5. Click <strong>Save to ESP32 NVS</strong> once finished to permanently write the table to memory.</div>
+            </div>
+        </div>
+
+        <!-- Live Compass Comparisons -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Live Compass Comparisons</h2>
+            </div>
+            <div class="grid-2">
+                <!-- Windrose 1: Raw Calculated -->
+                <div class="windrose-card" style="border-top: 3px solid var(--purple);">
+                    <div class="windrose-title" style="color: var(--purple);">1. Calculated Heading (As Is)</div>
+                    <svg width="160" height="150" id="rose-as-is-canvas">
+                        <circle cx="80" cy="75" r="70" fill="none" stroke="rgba(139, 92, 246, 0.15)" stroke-width="4"/>
+                        <g id="needle-as-is" style="transform-origin: 80px 75px; transition: transform 0.1s ease;">
+                            <polygon points="80,12 85,75 75,75" fill="var(--red)"/>
+                            <circle cx="80" cy="75" r="5" fill="#ffffff"/>
+                        </g>
+                    </svg>
+                    <div id="val-as-is" class="heading-val" style="color: var(--purple);">-°</div>
+                </div>
+
+                <!-- Windrose 2: Harmonic Corrected -->
+                <div class="windrose-card" style="border-top: 3px solid var(--green);">
+                    <div class="windrose-title" style="color: var(--green);">2. Harmonic Corrected Output</div>
+                    <svg width="160" height="150" id="rose-harmonic-canvas">
+                        <circle cx="80" cy="75" r="70" fill="none" stroke="rgba(16, 185, 129, 0.15)" stroke-width="4"/>
+                        <g id="needle-harmonic" style="transform-origin: 80px 75px; transition: transform 0.1s ease;">
+                            <polygon points="80,12 85,75 75,75" fill="var(--green)"/>
+                            <circle cx="80" cy="75" r="5" fill="#ffffff"/>
+                        </g>
+                    </svg>
+                    <div id="val-harmonic" class="heading-val" style="color: var(--green);">-°</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 8 Calibration Points -->
+        <div class="card">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h2 class="card-title" style="color: var(--cyan);">Compass Calibration Table (8 reference points)</h2>
+                <div style="display: flex; gap: 0.75rem;">
+                    <button id="btn-save" class="btn btn-green">Save to ESP32 NVS</button>
+                    <button id="btn-reset" class="btn btn-red">Reset Table</button>
+                </div>
+            </div>
+
+            <div class="calibration-grid" id="cal-table-grid">
+                <!-- Javascript will generate the 8 items dynamically here -->
+            </div>
+        </div>
+    </div>
+
+    <script {nonce}>
+        // We only present 8 reference directions in the UI (0 to 315)
+        const refAngles = [0, 45, 90, 135, 180, 225, 270, 315];
+        let measuredAngles = [0, 45, 90, 135, 180, 225, 270, 315, 360]; // 9-point array used internally to include 360 wrap
+        let currentHeading = 0.0;
+        let rotAsIs = 0.0, rotHarmonic = 0.0;
+
+        function getShortestRotation(current, target) {
+            target = (target % 360 + 360) % 360;
+            let currentNorm = (current % 360 + 360) % 360;
+            let diff = target - currentNorm;
+            if (diff > 180) diff -= 360;
+            if (diff < -180) diff += 360;
+            return current + diff;
+        }
+
+        window.onload = function() {
+            renderCalibrationTable();
+            pollData();
+            setInterval(pollData, 150);
+
+            document.getElementById('btn-save').onclick = saveTable;
+            document.getElementById('btn-reset').onclick = resetTable;
+        };
+
+        function renderCalibrationTable() {
+            const container = document.getElementById('cal-table-grid');
+            container.innerHTML = '';
+
+            refAngles.forEach((ref, idx) => {
+                const meas = measuredAngles[idx];
+                let diff = ref - meas;
+                if (diff > 180) diff -= 360;
+                if (diff < -180) diff += 360;
+
+                const card = document.createElement('div');
+                card.className = 'cal-item';
+                card.innerHTML = `
+                    <div style="width: 100%; display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; padding: 4px;">
+                        <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Reference:</span><span class="ref-heading" style="font-weight: bold; color: var(--cyan);">${ref}°</span></div>
+                        <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Measured:</span><span class="meas-heading" id="meas-val-${idx}" style="font-family: monospace; font-weight: bold;">${meas.toFixed(1)}°</span></div>
+                        <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Offset:</span><span class="diff-heading" id="diff-val-${idx}" style="font-family: monospace; font-weight: bold; color: ${diff >= 0 ? 'var(--green)' : 'var(--red)'}">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}°</span></div>
+                    </div>
+                    <button class="btn btn-blue" style="padding: 0.4rem 1rem; font-size: 0.8rem; width: 100%; margin-top: 4px;" onclick="recordPoint(${idx})">Record</button>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function pollData() {
+            fetch('/data')
+                .then(r => r.json())
+                .then(data => {
+                    currentHeading = data.icm_no_offset; // Explicitly use 9-DOF Fusion Comp as reference heading!
+                    let harmonicHeading = data.harmonic_hdg; // Smooth harmonic heading
+                    
+                    if (data.meas_ang !== undefined) {
+                        measuredAngles = data.meas_ang;
+                        updateTableValues();
+                    }
+
+                    document.getElementById('val-as-is').innerText = Math.round(currentHeading).toString().padStart(3, '0') + '°';
+                    document.getElementById('val-harmonic').innerText = Math.round(harmonicHeading).toString().padStart(3, '0') + '°';
+
+                    rotAsIs = getShortestRotation(rotAsIs, currentHeading);
+                    document.getElementById('needle-as-is').style.transform = `rotate(${rotAsIs}deg)`;
+
+                    rotHarmonic = getShortestRotation(rotHarmonic, harmonicHeading);
+                    document.getElementById('needle-harmonic').style.transform = `rotate(${rotHarmonic}deg)`;
+                })
+                .catch(err => console.error("Error polling data:", err));
+        }
+
+        function updateTableValues() {
+            refAngles.forEach((ref, idx) => {
+                const meas = measuredAngles[idx];
+                let diff = ref - meas;
+                if (diff > 180) diff -= 360;
+                if (diff < -180) diff += 360;
+
+                document.getElementById(`meas-val-${idx}`).innerText = meas.toFixed(1) + '°';
+                document.getElementById(`diff-val-${idx}`).innerText = `Offset: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}°`;
+            });
+        }
+
+        function recordPoint(idx) {
+            fetch(`/set_harmonic_point?index=${idx}&measured=${currentHeading.toFixed(1)}`)
+                .then(response => response.text())
+                .then(text => {
+                    if (text === "OK") {
+                        measuredAngles[idx] = currentHeading;
+                        // Circular wrap mirroring: if recording 0 (index 0), automatically mirror to index 8 (360 degrees) with safe wrapping
+                        if (idx === 0) {
+                            let wrap360 = currentHeading + 360.0;
+                            fetch(`/set_harmonic_point?index=8&measured=${wrap360.toFixed(1)}`);
+                        }
+                        renderCalibrationTable();
+                        console.log(`Recorded! reference: ${refAngles[idx]}° -> actual measured: ${currentHeading.toFixed(1)}°`);
+                    } else {
+                        alert(`Failed to record: ${text}`);
+                    }
+                })
+                .catch(err => alert(`Network error: ${err.message}`));
+        }
+
+        function saveTable() {
+            fetch('/save_harmonic')
+                .then(r => r.text())
+                .then(text => {
+                    if (text === "OK") {
+                        console.log("Calibration Table successfully saved to NVS!");
+                    } else {
+                        alert("Failed to save: " + text);
+                    }
+                })
+                .catch(err => alert("Error: " + err.message));
+        }
+
+        function resetTable() {
+            fetch('/reset_harmonic')
+                .then(r => r.text())
+                .then(text => {
+                    if (text === "OK") {
+                        measuredAngles = [0, 45, 90, 135, 180, 225, 270, 315, 360];
+                        renderCalibrationTable();
+                        console.log("Table successfully reset to defaults!");
+                    } else {
+                        alert("Failed to reset: " + text);
+                    }
+                })
+                .catch(err => alert("Error: " + err.message));
+        }
+    </script>
+</body>
+</html>
