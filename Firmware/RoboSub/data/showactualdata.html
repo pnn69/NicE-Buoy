@@ -284,9 +284,12 @@
 
     <header>
         <h1><span>CompassTest</span> Dashboard</h1>
-        <div class="status">
-            <div id="status-dot" class="status-dot"></div>
-            <span id="status-text">Disconnected</span>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <button onclick="location.href='/'" class="btn" style="background-color: var(--card-bg); border: 1px solid var(--border); color: var(--text-color); width: auto; padding: 6px 14px; margin-bottom: 0; font-size: 0.85rem; border-radius: 9999px;">&larr; Back to Main Dashboard</button>
+            <div class="status">
+                <div id="status-dot" class="status-dot"></div>
+                <span id="status-text">Disconnected</span>
+            </div>
         </div>
     </header>
 
@@ -635,10 +638,6 @@
 
             </div>
         </div>
-    </div>
-
-    <div style="max-width: 600px; margin: 20px auto 40px auto; padding: 0 10px;">
-        <button onclick="location.href='/'" class="btn" style="background-color: var(--card-bg); border: 1px solid var(--border); color: var(--text-main); margin-bottom: 0;">➔ Back to Main Dashboard</button>
     </div>
 
     <script>
