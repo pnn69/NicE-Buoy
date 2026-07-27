@@ -450,7 +450,7 @@ void memBnoCalib(uint8_t *data, bool get)
     {
         if (storage.isKey("bnoCal")) {
             storage.getBytes("bnoCal", data, 22);
-            Serial.printf("memBnoCalib: Profile LOADED from NVS (First byte: 0x%02X)\n", data[0]);
+            Serial.printf("memBnoCalib: Profile LOADED from NVS (First byte: 0x%02X)\n\r", data[0]);
         } else {
             memset(data, 0, 22);
             Serial.println("memBnoCalib: No profile found.");
@@ -500,11 +500,11 @@ void memIcmCalib(float *hi, float *si, bool get)
         si_matrix[2][1] = storage.getFloat("icm_si_zy", 0.0f);
         si_matrix[2][2] = storage.getFloat("icm_si_zz", si[2]);
         
-        Serial.printf("memIcmCalib: LOADED -> HI: [%.4f, %.4f, %.4f], SI diagonal: [%.4f, %.4f, %.4f]\n", hi[0], hi[1], hi[2], si[0], si[1], si[2]);
-        Serial.printf("memIcmCalib: LOADED 3x3 matrix ->\n");
-        Serial.printf("  [%.4f, %.4f, %.4f]\n", si_matrix[0][0], si_matrix[0][1], si_matrix[0][2]);
-        Serial.printf("  [%.4f, %.4f, %.4f]\n", si_matrix[1][0], si_matrix[1][1], si_matrix[1][2]);
-        Serial.printf("  [%.4f, %.4f, %.4f]\n", si_matrix[2][0], si_matrix[2][1], si_matrix[2][2]);
+        Serial.printf("memIcmCalib: LOADED -> HI: [%.4f, %.4f, %.4f], SI diagonal: [%.4f, %.4f, %.4f]\n\r", hi[0], hi[1], hi[2], si[0], si[1], si[2]);
+        Serial.printf("memIcmCalib: LOADED 3x3 matrix ->\n\r");
+        Serial.printf("  [%.4f, %.4f, %.4f]\n\r", si_matrix[0][0], si_matrix[0][1], si_matrix[0][2]);
+        Serial.printf("  [%.4f, %.4f, %.4f]\n\r", si_matrix[1][0], si_matrix[1][1], si_matrix[1][2]);
+        Serial.printf("  [%.4f, %.4f, %.4f]\n\r", si_matrix[2][0], si_matrix[2][1], si_matrix[2][2]);
     }
     else
     {
@@ -529,7 +529,7 @@ void memIcmCalib(float *hi, float *si, bool get)
         storage.putFloat("icm_si_zy", si_matrix[2][1]);
         storage.putFloat("icm_si_zz", si_matrix[2][2]);
         
-        Serial.printf("memIcmCalib: SAVED -> HI: [%.4f, %.4f, %.4f], SI diagonal: [%.4f, %.4f, %.4f]\n", hi[0], hi[1], hi[2], si[0], si[1], si[2]);
+        Serial.printf("memIcmCalib: SAVED -> HI: [%.4f, %.4f, %.4f], SI diagonal: [%.4f, %.4f, %.4f]\n\r", hi[0], hi[1], hi[2], si[0], si[1], si[2]);
     }
     stopMem();
 }

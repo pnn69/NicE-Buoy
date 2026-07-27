@@ -245,7 +245,7 @@ bool InitCompass(void)
         } else {
             gyro_bias_x = 0.0f; gyro_bias_y = 0.0f; gyro_bias_z = 0.0f;
         }
-        Serial.printf("ICM-20948: Gyroscope calibration complete. Offsets -> X: %.4f, Y: %.4f, Z: %.4f\n", 
+        Serial.printf("ICM-20948: Gyroscope calibration complete. Offsets -> X: %.4f, Y: %.4f, Z: %.4f\n\r", 
                       gyro_bias_x, gyro_bias_y, gyro_bias_z);
 
         // Play a super happy, ascending major arpeggio victory tune to celebrate successful gyro calibration!
@@ -330,17 +330,17 @@ bool InitCompass(void)
                     final_sum += norms[i];
                     inlier_count++;
                 } else {
-                    Serial.printf("ICM-20948: Outlier baseline measurement rejected: %.2f uT (deviation: %.2f uT)\n", 
+                    Serial.printf("ICM-20948: Outlier baseline measurement rejected: %.2f uT (deviation: %.2f uT)\n\r", 
                                   norms[i], fabs(norms[i] - initial_avg));
                 }
             }
             
             if (inlier_count > 0) {
                 baselineMag = final_sum / inlier_count;
-                Serial.printf("ICM-20948: Magnetometer baseline learned (using %d inliers): %.4f uT\n", inlier_count, baselineMag);
+                Serial.printf("ICM-20948: Magnetometer baseline learned (using %d inliers): %.4f uT\n\r", inlier_count, baselineMag);
             } else {
                 baselineMag = initial_avg; // Fallback to initial raw average
-                Serial.printf("ICM-20948: All baseline samples flagged as outliers! Using raw average: %.4f uT\n", baselineMag);
+                Serial.printf("ICM-20948: All baseline samples flagged as outliers! Using raw average: %.4f uT\n\r", baselineMag);
             }
         } else {
             baselineMag = 50.0f; // Safe fallback

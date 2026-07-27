@@ -79,7 +79,7 @@ void setup()
     Wire.setClock(400000);
     
     // I2C Scanner
-    Serial.println("\n--- I2C Scanner ---");
+    Serial.println("\n\r--- I2C Scanner ---");
     // mainData.IDr = BUOYIDALL;
     byte error, address;
     int nDevices = 0;
@@ -87,15 +87,15 @@ void setup()
         Wire.beginTransmission(address);
         error = Wire.endTransmission();
         if (error == 0) {
-            Serial.printf("I2C device found at address 0x%02X\n", address);
+            Serial.printf("I2C device found at address 0x%02X\n\r", address);
             nDevices++;
         }
         else if (error==4) {
-            Serial.printf("Unknown error at address 0x%02X\n", address);
+            Serial.printf("Unknown error at address 0x%02X\n\r", address);
         }    
     }
-    if (nDevices == 0) Serial.println("No I2C devices found\n");
-    else Serial.println("done\n");
+    if (nDevices == 0) Serial.println("No I2C devices found\n\r");
+    else Serial.println("done\n\r");
     Serial.println("-------------------");
 
     Serial.begin(115200);
@@ -104,12 +104,12 @@ void setup()
     digitalWrite(PWRENABLE, 1); // enable batery sample signal
     digitalWrite(PWRENABLE, true);
     mainDataMutex = xSemaphoreCreateMutex();
-    printf("Setup running!");
-    printf("Robobuoy Sub Version: %0.1f Sub Build: %s %s", SUBVERSION, __DATE__, __TIME__);
+    printf("Setup running!\n\r");
+    printf("Robobuoy Sub Version: %0.1f Sub Build: %s %s\n\r", SUBVERSION, __DATE__, __TIME__);
     mainData.mac = espMac();
     mainData.IDs = mainData.mac;
     mainData.IDr = BUOYIDALL;
-    printf("Robobuoy ID: %08x", mainData.mac);
+    printf("Robobuoy ID: %08x\n\r", mainData.mac);
     initwifi(); // buoyID is mac adress esp32
     initMemory();
     pidRudderParameters(&mainData, GET);

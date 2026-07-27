@@ -1,9 +1,3 @@
-#ifndef SHOWACTUALDATA_HTML_H
-#define SHOWACTUALDATA_HTML_H
-
-#include <Arduino.h>
-
-const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -575,20 +569,6 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
 
             </div>
 
-            <!-- Checkbox for Linear Interpolation Add-on -->
-            <div style="width: 100%; border-top: 1px dashed rgba(255,255,255,0.05); padding-top: 15px; margin-top: 15px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                    <input type="checkbox" id="interp-addon-checkbox" style="accent-color: #10b981; transform: scale(1.35);" onchange="toggleInterpAddon(this.checked)">
-                    <div>
-                        <div style="font-weight: bold; font-size: 0.95rem; color: #10b981;">Enable Linear Interpolation Add-on</div>
-                        <div style="font-size: 0.7rem; color: var(--text-muted);">Apply the 8-point linear interpolation lookup table on top of the active navigation heading.</div>
-                    </div>
-                </label>
-                <a href="/linearinterpolation" style="text-decoration: none; font-weight: bold; background-color: rgba(59, 130, 246, 0.15); color: #38bdf8; border: 1px solid rgba(59, 130, 246, 0.3); padding: 0.4rem 1rem; border-radius: 9999px; font-size: 0.8rem; display: flex; align-items: center; gap: 4px;">
-                    Configure Table &rarr;
-                </a>
-            </div>
-
         </div>
     </div>
 
@@ -698,20 +678,6 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                     }
                 })
                 .catch(err => console.error("Error setting navigation filter:", err));
-        }
-
-        function toggleInterpAddon(checked) {
-            let enabledVal = checked ? 1 : 0;
-            fetch(`/set_interp_enabled?enabled=${enabledVal}`)
-                .then(response => response.text())
-                .then(text => {
-                    if (text === "OK") {
-                        console.log(`Successfully toggled linear interpolation add-on to: ${checked}`);
-                    } else {
-                        alert(`Failed to toggle add-on: ${text}`);
-                    }
-                })
-                .catch(err => console.error("Error toggling interpolation add-on:", err));
         }
 
         window.addEventListener('load', () => {
@@ -926,11 +892,6 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
                             }
                         }
 
-                        // Synchronize Linear Interpolation Checkbox state
-                        if (data.interp_enabled !== undefined) {
-                            document.getElementById('interp-addon-checkbox').checked = (data.interp_enabled === 1);
-                        }
-
                         if (trackerMesh2) {
                             const pitchRad = currentPitch * Math.PI / 180;
                             const rollRad = -currentRoll * Math.PI / 180;
@@ -1041,6 +1002,3 @@ const char SHOWACTUALDATA_HTML[] PROGMEM = R"rawliteral(
     </script>
 </body>
 </html>
-)rawliteral";
-
-#endif

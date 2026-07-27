@@ -23,10 +23,6 @@
 #include "datastorage.h"
 #include "pidrudspeed.h"
 #include "subwifi.h"
-#include "index_html.h"
-#include "calibration_html.h"
-#include "showactualdata_html.h"
-#include "linearinterpolation_html.h"
 #include "leds.h"
 #include "buzzer.h"
 
@@ -61,7 +57,6 @@ static RoboStruct subWifiIn;
 QueueHandle_t udpOut = NULL;
 QueueHandle_t udpIn = NULL;
 String global_mac_str = "";
-static String indexHtmlCache = "";
 static bool ota = false;
 static LedData wifiCollorUtil;
 
@@ -226,36 +221,29 @@ void WiFiTask(void *arg) {
     ota = setup_OTA();
     udp_setup(1001);
 
-    // Mount LittleFS and cache index.html in RAM for fast execution
+    // Mount LittleFS
     if(!LittleFS.begin(true)){
         Serial.println("WiFiTask: LittleFS Mount Failed");
     } else {
         Serial.println("WiFiTask: LittleFS Mounted");
-        File file = LittleFS.open("/index.html", "r");
-        if(file) {
-            indexHtmlCache = file.readString();
-            file.close();
-            Serial.println("WiFiTask: Cached index.html in RAM (" + String(indexHtmlCache.length()) + " bytes)");
-        } else {
-            Serial.println("WiFiTask: Failed to open /index.html from LittleFS, using compiled fallback");
-        }
     }
 
     /*
      * Web Dashboard Router & Anti-Caching Strategy:
      * To prevent browsers from caching stale layouts or outdated JS dashboards, 
      * we issue HTTP/1.1 headers 'no-cache, no-store, must-revalidate' and set 'Expires: -1'.
-     *
-     * IMPORTANT DESIGN FIX:
-     * We bypass indexHtmlCache and force subServer to serve INDEX_HTML from flash (send_P).
-     * This avoids memory leak issues or potential desynchronization with filesystem changes, 
-     * guaranteeing that the compiled UI changes are consistently served and rendered.
      */
     subServer.on("/", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");
-        subServer.send_P(200, "text/html", INDEX_HTML);
+        if (LittleFS.exists("/index.html")) {
+            File file = LittleFS.open("/index.html", "r");
+            subServer.streamFile(file, "text/html");
+            file.close();
+        } else {
+            subServer.send(404, "text/plain", "Index page not found on LittleFS");
+        }
     });
     subServer.on("/savecal", HTTP_GET, [](){ 
         extern bool global_is_calibrating;
@@ -382,7 +370,7 @@ void WiFiTask(void *arg) {
             }
 
             memDampingFactors(&damp_acc, &damp_gyro, &damp_mag, &damp_att, SET);
-            Serial.printf("subServer: Saved damping coefficient: %s = %.2f\n", sensor.c_str(), val);
+            Serial.printf("subServer: Saved damping coefficient: %s = %.2f\n\r", sensor.c_str(), val);
             subServer.send(200, "text/plain", "OK");
         } else {
             subServer.send(400, "text/plain", "Err");
@@ -432,36 +420,64 @@ void WiFiTask(void *arg) {
         subServer.send(200, "text/plain", "OK");
     });
     subServer.on("/linearinterpolation", HTTP_GET, [](){
-        extern const char LINEAR_INTERPOLATION_HTML[] PROGMEM;
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");
-        subServer.send_P(200, "text/html", LINEAR_INTERPOLATION_HTML);
+        if (LittleFS.exists("/linearinterpolation.html")) {
+            File file = LittleFS.open("/linearinterpolation.html", "r");
+            subServer.streamFile(file, "text/html");
+            file.close();
+        } else {
+            subServer.send(404, "text/plain", "linearinterpolation page not found on LittleFS");
+        }
     });
     subServer.on("/linerinterpolation", HTTP_GET, [](){
-        extern const char LINEAR_INTERPOLATION_HTML[] PROGMEM;
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");
-        subServer.send_P(200, "text/html", LINEAR_INTERPOLATION_HTML);
+        if (LittleFS.exists("/linearinterpolation.html")) {
+            File file = LittleFS.open("/linearinterpolation.html", "r");
+            subServer.streamFile(file, "text/html");
+            file.close();
+        } else {
+            subServer.send(404, "text/plain", "linearinterpolation page not found on LittleFS");
+        }
     });
     subServer.on("/calibration", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");
-        subServer.send_P(200, "text/html", CALIBRATION_HTML);
+        if (LittleFS.exists("/calibration.html")) {
+            File file = LittleFS.open("/calibration.html", "r");
+            subServer.streamFile(file, "text/html");
+            file.close();
+        } else {
+            subServer.send(404, "text/plain", "calibration page not found on LittleFS");
+        }
     });
     subServer.on("/ShowActualData", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");
-        subServer.send_P(200, "text/html", SHOWACTUALDATA_HTML);
+        if (LittleFS.exists("/showactualdata.html")) {
+            File file = LittleFS.open("/showactualdata.html", "r");
+            subServer.streamFile(file, "text/html");
+            file.close();
+        } else {
+            subServer.send(404, "text/plain", "showactualdata page not found on LittleFS");
+        }
     });
     subServer.on("/callibration", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");
-        subServer.send_P(200, "text/html", CALIBRATION_HTML);
+        if (LittleFS.exists("/calibration.html")) {
+            File file = LittleFS.open("/calibration.html", "r");
+            subServer.streamFile(file, "text/html");
+            file.close();
+        } else {
+            subServer.send(404, "text/plain", "calibration page not found on LittleFS");
+        }
     });
     subServer.on("/set_north", HTTP_GET, [](){
         double newOffset = 0;
