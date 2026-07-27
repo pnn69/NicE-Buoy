@@ -922,10 +922,12 @@ void CompassTask(void *arg) {
 
             // -------------------- OUTPUT TO QUEUE & GLOBALS --------------------
             if (mainDataMutex && xSemaphoreTake(mainDataMutex, portMAX_DELAY)) {
-                global_hdg_no_offset = heading; // Reverted back to active heading!
-
                 // Add the manual compass offset first
                 heading += mainData.compassOffset;
+                while (heading < 0.0f) heading += 360.0f;
+                while (heading >= 360.0f) heading -= 360.0f;
+
+                global_hdg_no_offset = heading; // Value after manual offset is added and before harmonic correction
 
                 // Apply 8-point smooth harmonic curve correction directly as a production add-on if enabled by the user!
                 if (interp_enabled) {
