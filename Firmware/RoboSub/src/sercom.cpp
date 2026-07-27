@@ -222,10 +222,7 @@ void SercomTask(void *arg)
             if (serDataOut.IDs == 0) serDataOut.IDs = mac;
             String out = rfCode(&serDataOut);
             Serial1.println(out);
-            if (serDataOut.cmd == SETUPDATA)
-            {
-                printf("SER_TOP_OUT>%s<\r\n", out.c_str());
-            }
+            printf("SER_TOP_OUT>%s<\r\n", out.c_str());
             if (serDataOut.ack == GETACK)
             
             {

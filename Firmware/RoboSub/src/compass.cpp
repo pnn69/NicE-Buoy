@@ -246,7 +246,7 @@ bool InitCompass(void)
         } else {
             gyro_bias_x = 0.0f; gyro_bias_y = 0.0f; gyro_bias_z = 0.0f;
         }
-        Serial.printf("ICM-20948: Gyroscope calibration complete. Offsets -> X: %.4f, Y: %.4f, Z: %.4f\n\r", 
+        Serial.printf("ICM-20948: Gyroscope calibration complete. Offsets -> X: %.4f, Y: %.4f, Z: %.4f\r\n", 
                       gyro_bias_x, gyro_bias_y, gyro_bias_z);
 
         // Play a super happy, ascending major arpeggio victory tune to celebrate successful gyro calibration!
@@ -331,17 +331,17 @@ bool InitCompass(void)
                     final_sum += norms[i];
                     inlier_count++;
                 } else {
-                    Serial.printf("ICM-20948: Outlier baseline measurement rejected: %.2f uT (deviation: %.2f uT)\n\r", 
+                    Serial.printf("ICM-20948: Outlier baseline measurement rejected: %.2f uT (deviation: %.2f uT)\r\n", 
                                   norms[i], fabs(norms[i] - initial_avg));
                 }
             }
             
             if (inlier_count > 0) {
                 baselineMag = final_sum / inlier_count;
-                Serial.printf("ICM-20948: Magnetometer baseline learned (using %d inliers): %.4f uT\n\r", inlier_count, baselineMag);
+                Serial.printf("ICM-20948: Magnetometer baseline learned (using %d inliers): %.4f uT\r\n", inlier_count, baselineMag);
             } else {
                 baselineMag = initial_avg; // Fallback to initial raw average
-                Serial.printf("ICM-20948: All baseline samples flagged as outliers! Using raw average: %.4f uT\n\r", baselineMag);
+                Serial.printf("ICM-20948: All baseline samples flagged as outliers! Using raw average: %.4f uT\r\n", baselineMag);
             }
         } else {
             baselineMag = 50.0f; // Safe fallback
@@ -843,21 +843,21 @@ void CompassTask(void *arg) {
             global_fusion_hdg = headingFusion;
 
             // Debug
-            static uint32_t lastDebug = 0;
+            // static uint32_t lastDebug = 0;
 
-            if (millis() - lastDebug > 1000)
-            {
-                lastDebug = millis();
-                Serial.printf(
-                    "HDG=%.1f FUS=%.1f ERR=%.1f R=%.1f P=%.1f MAG=%s\n\r",
-                    headingFull,
-                    headingFusion,
-                    err,
-                    roll,
-                    pitch,
-                    magDisturbed ? "BAD" : "OK"
-                );
-            }
+            // if (millis() - lastDebug > 1000)
+            // {
+            //     lastDebug = millis();
+            //     Serial.printf(
+            //         "HDG=%.1f FUS=%.1f ERR=%.1f R=%.1f P=%.1f MAG=%s\r\n",
+            //         headingFull,
+            //         headingFusion,
+            //         err,
+            //         roll,
+            //         pitch,
+            //         magDisturbed ? "BAD" : "OK"
+            //     );
+            // }
                             
                         
             // Select heading based on active calibration mode
@@ -916,8 +916,8 @@ void CompassTask(void *arg) {
 
             if (millis() - lastLogTime >= 1000) {
                 lastLogTime = millis();
-                Serial.printf("CompassTask -> icm_mode: %d, headingRaw: %.2f, headingFusion: %.2f, heading: %.2f, offset: %.2f\n\r",
-                              icm_mode, headingRaw, headingFusion, heading, mainData.compassOffset);
+                // Serial.printf("CompassTask -> icm_mode: %d, headingRaw: %.2f, headingFusion: %.2f, heading: %.2f, offset: %.2f\r\n",
+                //               icm_mode, headingRaw, headingFusion, heading, mainData.compassOffset);
             }
 
             // -------------------- UI STATUS MESSAGE --------------------
@@ -1018,7 +1018,7 @@ void computeFourierCoefficients() {
     fourier_A2 = sum_A2 / 4.0f;
     fourier_B2 = sum_B2 / 4.0f;
     
-    Serial.printf("Fourier Coefficients updated -> A0: %.3f, A1: %.3f, B1: %.3f, A2: %.3f, B2: %.3f\n\r", 
+    Serial.printf("Fourier Coefficients updated -> A0: %.3f, A1: %.3f, B1: %.3f, A2: %.3f, B2: %.3f\r\n", 
                   fourier_A0, fourier_A1, fourier_B1, fourier_A2, fourier_B2);
 }
 

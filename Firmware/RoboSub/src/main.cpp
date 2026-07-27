@@ -907,8 +907,8 @@ void handleTimerRoutines(RoboStruct *in)
         logtimer = millis() + 500;
         battVoltage(mainData.subAccuV, mainData.subAccuP);
         battCurrent(mainData.subAccuI);
-        // printf("C:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", mainData.dirMag, rudderOutput, mainData.speedBb, mainData.speedSb);
-        // printf("  Is: %05.3f Ir: %05.3f P: %05.1f R: %05.1f %0.2fV %0.2fA\r\n", mainData.ip, mainData.ir, mainData.pitch, mainData.roll, mainData.subAccuV, mainData.subAccuI);
+        printf("C:%03.0f Rud:%02.2f  bb:%03d Sb:%03d ", mainData.dirMag, rudderOutput, mainData.speedBb, mainData.speedSb);
+        printf("  Is: %05.3f Ir: %05.3f P: %05.1f R: %05.1f %0.2fV %0.2fA\r\n", mainData.ip, mainData.ir, mainData.pitch, mainData.roll, mainData.subAccuV, mainData.subAccuI);
     }
 }
 
