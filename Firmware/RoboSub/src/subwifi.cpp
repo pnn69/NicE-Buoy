@@ -390,7 +390,7 @@ void WiFiTask(void *arg) {
             subServer.send(400, "text/plain", "Err");
         }
     });
-    subServer.on("/set_interpolation_point", HTTP_GET, [](){
+    subServer.on("/set_harmonic_point", HTTP_GET, [](){
         if (subServer.hasArg("index") && subServer.hasArg("measured")) {
             int idx = subServer.arg("index").toInt();
             float val = subServer.arg("measured").toFloat();
@@ -408,11 +408,46 @@ void WiFiTask(void *arg) {
             subServer.send(400, "text/plain", "Missing args");
         }
     });
+    // Legacy alias
+    subServer.on("/set_interpolation_point", HTTP_GET, [](){
+        if (subServer.hasArg("index") && subServer.hasArg("measured")) {
+            int idx = subServer.arg("index").toInt();
+            float val = subServer.arg("measured").toFloat();
+            extern float measured_angles[9];
+            if (idx >= 0 && idx < 9) {
+                measured_angles[idx] = val;
+                extern void computeFourierCoefficients();
+                computeFourierCoefficients();
+                subServer.send(200, "text/plain", "OK");
+            } else {
+                subServer.send(400, "text/plain", "Invalid index");
+            }
+        } else {
+            subServer.send(400, "text/plain", "Missing args");
+        }
+    });
+    subServer.on("/save_harmonic", HTTP_GET, [](){
+        extern float measured_angles[9];
+        memInterpolationTable(measured_angles, SET);
+        subServer.send(200, "text/plain", "OK");
+    });
+    // Legacy alias
     subServer.on("/save_interpolation", HTTP_GET, [](){
         extern float measured_angles[9];
         memInterpolationTable(measured_angles, SET);
         subServer.send(200, "text/plain", "OK");
     });
+    subServer.on("/reset_harmonic", HTTP_GET, [](){
+        extern float measured_angles[9];
+        for (int i = 0; i < 9; i++) {
+            measured_angles[i] = i * 45.0f;
+        }
+        memInterpolationTable(measured_angles, SET);
+        extern void computeFourierCoefficients();
+        computeFourierCoefficients();
+        subServer.send(200, "text/plain", "OK");
+    });
+    // Legacy alias
     subServer.on("/reset_interpolation", HTTP_GET, [](){
         extern float measured_angles[9];
         for (int i = 0; i < 9; i++) {
