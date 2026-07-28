@@ -37,7 +37,11 @@ RoboTop leverages FreeRTOS to coordinate real-time operations across the ESP32's
 *   **Self-Healing SPI Watchdog**: Monitors SPI transaction states. If packet transmissions hang or fail consecutively over a 500ms window, the system automatically forces a full hardware and software reset of the LoRa registers (`InitLora()`).
 
 ### 3. Wi-Fi Access Point & Web Sockets (`topwifi.cpp`)
-*   **Dual Wi-Fi Modes**: Can be configured as a standalone **Access Point (AP)** (allowing users to connect directly to the buoy in the water) or **Station (STA)** (connecting to an existing local infrastructure network).
+*   **Startup Wi-Fi Prioritization**:
+    *   **Priority 1**: On boot, the top unit scans for an active **`"ROBOBUOY"`** access point and connects automatically (password `""`).
+    *   **Priority 2**: If `"ROBOBUOY"` is not found, it scans for **`"NiCe_WiFi"`** (or `"NicE_WiFi"`) and logs in with password **`"!Ni1001100110"`**.
+*   **Fallback Access Point**:
+    *   If neither network is discovered within 30 seconds of scanning, it falls back to Access Point mode with SSID **`"TOP_<MAC>"`** (where `<MAC>` is the uppercase hex MAC address of the ESP32) and password `""`.
 *   **HTML5 Dashboard**: Serves a highly interactive, responsive control web-dashboard from ESP32 local storage.
 *   **Asynchronous WebSockets**: Streams high-frequency telemetry (heading, speed, position, PID error states) directly to connected client browsers.
 *   **UDP Broadcast Server**: Periodically broadcasts system status strings over UDP (Port 1001) to enable instant discovery and monitoring by nearby desktop dashboards.

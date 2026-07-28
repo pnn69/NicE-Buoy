@@ -1296,6 +1296,9 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 break;
             case ADAPTIVE_TRIM:
                 {
+                    RfOut->compass_trim = RfIn.compass_trim;
+                    RfOut->compass_trim_enabled = RfIn.compass_trim_enabled;
+
                     int targetIdx = -1;
                     for (int i = 0; i < 3; i++) {
                         if (buoyPara[i]->IDs == RfIn.IDs) {
@@ -1571,6 +1574,8 @@ void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             if (ser->gpsFix == true)
             {
                 printf("Store Doc pos)\r\n");
+                ser->tgLat = ser->lat;
+                ser->tgLng = ser->lng;
                 memDockPos(ser, SET);
             }
             ser->status = IDELING;

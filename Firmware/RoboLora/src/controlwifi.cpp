@@ -116,55 +116,104 @@ bool setup_OTA()
 }
 
 /*
-    Scan for networks
+    Scan for networks and connect according to priority: ROBOBUOY first, then NiCe_WiFi/NicE_WiFi
 */
-bool scan_for_wifi_ap(String ssipap, String ww, IPAddress *tmp)
+bool scan_and_connect_wifi(IPAddress *tmp)
 {
     unsigned long timeout = millis();
-    Serial.print("scan for for ap:");
-    Serial.println(ssipap);
-    
-    // Explicitly set STA mode and disconnect to ensure reliable scanning
+    Serial.println("Starting WiFi scan and connect sequence...");
+
+    // Set STA mode and disconnect to ensure reliable scanning
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
     delay(100);
 
-    int n = WiFi.scanNetworks();
-    Serial.println("scan done");
-    Serial.print(n);
-    Serial.println(" networks found");
-    if (n <= 0)
+    // Loop for up to 30 seconds
+    while (millis() - timeout < 30000)
     {
-        return false;
-    }
-    else
-    {
-        for (int i = 0; i < n; ++i)
+        Serial.println("Scanning for networks...");
+        int n = WiFi.scanNetworks();
+        Serial.printf("Scan done: %d networks found\n", n);
+
+        if (n > 0)
         {
-            if (WiFi.SSID(i) == ssipap.c_str())
+            bool robobuoy_found = false;
+            bool nice_wifi_found = false;
+            String nice_wifi_ssid = "";
+
+            for (int i = 0; i < n; ++i)
             {
-                Serial.print("Acces point foud, logging in...");
-                WiFi.begin(ssipap.c_str(), ww.c_str());
+                String ssid = WiFi.SSID(i);
+                if (ssid == "ROBOBUOY")
+                {
+                    robobuoy_found = true;
+                }
+                else if (ssid == "NiCe_WiFi" || ssid == "NicE_WiFi")
+                {
+                    nice_wifi_found = true;
+                    nice_wifi_ssid = ssid;
+                }
+            }
+
+            if (robobuoy_found)
+            {
+                Serial.println("Found 'ROBOBUOY'. Attempting connection...");
+                WiFi.begin("ROBOBUOY", "");
+                unsigned long conn_timeout = millis();
                 while (WiFi.status() != WL_CONNECTED)
                 {
                     delay(500);
                     Serial.print(".");
-                    // Reduce timeout to 15 seconds to allow graceful fallback instead of blocking for 2 minutes
-                    if (timeout + 15 * 1000 < millis())
+                    if (millis() - conn_timeout > 15000)
                     {
-                        Serial.println("\nConnection timeout! Falling back...");
-                        WiFi.disconnect();
-                        return false; // Return false to trigger AP fallback instead of rebooting
+                        Serial.println("\nConnection to 'ROBOBUOY' timed out.");
+                        break;
                     }
                 }
-                Serial.print(".\r\n");
-                Serial.print("Loggend in to SSIS: ");
-                Serial.println(ssipap);
-                *tmp = (WiFi.localIP());
-                return true;
+                if (WiFi.status() == WL_CONNECTED)
+                {
+                    Serial.println("\nCONNECTED to 'ROBOBUOY'");
+                    WiFi.setSleep(WIFI_PS_NONE); // Disable power-saving sleep
+                    *tmp = WiFi.localIP();
+                    Serial.print("WiFi IP address: ");
+                    Serial.println(*tmp);
+                    return true;
+                }
+                WiFi.disconnect();
+                delay(100);
+            }
+            else if (nice_wifi_found)
+            {
+                Serial.printf("Found '%s'. Attempting connection...\n", nice_wifi_ssid.c_str());
+                WiFi.begin(nice_wifi_ssid.c_str(), "!Ni1001100110");
+                unsigned long conn_timeout = millis();
+                while (WiFi.status() != WL_CONNECTED)
+                {
+                    delay(500);
+                    Serial.print(".");
+                    if (millis() - conn_timeout > 15000)
+                    {
+                        Serial.println("\nConnection to NiCe_WiFi timed out.");
+                        break;
+                    }
+                }
+                if (WiFi.status() == WL_CONNECTED)
+                {
+                    Serial.printf("\nCONNECTED to %s\n", nice_wifi_ssid.c_str());
+                    WiFi.setSleep(WIFI_PS_NONE); // Disable power-saving sleep
+                    *tmp = WiFi.localIP();
+                    Serial.print("WiFi IP address: ");
+                    Serial.println(*tmp);
+                    return true;
+                }
+                WiFi.disconnect();
+                delay(100);
             }
         }
+        delay(1000);
     }
+
+    Serial.println("WiFi connection sequence completed without success.");
     return false;
 }
 
@@ -301,11 +350,9 @@ void WiFiTask(void *arg)
         ap += macStr;
         setup_wifi_ap(ap, apww, &ipTop);
     }
-    else // try to find accespoint NicE_WiFi. If no succes make a accecpoint BUOY_[MAC]
+    else
     {
-        ap = "NicE_WiFi";
-        apww = "!Ni1001100110";
-        if (scan_for_wifi_ap(ap, apww, &ipTop) == false)
+        if (scan_and_connect_wifi(&ipTop) == false)
         {
             ap = "ROBOBUOY";
             apww = "";

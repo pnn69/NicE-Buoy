@@ -39,6 +39,8 @@ void RoboDecode(String data, RoboStruct *dataStore)
     dataStore->status = numbers[1].toInt();
     switch (dataStore->cmd)
     {
+    case NOP:
+        break;
     case SETUPDATA:
           dataStore->Kpr = numbers[2].toDouble();
           dataStore->Kir = numbers[3].toDouble();
@@ -51,9 +53,10 @@ void RoboDecode(String data, RoboStruct *dataStore)
           dataStore->pivotSpeed = numbers[10].toDouble();
           dataStore->compassOffset = numbers[11].toDouble();
           dataStore->holdRad = numbers[12].toDouble();
-          if (numbers[13].length() > 0) dataStore->revBB = (bool)numbers[13].toInt();
-          if (numbers[14].length() > 0) dataStore->revSB = (bool)numbers[14].toInt();
-          if (numbers[15].length() > 0) dataStore->swap_BB_SB = (bool)numbers[15].toInt();
+          if (count > 13 && numbers[13].length() > 0) dataStore->revBB = (bool)numbers[13].toInt();
+          if (count > 14 && numbers[14].length() > 0) dataStore->revSB = (bool)numbers[14].toInt();
+          if (count > 15 && numbers[15].length() > 0) dataStore->swap_BB_SB = (bool)numbers[15].toInt();
+          if (count > 16 && numbers[16].length() > 0) dataStore->compass_trim_enabled = (bool)numbers[16].toInt();
           break;
     case IDLE:
         dataStore->speed = 0;
@@ -252,21 +255,22 @@ String RoboCode(const RoboStruct *dataOut)
     switch (dataOut->cmd)
     {
     case SETUPDATA:
-        out += "," + formatFloat(dataOut->Kpr, 5);
-        out += "," + formatFloat(dataOut->Kir, 5);
-        out += "," + formatFloat(dataOut->Kdr, 5);
-        out += "," + formatFloat(dataOut->Kps, 5);
-        out += "," + formatFloat(dataOut->Kis, 5);
-        out += "," + formatFloat(dataOut->Kds, 5);
-        out += "," + String(dataOut->maxSpeed);
-        out += "," + String(dataOut->minSpeed);
-        out += "," + formatFloat(dataOut->pivotSpeed, 2);
-        out += "," + formatFloat(dataOut->compassOffset, 2);
-        out += "," + formatFloat(dataOut->holdRad, 2);
-        out += "," + String((int)dataOut->compass_trim_enabled);
-        out += "," + String((int)dataOut->revSB);
-        out += "," + String((int)dataOut->swap_BB_SB);
-        break;
+          out += "," + formatFloat(dataOut->Kpr, 5);
+          out += "," + formatFloat(dataOut->Kir, 5);
+          out += "," + formatFloat(dataOut->Kdr, 5);
+          out += "," + formatFloat(dataOut->Kps, 5);
+          out += "," + formatFloat(dataOut->Kis, 5);
+          out += "," + formatFloat(dataOut->Kds, 5);
+          out += "," + String(dataOut->maxSpeed);
+          out += "," + String(dataOut->minSpeed);
+          out += "," + formatFloat(dataOut->pivotSpeed, 2);
+          out += "," + formatFloat(dataOut->compassOffset, 2);
+          out += "," + formatFloat(dataOut->holdRad, 2);
+          out += "," + String((int)dataOut->revBB);
+          out += "," + String((int)dataOut->revSB);
+          out += "," + String((int)dataOut->swap_BB_SB);
+          out += "," + String((int)dataOut->compass_trim_enabled);
+          break;
     case DIRSPEED:
         out += "," + formatFloat(dataOut->dirMag, 2);
         out += "," + String(dataOut->speed);

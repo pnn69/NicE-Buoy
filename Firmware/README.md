@@ -116,6 +116,21 @@ NicE-Buoy supports advanced calibration procedures directly in the water:
 
 ---
 
+## 📶 Unified Wi-Fi Login & Access Point Fallback Procedure
+
+The system features a robust, prioritized Wi-Fi connection sequence across all devices on startup to ensure automatic, low-latency communication in the field or near a base station:
+
+1. **Prioritized Connection Logic (Station Mode)**:
+   - **Priority 1**: The device scans for an available access point named **`ROBOBUOY`**. If found, it connects automatically with an empty password (`""`).
+   - **Priority 2**: If `ROBOBUOY` is not found, the device scans for **`NiCe_WiFi`** (or its variant `NicE_WiFi`). If found, it logs in with password **`"!Ni1001100110"`**.
+2. **Access Point Mode Fallback**:
+   If neither network is found after 30 seconds of scanning, the device defaults to its own local Access Point:
+   - **`RoboSub` (Sub Unit)**: SSID **`SUB_<MAC>`** (where `<MAC>` is the uppercase hex MAC address of the ESP32), password `""`.
+   - **`RoboTop` (Top Unit)**: SSID **`TOP_<MAC>`** (where `<MAC>` is the uppercase hex MAC address of the ESP32), password `""`.
+   - **`RoboLora` (Gateway)**: SSID **`ROBOBUOY`**, password `""`.
+
+---
+
 ## 🛠️ Developer Guide
 
 ### Prerequisites

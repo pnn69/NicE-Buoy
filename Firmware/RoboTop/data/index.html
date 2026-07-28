@@ -451,29 +451,7 @@ function toggleActiveTrim() {
     const trimEnabled = (String(b.compass_trim_enabled).toLowerCase() === "true" || b.compass_trim_enabled === 1 || b.compass_trim_enabled === "1" || b.compass_trim_enabled === true);
     const nextTrimState = trimEnabled ? 0 : 1;
 
-    const params = {
-        Kpr: b.Kpr !== undefined ? b.Kpr : 0.5,
-        Kir: b.Kir !== undefined ? b.Kir : 0.02,
-        Kdr: b.Kdr !== undefined ? b.Kdr : 0,
-        Kps: b.Kps !== undefined ? b.Kps : 20,
-        Kis: b.Kis !== undefined ? b.Kis : 0.05,
-        Kds: b.Kds !== undefined ? b.Kds : 0,
-        maxSpeed: b.maxSpeed !== undefined ? b.maxSpeed : 75,
-        minSpeed: b.minSpeed !== undefined ? b.minSpeed : 0,
-        pivotSpeed: b.pivotSpeed !== undefined ? b.pivotSpeed : 0.5,
-        compassOffset: b.compassOffset !== undefined ? b.compassOffset : 0,
-        holdrad: b.holdrad !== undefined ? b.holdrad : 2.0,
-        revBB: (String(b.revBB).toLowerCase() === "true" || b.revBB === 1 || b.revBB === "1" || b.revBB === true) ? 1 : 0,
-        revSB: (String(b.revSB).toLowerCase() === "true" || b.revSB === 1 || b.revSB === "1" || b.revSB === true) ? 1 : 0,
-        swap_BB_SB: (String(b.swap_BB_SB).toLowerCase() === "true" || b.swap_BB_SB === 1 || b.swap_BB_SB === "1" || b.swap_BB_SB === true) ? 1 : 0,
-        compass_trim_enabled: nextTrimState,
-        mech: 0
-    };
-
-    let url = `/command?bid=${currentBuoy}&cmd=SETUPDATA`;
-    for (const key in params) {
-        url += `&${key}=${params[key]}`;
-    }
+    let url = `/command?bid=${currentBuoy}&cmd=ADAPTIVE_TRIM&compass_trim=${b.compass_trim !== undefined ? b.compass_trim : 0.0}&compass_trim_enabled=${nextTrimState}`;
 
     fetch(url)
         .then(response => response.text())

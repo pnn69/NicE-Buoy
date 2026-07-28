@@ -102,6 +102,16 @@ RoboSub communicates with the `RoboTop` over a single-wire half-duplex UART inte
 *   **Half-Duplex Echo Filtering**: Because the RX and TX lines are tied together, the transmitting ESP32 receives its own transmissions. `SercomTask` filters out these loopback echoes by comparing the sender MAC address against its own address, discarding self-transmitted frames automatically.
 *   **Implicit Acknowledgments**: Every periodic `INF` telemetry response from RoboSub serves as an implicit acknowledgment for commands, which reduces communication overhead and prevents packet congestion.
 
+### 5. Wi-Fi Connectivity & Dashboard Web Server (`subwifi.cpp` / `subwifi.h`)
+RoboSub hosts a lightweight local web server to display real-time telemetry diagnostics and host the interactive 3D compass calibration tool:
+
+*   **Startup Wi-Fi Prioritization**:
+    *   **Priority 1**: On boot, the sub scans for an active **`"ROBOBUOY"`** access point and connects automatically (password `""`).
+    *   **Priority 2**: If `"ROBOBUOY"` is not found, it scans for **`"NiCe_WiFi"`** (or `"NicE_WiFi"`) and logs in with password **`"!Ni1001100110"`**.
+*   **Fallback Access Point**:
+    *   If neither network is discovered within 30 seconds of scanning, it falls back to Access Point mode with SSID **`"SUB_<MAC>"`** (where `<MAC>` is the uppercase hex MAC address of the ESP32) and password `""`.
+*   **Web Services**: Serves JSON telemetry via `/data` and operational parameters via `/params` lock-free and asynchronously.
+
 ---
 
 ## 🎛️ Peripheral Controllers

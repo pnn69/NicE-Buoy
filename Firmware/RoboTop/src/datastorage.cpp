@@ -108,8 +108,12 @@ void memDockPos(RoboStruct *buoy, bool get)
     }
     else
     {
-        storage.putDouble("Docklat", buoy->tgLat);
-        storage.putDouble("Docklon", buoy->tgLng);
+        if (buoy->tgLat != 0.0 && buoy->tgLng != 0.0) {
+            storage.putDouble("Docklat", buoy->tgLat);
+            storage.putDouble("Docklon", buoy->tgLng);
+        } else {
+            printf("WARNING: Blocked attempt to overwrite Dock position with 0.0/0.0!\r\n");
+        }
     }
     stopMem();
 }
