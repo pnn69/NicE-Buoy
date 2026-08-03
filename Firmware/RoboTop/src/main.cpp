@@ -41,13 +41,34 @@ static unsigned long updateSubtimer = millis();
 static unsigned int gpsErrorCnt = 0;
 static unsigned int distErrorCnt = 0;
 static uint64_t lastSetupRequester = 0;
+static unsigned long lastRealSerIn = 0;
+static bool isSerConnected = false;
 
 static QueueHandle_t keyPressQueue = NULL;
-bool longPressReported = false;
+
 bool isLongPress = false;
+bool oneSecondBeepReported = false;
 unsigned long pressStartTime = 0;
 unsigned long lastReleaseTime = 0;
 int pressCount = 0;
+
+static TaskHandle_t buttonTaskHandle = NULL;
+
+void IRAM_ATTR buttonISR()
+{
+    static volatile uint64_t last_isr_time = 0;
+    uint64_t current_time = esp_timer_get_time();
+    if (current_time - last_isr_time > 50000) // 50ms hardware debounce threshold
+    {
+        last_isr_time = current_time;
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        if (buttonTaskHandle != NULL)
+        {
+            vTaskNotifyGiveFromISR(buttonTaskHandle, &xHigherPriorityTaskWoken);
+            portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+        }
+    }
+}
 
 void buttonTask(void *arg);
 int countKeyPressesWithTimeoutAndFinalLongPress();
@@ -127,12 +148,14 @@ void setup()
     mainData.IDs = mainData.mac;
     mainData.status = IDLE;
     memDockPos(&mainData, GET);
-    if (mainData.tgLat == 0.0) {
-        printf("Dock position was empty. Setting default: 52.29297458258483, 4.932530436175406\r\n");
-        mainData.tgLat = 52.29297458258483;
-        mainData.tgLng = 4.932530436175406;
-        memDockPos(&mainData, SET);
-    }
+
+    // Automatically migrate stored NVM dock position to the new requested default
+    // printf("Updating stored Dock Position to the new default: 52.29302221327865, 4.932541137977593\r\n");
+    // mainData.tgLat = 52.29302221327865;
+    // mainData.tgLng = 4.932541137977593;
+    // memDockPos(&mainData, SET);
+
+
     thrusterInversion(&mainData, GET);
     pidRudderParameters(&mainData, GET);
     pidSpeedParameters(&mainData, GET);
@@ -142,9 +165,26 @@ void setup()
     CompassOffsetCorrection(&tempOffset, GET);
     mainData.compassOffset = (double)tempOffset;
 
+    // Print all loaded parameters from NVM to Serial Port
+    printf("\r\n==================================================\r\n");
+    printf("        LOADED PARAMETERS FROM NVM / FLASH        \r\n");
+    printf("==================================================\r\n");
+    printf("MAC/ID          : %08lX\r\n", mainData.mac);
+    printf("Dock Position   : Lat=%.12f, Lng=%.12f\r\n", mainData.tgLat, mainData.tgLng);
+    printf("Thruster Invert : BB=%s, SB=%s\r\n", mainData.revBB ? "True" : "False", mainData.revSB ? "True" : "False");
+    printf("PID Rudder      : Kp=%.4f, Ki=%.4f, Kd=%.4f\r\n", mainData.Kpr, mainData.Kir, mainData.Kdr);
+    printf("PID Speed       : Kp=%.4f, Ki=%.4f, Kd=%.4f\r\n", mainData.Kps, mainData.Kis, mainData.Kds);
+    printf("Computation     : maxOffsetDist=%d, maxSpeed=%d, minSpeed=%d, pivotSpeed=%.2f, holdRad=%.2f\r\n", 
+           mainData.maxOfsetDist, mainData.maxSpeed, mainData.minSpeed, mainData.pivotSpeed, mainData.holdRad);
+    printf("Compass Offset  : %.2f degrees\r\n", mainData.compassOffset);
+    printf("==================================================\r\n\r\n");
+
     // Initialize background task-based button handling
     keyPressQueue = xQueueCreate(5, sizeof(int));
-    xTaskCreatePinnedToCore(buttonTask, "buttonTask", 2048, NULL, 3, NULL, 1);
+    xTaskCreatePinnedToCore(buttonTask, "buttonTask", 2048, NULL, 3, &buttonTaskHandle, 1);
+
+    // Register GPIO hardware interrupt on BUTTON_PIN
+    attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), buttonISR, CHANGE);
 
     Serial.println("Main task running!");
     // defautls(&mainData);
@@ -168,7 +208,7 @@ int countKeyPressesWithTimeoutAndFinalLongPress()
     unsigned long currentTime = millis();
     int rawState = digitalRead(BUTTON_PIN);
     
-    // Integrating debounce: button state must be stable for 20ms (2 consecutive 10ms reads)
+    // Integrating debounce: button state must be stable for 50ms
     static int stableState = LOW;
     static int lastRawState = LOW;
     static unsigned long lastStateChangeTime = 0;
@@ -179,7 +219,7 @@ int countKeyPressesWithTimeoutAndFinalLongPress()
         lastRawState = rawState;
     }
     
-    if ((currentTime - lastStateChangeTime) >= 20) // Must remain stable for 20ms
+    if ((currentTime - lastStateChangeTime) >= 25) // Must remain stable for 50ms
     {
         if (rawState != stableState)
         {
@@ -190,8 +230,14 @@ int countKeyPressesWithTimeoutAndFinalLongPress()
             {
                 pressStartTime = currentTime;
                 pressCount++;
-                longPressReported = false;
                 isLongPress = false;
+                oneSecondBeepReported = false; // Reset on press
+                
+                // Play instant feedback beep at the exact moment of physical press (true single 100ms tone)
+                if (buzzer != NULL)
+                {
+                    beep(1000, buzzer);
+                }
             }
             // Stable release transition (HIGH -> LOW)
             else
@@ -201,11 +247,16 @@ int countKeyPressesWithTimeoutAndFinalLongPress()
         }
     }
     
-    // Long press detection (button held HIGH for more than 3000ms)
-    if (stableState == HIGH && (currentTime - pressStartTime > 3000) && !longPressReported)
+   
+    // One second hold beep detection (button held HIGH for more than 1000ms)
+    if (stableState == HIGH && (currentTime - pressStartTime > 1000) && !oneSecondBeepReported)
     {
+        oneSecondBeepReported = true;
         isLongPress = true;
-        longPressReported = true;
+        if (buzzer != NULL)
+        {
+            beep(1000, buzzer); // Beep again with a true single 100ms tone!
+        }
     }
     
     // Timeout check: button must be stable LOW, some presses registered, and PRESS_TIMEOUT elapsed since last release
@@ -214,14 +265,13 @@ int countKeyPressesWithTimeoutAndFinalLongPress()
         int result = pressCount;
         if (isLongPress)
         {
-            result = 101 + (pressCount - 1);
+            result = 100 + pressCount;
         }
         
         // Reset states for the next sequence
         pressCount = 0;
         isLongPress = false;
-        longPressReported = false;
-        
+       
         return result;
     }
     
@@ -236,6 +286,12 @@ void buttonTask(void *arg)
 {
     while (true)
     {
+        // Wait for interrupt notification.
+        // If a press sequence is in progress, we use a short timeout (10ms) to continue polling and tracking the state machine.
+        // If no press is in progress and we are idle, we can block indefinitely (portMAX_DELAY) to save CPU and respond instantly on change.
+        TickType_t waitTicks = (pressCount > 0 || digitalRead(BUTTON_PIN) == HIGH) ? pdMS_TO_TICKS(10) : portMAX_DELAY;
+        ulTaskNotifyTake(pdTRUE, waitTicks);
+
         int presses = countKeyPressesWithTimeoutAndFinalLongPress();
         if (presses > 0)
         {
@@ -244,7 +300,6 @@ void buttonTask(void *arg)
                 xQueueSend(keyPressQueue, &presses, 0);
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
@@ -287,10 +342,10 @@ void handelKeyPress(RoboStruct *key)
                 }
                 key->loralstmsg = 0;
                 break;
-            case 2:
+            case 102:
                 key->status = COMPUTESTART;
                 break;
-            case 3:
+            case 103:
                 key->status = COMPUTETRACK;
                 break;
             case 5:
@@ -407,7 +462,7 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
     switch (stat->status)
     {
     case IDELING:
-        beep(2, buzzer);
+        beep(2, buzzer); // Play confirmation beep sequence upon successfully entering idle/unlocking mode
         stat->cmd = IDLE;
         stat->status = IDLE;
         xQueueSend(udpOut, (void *)stat, 0);  // update WiFi
@@ -418,7 +473,7 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
     case LOCKING:
         if (stat->gpsFix == true)
         {
-            beep(1, buzzer);
+            beep(1, buzzer); // Play the beautiful 3-tone arpeggio sequence upon successfully entering LOCK mode
             stat->status = LOCKED;
             stat->tgDist = 0.0;
             stat->cmd = LOCKPOS;
@@ -455,12 +510,19 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         break;
 
     case DOCKING:
-        beep(1, buzzer);
+        beep(1, buzzer); // Play the beautiful 3-tone arpeggio sequence upon successfully entering DOCK mode
         memDockPos(stat, GET);
         stat->status = DOCKED;
         stat->tgDist = 0.0;
         stat->tgDir = 0.0;
         printf("Retreved data for docking tgLat:%.8f tgLng:%.8f\r\n", stat->tgLat, stat->tgLng);
+
+        // Broadcast the loaded dock position (tgLat and tgLng) to update the Web UI and LoRa network
+        stat->cmd = DOCKPOS;
+        stat->ack = SET;
+        xQueueSend(udpOut, (void *)stat, 0);
+        xQueueSend(loraOut, (void *)stat, 10);
+
         if (stat->lat != 0.0 && stat->lng != 0.0 && stat->tgLat != 0.0 && stat->tgLng != 0.0) {
             RouteToPoint(stat->lat, stat->lng, stat->tgLat, stat->tgLng, &stat->tgDist, &stat->tgDir);
         } else {
@@ -890,10 +952,16 @@ void handleTimerRoutines(RoboStruct *timer)
         }
     }
 
-    // LoRa transmission (slow: every 5000ms to preserve battery, bandwidth, and legal limits)
-    if (lastLoraTx + 5000 < millis())
+    // LoRa transmission (Dynamic rate: 1000ms when active to provide real-time updates, 5000ms when idle to conserve battery)
+    unsigned long loraInterval = 5000;
+    if (timer->status != IDLE && timer->status != IDELING)
     {
-        lastLoraTx = millis() + random(0, 200); // Add small jitter to prevent packets colliding
+        loraInterval = 1000;
+    }
+
+    if (lastLoraTx + loraInterval < millis())
+    {
+        lastLoraTx = millis() + random(0, 100); // Add small jitter to prevent packets colliding
         if ((timer->status == LOCKED || timer->status == DOCKED))
         {
             timer->cmd = TOPDATA;
@@ -1213,6 +1281,10 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 break;
             case DOCKPOS: // Get the positon to dock
                 memDockPos(RfOut, GET);
+                RfOut->cmd = DOCKPOS;
+                RfOut->ack = INF;
+                if (from_udp) xQueueSend(udpOut, (void *)RfOut, 0);
+                else xQueueSend(loraOut, (void *)RfOut, 0);
                 break;
             case STOREASDOC: // Store location as doc location
                 if (RfOut->gpsFix == true)
@@ -1329,6 +1401,19 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
                 break;
+            case REBOOT:
+                RfIn.IDr = BUOYIDALL;
+                xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
+                printf("REBOOT command received! Forwarding to Sub and rebooting Top...\r\n");
+                {
+                    extern QueueHandle_t buzzer;
+                    if (buzzer != NULL) {
+                        beep(2, buzzer);
+                    }
+                }
+                delay(500); // Give serial/sercom transmission a moment to finish, and play the beep
+                ESP.restart();
+                break;
             case RAWCOMPASSDATA:
                 printf("Raw:0,0,0,0,0,0,%5.3f,%5.3f,%5.3f\r\n", RfIn.magHard[0], RfIn.magHard[1], RfIn.magHard[2]);
                 break;
@@ -1415,16 +1500,13 @@ void handelGpsData(RoboStruct *gps)
  */
 void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
 {
-    static bool isConnected = false;
-    static unsigned long lastRealSerIn = 0;
-
     RoboStruct serDataIn;
     if (xQueueReceive(serIn, (void *)&serDataIn, 1) == pdTRUE)
     {
         lastRealSerIn = millis();
-        if (!isConnected)
+        if (!isSerConnected)
         {
-            isConnected = true;
+            isSerConnected = true;
             printf("Serial connection made to the sub (Serial1). Requesting SETUPDATA...\r\n");
             RoboStruct req = {};
             req.cmd = SETUPDATA;
@@ -1515,7 +1597,13 @@ void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                 if (xQueueSend(udpOut, (void *)&serDataIn, pdMS_TO_TICKS(250)) != pdTRUE) {
                     printf("ERROR: Failed to queue SETUPDATA response to udpOut!\r\n");
                 }
-                if (xQueueSend(loraOut, (void *)&serDataIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                
+                // For LoRa, route the reply directly back to the requester (e.g. RoboLora) if we tracked its ID
+                RoboStruct loraDataOut = serDataIn;
+                if (lastSetupRequester != 0 && lastSetupRequester != 0x99) {
+                    loraDataOut.IDr = lastSetupRequester;
+                }
+                if (xQueueSend(loraOut, (void *)&loraDataOut, pdMS_TO_TICKS(250)) != pdTRUE) {
                     printf("ERROR: Failed to queue SETUPDATA response to loraOut!\r\n");
                 }
 
@@ -1639,9 +1727,9 @@ void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
         }
     }
 
-    if (isConnected && (millis() - lastRealSerIn > 2000))
+    if (isSerConnected && (millis() - lastRealSerIn > 2000))
     {
-        isConnected = false;
+        isSerConnected = false;
         printf("Serial connection to the sub lost (no messages for 2000ms).\r\n");
     }
 }
@@ -1707,5 +1795,17 @@ void loop(void)
         //***************************************************************************************************
         //      Serial watchdog
         //***************************************************************************************************
+        if (isSerConnected && (millis() - lastRealSerIn > 5000))
+        {
+            printf("[Serial Watchdog] Connection lost (no RX for 5s). Triggering recovery...\n");
+            // Force a re-init and wakeup of the Sub serial interface:
+            RoboStruct wakeupMsg;
+            wakeupMsg.cmd = WAKEUP;
+            xQueueSend(serOut, (void *)&wakeupMsg, 0);
+            
+            // Set a future grace period to prevent spamming wakeup before sub can respond
+            lastRealSerIn = millis() + 10000; // 15-second delay until next potential watchdog trigger
+            isSerConnected = false;
+        }
     }
 }

@@ -103,16 +103,28 @@ void memDockPos(RoboStruct *buoy, bool get)
     startMem();
     if (get)
     {
-        buoy->tgLat = storage.getDouble("Docklat", 0);
-        buoy->tgLng = storage.getDouble("Docklon", 0);
+        buoy->tgLat = storage.getDouble("Docklat", 52.29302221327865);
+        buoy->tgLng = storage.getDouble("Docklon", 4.932541137977593);
+        
+        // If empty, NaN, or invalid, assign default and write back to flash immediately to ensure it's stored
+        if (isnan(buoy->tgLat) || isnan(buoy->tgLng) || buoy->tgLat == 0.0 || buoy->tgLng == 0.0)
+        {
+            buoy->tgLat = 52.29302221327865;
+            buoy->tgLng = 4.932541137977593;
+            
+            storage.putDouble("Docklat", buoy->tgLat);
+            storage.putDouble("Docklon", buoy->tgLng);
+            printf("Dock position was empty/invalid in NVM. Saved default: 52.29302221327865, 4.932541137977593\r\n");
+        }
     }
     else
     {
-        if (buoy->tgLat != 0.0 && buoy->tgLng != 0.0) {
+        // Prevent storing 0.0, NaN, or invalid values
+        if (buoy->tgLat != 0.0 && buoy->tgLng != 0.0 && !isnan(buoy->tgLat) && !isnan(buoy->tgLng)) {
             storage.putDouble("Docklat", buoy->tgLat);
             storage.putDouble("Docklon", buoy->tgLng);
         } else {
-            printf("WARNING: Blocked attempt to overwrite Dock position with 0.0/0.0!\r\n");
+            printf("WARNING: Blocked attempt to overwrite Dock position with 0.0/0.0 or NaN!\r\n");
         }
     }
     stopMem();

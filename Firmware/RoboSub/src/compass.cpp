@@ -32,6 +32,8 @@ float getInterpolatedHeading(float h);
 void computeFourierCoefficients();
 
 extern Preferences storage;
+extern float global_speed_bb;
+extern float global_speed_sb;
 QueueHandle_t compass = NULL;
 QueueHandle_t compassIn = NULL;
 

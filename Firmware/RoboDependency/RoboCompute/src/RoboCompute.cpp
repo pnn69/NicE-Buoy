@@ -236,10 +236,18 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->compass_trim = numbers[2].toDouble();
         break;
     case SET_AS_NORTH:
+    case STOREASDOC:
+    case LOCK_POS:
         break;
     case ADAPTIVE_TRIM:
         dataStore->compass_trim = numbers[2].toDouble();
         if (count > 3) dataStore->compass_trim_enabled = (bool)numbers[3].toInt();
+        break;
+    case RESET_RUDDER_PID:
+    case RESET_SPEED_PID:
+    case RESET_SPEED_RUD_PID:
+    case WAKEUP:
+    case REBOOT:
         break;
     default:
         printf("RoboDecode: Unknown CMD %d\r\n", dataStore->cmd);
@@ -425,6 +433,8 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + formatFloat(dataOut->compassOffset, 2);
         break;
     case SET_AS_NORTH:
+    case STOREASDOC:
+    case LOCK_POS:
         break;
     case ADAPTIVE_TRIM:
         out += "," + formatFloat(dataOut->compass_trim, 4);
@@ -449,6 +459,12 @@ String RoboCode(const RoboStruct *dataOut)
         return String(PING);
     case PONG:
         return String(PONG);
+    case RESET_RUDDER_PID:
+    case RESET_SPEED_PID:
+    case RESET_SPEED_RUD_PID:
+    case WAKEUP:
+    case REBOOT:
+        break;
     default:
         printf("RoboCode: Unknown formatter <%d>\r\n", dataOut->cmd);
         break;

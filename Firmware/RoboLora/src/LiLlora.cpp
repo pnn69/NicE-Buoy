@@ -170,18 +170,23 @@ void onReceive(int packetSize)
     if (wsOutQueue != NULL) {
         char packetBuf[160];
         memset(packetBuf, 0, sizeof(packetBuf));
-        strcpy(packetBuf, "LORA:");
+        int rssi = LoRa.packetRssi();
+        sprintf(packetBuf, "LORA:%d:", rssi);
+        int prefixLen = strlen(packetBuf);
         int len = incoming.length();
-        if (len > 150) len = 150; // Leave room for prefix and null terminator
-        for (int i = 0; i < len; i++) {
-            packetBuf[5 + i] = incoming[i];
+        if (len > (159 - prefixLen)) {
+            len = 159 - prefixLen; // Leave room for null terminator
         }
-        packetBuf[5 + len] = '\0';
+        for (int i = 0; i < len; i++) {
+            packetBuf[prefixLen + i] = incoming[i];
+        }
+        packetBuf[prefixLen + len] = '\0';
         xQueueSend(wsOutQueue, (void *)packetBuf, 10);
     }
 
     RoboStruct in = {};
     rfDeCode(incoming, &in);
+    in.loralstmsg = LoRa.packetRssi();
     if ((in.IDr == buoyId || in.IDr == 0x99) && in.ack == ACK) // A message form me so check if its a ACK message
     {
         removeAckMsg(in);
@@ -219,10 +224,10 @@ bool sendLora(String loraTransmitt)
             LoRa.print(loraTransmitt);
             
             // Validate packet transmission success. LoRa.endPacket() returns 1 if packet sent successfully.
-            if (LoRa.endPacket() == 1) 
+            if (LoRa.endPacket() == 1)
             {
                 digitalWrite(LED_PIN, LOW); // Turn off transmission indicator LED
-                printf("#####################Lora sent: %s\r\n", loraTransmitt.c_str());
+                Serial.printf("Lora sent: %s\r\n", loraTransmitt.c_str());
                 // Enforce a brief post-transmission silence window (10ms) to allow channel recovery
                 transmittReady = millis() + 10;
                 return true; 

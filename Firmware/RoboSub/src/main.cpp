@@ -558,6 +558,17 @@ void handelSerandRfdata(RoboStruct *ser)
                     }
                 }
                 break;
+            case REBOOT:
+                {
+                    printf("REBOOT command received! Rebooting Sub...\r\n");
+                    extern QueueHandle_t buzzer;
+                    if (buzzer != NULL) {
+                        beep(10, buzzer);
+                    }
+                    delay(500);
+                    ESP.restart();
+                }
+                break;
             case CALC_COMPASS_OFFSET:
                 vTaskSuspend(compassTaskHandle);
                 CalibrateCompass();

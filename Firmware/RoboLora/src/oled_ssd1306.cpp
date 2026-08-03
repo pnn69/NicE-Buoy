@@ -85,26 +85,34 @@ void drawBatteryBar(float voltage) {
 // ----------------------------------------------------------------------------------
 
 void drawIdleScreen(RoboStruct *buoy, adcDataType *adc) {
-    drawCommonHeader(buoy);
-    
+    // MAG moved to the top (y=0) with size 2 font
     display.setTextSize(2);
-    display.setCursor(0, 10);
-    display.printf("MAG: %03.0f", buoy->dirMag);
+    display.setCursor(0, 0);
+    display.printf("MAG:%03.0f", buoy->dirMag);
 
+    // RSSI made one step bigger (size 2) at y=18
+    display.setTextSize(2);
+    display.setCursor(0, 18);
+    if (buoy->loralstmsg != 0) {
+        display.printf("RSSI:%d", buoy->loralstmsg);
+    } else {
+        display.printf("RSSI:--");
+    }
+
+    // GPS Satellites & Fix status added at y=38 with size 1 font
     display.setTextSize(1);
-    display.setCursor(0, 28);
+    display.setCursor(0, 38);
     display.printf("SAT:%02d %s", buoy->gpsSat, buoy->gpsFix ? "FIX" : "No FIX");
+
+    // Battery voltage in digits below SAT at y=49 with size 1 font
+    display.setTextSize(1);
+    display.setCursor(0, 49);
+    display.printf("VOLT:%2.1fV", buoy->subAccuV);
 
     // Fixed Mode Indicator
     display.setTextSize(2);
     display.setCursor(96, 0);
     display.print("I");
-
-    display.setTextSize(1);
-    display.setCursor(0, 42);
-    display.printf("Lat: %2.6f", buoy->lat);
-    display.setCursor(0, 50);
-    display.printf("Lon: %2.6f", buoy->lng);
     
     drawBatteryBar(buoy->subAccuV);
     drawThrustBars(buoy->speedBb, buoy->speedSb);

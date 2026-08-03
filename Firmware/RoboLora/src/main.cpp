@@ -360,6 +360,12 @@ void processData(RoboStruct *RfIn)
         IDs[pos].subAccuV = RfIn->subAccuV;
         IDs[pos].subAccuP = RfIn->subAccuP;
     }
+
+    // 7. LoRa Signal Strength (RSSI): Update if non-zero
+    if (RfIn->loralstmsg != 0)
+    {
+        IDs[pos].loralstmsg = RfIn->loralstmsg;
+    }
 }
 
 bool handelRfData(void)

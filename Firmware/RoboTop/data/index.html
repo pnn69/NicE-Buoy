@@ -378,6 +378,7 @@ input {
         <div style="display:flex; flex-direction:column; gap:8px;">
             <button onclick="sendSetupCommand('MANUAL_CALIB')" style="width:100%; background:#d9534f; color:white; font-weight:bold; height: 45px; font-size: 16px; margin:0;">Desk Calibration (60s Figure-8)</button>
             <button onclick="sendSetupCommand('SET_AS_NORTH')" style="width:100%; background:#5bc0de; color:white; font-weight:bold; height: 45px; font-size: 16px; margin:0;">Set as North</button>
+            <button onclick="if(confirm('Are you sure you want to reboot this buoy?')) sendSetupCommand('REBOOT')" style="width:100%; background:#f0ad4e; color:white; font-weight:bold; height: 45px; font-size: 16px; margin:0;">Reboot Buoy</button>
         </div>
     </div>
 </div>

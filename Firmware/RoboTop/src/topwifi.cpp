@@ -82,7 +82,7 @@ bool scan_and_connect_wifi(IPAddress *tmp)
                 {
                     robobuoy_found = true;
                 }
-                else if (ssid == "NiCe_WiFi" || ssid == "NicE_WiFi")
+                else if (ssid == "NicE_WiFi")
                 {
                     nice_wifi_found = true;
                     nice_wifi_ssid = ssid;
@@ -232,10 +232,12 @@ void WiFiTask(void *arg)
     IPAddress ip;
     String ap = "";
     String apww = "";
+    static bool runBackgroundReconnection = false;
 
     if (wifiConfig == 1) {
         ap = "PAIR_ME_"; ap += macStr;
         setup_wifi_ap(ap, apww, &ip);
+        runBackgroundReconnection = false;
     } else {
         wifiCollorUtil.color = CRGB::LightBlue;
         wifiCollorUtil.blink = FADE_ON;
@@ -252,6 +254,9 @@ void WiFiTask(void *arg)
             ap += macUpper;
             apww = "";
             setup_wifi_ap(ap, apww, &ip);
+            runBackgroundReconnection = false;
+        } else {
+            runBackgroundReconnection = true;
         }
     }
     
@@ -296,7 +301,11 @@ void WiFiTask(void *arg)
         json += "\"SB\":\"" + String(mainData.speedSb) + "\",";
         json += "\"MagDir\":\"" + String(mainData.dirMag, 2) + "\",";
         json += "\"TgDir\":\"" + String(mainData.tgDir, 2) + "\",";
-        json += "\"TgDist\":\"" + String(mainData.tgDist, 2) + "\",";
+        double local_tg_dist = mainData.tgDist;
+        if (mainData.status == LOCKED || mainData.status == LOCKING || mainData.status == DOCKED || mainData.status == DOCKING) {
+            local_tg_dist -= mainData.holdRad;
+        }
+        json += "\"TgDist\":\"" + String(local_tg_dist, 2) + "\",";
         json += "\"GpsDir\":\"" + String(mainData.gpsDir) + "\",";
         json += "\"WDir\":\"" + String(mainData.wDir, 2) + "\",";
         json += "\"WStd\":\"" + String(mainData.wStd, 2) + "\",";
@@ -337,7 +346,11 @@ void WiFiTask(void *arg)
             json += "\"SB\":\"" + String(buoyPara[i].speedSb) + "\",";
             json += "\"MagDir\":\"" + String(buoyPara[i].dirMag, 2) + "\",";
             json += "\"TgDir\":\"" + String(buoyPara[i].tgDir, 2) + "\",";
-            json += "\"TgDist\":\"" + String(buoyPara[i].tgDist, 2) + "\",";
+            double buoy_tg_dist = buoyPara[i].tgDist;
+            if (buoyPara[i].status == LOCKED || buoyPara[i].status == LOCKING || buoyPara[i].status == DOCKED || buoyPara[i].status == DOCKING) {
+                buoy_tg_dist -= buoyPara[i].holdRad;
+            }
+            json += "\"TgDist\":\"" + String(buoy_tg_dist, 2) + "\",";
             json += "\"GpsDir\":\"" + String(buoyPara[i].gpsDir) + "\",";
             json += "\"WDir\":\"" + String(buoyPara[i].wDir, 2) + "\",";
             json += "\"WStd\":\"" + String(buoyPara[i].wStd, 2) + "\",";
@@ -417,6 +430,7 @@ void WiFiTask(void *arg)
         else if (cmdStr == "MANUAL_CALIB") cmdEnum = CALIBRATE_MAGNETIC_COMPASS;
         else if (cmdStr == "CALIB_OFFSET") cmdEnum = INFIELD_OFFSET_CALIBRATE;
         else if (cmdStr == "SET_AS_NORTH") cmdEnum = SET_AS_NORTH;
+        else if (cmdStr == "REBOOT") cmdEnum = REBOOT;
         else if (cmdStr == "ADAPTIVE_TRIM") cmdEnum = ADAPTIVE_TRIM;
         else if (cmdStr == "COMPUTESTART") cmdEnum = COMPUTESTART;
         else if (cmdStr == "COMPUTETRACK") cmdEnum = COMPUTETRACK;
@@ -534,13 +548,74 @@ void WiFiTask(void *arg)
     if (udpOut != NULL) {
         xQueueReset(udpOut);
     }
+    
+    static unsigned long lastBackgroundConnectAttempt = 0;
+    static int connectAttemptState = 0; // 0 = Idle, 1 = Connecting to ROBOBUOY, 2 = Connecting to NicE_WiFi
+    static unsigned long connectionStartedTime = 0;
+
     for (;;) {
         server.handleClient();
         if (ota) ArduinoOTA.handle();
+        
+        // Field-Aware Background Wi-Fi reconnection state machine
+        if (runBackgroundReconnection) {
+            if (WiFi.softAPgetStationNum() > 0) {
+                // If a client is connected to our AP, immediately stop any background scans to prevent channel-jumping
+                if (connectAttemptState != 0) {
+                    Serial.println("[WiFi Background] Client connected to AP. Aborting background connection attempts to ensure AP stability.");
+                    WiFi.disconnect();
+                    connectAttemptState = 0;
+                }
+            }
+            else if (WiFi.status() != WL_CONNECTED) {
+                unsigned long current_time = millis();
+                if (connectAttemptState == 0) {
+                    // If we are idle and 45 seconds have passed since the last attempt, start the cycle
+                    if (current_time - lastBackgroundConnectAttempt > 45000) {
+                        lastBackgroundConnectAttempt = current_time;
+                        connectAttemptState = 1;
+                        connectionStartedTime = current_time;
+                        Serial.println("[WiFi Background] Attempting to connect to 'ROBOBUOY'...");
+                        WiFi.begin("ROBOBUOY", "");
+                    }
+                } else {
+                    // We are currently waiting for a connection to establish
+                    if (current_time - connectionStartedTime > 15000) {
+                        // Timeout after 15 seconds
+                        if (connectAttemptState == 1) {
+                            // Switch to NicE_WiFi
+                            connectAttemptState = 2;
+                            connectionStartedTime = current_time;
+                            Serial.println("[WiFi Background] 'ROBOBUOY' timed out. Attempting 'NicE_WiFi'...");
+                            WiFi.begin("NicE_WiFi", "!Ni1001100110");
+                        } else {
+                            // All attempts failed, go back to idle
+                            connectAttemptState = 0;
+                            Serial.println("[WiFi Background] All background Wi-Fi connection attempts timed out.");
+                            WiFi.disconnect(); // Clear active attempt
+                        }
+                    }
+                }
+            } else {
+                // We are connected! Reset the state machine
+                if (connectAttemptState != 0) {
+                    Serial.printf("[WiFi Background] Successfully connected to SSID: %s! IP: %s\n", 
+                                  WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+                    WiFi.setSleep(WIFI_PS_NONE); // Disable power-saving sleep
+                    connectAttemptState = 0;
+                }
+            }
+        }
+
         RoboStruct msgIdOut = {};
         if (xQueueReceive(udpOut, (void *)&msgIdOut, 1) == pdTRUE) {
             if (msgIdOut.IDs == 0) msgIdOut.IDs = espMac();
             if (msgIdOut.IDr == 0) msgIdOut.IDr = ROBOBASE;
+            if (msgIdOut.cmd == TOPDATA || msgIdOut.cmd == DIRDIST || msgIdOut.cmd == LOCKED || msgIdOut.cmd == DOCKED) {
+                if (msgIdOut.status == LOCKED || msgIdOut.status == LOCKING || msgIdOut.status == DOCKED || msgIdOut.status == DOCKING) {
+                    msgIdOut.tgDist -= msgIdOut.holdRad;
+                }
+            }
             udp.broadcast(rfCode(&msgIdOut).c_str());
         }
         delay(1);

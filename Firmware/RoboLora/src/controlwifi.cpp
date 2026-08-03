@@ -148,7 +148,7 @@ bool scan_and_connect_wifi(IPAddress *tmp)
                 {
                     robobuoy_found = true;
                 }
-                else if (ssid == "NiCe_WiFi" || ssid == "NicE_WiFi")
+                else if (ssid == "NicE_WiFi")
                 {
                     nice_wifi_found = true;
                     nice_wifi_ssid = ssid;
@@ -222,7 +222,7 @@ bool scan_and_connect_wifi(IPAddress *tmp)
 */
 void setup_wifi_ap(String ap, String ww, IPAddress *tmp)
 {
-    WiFi.mode(WIFI_AP); // Set Wi-Fi mode to Access Point
+    WiFi.mode(WIFI_AP_STA); // Set Wi-Fi mode to Access Point + Station
     Serial.println("Setting up access point now");
 
     // Configure static IP
@@ -274,7 +274,8 @@ bool udp_setup(int poort)
                          // Push incoming UDP packets to wsOutQueue for thread-safe WebSocket broadcast
                          if (wsOutQueue != NULL) {
                              String ipStr = packet.remoteIP().toString();
-                             String wsMsg = "UDP:" + ipStr + ":" + stringUdpIn;
+                             int rssi = WiFi.RSSI();
+                             String wsMsg = "UDP:" + String(rssi) + ":" + ipStr + ":" + stringUdpIn;
                              char packetBuf[160];
                              memset(packetBuf, 0, sizeof(packetBuf));
                              // Safe copy with length limit to fit inside packetBuf (159 chars + null terminator)
@@ -344,11 +345,14 @@ void WiFiTask(void *arg)
     String ap = "";
     String apww = "";
     unsigned long nextSamp = millis();
+    static bool runBackgroundReconnection = false;
+
     if (wifiConfig == 1)
     {
         ap = "PAIR_ME_";
         ap += macStr;
         setup_wifi_ap(ap, apww, &ipTop);
+        runBackgroundReconnection = false;
     }
     else
     {
@@ -357,6 +361,11 @@ void WiFiTask(void *arg)
             ap = "ROBOBUOY";
             apww = "";
             setup_wifi_ap(ap, apww, &ipTop);
+            runBackgroundReconnection = false;
+        }
+        else
+        {
+            runBackgroundReconnection = true;
         }
     }
     Serial.print("IP address: ");
@@ -420,6 +429,11 @@ void WiFiTask(void *arg)
     /*
         WiFI loop
     */
+    static unsigned long lastBackgroundConnectAttempt = 0;
+    static int connectAttemptState = 0; // 0 = Idle, 1 = Connecting to ROBOBUOY, 2 = Connecting to NicE_WiFi
+    static unsigned long connectionStartedTime = 0;
+    static int backgroundConnectRetryCount = 0;
+
     for (;;)
     {
         dnsServer.processNextRequest();
@@ -431,6 +445,56 @@ void WiFiTask(void *arg)
 
         server.handleClient();
         webSocket.loop();
+
+        // Field-Aware Background Wi-Fi reconnection state machine
+        if (runBackgroundReconnection) {
+            if (WiFi.softAPgetStationNum() > 0) {
+                // If a client is connected to our AP, immediately stop any background scans to prevent channel-jumping
+                if (connectAttemptState != 0) {
+                    Serial.println("[WiFi Background] Client connected to AP. Aborting background connection attempts to ensure AP stability.");
+                    WiFi.disconnect();
+                    connectAttemptState = 0;
+                }
+            }
+            else if (WiFi.status() != WL_CONNECTED) {
+                unsigned long current_time = millis();
+                if (connectAttemptState == 0) {
+                    // If we are idle and 45 seconds have passed since the last attempt, start the cycle
+                    if (current_time - lastBackgroundConnectAttempt > 45000) {
+                        lastBackgroundConnectAttempt = current_time;
+                        connectAttemptState = 1;
+                        connectionStartedTime = current_time;
+                        Serial.println("[WiFi Background] Attempting to connect to 'ROBOBUOY'...");
+                        WiFi.begin("ROBOBUOY", "");
+                    }
+                } else {
+                    // We are currently waiting for a connection to establish
+                    if (current_time - connectionStartedTime > 15000) {
+                        // Timeout after 15 seconds
+                        if (connectAttemptState == 1) {
+                            // Switch to NicE_WiFi
+                            connectAttemptState = 2;
+                            connectionStartedTime = current_time;
+                            Serial.println("[WiFi Background] 'ROBOBUOY' timed out. Attempting 'NicE_WiFi'...");
+                            WiFi.begin("NicE_WiFi", "!Ni1001100110");
+                        } else {
+                            // All attempts failed, go back to idle
+                            connectAttemptState = 0;
+                            Serial.println("[WiFi Background] All background Wi-Fi connection attempts timed out.");
+                            WiFi.disconnect(); // Clear active attempt
+                        }
+                    }
+                }
+            } else {
+                // We are connected! Reset the state machine
+                if (connectAttemptState != 0) {
+                    Serial.printf("[WiFi Background] Successfully connected to SSID: %s! IP: %s\n", 
+                                  WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+                    WiFi.setSleep(WIFI_PS_NONE); // Disable power-saving sleep
+                    connectAttemptState = 0;
+                }
+            }
+        }
 
         // Thread-safe WebSocket transmitter queue polling
         char wsMsg[160];

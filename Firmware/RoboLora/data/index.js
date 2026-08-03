@@ -42,7 +42,8 @@ const MsgType = {
     RESET_SPEED_RUD_PID: 81,
     WAKEUP: 82,
     SETUPDATA: 83,
-    ADAPTIVE_TRIM: 84
+    ADAPTIVE_TRIM: 84,
+    REBOOT: 85
 };
 
 // Buoy State Configuration (stores 3 buoys)
@@ -55,6 +56,8 @@ const buoys = Array.from({ length: 3 }, (_, i) => ({
     loraEnabled: true,
     lastUdpTime: 0,
     lastLoraTime: 0,
+    loraRssi: null,
+    udpRssi: null,
     lastUdpContent: "",
     lastLoraContent: "",
     data: {},
@@ -65,6 +68,9 @@ const buoys = Array.from({ length: 3 }, (_, i) => ({
     statusLabelOverrideUntil: 0,
     statusLabelOverrideText: ""
 }));
+
+// Other Discovered Devices (not assigned to the 3 main slots)
+const otherDevices = {};
 
 // Web Serial Connection State (Disabled/Removed)
 let serialPort = null;
@@ -161,11 +167,8 @@ async function sendCommand(targetId, baseCommand, useSerial = true, useWs = true
         }
     }
     
-    // Send over WebSocket (acts as UDP bridge when ESP32 or server bridges it)
-    const targetBuoy = buoys.find(b => b.id === targetId);
-    const udpAllowed = targetBuoy ? targetBuoy.udpEnabled : true;
-    
-    if (useWs && udpAllowed && socket && socket.readyState === WebSocket.OPEN) {
+    // Send over WebSocket (acts as the control bridge to RoboLora hardware, which transmits over LoRa/UDP)
+    if (useWs && socket && socket.readyState === WebSocket.OPEN) {
         try {
             socket.send(fullMessage);
             logMessage(fullMessage.trim(), "UDP OUT");
@@ -218,18 +221,48 @@ function connectWebSocket() {
             if (raw) {
                 let source = "UDP";
                 let senderIp = null;
+                let loraRssi = null;
+                let udpRssi = null;
                 if (raw.startsWith("LORA:")) {
                     raw = raw.substring(5);
                     source = "LoRa";
+                    
+                    // Check if there's an RSSI prefix in the LoRa message, e.g. "-78:$..."
+                    const colonIdx = raw.indexOf(":$");
+                    if (colonIdx !== -1) {
+                        const rssiStr = raw.substring(0, colonIdx);
+                        const parsedRssi = parseInt(rssiStr, 10);
+                        if (!isNaN(parsedRssi)) {
+                            loraRssi = parsedRssi;
+                        }
+                        raw = raw.substring(colonIdx + 1); // Extract "$IDr..."
+                    }
                 } else if (raw.startsWith("UDP:")) {
                     raw = raw.substring(4);
                     source = "UDP";
                     
-                    // Check for optional IP prefix, e.g. "192.168.1.78:$..."
-                    const colonIdx = raw.indexOf(":$");
-                    if (colonIdx !== -1) {
-                        senderIp = raw.substring(0, colonIdx);
-                        raw = raw.substring(colonIdx + 1);
+                    // Check for RSSI and IP prefix, e.g. "-65:192.168.1.78:$..."
+                    const firstColon = raw.indexOf(":");
+                    if (firstColon !== -1) {
+                        const firstPart = raw.substring(0, firstColon);
+                        const secondPart = raw.substring(firstColon + 1);
+                        const secondColon = secondPart.indexOf(":$");
+                        if (secondColon !== -1) {
+                            // We have both RSSI and IP!
+                            const parsedRssi = parseInt(firstPart, 10);
+                            if (!isNaN(parsedRssi)) {
+                                udpRssi = parsedRssi;
+                            }
+                            senderIp = secondPart.substring(0, secondColon);
+                            raw = secondPart.substring(secondColon + 1);
+                        } else {
+                            // Only IP (legacy/fallback)
+                            const colonIdx = raw.indexOf(":$");
+                            if (colonIdx !== -1) {
+                                senderIp = raw.substring(0, colonIdx);
+                                raw = raw.substring(colonIdx + 1);
+                            }
+                        }
                     }
                 }
                 
@@ -238,7 +271,7 @@ function connectWebSocket() {
                 
                 // Handle raw NMEA formats
                 if (raw.startsWith("$")) {
-                    parseMessage(raw, source, senderIp);
+                    parseMessage(raw, source, senderIp, loraRssi, udpRssi);
                 } else {
                     // Fallback: parse as JSON if it's not an NMEA sentence
                     try {
@@ -303,7 +336,7 @@ function handleJsonFallback(stuff) {
 }
 
 // Parse NMEA message strings
-function parseMessage(message, source, senderIp = null) {
+function parseMessage(message, source, senderIp = null, loraRssi = null, udpRssi = null) {
     if (!message.startsWith('$') || !message.includes('*')) return;
     
     try {
@@ -352,7 +385,36 @@ function parseMessage(message, source, senderIp = null) {
             }
         }
         
-        if (!targetBuoy) return;
+        if (!targetBuoy) {
+            // It is an "other device" (not assigned to the 3 main slots)
+            if (/^[0-9a-fA-F]+$/.test(senderId) && senderId.length >= 4) {
+                const now = Date.now();
+                if (!otherDevices[senderId]) {
+                    otherDevices[senderId] = {
+                        id: senderId,
+                        ip: null,
+                        lastSeen: now,
+                        lastLoraTime: 0,
+                        lastUdpTime: 0,
+                        loraRssi: null
+                    };
+                }
+                const dev = otherDevices[senderId];
+                dev.lastSeen = now;
+                if (source === "UDP" && senderIp) {
+                    dev.ip = senderIp;
+                    dev.lastUdpTime = now;
+                }
+                if (source === "LoRa") {
+                    dev.lastLoraTime = now;
+                    if (loraRssi !== null) {
+                        dev.loraRssi = loraRssi;
+                    }
+                }
+                renderOtherDevices();
+            }
+            return;
+        }
         const buoyId = targetBuoy.id;
         
         // Save the IP address of the buoy if it was received via UDP
@@ -370,9 +432,15 @@ function parseMessage(message, source, senderIp = null) {
         if (source === "LoRa") {
             targetBuoy.lastLoraTime = now;
             targetBuoy.lastLoraContent = content;
+            if (loraRssi !== null) {
+                targetBuoy.loraRssi = loraRssi;
+            }
         } else {
             targetBuoy.lastUdpTime = now;
             targetBuoy.lastUdpContent = content;
+            if (udpRssi !== null) {
+                targetBuoy.udpRssi = udpRssi;
+            }
         }
         
         // Dual-source filtering: if UDP is actively coming in, ignore LoRa updates for the display
@@ -547,6 +615,7 @@ function drawWindrose(canvas, targetDir, magDir, windDir, gpsDir, targetDist, wi
 
 // GUI Periodic Update Loop (handles network state, overrides, gauges and parameters)
 function updateGUI() {
+    renderOtherDevices();
     const now = Date.now();
     let activeCount = 0;
     
@@ -583,11 +652,13 @@ function updateGUI() {
         const loraOk = b.lastLoraTime > 0 && (now - b.lastLoraTime < 5000);
         
         const udpInd = document.getElementById(`udp-indicator-${i}`);
-        udpInd.textContent = udpOk ? "UDP: OK" : "UDP: --";
+        const udpRssiText = (udpOk && b.udpRssi !== null) ? ` (${b.udpRssi} dBm)` : "";
+        udpInd.textContent = udpOk ? `UDP: OK${udpRssiText}` : "UDP: --";
         udpInd.className = "net-indicator" + (udpOk ? " ok" : "");
         
         const loraInd = document.getElementById(`lora-indicator-${i}`);
-        loraInd.textContent = loraOk ? "LoRa: OK" : "LoRa: --";
+        const rssiText = (loraOk && b.loraRssi !== null) ? ` (${b.loraRssi} dBm)` : "";
+        loraInd.textContent = loraOk ? `LoRa: OK${rssiText}` : "LoRa: --";
         loraInd.className = "net-indicator" + (loraOk ? " ok" : "");
         
         const syncInd = document.getElementById(`sync-indicator-${i}`);
@@ -1016,3 +1087,93 @@ function saveSetupForm() {
     
     closeSetupModal();
 }
+
+// Render list of other discovered devices on the dashboard
+function renderOtherDevices() {
+    const container = document.getElementById("other-devices-container");
+    const listEl = document.getElementById("other-devices-list");
+    if (!container || !listEl) return;
+    
+    // Filter out devices that haven't been seen in the last 30 seconds to keep the list fresh
+    const now = Date.now();
+    for (const id in otherDevices) {
+        if (now - otherDevices[id].lastSeen > 30000) {
+            delete otherDevices[id];
+        }
+    }
+    
+    const ids = Object.keys(otherDevices);
+    if (ids.length === 0) {
+        container.classList.add("hidden");
+        listEl.innerHTML = "";
+        return;
+    }
+    
+    container.classList.remove("hidden");
+    
+    // Construct clickable links
+    const links = ids.map(id => {
+        const dev = otherDevices[id];
+        const label = id.toUpperCase();
+        
+        let ipLink = "";
+        if (dev.ip) {
+            ipLink = ` (<a href="http://${dev.ip}/" target="_blank" class="other-device-ip-link" title="Open device web page">${dev.ip}</a>)`;
+        }
+        
+        const rssiText = (dev.loraRssi !== null && (now - dev.lastLoraTime < 5000)) ? ` [${dev.loraRssi} dBm]` : "";
+        
+        return `<span class="other-device-item">
+            <a href="#" onclick="assignOtherDevice('${id}'); return false;" class="other-device-id-link" title="Click to assign to an active buoy slot">${label}</a>${rssiText}${ipLink}
+        </span>`;
+    });
+    
+    listEl.innerHTML = links.join(" ");
+}
+
+// Interactively assign/swap an other device to one of the 3 active buoy slots
+function assignOtherDevice(deviceId) {
+    const slotStr = prompt(`Enter buoy slot number (1, 2, or 3) to assign device ${deviceId.toUpperCase()}:`, "1");
+    if (slotStr === null) return;
+    const slotIdx = parseInt(slotStr, 10) - 1;
+    if (slotIdx >= 0 && slotIdx < 3) {
+        const b = buoys[slotIdx];
+        const oldId = b.id;
+        
+        // Assign the new device ID
+        b.id = deviceId.toLowerCase();
+        b.title = `Buoy: ${deviceId.toUpperCase()}`;
+        b.ip = otherDevices[deviceId]?.ip || null;
+        b.lastLoraTime = otherDevices[deviceId]?.lastLoraTime || 0;
+        b.lastUdpTime = otherDevices[deviceId]?.lastUdpTime || 0;
+        b.loraRssi = otherDevices[deviceId]?.loraRssi || null;
+        b.data = {}; // Reset data for a clean slate
+        
+        // Update the header title on the card
+        document.getElementById(`buoy-title-${slotIdx}`).textContent = b.title;
+        
+        // Remove from other devices
+        delete otherDevices[deviceId];
+        
+        // If there was an active device already in that slot, recycle it back to other devices
+        if (oldId) {
+            otherDevices[oldId] = {
+                id: oldId,
+                ip: b.ip,
+                lastSeen: Date.now(),
+                lastLoraTime: b.lastLoraTime,
+                lastUdpTime: b.lastUdpTime,
+                loraRssi: b.loraRssi
+            };
+        }
+        
+        updateGUI();
+        renderOtherDevices();
+    } else {
+        alert("Invalid slot number! Please enter 1, 2, or 3.");
+    }
+}
+
+// Bind handlers to global window scope so dynamic HTML onclick can trigger them
+window.assignOtherDevice = assignOtherDevice;
+window.renderOtherDevices = renderOtherDevices;

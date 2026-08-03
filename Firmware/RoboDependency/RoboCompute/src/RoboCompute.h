@@ -102,6 +102,7 @@ typedef enum
     WAKEUP,
     SETUPDATA,
     ADAPTIVE_TRIM,
+    REBOOT,
 	SET_AS_NORTH = 125
 } msg_t;
 

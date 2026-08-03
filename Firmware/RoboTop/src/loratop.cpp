@@ -275,6 +275,14 @@ void LoraTask(void *arg)
         {
             // Set the sender ID to our actual hardware MAC address if not already specified
             if (loraMsgout.IDs == 0) loraMsgout.IDs = (pMainData && pMainData->IDs != 0) ? pMainData->IDs : buoyId;
+            
+            // Adjust tgDist to be the distance to the actual radius (delta)
+            if (loraMsgout.cmd == TOPDATA || loraMsgout.cmd == DIRDIST || loraMsgout.cmd == LOCKED || loraMsgout.cmd == DOCKED) {
+                if (loraMsgout.status == LOCKED || loraMsgout.status == LOCKING || loraMsgout.status == DOCKED || loraMsgout.status == DOCKING) {
+                    loraMsgout.tgDist -= loraMsgout.holdRad;
+                }
+            }
+            
             String loraString = rfCode(&loraMsgout);
             int retries = 0;
             
