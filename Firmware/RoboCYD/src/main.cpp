@@ -650,7 +650,7 @@ void loop() {
                     int local_idx = c * 4 + r; // 0 to 7
                     int tapped_idx = setup_page * 8 + local_idx; // Map to 0-15 based on page!
                     
-                    if (tapped_idx >= 0 && tapped_idx <= 15) {
+                    if (tapped_idx >= 0 && tapped_idx <= 18) {
                         // Change focus selection
                         selected_param_idx = tapped_idx;
                         
@@ -672,6 +672,8 @@ void loop() {
                         } else if (selected_param_idx == 15) {
                             buoys[selected_buoy_idx].compass_trim_enabled = !buoys[selected_buoy_idx].compass_trim_enabled;
                         }
+                        } else if (selected_param_idx == 18) {
+                            buoys[selected_buoy_idx].dock_to_wp = !buoys[selected_buoy_idx].dock_to_wp;
                     }
                 }
                 // 2. Large Plus / Minus Button Clicks (Y: 190 to 230)
@@ -692,6 +694,7 @@ void loop() {
                     
                     if (touchX >= 10 && touchX <= 75) {
                         // MINUS
+                        Serial.printf("CYD Touch: MINUS for param %d, step=%0.3f (current dist=%d, dir=%d)\n", selected_param_idx, step, b.dock_app_dist, b.dock_app_dir);
                         if (selected_param_idx == 0) { b.kpr -= step; if (b.kpr < 0) b.kpr = 0; }
                         else if (selected_param_idx == 1) { b.kir -= step; if (b.kir < 0) b.kir = 0; }
                         else if (selected_param_idx == 2) { b.kdr -= step; if (b.kdr < 0) b.kdr = 0; }
@@ -713,6 +716,7 @@ void loop() {
                     }
                     else if (touchX >= 155 && touchX <= 230) {
                         // PLUS
+                        Serial.printf("CYD Touch: PLUS for param %d, step=%0.3f (current dist=%d, dir=%d)\n", selected_param_idx, step, b.dock_app_dist, b.dock_app_dir);
                         if (selected_param_idx == 0) { b.kpr += step; }
                         else if (selected_param_idx == 1) { b.kir += step; }
                         else if (selected_param_idx == 2) { b.kdr += step; }
