@@ -1183,7 +1183,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                         RfOut->revBB = RfIn.revBB;
                         RfOut->revSB = RfIn.revSB;
                         RfOut->swap_BB_SB = RfIn.swap_BB_SB;
-                        if (RfIn.IDs == 0x98) {
+                        if (RfIn.IDs == 0x98 || RfIn.IDs == 0x99) {
                             RfOut->dockApproachDist = RfIn.dockApproachDist;
                             RfOut->dockApproachDir = RfIn.dockApproachDir;
                             RfOut->dockingToWaypoint = RfIn.dockingToWaypoint;

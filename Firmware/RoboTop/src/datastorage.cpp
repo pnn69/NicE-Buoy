@@ -138,12 +138,14 @@ void memDockApproach(RoboStruct *buoy, bool get)
         buoy->dockApproachDist = storage.getInt("dockAppDist", 0); //meters
         buoy->dockApproachDir = storage.getInt("dockAppDir", 0); // degrees
         buoy->dockingToWaypoint = storage.getBool("dockToWP", false);
+        printf("NVM LOAD memDockApproach: Dist=%d, Dir=%d, WP=%s\r\n", buoy->dockApproachDist, buoy->dockApproachDir, buoy->dockingToWaypoint ? "YES" : "NO");
     }
     else
     {
         storage.putInt("dockAppDist", buoy->dockApproachDist);
         storage.putInt("dockAppDir", buoy->dockApproachDir);
         storage.putBool("dockToWP",buoy->dockingToWaypoint);
+        printf("NVM SAVE memDockApproach: Dist=%d, Dir=%d, WP=%s\r\n", buoy->dockApproachDist, buoy->dockApproachDir, buoy->dockingToWaypoint ? "YES" : "NO");
     }
     stopMem();
 }
