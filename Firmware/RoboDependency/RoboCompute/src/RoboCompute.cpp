@@ -57,6 +57,9 @@ void RoboDecode(String data, RoboStruct *dataStore)
           if (count > 14 && numbers[14].length() > 0) dataStore->revSB = (bool)numbers[14].toInt();
           if (count > 15 && numbers[15].length() > 0) dataStore->swap_BB_SB = (bool)numbers[15].toInt();
           if (count > 16 && numbers[16].length() > 0) dataStore->compass_trim_enabled = (bool)numbers[16].toInt();
+          if (count > 17 && numbers[17].length() > 0) dataStore->dockApproachDist = numbers[17].toInt();
+          if (count > 18 && numbers[18].length() > 0) dataStore->dockApproachDir = numbers[18].toInt();
+          if (count > 19 && numbers[19].length() > 0) dataStore->dockingToWaypoint = (bool)numbers[19].toInt();
           break;
     case IDLE:
         dataStore->speed = 0;
@@ -151,12 +154,21 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->tgLng = numbers[3].toDouble();
         dataStore->wDir = numbers[4].toDouble();
         dataStore->wStd = numbers[5].toDouble();
+        dataStore->dockApproachDist = numbers[6].toInt();
+        dataStore->dockApproachDir = numbers[7].toInt();
+        dataStore->dockingToWaypoint = (bool)numbers[8].toInt();
+
         break;
     case SETLOCKPOS:
     case SETDOCKPOS:
         dataStore->tgLat = numbers[2].toDouble();
         dataStore->tgLng = numbers[3].toDouble();
         break;
+    case SET_DOCWP:
+        dataStore->dockApproachDist = numbers[2].toInt();
+        dataStore->dockApproachDir = numbers[3].toInt();
+        dataStore->dockingToWaypoint = (bool)numbers[4].toInt();
+    break;
     case DIRDIST:
         dataStore->tgDir = numbers[2].toDouble();
         dataStore->tgDist = numbers[3].toDouble();
@@ -278,6 +290,9 @@ String RoboCode(const RoboStruct *dataOut)
           out += "," + String((int)dataOut->revSB);
           out += "," + String((int)dataOut->swap_BB_SB);
           out += "," + String((int)dataOut->compass_trim_enabled);
+          out += "," + String(dataOut->dockApproachDist);
+          out += "," + String(dataOut->dockApproachDir);
+          out += "," + String((int)dataOut->dockingToWaypoint);
           break;
     case DIRSPEED:
         out += "," + formatFloat(dataOut->dirMag, 2);
@@ -385,8 +400,16 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + formatFloat(dataOut->tgLng, 10);
         out += "," + formatFloat(dataOut->wDir, 1);
         out += "," + formatFloat(dataOut->wStd, 1);
+        out += "," + String(dataOut->dockApproachDist);
+        out += "," + String(dataOut->dockApproachDir);
+        out += "," + String((int)dataOut->dockingToWaypoint);
         break;
-    case WINDDATA:
+     case SET_DOCWP:
+        out += "," + String(dataOut->dockApproachDist);
+        out += "," + String(dataOut->dockApproachDir);
+        out += "," + String((int)dataOut->dockingToWaypoint);
+    break;
+        case WINDDATA:
         out += "," + formatFloat(dataOut->wDir, 1);
         out += "," + formatFloat(dataOut->wStd, 1);
         break;
@@ -439,6 +462,9 @@ String RoboCode(const RoboStruct *dataOut)
     case ADAPTIVE_TRIM:
         out += "," + formatFloat(dataOut->compass_trim, 4);
         out += "," + String((int)dataOut->compass_trim_enabled);
+          out += "," + String(dataOut->dockApproachDist);
+          out += "," + String(dataOut->dockApproachDir);
+          out += "," + String((int)dataOut->dockingToWaypoint);
         break;
     case DOCKED:
     case LOCKED:
