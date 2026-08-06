@@ -519,12 +519,13 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         stat->tgDist = 0.0;
         stat->tgDir = 0.0;
         printf("Retreved data for docking tgLat:%.8f tgLng:%.8f\r\n", stat->tgLat, stat->tgLng);
-        printf("Retrieved waypoint for docking tgLat:%d tgLng:%d Waypoint set %s\r\n", stat->dockApproachDist, stat->dockApproachDir, stat->dockingToWaypoint ? "YES" : "NO");
+        printf("Retrieved waypoint for docking Direction: %d\xC2\xB0 distance: %dM Waypoint set %s\r\n", stat->dockApproachDir, stat->dockApproachDist, stat->dockingToWaypoint ? "YES" : "NO");
         // Broadcast the loaded dock position (tgLat and tgLng) to update the Web UI and LoRa network
         if (stat->dockingToWaypoint == true)
         {
             //change the waypoint with the given offset
             adjustPositionDirDist((double)stat->dockApproachDir, (double)stat->dockApproachDist, stat->tgLat, stat->tgLng, &stat->tgLat, &stat->tgLng);
+            printf("Docking waypoint-> tgLat:%.8f tgLng:%.8f\r\n", stat->tgLat, stat->tgLng);
         }
         stat->cmd = DOCKPOS;
         stat->ack = SET;
