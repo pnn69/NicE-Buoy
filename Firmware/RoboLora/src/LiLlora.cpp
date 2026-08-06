@@ -263,7 +263,10 @@ void LoraTask(void *arg)
         static RoboStruct txMsg;
         if (xQueueReceive(loraOut, (void *)&txMsg, 1) == pdTRUE)
         {
-            txMsg.IDs = espMac(); // Attach the local device MAC address as sender ID
+            // Preserve webpage (0x99) and screen (0x98) client identities so the Top buoy allows saving local docking setup parameters
+            if (txMsg.IDs != 0x99 && txMsg.IDs != 0x98) {
+                txMsg.IDs = espMac(); // Attach the local device MAC address as sender ID
+            }
             String loraString = rfCode(&txMsg);
 
             int attempts = 0;
