@@ -1605,6 +1605,11 @@ void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                 target->swap_BB_SB = serDataIn.swap_BB_SB;
                 target->sub_status++; // Use sub_status as a local revision counter for Web UI
 
+                // Inject our local docking parameters into the sub response before forwarding!
+                serDataIn.dockApproachDist = target->dockApproachDist;
+                serDataIn.dockApproachDir = target->dockApproachDir;
+                serDataIn.dockingToWaypoint = target->dockingToWaypoint;
+
                 // IMPORTANT: Send the actual protocol string to the PC via Serial so RoboControl.py sees it!
                 Serial.println(rfCode(&serDataIn));
 
