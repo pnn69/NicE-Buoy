@@ -382,6 +382,7 @@ void WiFiTask(void *arg)
 
     // Configure WebServer routes
     server.on("/", []() {
+        server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         File file = SPIFFS.open("/index.html", "r");
         if (file) {
             server.streamFile(file, "text/html");
@@ -392,6 +393,7 @@ void WiFiTask(void *arg)
     });
 
     server.on("/index.js", []() {
+        server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         File file = SPIFFS.open("/index.js", "r");
         if (file) {
             server.streamFile(file, "application/javascript");
@@ -402,6 +404,7 @@ void WiFiTask(void *arg)
     });
 
     server.on("/style.css", []() {
+        server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         File file = SPIFFS.open("/style.css", "r");
         if (file) {
             server.streamFile(file, "text/css");

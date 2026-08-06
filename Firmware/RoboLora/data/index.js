@@ -497,7 +497,10 @@ function parseMessage(message, source, senderIp = null, loraRssi = null, udpRssi
                 "maxSpeed": fields[11], "minSpeed": fields[12], "pivotSpeed": fields[13], "compassOffset": fields[14] || "0",
                 "holdRad": fields[15] || "2.0",
                 "revBB": fields[16] || "0", "revSB": fields[17] || "0", "swap_BB_SB": fields[18] || "0",
-                "compass_trim_enabled": fields[16] || "0"
+                "compass_trim_enabled": fields[19] || "0",
+                "dockAppDist": fields[20] || "20",
+                "dockAppDir": fields[21] || "180",
+                "dockToWP": fields[22] || "0"
             });
         } else if (cmd === MsgType.ADAPTIVE_TRIM && fields.length >= 6) {
             Object.assign(parsedData, {
@@ -1031,6 +1034,9 @@ function querySetupAndPoll() {
         document.getElementById("setup-compassTrimEnabled").checked = trimEn;
         document.getElementById("setup-revSB").checked = b.data["revSB"] === "1";
         document.getElementById("setup-swap").checked = b.data["swap_BB_SB"] === "1";
+        document.getElementById("setup-dockAppDist").value = parseInt(b.data["dockAppDist"]) || 20;
+        document.getElementById("setup-dockAppDir").value = parseInt(b.data["dockAppDir"]) || 180;
+        document.getElementById("setup-dockToWP").checked = b.data["dockToWP"] === "1" || b.data["dockToWP"] === 1 || b.data["dockToWP"] === true || b.data["dockToWP"] === "true";
     } else {
         // Send fetch query request ($buoyId,99,MsgType.GET,MsgType.SETUPDATA,,,,,,,)
         sendCommand(b.id, `${b.id},99,${MsgType.GET},${MsgType.SETUPDATA},,,,,,,`);
@@ -1071,9 +1077,13 @@ function saveSetupForm() {
         document.getElementById("setup-pivotSpeed").value,
         document.getElementById("setup-compassOffset").value,
         document.getElementById("setup-holdRad").value,
-        trimEn, // Index 16 on the wire (corresponds to compass_trim_enabled in newer builds)
+        b.data["revBB"] || "0",
         document.getElementById("setup-revSB").checked ? "1" : "0",
-        document.getElementById("setup-swap").checked ? "1" : "0"
+        document.getElementById("setup-swap").checked ? "1" : "0",
+        trimEn,
+        document.getElementById("setup-dockAppDist").value,
+        document.getElementById("setup-dockAppDir").value,
+        document.getElementById("setup-dockToWP").checked ? "1" : "0"
     ];
     
     // Construct message: Target,99,SET,SETUPDATA,Status,vals...
