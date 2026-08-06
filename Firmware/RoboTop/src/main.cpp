@@ -1182,6 +1182,12 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                         RfOut->revBB = RfIn.revBB;
                         RfOut->revSB = RfIn.revSB;
                         RfOut->swap_BB_SB = RfIn.swap_BB_SB;
+                        if (RfIn.IDs == 0x98) {
+                            RfOut->dockApproachDist = RfIn.dockApproachDist;
+                            RfOut->dockApproachDir = RfIn.dockApproachDir;
+                            RfOut->dockingToWaypoint = RfIn.dockingToWaypoint;
+                            memDockApproach(RfOut, SET);
+                        }
                         
                         // FORWARD TO SUB: Force the Sub to physically commit these parameters to its local persistent EEPROM/flash.
                         RfIn.ack = SET;
