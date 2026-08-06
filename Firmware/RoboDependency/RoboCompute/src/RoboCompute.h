@@ -103,7 +103,8 @@ typedef enum
     SETUPDATA,
     ADAPTIVE_TRIM,
     REBOOT,
-	SET_AS_NORTH = 125
+    SET_DOCWP,
+	SET_AS_NORTH
 } msg_t;
 
 struct RoboStruct
@@ -120,6 +121,9 @@ struct RoboStruct
     double lng = 0;
     double tgLat = 0;
     double tgLng = 0;
+    int dockApproachDist = 0; // meters
+    int dockApproachDir = 0; // degrees
+    bool dockingToWaypoint = false;
     int gpsDir = 0;
     int gpsSat = 0;
     int dirSet = 0;
