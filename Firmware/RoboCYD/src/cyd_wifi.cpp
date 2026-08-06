@@ -3,8 +3,20 @@
 #include <ESPmDNS.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
+#include <AsyncUDP.h>
+#include <WebServer.h>
+#include <WebSocketsServer.h>
+#include <SPIFFS.h>
 #include "cyd_wifi.h"
 #include "cyd_display.h"
+#include "buoy_data.h"
+#include "cyd_lora.h"
+
+AsyncUDP udp;
+
+// Instantiate the global WebServer running on standard HTTP port 80 and WebSockets on port 81
+WebServer server(80);
+WebSocketsServer webSocket(81);
 
 bool scan_and_connect_wifi() {
     Serial.println("Starting WiFi scan...");
@@ -32,14 +44,15 @@ bool scan_and_connect_wifi() {
         }
     }
 
-    if (robobuoy_found) {
-        Serial.println("Found 'ROBOBUOY'. Connecting...");
-        tft.drawString("Connecting to ROBOBUOY...", 20, 50);
-        WiFi.begin("ROBOBUOY", "");
-    } else if (nice_wifi_found) {
+    // PRIORITIZE "NicE_WiFi" to join same subnet as RoboLora module (192.168.1.x)
+    if (nice_wifi_found) {
         Serial.println("Found 'NicE_WiFi'. Connecting...");
         tft.drawString("Connecting to NicE_WiFi...", 20, 50);
         WiFi.begin("NicE_WiFi", "!Ni1001100110");
+    } else if (robobuoy_found) {
+        Serial.println("Found 'ROBOBUOY'. Connecting...");
+        tft.drawString("Connecting to ROBOBUOY...", 20, 50);
+        WiFi.begin("ROBOBUOY", "");
     } else {
         Serial.println("No configured WiFi found. AP mode fallback...");
         tft.drawString("WiFi not found!", 20, 50);
@@ -61,6 +74,24 @@ bool scan_and_connect_wifi() {
         }
     }
 
+    // CRITICAL: Explicitly wait for DHCP to assign a valid IP address before starting mDNS/OTA!
+    // WL_CONNECTED occurs on AP association, but initializing network responders while local IP is still 0.0.0.0
+    // causes the lwIP network stack to instantly crash and reboot the ESP32.
+    Serial.println("\nWiFi Associated. Waiting for DHCP IP...");
+    tft.drawString("Acquiring IP...", 20, 80);
+    
+    unsigned long ip_timeout = millis();
+    while (WiFi.localIP() == IPAddress(0, 0, 0, 0)) {
+        delay(100);
+        Serial.print("o");
+        if (millis() - ip_timeout > 6000) { // 6 seconds timeout for DHCP IP lease
+            Serial.println("\nFailed to acquire DHCP IP. AP fallback...");
+            tft.drawString("IP Lease Failed!", 20, 110);
+            WiFi.softAP("RoboCYD", "");
+            return false;
+        }
+    }
+
     Serial.println("\nWiFi CONNECTED");
     WiFi.setSleep(WIFI_PS_NONE); // Disable sleep to ensure fast OTA
     IPAddress ip = WiFi.localIP();
@@ -71,14 +102,17 @@ bool scan_and_connect_wifi() {
     sprintf(buf, "IP: %s", ip.toString().c_str());
     tft.drawString("Connected!", 20, 80);
     tft.drawString(buf, 20, 110);
-    delay(2000);
+    delay(1000);
     return true;
 }
 
 void setup_Arduino_OTA() {
     byte mac[6];
     WiFi.macAddress(mac);
-    char hostname[32];
+    
+    // Declared static to ensure pointer string lives forever in global heap memory,
+    // avoiding stack deallocation pointers crashes inside ArduinoOTA/MDNS loops!
+    static char hostname[32];
     sprintf(hostname, "CYD_%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     
     ArduinoOTA.setHostname(hostname);
@@ -160,15 +194,152 @@ void setup_Arduino_OTA() {
     });
     
     ArduinoOTA.begin();
-    MDNS.begin(hostname);
-    Serial.printf("OTA hostname set to: %s\n", hostname);
+    // Redundant mDNS initialization removed (ArduinoOTA.begin() natively handles mDNS registration automatically,
+    // thereby avoiding dual-allocation heap responder collisions and panics!).
+    Serial.printf("OTA Service initialized with hostname: %s.local\n", hostname);
+}
+
+// WebSocket server event callback
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
+    switch(type) {
+        case WStype_DISCONNECTED:
+            Serial.printf("[%u] Web Client Disconnected!\n", num);
+            break;
+        case WStype_CONNECTED: {
+            IPAddress ip = webSocket.remoteIP(num);
+            Serial.printf("[%u] Web Client Connected from %s\n", num, ip.toString().c_str());
+            // Send welcome message to newly connected webpage clients
+            webSocket.sendTXT(num, "UDP:Welcome to RoboCYD Dashboard");
+            break;
+        }
+        case WStype_TEXT: {
+            String message = "";
+            message.reserve(length);
+            for (size_t i = 0; i < length; i++) {
+                message += (char)payload[i];
+            }
+            message.trim();
+
+            Serial.print("WebSocket RX Command: ");
+            Serial.println(message);
+
+            // Forward the command directly over both communication channels
+            parse_buoy_packet(message, "UDP"); // Register the change locally on screen
+            send_lora_packet(message);         // Send to LoRa radio channel
+            udp_broadcast(message);            // Send to UDP network channel
+            break;
+        }
+        default:
+            break;
+    }
 }
 
 void init_wifi_and_ota() {
-    scan_and_connect_wifi();
-    setup_Arduino_OTA();
+    // CRITICAL FIRST STEP: Mount SPIFFS filesystem FIRST, before connecting to WiFi or starting servers.
+    // This isolates the filesystem mount from active network interrupts and thread allocations,
+    // preventing watchdog timeouts and memory leaks.
+    if (!SPIFFS.begin(true)) {
+        Serial.println("An Error has occurred while mounting SPIFFS");
+    } else {
+        Serial.println("SPIFFS mounted successfully!");
+    }
+
+    bool connected = scan_and_connect_wifi();
+    
+    // Only initialize station-dependent network systems if connection was successful
+    if (connected) {
+        setup_Arduino_OTA();
+    }
+
+    // Configure WebServer HTTP standard Port 80 routes
+    server.on("/", []() {
+        server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        File file = SPIFFS.open("/index.html", "r");
+        if (file) {
+            server.streamFile(file, "text/html");
+            file.close();
+        } else {
+            server.send(404, "text/plain", "index.html not found");
+        }
+    });
+
+    server.on("/index.js", []() {
+        server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        File file = SPIFFS.open("/index.js", "r");
+        if (file) {
+            server.streamFile(file, "application/javascript");
+            file.close();
+        } else {
+            server.send(404, "text/plain", "index.js not found");
+        }
+    });
+
+    server.on("/style.css", []() {
+        server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        File file = SPIFFS.open("/style.css", "r");
+        if (file) {
+            server.streamFile(file, "text/css");
+            file.close();
+        } else {
+            server.send(404, "text/plain", "style.css not found");
+        }
+    });
+
+    // Fallback/Captive Portal support
+    server.onNotFound([]() {
+        server.sendHeader("Location", "/", true);
+        server.send(302, "text/plain", "");
+    });
+
+    server.begin();
+    Serial.println("HTTP WebServer started on port 80!");
+
+    // Start WebSocket Server on Port 81
+    webSocket.begin();
+    webSocket.onEvent(webSocketEvent);
+    Serial.println("WebSocket Server started on port 81!");
+
+    // Set up AsyncUDP listener on port 1001 for buoy broadcasts
+    if (udp.listen(1001)) {
+        Serial.println("Listening on UDP port 1001 for Buoy telemetry...");
+        udp.onPacket([](AsyncUDPPacket packet) {
+            String stringUdpIn = String((const char *)packet.data(), packet.length());
+            
+            // Parse locally
+            parse_buoy_packet(stringUdpIn, "UDP");
+            
+            // Broadcast over WebSockets to webpage clients using dynamic RSSI and IP
+            int rssi = WiFi.RSSI();
+            String senderIp = packet.remoteIP().toString();
+            broadcast_websocket_udp(stringUdpIn, rssi, senderIp);
+        });
+    } else {
+        Serial.println("Failed to bind UDP port 1001!");
+    }
 }
 
 void handle_ota() {
     ArduinoOTA.handle();
+}
+
+void udp_broadcast(const String &message) {
+    // Explicitly broadcast to all devices on port 1001, matching RoboLora controlwifi
+    udp.broadcastTo(message.c_str(), 1001);
+}
+
+void broadcast_websocket_udp(const String &payload, int rssi, const String &ip) {
+    // RoboLora protocol: UDP:RSSI:IP:$Payload
+    String wsMsg = "UDP:" + String(rssi) + ":" + ip + ":" + payload;
+    webSocket.broadcastTXT(wsMsg.c_str());
+}
+
+void broadcast_websocket_lora(const String &payload, int rssi) {
+    // RoboLora protocol: LORA:RSSI:$Payload
+    String wsMsg = "LORA:" + String(rssi) + ":" + payload;
+    webSocket.broadcastTXT(wsMsg.c_str());
+}
+
+void handle_wifi_clients() {
+    server.handleClient();
+    webSocket.loop();
 }
