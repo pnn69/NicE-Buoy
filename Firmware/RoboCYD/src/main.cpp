@@ -734,8 +734,8 @@ void loop() {
                         }
                         else if (selected_param_idx == 14) { b.rev_sb = !b.rev_sb; }
                         else if (selected_param_idx == 15) { b.compass_trim_enabled = !b.compass_trim_enabled; }
-                        else if (selected_param_idx == 16) { b.dock_app_dist -= (int)step; if (b.dock_app_dist < 0) b.dock_app_dist = 0; }
-                        else if (selected_param_idx == 17) { b.dock_app_dir -= (int)step; if (b.dock_app_dir < 0) b.dock_app_dir += 360; }
+                        else if (selected_param_idx == 16) { b.dock_app_dist += (int)step; }
+                        else if (selected_param_idx == 17) { b.dock_app_dir += (int)step; if (b.dock_app_dir >= 360) b.dock_app_dir -= 360; }
                         else if (selected_param_idx == 18) { b.dock_to_wp = !b.dock_to_wp; }
                     }
                     reset_button_draw_cache(); // Force complete update redraw
