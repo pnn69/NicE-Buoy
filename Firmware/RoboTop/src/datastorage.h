@@ -12,6 +12,7 @@ void CompasOffset(RoboStruct *buoy, bool get);
 void CompassOffsetCorrection(int *delta, bool get);
 void MechanicalCorrection(double *correction, bool get);
 void memDockPos(RoboStruct *buoy, bool get);
+void memDockApproach(RoboStruct *buoy, bool get);
 void thrusterInversion(RoboStruct *buoy, bool get);
 void computeParameters(RoboStruct *buoy, bool get);
 void pidSpeedParameters(RoboStruct *buoy, bool get);

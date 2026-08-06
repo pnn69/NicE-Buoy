@@ -332,6 +332,9 @@ void WiFiTask(void *arg)
         json += "\"mechanicCorrection\":\"" + String(mainData.mechanicCorrection, 2) + "\",";
         json += "\"compass_trim_enabled\":\"" + String(mainData.compass_trim_enabled ? "true" : "false") + "\",";
         json += "\"compass_trim\":\"" + String(mainData.compass_trim, 3) + "\",";
+        json += "\"dockAppDist\":\"" + String(mainData.dockApproachDist) + "\",";
+        json += "\"dockAppDir\":\"" + String(mainData.dockApproachDir) + "\",";
+        json += "\"dockToWP\":\"" + String(mainData.dockingToWaypoint ? "true" : "false") + "\",";
         json += "\"Lat\":\"" + String(mainData.lat, 6) + "\",";
         json += "\"Lng\":\"" + String(mainData.lng, 6) + "\",";
         json += "\"GpsFix\":\"" + String(mainData.gpsFix ? "true" : "false") + "\"";
@@ -377,6 +380,9 @@ void WiFiTask(void *arg)
             json += "\"mechanicCorrection\":\"" + String(buoyPara[i].mechanicCorrection, 2) + "\",";
             json += "\"compass_trim_enabled\":\"" + String(buoyPara[i].compass_trim_enabled ? "true" : "false") + "\",";
             json += "\"compass_trim\":\"" + String(buoyPara[i].compass_trim, 3) + "\",";
+            json += "\"dockAppDist\":\"" + String(buoyPara[i].dockApproachDist) + "\",";
+            json += "\"dockAppDir\":\"" + String(buoyPara[i].dockApproachDir) + "\",";
+            json += "\"dockToWP\":\"" + String(buoyPara[i].dockingToWaypoint ? "true" : "false") + "\",";
             json += "\"Lat\":\"" + String(buoyPara[i].lat, 6) + "\",";
             json += "\"Lng\":\"" + String(buoyPara[i].lng, 6) + "\",";
             json += "\"GpsFix\":\"" + String(buoyPara[i].gpsFix ? "true" : "false") + "\"";
@@ -459,10 +465,14 @@ void WiFiTask(void *arg)
                     mainData.swap_BB_SB = server.arg("swap_BB_SB").toInt();
                     if (server.hasArg("compass_trim_enabled")) mainData.compass_trim_enabled = (server.arg("compass_trim_enabled").toInt() != 0);
                     if (server.hasArg("mech")) mainData.mechanicCorrection = server.arg("mech").toFloat();
+                    if (server.hasArg("dockAppDist")) mainData.dockApproachDist = server.arg("dockAppDist").toInt();
+                    if (server.hasArg("dockAppDir")) mainData.dockApproachDir = server.arg("dockAppDir").toInt();
+                    if (server.hasArg("dockToWP")) mainData.dockingToWaypoint = (server.arg("dockToWP").toInt() != 0);
 
                     pidRudderParameters(&mainData, SET);
                     pidSpeedParameters(&mainData, SET);
                     computeParameters(&mainData, SET);
+                    memDockApproach(&mainData, SET);
                     int offset = (int)mainData.compassOffset;
                     CompassOffsetCorrection(&offset, SET);
 
@@ -529,6 +539,9 @@ void WiFiTask(void *arg)
                     msg.swap_BB_SB = server.arg("swap_BB_SB").toInt();
                     if (server.hasArg("compass_trim_enabled")) msg.compass_trim_enabled = (server.arg("compass_trim_enabled").toInt() != 0);
                     if (server.hasArg("mech")) msg.mechanicCorrection = server.arg("mech").toFloat();
+                    if (server.hasArg("dockAppDist")) msg.dockApproachDist = server.arg("dockAppDist").toInt();
+                    if (server.hasArg("dockAppDir")) msg.dockApproachDir = server.arg("dockAppDir").toInt();
+                    if (server.hasArg("dockToWP")) msg.dockingToWaypoint = (server.arg("dockToWP").toInt() != 0);
                     msg.ack = SET;
                 } else {
                     msg.ack = GET;

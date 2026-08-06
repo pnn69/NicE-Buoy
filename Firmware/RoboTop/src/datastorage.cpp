@@ -130,6 +130,24 @@ void memDockPos(RoboStruct *buoy, bool get)
     stopMem();
 }
 
+void memDockApproach(RoboStruct *buoy, bool get)
+{
+    startMem();
+    if (get)
+    {
+        buoy->dockApproachDist = storage.getInt("dockAppDist", 0); //meters
+        buoy->dockApproachDir = storage.getInt("dockAppDir", 0); // degrees
+        buoy->dockingToWaypoint = storage.getBool("dockToWP", false);
+    }
+    else
+    {
+        storage.putInt("dockAppDist", buoy->dockApproachDist);
+        storage.putInt("dockAppDir", buoy->dockApproachDir);
+        storage.putBool("dockToWP",buoy->dockingToWaypoint);
+    }
+    stopMem();
+}
+
 /**
  * @brief Gets or sets the thruster inversion settings in memory.
  */

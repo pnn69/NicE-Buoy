@@ -369,6 +369,22 @@ input {
                 <label for="swap_BB_SB">Swap BB/SB Thrusters</label>
             </div>
         </div>
+
+        <h4 style="margin: 8px 0 5px 0;">Docking Approach Settings</h4>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+            <div style="display:flex; flex-direction:column; gap:2px;">
+                <label for="dockAppDist" style="font-size:12px; font-weight:bold;">Approach Dist (m)</label>
+                <input id="dockAppDist" type="number" step="1" min="0" style="width:100%;">
+            </div>
+            <div style="display:flex; flex-direction:column; gap:2px;">
+                <label for="dockAppDir" style="font-size:12px; font-weight:bold;">Approach Dir (°)</label>
+                <input id="dockAppDir" type="number" step="1" min="0" max="359" style="width:100%;">
+            </div>
+            <div style="display:flex; align-items:center; gap:5px; grid-column: span 2;">
+                <input id="dockToWP" type="checkbox" style="width:20px; height:20px;">
+                <label for="dockToWP">Dock to Waypoint</label>
+            </div>
+        </div>
         
         <hr style="margin: 15px 0 10px 0;">
         
@@ -401,8 +417,17 @@ let buoyData = {
 };
 
 function updateConfig() {
-    const kpr = document.getElementById('Kpr').value;
-    const maxSpd = document.getElementById('maxSpeed').value;
+    const getVal = (id) => {
+        const el = document.getElementById(id);
+        return el ? el.value : '';
+    };
+    const getChecked = (id) => {
+        const el = document.getElementById(id);
+        return el && el.checked ? 1 : 0;
+    };
+
+    const kpr = getVal('Kpr');
+    const maxSpd = getVal('maxSpeed');
     
     // Safety: Don't allow saving if key fields are 0 or empty (unless truly intended)
     if ((parseFloat(kpr) === 0 && parseFloat(maxSpd) === 0) || kpr === "" || maxSpd === "") {
@@ -412,22 +437,25 @@ function updateConfig() {
     }
 
     const params = {
-        Kpr: document.getElementById('Kpr').value,
-        Kir: document.getElementById('Kir').value,
-        Kdr: document.getElementById('Kdr').value,
-        Kps: document.getElementById('Kps').value,
-        Kis: document.getElementById('Kis').value,
-        Kds: document.getElementById('Kds').value,
-        maxSpeed: document.getElementById('maxSpeed').value,
-        minSpeed: document.getElementById('minSpeed').value,
-        pivotSpeed: document.getElementById('pivotSpeed').value,
-        compassOffset: document.getElementById('compassOffset').value,
-        holdrad: document.getElementById('holdrad').value,
-        revBB: document.getElementById('revBB').checked ? 1 : 0,
-        revSB: document.getElementById('revSB').checked ? 1 : 0,
-        swap_BB_SB: document.getElementById('swap_BB_SB').checked ? 1 : 0,
-        compass_trim_enabled: document.getElementById('compass_trim_enabled').checked ? 1 : 0,
-        mech: document.getElementById('mechanicCorrection').value
+        Kpr: getVal('Kpr'),
+        Kir: getVal('Kir'),
+        Kdr: getVal('Kdr'),
+        Kps: getVal('Kps'),
+        Kis: getVal('Kis'),
+        Kds: getVal('Kds'),
+        maxSpeed: getVal('maxSpeed'),
+        minSpeed: getVal('minSpeed'),
+        pivotSpeed: getVal('pivotSpeed'),
+        compassOffset: getVal('compassOffset'),
+        holdrad: getVal('holdrad'),
+        revBB: getChecked('revBB'),
+        revSB: getChecked('revSB'),
+        swap_BB_SB: getChecked('swap_BB_SB'),
+        compass_trim_enabled: getChecked('compass_trim_enabled'),
+        mech: getVal('mechanicCorrection'),
+        dockAppDist: getVal('dockAppDist'),
+        dockAppDir: getVal('dockAppDir'),
+        dockToWP: getChecked('dockToWP')
     };
 
     let url = `/command?bid=${currentBuoy}&cmd=SETUPDATA`;
@@ -439,6 +467,7 @@ function updateConfig() {
         .then(response => response.text())
         .then(data => {
             console.log("Update Config response:", data);
+            closeSetup();
         })
         .catch(error => {
             console.error('Error updating config:', error);
@@ -599,6 +628,8 @@ function updateSetupModal() {
             setVal("compassOffset", b.compassOffset);
             setVal("holdrad", b.holdrad);
             setVal("mechanicCorrection", b.mechanicCorrection);
+            setVal("dockAppDist", b.dockAppDist);
+            setVal("dockAppDir", b.dockAppDir);
 
             const setChecked = (id, val) => {
                 const el = document.getElementById(id);
@@ -608,6 +639,7 @@ function updateSetupModal() {
             setChecked("revSB", b.revSB);
             setChecked("swap_BB_SB", b.swap_BB_SB);
             setChecked("compass_trim_enabled", b.compass_trim_enabled);
+            setChecked("dockToWP", b.dockToWP);
         }
     }
 }

@@ -148,6 +148,7 @@ void setup()
     mainData.IDs = mainData.mac;
     mainData.status = IDLE;
     memDockPos(&mainData, GET);
+    memDockApproach(&mainData, GET);
 
     // Automatically migrate stored NVM dock position to the new requested default
     // printf("Updating stored Dock Position to the new default: 52.29302221327865, 4.932541137977593\r\n");
@@ -171,6 +172,7 @@ void setup()
     printf("==================================================\r\n");
     printf("MAC/ID          : %08lX\r\n", mainData.mac);
     printf("Dock Position   : Lat=%.12f, Lng=%.12f\r\n", mainData.tgLat, mainData.tgLng);
+    printf("Dock Approach   : Dist=%d m, Dir=%d deg, ToWayPoint=%s\r\n", mainData.dockApproachDist, mainData.dockApproachDir, mainData.dockingToWaypoint ? "True" : "False");
     printf("Thruster Invert : BB=%s, SB=%s\r\n", mainData.revBB ? "True" : "False", mainData.revSB ? "True" : "False");
     printf("PID Rudder      : Kp=%.4f, Ki=%.4f, Kd=%.4f\r\n", mainData.Kpr, mainData.Kir, mainData.Kdr);
     printf("PID Speed       : Kp=%.4f, Ki=%.4f, Kd=%.4f\r\n", mainData.Kps, mainData.Kis, mainData.Kds);
@@ -512,12 +514,18 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
     case DOCKING:
         beep(1, buzzer); // Play the beautiful 3-tone arpeggio sequence upon successfully entering DOCK mode
         memDockPos(stat, GET);
+        memDockApproach(stat, GET);
         stat->status = DOCKED;
         stat->tgDist = 0.0;
         stat->tgDir = 0.0;
         printf("Retreved data for docking tgLat:%.8f tgLng:%.8f\r\n", stat->tgLat, stat->tgLng);
-
+        printf("Retrieved waypoint for docking tgLat:%d tgLng:%d Waypoint set %s\r\n", stat->dockApproachDist, stat->dockApproachDir, stat->dockingToWaypoint ? "YES" : "NO");
         // Broadcast the loaded dock position (tgLat and tgLng) to update the Web UI and LoRa network
+        if (stat->dockingToWaypoint == true)
+        {
+            //change the waypoint with the given offset
+            adjustPositionDirDist((double)stat->dockApproachDir, (double)stat->dockApproachDist, stat->tgLat, stat->tgLng, &stat->tgLat, &stat->tgLng);
+        }
         stat->cmd = DOCKPOS;
         stat->ack = SET;
         xQueueSend(udpOut, (void *)stat, 0);
@@ -890,10 +898,18 @@ void handleTimerRoutines(RoboStruct *timer)
         if (timer->status == LOCKED || timer->status == DOCKED)
         {
             timer->lastSerOut = millis() + 250;
-            if (statusChanged) {
+            if (statusChanged) 
+            {
                 timer->tgDist = 0.0;
-            } else if (timer->lat != 0.0 && timer->lng != 0.0 && timer->tgLat != 0.0 && timer->tgLng != 0.0) {
+            } 
+            else if (timer->lat != 0.0 && timer->lng != 0.0 && timer->tgLat != 0.0 && timer->tgLng != 0.0) 
+            {
                 RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
+                if(timer->dockingToWaypoint == true && timer->tgDist <5)
+                {
+                    memDockPos(timer, GET);
+                    timer->dockingToWaypoint = false;    
+                }
             } else {
                 timer->tgDist = 0;
                 timer->tgDir = 0;
@@ -912,7 +928,7 @@ void handleTimerRoutines(RoboStruct *timer)
             timer->cmd = DIRDIST;
             xQueueSend(serOut, (void *)timer, 0); // send course and distance to sub
             timer->cmd = DIRMDIRTGDIRG;
-            xQueueSend(udpOut, (void *)timer, 0); // send course and distance to sub
+            xQueueSend(udpOut, (void *)timer, 0); // send course and distance to udp
         }
         else if (timer->status == REMOTE) // Remote controlled
         {
@@ -1281,6 +1297,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 break;
             case DOCKPOS: // Get the positon to dock
                 memDockPos(RfOut, GET);
+                memDockApproach(RfOut, GET);
                 RfOut->cmd = DOCKPOS;
                 RfOut->ack = INF;
                 if (from_udp) xQueueSend(udpOut, (void *)RfOut, 0);
