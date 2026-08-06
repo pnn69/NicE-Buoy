@@ -1160,11 +1160,12 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case SETUPDATA:
-                printf("Received SETUPDATA command. ack=%d\r\n", RfIn.ack);
-                if (RfIn.ack == GET || RfIn.ack == GETACK || RfIn.ack == SET)
+                printf("Received SETUPDATA command. ack=%d, IDs=0x%08lX, dockDist=%d, dockDir=%d, dockWP=%s\r\n", 
+                       RfIn.ack, RfIn.IDs, RfIn.dockApproachDist, RfIn.dockApproachDir, RfIn.dockingToWaypoint ? "YES" : "NO");
+                if (RfIn.ack == 1 || RfIn.ack == 3 || RfIn.ack == 2) // 1=GET, 2=SET, 3=GETACK
                 {
                     
-                    if (RfIn.ack == SET || RfIn.ack == GETACK) {
+                    if (RfIn.ack == 2 || RfIn.ack == 3) { // 2=SET, 3=GETACK
                         // Unpack and commit the incoming PID and configuration values to local flash/EEPROM storage
                         pidRudderParameters(&RfIn, SET);
                         pidSpeedParameters(&RfIn, SET);
@@ -1582,7 +1583,7 @@ void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             xQueueSend(ledPwr, (void *)&mainPwrData, 0);
             break;
         case SETUPDATA:
-            if (serDataIn.ack == GET || serDataIn.ack == GETACK || serDataIn.ack == SET) {
+            if (serDataIn.ack == 1 || serDataIn.ack == 3 || serDataIn.ack == 2) { // 1=GET, 2=SET, 3=GETACK
                 // This is a request from PC (Serial) -> Forward to Sub
                 serDataIn.IDr = BUOYIDALL; // Force Sub to accept the request
                 xQueueSend(serOut, (void *)&serDataIn, 0);
