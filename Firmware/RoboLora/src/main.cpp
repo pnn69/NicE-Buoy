@@ -102,7 +102,9 @@ void dispatchCommand(RoboStruct *data, adcDataType *adc)
             return;
         }
 
-        data->IDr = data->IDs; // Ensure target is set to the selected buoy
+        if (data->IDs != 0x99) {
+            data->IDr = data->IDs; // Ensure target is set to the selected buoy
+        }
         
         static int lastSentCmd = -1;
         static int lastSentStatus = -1;
@@ -393,9 +395,7 @@ void loop()
     extern RoboStruct webDataIn;
     if (hasWebCommand)
     {
-        unsigned long originalBuoyID = webDataIn.IDr;
         mainData = webDataIn;
-        mainData.IDs = originalBuoyID;
         hasWebCommand = false;
     }
 
