@@ -226,7 +226,7 @@ void draw_mannav_static() {
     tft.setTextColor(TFT_CYAN, TFT_BLACK);
     tft.setTextSize(2);
     tft.setTextDatum(TC_DATUM);
-    tft.drawString("MAN NAV: " + buoys[idx].id, w / 2, 5);
+    tft.drawString("MANUAL: " + buoys[idx].id, w / 2, 5);
     
     tft.drawFastHLine(15, 27, w - 30, TFT_WHITE);
     
@@ -1165,7 +1165,6 @@ void loop() {
                         
                         // Set local manual speed setpoint back to 0.0%
                         buoys[selected_buoy_idx].tg_speed = 0.0;
-                        send_buoy_dirdist(selected_buoy_idx); // Synchronize remote REMOTE state
                         
                         reset_button_draw_cache();
                         draw_resting_ui();
