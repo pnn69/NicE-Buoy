@@ -334,6 +334,13 @@ void update_mannav_dynamic() {
     draw_compass_arrow(120, 95, 42, b.mag_dir, TFT_GREEN);
     draw_compass_arrow(120, 95, 36, b.tg_dir, TFT_RED);
     
+    // Print Magnetic Direction (Mag) text on the bottom-right of the windrose circle (Y: 130)
+    tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+    tft.setTextDatum(TR_DATUM);
+    tft.setTextPadding(44); // Overwrite old text in single pass!
+    sprintf(buf, "Mag:%0.0f", b.mag_dir);
+    tft.drawString(buf, 206, 130);
+    
     // Save caches
     last_mag_dir = b.mag_dir;
     
