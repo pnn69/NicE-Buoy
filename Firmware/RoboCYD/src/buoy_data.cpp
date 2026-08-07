@@ -14,6 +14,7 @@ bool lora_enabled = true;
 // Setup Screen Mode on display
 bool in_setup_mode = false;
 bool setup_data_loaded = false; // Initialize to false
+bool in_mannav_mode = false;    // Initialize to false
 
 unsigned long last_udp_blink_ms = 0;
 unsigned long last_lora_blink_ms = 0;
@@ -256,6 +257,29 @@ void send_buoy_setup(int buoy_idx) {
     sprintf(finalPacket, "$%s*%02X", cmdPayload, crc);
     
     Serial.printf("Broadcasting SETUP SAVE command: %s\n", finalPacket);
+    
+    // Send over both LoRa and UDP channels
+    send_lora_packet(finalPacket);
+    udp_broadcast(finalPacket);
+}
+
+void send_buoy_dirdist(int buoy_idx) {
+    BuoyData &b = buoys[buoy_idx];
+    
+    // Construct standard SET command payload using SET (2), unique Display Sender ID "98"
+    // CMD = 47 (DIRDIST), status = 7
+    // Data1 (tgDir) = tg_dir
+    // Data2 (tgDist) = 5.0 (default 5.0 meters)
+    // Data3 (tgSpeed) = tg_speed
+    char cmdPayload[256];
+    sprintf(cmdPayload, "%s,98,2,47,7,%0.1f,5.0,%0.1f,,,,",
+            b.id.c_str(), b.tg_dir, b.tg_speed);
+            
+    uint8_t crc = calculate_crc(cmdPayload);
+    char finalPacket[320];
+    sprintf(finalPacket, "$%s*%02X", cmdPayload, crc);
+    
+    Serial.printf("Broadcasting DIRDIST command: %s\n", finalPacket);
     
     // Send over both LoRa and UDP channels
     send_lora_packet(finalPacket);

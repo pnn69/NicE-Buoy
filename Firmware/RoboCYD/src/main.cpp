@@ -10,6 +10,7 @@
 unsigned long lastUIUpdate = 0;
 int lastKnownState = -2; // Used to trigger a static redraw on state change
 bool lastSetupState = false; // Tracks setup screen state transitions
+bool lastMannavState = false; // Tracks manual navigation screen state transitions
 bool lastLoadedState = false; // Tracks setup data loaded transitions
 
 // Setup page index (0 for Page 1, 1 for Page 2)
@@ -197,16 +198,189 @@ void draw_nav_static() {
     tft.setTextColor(TFT_WHITE, TFT_MAROON);
     tft.drawString("IDLE", 195, 257);
     
-    // Row 2 Buttons (BACK, SETUP) at Y: 280 to 315 (height 35) - SWAPPED!
-    tft.fillRoundRect(10, 280, 105, 35, 4, TFT_BLUE);
+    // Row 2 Buttons (BACK, MANNAV, SETUP) at Y: 280 to 315 (height 35)
+    tft.fillRoundRect(10, 280, 70, 35, 4, TFT_BLUE);
+    tft.setTextColor(TFT_WHITE, TFT_BLUE);
+    tft.setTextSize(1);
+    tft.setTextDatum(MC_DATUM);
+    tft.drawString("BACK", 45, 297);
+    
+    tft.fillRoundRect(85, 280, 70, 35, 4, TFT_ORANGE);
+    tft.setTextColor(TFT_BLACK, TFT_ORANGE);
+    tft.drawString("MANNAV", 120, 297);
+    
+    tft.fillRoundRect(160, 280, 70, 35, 4, TFT_DARKGREY);
+    tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+    tft.drawString("SETUP", 195, 297);
+}
+
+void draw_mannav_static() {
+    int w = tft.width();
+    int h = tft.height();
+    int idx = selected_buoy_idx;
+    
+    tft.fillScreen(TFT_BLACK);
+    
+    // Header title
+    tft.setTextColor(TFT_CYAN, TFT_BLACK);
+    tft.setTextSize(2);
+    tft.setTextDatum(TC_DATUM);
+    tft.drawString("MAN NAV: " + buoys[idx].id, w / 2, 5);
+    
+    tft.drawFastHLine(15, 27, w - 30, TFT_WHITE);
+    
+    // Draw Compass Rose Circle at center (120, 95) with radius 45
+    tft.drawCircle(120, 95, 45, TFT_WHITE);
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.setTextSize(1);
+    tft.setTextDatum(MC_DATUM);
+    tft.drawString("N", 120, 43);
+    tft.drawString("S", 120, 147);
+    tft.drawString("W", 67, 95);
+    tft.drawString("E", 173, 95);
+    
+    // Draw Static Voltage Bar outline (Y: 150)
+    tft.drawRect(50, 150, 140, 10, TFT_WHITE);
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.setTextSize(1);
+    tft.setTextDatum(TL_DATUM);
+    tft.drawString("17V", 25, 151);
+    tft.drawString("25V", 197, 151);
+    
+    // Draw Static Slider 1 (TG Dir) track
+    tft.drawRoundRect(15, 185, 210, 6, 3, TFT_DARKGREY);
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.setTextDatum(TL_DATUM);
+    tft.drawString("Target Dir", 15, 172);
+    tft.setTextDatum(TR_DATUM);
+    tft.drawString("360", 225, 172);
+    
+    // Draw Static Slider 2 (Speed) track
+    tft.drawRoundRect(15, 235, 210, 6, 3, TFT_DARKGREY);
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.setTextDatum(TL_DATUM);
+    char sp_buf[32];
+    sprintf(sp_buf, "Speed: -%0.0f", buoys[idx].max_speed);
+    tft.drawString(sp_buf, 15, 222);
+    tft.setTextDatum(TR_DATUM);
+    sprintf(sp_buf, "+%0.0f", buoys[idx].max_speed);
+    tft.drawString(sp_buf, 225, 222);
+    
+    // Row 2 Buttons: BACK Button at Y: 275 to 310 (height 35)
+    tft.fillRoundRect(60, 275, 120, 35, 4, TFT_BLUE);
     tft.setTextColor(TFT_WHITE, TFT_BLUE);
     tft.setTextSize(2);
-    tft.drawString("BACK", 62, 297);
+    tft.setTextDatum(MC_DATUM);
+    tft.drawString("BACK", 120, 292);
+}
+
+void update_mannav_dynamic() {
+    int w = tft.width();
+    int h = tft.height();
+    int idx = selected_buoy_idx;
+    BuoyData &b = buoys[idx];
     
-    tft.fillRoundRect(125, 280, 105, 35, 4, TFT_DARKGREY);
-    tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+    // State caches for mannav screen
+    static int last_buoy_idx = -1;
+    static float last_battery_v = -1.0;
+    static float last_tg_dir = -999;
+    static float last_tg_speed = -999;
+    static float last_mag_dir = -999;
+    
+    if (selected_buoy_idx != last_buoy_idx) {
+        last_buoy_idx = selected_buoy_idx;
+        last_battery_v = -1.0;
+        last_tg_dir = -999;
+        last_tg_speed = -999;
+        last_mag_dir = -999;
+    }
+    
+    char buf[128];
     tft.setTextSize(1);
-    tft.drawString("SETUP", 177, 297);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    
+    // --- 1. Redraw dynamic arrows inside windrose circle (center 120, 95) ---
+    // Erase old arrows
+    draw_compass_arrow(120, 95, 42, last_mag_dir, TFT_BLACK);
+    draw_compass_arrow(120, 95, 36, last_tg_dir, TFT_BLACK);
+    
+    // Draw ticks
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.setTextDatum(MC_DATUM);
+    tft.drawString("N", 120, 43);
+    tft.drawString("S", 120, 147);
+    tft.drawString("W", 67, 95);
+    tft.drawString("E", 173, 95);
+    
+    // Draw new arrows
+    draw_compass_arrow(120, 95, 42, b.mag_dir, TFT_GREEN);
+    draw_compass_arrow(120, 95, 36, b.tg_dir, TFT_RED);
+    
+    // Save caches
+    last_mag_dir = b.mag_dir;
+    
+    // --- 2. Update Dynamic Voltage Bar ---
+    if (b.battery_v != last_battery_v) {
+        last_battery_v = b.battery_v;
+        tft.fillRect(51, 151, 138, 8, TFT_BLACK);
+        float v = b.battery_v;
+        if (v < 17.0) v = 17.0;
+        if (v > 25.0) v = 25.0;
+        int fill_w = map(v * 10, 170, 250, 0, 138);
+        
+        uint16_t barColor = TFT_GREEN;
+        if (b.battery_v < 19.5) barColor = TFT_RED;
+        else if (b.battery_v < 22.0) barColor = TFT_YELLOW;
+        
+        tft.fillRect(51, 151, fill_w, 8, barColor);
+    }
+    
+    // --- 3. Update Sliders ---
+    // TG Dir Slider
+    if (b.tg_dir != last_tg_dir) {
+        last_tg_dir = b.tg_dir;
+        // Clear entire slider width area (Y: 178 to 192)
+        tft.fillRect(10, 178, 220, 14, TFT_BLACK);
+        tft.drawRoundRect(15, 185, 210, 6, 3, TFT_DARKGREY);
+        
+        // Draw new thumb
+        int thumb_x = 15 + (b.tg_dir * 210) / 360;
+        tft.fillCircle(thumb_x, 188, 6, TFT_RED);
+        
+        // Print numeric value
+        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+        tft.setTextDatum(TC_DATUM);
+        tft.setTextPadding(50);
+        sprintf(buf, "%0.0f deg", b.tg_dir);
+        tft.drawString(buf, 120, 172);
+    }
+    
+    // Speed Slider
+    if (b.tg_speed != last_tg_speed) {
+        last_tg_speed = b.tg_speed;
+        // Clear entire slider area (Y: 228 to 242)
+        tft.fillRect(10, 228, 220, 14, TFT_BLACK);
+        tft.drawRoundRect(15, 235, 210, 6, 3, TFT_DARKGREY);
+        
+        // Draw new thumb
+        float denom = (2.0 * b.max_speed);
+        float pct = (denom == 0) ? 0.5 : (b.tg_speed - (-b.max_speed)) / denom;
+        int thumb_x = 15 + pct * 210;
+        tft.fillCircle(thumb_x, 238, 6, TFT_GREEN);
+        
+        // Print numeric value
+        tft.setTextColor(TFT_GREEN, TFT_BLACK);
+        tft.setTextDatum(TC_DATUM);
+        tft.setTextPadding(40);
+        sprintf(buf, "%0.0f%%", b.tg_speed);
+        tft.drawString(buf, 120, 222);
+    }
+    
+    tft.setTextPadding(0);
+    
+    // Redraw the main white circle boundary ON TOP of all elements to prevent overlap gaps!
+    tft.drawCircle(120, 95, 45, TFT_WHITE);
+    tft.fillCircle(120, 95, 3, TFT_WHITE);
 }
 
 void draw_resting_ui() {
@@ -236,6 +410,9 @@ void draw_resting_ui() {
         if (in_setup_mode) {
             // --- Static Setup screen on Display ---
             draw_setup_static();
+        } else if (in_mannav_mode) {
+            // --- Static Manual Navigation Screen ---
+            draw_mannav_static();
         } else {
             // --- Static Navigation/Compass Screen (Opened directly on tapping buoy!) ---
             draw_nav_static();
@@ -629,6 +806,9 @@ void update_dynamic_ui() {
         if (in_setup_mode) {
             // --- Setup Dynamic values on Display ---
             update_setup_dynamic();
+        } else if (in_mannav_mode) {
+            // --- Manual Navigation Screen ---
+            update_mannav_dynamic();
         } else {
             // --- Navigation Screen (Direct dashboard!) ---
             update_nav_dynamic();
@@ -669,9 +849,10 @@ void loop() {
     check_lora_packets();
 
     // Trigger dynamic interface redraws on screen state transitions
-    if (selected_buoy_idx != lastKnownState || in_setup_mode != lastSetupState || setup_data_loaded != lastLoadedState || setup_page != lastSetupPage) {
+    if (selected_buoy_idx != lastKnownState || in_setup_mode != lastSetupState || in_mannav_mode != lastMannavState || setup_data_loaded != lastLoadedState || setup_page != lastSetupPage) {
         lastKnownState = selected_buoy_idx;
         lastSetupState = in_setup_mode;
+        lastMannavState = in_mannav_mode;
         lastLoadedState = setup_data_loaded;
         lastSetupPage = setup_page;
         reset_button_draw_cache(); // Clear button draw cache to force complete redraw
@@ -859,6 +1040,52 @@ void loop() {
                         draw_resting_ui();
                     }
                 }
+            } else if (in_mannav_mode) {
+                // --- MANUAL NAVIGATION SCREEN TOUCH INTERACTION ---
+                // 1. Compass Rose Tap (Y: 35 to 145) - Tap on circle sets a new target direction
+                if (touchY >= 35 && touchY <= 145) {
+                    float dx = touchX - 120;
+                    float dy = touchY - 95;
+                    float dist = sqrt(dx*dx + dy*dy);
+                    if (dist >= 15 && dist <= 75) {
+                        float angle_rad = atan2(dx, -dy);
+                        float angle_deg = angle_rad * 180.0 / PI;
+                        if (angle_deg < 0) angle_deg += 360.0;
+                        
+                        buoys[selected_buoy_idx].tg_dir = angle_deg;
+                        send_buoy_dirdist(selected_buoy_idx);
+                        reset_button_draw_cache();
+                    }
+                }
+                // 2. Slider 1 (TG Dir) drag (Y: 170 to 210)
+                else if (touchY >= 170 && touchY <= 210 && touchX >= 15 && touchX <= 225) {
+                    float pct = (float)(touchX - 15) / 210.0;
+                    float new_tg_dir = pct * 360.0;
+                    if (new_tg_dir < 0) new_tg_dir = 0;
+                    if (new_tg_dir > 360) new_tg_dir = 360;
+                    
+                    buoys[selected_buoy_idx].tg_dir = new_tg_dir;
+                    send_buoy_dirdist(selected_buoy_idx);
+                    reset_button_draw_cache();
+                }
+                // 3. Slider 2 (Speed) drag (Y: 220 to 260)
+                else if (touchY >= 220 && touchY <= 260 && touchX >= 15 && touchX <= 225) {
+                    float pct = (float)(touchX - 15) / 210.0;
+                    float new_tg_speed = -buoys[selected_buoy_idx].max_speed + pct * (2.0 * buoys[selected_buoy_idx].max_speed);
+                    if (new_tg_speed < -buoys[selected_buoy_idx].max_speed) new_tg_speed = -buoys[selected_buoy_idx].max_speed;
+                    if (new_tg_speed > buoys[selected_buoy_idx].max_speed) new_tg_speed = buoys[selected_buoy_idx].max_speed;
+                    
+                    buoys[selected_buoy_idx].tg_speed = new_tg_speed;
+                    send_buoy_dirdist(selected_buoy_idx);
+                    reset_button_draw_cache();
+                }
+                // 4. Back Button (Y: 270 to 320, X: 50 to 190)
+                else if (touchY >= 270 && touchY <= 320 && touchX >= 50 && touchX <= 190) {
+                    in_mannav_mode = false;
+                    last_transition_ms = millis();
+                    reset_button_draw_cache();
+                    draw_resting_ui();
+                }
             } else {
                 // --- NAVIGATION PAGE INTERACTION (Directly when selected!) ---
                 // Checkboxes touch checking (Y: 198 to 238, X >= 120) - STACKED & SPACED OUT!
@@ -904,13 +1131,19 @@ void loop() {
                         draw_resting_ui();
                     }
                 }
-                // Row 2 Actions: BACK, SETUP (Y: 278 to 320) - SWAPPED!
+                // Row 2 Actions: BACK, MANNAV, SETUP (Y: 278 to 320)
                 else if (touchY >= 278 && touchY <= 320) {
-                    if (touchX >= 5 && touchX <= 120) {
+                    if (touchX >= 5 && touchX <= 80) {
                         selected_buoy_idx = -1; // BACK Button: Directly return to main menu!
                         last_transition_ms = millis();
                         ChangeRGBColor(RGB_COLOR_2); // Back to green status LED
-                    } else if (touchX >= 121 && touchX <= 235) {
+                    } else if (touchX >= 81 && touchX <= 155) {
+                        // MANNAV Button clicked! Enter manual navigation mode!
+                        in_mannav_mode = true;
+                        last_transition_ms = millis();
+                        reset_button_draw_cache();
+                        draw_resting_ui();
+                    } else if (touchX >= 156 && touchX <= 235) {
                         // SETUP Button clicked! Enter setup mode!
                         in_setup_mode = true;
                         setup_page = 0; // Default to page 1 on entry

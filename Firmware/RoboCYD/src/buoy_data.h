@@ -14,6 +14,7 @@ struct BuoyData {
     float gps_dir = 0;
     float tg_dir = 0;
     float tg_dist = 0;
+    float tg_speed = 0; // Target Speed for Manual Navigation Slider
     float wind_dir = 0;
     float wind_std = 0;
     float bb_power = 0;
@@ -59,6 +60,7 @@ extern bool lora_enabled;
 // Global Flag to manage local screen setups
 extern bool in_setup_mode;
 extern bool setup_data_loaded; // True once SETUPDATA is successfully received from the buoy!
+extern bool in_mannav_mode;    // True when manually navigating the buoy!
 
 extern unsigned long last_udp_blink_ms;
 extern unsigned long last_lora_blink_ms;
@@ -71,5 +73,8 @@ void query_buoy_setup(const String &buoy_id);
 
 // Save tactile setup values dynamically over UDP & LoRa channels
 void send_buoy_setup(int buoy_idx);
+
+// Send dynamic DIRDIST (Manual Navigation target direction and speed)
+void send_buoy_dirdist(int buoy_idx);
 
 #endif // BUOY_DATA_H
