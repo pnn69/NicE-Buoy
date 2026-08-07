@@ -156,6 +156,7 @@ void draw_nav_static() {
     tft.drawRect(210, 58, 15, 100, TFT_WHITE); // SB
     
     tft.setTextDatum(BC_DATUM);
+    tft.setTextSize(2); // Increased speedbar labels to font size 2!
     tft.drawString("BB", 22, 50);
     tft.drawString("SB", 217, 50);
     
@@ -244,42 +245,47 @@ void draw_mannav_static() {
     tft.drawRect(210, 58, 15, 100, TFT_WHITE); // SB
     
     tft.setTextDatum(BC_DATUM);
+    tft.setTextSize(2); // Increased speedbar labels to font size 2!
     tft.drawString("BB", 22, 50);
     tft.drawString("SB", 217, 50);
     
-    // Draw Static Voltage Bar outline (Y: 150)
-    tft.drawRect(50, 150, 140, 10, TFT_WHITE);
+    // Draw Static Voltage Bar outline (Y: 175) - Shifted down to prevent speedbar overlap!
+    tft.drawRect(50, 175, 140, 10, TFT_WHITE);
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
     tft.setTextSize(1);
     tft.setTextDatum(TL_DATUM);
-    tft.drawString("17V", 25, 151);
-    tft.drawString("25V", 197, 151);
+    tft.drawString("17V", 25, 176);
+    tft.drawString("25V", 197, 176);
     
-    // Draw Static Slider 1 (TG Dir) track
-    tft.drawRoundRect(15, 185, 210, 6, 3, TFT_DARKGREY);
+    // Draw Static Slider 1 (TG Dir) track (Y: 210)
+    tft.drawRoundRect(15, 210, 210, 6, 3, TFT_DARKGREY);
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
     tft.setTextDatum(TL_DATUM);
-    tft.drawString("Target Dir", 15, 172);
+    tft.drawString("Target Dir", 15, 197);
     tft.setTextDatum(TR_DATUM);
-    tft.drawString("360", 225, 172);
+    tft.drawString("360", 225, 197);
     
-    // Draw Static Slider 2 (Speed) track
-    tft.drawRoundRect(15, 235, 210, 6, 3, TFT_DARKGREY);
+    // Draw Static Slider 2 (Speed) track (Y: 250)
+    tft.drawRoundRect(15, 250, 210, 6, 3, TFT_DARKGREY);
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
     tft.setTextDatum(TL_DATUM);
     char sp_buf[32];
     sprintf(sp_buf, "Speed: -%0.0f", buoys[idx].max_speed);
-    tft.drawString(sp_buf, 15, 222);
+    tft.drawString(sp_buf, 15, 237);
     tft.setTextDatum(TR_DATUM);
     sprintf(sp_buf, "+%0.0f", buoys[idx].max_speed);
-    tft.drawString(sp_buf, 225, 222);
+    tft.drawString(sp_buf, 225, 237);
     
-    // Row 2 Buttons: BACK Button at Y: 275 to 310 (height 35)
-    tft.fillRoundRect(60, 275, 120, 35, 4, TFT_BLUE);
+    // Bottom Buttons: BACK (left) and IDLE (right) at Y: 275 to 310 (height 35)
+    tft.fillRoundRect(15, 275, 100, 35, 4, TFT_BLUE);
     tft.setTextColor(TFT_WHITE, TFT_BLUE);
     tft.setTextSize(2);
     tft.setTextDatum(MC_DATUM);
-    tft.drawString("BACK", 120, 292);
+    tft.drawString("BACK", 65, 292);
+    
+    tft.fillRoundRect(125, 275, 100, 35, 4, TFT_MAROON);
+    tft.setTextColor(TFT_WHITE, TFT_MAROON);
+    tft.drawString("IDLE", 175, 292);
 }
 
 void update_mannav_dynamic() {
@@ -331,10 +337,10 @@ void update_mannav_dynamic() {
     // Save caches
     last_mag_dir = b.mag_dir;
     
-    // --- 2. Update Dynamic Voltage Bar ---
+    // --- 2. Update Dynamic Voltage Bar (Y: 175-185) ---
     if (b.battery_v != last_battery_v) {
         last_battery_v = b.battery_v;
-        tft.fillRect(51, 151, 138, 8, TFT_BLACK);
+        tft.fillRect(51, 176, 138, 8, TFT_BLACK);
         float v = b.battery_v;
         if (v < 17.0) v = 17.0;
         if (v > 25.0) v = 25.0;
@@ -344,14 +350,14 @@ void update_mannav_dynamic() {
         if (b.battery_v < 19.5) barColor = TFT_RED;
         else if (b.battery_v < 22.0) barColor = TFT_YELLOW;
         
-        tft.fillRect(51, 151, fill_w, 8, barColor);
+        tft.fillRect(51, 176, fill_w, 8, barColor);
     }
     
     // --- 3. Update BB and SB Speedbars ---
-    int mid_y = 100;
+    int mid_y = 108;
     if (b.bb_power != last_bb_power) {
         last_bb_power = b.bb_power;
-        tft.fillRect(16, 51, 13, 98, TFT_BLACK); // Clear inner area
+        tft.fillRect(16, 59, 13, 98, TFT_BLACK); // Clear inner area (Y: 59-157)
         if (b.bb_power > 0) {
             int fill_h = (b.bb_power * 49) / 100;
             tft.fillRect(16, mid_y - fill_h, 13, fill_h, TFT_GREEN);
@@ -364,7 +370,7 @@ void update_mannav_dynamic() {
     
     if (b.sb_power != last_sb_power) {
         last_sb_power = b.sb_power;
-        tft.fillRect(211, 51, 13, 98, TFT_BLACK); // Clear inner area
+        tft.fillRect(211, 59, 13, 98, TFT_BLACK); // Clear inner area
         if (b.sb_power > 0) {
             int fill_h = (b.sb_power * 49) / 100;
             tft.fillRect(211, mid_y - fill_h, 13, fill_h, TFT_GREEN);
@@ -376,56 +382,56 @@ void update_mannav_dynamic() {
     }
     
     // Print BB and SB percentage text below speedbars using text padding to eliminate flicker
-    tft.setTextSize(1);
+    tft.setTextSize(2); // Increased speedbar percentage text to font size 2!
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.setTextDatum(TC_DATUM);
-    tft.setTextPadding(35); // Overwrite old text in single pass!
+    tft.setTextPadding(45); // Overwrite old text in single pass!
     
     sprintf(buf, "%0.0f%%", b.bb_power);
-    tft.drawString(buf, 22, 152);
+    tft.drawString(buf, 22, 162);
     
     sprintf(buf, "%0.0f%%", b.sb_power);
-    tft.drawString(buf, 217, 152);
+    tft.drawString(buf, 217, 162);
     
     // --- 4. Update Sliders ---
-    // TG Dir Slider
+    // TG Dir Slider (Y: 210)
     if (b.tg_dir != last_tg_dir) {
         last_tg_dir = b.tg_dir;
-        // Clear entire slider width area (Y: 176 to 196) - Expanded to 20px to prevent ghost traces!
-        tft.fillRect(10, 176, 220, 20, TFT_BLACK);
-        tft.drawRoundRect(15, 185, 210, 6, 3, TFT_DARKGREY);
+        // Clear entire slider width area (Y: 201 to 221) - Expanded to 20px to prevent ghost traces!
+        tft.fillRect(10, 201, 220, 20, TFT_BLACK);
+        tft.drawRoundRect(15, 210, 210, 6, 3, TFT_DARKGREY);
         
         // Draw new thumb
         int thumb_x = 15 + (b.tg_dir * 210) / 360;
-        tft.fillCircle(thumb_x, 188, 6, TFT_RED);
+        tft.fillCircle(thumb_x, 213, 6, TFT_RED);
         
         // Print numeric value
         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
         tft.setTextDatum(TC_DATUM);
         tft.setTextPadding(50);
         sprintf(buf, "%0.0f deg", b.tg_dir);
-        tft.drawString(buf, 120, 172);
+        tft.drawString(buf, 120, 197);
     }
     
-    // Speed Slider
+    // Speed Slider (Y: 250)
     if (b.tg_speed != last_tg_speed) {
         last_tg_speed = b.tg_speed;
-        // Clear entire slider area (Y: 226 to 246) - Expanded to 20px to prevent ghost traces!
-        tft.fillRect(10, 226, 220, 20, TFT_BLACK);
-        tft.drawRoundRect(15, 235, 210, 6, 3, TFT_DARKGREY);
+        // Clear entire slider area (Y: 241 to 261) - Expanded to 20px to prevent ghost traces!
+        tft.fillRect(10, 241, 220, 20, TFT_BLACK);
+        tft.drawRoundRect(15, 250, 210, 6, 3, TFT_DARKGREY);
         
         // Draw new thumb
         float denom = (2.0 * b.max_speed);
         float pct = (denom == 0) ? 0.5 : (b.tg_speed - (-b.max_speed)) / denom;
         int thumb_x = 15 + pct * 210;
-        tft.fillCircle(thumb_x, 238, 6, TFT_GREEN);
+        tft.fillCircle(thumb_x, 253, 6, TFT_GREEN);
         
         // Print numeric value
         tft.setTextColor(TFT_GREEN, TFT_BLACK);
         tft.setTextDatum(TC_DATUM);
         tft.setTextPadding(40);
         sprintf(buf, "%0.0f%%", b.tg_speed);
-        tft.drawString(buf, 120, 222);
+        tft.drawString(buf, 120, 237);
     }
     
     tft.setTextPadding(0);
@@ -433,6 +439,13 @@ void update_mannav_dynamic() {
     // Redraw the main white circle boundary ON TOP of all elements to prevent overlap gaps!
     tft.drawCircle(120, 95, 45, TFT_WHITE);
     tft.fillCircle(120, 95, 3, TFT_WHITE);
+    
+    // --- 5. Update Blinking Telemetry Indicators (Top-Left for UDP, Top-Right for LoRa) ---
+    uint16_t udpDotColor = (millis() - last_udp_blink_ms < 300) ? TFT_GREEN : TFT_BLACK;
+    tft.fillCircle(15, 13, 4, udpDotColor);
+    
+    uint16_t loraDotColor = (millis() - last_lora_blink_ms < 300) ? TFT_CYAN : TFT_BLACK;
+    tft.fillCircle(225, 13, 4, loraDotColor);
 }
 
 void draw_resting_ui() {
@@ -630,12 +643,12 @@ void update_nav_dynamic() {
     }
 
     // --- 1. Update Speedbars (BB Bow & SB Stern) ---
-    int mid_y = 100;
+    int mid_y = 108;
     
     // Only redraw speedbars on value change to prevent constant high-frequency flickering
     if (b.bb_power != last_bb_power) {
         last_bb_power = b.bb_power;
-        tft.fillRect(16, 51, 13, 98, TFT_BLACK); // Clear inner area
+        tft.fillRect(16, 59, 13, 98, TFT_BLACK); // Clear inner area (Lowered to starting Y: 59)
         if (b.bb_power > 0) {
             int fill_h = (b.bb_power * 49) / 100;
             tft.fillRect(16, mid_y - fill_h, 13, fill_h, TFT_GREEN);
@@ -648,7 +661,7 @@ void update_nav_dynamic() {
     
     if (b.sb_power != last_sb_power) {
         last_sb_power = b.sb_power;
-        tft.fillRect(211, 51, 13, 98, TFT_BLACK); // Clear inner area
+        tft.fillRect(211, 59, 13, 98, TFT_BLACK); // Clear inner area
         if (b.sb_power > 0) {
             int fill_h = (b.sb_power * 49) / 100;
             tft.fillRect(211, mid_y - fill_h, 13, fill_h, TFT_GREEN);
@@ -663,16 +676,16 @@ void update_nav_dynamic() {
     char buf[128];
     
     // Print BB and SB percentage text below speedbars using text padding to eliminate flicker
-    tft.setTextSize(1);
+    tft.setTextSize(2); // Increased speedbar percentage text to font size 2!
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.setTextDatum(TC_DATUM);
-    tft.setTextPadding(35); // Overwrite old text in single pass!
+    tft.setTextPadding(45); // Increased padding to 45px for size 2 text!
     
     sprintf(buf, "%0.0f%%", b.bb_power);
-    tft.drawString(buf, 22, 152);
+    tft.drawString(buf, 22, 162); // Lowered to Y: 162
     
     sprintf(buf, "%0.0f%%", b.sb_power);
-    tft.drawString(buf, 217, 152);
+    tft.drawString(buf, 217, 162); // Lowered to Y: 162
     
     // --- 2. Update Trigonometric Compass Rose Arrows ---
     // Erase old thick arrows first in TFT_BLACK to prevent trails!
@@ -1109,8 +1122,8 @@ void loop() {
                         reset_button_draw_cache();
                     }
                 }
-                // 2. Slider 1 (TG Dir) drag (Y: 170 to 210)
-                else if (touchY >= 170 && touchY <= 210 && touchX >= 15 && touchX <= 225) {
+                // 2. Slider 1 (TG Dir) drag (Y: 195 to 225) - Aligned with Y: 210 track!
+                else if (touchY >= 195 && touchY <= 225 && touchX >= 15 && touchX <= 225) {
                     float pct = (float)(touchX - 15) / 210.0;
                     float new_tg_dir = pct * 360.0;
                     if (new_tg_dir < 0) new_tg_dir = 0;
@@ -1120,8 +1133,8 @@ void loop() {
                     send_buoy_dirdist(selected_buoy_idx);
                     reset_button_draw_cache();
                 }
-                // 3. Slider 2 (Speed) drag (Y: 220 to 260)
-                else if (touchY >= 220 && touchY <= 260 && touchX >= 15 && touchX <= 225) {
+                // 3. Slider 2 (Speed) drag (Y: 235 to 265) - Aligned with Y: 250 track!
+                else if (touchY >= 235 && touchY <= 265 && touchX >= 15 && touchX <= 225) {
                     float pct = (float)(touchX - 15) / 210.0;
                     float new_tg_speed = -buoys[selected_buoy_idx].max_speed + pct * (2.0 * buoys[selected_buoy_idx].max_speed);
                     if (new_tg_speed < -buoys[selected_buoy_idx].max_speed) new_tg_speed = -buoys[selected_buoy_idx].max_speed;
