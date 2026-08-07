@@ -257,24 +257,45 @@ void draw_mannav_static() {
     tft.drawString("17V", 25, 176);
     tft.drawString("25V", 197, 176);
     
-    // Draw Static Slider 1 (TG Dir) track (Y: 210)
-    tft.drawRoundRect(15, 210, 210, 6, 3, TFT_DARKGREY);
-    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    tft.setTextDatum(TL_DATUM);
-    tft.drawString("Target Dir", 15, 197);
-    tft.setTextDatum(TR_DATUM);
-    tft.drawString("360", 225, 197);
+    // --- Slider 1 (Target Dir) static layout (Y: 210) ---
+    // Minus/Decrease Button on Left (X: 15 to 50, Y: 200 to 225)
+    tft.fillRoundRect(15, 200, 35, 25, 4, TFT_RED);
+    tft.setTextColor(TFT_WHITE, TFT_RED);
+    tft.setTextSize(2);
+    tft.setTextDatum(MC_DATUM);
+    tft.drawString("-", 32, 212);
     
-    // Draw Static Slider 2 (Speed) track (Y: 250)
-    tft.drawRoundRect(15, 250, 210, 6, 3, TFT_DARKGREY);
+    // Plus/Increase Button on Right (X: 190 to 225, Y: 200 to 225)
+    tft.fillRoundRect(190, 200, 35, 25, 4, TFT_GREEN);
+    tft.setTextColor(TFT_BLACK, TFT_GREEN);
+    tft.drawString("+", 207, 212);
+    
+    // Track line (X: 60 to 180, width 120)
+    tft.drawRoundRect(60, 210, 120, 6, 3, TFT_DARKGREY);
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.setTextSize(1);
     tft.setTextDatum(TL_DATUM);
-    char sp_buf[32];
-    sprintf(sp_buf, "Speed: -%0.0f", buoys[idx].max_speed);
-    tft.drawString(sp_buf, 15, 237);
-    tft.setTextDatum(TR_DATUM);
-    sprintf(sp_buf, "+%0.0f", buoys[idx].max_speed);
-    tft.drawString(sp_buf, 225, 237);
+    tft.drawString("Direction", 60, 197);
+    
+    // --- Slider 2 (Speed) static layout (Y: 250) ---
+    // Minus/Decrease Button on Left (X: 15 to 50, Y: 240 to 265)
+    tft.fillRoundRect(15, 240, 35, 25, 4, TFT_RED);
+    tft.setTextColor(TFT_WHITE, TFT_RED);
+    tft.setTextSize(2);
+    tft.setTextDatum(MC_DATUM);
+    tft.drawString("-", 32, 252);
+    
+    // Plus/Increase Button on Right (X: 190 to 225, Y: 240 to 265)
+    tft.fillRoundRect(190, 240, 35, 25, 4, TFT_GREEN);
+    tft.setTextColor(TFT_BLACK, TFT_GREEN);
+    tft.drawString("+", 207, 252);
+    
+    // Track line (X: 60 to 180, width 120)
+    tft.drawRoundRect(60, 250, 120, 6, 3, TFT_DARKGREY);
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.setTextSize(1);
+    tft.setTextDatum(TL_DATUM);
+    tft.drawString("Speed", 60, 237);
     
     // Bottom Buttons: BACK (left) and IDLE (right) at Y: 275 to 310 (height 35)
     tft.fillRoundRect(15, 275, 100, 35, 4, TFT_BLUE);
@@ -400,45 +421,31 @@ void update_mannav_dynamic() {
     sprintf(buf, "%0.0f%%", b.sb_power);
     tft.drawString(buf, 217, 162);
     
-    // --- 4. Update Sliders ---
+    // --- 4. Update Sliders (ONLY draw tracks and circular thumbs!) ---
     // TG Dir Slider (Y: 210)
     if (b.tg_dir != last_tg_dir) {
         last_tg_dir = b.tg_dir;
-        // Clear entire slider width area (Y: 201 to 221) - Expanded to 20px to prevent ghost traces!
-        tft.fillRect(10, 201, 220, 20, TFT_BLACK);
-        tft.drawRoundRect(15, 210, 210, 6, 3, TFT_DARKGREY);
+        // Clear slider track width area (X: 55 to 185, Y: 201 to 221)
+        tft.fillRect(55, 201, 130, 20, TFT_BLACK);
+        tft.drawRoundRect(60, 210, 120, 6, 3, TFT_DARKGREY);
         
-        // Draw new thumb
-        int thumb_x = 15 + (b.tg_dir * 210) / 360;
+        // Draw new thumb (X: 60 to 180)
+        int thumb_x = 60 + (b.tg_dir * 120) / 360;
         tft.fillCircle(thumb_x, 213, 6, TFT_RED);
-        
-        // Print numeric value
-        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-        tft.setTextDatum(TC_DATUM);
-        tft.setTextPadding(50);
-        sprintf(buf, "%0.0f deg", b.tg_dir);
-        tft.drawString(buf, 120, 197);
     }
     
     // Speed Slider (Y: 250)
     if (b.tg_speed != last_tg_speed) {
         last_tg_speed = b.tg_speed;
-        // Clear entire slider area (Y: 241 to 261) - Expanded to 20px to prevent ghost traces!
-        tft.fillRect(10, 241, 220, 20, TFT_BLACK);
-        tft.drawRoundRect(15, 250, 210, 6, 3, TFT_DARKGREY);
+        // Clear slider track area (X: 55 to 185, Y: 241 to 261)
+        tft.fillRect(55, 241, 130, 20, TFT_BLACK);
+        tft.drawRoundRect(60, 250, 120, 6, 3, TFT_DARKGREY);
         
-        // Draw new thumb
+        // Draw new thumb (X: 60 to 180)
         float denom = (2.0 * b.max_speed);
         float pct = (denom == 0) ? 0.5 : (b.tg_speed - (-b.max_speed)) / denom;
-        int thumb_x = 15 + pct * 210;
+        int thumb_x = 60 + pct * 120;
         tft.fillCircle(thumb_x, 253, 6, TFT_GREEN);
-        
-        // Print numeric value
-        tft.setTextColor(TFT_GREEN, TFT_BLACK);
-        tft.setTextDatum(TC_DATUM);
-        tft.setTextPadding(40);
-        sprintf(buf, "%0.0f%%", b.tg_speed);
-        tft.drawString(buf, 120, 237);
     }
     
     tft.setTextPadding(0);
@@ -1129,27 +1136,58 @@ void loop() {
                         reset_button_draw_cache();
                     }
                 }
-                // 2. Slider 1 (TG Dir) drag (Y: 195 to 225) - Aligned with Y: 210 track!
-                else if (touchY >= 195 && touchY <= 225 && touchX >= 15 && touchX <= 225) {
-                    float pct = (float)(touchX - 15) / 210.0;
-                    float new_tg_dir = pct * 360.0;
-                    if (new_tg_dir < 0) new_tg_dir = 0;
-                    if (new_tg_dir > 360) new_tg_dir = 360;
-                    
-                    buoys[selected_buoy_idx].tg_dir = new_tg_dir;
-                    send_buoy_dirdist(selected_buoy_idx);
-                    reset_button_draw_cache();
+                // 2. Slider 1 (TG Dir) Controls (Y: 195 to 225) - Aligned with Y: 210 track!
+                else if (touchY >= 195 && touchY <= 225) {
+                    if (touchX >= 10 && touchX <= 55) {
+                        // Left Minus Button Tap: Decrease by 5 degrees
+                        buoys[selected_buoy_idx].tg_dir -= 5.0;
+                        if (buoys[selected_buoy_idx].tg_dir < 0) buoys[selected_buoy_idx].tg_dir += 360.0;
+                        send_buoy_dirdist(selected_buoy_idx);
+                        reset_button_draw_cache();
+                    } else if (touchX >= 185 && touchX <= 230) {
+                        // Right Plus Button Tap: Increase by 5 degrees
+                        buoys[selected_buoy_idx].tg_dir += 5.0;
+                        if (buoys[selected_buoy_idx].tg_dir >= 360.0) buoys[selected_buoy_idx].tg_dir -= 360.0;
+                        send_buoy_dirdist(selected_buoy_idx);
+                        reset_button_draw_cache();
+                    } else if (touchX >= 58 && touchX <= 182) {
+                        // Center Track Drag (X: 60 to 180, width 120px)
+                        float pct = (float)(touchX - 60) / 120.0;
+                        if (pct < 0.0) pct = 0.0;
+                        if (pct > 1.0) pct = 1.0;
+                        float new_tg_dir = pct * 360.0;
+                        
+                        buoys[selected_buoy_idx].tg_dir = new_tg_dir;
+                        send_buoy_dirdist(selected_buoy_idx);
+                        reset_button_draw_cache();
+                    }
                 }
-                // 3. Slider 2 (Speed) drag (Y: 235 to 265) - Aligned with Y: 250 track!
-                else if (touchY >= 235 && touchY <= 265 && touchX >= 15 && touchX <= 225) {
-                    float pct = (float)(touchX - 15) / 210.0;
-                    float new_tg_speed = -buoys[selected_buoy_idx].max_speed + pct * (2.0 * buoys[selected_buoy_idx].max_speed);
-                    if (new_tg_speed < -buoys[selected_buoy_idx].max_speed) new_tg_speed = -buoys[selected_buoy_idx].max_speed;
-                    if (new_tg_speed > buoys[selected_buoy_idx].max_speed) new_tg_speed = buoys[selected_buoy_idx].max_speed;
-                    
-                    buoys[selected_buoy_idx].tg_speed = new_tg_speed;
-                    send_buoy_dirdist(selected_buoy_idx);
-                    reset_button_draw_cache();
+                // 3. Slider 2 (Speed) Controls (Y: 235 to 265) - Aligned with Y: 250 track!
+                else if (touchY >= 235 && touchY <= 265) {
+                    float max_spd = buoys[selected_buoy_idx].max_speed;
+                    if (touchX >= 10 && touchX <= 55) {
+                        // Left Minus Button Tap: Decrease by 5%
+                        buoys[selected_buoy_idx].tg_speed -= 5.0;
+                        if (buoys[selected_buoy_idx].tg_speed < -max_spd) buoys[selected_buoy_idx].tg_speed = -max_spd;
+                        send_buoy_dirdist(selected_buoy_idx);
+                        reset_button_draw_cache();
+                    } else if (touchX >= 185 && touchX <= 230) {
+                        // Right Plus Button Tap: Increase by 5%
+                        buoys[selected_buoy_idx].tg_speed += 5.0;
+                        if (buoys[selected_buoy_idx].tg_speed > max_spd) buoys[selected_buoy_idx].tg_speed = max_spd;
+                        send_buoy_dirdist(selected_buoy_idx);
+                        reset_button_draw_cache();
+                    } else if (touchX >= 58 && touchX <= 182) {
+                        // Center Track Drag (X: 60 to 180, width 120px)
+                        float pct = (float)(touchX - 60) / 120.0;
+                        if (pct < 0.0) pct = 0.0;
+                        if (pct > 1.0) pct = 1.0;
+                        float new_tg_speed = -max_spd + pct * (2.0 * max_spd);
+                        
+                        buoys[selected_buoy_idx].tg_speed = new_tg_speed;
+                        send_buoy_dirdist(selected_buoy_idx);
+                        reset_button_draw_cache();
+                    }
                 }
                 // 4. BACK & IDLE Buttons (Y: 270 to 320)
                 else if (touchY >= 270 && touchY <= 320) {
