@@ -478,12 +478,6 @@ void update_nav_dynamic() {
         old_wind_dir = b.wind_dir;
     }
     
-    // Redraw the main white circle boundary ON TOP of everything to prevent any lines/erasure from creating gaps!
-    tft.drawCircle(120, 100, 45, TFT_WHITE);
-    
-    // Redraw center pivot dot
-    tft.fillCircle(120, 100, 3, TFT_WHITE);
-    
     // --- 3. Update Cockpit Telemetry Fields around Compass Rose ---
     tft.setTextSize(1);
     tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
@@ -491,30 +485,30 @@ void update_nav_dynamic() {
     if (b.status != "IDLE") {
         // Top-Left: Target Distance (Dis) aligned with 4-pixel padding to Left Speedbar
         tft.setTextDatum(TL_DATUM);
-        tft.setTextPadding(65); // Auto pad with black background!
+        tft.setTextPadding(50); // Reduced padding to 50px (smaller footprint, no circle overlap!)
         sprintf(buf, "Dis:%0.1fm", b.tg_dist);
         tft.drawString(buf, 34, 45);
         
         // Top-Right: Wind Direction and Standard Deviation (Wnd & Std) aligned perfectly flush against Right Speedbar (X: 206)
         tft.setTextDatum(TR_DATUM);
-        tft.setTextPadding(65);
+        tft.setTextPadding(44); // Reduced padding to 44px
         sprintf(buf, "Wnd:%0.0f", b.wind_dir);
         tft.drawString(buf, 206, 45);
         
-        tft.setTextPadding(65);
+        tft.setTextPadding(44); // Reduced padding to 44px
         sprintf(buf, "Std:%0.0f", b.wind_std);
         tft.drawString(buf, 206, 58);
         
         // Bottom-Left: Target Direction (TgD) aligned with 4-pixel padding to Left Speedbar
         tft.setTextDatum(TL_DATUM);
-        tft.setTextPadding(65);
+        tft.setTextPadding(50); // Reduced padding to 50px
         sprintf(buf, "Tg:%0.0f", b.tg_dir);
         tft.drawString(buf, 34, 135);
     }
     
     // Bottom-Right: Magnetic direction (Mag) aligned perfectly flush against Right Speedbar (X: 206) - ALWAYS drawn!
     tft.setTextDatum(TR_DATUM);
-    tft.setTextPadding(65);
+    tft.setTextPadding(44); // Reduced padding to 44px
     sprintf(buf, "Mag:%0.0f", b.mag_dir);
     tft.drawString(buf, 206, 135);
     
@@ -576,6 +570,10 @@ void update_nav_dynamic() {
     
     uint16_t loraDotColor = (millis() - last_lora_blink_ms < 300) ? TFT_CYAN : TFT_BLACK;
     tft.fillCircle(225, 13, 4, loraDotColor);
+
+    // --- 8. Redraw the main Windrose Circle boundary and center pivot dot ON TOP of all elements to prevent overlap gaps! ---
+    tft.drawCircle(120, 100, 45, TFT_WHITE);
+    tft.fillCircle(120, 100, 3, TFT_WHITE);
 }
 
 void update_dynamic_ui() {
