@@ -29,8 +29,9 @@ uint8_t calculate_crc(const String &content) {
 
 void parse_buoy_packet(const String &packetStr, const String &source) {
     // If the corresponding communication channel is disabled, silently discard the message
-    if (source == "UDP" && !udp_enabled) return;
-    if (source == "LoRa" && !lora_enabled) return;
+    bool is_udp = source.startsWith("UDP");
+    if (is_udp && !udp_enabled) return;
+    if (!is_udp && !lora_enabled) return;
 
     // Robust parsing: Find the dollar sign wherever it starts (handles "D$", "UDP$", etc. dynamically!)
     int dollarIdx = packetStr.indexOf("$");
@@ -115,6 +116,9 @@ void parse_buoy_packet(const String &packetStr, const String &source) {
     // Update timestamps and online presence
     buoys[buoy_idx].present = true;
     buoys[buoy_idx].last_seen_ms = millis();
+    if (source.startsWith("UDP:")) {
+        buoys[buoy_idx].ip_addr = source.substring(4);
+    }
     
     int status_code = atoi(fields[4].c_str());
     

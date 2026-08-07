@@ -855,10 +855,13 @@ void update_dynamic_ui() {
             int y = 80 + i * 55;
             int current_present = (buoys[i].id == "") ? -1 : (buoys[i].present ? 1 : 0);
             
-            // Only draw/redraw if the ID or the online presence changed!
-            if (buoys[i].id != last_drawn_ids[i] || current_present != last_drawn_present[i]) {
+            static String last_drawn_ips[3] = {"", "", ""};
+            
+            // Only draw/redraw if the ID, online presence, or IP address changed!
+            if (buoys[i].id != last_drawn_ids[i] || current_present != last_drawn_present[i] || buoys[i].ip_addr != last_drawn_ips[i]) {
                 last_drawn_ids[i] = buoys[i].id;
                 last_drawn_present[i] = current_present;
+                last_drawn_ips[i] = buoys[i].ip_addr;
                 
                 // Clear only this button's area first
                 tft.fillRect(10, y, w - 20, 45, TFT_BLACK);
@@ -872,7 +875,15 @@ void update_dynamic_ui() {
                     // Present: Green button
                     tft.fillRoundRect(10, y, w - 20, 45, 5, TFT_GREEN);
                     tft.setTextColor(TFT_BLACK, TFT_GREEN);
-                    tft.drawString("Buoy " + String(i+1) + ": " + buoys[i].id, w / 2, y + 22);
+                    
+                    // Draw name/ID at top half, and IP address / LoRa Only at bottom half
+                    tft.setTextSize(2);
+                    tft.setTextDatum(TC_DATUM);
+                    tft.drawString("Buoy " + String(i+1) + ": " + buoys[i].id, w / 2, y + 5);
+                    
+                    tft.setTextSize(1);
+                    String conn_str = (buoys[i].ip_addr == "") ? "LoRa only" : buoys[i].ip_addr;
+                    tft.drawString(conn_str, w / 2, y + 26);
                 } else {
                     // Offline: Red button
                     tft.fillRoundRect(10, y, w - 20, 45, 5, TFT_RED);

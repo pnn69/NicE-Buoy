@@ -7,6 +7,7 @@ struct BuoyData {
     String id = "";
     bool present = false;
     unsigned long last_seen_ms = 0;
+    String ip_addr = ""; // Connection IP address (empty if LoRa only)
     
     // Telemetry fields
     String status = "UNKNOWN";

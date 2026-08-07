@@ -306,7 +306,7 @@ void init_wifi_and_ota() {
             String stringUdpIn = String((const char *)packet.data(), packet.length());
             
             // Parse locally
-            parse_buoy_packet(stringUdpIn, "UDP");
+            parse_buoy_packet(stringUdpIn, "UDP:" + packet.remoteIP().toString());
             
             // Broadcast over WebSockets to webpage clients using dynamic RSSI and IP
             int rssi = WiFi.RSSI();
