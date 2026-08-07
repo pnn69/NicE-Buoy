@@ -917,6 +917,12 @@ function initUIEventListeners() {
             b.loraEnabled = e.target.checked;
         });
         
+        // MANUAL sliders and indicators definitions
+        const dirSlider = document.getElementById(`mannav-dir-${i}`);
+        const dirVal = document.getElementById(`mannav-dir-val-${i}`);
+        const speedSlider = document.getElementById(`mannav-speed-${i}`);
+        const speedVal = document.getElementById(`mannav-speed-val-${i}`);
+        
         // MANUAL button trigger: Toggles display of the manual steering panel
         document.getElementById(`mannav-btn-${i}`).addEventListener("click", () => {
             const panel = document.getElementById(`mannav-panel-${i}`);
@@ -924,6 +930,13 @@ function initUIEventListeners() {
             if (panel.style.display === "none") {
                 panel.style.display = "block";
                 btn.style.backgroundColor = "#0284c7"; // Highlight active manual button!
+                
+                // Initialize direction slider to match buoy's active magnetic heading on opening!
+                const magHeading = parseFloat(b.data["Magnetic Dir"] || b.data["Magnetic Dir (Mag)"] || "0");
+                if (!isNaN(magHeading)) {
+                    dirSlider.value = Math.round(magHeading);
+                    dirVal.textContent = `${Math.round(magHeading)}°`;
+                }
             } else {
                 panel.style.display = "none";
                 btn.style.backgroundColor = "#334155"; // Reset button color
@@ -936,7 +949,7 @@ function initUIEventListeners() {
             // baseCommand layout matching Sandeep potentiometer/display drive (CMD 25, ack 6)
             // Format: 1,buoy_id,25,6,tg_dir,tg_speed
             const payload = `1,${b.id},25,6,${Math.round(dir)},${Math.round(speed)}`;
-            sendCommand(b.id, payload, false, true); // Send over WebSocket only (which acts as the bridge)
+            sendCommand(b.id, payload); // Auto-routes to both Web Serial AND WebSocket!
         }
         
         let lastSendTime = 0;
@@ -947,11 +960,6 @@ function initUIEventListeners() {
                 sendWebRemoteCommand(dir, speed);
             }
         }
-        
-        const dirSlider = document.getElementById(`mannav-dir-${i}`);
-        const dirVal = document.getElementById(`mannav-dir-val-${i}`);
-        const speedSlider = document.getElementById(`mannav-speed-${i}`);
-        const speedVal = document.getElementById(`mannav-speed-val-${i}`);
         
         // Slide Target Dir: Update indicator and send throttled packet
         dirSlider.addEventListener("input", (e) => {
