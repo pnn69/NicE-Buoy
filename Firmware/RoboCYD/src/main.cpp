@@ -403,18 +403,28 @@ void update_nav_dynamic() {
     int new_mag_x = 120 + sin(b.mag_dir * PI / 180.0) * 40;
     int new_mag_y = 100 - cos(b.mag_dir * PI / 180.0) * 40;
     
-    // Target Heading (Red)
-    int new_tg_x = 120 + sin(b.tg_dir * PI / 180.0) * 35;
-    int new_tg_y = 100 - cos(b.tg_dir * PI / 180.0) * 35;
+    // Target Heading (Red) - Only show if not IDLE
+    int new_tg_x = 120;
+    int new_tg_y = 100;
+    if (b.status != "IDLE") {
+        new_tg_x = 120 + sin(b.tg_dir * PI / 180.0) * 35;
+        new_tg_y = 100 - cos(b.tg_dir * PI / 180.0) * 35;
+    }
     
-    // Wind Heading (Cyan)
-    int new_wind_x = 120 + sin(b.wind_dir * PI / 180.0) * 30;
-    int new_wind_y = 100 - cos(b.wind_dir * PI / 180.0) * 30;
+    // Wind Heading (Cyan) - Only show if not IDLE
+    int new_wind_x = 120;
+    int new_wind_y = 100;
+    if (b.status != "IDLE") {
+        new_wind_x = 120 + sin(b.wind_dir * PI / 180.0) * 30;
+        new_wind_y = 100 - cos(b.wind_dir * PI / 180.0) * 30;
+    }
     
     // Draw the new dynamic arrows
     tft.drawLine(120, 100, new_mag_x, new_mag_y, TFT_GREEN);
-    tft.drawLine(120, 100, new_tg_x, new_tg_y, TFT_RED);
-    tft.drawLine(120, 100, new_wind_x, new_wind_y, TFT_CYAN);
+    if (b.status != "IDLE") {
+        tft.drawLine(120, 100, new_tg_x, new_tg_y, TFT_RED);
+        tft.drawLine(120, 100, new_wind_x, new_wind_y, TFT_CYAN);
+    }
     
     // Save new coordinates for next erasure cycle
     old_mag_x = new_mag_x; old_mag_y = new_mag_y;
@@ -427,26 +437,35 @@ void update_nav_dynamic() {
     // --- 3. Update Cockpit Telemetry Fields around Compass Rose ---
     tft.setTextSize(1);
     
-    // Top-Left: Target Distance (Dis) aligned with 4-pixel padding to Left Speedbar
-    tft.setTextDatum(TL_DATUM);
+    // Clear all dynamic cockpit text boxes before redrawing to prevent trailing character overlaps
+    tft.fillRect(34, 45, 60, 12, TFT_BLACK);     // Clear top-left (Dis)
+    tft.fillRect(150, 45, 56, 25, TFT_BLACK);    // Clear top-right (Wnd & Std)
+    tft.fillRect(34, 135, 60, 12, TFT_BLACK);    // Clear bottom-left (Tg)
+    tft.fillRect(150, 135, 56, 12, TFT_BLACK);   // Clear bottom-right (Mag)
+
+    if (b.status != "IDLE") {
+        // Top-Left: Target Distance (Dis) aligned with 4-pixel padding to Left Speedbar
+        tft.setTextDatum(TL_DATUM);
+        tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+        sprintf(buf, "Dis:%0.1fm", b.tg_dist);
+        tft.drawString(buf, 34, 45);
+        
+        // Top-Right: Wind Direction and Standard Deviation (Wnd & Std) aligned perfectly flush against Right Speedbar (X: 206)
+        tft.setTextDatum(TR_DATUM);
+        sprintf(buf, "Wnd:%0.0f", b.wind_dir);
+        tft.drawString(buf, 206, 45);
+        sprintf(buf, "Std:%0.0f", b.wind_std);
+        tft.drawString(buf, 206, 58);
+        
+        // Bottom-Left: Target Direction (TgD) aligned with 4-pixel padding to Left Speedbar
+        tft.setTextDatum(TL_DATUM);
+        sprintf(buf, "Tg:%0.0f", b.tg_dir);
+        tft.drawString(buf, 34, 135);
+    }
+    
+    // Bottom-Right: Magnetic direction (Mag) aligned perfectly flush against Right Speedbar (X: 206) - ALWAYS drawn!
+    tft.setTextDatum(TR_DATUM);
     tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-    sprintf(buf, "Dis:%0.1fm", b.tg_dist);
-    tft.drawString(buf, 34, 45);
-    
-    // Top-Right: Wind Direction and Standard Deviation (Wnd & Std) aligned perfectly flush against Right Speedbar (X: 206)
-    tft.setTextDatum(TR_DATUM);
-    sprintf(buf, "Wnd:%0.0f", b.wind_dir);
-    tft.drawString(buf, 206, 45);
-    sprintf(buf, "Std:%0.0f", b.wind_std);
-    tft.drawString(buf, 206, 58);
-    
-    // Bottom-Left: Target Direction (TgD) aligned with 4-pixel padding to Left Speedbar
-    tft.setTextDatum(TL_DATUM);
-    sprintf(buf, "Tg:%0.0f", b.tg_dir);
-    tft.drawString(buf, 34, 135);
-    
-    // Bottom-Right: Magnetic direction (Mag) aligned perfectly flush against Right Speedbar (X: 206)
-    tft.setTextDatum(TR_DATUM);
     sprintf(buf, "Mag:%0.0f", b.mag_dir);
     tft.drawString(buf, 206, 135);
     
