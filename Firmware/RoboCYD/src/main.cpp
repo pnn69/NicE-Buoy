@@ -23,10 +23,44 @@ unsigned long last_transition_ms = 0;
 String last_drawn_ids[3] = {"", "", ""};
 int last_drawn_present[3] = {-2, -2, -2}; // -2 uninitialized, -1 empty, 0 offline, 1 online
 
-// Store old arrow coordinates globally to erase them cleanly on updates (Compass Windrose)
-int old_mag_x = 120, old_mag_y = 100;
-int old_tg_x = 120, old_tg_y = 100;
-int old_wind_x = 120, old_wind_y = 100;
+// Store old arrow angles globally to erase them cleanly on updates (Compass Windrose)
+float old_mag_dir = 0.0;
+float old_tg_dir = 0.0;
+float old_wind_dir = 0.0;
+
+// Helper function to draw beautifully tapered, thick compass arrows with distinct arrowheads at their tips
+void draw_compass_arrow(int cx, int cy, int L, float angle_deg, uint16_t color) {
+    float theta = angle_deg * PI / 180.0;
+    
+    // Tip of the arrow
+    int tip_x = cx + sin(theta) * L;
+    int tip_y = cy - cos(theta) * L;
+    
+    // Base of the arrowhead (8 pixels down from tip)
+    int base_x = cx + sin(theta) * (L - 8);
+    int base_y = cy - cos(theta) * (L - 8);
+    
+    // Wings of the arrowhead (4 pixels offset perpendicular to the base)
+    float perp_theta = theta + PI / 2.0;
+    int wing_l_x = base_x + sin(perp_theta) * 4;
+    int wing_l_y = base_y - cos(perp_theta) * 4;
+    
+    int wing_r_x = base_x - sin(perp_theta) * 4;
+    int wing_r_y = base_y + cos(perp_theta) * 4;
+    
+    // Base of the shaft at the center (1.5 pixels offset perpendicular)
+    int shaft_l_x = cx + sin(perp_theta) * 1.5;
+    int shaft_l_y = cy - cos(perp_theta) * 1.5;
+    
+    int shaft_r_x = cx - sin(perp_theta) * 1.5;
+    int shaft_r_y = cy + cos(perp_theta) * 1.5;
+    
+    // Draw thick shaft as a filled triangle/polygon or just three lines
+    tft.fillTriangle(shaft_l_x, shaft_l_y, shaft_r_x, shaft_r_y, base_x, base_y, color);
+    
+    // Draw arrowhead
+    tft.fillTriangle(wing_l_x, wing_l_y, wing_r_x, wing_r_y, tip_x, tip_y, color);
+}
 
 // Track selected parameter index on the 16-parameter SETUP screen on display
 int selected_param_idx = 0; // Defaults to Rudder P (0)
@@ -412,10 +446,10 @@ void update_nav_dynamic() {
     tft.drawString(buf, 217, 152);
     
     // --- 2. Update Trigonometric Compass Rose Arrows ---
-    // Erase old lines first in TFT_BLACK to prevent trails!
-    tft.drawLine(120, 100, old_mag_x, old_mag_y, TFT_BLACK);
-    tft.drawLine(120, 100, old_tg_x, old_tg_y, TFT_BLACK);
-    tft.drawLine(120, 100, old_wind_x, old_wind_y, TFT_BLACK);
+    // Erase old thick arrows first in TFT_BLACK to prevent trails!
+    draw_compass_arrow(120, 100, 42, old_mag_dir, TFT_BLACK);
+    draw_compass_arrow(120, 100, 36, old_tg_dir, TFT_BLACK);
+    draw_compass_arrow(120, 100, 30, old_wind_dir, TFT_BLACK);
     
     // Redraw compass text ticks (N, S, E, W) using MC_DATUM to match static UI precisely!
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
@@ -426,38 +460,26 @@ void update_nav_dynamic() {
     tft.drawString("W", 67, 100);
     tft.drawString("E", 173, 100);
     
-    // Calculate new arrow endpoints using trigonometry
-    // Mag Heading (Green)
-    int new_mag_x = 120 + sin(b.mag_dir * PI / 180.0) * 40;
-    int new_mag_y = 100 - cos(b.mag_dir * PI / 180.0) * 40;
-    
-    // Target Heading (Red) - Only show if not IDLE
-    int new_tg_x = 120;
-    int new_tg_y = 100;
+    // Draw the new wide dynamic arrows
+    draw_compass_arrow(120, 100, 42, b.mag_dir, TFT_GREEN);
     if (b.status != "IDLE") {
-        new_tg_x = 120 + sin(b.tg_dir * PI / 180.0) * 35;
-        new_tg_y = 100 - cos(b.tg_dir * PI / 180.0) * 35;
+        draw_compass_arrow(120, 100, 36, b.tg_dir, TFT_RED);
+        draw_compass_arrow(120, 100, 30, b.wind_dir, TFT_CYAN);
+    } else {
+        // Reset angles to prevent phantom erasure cycles if we transition to IDLE
+        old_tg_dir = 0.0;
+        old_wind_dir = 0.0;
     }
     
-    // Wind Heading (Cyan) - Only show if not IDLE
-    int new_wind_x = 120;
-    int new_wind_y = 100;
+    // Save new angles for the next erasure cycle
+    old_mag_dir = b.mag_dir;
     if (b.status != "IDLE") {
-        new_wind_x = 120 + sin(b.wind_dir * PI / 180.0) * 30;
-        new_wind_y = 100 - cos(b.wind_dir * PI / 180.0) * 30;
+        old_tg_dir = b.tg_dir;
+        old_wind_dir = b.wind_dir;
     }
     
-    // Draw the new dynamic arrows
-    tft.drawLine(120, 100, new_mag_x, new_mag_y, TFT_GREEN);
-    if (b.status != "IDLE") {
-        tft.drawLine(120, 100, new_tg_x, new_tg_y, TFT_RED);
-        tft.drawLine(120, 100, new_wind_x, new_wind_y, TFT_CYAN);
-    }
-    
-    // Save new coordinates for next erasure cycle
-    old_mag_x = new_mag_x; old_mag_y = new_mag_y;
-    old_tg_x = new_tg_x; old_tg_y = new_tg_y;
-    old_wind_x = new_wind_x; old_wind_y = new_wind_y;
+    // Redraw the main white circle boundary ON TOP of everything to prevent any lines/erasure from creating gaps!
+    tft.drawCircle(120, 100, 45, TFT_WHITE);
     
     // Redraw center pivot dot
     tft.fillCircle(120, 100, 3, TFT_WHITE);
