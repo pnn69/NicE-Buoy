@@ -152,12 +152,12 @@ void draw_nav_static() {
     tft.drawString("E", 173, 100);
     
     // Draw Speedbar Outlines (Left BB, Right SB)
-    tft.drawRect(15, 50, 15, 100, TFT_WHITE); // BB
-    tft.drawRect(210, 50, 15, 100, TFT_WHITE); // SB
+    tft.drawRect(15, 58, 15, 100, TFT_WHITE); // BB
+    tft.drawRect(210, 58, 15, 100, TFT_WHITE); // SB
     
     tft.setTextDatum(BC_DATUM);
-    tft.drawString("BB", 22, 45);
-    tft.drawString("SB", 217, 45);
+    tft.drawString("BB", 22, 50);
+    tft.drawString("SB", 217, 50);
     
     tft.drawFastHLine(15, 166, w - 30, TFT_WHITE);
     
@@ -240,12 +240,12 @@ void draw_mannav_static() {
     tft.drawString("E", 173, 95);
     
     // Draw Speedbar Outlines (Left BB, Right SB)
-    tft.drawRect(15, 50, 15, 100, TFT_WHITE); // BB
-    tft.drawRect(210, 50, 15, 100, TFT_WHITE); // SB
+    tft.drawRect(15, 58, 15, 100, TFT_WHITE); // BB
+    tft.drawRect(210, 58, 15, 100, TFT_WHITE); // SB
     
     tft.setTextDatum(BC_DATUM);
-    tft.drawString("BB", 22, 45);
-    tft.drawString("SB", 217, 45);
+    tft.drawString("BB", 22, 50);
+    tft.drawString("SB", 217, 50);
     
     // Draw Static Voltage Bar outline (Y: 150)
     tft.drawRect(50, 150, 140, 10, TFT_WHITE);
@@ -1131,12 +1131,32 @@ void loop() {
                     send_buoy_dirdist(selected_buoy_idx);
                     reset_button_draw_cache();
                 }
-                // 4. Back Button (Y: 270 to 320, X: 50 to 190)
-                else if (touchY >= 270 && touchY <= 320 && touchX >= 50 && touchX <= 190) {
-                    in_mannav_mode = false;
-                    last_transition_ms = millis();
-                    reset_button_draw_cache();
-                    draw_resting_ui();
+                // 4. BACK & IDLE Buttons (Y: 270 to 320)
+                else if (touchY >= 270 && touchY <= 320) {
+                    if (touchX >= 10 && touchX <= 115) {
+                        // BACK Button: Return to standard navigation page
+                        in_mannav_mode = false;
+                        last_transition_ms = millis();
+                        reset_button_draw_cache();
+                        draw_resting_ui();
+                    } else if (touchX >= 120 && touchX <= 230) {
+                        // IDLE Button: Stop the motors, show overlay, and synchronize speed setpoint to 0.0%
+                        tft.fillRect(10, 170, 220, 60, TFT_BLACK);
+                        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+                        tft.setTextSize(2);
+                        tft.setTextDatum(MC_DATUM);
+                        tft.drawString("SENDING IDLE...", tft.width() / 2, 195);
+                        
+                        send_buoy_command(buoys[selected_buoy_idx].id, 8); // Send IDLE (8)
+                        delay(600);
+                        
+                        // Set local manual speed setpoint back to 0.0%
+                        buoys[selected_buoy_idx].tg_speed = 0.0;
+                        send_buoy_dirdist(selected_buoy_idx); // Synchronize remote REMOTE state
+                        
+                        reset_button_draw_cache();
+                        draw_resting_ui();
+                    }
                 }
             } else {
                 // --- NAVIGATION PAGE INTERACTION (Directly when selected!) ---
