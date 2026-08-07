@@ -932,7 +932,8 @@ function initUIEventListeners() {
                 btn.style.backgroundColor = "#0284c7"; // Highlight active manual button!
                 
                 // Initialize direction slider to match buoy's active magnetic heading on opening!
-                const magHeading = parseFloat(b.data["Magnetic Dir"] || b.data["Magnetic Dir (Mag)"] || "0");
+                const magHeadingStr = b.data["Magnetic Dir"] || b.data["Magnetic Dir (Mag)"] || "0";
+                const magHeading = parseFloat(magHeadingStr);
                 if (!isNaN(magHeading)) {
                     dirSlider.value = Math.round(magHeading);
                     dirVal.textContent = `${Math.round(magHeading)}°`;
@@ -950,9 +951,9 @@ function initUIEventListeners() {
         // Helper to format and send REMOTE direct manual drive command (CMD 25)
         function sendWebRemoteCommand(dir, speed) {
             if (!b.id) return;
-            // baseCommand layout matching Sandeep potentiometer/display drive (CMD 25, ack 6)
-            // Format: 1,buoy_id,25,6,tg_dir,tg_speed
-            const payload = `1,${b.id},25,6,${Math.round(dir)},${Math.round(speed)}`;
+            // Standard SET command payload replicating C++ character-for-character!
+            // Format: Target_Buoy_ID,98,6,25,25,tgDir,tgSpeed,,,,
+            const payload = `${b.id},98,6,25,25,${parseFloat(dir).toFixed(1)},${parseFloat(speed).toFixed(1)},,,,`;
             sendCommand(b.id, payload); // Auto-routes to both Web Serial AND WebSocket!
         }
         
