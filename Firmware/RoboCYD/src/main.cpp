@@ -1140,6 +1140,14 @@ void loop() {
                     } else if (touchX >= 81 && touchX <= 155) {
                         // MANNAV Button clicked! Enter manual navigation mode!
                         in_mannav_mode = true;
+                        
+                        // Initialize manual steering setpoints
+                        buoys[selected_buoy_idx].tg_speed = 0.0;
+                        buoys[selected_buoy_idx].tg_dir = buoys[selected_buoy_idx].mag_dir;
+                        
+                        // Broadcast initial TGDIRSPEED command immediately to synchronize state!
+                        send_buoy_dirdist(selected_buoy_idx);
+                        
                         last_transition_ms = millis();
                         reset_button_draw_cache();
                         draw_resting_ui();
