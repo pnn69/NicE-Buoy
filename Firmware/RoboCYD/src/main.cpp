@@ -479,11 +479,16 @@ void draw_resting_ui() {
         tft.drawFastHLine(15, 70, w - 30, TFT_WHITE);
         
         tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        tft.setTextSize(2); // Increased local IP label to font size 2!
+        tft.setTextSize(2);
         tft.setTextDatum(BC_DATUM);
+        
+        // Draw LoRa status on its own line above the IP address
+        tft.drawString("LoRa: 433M", w / 2, h - 28);
+        
+        // Draw local IP address on its own line below the LoRa status
         IPAddress ip = WiFi.localIP();
         char ip_buf[48];
-        sprintf(ip_buf, "IP: %s | LoRa: 433M", ip.toString().c_str());
+        sprintf(ip_buf, "IP: %s", ip.toString().c_str());
         tft.drawString(ip_buf, w / 2, h - 10);
     } else {
         if (in_setup_mode) {
