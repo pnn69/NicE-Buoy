@@ -876,14 +876,14 @@ void update_dynamic_ui() {
                     tft.fillRoundRect(10, y, w - 20, 45, 5, TFT_GREEN);
                     tft.setTextColor(TFT_BLACK, TFT_GREEN);
                     
-                    // Draw name/ID at top half, and IP address / LoRa Only at bottom half
+                    // Draw name/ID at top half, and IP address / LoRa Only at bottom half (Both in bold font size 2!)
                     tft.setTextSize(2);
                     tft.setTextDatum(TC_DATUM);
                     tft.drawString("Buoy " + String(i+1) + ": " + buoys[i].id, w / 2, y + 5);
                     
-                    tft.setTextSize(1);
+                    tft.setTextSize(2); // Increased connection text to font size 2!
                     String conn_str = (buoys[i].ip_addr == "") ? "LoRa only" : buoys[i].ip_addr;
-                    tft.drawString(conn_str, w / 2, y + 26);
+                    tft.drawString(conn_str, w / 2, y + 24);
                 } else {
                     // Offline: Red button
                     tft.fillRoundRect(10, y, w - 20, 45, 5, TFT_RED);
