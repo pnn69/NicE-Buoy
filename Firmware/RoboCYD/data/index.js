@@ -693,6 +693,7 @@ function updateGUI() {
         document.getElementById(`dock-btn-${i}`).disabled = !hasId;
         document.getElementById(`setup-btn-${i}`).disabled = !hasId;
         document.getElementById(`dirdist-send-${i}`).disabled = !hasId;
+        document.getElementById(`mannav-btn-${i}`).disabled = !hasId;
         
         // Enable map only if valid Latitude/Longitude exists
         const lat = d["Latitude (Lat)"];
@@ -914,6 +915,86 @@ function initUIEventListeners() {
         // LoRa Enabled toggle
         document.getElementById(`lora-enabled-${i}`).addEventListener("change", (e) => {
             b.loraEnabled = e.target.checked;
+        });
+        
+        // MANUAL button trigger: Toggles display of the manual steering panel
+        document.getElementById(`mannav-btn-${i}`).addEventListener("click", () => {
+            const panel = document.getElementById(`mannav-panel-${i}`);
+            const btn = document.getElementById(`mannav-btn-${i}`);
+            if (panel.style.display === "none") {
+                panel.style.display = "block";
+                btn.style.backgroundColor = "#0284c7"; // Highlight active manual button!
+            } else {
+                panel.style.display = "none";
+                btn.style.backgroundColor = "#334155"; // Reset button color
+            }
+        });
+        
+        // Helper to format and send REMOTE direct manual drive command (CMD 25)
+        function sendWebRemoteCommand(dir, speed) {
+            if (!b.id) return;
+            // baseCommand layout matching Sandeep potentiometer/display drive (CMD 25, ack 6)
+            // Format: 1,buoy_id,25,6,tg_dir,tg_speed
+            const payload = `1,${b.id},25,6,${Math.round(dir)},${Math.round(speed)}`;
+            sendCommand(b.id, payload, false, true); // Send over WebSocket only (which acts as the bridge)
+        }
+        
+        let lastSendTime = 0;
+        function throttledSendRemote(dir, speed) {
+            const now = Date.now();
+            if (now - lastSendTime > 150) {
+                lastSendTime = now;
+                sendWebRemoteCommand(dir, speed);
+            }
+        }
+        
+        const dirSlider = document.getElementById(`mannav-dir-${i}`);
+        const dirVal = document.getElementById(`mannav-dir-val-${i}`);
+        const speedSlider = document.getElementById(`mannav-speed-${i}`);
+        const speedVal = document.getElementById(`mannav-speed-val-${i}`);
+        
+        // Slide Target Dir: Update indicator and send throttled packet
+        dirSlider.addEventListener("input", (e) => {
+            const val = e.target.value;
+            dirVal.textContent = `${val}°`;
+            throttledSendRemote(val, speedSlider.value);
+        });
+        
+        dirSlider.addEventListener("change", (e) => {
+            sendWebRemoteCommand(e.target.value, speedSlider.value); // Force final exact value
+        });
+        
+        // Slide Target Speed: Update indicator and send throttled packet
+        speedSlider.addEventListener("input", (e) => {
+            const val = e.target.value;
+            speedVal.textContent = `${val}%`;
+            throttledSendRemote(dirSlider.value, val);
+        });
+        
+        speedSlider.addEventListener("change", (e) => {
+            sendWebRemoteCommand(dirSlider.value, e.target.value); // Force final exact value
+        });
+        
+        // IDLE button inside MANUAL panel: stop motors and reset values
+        document.getElementById(`mannav-idle-${i}`).addEventListener("click", () => {
+            if (!b.id) return;
+            
+            // 1. Send immediate stop IDLE (CMD 8)
+            sendStatusCmd(b.id, MsgType.IDELING);
+            
+            // 2. Reset speed slider and text values
+            speedSlider.value = 0;
+            speedVal.textContent = "0%";
+            
+            // 3. Clear target direction to match buoy's magnetic heading (if available) or default 0
+            const magHeading = parseFloat(b.data["Magnetic Dir (Mag)"] || b.data["Magnetic Dir"] || "0");
+            dirSlider.value = Math.round(magHeading);
+            dirVal.textContent = `${Math.round(magHeading)}°`;
+            
+            // 4. Force synchronous REMOTE update at 0% speed
+            setTimeout(() => {
+                sendWebRemoteCommand(dirSlider.value, 0);
+            }, 100);
         });
     });
     

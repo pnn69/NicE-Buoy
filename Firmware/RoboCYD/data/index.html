@@ -113,6 +113,7 @@
                     <button class="btn btn-action" id="lock-btn-0" disabled>LOCK</button>
                     <button class="btn btn-action" id="dock-btn-0" disabled>DOCK</button>
                     <button class="btn btn-action" id="setup-btn-0" disabled>SETUP</button>
+                    <button class="btn btn-action" id="mannav-btn-0" disabled>MANUAL</button>
                 </div>
 
                 <div class="coordinate-control">
@@ -126,6 +127,27 @@
                     </div>
                     <button class="btn btn-send" id="dirdist-send-0" disabled>Send</button>
                     <button class="btn btn-map" id="map-btn-0" disabled>Map</button>
+                </div>
+
+                <div class="mannav-control" id="mannav-panel-0" style="display: none; background-color: #1e293b; padding: 10px; border-radius: 6px; margin-top: 6px; margin-bottom: 6px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 0.85rem; font-weight: bold; color: #38bdf8;">Manual Steering Controls</span>
+                        <button class="btn" id="mannav-idle-0" style="background-color: #991b1b; color: white; padding: 4px 8px; font-size: 0.75rem; border-radius: 4px;">IDLE</button>
+                    </div>
+                    <div style="margin-bottom: 6px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 2px;">
+                            <span style="color: #94a3b8;">Target Dir</span>
+                            <span id="mannav-dir-val-0" style="font-weight: bold; color: #facc15;">0°</span>
+                        </div>
+                        <input type="range" id="mannav-dir-0" min="0" max="360" value="0" style="width: 100%; cursor: pointer;">
+                    </div>
+                    <div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 2px;">
+                            <span style="color: #94a3b8;">Target Speed</span>
+                            <span id="mannav-speed-val-0" style="font-weight: bold; color: #4ade80;">0%</span>
+                        </div>
+                        <input type="range" id="mannav-speed-0" min="-100" max="100" value="0" style="width: 100%; cursor: pointer;">
+                    </div>
                 </div>
 
                 <div class="parameters-panel">
@@ -240,6 +262,7 @@
                     <button class="btn btn-action" id="lock-btn-1" disabled>LOCK</button>
                     <button class="btn btn-action" id="dock-btn-1" disabled>DOCK</button>
                     <button class="btn btn-action" id="setup-btn-1" disabled>SETUP</button>
+                    <button class="btn btn-action" id="mannav-btn-1" disabled>MANUAL</button>
                 </div>
 
                 <div class="coordinate-control">
@@ -253,6 +276,27 @@
                     </div>
                     <button class="btn btn-send" id="dirdist-send-1" disabled>Send</button>
                     <button class="btn btn-map" id="map-btn-1" disabled>Map</button>
+                </div>
+
+                <div class="mannav-control" id="mannav-panel-1" style="display: none; background-color: #1e293b; padding: 10px; border-radius: 6px; margin-top: 6px; margin-bottom: 6px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 0.85rem; font-weight: bold; color: #38bdf8;">Manual Steering Controls</span>
+                        <button class="btn" id="mannav-idle-1" style="background-color: #991b1b; color: white; padding: 4px 8px; font-size: 0.75rem; border-radius: 4px;">IDLE</button>
+                    </div>
+                    <div style="margin-bottom: 6px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 2px;">
+                            <span style="color: #94a3b8;">Target Dir</span>
+                            <span id="mannav-dir-val-1" style="font-weight: bold; color: #facc15;">0°</span>
+                        </div>
+                        <input type="range" id="mannav-dir-1" min="0" max="360" value="0" style="width: 100%; cursor: pointer;">
+                    </div>
+                    <div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 2px;">
+                            <span style="color: #94a3b8;">Target Speed</span>
+                            <span id="mannav-speed-val-1" style="font-weight: bold; color: #4ade80;">0%</span>
+                        </div>
+                        <input type="range" id="mannav-speed-1" min="-100" max="100" value="0" style="width: 100%; cursor: pointer;">
+                    </div>
                 </div>
 
                 <div class="parameters-panel">
@@ -367,6 +411,7 @@
                     <button class="btn btn-action" id="lock-btn-2" disabled>LOCK</button>
                     <button class="btn btn-action" id="dock-btn-2" disabled>DOCK</button>
                     <button class="btn btn-action" id="setup-btn-2" disabled>SETUP</button>
+                    <button class="btn btn-action" id="mannav-btn-2" disabled>MANUAL</button>
                 </div>
 
                 <div class="coordinate-control">
@@ -380,6 +425,27 @@
                     </div>
                     <button class="btn btn-send" id="dirdist-send-2" disabled>Send</button>
                     <button class="btn btn-map" id="map-btn-2" disabled>Map</button>
+                </div>
+
+                <div class="mannav-control" id="mannav-panel-2" style="display: none; background-color: #1e293b; padding: 10px; border-radius: 6px; margin-top: 6px; margin-bottom: 6px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 0.85rem; font-weight: bold; color: #38bdf8;">Manual Steering Controls</span>
+                        <button class="btn" id="mannav-idle-2" style="background-color: #991b1b; color: white; padding: 4px 8px; font-size: 0.75rem; border-radius: 4px;">IDLE</button>
+                    </div>
+                    <div style="margin-bottom: 6px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 2px;">
+                            <span style="color: #94a3b8;">Target Dir</span>
+                            <span id="mannav-dir-val-2" style="font-weight: bold; color: #facc15;">0°</span>
+                        </div>
+                        <input type="range" id="mannav-dir-2" min="0" max="360" value="0" style="width: 100%; cursor: pointer;">
+                    </div>
+                    <div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 2px;">
+                            <span style="color: #94a3b8;">Target Speed</span>
+                            <span id="mannav-speed-val-2" style="font-weight: bold; color: #4ade80;">0%</span>
+                        </div>
+                        <input type="range" id="mannav-speed-2" min="-100" max="100" value="0" style="width: 100%; cursor: pointer;">
+                    </div>
                 </div>
 
                 <div class="parameters-panel">
@@ -541,7 +607,7 @@
                                 <input type="number" step="1" min="0" id="setup-dockAppDist" required>
                             </div>
                             <div class="form-group half-width">
-                                <label>Approach Dir (�):</label>
+                                <label>Approach Dir (�):</label>
                                 <input type="number" step="1" min="0" max="359" id="setup-dockAppDir" required>
                             </div>
                         </div>
