@@ -937,6 +937,10 @@ function initUIEventListeners() {
                     dirSlider.value = Math.round(magHeading);
                     dirVal.textContent = `${Math.round(magHeading)}°`;
                 }
+                
+                // Initialize speed slider to 0% on opening!
+                speedSlider.value = 0;
+                speedVal.textContent = "0%";
             } else {
                 panel.style.display = "none";
                 btn.style.backgroundColor = "#334155"; // Reset button color

@@ -218,15 +218,19 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
             for (size_t i = 0; i < length; i++) {
                 message += (char)payload[i];
             }
-            message.trim();
+            
+            // Ensure message is trimmed and has proper line endings before transmission to hardware receivers
+            String trimmed = message;
+            trimmed.trim();
+            String finalMsg = trimmed + "\r\n";
 
             Serial.print("WebSocket RX Command: ");
-            Serial.println(message);
+            Serial.println(trimmed);
 
-            // Forward the command directly over both communication channels
-            parse_buoy_packet(message, "UDP"); // Register the change locally on screen
-            send_lora_packet(message);         // Send to LoRa radio channel
-            udp_broadcast(message);            // Send to UDP network channel
+            // Forward the command directly over both communication channels with proper line endings!
+            parse_buoy_packet(trimmed, "UDP"); // Register the change locally on screen
+            send_lora_packet(finalMsg);         // Send to LoRa radio channel WITH \r\n
+            udp_broadcast(finalMsg);            // Send to UDP network channel WITH \r\n
             break;
         }
         default:
