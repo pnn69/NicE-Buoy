@@ -239,6 +239,14 @@ void draw_mannav_static() {
     tft.drawString("W", 67, 95);
     tft.drawString("E", 173, 95);
     
+    // Draw Speedbar Outlines (Left BB, Right SB)
+    tft.drawRect(15, 50, 15, 100, TFT_WHITE); // BB
+    tft.drawRect(210, 50, 15, 100, TFT_WHITE); // SB
+    
+    tft.setTextDatum(BC_DATUM);
+    tft.drawString("BB", 22, 45);
+    tft.drawString("SB", 217, 45);
+    
     // Draw Static Voltage Bar outline (Y: 150)
     tft.drawRect(50, 150, 140, 10, TFT_WHITE);
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
@@ -286,6 +294,8 @@ void update_mannav_dynamic() {
     static float last_tg_dir = -999;
     static float last_tg_speed = -999;
     static float last_mag_dir = -999;
+    static float last_bb_power = -999;
+    static float last_sb_power = -999;
     
     if (selected_buoy_idx != last_buoy_idx) {
         last_buoy_idx = selected_buoy_idx;
@@ -293,6 +303,8 @@ void update_mannav_dynamic() {
         last_tg_dir = -999;
         last_tg_speed = -999;
         last_mag_dir = -999;
+        last_bb_power = -999;
+        last_sb_power = -999;
     }
     
     char buf[128];
@@ -335,12 +347,52 @@ void update_mannav_dynamic() {
         tft.fillRect(51, 151, fill_w, 8, barColor);
     }
     
-    // --- 3. Update Sliders ---
+    // --- 3. Update BB and SB Speedbars ---
+    int mid_y = 100;
+    if (b.bb_power != last_bb_power) {
+        last_bb_power = b.bb_power;
+        tft.fillRect(16, 51, 13, 98, TFT_BLACK); // Clear inner area
+        if (b.bb_power > 0) {
+            int fill_h = (b.bb_power * 49) / 100;
+            tft.fillRect(16, mid_y - fill_h, 13, fill_h, TFT_GREEN);
+        } else if (b.bb_power < 0) {
+            int fill_h = (-b.bb_power * 49) / 100;
+            tft.fillRect(16, mid_y, 13, fill_h, TFT_RED);
+        }
+        tft.drawFastHLine(15, mid_y, 15, TFT_DARKGREY); // Reset centerline
+    }
+    
+    if (b.sb_power != last_sb_power) {
+        last_sb_power = b.sb_power;
+        tft.fillRect(211, 51, 13, 98, TFT_BLACK); // Clear inner area
+        if (b.sb_power > 0) {
+            int fill_h = (b.sb_power * 49) / 100;
+            tft.fillRect(211, mid_y - fill_h, 13, fill_h, TFT_GREEN);
+        } else if (b.sb_power < 0) {
+            int fill_h = (-b.sb_power * 49) / 100;
+            tft.fillRect(211, mid_y, 13, fill_h, TFT_RED);
+        }
+        tft.drawFastHLine(210, mid_y, 15, TFT_DARKGREY); // Reset centerline
+    }
+    
+    // Print BB and SB percentage text below speedbars using text padding to eliminate flicker
+    tft.setTextSize(1);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setTextDatum(TC_DATUM);
+    tft.setTextPadding(35); // Overwrite old text in single pass!
+    
+    sprintf(buf, "%0.0f%%", b.bb_power);
+    tft.drawString(buf, 22, 152);
+    
+    sprintf(buf, "%0.0f%%", b.sb_power);
+    tft.drawString(buf, 217, 152);
+    
+    // --- 4. Update Sliders ---
     // TG Dir Slider
     if (b.tg_dir != last_tg_dir) {
         last_tg_dir = b.tg_dir;
-        // Clear entire slider width area (Y: 178 to 192)
-        tft.fillRect(10, 178, 220, 14, TFT_BLACK);
+        // Clear entire slider width area (Y: 176 to 196) - Expanded to 20px to prevent ghost traces!
+        tft.fillRect(10, 176, 220, 20, TFT_BLACK);
         tft.drawRoundRect(15, 185, 210, 6, 3, TFT_DARKGREY);
         
         // Draw new thumb
@@ -358,8 +410,8 @@ void update_mannav_dynamic() {
     // Speed Slider
     if (b.tg_speed != last_tg_speed) {
         last_tg_speed = b.tg_speed;
-        // Clear entire slider area (Y: 228 to 242)
-        tft.fillRect(10, 228, 220, 14, TFT_BLACK);
+        // Clear entire slider area (Y: 226 to 246) - Expanded to 20px to prevent ghost traces!
+        tft.fillRect(10, 226, 220, 20, TFT_BLACK);
         tft.drawRoundRect(15, 235, 210, 6, 3, TFT_DARKGREY);
         
         // Draw new thumb

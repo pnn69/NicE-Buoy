@@ -266,19 +266,19 @@ void send_buoy_setup(int buoy_idx) {
 void send_buoy_dirdist(int buoy_idx) {
     BuoyData &b = buoys[buoy_idx];
     
-    // Construct standard SET command payload using SET (2), unique Display Sender ID "98"
-    // CMD = 46 (TGDIRSPEED), status = 7
+    // Construct standard SET command payload using unique Display Sender ID "98"
+    // CMD = 25 (REMOTE), ACK = 6 (INF), status = 25 (REMOTE)
     // Data1 (tgDir) = tg_dir
-    // Data2 (speedSet) = tg_speed
+    // Data2 (tgSpeed) = tg_speed
     char cmdPayload[256];
-    sprintf(cmdPayload, "%s,98,2,46,7,%0.1f,%0.1f,,,,",
+    sprintf(cmdPayload, "%s,98,6,25,25,%0.1f,%0.1f,,,,",
             b.id.c_str(), b.tg_dir, b.tg_speed);
             
     uint8_t crc = calculate_crc(cmdPayload);
     char finalPacket[320];
     sprintf(finalPacket, "$%s*%02X", cmdPayload, crc);
     
-    Serial.printf("Broadcasting TGDIRSPEED command: %s\n", finalPacket);
+    Serial.printf("Broadcasting REMOTE command: %s\n", finalPacket);
     
     // Send over both LoRa and UDP channels
     send_lora_packet(finalPacket);
