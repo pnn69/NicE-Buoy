@@ -479,7 +479,7 @@ void draw_resting_ui() {
         tft.drawFastHLine(15, 70, w - 30, TFT_WHITE);
         
         tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        tft.setTextSize(1);
+        tft.setTextSize(2); // Increased local IP label to font size 2!
         tft.setTextDatum(BC_DATUM);
         IPAddress ip = WiFi.localIP();
         char ip_buf[48];
