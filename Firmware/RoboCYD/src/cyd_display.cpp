@@ -15,5 +15,5 @@ void init_display() {
     #endif
 
     tft.begin();
-    tft.setRotation(0); // Portrait orientation (USB on top)
+    tft.setRotation(2); // Portrait orientation inverted (USB on bottom)
 }

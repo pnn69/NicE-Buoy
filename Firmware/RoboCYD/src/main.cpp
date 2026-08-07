@@ -25,9 +25,20 @@ String last_drawn_ids[3] = {"", "", ""};
 int last_drawn_present[3] = {-2, -2, -2}; // -2 uninitialized, -1 empty, 0 offline, 1 online
 
 // Store old arrow angles globally to erase them cleanly on updates (Compass Windrose)
-float old_mag_dir = 0.0;
-float old_tg_dir = 0.0;
-float old_wind_dir = 0.0;
+float old_mag_dir = -999.0;
+float old_tg_dir = -999.0;
+float old_wind_dir = -999.0;
+
+// Touch Calibration Mode Variables
+#include <Preferences.h>
+bool in_calibration_mode = false;
+int cal_state = 0;
+int cal_rx1 = 0, cal_ry1 = 0;
+int cal_rx2 = 0, cal_ry2 = 0;
+
+void draw_calibration_screen();
+void handle_touch_calibration();
+void start_touch_calibration();
 
 // Helper function to draw beautifully tapered, thick compass arrows with distinct arrowheads at their tips
 void draw_compass_arrow(int cx, int cy, int L, float angle_deg, uint16_t color) {
@@ -147,7 +158,7 @@ void draw_nav_static() {
     
     // Draw Compass Rose Circle at center (120, 100)
     tft.drawCircle(120, 100, 45, TFT_WHITE);
-    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.setTextSize(1);
     tft.setTextDatum(MC_DATUM);
     tft.drawString("N", 120, 48);
@@ -238,7 +249,7 @@ void draw_mannav_static() {
     
     // Draw Compass Rose Circle at center (120, 95) with radius 45
     tft.drawCircle(120, 95, 45, TFT_WHITE);
-    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.setTextSize(1);
     tft.setTextDatum(MC_DATUM);
     tft.drawString("N", 120, 43);
@@ -329,9 +340,14 @@ void update_mannav_dynamic() {
     static float last_mag_dir = -999;
     static float last_bb_power = -999;
     static float last_sb_power = -999;
+    static bool was_mannav_mode = false;
+    static bool was_setup_mode = false;
     
-    if (selected_buoy_idx != last_buoy_idx) {
+    if (selected_buoy_idx != last_buoy_idx || in_mannav_mode != was_mannav_mode || in_setup_mode != was_setup_mode) {
         last_buoy_idx = selected_buoy_idx;
+        was_mannav_mode = in_mannav_mode;
+        was_setup_mode = in_setup_mode;
+        
         last_battery_v = -1.0;
         last_tg_dir = -999;
         last_tg_speed = -999;
@@ -345,21 +361,21 @@ void update_mannav_dynamic() {
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     
     // --- 1. Redraw dynamic arrows inside windrose circle (center 120, 95) ---
-    // Erase old arrows
-    draw_compass_arrow(120, 95, 42, last_mag_dir, TFT_BLACK);
-    draw_compass_arrow(120, 95, 36, last_tg_dir, TFT_BLACK);
-    
-    // Draw ticks
-    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    tft.setTextDatum(MC_DATUM);
-    tft.drawString("N", 120, 43);
-    tft.drawString("S", 120, 147);
-    tft.drawString("W", 67, 95);
-    tft.drawString("E", 173, 95);
-    
-    // Draw new arrows
-    draw_compass_arrow(120, 95, 42, b.mag_dir, TFT_GREEN);
-    draw_compass_arrow(120, 95, 36, b.tg_dir, TFT_RED);
+    if (b.mag_dir != last_mag_dir || b.tg_dir != last_tg_dir) {
+        // Erase old arrows
+        if (last_mag_dir != -999.0) draw_compass_arrow(120, 95, 42, last_mag_dir, TFT_BLACK);
+        if (last_tg_dir != -999.0) draw_compass_arrow(120, 95, 36, last_tg_dir, TFT_BLACK);
+        
+        last_mag_dir = b.mag_dir;
+        last_tg_dir = b.tg_dir;
+        
+        // Draw new arrows
+        draw_compass_arrow(120, 95, 42, last_mag_dir, TFT_GREEN);
+        draw_compass_arrow(120, 95, 36, last_tg_dir, TFT_RED);
+        
+        // Redraw center pivot dot
+        tft.fillCircle(120, 95, 3, TFT_WHITE);
+    }
     
     // Print Magnetic Direction (Mag) text on the bottom-right of the windrose circle (Y: 130)
     tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
@@ -483,6 +499,13 @@ void draw_resting_ui() {
         tft.drawString("CONTROLLER", w / 2, 40);
         
         tft.drawFastHLine(15, 70, w - 30, TFT_WHITE);
+        
+        // Draw Calibrate Touch Button (Y: 245 to 275, X: 30 to 210)
+        tft.fillRoundRect(30, 245, 180, 28, 4, TFT_DARKGREY);
+        tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+        tft.setTextSize(1);
+        tft.setTextDatum(MC_DATUM);
+        tft.drawString("CALIBRATE TOUCH", w / 2, 259);
         
         tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
         tft.setTextSize(2);
@@ -648,14 +671,23 @@ void update_nav_dynamic() {
     static float last_sb_power = -999;
     static float last_battery_v = -1.0;
     static String last_nav_status = "";
+    static bool was_mannav_mode = false;
+    static bool was_setup_mode = false;
     
-    // Reset caches on buoy selection change
-    if (selected_buoy_idx != last_buoy_idx) {
+    // Reset caches on buoy selection or screen mode change
+    if (selected_buoy_idx != last_buoy_idx || in_mannav_mode != was_mannav_mode || in_setup_mode != was_setup_mode) {
         last_buoy_idx = selected_buoy_idx;
+        was_mannav_mode = in_mannav_mode;
+        was_setup_mode = in_setup_mode;
+        
         last_bb_power = -999;
         last_sb_power = -999;
         last_battery_v = -1.0;
         last_nav_status = "";
+        
+        old_mag_dir = -999.0;
+        old_tg_dir = -999.0;
+        old_wind_dir = -999.0;
     }
     
     // Clear all dynamic text fields ONCE when transition into/out of IDLE status occurs
@@ -713,36 +745,27 @@ void update_nav_dynamic() {
     tft.drawString(buf, 217, 162); // Lowered to Y: 162
     
     // --- 2. Update Trigonometric Compass Rose Arrows ---
-    // Erase old thick arrows first in TFT_BLACK to prevent trails!
-    draw_compass_arrow(120, 100, 42, old_mag_dir, TFT_BLACK);
-    draw_compass_arrow(120, 100, 36, old_tg_dir, TFT_BLACK);
-    draw_compass_arrow(120, 100, 30, old_wind_dir, TFT_BLACK);
-    
-    // Redraw compass text ticks (N, S, E, W) using MC_DATUM to match static UI precisely!
-    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    tft.setTextSize(1);
-    tft.setTextDatum(MC_DATUM); // This prevents double-plotting overlaps!
-    tft.drawString("N", 120, 48);
-    tft.drawString("S", 120, 152);
-    tft.drawString("W", 67, 100);
-    tft.drawString("E", 173, 100);
-    
-    // Draw the new wide dynamic arrows
-    draw_compass_arrow(120, 100, 42, b.mag_dir, TFT_GREEN);
-    if (b.status != "IDLE") {
-        draw_compass_arrow(120, 100, 36, b.tg_dir, TFT_RED);
-        draw_compass_arrow(120, 100, 30, b.wind_dir, TFT_CYAN);
-    } else {
-        // Reset angles to prevent phantom erasure cycles if we transition to IDLE
-        old_tg_dir = 0.0;
-        old_wind_dir = 0.0;
-    }
-    
-    // Save new angles for the next erasure cycle
-    old_mag_dir = b.mag_dir;
-    if (b.status != "IDLE") {
-        old_tg_dir = b.tg_dir;
-        old_wind_dir = b.wind_dir;
+    float current_tg = (b.status != "IDLE") ? b.tg_dir : -999.0;
+    float current_wind = (b.status != "IDLE") ? b.wind_dir : -999.0;
+
+    if (b.mag_dir != old_mag_dir || current_tg != old_tg_dir || current_wind != old_wind_dir) {
+        // Erase old thick arrows first in TFT_BLACK to prevent trails!
+        if (old_mag_dir != -999.0) draw_compass_arrow(120, 100, 42, old_mag_dir, TFT_BLACK);
+        if (old_tg_dir != -999.0) draw_compass_arrow(120, 100, 36, old_tg_dir, TFT_BLACK);
+        if (old_wind_dir != -999.0) draw_compass_arrow(120, 100, 30, old_wind_dir, TFT_BLACK);
+        
+        // Save new angles for the next erasure cycle
+        old_mag_dir = b.mag_dir;
+        old_tg_dir = current_tg;
+        old_wind_dir = current_wind;
+        
+        // Draw the new wide dynamic arrows
+        draw_compass_arrow(120, 100, 42, old_mag_dir, TFT_GREEN);
+        if (old_tg_dir != -999.0) draw_compass_arrow(120, 100, 36, old_tg_dir, TFT_RED);
+        if (old_wind_dir != -999.0) draw_compass_arrow(120, 100, 30, old_wind_dir, TFT_CYAN);
+        
+        // Redraw center pivot dot to prevent overlap gaps
+        tft.fillCircle(120, 100, 3, TFT_WHITE);
     }
     
     // --- 3. Update Cockpit Telemetry Fields around Compass Rose ---
@@ -837,10 +860,6 @@ void update_nav_dynamic() {
     
     uint16_t loraDotColor = (millis() - last_lora_blink_ms < 300) ? TFT_CYAN : TFT_BLACK;
     tft.fillCircle(225, 13, 4, loraDotColor);
-
-    // --- 8. Redraw the main Windrose Circle boundary and center pivot dot ON TOP of all elements to prevent overlap gaps! ---
-    tft.drawCircle(120, 100, 45, TFT_WHITE);
-    tft.fillCircle(120, 100, 3, TFT_WHITE);
 }
 
 void update_dynamic_ui() {
@@ -944,6 +963,13 @@ void setup() {
 
 void loop() {
     handle_ota();
+
+    if (in_calibration_mode) {
+        handle_touch_calibration();
+        delay(20);
+        return;
+    }
+
     handle_wifi_clients();
 
     // Process incoming LoRa telemetry packets
@@ -997,6 +1023,11 @@ void loop() {
                     last_transition_ms = millis();
                     ChangeRGBColor(RGB_COLOR_3);
                 }
+            }
+            // Calibration Button: Y 245 to 275, X 30 to 210
+            else if (touchY >= 245 && touchY <= 275 && touchX >= 30 && touchX <= 210) {
+                last_transition_ms = millis();
+                start_touch_calibration();
             }
         } else {
             if (in_setup_mode) {
@@ -1326,4 +1357,112 @@ void loop() {
     }
 
     delay(20);
+}
+
+void draw_calibration_screen() {
+    tft.fillScreen(TFT_BLACK);
+    
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setTextSize(2);
+    tft.setTextDatum(MC_DATUM);
+    tft.drawString("TOUCH SCREEN", tft.width() / 2, 110);
+    tft.drawString("CALIBRATION", tft.width() / 2, 140);
+    
+    tft.setTextSize(1);
+    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+    
+    if (cal_state == 0) {
+        tft.drawString("Touch the red target in", tft.width() / 2, 180);
+        tft.drawString("the TOP-LEFT corner", tft.width() / 2, 200);
+        
+        // Target at (20, 20)
+        tft.drawCircle(20, 20, 8, TFT_RED);
+        tft.fillCircle(20, 20, 3, TFT_RED);
+        tft.drawFastHLine(5, 20, 30, TFT_WHITE);
+        tft.drawFastVLine(20, 5, 30, TFT_WHITE);
+    } else if (cal_state == 1) {
+        tft.drawString("Touch the red target in", tft.width() / 2, 180);
+        tft.drawString("the BOTTOM-RIGHT corner", tft.width() / 2, 200);
+        
+        // Target at (220, 300)
+        tft.drawCircle(220, 300, 8, TFT_RED);
+        tft.fillCircle(220, 300, 3, TFT_RED);
+        tft.drawFastHLine(205, 300, 30, TFT_WHITE);
+        tft.drawFastVLine(220, 285, 30, TFT_WHITE);
+    }
+}
+
+void handle_touch_calibration() {
+    int rx = 0, ry = 0;
+    if (get_raw_touch_point(rx, ry)) {
+        Serial.printf("Cal Touch: rawX=%d, rawY=%d\n", rx, ry);
+        if (cal_state == 0) {
+            cal_rx1 = rx;
+            cal_ry1 = ry;
+            cal_state = 1;
+            draw_calibration_screen();
+        } else if (cal_state == 1) {
+            cal_rx2 = rx;
+            cal_ry2 = ry;
+            
+            // Symmetrical math for calculating actual calibration values
+            float S_x = (float)(220 - 20) / (cal_ry2 - cal_ry1);
+            int cal_miny = cal_ry1 - (20 - 1) / S_x;
+            int cal_maxy = cal_miny + 239 / S_x;
+            
+            float S_y = (float)(300 - 20) / (cal_rx2 - cal_rx1);
+            int cal_maxx = cal_rx1 - (20 - 1) / S_y;
+            int cal_minx = cal_maxx + 319 / S_y;
+            
+            // Constrain results to valid physical boundaries
+            ts_minx = constrain(cal_minx, 50, 1000);
+            ts_maxx = constrain(cal_maxx, 2500, 4000);
+            ts_miny = constrain(cal_miny, 50, 1000);
+            ts_maxy = constrain(cal_maxy, 2500, 4000);
+            
+            // Apply bounds immediately to active driver
+            apply_calibration(ts_minx, ts_maxx, ts_miny, ts_maxy);
+            
+            // Save to non-volatile storage
+            Preferences prefs;
+            prefs.begin("touch-cal", false);
+            prefs.putUShort("minx", ts_minx);
+            prefs.putUShort("maxx", ts_maxx);
+            prefs.putUShort("miny", ts_miny);
+            prefs.putUShort("maxy", ts_maxy);
+            prefs.end();
+            
+            Serial.printf("Saved Touch Calibration: minx=%d, maxx=%d, miny=%d, maxy=%d\n", ts_minx, ts_maxx, ts_miny, ts_maxy);
+            
+            // Success Screen Feedback
+            tft.fillScreen(TFT_BLACK);
+            tft.setTextColor(TFT_GREEN, TFT_BLACK);
+            tft.setTextSize(2);
+            tft.setTextDatum(MC_DATUM);
+            tft.drawString("CALIBRATION SUCCESS!", tft.width() / 2, 100);
+            
+            tft.setTextSize(1);
+            tft.setTextColor(TFT_WHITE, TFT_BLACK);
+            char buf[64];
+            sprintf(buf, "X bounds: %d to %d", ts_minx, ts_maxx);
+            tft.drawString(buf, tft.width() / 2, 170);
+            sprintf(buf, "Y bounds: %d to %d", ts_miny, ts_maxy);
+            tft.drawString(buf, tft.width() / 2, 190);
+            
+            delay(3000);
+            
+            // Exit calibration mode
+            in_calibration_mode = false;
+            selected_buoy_idx = -1;
+            lastKnownState = -2; // Force complete menu screen redraw
+        }
+    }
+}
+
+void start_touch_calibration() {
+    in_calibration_mode = true;
+    cal_state = 0;
+    cal_rx1 = 0; cal_ry1 = 0;
+    cal_rx2 = 0; cal_ry2 = 0;
+    draw_calibration_screen();
 }
