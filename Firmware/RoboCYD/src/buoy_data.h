@@ -60,6 +60,9 @@ extern bool lora_enabled;
 extern bool in_setup_mode;
 extern bool setup_data_loaded; // True once SETUPDATA is successfully received from the buoy!
 
+extern unsigned long last_udp_blink_ms;
+extern unsigned long last_lora_blink_ms;
+
 void parse_buoy_packet(const String &packetStr, const String &source);
 void send_buoy_command(const String &buoy_id, int cmd_code);
 

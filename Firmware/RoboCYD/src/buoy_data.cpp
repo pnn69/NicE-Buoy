@@ -15,6 +15,9 @@ bool lora_enabled = true;
 bool in_setup_mode = false;
 bool setup_data_loaded = false; // Initialize to false
 
+unsigned long last_udp_blink_ms = 0;
+unsigned long last_lora_blink_ms = 0;
+
 uint8_t calculate_crc(const String &content) {
     uint8_t crc = 0;
     for (int i = 0; i < content.length(); i++) {
@@ -45,6 +48,12 @@ void parse_buoy_packet(const String &packetStr, const String &source) {
     if (calculated_crc != received_crc) {
         Serial.printf("CRC error: calculated %02X, received %02X\n", calculated_crc, received_crc);
         return;
+    }
+
+    if (source == "UDP") {
+        last_udp_blink_ms = millis();
+    } else if (source == "LoRa") {
+        last_lora_blink_ms = millis();
     }
     
     // Split content by comma
