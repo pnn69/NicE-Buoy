@@ -385,10 +385,10 @@ body {
 
 .btn-action {
     flex: 1;
-    padding: 8px 4px;
+    padding: 10px 4px;
     background-color: #334155;
     color: #f8fafc;
-    font-size: 0.85rem;
+    font-size: 1.05rem;
 }
 
 .btn-action:hover:not(:disabled) {
@@ -434,8 +434,8 @@ body {
 }
 
 .btn-send, .btn-map {
-    font-size: 0.75rem;
-    padding: 6px 10px;
+    font-size: 0.95rem;
+    padding: 8px 12px;
 }
 
 .btn-send {
@@ -540,8 +540,8 @@ body {
 
 .btn-global {
     flex: 1;
-    padding: 12px;
-    font-size: 0.95rem;
+    padding: 14px;
+    font-size: 1.15rem;
     background-color: #1e293b;
     color: #ffffff;
 }

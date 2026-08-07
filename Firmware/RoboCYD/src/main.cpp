@@ -107,10 +107,12 @@ void draw_setup_static() {
     tft.drawFastHLine(15, 230, w - 30, TFT_WHITE);
     
     // Control buttons at the bottom: BACK (Blue), PAGE Toggle (Orange), & SAVE (Green or Grey depending on loaded state!)
-    tft.fillRoundRect(10, 235, 70, 35, 4, TFT_BLUE);
-    tft.setTextColor(TFT_WHITE, TFT_BLUE);
+    tft.setFreeFont(&FreeSansBold9pt7b); // Use beautiful bold GFX font!
     tft.setTextSize(1);
     tft.setTextDatum(MC_DATUM);
+    
+    tft.fillRoundRect(10, 235, 70, 35, 4, TFT_BLUE);
+    tft.setTextColor(TFT_WHITE, TFT_BLUE);
     tft.drawString("BACK", 45, 252);
     
     tft.fillRoundRect(85, 235, 70, 35, 4, TFT_ORANGE);
@@ -124,6 +126,8 @@ void draw_setup_static() {
     tft.fillRoundRect(160, 235, 70, 35, 4, saveBtnColor);
     tft.setTextColor(saveTextColor, saveBtnColor);
     tft.drawString(setup_data_loaded ? "SAVE" : "WAIT", 195, 252);
+    
+    tft.setFreeFont(NULL); // Restore default font
 }
 
 void draw_nav_static() {
@@ -185,14 +189,16 @@ void draw_nav_static() {
     tft.drawString("LoRa Enabled", 141, 222);
     
     // Row 1 Buttons (LOCK, DOCK, IDLE) at Y: 240 to 275 (height 35)
-    tft.fillRoundRect(10, 240, 70, 35, 4, TFT_DARKGREEN);
-    tft.setTextColor(TFT_WHITE, TFT_DARKGREEN);
+    tft.setFreeFont(&FreeSansBold9pt7b); // Use beautiful bold GFX font!
     tft.setTextSize(1);
     tft.setTextDatum(MC_DATUM);
+    
+    tft.fillRoundRect(10, 240, 70, 35, 4, TFT_DARKGREEN);
+    tft.setTextColor(TFT_WHITE, TFT_DARKGREEN);
     tft.drawString("LOCK", 45, 257);
     
-    tft.fillRoundRect(85, 240, 70, 35, 4, TFT_BLUE);
-    tft.setTextColor(TFT_WHITE, TFT_BLUE);
+    tft.fillRoundRect(85, 240, 70, 35, 4, TFT_YELLOW);
+    tft.setTextColor(TFT_BLACK, TFT_YELLOW);
     tft.drawString("DOCK", 120, 257);
     
     tft.fillRoundRect(160, 240, 70, 35, 4, TFT_MAROON);
@@ -202,17 +208,17 @@ void draw_nav_static() {
     // Row 2 Buttons (BACK, MANNAV, SETUP) at Y: 280 to 315 (height 35)
     tft.fillRoundRect(10, 280, 70, 35, 4, TFT_BLUE);
     tft.setTextColor(TFT_WHITE, TFT_BLUE);
-    tft.setTextSize(1);
-    tft.setTextDatum(MC_DATUM);
     tft.drawString("BACK", 45, 297);
     
     tft.fillRoundRect(85, 280, 70, 35, 4, TFT_ORANGE);
     tft.setTextColor(TFT_BLACK, TFT_ORANGE);
-    tft.drawString("MANNAV", 120, 297);
+    tft.drawString("MAN", 120, 297);
     
     tft.fillRoundRect(160, 280, 70, 35, 4, TFT_DARKGREY);
     tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
     tft.drawString("SETUP", 195, 297);
+    
+    tft.setFreeFont(NULL); // Restore default font
 }
 
 void draw_mannav_static() {
