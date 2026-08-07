@@ -538,7 +538,7 @@ void update_nav_dynamic() {
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.setTextDatum(TC_DATUM);
     tft.setTextPadding(w - 20); // Center-aligned, pads both left and right!
-    sprintf(buf, "%0.1fV (%0.0f%%)  %0.1fA", b.battery_v, b.battery_pct, b.current);
+    sprintf(buf, "%0.1fV  %0.0f%%  %0.1fA", b.battery_v, b.battery_pct, b.current);
     tft.drawString(buf, w / 2, 184);
     
     // --- 5. Update Status on Left Column in BIGGER FONT (Size 2!) - Colored CYAN to match top NAV! ---
