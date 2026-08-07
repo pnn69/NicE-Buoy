@@ -341,42 +341,70 @@ void update_nav_dynamic() {
     int idx = selected_buoy_idx;
     BuoyData &b = buoys[idx];
     
+    // State caches to completely eliminate steady-state flicker on every refresh
+    static int last_buoy_idx = -1;
+    static float last_bb_power = -999;
+    static float last_sb_power = -999;
+    static float last_battery_v = -1.0;
+    static String last_nav_status = "";
+    
+    // Reset caches on buoy selection change
+    if (selected_buoy_idx != last_buoy_idx) {
+        last_buoy_idx = selected_buoy_idx;
+        last_bb_power = -999;
+        last_sb_power = -999;
+        last_battery_v = -1.0;
+        last_nav_status = "";
+    }
+    
+    // Clear all dynamic text fields ONCE when transition into/out of IDLE status occurs
+    if (b.status != last_nav_status) {
+        last_nav_status = b.status;
+        tft.fillRect(34, 45, 60, 12, TFT_BLACK);     // Clear top-left (Dis)
+        tft.fillRect(150, 45, 56, 25, TFT_BLACK);    // Clear top-right (Wnd & Std)
+        tft.fillRect(34, 135, 60, 12, TFT_BLACK);    // Clear bottom-left (Tg)
+        tft.fillRect(150, 135, 56, 12, TFT_BLACK);   // Clear bottom-right (Mag)
+    }
+
     // --- 1. Update Speedbars (BB Bow & SB Stern) ---
     int mid_y = 100;
     
-    // BB Speedbar (Left)
-    tft.fillRect(16, 51, 13, 98, TFT_BLACK); // Clear inner area
-    if (b.bb_power > 0) {
-        int fill_h = (b.bb_power * 49) / 100;
-        tft.fillRect(16, mid_y - fill_h, 13, fill_h, TFT_GREEN);
-    } else if (b.bb_power < 0) {
-        int fill_h = (-b.bb_power * 49) / 100;
-        tft.fillRect(16, mid_y, 13, fill_h, TFT_RED);
+    // Only redraw speedbars on value change to prevent constant high-frequency flickering
+    if (b.bb_power != last_bb_power) {
+        last_bb_power = b.bb_power;
+        tft.fillRect(16, 51, 13, 98, TFT_BLACK); // Clear inner area
+        if (b.bb_power > 0) {
+            int fill_h = (b.bb_power * 49) / 100;
+            tft.fillRect(16, mid_y - fill_h, 13, fill_h, TFT_GREEN);
+        } else if (b.bb_power < 0) {
+            int fill_h = (-b.bb_power * 49) / 100;
+            tft.fillRect(16, mid_y, 13, fill_h, TFT_RED);
+        }
+        tft.drawFastHLine(15, mid_y, 15, TFT_DARKGREY); // Reset centerline
     }
-    tft.drawFastHLine(15, mid_y, 15, TFT_DARKGREY); // Reset centerline
     
-    // SB Speedbar (Right)
-    tft.fillRect(211, 51, 13, 98, TFT_BLACK); // Clear inner area
-    if (b.sb_power > 0) {
-        int fill_h = (b.sb_power * 49) / 100;
-        tft.fillRect(211, mid_y - fill_h, 13, fill_h, TFT_GREEN);
-    } else if (b.sb_power < 0) {
-        int fill_h = (-b.sb_power * 49) / 100;
-        tft.fillRect(211, mid_y, 13, fill_h, TFT_RED);
+    if (b.sb_power != last_sb_power) {
+        last_sb_power = b.sb_power;
+        tft.fillRect(211, 51, 13, 98, TFT_BLACK); // Clear inner area
+        if (b.sb_power > 0) {
+            int fill_h = (b.sb_power * 49) / 100;
+            tft.fillRect(211, mid_y - fill_h, 13, fill_h, TFT_GREEN);
+        } else if (b.sb_power < 0) {
+            int fill_h = (-b.sb_power * 49) / 100;
+            tft.fillRect(211, mid_y, 13, fill_h, TFT_RED);
+        }
+        tft.drawFastHLine(210, mid_y, 15, TFT_DARKGREY); // Reset centerline
     }
-    tft.drawFastHLine(210, mid_y, 15, TFT_DARKGREY); // Reset centerline
     
     // Allocate 128 bytes on the stack for buffer formatting (fixes stack smashing watchdog reboots!)
     char buf[128];
     
-    // Clear the small percentage text boxes dynamically before redrawing to prevent trailing character overlaps!
-    tft.fillRect(5, 151, 35, 12, TFT_BLACK);  // Clear left text box
-    tft.fillRect(200, 151, 35, 12, TFT_BLACK); // Clear right text box
-
-    // Print BB and SB percentage text below speedbars
+    // Print BB and SB percentage text below speedbars using text padding to eliminate flicker
     tft.setTextSize(1);
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.setTextDatum(TC_DATUM);
+    tft.setTextPadding(35); // Overwrite old text in single pass!
+    
     sprintf(buf, "%0.0f%%", b.bb_power);
     tft.drawString(buf, 22, 152);
     
@@ -436,60 +464,64 @@ void update_nav_dynamic() {
     
     // --- 3. Update Cockpit Telemetry Fields around Compass Rose ---
     tft.setTextSize(1);
-    
-    // Clear all dynamic cockpit text boxes before redrawing to prevent trailing character overlaps
-    tft.fillRect(34, 45, 60, 12, TFT_BLACK);     // Clear top-left (Dis)
-    tft.fillRect(150, 45, 56, 25, TFT_BLACK);    // Clear top-right (Wnd & Std)
-    tft.fillRect(34, 135, 60, 12, TFT_BLACK);    // Clear bottom-left (Tg)
-    tft.fillRect(150, 135, 56, 12, TFT_BLACK);   // Clear bottom-right (Mag)
+    tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
 
     if (b.status != "IDLE") {
         // Top-Left: Target Distance (Dis) aligned with 4-pixel padding to Left Speedbar
         tft.setTextDatum(TL_DATUM);
-        tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+        tft.setTextPadding(65); // Auto pad with black background!
         sprintf(buf, "Dis:%0.1fm", b.tg_dist);
         tft.drawString(buf, 34, 45);
         
         // Top-Right: Wind Direction and Standard Deviation (Wnd & Std) aligned perfectly flush against Right Speedbar (X: 206)
         tft.setTextDatum(TR_DATUM);
+        tft.setTextPadding(65);
         sprintf(buf, "Wnd:%0.0f", b.wind_dir);
         tft.drawString(buf, 206, 45);
+        
+        tft.setTextPadding(65);
         sprintf(buf, "Std:%0.0f", b.wind_std);
         tft.drawString(buf, 206, 58);
         
         // Bottom-Left: Target Direction (TgD) aligned with 4-pixel padding to Left Speedbar
         tft.setTextDatum(TL_DATUM);
+        tft.setTextPadding(65);
         sprintf(buf, "Tg:%0.0f", b.tg_dir);
         tft.drawString(buf, 34, 135);
     }
     
     // Bottom-Right: Magnetic direction (Mag) aligned perfectly flush against Right Speedbar (X: 206) - ALWAYS drawn!
     tft.setTextDatum(TR_DATUM);
-    tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+    tft.setTextPadding(65);
     sprintf(buf, "Mag:%0.0f", b.mag_dir);
     tft.drawString(buf, 206, 135);
     
     // --- 4. Update Dynamic Voltage Bar ---
-    // Clear inner area
-    tft.fillRect(51, 173, 138, 8, TFT_BLACK);
-    
-    float v = b.battery_v;
-    if (v < 17.0) v = 17.0; // Min limit scaled to 17V!
-    if (v > 25.0) v = 25.0;
-    // Map voltage range [17.0V to 25.0V] into [0 to 138] pixels
-    int fill_w = map(v * 10, 170, 250, 0, 138);
-    
-    // Dynamic color coding
-    uint16_t barColor = TFT_GREEN;
-    if (b.battery_v < 19.5) barColor = TFT_RED;
-    else if (b.battery_v < 22.0) barColor = TFT_YELLOW;
-    
-    tft.fillRect(51, 173, fill_w, 8, barColor);
+    // Only redraw the voltage bar if the voltage value actually changed
+    if (b.battery_v != last_battery_v) {
+        last_battery_v = b.battery_v;
+        // Clear inner area
+        tft.fillRect(51, 173, 138, 8, TFT_BLACK);
+        
+        float v = b.battery_v;
+        if (v < 17.0) v = 17.0; // Min limit scaled to 17V!
+        if (v > 25.0) v = 25.0;
+        // Map voltage range [17.0V to 25.0V] into [0 to 138] pixels
+        int fill_w = map(v * 10, 170, 250, 0, 138);
+        
+        // Dynamic color coding
+        uint16_t barColor = TFT_GREEN;
+        if (b.battery_v < 19.5) barColor = TFT_RED;
+        else if (b.battery_v < 22.0) barColor = TFT_YELLOW;
+        
+        tft.fillRect(51, 173, fill_w, 8, barColor);
+    }
     
     // Print current numeric value and load current below the bar at Y = 184 in BIGGER FONT (Size 2!)
     tft.setTextSize(2); // BIGGER FONT!
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.setTextDatum(TC_DATUM);
+    tft.setTextPadding(w - 20); // Center-aligned, pads both left and right!
     sprintf(buf, "%0.1fV (%0.0f%%)  %0.1fA", b.battery_v, b.battery_pct, b.current);
     tft.drawString(buf, w / 2, 184);
     
@@ -497,8 +529,11 @@ void update_nav_dynamic() {
     tft.setTextColor(TFT_CYAN, TFT_BLACK); // Changed to TFT_CYAN to match top NAV header exactly!
     tft.setTextSize(2); // BIGGER FONT!
     tft.setTextDatum(TL_DATUM);
+    tft.setTextPadding(110);
     sprintf(buf, "%-8s", b.status.c_str());
     tft.drawString(buf, 15, 214);
+    
+    tft.setTextPadding(0); // Reset padding
     
     // --- 6. Draw Ticked Status of Stacked UDP / LoRa Checkboxes (UDP at Y: 204 & LoRa lowered to Y: 222!) ---
     if (udp_enabled) {
