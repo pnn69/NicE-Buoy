@@ -1628,11 +1628,9 @@ void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                     printf("ERROR: Failed to queue SETUPDATA response to udpOut!\r\n");
                 }
                 
-                // For LoRa, route the reply directly back to the requester (e.g. RoboLora) if we tracked its ID
+                // For LoRa, always broadcast with IDr = BUOYIDALL (1) matching the protocol standard and ensuring
+                // both the physical screen (0x98) and its webpage Setup clients receive the response successfully.
                 RoboStruct loraDataOut = serDataIn;
-                if (lastSetupRequester != 0 && lastSetupRequester != 0x99) {
-                    loraDataOut.IDr = lastSetupRequester;
-                }
                 if (xQueueSend(loraOut, (void *)&loraDataOut, pdMS_TO_TICKS(250)) != pdTRUE) {
                     printf("ERROR: Failed to queue SETUPDATA response to loraOut!\r\n");
                 }

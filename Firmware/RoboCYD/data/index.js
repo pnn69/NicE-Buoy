@@ -1077,9 +1077,10 @@ function saveSetupForm() {
         document.getElementById("setup-pivotSpeed").value,
         document.getElementById("setup-compassOffset").value,
         document.getElementById("setup-holdRad").value,
-        trimEn, // Index 16 on the wire (corresponds to compass_trim_enabled in newer builds)
+        b.data["revBB"] || "0",
         document.getElementById("setup-revSB").checked ? "1" : "0",
         document.getElementById("setup-swap").checked ? "1" : "0",
+        trimEn,
         document.getElementById("setup-dockAppDist").value,
         document.getElementById("setup-dockAppDir").value,
         document.getElementById("setup-dockToWP").checked ? "1" : "0"

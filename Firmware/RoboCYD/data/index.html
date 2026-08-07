@@ -531,6 +531,27 @@
                             </label>
                         </div>
                     </div>
+
+                    <!-- Docking Approach Settings -->
+                    <div class="form-section">
+                        <h4>Docking Approach Settings</h4>
+                        <div class="form-row flex-wrap">
+                            <div class="form-group half-width">
+                                <label>Approach Dist (m):</label>
+                                <input type="number" step="1" min="0" id="setup-dockAppDist" required>
+                            </div>
+                            <div class="form-group half-width">
+                                <label>Approach Dir (°):</label>
+                                <input type="number" step="1" min="0" max="359" id="setup-dockAppDir" required>
+                            </div>
+                        </div>
+                        <div class="checkbox-section" style="margin-top: 5px;">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="setup-dockToWP">
+                                <span>Dock to Waypoint</span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="modal-footer">

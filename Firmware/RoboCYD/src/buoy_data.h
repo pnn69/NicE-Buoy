@@ -44,8 +44,8 @@ struct BuoyData {
     bool rev_sb = false;
     bool swap_bb_sb = false;
     bool compass_trim_enabled = false;
-    int dock_app_dist = 0;
-    int dock_app_dir = 0;
+    int dock_app_dist = 20;
+    int dock_app_dir = 180;
     bool dock_to_wp = false;
 };
 
