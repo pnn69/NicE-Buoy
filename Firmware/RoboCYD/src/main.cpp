@@ -922,6 +922,11 @@ void update_dynamic_ui() {
     }
     
     if (selected_buoy_idx == -1) {
+        if (in_track_settings_mode) {
+            // Do NOT draw or update buoy buttons if we are on the Track Settings Screen!
+            return;
+        }
+        
         // --- Menu Screen (Optimized with State Caching to prevent redraw flicker) ---
         tft.setTextSize(2);
         tft.setTextDatum(MC_DATUM);
