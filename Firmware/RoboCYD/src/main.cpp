@@ -1151,8 +1151,8 @@ void loop() {
                         draw_resting_ui();
                     }
                 }
-                // CALIBRATE TOUCH Button: Y 250 to 278, X 10 to 230 (wider touch area for high sensitivity!)
-                else if (touchY >= 250 && touchY <= 278 && touchX >= 10 && touchX <= 230) {
+                // CALIBRATE TOUCH Button: Y 246 to 320, X 10 to 230 (uses the entire bottom screen area for maximum sensitivity!)
+                else if (touchY >= 246 && touchY <= 320 && touchX >= 10 && touchX <= 230) {
                     unsigned long now = millis();
                     if (touchX < 120) {
                         last_left_touch_time = now;

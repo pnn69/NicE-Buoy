@@ -25,9 +25,9 @@ void init_touch() {
     // One-time self-clearing reset of broken calibration bounds
     Preferences prefs;
     prefs.begin("touch-cal", false);
-    if (!prefs.isKey("cal_reset_v2")) {
+    if (!prefs.isKey("cal_reset_v3")) {
         prefs.clear();
-        prefs.putBool("cal_reset_v2", true);
+        prefs.putBool("cal_reset_v3", true);
         Serial.println("One-time touch calibration reset triggered!");
     }
     prefs.end();
