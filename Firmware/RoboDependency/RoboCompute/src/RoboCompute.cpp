@@ -749,6 +749,8 @@ void recalcStartLine(struct RoboStruct rsl[3])
     double d = distanceBetween(rsl[idx[0]].tgLat, rsl[idx[0]].tgLng, rsl[idx[1]].tgLat, rsl[idx[1]].tgLng);
     adjustPositionDirDist(fmod(rsl[idx[0]].wDir + 270, 360), d / 2, midLat, midLng, &rsl[idx[0]].tgLat, &rsl[idx[0]].tgLng);
     adjustPositionDirDist(fmod(rsl[idx[0]].wDir + 90, 360), d / 2, midLat, midLng, &rsl[idx[1]].tgLat, &rsl[idx[1]].tgLng);
+    rsl[idx[0]].trackPos = PORT;
+    rsl[idx[1]].trackPos = STARBOARD;
 }
 
 void reCalcTrack(struct RoboStruct rsl[3]) {}
