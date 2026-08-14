@@ -32,6 +32,7 @@ float old_wind_dir = -999.0;
 // Touch Calibration Mode Variables
 #include <Preferences.h>
 bool in_calibration_mode = false;
+bool in_track_settings_mode = false;
 int cal_state = 0;
 int cal_rx1 = 0, cal_ry1 = 0;
 int cal_rx2 = 0, cal_ry2 = 0;
@@ -497,34 +498,71 @@ void draw_resting_ui() {
     tft.fillScreen(TFT_BLACK);
     
     if (selected_buoy_idx == -1) {
-        // --- Static Menu Screen (240x320 Portrait) ---
-        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-        tft.setTextSize(2);
-        tft.setTextDatum(TC_DATUM);
-        tft.drawString("ROBOBUOY", w / 2, 15);
-        tft.drawString("CONTROLLER", w / 2, 40);
-        
-        tft.drawFastHLine(15, 70, w - 30, TFT_WHITE);
-        
-        // Draw Calibrate Touch Button (Y: 245 to 275, X: 30 to 210)
-        tft.fillRoundRect(30, 245, 180, 28, 4, TFT_DARKGREY);
-        tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
-        tft.setTextSize(1);
-        tft.setTextDatum(MC_DATUM);
-        tft.drawString("CALIBRATE TOUCH", w / 2, 259);
-        
-        tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        tft.setTextSize(2);
-        tft.setTextDatum(BC_DATUM);
-        
-        // Draw LoRa status on its own line above the IP address
-        tft.drawString("LoRa: 433M", w / 2, h - 28);
-        
-        // Draw local IP address on its own line below the LoRa status
-        IPAddress ip = WiFi.localIP();
-        char ip_buf[48];
-        sprintf(ip_buf, "IP: %s", ip.toString().c_str());
-        tft.drawString(ip_buf, w / 2, h - 10);
+        if (in_track_settings_mode) {
+            // --- Static Track Settings Screen (240x320 Portrait) ---
+            tft.setTextColor(TFT_CYAN, TFT_BLACK);
+            tft.setTextSize(2);
+            tft.setTextDatum(TC_DATUM);
+            tft.drawString("TRACK SETTINGS", w / 2, 15);
+            
+            tft.drawFastHLine(15, 45, w - 30, TFT_WHITE);
+            
+            tft.setFreeFont(&FreeSansBold9pt7b); // Use beautiful bold GFX font!
+            tft.setTextSize(1);
+            tft.setTextDatum(MC_DATUM);
+            
+            // Align Startline Button (Y: 100 to 140, height 40, width 180)
+            tft.fillRoundRect(30, 100, 180, 40, 6, TFT_ORANGE);
+            tft.setTextColor(TFT_BLACK, TFT_ORANGE);
+            tft.drawString("ALIGN STARTLINE", w / 2, 120);
+            
+            // Align Track Button (Y: 160 to 200, height 40, width 180)
+            tft.fillRoundRect(30, 160, 180, 40, 6, TFT_GREEN);
+            tft.setTextColor(TFT_BLACK, TFT_GREEN);
+            tft.drawString("ALIGN TRACK", w / 2, 180);
+            
+            // BACK Button (Y: 230 to 270, height 40, width 180)
+            tft.fillRoundRect(30, 230, 180, 40, 6, TFT_BLUE);
+            tft.setTextColor(TFT_WHITE, TFT_BLUE);
+            tft.drawString("BACK", w / 2, 250);
+            
+            tft.setFreeFont(NULL); // Restore default font
+        } else {
+            // --- Static Menu Screen (240x320 Portrait) ---
+            tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+            tft.setTextSize(2);
+            tft.setTextDatum(TC_DATUM);
+            tft.drawString("ROBOBUOY", w / 2, 15);
+            tft.drawString("CONTROLLER", w / 2, 40);
+            
+            tft.drawFastHLine(15, 70, w - 30, TFT_WHITE);
+            
+            // Draw Calibrate Touch and Track Settings Buttons side-by-side (Y: 245 to 275)
+            tft.fillRoundRect(15, 245, 100, 28, 4, TFT_DARKGREY);
+            tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+            tft.setTextSize(1);
+            tft.setTextDatum(MC_DATUM);
+            tft.drawString("CALIB TOUCH", 65, 259);
+
+            tft.fillRoundRect(125, 245, 100, 28, 4, TFT_DARKGREY);
+            tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+            tft.setTextSize(1);
+            tft.setTextDatum(MC_DATUM);
+            tft.drawString("TRACK SETTINGS", 175, 259);
+            
+            tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+            tft.setTextSize(2);
+            tft.setTextDatum(BC_DATUM);
+            
+            // Draw LoRa status on its own line above the IP address
+            tft.drawString("LoRa: 433M", w / 2, h - 28);
+            
+            // Draw local IP address on its own line below the LoRa status
+            IPAddress ip = WiFi.localIP();
+            char ip_buf[48];
+            sprintf(ip_buf, "IP: %s", ip.toString().c_str());
+            tft.drawString(ip_buf, w / 2, h - 10);
+        }
     } else {
         if (in_setup_mode) {
             // --- Static Setup screen on Display ---
@@ -1005,35 +1043,143 @@ void loop() {
         }
         
         if (selected_buoy_idx == -1) {
-            // --- MAIN MENU INTERACTION ---
-            // Button 1: Y 80 to 125, X 10 to 230
-            if (touchY >= 80 && touchY <= 125 && touchX >= 10 && touchX <= 230) {
-                if (buoys[0].id != "" && buoys[0].present) {
-                    selected_buoy_idx = 0;
-                    last_transition_ms = millis();
-                    ChangeRGBColor(RGB_COLOR_3); // Shift LED to blue indicating view
+            if (in_track_settings_mode) {
+                // --- TRACK SETTINGS SCREEN TOUCH INTERACTION ---
+                // ALIGN STARTLINE: Y: 100 to 140, X: 30 to 210
+                if (touchY >= 100 && touchY <= 140 && touchX >= 30 && touchX <= 210) {
+                    tft.fillRect(10, 150, 220, 60, TFT_BLACK);
+                    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+                    tft.setTextSize(2);
+                    tft.setTextDatum(MC_DATUM);
+                    tft.drawString("COMPUTING...", tft.width() / 2, 180);
+                    
+                    // Find first active buoy and send command 62 (COMPUTESTART)
+                    bool sent = false;
+                    for (int i = 0; i < 3; i++) {
+                        if (buoys[i].id != "") {
+                            send_buoy_command(buoys[i].id, 62);
+                            sent = true;
+                            break;
+                        }
+                    }
+                    if (!sent) {
+                        tft.fillRect(10, 150, 220, 60, TFT_BLACK);
+                        tft.setTextColor(TFT_RED, TFT_BLACK);
+                        tft.drawString("NO ACTIVE BUOY!", tft.width() / 2, 180);
+                    }
+                    delay(800);
+                    reset_button_draw_cache();
+                    draw_resting_ui();
                 }
-            }
-            // Button 2: Y 135 to 180, X 10 to 230
-            else if (touchY >= 135 && touchY <= 180 && touchX >= 10 && touchX <= 230) {
-                if (buoys[1].id != "" && buoys[1].present) {
-                    selected_buoy_idx = 1;
-                    last_transition_ms = millis();
-                    ChangeRGBColor(RGB_COLOR_3);
+                // ALIGN TRACK: Y: 160 to 200, X: 30 to 210
+                else if (touchY >= 160 && touchY <= 200 && touchX >= 30 && touchX <= 210) {
+                    tft.fillRect(10, 150, 220, 60, TFT_BLACK);
+                    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+                    tft.setTextSize(2);
+                    tft.setTextDatum(MC_DATUM);
+                    tft.drawString("COMPUTING...", tft.width() / 2, 180);
+                    
+                    // Find first active buoy and send command 63 (COMPUTETRACK)
+                    bool sent = false;
+                    for (int i = 0; i < 3; i++) {
+                        if (buoys[i].id != "") {
+                            send_buoy_command(buoys[i].id, 63);
+                            sent = true;
+                            break;
+                        }
+                    }
+                    if (!sent) {
+                        tft.fillRect(10, 150, 220, 60, TFT_BLACK);
+                        tft.setTextColor(TFT_RED, TFT_BLACK);
+                        tft.drawString("NO ACTIVE BUOY!", tft.width() / 2, 180);
+                    }
+                    delay(800);
+                    reset_button_draw_cache();
+                    draw_resting_ui();
                 }
-            }
-            // Button 3: Y 190 to 235, X 10 to 230
-            else if (touchY >= 190 && touchY <= 235 && touchX >= 10 && touchX <= 230) {
-                if (buoys[2].id != "" && buoys[2].present) {
-                    selected_buoy_idx = 2;
+                // BACK: Y: 230 to 270, X: 30 to 210
+                else if (touchY >= 230 && touchY <= 270 && touchX >= 30 && touchX <= 210) {
+                    in_track_settings_mode = false;
                     last_transition_ms = millis();
-                    ChangeRGBColor(RGB_COLOR_3);
+                    reset_button_draw_cache();
+                    draw_resting_ui();
                 }
-            }
-            // Calibration Button: Y 245 to 275, X 30 to 210
-            else if (touchY >= 245 && touchY <= 275 && touchX >= 30 && touchX <= 210) {
-                last_transition_ms = millis();
-                start_touch_calibration();
+            } else {
+                // --- MAIN MENU INTERACTION ---
+                // Button 1: Y 80 to 125, X 10 to 230
+                if (touchY >= 80 && touchY <= 125 && touchX >= 10 && touchX <= 230) {
+                    if (buoys[0].id != "" && buoys[0].present) {
+                        selected_buoy_idx = 0;
+                        last_transition_ms = millis();
+                        ChangeRGBColor(RGB_COLOR_3); // Shift LED to blue indicating view
+                    }
+                }
+                // Button 2: Y 135 to 180, X 10 to 230
+                else if (touchY >= 135 && touchY <= 180 && touchX >= 10 && touchX <= 230) {
+                    if (buoys[1].id != "" && buoys[1].present) {
+                        selected_buoy_idx = 1;
+                        last_transition_ms = millis();
+                        ChangeRGBColor(RGB_COLOR_3);
+                    }
+                }
+                // Button 3: Y 190 to 235, X 10 to 230
+                else if (touchY >= 190 && touchY <= 235 && touchX >= 10 && touchX <= 230) {
+                    if (buoys[2].id != "" && buoys[2].present) {
+                        selected_buoy_idx = 2;
+                        last_transition_ms = millis();
+                        ChangeRGBColor(RGB_COLOR_3);
+                    }
+                }
+                // Calibration & Track Settings Bottom Buttons: Y 245 to 275, X 15 to 225
+                else if (touchY >= 245 && touchY <= 275 && touchX >= 15 && touchX <= 225) {
+                    unsigned long now = millis();
+                    if (touchX >= 15 && touchX <= 115) {
+                        last_left_touch_time = now;
+                    }
+                    else if (touchX >= 125 && touchX <= 225) {
+                        last_right_touch_time = now;
+                    }
+                    
+                    // If BOTH buttons are being touched simultaneously (jitter-tolerant)
+                    if (now - last_left_touch_time < 1500 && now - last_right_touch_time < 1500) {
+                        if (!both_touched_previously) {
+                            simultaneous_touch_start = now;
+                            both_touched_previously = true;
+                            Serial.println("Simultaneous touch started!");
+                        } else if (now - simultaneous_touch_start >= 3000) {
+                            Serial.println("Simultaneous touch held for 3 seconds! Entering calibration screen.");
+                            both_touched_previously = false;
+                            last_transition_ms = now;
+                            start_touch_calibration();
+                        } else {
+                            // Draw holding progress bar
+                            int elapsed = now - simultaneous_touch_start;
+                            int progress_width = (elapsed * 210) / 3000;
+                            if (progress_width > 210) progress_width = 210;
+                            tft.fillRect(15, 273, progress_width, 2, TFT_GREEN);
+                        }
+                    } else {
+                        both_touched_previously = false;
+                        tft.fillRect(15, 273, 210, 2, TFT_BLACK);
+                        
+                        // Single touch processing:
+                        static unsigned long right_touch_start = 0;
+                        // If they touched only the right button (TRACK SETTINGS) and held it for 300ms without touching the left button
+                        if (touchX >= 125 && touchX <= 225 && now - last_left_touch_time >= 1500) {
+                            if (right_touch_start == 0) {
+                                right_touch_start = now;
+                            } else if (now - right_touch_start >= 300) {
+                                right_touch_start = 0;
+                                in_track_settings_mode = true;
+                                last_transition_ms = now;
+                                reset_button_draw_cache();
+                                draw_resting_ui();
+                            }
+                        } else {
+                            right_touch_start = 0;
+                        }
+                    }
+                }
             }
         } else {
             if (in_setup_mode) {
