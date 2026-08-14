@@ -537,31 +537,32 @@ void draw_resting_ui() {
             
             tft.drawFastHLine(15, 70, w - 30, TFT_WHITE);
             
-            // Draw Calibrate Touch and Track Settings Buttons side-by-side (Y: 245 to 275)
-            tft.fillRoundRect(15, 245, 100, 28, 4, TFT_DARKGREY);
+            // Draw TRACK SETTINGS Button (Y: 210 to 245, X: 10 to 230) - as big as BUOY buttons and BLUE!
+            tft.fillRoundRect(10, 210, w - 20, 35, 5, TFT_BLUE);
+            tft.setTextColor(TFT_WHITE, TFT_BLUE);
+            tft.setTextSize(2);
+            tft.setTextDatum(MC_DATUM);
+            tft.drawString("TRACK SETTINGS", w / 2, 227);
+            
+            // Draw Calibrate Touch Button centered (Y: 260 to 288, X: 30 to 210)
+            tft.fillRoundRect(30, 260, 180, 28, 4, TFT_DARKGREY);
             tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
             tft.setTextSize(1);
             tft.setTextDatum(MC_DATUM);
-            tft.drawString("CALIB TOUCH", 65, 259);
-
-            tft.fillRoundRect(125, 245, 100, 28, 4, TFT_DARKGREY);
-            tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
-            tft.setTextSize(1);
-            tft.setTextDatum(MC_DATUM);
-            tft.drawString("TRACK SETTINGS", 175, 259);
+            tft.drawString("CALIBRATE TOUCH", w / 2, 274);
             
             tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
             tft.setTextSize(2);
             tft.setTextDatum(BC_DATUM);
             
             // Draw LoRa status on its own line above the IP address
-            tft.drawString("LoRa: 433M", w / 2, h - 28);
+            tft.drawString("LoRa: 433M", w / 2, h - 16);
             
             // Draw local IP address on its own line below the LoRa status
             IPAddress ip = WiFi.localIP();
             char ip_buf[48];
             sprintf(ip_buf, "IP: %s", ip.toString().c_str());
-            tft.drawString(ip_buf, w / 2, h - 10);
+            tft.drawString(ip_buf, w / 2, h - 3);
         }
     } else {
         if (in_setup_mode) {
