@@ -506,18 +506,12 @@ void draw_resting_ui() {
         
         tft.drawFastHLine(15, 70, w - 30, TFT_WHITE);
         
-        // Draw Calibrate Touch Button (Y: 245 to 275, X: 30 to 210) Divided in Left/Right
-        tft.fillRoundRect(30, 245, 88, 28, 4, TFT_DARKGREY);
+        // Draw Calibrate Touch Button (Y: 245 to 275, X: 30 to 210)
+        tft.fillRoundRect(30, 245, 180, 28, 4, TFT_DARKGREY);
         tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
         tft.setTextSize(1);
         tft.setTextDatum(MC_DATUM);
-        tft.drawString("CALIB L", 74, 259);
-
-        tft.fillRoundRect(122, 245, 88, 28, 4, TFT_DARKGREY);
-        tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
-        tft.setTextSize(1);
-        tft.setTextDatum(MC_DATUM);
-        tft.drawString("CALIB R", 166, 259);
+        tft.drawString("CALIBRATE TOUCH", w / 2, 259);
         
         tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
         tft.setTextSize(2);
