@@ -364,9 +364,11 @@ function parseMessage(message, source, senderIp = null, loraRssi = null, udpRssi
         
         let targetBuoy = null;
         
-        // Find existing match by either target or sender ID
+        // Find existing match by either target or sender ID (ignoring broadcast target IDs like 0 or 1)
+        const targetInt = parseInt(targetId, 16);
+        const isBroadcastTarget = (targetInt === 0 || targetInt === 1);
         for (let b of buoys) {
-            if (b.id !== null && (b.id === senderId || b.id === targetId)) {
+            if (b.id !== null && (b.id === senderId || (!isBroadcastTarget && b.id === targetId))) {
                 targetBuoy = b;
                 break;
             }

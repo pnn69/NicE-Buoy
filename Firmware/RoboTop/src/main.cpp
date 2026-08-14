@@ -1059,6 +1059,15 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             lastInTime = millis();
         }
 
+        // Capture telemetry data from other buoys regardless of target ID before bridging
+        if (RfIn.cmd == BUOYPOS || RfIn.cmd == TOPDATA || RfIn.cmd == SUBDATA || RfIn.cmd == SUBACCU || RfIn.cmd == SUBPWR)
+        {
+            if (RfIn.IDs != 0 && RfIn.IDs != RfOut->IDs && RfIn.IDs != RfOut->mac)
+            {
+                AddDataToBuoyBase(RfIn, buoyPara);
+            }
+        }
+
         // --- BRIDGING LOGIC ---
         // If the message is NOT for us and NOT a broadcast, bridge it to the other interface
         // treat IDr == 0 as a legacy broadcast
@@ -1079,6 +1088,13 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
         {
             switch (RfIn.cmd)
             {
+            case BUOYPOS:
+            case TOPDATA:
+                if (RfIn.IDs != 0 && RfIn.IDs != RfOut->IDs && RfIn.IDs != RfOut->mac)
+                {
+                    AddDataToBuoyBase(RfIn, buoyPara);
+                }
+                break;
             case SUBDATA:
                 if (RfIn.IDs != 0 && RfIn.IDs != RfOut->IDs && RfIn.IDs != RfOut->mac)
                 {
@@ -1101,11 +1117,20 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case DOCKING:
-                if (RfOut->status != DOCKING && RfOut->status != DOCKED)
+                if (RfIn.IDr == RfOut->mac || ((RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) && (RfIn.IDs == 0x99 || RfIn.IDs == 0x98)))
                 {
-                    printf("#Status set to DOCKING\r\n");
-                    RfOut->status = DOCKING;
-                    RfOut->lastSerOut = 0; // Force immediate update to sub
+                    if (RfOut->status != DOCKING && RfOut->status != DOCKED)
+                    {
+                        printf("#Status set to DOCKING\r\n");
+                        RfOut->status = DOCKING;
+                        RfOut->lastSerOut = 0; // Force immediate update to sub
+                    }
+                }
+                else
+                {
+                    // Forward across interfaces
+                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             case LOCKPOS: // store new data into position database
@@ -1220,11 +1245,6 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     printf("Received SETUPDATA command. ack=%d Updating parameters\r\n", RfIn.ack);
                     // Update buoyPara base so web interface shows correct remote setup
                     // Prioritize Buoy 0 (Main) if its IDs matches or if it hasn't synced its Sub ID yet.
-                                    // This is a request from PC (Serial) -> Forward to Sub
-                    RoboStruct serDataOut = RfIn; // copy all data for forwarding
-                    serDataOut.IDr = BUOYIDALL; // Force Sub to accept the request
-                    serDataOut.ack = SET;
-                    xQueueSend(serOut, (void *)&serDataOut, 0);
 
                     int targetIdx = -1;
                     for (int i = 0; i < 3; i++) {
@@ -1234,7 +1254,9 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                         }
                     }
                     if (targetIdx == -1) {
-                        for (int i = 0; i < 3; i++) {
+                        // Avoid slot 0 for fallback if the packet is from another buoy
+                        int start_idx = (RfIn.IDs == RfOut->mac) ? 0 : 1;
+                        for (int i = start_idx; i < 3; i++) {
                             if (buoyPara[i]->IDs == 0) {
                                 targetIdx = i;
                                 break;
@@ -1265,42 +1287,78 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfOut->Kds = RfIn.Kds;
                 break;
             case TGDIRSPEED:
-                RfOut->tgDir = RfIn.tgDir;
-                RfOut->speedSet = RfIn.speedSet;
-                RfOut->status = TGDIRSPEED;
-                RfOut->lastSerOut = 0; // Force immediate update to sub
+                if (RfIn.IDr == RfOut->mac || ((RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) && (RfIn.IDs == 0x99 || RfIn.IDs == 0x98)))
+                {
+                    RfOut->tgDir = RfIn.tgDir;
+                    RfOut->speedSet = RfIn.speedSet;
+                    RfOut->status = TGDIRSPEED;
+                    RfOut->lastSerOut = 0; // Force immediate update to sub
+                }
+                else
+                {
+                    // Forward across interfaces
+                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                }
                 break;
             case REMOTE:
-                if (RfOut->status != REMOTE) {
-                    beep(1, buzzer);
-                    RfOut->status = REMOTE;
+                if (RfIn.IDr == RfOut->mac || ((RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) && (RfIn.IDs == 0x99 || RfIn.IDs == 0x98)))
+                {
+                    if (RfOut->status != REMOTE) {
+                        beep(1, buzzer);
+                        RfOut->status = REMOTE;
+                    }
+                    RfOut->tgDir = RfIn.tgDir;
+                    RfOut->tgSpeed = RfIn.tgSpeed;
+                    xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                    RfOut->lastSerOut = 0; // Force immediate update to sub
                 }
-                RfOut->tgDir = RfIn.tgDir;
-                RfOut->tgSpeed = RfIn.tgSpeed;
-                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
-                RfOut->lastSerOut = 0; // Force immediate update to sub
+                else
+                {
+                    // Forward across interfaces
+                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                }
                 break;
             case DIRDIST:
-                double lat, lon;
-                // printf("New dir: %f New distance %f\r\n", RfIn.tgDir, RfIn.tgDist);
-                adjustPositionDirDist(RfIn.tgDir, RfIn.tgDist, RfOut->lat, RfOut->lng, &RfOut->tgLat, &RfOut->tgLng);
-                // printf("New cordinates: https://www.google.nl/maps/@%f,%f,14z\r\n", RfOut->tgLat, RfOut->tgLng);
-                RouteToPoint(RfOut->lat, RfOut->lng, RfOut->tgLat, RfOut->tgLng, &RfOut->tgDist, &RfOut->tgDir);
-                // printf("New dir: %f New distance %f\r\n", RfOut->tgDir, RfOut->tgDist);
-                
-                if (RfOut->status != LOCKED) {
-                    RfIn.cmd = RESET_SPEED_RUD_PID;
-                    xQueueSend(serOut, (void *)&RfIn, 0); // update sub only if transitioning
+                if (RfIn.IDr == RfOut->mac || ((RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) && (RfIn.IDs == 0x99 || RfIn.IDs == 0x98)))
+                {
+                    double lat, lon;
+                    adjustPositionDirDist(RfIn.tgDir, RfIn.tgDist, RfOut->lat, RfOut->lng, &RfOut->tgLat, &RfOut->tgLng);
+                    RouteToPoint(RfOut->lat, RfOut->lng, RfOut->tgLat, RfOut->tgLng, &RfOut->tgDist, &RfOut->tgDir);
+
+                    if (RfOut->status != LOCKED) {
+                        RfIn.cmd = RESET_SPEED_RUD_PID;
+                        xQueueSend(serOut, (void *)&RfIn, 0); // update sub only if transitioning
+                    }
+                    RfOut->status = LOCKED;
+                    RfOut->lastSerOut = 0; // Force immediate update to sub
                 }
-                RfOut->status = LOCKED;
-                RfOut->lastSerOut = 0; // Force immediate update to sub
+                else
+                {
+                    // If it is just a broadcast from another buoy, store its data in the buoyPara base,
+                    // but do NOT execute it as a command for ourselves!
+                    AddDataToBuoyBase(RfIn, buoyPara);
+                    // Forward across interfaces
+                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                }
                 break;
             case LOCKING:
-                if (RfOut->gpsFix == true && RfOut->status != LOCKING && RfOut->status != LOCKED)
+                if (RfIn.IDr == RfOut->mac || ((RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) && (RfIn.IDs == 0x99 || RfIn.IDs == 0x98)))
                 {
-                    RfOut->status = LOCKING;
-                    beep(1, buzzer);
-                    RfOut->lastSerOut = 0; // Force immediate update to sub
+                    if (RfOut->gpsFix == true && RfOut->status != LOCKING && RfOut->status != LOCKED)
+                    {
+                        RfOut->status = LOCKING;
+                        beep(1, buzzer);
+                        RfOut->lastSerOut = 0; // Force immediate update to sub
+                    }
+                }
+                else
+                {
+                    // Forward across interfaces
+                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             case DOCKPOS: // Get the positon to dock
@@ -1334,11 +1392,20 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 break;
             case IDELING:
             case IDLE:
-                if (RfOut->status != IDELING && RfOut->status != IDLE)
+                if (RfIn.IDr == RfOut->mac || ((RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) && (RfIn.IDs == 0x99 || RfIn.IDs == 0x98)))
                 {
-                    printf("#Status set to IDLE (by lora input)\r\n");
-                    RfOut->status = IDELING;
-                    RfOut->lastSerOut = 0; // Force immediate update to sub
+                    if (RfOut->status != IDELING && RfOut->status != IDLE)
+                    {
+                        printf("#Status set to IDLE (by lora input)\r\n");
+                        RfOut->status = IDELING;
+                        RfOut->lastSerOut = 0; // Force immediate update to sub
+                    }
+                }
+                else
+                {
+                    // Forward across interfaces
+                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             case SUBACCU:
