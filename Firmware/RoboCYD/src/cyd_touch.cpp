@@ -22,8 +22,17 @@ uint16_t ts_maxy = 3800;
 void init_touch() {
     ts.begin();
     
-    // Load calibration bounds from non-volatile Preferences
+    // One-time self-clearing reset of broken calibration bounds
     Preferences prefs;
+    prefs.begin("touch-cal", false);
+    if (!prefs.isKey("cal_reset_v2")) {
+        prefs.clear();
+        prefs.putBool("cal_reset_v2", true);
+        Serial.println("One-time touch calibration reset triggered!");
+    }
+    prefs.end();
+    
+    // Load calibration bounds from non-volatile Preferences
     prefs.begin("touch-cal", true);
     ts_minx = prefs.getUShort("minx", 300);
     ts_maxx = prefs.getUShort("maxx", 3800);

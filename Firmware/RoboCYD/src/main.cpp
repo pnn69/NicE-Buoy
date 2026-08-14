@@ -35,6 +35,12 @@ bool in_calibration_mode = false;
 int cal_state = 0;
 int cal_rx1 = 0, cal_ry1 = 0;
 int cal_rx2 = 0, cal_ry2 = 0;
+uint16_t temp_minx = 300, temp_maxx = 3800, temp_miny = 260, temp_maxy = 3800;
+unsigned long save_screen_start_ms = 0;
+unsigned long last_left_touch_time = 0;
+unsigned long last_right_touch_time = 0;
+unsigned long simultaneous_touch_start = 0;
+bool both_touched_previously = false;
 
 void draw_calibration_screen();
 void handle_touch_calibration();
@@ -500,12 +506,18 @@ void draw_resting_ui() {
         
         tft.drawFastHLine(15, 70, w - 30, TFT_WHITE);
         
-        // Draw Calibrate Touch Button (Y: 245 to 275, X: 30 to 210)
-        tft.fillRoundRect(30, 245, 180, 28, 4, TFT_DARKGREY);
+        // Draw Calibrate Touch Button (Y: 245 to 275, X: 30 to 210) Divided in Left/Right
+        tft.fillRoundRect(30, 245, 88, 28, 4, TFT_DARKGREY);
         tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
         tft.setTextSize(1);
         tft.setTextDatum(MC_DATUM);
-        tft.drawString("CALIBRATE TOUCH", w / 2, 259);
+        tft.drawString("CALIB L", 74, 259);
+
+        tft.fillRoundRect(122, 245, 88, 28, 4, TFT_DARKGREY);
+        tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+        tft.setTextSize(1);
+        tft.setTextDatum(MC_DATUM);
+        tft.drawString("CALIB R", 166, 259);
         
         tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
         tft.setTextSize(2);
@@ -1348,6 +1360,13 @@ void loop() {
                 }
             }
         }
+    } else {
+        // No touch active: reset holding timer
+        if (both_touched_previously) {
+            both_touched_previously = false;
+            // Erase the green holding progress bar
+            tft.fillRect(30, 273, 180, 2, TFT_BLACK);
+        }
     }
 
     // Refresh dynamic screen details every 250 milliseconds
@@ -1393,6 +1412,48 @@ void draw_calibration_screen() {
 }
 
 void handle_touch_calibration() {
+    if (cal_state == 2) {
+        unsigned long elapsed = millis() - save_screen_start_ms;
+        if (elapsed >= 3000) {
+            // Discard calibration and return
+            Serial.println("Calibration timeout! Discarding changes.");
+            
+            tft.fillScreen(TFT_BLACK);
+            tft.setTextColor(TFT_RED, TFT_BLACK);
+            tft.setTextSize(2);
+            tft.setTextDatum(MC_DATUM);
+            tft.drawString("CALIBRATION DISCARDED", tft.width() / 2, 120);
+            tft.setTextSize(1);
+            tft.drawString("Timed out after 3 seconds", tft.width() / 2, 160);
+            
+            delay(2000);
+            
+            // Reload old calibration bounds to discard the active changes
+            Preferences prefs;
+            prefs.begin("touch-cal", true);
+            ts_minx = prefs.getUShort("minx", 300);
+            ts_maxx = prefs.getUShort("maxx", 3800);
+            ts_miny = prefs.getUShort("miny", 260);
+            ts_maxy = prefs.getUShort("maxy", 3800);
+            prefs.end();
+            apply_calibration(ts_minx, ts_maxx, ts_miny, ts_maxy);
+            
+            in_calibration_mode = false;
+            selected_buoy_idx = -1;
+            lastKnownState = -2; // Force complete Menu Screen redraw
+            return;
+        } else {
+            // Draw progress/countdown bar or text
+            int remaining_sec = 3 - (elapsed / 1000);
+            char timer_buf[32];
+            sprintf(timer_buf, "Returning in %ds...", remaining_sec);
+            tft.setTextColor(TFT_WHITE, TFT_BLACK);
+            tft.setTextSize(1);
+            tft.setTextDatum(MC_DATUM);
+            tft.drawString(timer_buf, tft.width() / 2, 260);
+        }
+    }
+
     int rx = 0, ry = 0;
     if (get_raw_touch_point(rx, ry)) {
         Serial.printf("Cal Touch: rawX=%d, rawY=%d\n", rx, ry);
@@ -1415,46 +1476,85 @@ void handle_touch_calibration() {
             int cal_minx = cal_maxx + 319 / S_y;
             
             // Constrain results to valid physical boundaries
-            ts_minx = constrain(cal_minx, 50, 1000);
-            ts_maxx = constrain(cal_maxx, 2500, 4000);
-            ts_miny = constrain(cal_miny, 50, 1000);
-            ts_maxy = constrain(cal_maxy, 2500, 4000);
+            temp_minx = constrain(cal_minx, 50, 1000);
+            temp_maxx = constrain(cal_maxx, 2500, 4000);
+            temp_miny = constrain(cal_miny, 50, 1000);
+            temp_maxy = constrain(cal_maxy, 2500, 4000);
             
-            // Apply bounds immediately to active driver
-            apply_calibration(ts_minx, ts_maxx, ts_miny, ts_maxy);
+            // Apply bounds immediately to active driver so user can touch the Green Save button!
+            apply_calibration(temp_minx, temp_maxx, temp_miny, temp_maxy);
             
-            // Save to non-volatile storage
-            Preferences prefs;
-            prefs.begin("touch-cal", false);
-            prefs.putUShort("minx", ts_minx);
-            prefs.putUShort("maxx", ts_maxx);
-            prefs.putUShort("miny", ts_miny);
-            prefs.putUShort("maxy", ts_maxy);
-            prefs.end();
+            // Draw Save Screen!
+            cal_state = 2;
+            save_screen_start_ms = millis();
             
-            Serial.printf("Saved Touch Calibration: minx=%d, maxx=%d, miny=%d, maxy=%d\n", ts_minx, ts_maxx, ts_miny, ts_maxy);
-            
-            // Success Screen Feedback
             tft.fillScreen(TFT_BLACK);
-            tft.setTextColor(TFT_GREEN, TFT_BLACK);
+            tft.setTextColor(TFT_WHITE, TFT_BLACK);
             tft.setTextSize(2);
             tft.setTextDatum(MC_DATUM);
-            tft.drawString("CALIBRATION SUCCESS!", tft.width() / 2, 100);
+            tft.drawString("SAVE CALIBRATION?", tft.width() / 2, 60);
             
             tft.setTextSize(1);
-            tft.setTextColor(TFT_WHITE, TFT_BLACK);
-            char buf[64];
-            sprintf(buf, "X bounds: %d to %d", ts_minx, ts_maxx);
-            tft.drawString(buf, tft.width() / 2, 170);
-            sprintf(buf, "Y bounds: %d to %d", ts_miny, ts_maxy);
-            tft.drawString(buf, tft.width() / 2, 190);
+            tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+            tft.drawString("Touch the green button to save", tft.width() / 2, 100);
+            tft.drawString("Otherwise, it will discard and", tft.width() / 2, 120);
+            tft.drawString("exit in 3 seconds.", tft.width() / 2, 140);
             
-            delay(3000);
+            // Draw a big green SAVE button
+            tft.fillRoundRect(30, 180, 180, 45, 6, TFT_GREEN);
+            tft.setTextColor(TFT_BLACK, TFT_GREEN);
+            tft.setTextSize(2);
+            tft.drawString("SAVE", tft.width() / 2, 202);
             
-            // Exit calibration mode
-            in_calibration_mode = false;
-            selected_buoy_idx = -1;
-            lastKnownState = -2; // Force complete menu screen redraw
+        } else if (cal_state == 2) {
+            // We are in state 2 (Save confirmation screen).
+            // Translate raw touch coordinates to calibrated coordinates using temporary bounds to detect the SAVE button press!
+            int touchX = map(ry, temp_miny, temp_maxy, 1, 240);
+            int touchY = map(rx, temp_maxx, temp_minx, 1, 320);
+            touchX = constrain(touchX, 1, 240);
+            touchY = constrain(touchY, 1, 320);
+            
+            Serial.printf("Save screen touch mapped: X=%d, Y=%d\n", touchX, touchY);
+            
+            // Save button: X: 30 to 210, Y: 180 to 225
+            if (touchX >= 30 && touchX <= 210 && touchY >= 180 && touchY <= 225) {
+                // Apply bounds and save permanently!
+                ts_minx = temp_minx;
+                ts_maxx = temp_maxx;
+                ts_miny = temp_miny;
+                ts_maxy = temp_maxy;
+                
+                apply_calibration(ts_minx, ts_maxx, ts_miny, ts_maxy);
+                
+                Preferences prefs;
+                prefs.begin("touch-cal", false);
+                prefs.putUShort("minx", ts_minx);
+                prefs.putUShort("maxx", ts_maxx);
+                prefs.putUShort("miny", ts_miny);
+                prefs.putUShort("maxy", ts_maxy);
+                prefs.end();
+                
+                Serial.printf("Saved Touch Calibration permanently: minx=%d, maxx=%d, miny=%d, maxy=%d\n", ts_minx, ts_maxx, ts_miny, ts_maxy);
+                
+                // Success Screen Feedback
+                tft.fillScreen(TFT_BLACK);
+                tft.setTextColor(TFT_GREEN, TFT_BLACK);
+                tft.setTextSize(2);
+                tft.setTextDatum(MC_DATUM);
+                tft.drawString("CALIBRATION SAVED!", tft.width() / 2, 110);
+                
+                tft.setTextSize(1);
+                tft.setTextColor(TFT_WHITE, TFT_BLACK);
+                char buf[64];
+                sprintf(buf, "X: %d-%d  Y: %d-%d", ts_minx, ts_maxx, ts_miny, ts_maxy);
+                tft.drawString(buf, tft.width() / 2, 170);
+                
+                delay(2000);
+                
+                in_calibration_mode = false;
+                selected_buoy_idx = -1;
+                lastKnownState = -2; // Force complete menu screen redraw
+            }
         }
     }
 }
