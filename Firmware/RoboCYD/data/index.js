@@ -43,6 +43,8 @@ const MsgType = {
     WAKEUP: 82,
     SETUPDATA: 83,
     ADAPTIVE_TRIM: 84,
+    COMPUTESTART: 62,
+    COMPUTETRACK: 63,
     REBOOT: 85
 };
 
@@ -1016,10 +1018,18 @@ function initUIEventListeners() {
     // Global Action Button listeners
     document.getElementById("align-startline-btn").addEventListener("click", () => {
         logMessage("Global: Align Startline Clicked", "UDP OUT");
+        const mainBuoy = buoys.find(b => b.id);
+        if (mainBuoy) {
+            sendStatusCmd(mainBuoy.id, MsgType.COMPUTESTART);
+        }
     });
     
     document.getElementById("align-track-btn").addEventListener("click", () => {
         logMessage("Global: Align Track Clicked", "UDP OUT");
+        const mainBuoy = buoys.find(b => b.id);
+        if (mainBuoy) {
+            sendStatusCmd(mainBuoy.id, MsgType.COMPUTETRACK);
+        }
     });
     
     document.getElementById("dock-all-btn").addEventListener("click", () => {

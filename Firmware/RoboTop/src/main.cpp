@@ -1133,6 +1133,36 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     else xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
+
+            case COMPUTESTART:
+                if (RfIn.IDr == RfOut->mac || ((RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) && (RfIn.IDs == 0x99 || RfIn.IDs == 0x98)))
+                {
+                    printf("#Status set to COMPUTESTART\r\n");
+                    RfOut->status = COMPUTESTART;
+                    RfOut->lastSerOut = 0; // Force immediate update to sub
+                }
+                else
+                {
+                    // Forward across interfaces
+                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                }
+                break;
+
+            case COMPUTETRACK:
+                if (RfIn.IDr == RfOut->mac || ((RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) && (RfIn.IDs == 0x99 || RfIn.IDs == 0x98)))
+                {
+                    printf("#Status set to COMPUTETRACK\r\n");
+                    RfOut->status = COMPUTETRACK;
+                    RfOut->lastSerOut = 0; // Force immediate update to sub
+                }
+                else
+                {
+                    // Forward across interfaces
+                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                }
+                break;
             case LOCKPOS: // store new data into position database
                 AddDataToBuoyBase(RfIn, buoyParaPtrs);
                 break;
