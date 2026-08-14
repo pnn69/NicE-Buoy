@@ -1082,6 +1082,11 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             }
             return; // Done with bridging
         }
+        else if (from_udp && (RfIn.IDr == BUOYIDALL || RfIn.IDr == 0))
+        {
+            // If it is a broadcast command from UDP/WiFi, forward a copy to LoRa so other buoys receive it too!
+            xQueueSend(loraOut, (void *)&RfIn, 0);
+        }
 
         // --- LOCAL HANDLING (For this buoy or ALL) ---
         if (is_for_me)
@@ -1215,9 +1220,12 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case SETUPDATA:
+            {
                 printf("Received SETUPDATA command. ack=%d, IDs=0x%08lX, dockDist=%d, dockDir=%d, dockWP=%s\r\n", 
                        RfIn.ack, RfIn.IDs, RfIn.dockApproachDist, RfIn.dockApproachDir, RfIn.dockingToWaypoint ? "YES" : "NO");
-                if (RfIn.ack == 1 || RfIn.ack == 3 || RfIn.ack == 2) // 1=GET, 2=SET, 3=GETACK
+                // Check if the command/response is local to the master or if it originates from a remote buoy
+                bool is_local = (RfIn.IDs == RfOut->mac || RfIn.IDs == 0x98 || RfIn.IDs == 0x99 || from_udp);
+                if (is_local && (RfIn.ack == 1 || RfIn.ack == 3 || RfIn.ack == 2)) // 1=GET, 2=SET, 3=GETACK
                 {
                     
                     if (RfIn.ack == 2 || RfIn.ack == 3) { // 2=SET, 3=GETACK
@@ -1263,12 +1271,15 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     // Forward to Sub to trigger a fresh update. 
                     // Overwrite the sender ID with our own Top MAC address to ensure the half-duplex serial driver
                     // recognizes and ignores self-echoed transactions.
-                    RfIn.IDr = BUOYIDALL;
-                    RfIn.IDs = espMac();
-                    printf("DEBUG_SETUPDATA: Forwarding to Sub via serOut. maxSpeed=%d, ack=%d\r\n", RfIn.maxSpeed, RfIn.ack);
-                    if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
-                        printf("ERROR: Failed to queue SETUPDATA forward request to serOut!\r\n");
-                    } 
+                    // Only forward to local Sub if the command is explicitly addressed to the master (bid == 1)
+                    if (RfIn.IDr == RfOut->mac) {
+                        RfIn.IDr = BUOYIDALL;
+                        RfIn.IDs = espMac();
+                        printf("DEBUG_SETUPDATA: Forwarding to Sub via serOut. maxSpeed=%d, ack=%d\r\n", RfIn.maxSpeed, RfIn.ack);
+                        if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                            printf("ERROR: Failed to queue SETUPDATA forward request to serOut!\r\n");
+                        } 
+                    }
                 }
                 else
                 {
@@ -1303,6 +1314,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     else xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
+            }
             case PIDSPEEDSET:
                 pidSpeedParameters(&RfIn, SET);
                 printf("#PIDSPEEDSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kps, RfIn.Kis, RfIn.Kds);

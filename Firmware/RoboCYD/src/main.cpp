@@ -922,11 +922,11 @@ void update_dynamic_ui() {
     
     if (selected_buoy_idx == -1) {
         // --- Menu Screen (Optimized with State Caching to prevent redraw flicker) ---
-        tft.setTextSize(2);
+        tft.setTextSize(1);
         tft.setTextDatum(MC_DATUM);
         
         for (int i = 0; i < 3; i++) {
-            int y = 80 + i * 55;
+            int y = 75 + i * 45; // Moved closer together!
             int current_present = (buoys[i].id == "") ? -1 : (buoys[i].present ? 1 : 0);
             
             static String last_drawn_ips[3] = {"", "", ""};
@@ -937,32 +937,33 @@ void update_dynamic_ui() {
                 last_drawn_present[i] = current_present;
                 last_drawn_ips[i] = buoys[i].ip_addr;
                 
-                // Clear only this button's area first
-                tft.fillRect(10, y, w - 20, 45, TFT_BLACK);
+                // Clear only this button's area first (height 35!)
+                tft.fillRect(10, y, w - 20, 35, TFT_BLACK);
                 
                 if (current_present == -1) {
                     // Empty slot
-                    tft.drawRoundRect(10, y, w - 20, 45, 5, TFT_DARKGREY);
+                    tft.drawRoundRect(10, y, w - 20, 35, 5, TFT_DARKGREY);
                     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-                    tft.drawString("Buoy " + String(i+1) + ": [Waiting]", w / 2, y + 22);
+                    tft.setTextSize(1);
+                    tft.drawString("Buoy " + String(i+1) + ": [Waiting]", w / 2, y + 17);
                 } else if (current_present == 1) {
                     // Present: Green button
-                    tft.fillRoundRect(10, y, w - 20, 45, 5, TFT_GREEN);
+                    tft.fillRoundRect(10, y, w - 20, 35, 5, TFT_GREEN);
                     tft.setTextColor(TFT_BLACK, TFT_GREEN);
                     
-                    // Draw name/ID at top half, and IP address / LoRa Only at bottom half (Both in bold font size 2!)
-                    tft.setTextSize(2);
+                    // Draw name/ID at top half, and IP address / LoRa Only at bottom half (Both in font size 1 for height 35!)
+                    tft.setTextSize(1);
                     tft.setTextDatum(TC_DATUM);
-                    tft.drawString("Buoy " + String(i+1) + ": " + buoys[i].id, w / 2, y + 5);
+                    tft.drawString("Buoy " + String(i+1) + ": " + buoys[i].id, w / 2, y + 4);
                     
-                    tft.setTextSize(2); // Increased connection text to font size 2!
                     String conn_str = (buoys[i].ip_addr == "") ? "LoRa only" : buoys[i].ip_addr;
-                    tft.drawString(conn_str, w / 2, y + 24);
+                    tft.drawString(conn_str, w / 2, y + 18);
                 } else {
                     // Offline: Red button
-                    tft.fillRoundRect(10, y, w - 20, 45, 5, TFT_RED);
+                    tft.fillRoundRect(10, y, w - 20, 35, 5, TFT_RED);
                     tft.setTextColor(TFT_WHITE, TFT_RED);
-                    tft.drawString("Buoy " + String(i+1) + ": [Offline]", w / 2, y + 22);
+                    tft.setTextSize(1);
+                    tft.drawString("Buoy " + String(i+1) + ": [Offline]", w / 2, y + 17);
                 }
             }
         }
