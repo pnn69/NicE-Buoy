@@ -544,25 +544,25 @@ void draw_resting_ui() {
             tft.setTextDatum(MC_DATUM);
             tft.drawString("TRACK SETTINGS", w / 2, 227);
             
-            // Draw Calibrate Touch Button centered (Y: 260 to 288, X: 30 to 210)
-            tft.fillRoundRect(30, 260, 180, 28, 4, TFT_DARKGREY);
+            // Draw Calibrate Touch Button centered (Y: 250 to 278, X: 30 to 210)
+            tft.fillRoundRect(30, 250, 180, 28, 4, TFT_DARKGREY);
             tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
             tft.setTextSize(1);
             tft.setTextDatum(MC_DATUM);
-            tft.drawString("CALIBRATE TOUCH", w / 2, 274);
+            tft.drawString("CALIBRATE TOUCH", w / 2, 264);
             
             tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
             tft.setTextSize(2);
             tft.setTextDatum(BC_DATUM);
             
             // Draw LoRa status on its own line above the IP address
-            tft.drawString("LoRa: 433M", w / 2, h - 16);
+            tft.drawString("LoRa: 433M", w / 2, h - 22);
             
             // Draw local IP address on its own line below the LoRa status
             IPAddress ip = WiFi.localIP();
             char ip_buf[48];
             sprintf(ip_buf, "IP: %s", ip.toString().c_str());
-            tft.drawString(ip_buf, w / 2, h - 3);
+            tft.drawString(ip_buf, w / 2, h - 6);
         }
     } else {
         if (in_setup_mode) {
@@ -1151,13 +1151,13 @@ void loop() {
                         draw_resting_ui();
                     }
                 }
-                // CALIBRATE TOUCH Button: Y 260 to 288, X 30 to 210
-                else if (touchY >= 260 && touchY <= 288 && touchX >= 30 && touchX <= 210) {
+                // CALIBRATE TOUCH Button: Y 250 to 278, X 10 to 230 (wider touch area for high sensitivity!)
+                else if (touchY >= 250 && touchY <= 278 && touchX >= 10 && touchX <= 230) {
                     unsigned long now = millis();
-                    if (touchX >= 30 && touchX < 120) {
+                    if (touchX < 120) {
                         last_left_touch_time = now;
                     }
-                    else if (touchX >= 120 && touchX <= 210) {
+                    else {
                         last_right_touch_time = now;
                     }
                     
@@ -1173,15 +1173,15 @@ void loop() {
                             last_transition_ms = now;
                             start_touch_calibration();
                         } else {
-                            // Draw holding progress bar below the button (at Y: 290)
+                            // Draw holding progress bar below the button (at Y: 280)
                             int elapsed = now - simultaneous_touch_start;
                             int progress_width = (elapsed * 180) / 3000;
                             if (progress_width > 180) progress_width = 180;
-                            tft.fillRect(30, 290, progress_width, 2, TFT_GREEN);
+                            tft.fillRect(30, 280, progress_width, 2, TFT_GREEN);
                         }
                     } else {
                         both_touched_previously = false;
-                        tft.fillRect(30, 290, 180, 2, TFT_BLACK);
+                        tft.fillRect(30, 280, 180, 2, TFT_BLACK);
                     }
                 }
             }
@@ -1509,7 +1509,7 @@ void loop() {
         if (both_touched_previously) {
             both_touched_previously = false;
             // Erase the green holding progress bar
-            tft.fillRect(30, 273, 180, 2, TFT_BLACK);
+            tft.fillRect(30, 280, 180, 2, TFT_BLACK);
         }
     }
 
