@@ -33,6 +33,7 @@ float old_wind_dir = -999.0;
 #include <Preferences.h>
 bool in_calibration_mode = false;
 bool in_track_settings_mode = false;
+bool in_radar_map_mode = false;
 int cal_state = 0;
 int cal_rx1 = 0, cal_ry1 = 0;
 int cal_rx2 = 0, cal_ry2 = 0;
@@ -49,6 +50,7 @@ unsigned long last_touch_active_ms = 0;
 void draw_calibration_screen();
 void handle_touch_calibration();
 void start_touch_calibration();
+void update_radar_map_dynamic();
 
 // Helper function to draw beautifully tapered, thick compass arrows with distinct arrowheads at their tips
 void draw_compass_arrow(int cx, int cy, int L, float angle_deg, uint16_t color) {
@@ -498,7 +500,52 @@ void draw_resting_ui() {
     tft.fillScreen(TFT_BLACK);
     
     if (selected_buoy_idx == -1) {
-        if (in_track_settings_mode) {
+        if (in_radar_map_mode) {
+            // --- Static Radar Map Screen (240x320 Portrait) ---
+            tft.setTextColor(TFT_CYAN, TFT_BLACK);
+            tft.setTextSize(2);
+            tft.setTextDatum(TC_DATUM);
+            tft.drawString("BUOY MAP", w / 2, 15);
+            
+            tft.drawFastHLine(15, 45, w - 30, TFT_WHITE);
+            
+            // Center of radar is X = 120, Y = 150. Outer radius is 80.
+            int cx = 120, cy = 150, r_max = 80;
+            
+            // Draw crosshairs
+            tft.drawFastHLine(cx - r_max - 5, cy, r_max * 2 + 10, TFT_DARKGREY);
+            tft.drawFastVLine(cx, cy - r_max, r_max * 2 + 10, TFT_DARKGREY);
+            
+            // Draw Concentric radar circles (radius: 20, 40, 60, 80)
+            tft.drawCircle(cx, cy, 20, TFT_DARKGREY);
+            tft.drawCircle(cx, cy, 40, TFT_DARKGREY);
+            tft.drawCircle(cx, cy, 60, TFT_DARKGREY);
+            tft.drawCircle(cx, cy, 80, TFT_GREEN); // Outer circle in Green!
+            
+            // Draw cardinal direction markers
+            tft.setTextColor(TFT_GREEN, TFT_BLACK);
+            tft.setTextSize(1);
+            tft.setTextDatum(BC_DATUM);
+            tft.drawString("N", cx, cy - r_max - 8);
+            tft.setTextDatum(TC_DATUM);
+            tft.drawString("S", cx, cy + r_max + 8);
+            tft.setTextDatum(MR_DATUM);
+            tft.drawString("W", cx - r_max - 8, cy);
+            tft.setTextDatum(ML_DATUM);
+            tft.drawString("E", cx + r_max + 8, cy);
+            
+            tft.setFreeFont(&FreeSansBold9pt7b);
+            tft.setTextSize(1);
+            tft.setTextDatum(MC_DATUM);
+            
+            // Draw BACK button (Y: 265 to 300, height 35, width 180) centered!
+            tft.fillRoundRect(30, 265, 180, 35, 5, TFT_BLUE);
+            tft.setTextColor(TFT_WHITE, TFT_BLUE);
+            tft.drawString("BACK", w / 2, 282);
+            
+            tft.setFreeFont(NULL);
+        }
+        else if (in_track_settings_mode) {
             // --- Static Track Settings Screen (240x320 Portrait) ---
             tft.setTextColor(TFT_CYAN, TFT_BLACK);
             tft.setTextSize(2);
@@ -511,20 +558,28 @@ void draw_resting_ui() {
             tft.setTextSize(1);
             tft.setTextDatum(MC_DATUM);
             
-            // Align Startline Button (Y: 100 to 140, height 40, width 180)
-            tft.fillRoundRect(30, 100, 180, 40, 6, TFT_ORANGE);
+            // Align Startline Button (Y: 70 to 105, height 35)
+            tft.fillRoundRect(30, 70, 180, 35, 5, TFT_ORANGE);
             tft.setTextColor(TFT_BLACK, TFT_ORANGE);
-            tft.drawString("ALIGN STARTLINE", w / 2, 120);
+            tft.drawString("ALIGN STARTLINE", w / 2, 87);
             
-            // Align Track Button (Y: 160 to 200, height 40, width 180)
-            tft.fillRoundRect(30, 160, 180, 40, 6, TFT_GREEN);
+            // Align Track Button (Y: 115 to 150, height 35)
+            tft.fillRoundRect(30, 115, 180, 35, 5, TFT_GREEN);
             tft.setTextColor(TFT_BLACK, TFT_GREEN);
-            tft.drawString("ALIGN TRACK", w / 2, 180);
+            tft.drawString("ALIGN TRACK", w / 2, 132);
             
-            // BACK Button (Y: 230 to 270, height 40, width 180)
-            tft.fillRoundRect(30, 230, 180, 40, 6, TFT_BLUE);
+            // MAP Button (Y: 160 to 195, height 35) - Cyan if connected to Wi-Fi, Gray otherwise!
+            bool is_connected = (WiFi.status() == WL_CONNECTED);
+            uint16_t mapColor = is_connected ? TFT_CYAN : TFT_DARKGREY;
+            uint16_t mapTextColor = is_connected ? TFT_BLACK : TFT_LIGHTGREY;
+            tft.fillRoundRect(30, 160, 180, 35, 5, mapColor);
+            tft.setTextColor(mapTextColor, mapColor);
+            tft.drawString("MAP", w / 2, 177);
+            
+            // BACK Button (Y: 205 to 240, height 35)
+            tft.fillRoundRect(30, 205, 180, 35, 5, TFT_BLUE);
             tft.setTextColor(TFT_WHITE, TFT_BLUE);
-            tft.drawString("BACK", w / 2, 250);
+            tft.drawString("BACK", w / 2, 222);
             
             tft.setFreeFont(NULL); // Restore default font
         } else {
@@ -1067,10 +1122,20 @@ void loop() {
         }
         
         if (selected_buoy_idx == -1) {
-            if (in_track_settings_mode) {
+            if (in_radar_map_mode) {
+                // --- RADAR MAP SCREEN TOUCH INTERACTION ---
+                // BACK Button: Y: 265 to 300, X: 30 to 210
+                if (touchY >= 265 && touchY <= 300 && touchX >= 30 && touchX <= 210) {
+                    in_radar_map_mode = false;
+                    last_transition_ms = millis();
+                    reset_button_draw_cache();
+                    draw_resting_ui();
+                }
+            }
+            else if (in_track_settings_mode) {
                 // --- TRACK SETTINGS SCREEN TOUCH INTERACTION ---
-                // ALIGN STARTLINE: Y: 100 to 140, X: 30 to 210
-                if (touchY >= 100 && touchY <= 140 && touchX >= 30 && touchX <= 210) {
+                // ALIGN STARTLINE: Y: 70 to 105, X: 30 to 210
+                if (touchY >= 70 && touchY <= 105 && touchX >= 30 && touchX <= 210) {
                     tft.fillRect(10, 150, 220, 60, TFT_BLACK);
                     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
                     tft.setTextSize(2);
@@ -1095,8 +1160,8 @@ void loop() {
                     reset_button_draw_cache();
                     draw_resting_ui();
                 }
-                // ALIGN TRACK: Y: 160 to 200, X: 30 to 210
-                else if (touchY >= 160 && touchY <= 200 && touchX >= 30 && touchX <= 210) {
+                // ALIGN TRACK: Y: 115 to 150, X: 30 to 210
+                else if (touchY >= 115 && touchY <= 150 && touchX >= 30 && touchX <= 210) {
                     tft.fillRect(10, 150, 220, 60, TFT_BLACK);
                     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
                     tft.setTextSize(2);
@@ -1121,8 +1186,17 @@ void loop() {
                     reset_button_draw_cache();
                     draw_resting_ui();
                 }
-                // BACK: Y: 230 to 270, X: 30 to 210
-                else if (touchY >= 230 && touchY <= 270 && touchX >= 30 && touchX <= 210) {
+                // MAP Button: Y: 160 to 195, X: 30 to 210 (active only if connected to Wi-Fi!)
+                else if (touchY >= 160 && touchY <= 195 && touchX >= 30 && touchX <= 210) {
+                    if (WiFi.status() == WL_CONNECTED) {
+                        in_radar_map_mode = true;
+                        last_transition_ms = millis();
+                        reset_button_draw_cache();
+                        draw_resting_ui();
+                    }
+                }
+                // BACK: Y: 205 to 240, X: 30 to 210
+                else if (touchY >= 205 && touchY <= 240 && touchX >= 30 && touchX <= 210) {
                     in_track_settings_mode = false;
                     last_transition_ms = millis();
                     reset_button_draw_cache();
@@ -1718,4 +1792,118 @@ void start_touch_calibration() {
     cal_rx2 = 0; cal_ry2 = 0;
     cal_started_ms = millis(); // Set transition timestamp for lockout delay!
     draw_calibration_screen();
+}
+
+// Helper function to calculate relative distance in meters between two GPS coordinates
+void get_relative_meters(double lat1, double lon1, double lat2, double lon2, float &out_dx, float &out_dy) {
+    double avg_lat = (lat1 + lat2) * 0.5;
+    double lat_rad = avg_lat * PI / 180.0;
+    
+    double meters_per_deg_lat = 111139.0;
+    double meters_per_deg_lon = 111320.0 * cos(lat_rad);
+    
+    out_dx = (lon2 - lon1) * meters_per_deg_lon;
+    out_dy = (lat2 - lat1) * meters_per_deg_lat;
+}
+
+// Dynamically draw buoy markers on the radar map screen in real-time
+void update_radar_map_dynamic() {
+    int w = tft.width();
+    int h = tft.height();
+    int cx = 120, cy = 150, r_max = 80;
+    
+    // 1. Find the first buoy that has a valid GPS fix to act as the radar center/origin
+    int origin_idx = -1;
+    double lat_orig = 0, lon_orig = 0;
+    
+    for (int i = 0; i < 3; i++) {
+        if (buoys[i].id != "" && buoys[i].lat != "N/A" && buoys[i].lat != "" && atof(buoys[i].lat.c_str()) != 0) {
+            origin_idx = i;
+            lat_orig = atof(buoys[i].lat.c_str());
+            lon_orig = atof(buoys[i].lon.c_str());
+            break;
+        }
+    }
+    
+    // Clear only the radar active area (the circle boundary and inside, Y: 65 to 235, X: 35 to 205) first to prevent trails!
+    tft.fillRect(cx - r_max, cy - r_max, r_max * 2 + 1, r_max * 2 + 1, TFT_BLACK);
+    
+    // Redraw static radar grid inside the cleared region dynamically
+    tft.drawFastHLine(cx - r_max, cy, r_max * 2, TFT_DARKGREY);
+    tft.drawFastVLine(cx, cy - r_max, r_max * 2, TFT_DARKGREY);
+    tft.drawCircle(cx, cy, 20, TFT_DARKGREY);
+    tft.drawCircle(cx, cy, 40, TFT_DARKGREY);
+    tft.drawCircle(cx, cy, 60, TFT_DARKGREY);
+    tft.drawCircle(cx, cy, 80, TFT_GREEN);
+    
+    if (origin_idx == -1) {
+        // No buoy has a valid GPS fix yet!
+        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+        tft.setTextSize(1);
+        tft.setTextDatum(MC_DATUM);
+        tft.drawString("AWAITING GPS FIX...", cx, cy - 10);
+        tft.drawString("On active buoys", cx, cy + 10);
+        return;
+    }
+    
+    // 2. Scan all buoys to find the maximum relative distance (dx or dy) from the origin to dynamically scale the radar
+    float max_dist = 10.0; // Default min scale of 10 meters
+    for (int i = 0; i < 3; i++) {
+        if (buoys[i].id != "" && buoys[i].lat != "N/A" && buoys[i].lat != "" && atof(buoys[i].lat.c_str()) != 0) {
+            float dx, dy;
+            get_relative_meters(lat_orig, lon_orig, atof(buoys[i].lat.c_str()), atof(buoys[i].lon.c_str()), dx, dy);
+            float d = sqrt(dx*dx + dy*dy);
+            if (d > max_dist) max_dist = d;
+        }
+    }
+    
+    // Determine the optimal discrete scale range (25m, 50m, 100m, 250m, 500m, 1000m)
+    float scale_range = 50.0;
+    if (max_dist > 500.0) scale_range = 1000.0;
+    else if (max_dist > 250.0) scale_range = 500.0;
+    else if (max_dist > 100.0) scale_range = 250.0;
+    else if (max_dist > 50.0) scale_range = 100.0;
+    else if (max_dist > 25.0) scale_range = 50.0;
+    else scale_range = 25.0;
+    
+    // Scale factor: pixels per meter (outer radius 80 pixels = scale_range meters)
+    float S = 80.0 / scale_range;
+    
+    // Print the dynamic range scale on screen
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.setTextSize(1);
+    tft.setTextDatum(BC_DATUM);
+    char scale_buf[32];
+    sprintf(scale_buf, "Scale: %0.0fm", scale_range);
+    tft.drawString(scale_buf, cx, cy - r_max - 15);
+    
+    // 3. Plot each valid active buoy
+    uint16_t buoy_colors[3] = {TFT_GREEN, TFT_ORANGE, TFT_CYAN};
+    char label[8];
+    
+    for (int i = 0; i < 3; i++) {
+        if (buoys[i].id != "" && buoys[i].lat != "N/A" && buoys[i].lat != "" && atof(buoys[i].lat.c_str()) != 0) {
+            float dx = 0, dy = 0;
+            get_relative_meters(lat_orig, lon_orig, atof(buoys[i].lat.c_str()), atof(buoys[i].lon.c_str()), dx, dy);
+            
+            // Map to screen pixels relative to center
+            int plot_x = cx + (int)(dx * S);
+            int plot_y = cy - (int)(dy * S); // Invert Y because screen coordinates increase downwards
+            
+            // Constrain plot coordinates within the radar boundaries
+            plot_x = constrain(plot_x, cx - r_max + 2, cx + r_max - 2);
+            plot_y = constrain(plot_y, cy - r_max + 2, cy + r_max - 2);
+            
+            // Draw buoy position dot
+            tft.fillCircle(plot_x, plot_y, 5, buoy_colors[i]);
+            tft.drawCircle(plot_x, plot_y, 5, TFT_WHITE);
+            
+            // Draw text label B1, B2, or B3 right below or next to the dot
+            tft.setTextColor(buoy_colors[i], TFT_BLACK);
+            tft.setTextSize(1);
+            tft.setTextDatum(TC_DATUM);
+            sprintf(label, "B%d", i + 1);
+            tft.drawString(label, plot_x, plot_y + 7);
+        }
+    }
 }
