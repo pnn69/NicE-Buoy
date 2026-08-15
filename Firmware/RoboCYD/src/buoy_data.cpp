@@ -18,6 +18,7 @@ bool in_mannav_mode = false;    // Initialize to false
 
 unsigned long last_udp_blink_ms = 0;
 unsigned long last_lora_blink_ms = 0;
+unsigned long last_global_lora_blink_ms = 0;
 
 uint8_t calculate_crc(const String &content) {
     uint8_t crc = 0;
@@ -52,11 +53,7 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         return;
     }
 
-    if (source == "UDP") {
-        last_udp_blink_ms = millis();
-    } else if (source == "LoRa") {
-        last_lora_blink_ms = millis();
-    }
+    // Check communication source and prepare blink updates after verifying the sender ID
     
     // Split content by comma
     std::vector<String> fields;
@@ -82,6 +79,18 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     
     // Ignore commands sent from ourselves (Display Sender ID is now 98, ignore 99 PC as well to prevent loops!)
     if (sender_id == "98" || sender_id == "99") return;
+    
+    // We have a verified valid incoming message from a buoy! Update blink timers dynamically:
+    if (source == "UDP") {
+        last_udp_blink_ms = millis();
+    } else if (source == "LoRa") {
+        last_global_lora_blink_ms = millis(); // Always update global lora blink on any incoming valid packet!
+        
+        // Update selected buoy lora blink ONLY if a buoy is selected AND it matches the sender of the packet!
+        if (selected_buoy_idx != -1 && buoys[selected_buoy_idx].id == sender_id) {
+            last_lora_blink_ms = millis();
+        }
+    }
     
     // Search for an existing registered buoy
     int buoy_idx = -1;

@@ -66,6 +66,7 @@ extern bool in_mannav_mode;    // True when manually navigating the buoy!
 
 extern unsigned long last_udp_blink_ms;
 extern unsigned long last_lora_blink_ms;
+extern unsigned long last_global_lora_blink_ms;
 
 void parse_buoy_packet(const String &packetStr, const String &source, int rssi = -999);
 void send_buoy_command(const String &buoy_id, int cmd_code);
