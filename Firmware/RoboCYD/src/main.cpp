@@ -568,12 +568,9 @@ void draw_resting_ui() {
             tft.setTextColor(TFT_BLACK, TFT_GREEN);
             tft.drawString("ALIGN TRACK", w / 2, 132);
             
-            // MAP Button (Y: 160 to 195, height 35) - Cyan if connected to Wi-Fi, Gray otherwise!
-            bool is_connected = (WiFi.status() == WL_CONNECTED);
-            uint16_t mapColor = is_connected ? TFT_CYAN : TFT_DARKGREY;
-            uint16_t mapTextColor = is_connected ? TFT_BLACK : TFT_LIGHTGREY;
-            tft.fillRoundRect(30, 160, 180, 35, 5, mapColor);
-            tft.setTextColor(mapTextColor, mapColor);
+            // MAP Button (Y: 160 to 195, height 35) - Always active in Cyan!
+            tft.fillRoundRect(30, 160, 180, 35, 5, TFT_CYAN);
+            tft.setTextColor(TFT_BLACK, TFT_CYAN);
             tft.drawString("MAP", w / 2, 177);
             
             // BACK Button (Y: 205 to 240, height 35)
@@ -1186,14 +1183,12 @@ void loop() {
                     reset_button_draw_cache();
                     draw_resting_ui();
                 }
-                // MAP Button: Y: 160 to 195, X: 30 to 210 (active only if connected to Wi-Fi!)
+                // MAP Button: Y: 160 to 195, X: 30 to 210 (permanently active offline!)
                 else if (touchY >= 160 && touchY <= 195 && touchX >= 30 && touchX <= 210) {
-                    if (WiFi.status() == WL_CONNECTED) {
-                        in_radar_map_mode = true;
-                        last_transition_ms = millis();
-                        reset_button_draw_cache();
-                        draw_resting_ui();
-                    }
+                    in_radar_map_mode = true;
+                    last_transition_ms = millis();
+                    reset_button_draw_cache();
+                    draw_resting_ui();
                 }
                 // BACK: Y: 205 to 240, X: 30 to 210
                 else if (touchY >= 205 && touchY <= 240 && touchX >= 30 && touchX <= 210) {
@@ -1837,13 +1832,53 @@ void update_radar_map_dynamic() {
     tft.drawCircle(cx, cy, 80, TFT_GREEN);
     
     if (origin_idx == -1) {
-        // No buoy has a valid GPS fix yet!
-        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-        tft.setTextSize(1);
-        tft.setTextDatum(MC_DATUM);
-        tft.drawString("AWAITING GPS FIX...", cx, cy - 10);
-        tft.drawString("On active buoys", cx, cy + 10);
-        return;
+        // Check if any buoy is active/present
+        bool any_present = false;
+        for (int i = 0; i < 3; i++) {
+            if (buoys[i].id != "") {
+                any_present = true;
+                break;
+            }
+        }
+        
+        if (any_present) {
+            // No GPS fix yet, but buoys are present! Let's show a beautiful Demo Mode plot so they can verify!
+            tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+            tft.setTextSize(1);
+            tft.setTextDatum(BC_DATUM);
+            tft.drawString("Demo Mode (No GPS Fix)", cx, cy - r_max - 15);
+            
+            // Mock positions
+            int mock_offsets_x[3] = {0, 45, -35};
+            int mock_offsets_y[3] = {0, -35, 45};
+            uint16_t buoy_colors[3] = {TFT_GREEN, TFT_ORANGE, TFT_CYAN};
+            char label[8];
+            
+            for (int i = 0; i < 3; i++) {
+                if (buoys[i].id != "") {
+                    int plot_x = cx + mock_offsets_x[i];
+                    int plot_y = cy + mock_offsets_y[i];
+                    
+                    tft.fillCircle(plot_x, plot_y, 5, buoy_colors[i]);
+                    tft.drawCircle(plot_x, plot_y, 5, TFT_WHITE);
+                    
+                    tft.setTextColor(buoy_colors[i], TFT_BLACK);
+                    tft.setTextSize(1);
+                    tft.setTextDatum(TC_DATUM);
+                    sprintf(label, "B%d", i + 1);
+                    tft.drawString(label, plot_x, plot_y + 7);
+                }
+            }
+            return;
+        } else {
+            // No buoy has a valid GPS fix yet and no buoy is active!
+            tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+            tft.setTextSize(1);
+            tft.setTextDatum(MC_DATUM);
+            tft.drawString("AWAITING TELEMETRY...", cx, cy - 10);
+            tft.drawString("Turn on active buoys", cx, cy + 10);
+            return;
+        }
     }
     
     // 2. Scan all buoys to find the maximum relative distance (dx or dy) from the origin to dynamically scale the radar
