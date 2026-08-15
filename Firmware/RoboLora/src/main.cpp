@@ -38,8 +38,8 @@ static int wifiConfig = 0;
 int countKeyPressesWithTimeoutAndLongPressDetecton();
 void getNextValidID(RoboStruct *IDin);
 void getBuoyArr(RoboStruct *IDin);
-bool handelRfData(void);
-void handelKeyPress(RoboStruct *key);
+bool handleRfData(void);
+void handleKeyPress(RoboStruct *key);
 void dispatchCommand(RoboStruct *data, adcDataType *adc);
 
 //***************************************************************************************************
@@ -60,7 +60,7 @@ void dispatchCommand(RoboStruct *data, adcDataType *adc)
         switch (adc->swPos)
         {
         case SW_LEFT:  data->cmd = REMOTE;  break; // 25
-        case SW_MID:   data->cmd = IDELING; break; // 8
+        case SW_MID:   data->cmd = IDLING; break; // 8
         case SW_RIGHT: data->cmd = LOCKING; break; // 12
         }
         data->status = data->cmd; // locally update status to enable pot right away
@@ -204,7 +204,7 @@ int countKeyPressesWithTimeoutAndLongPressDetecton()
 //***************************************************************************************************
 //      key press handler
 //***************************************************************************************************
-void handelKeyPress(RoboStruct *key)
+void handleKeyPress(RoboStruct *key)
 {
     int presses = countKeyPressesWithTimeoutAndLongPressDetecton();
     if (presses > 0)
@@ -310,13 +310,13 @@ void processData(RoboStruct *RfIn)
 
     // 1. Update status and handle IDLE state forcing
     if (RfIn->cmd == SUBDATA || RfIn->cmd == TOPDATA || RfIn->cmd == BUOYPOS || 
-        RfIn->cmd == LOCKED || RfIn->cmd == DOCKED || RfIn->cmd == IDELING || 
+        RfIn->cmd == LOCKED || RfIn->cmd == DOCKED || RfIn->cmd == IDLING || 
         RfIn->cmd == REMOTE || RfIn->cmd == NOCMD)
     {
         IDs[pos].status = RfIn->status;
         
         // If buoy is IDLE, force bars to zero immediately
-        if (RfIn->status == IDLE || RfIn->status == IDELING) {
+        if (RfIn->status == IDLE || RfIn->status == IDLING) {
             IDs[pos].speedBb = 0;
             IDs[pos].speedSb = 0;
         }
@@ -370,7 +370,7 @@ void processData(RoboStruct *RfIn)
     }
 }
 
-bool handelRfData(void)
+bool handleRfData(void)
 {
     RoboStruct RfIn;
     bool updd = false;
@@ -387,8 +387,8 @@ void loop()
     if (mainData.IDs == 0) getNextValidID(&mainData);
 
     readAdc(&adcmain);
-    handelKeyPress(&mainData);
-    if (handelRfData()) getBuoyArr(&mainData);
+    handleKeyPress(&mainData);
+    if (handleRfData()) getBuoyArr(&mainData);
 
     // Non-overwritable WebSocket command injection immediately before dispatchCommand
     extern bool hasWebCommand;

@@ -7,7 +7,7 @@ const MsgType = {
     NAC: 5,
     INF: 6,
     IDLE: 7,
-    IDELING: 8,
+    IDLING: 8,
     PING: 9,
     PONG: 10,
     ERROR: 11,
@@ -25,7 +25,7 @@ const MsgType = {
     DOCKPOS: 23,
     UNLOCK: 24,
     REMOTE: 25,
-    REMOTEING: 26,
+    REMOTING: 26,
     DIRDIST: 47,
     TOPDATA: 51,
     PIDRUDDER: 55,
@@ -846,7 +846,7 @@ function initUIEventListeners() {
             if (!b.id) return;
             const currentStatus = parseInt(b.data.Status || "0");
             const isLocked = [MsgType.LOCKING, MsgType.LOCKED, MsgType.LOCK_POS].includes(currentStatus);
-            const cmd = isLocked ? MsgType.IDELING : MsgType.LOCKING;
+            const cmd = isLocked ? MsgType.IDLING : MsgType.LOCKING;
             
             sendStatusCmd(b.id, cmd);
             
@@ -866,7 +866,7 @@ function initUIEventListeners() {
             if (!b.id) return;
             const currentStatus = parseInt(b.data.Status || "0");
             const isDocked = [MsgType.DOCKING, MsgType.DOCKED, MsgType.DOC].includes(currentStatus);
-            const cmd = isDocked ? MsgType.IDELING : MsgType.DOCKING;
+            const cmd = isDocked ? MsgType.IDLING : MsgType.DOCKING;
             
             sendStatusCmd(b.id, cmd);
             
@@ -997,7 +997,7 @@ function initUIEventListeners() {
             if (!b.id) return;
             
             // 1. Send immediate stop IDLE (CMD 8)
-            sendStatusCmd(b.id, MsgType.IDELING);
+            sendStatusCmd(b.id, MsgType.IDLING);
             
             // 2. Reset speed slider and text values
             speedSlider.value = 0;

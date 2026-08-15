@@ -329,6 +329,11 @@ input[type=checkbox] {
         <button id="btnLock" onclick="sendCommand('LOCK')">LOCK</button>
         <button id="btnDock" onclick="sendCommand('DOCK')">DOCK</button>
         <button id="btnSetup" onclick="openSetup()">SETUP</button>
+        <!-- Only shown while the buoy is under remote control. LOCK/DOCK are the normal way
+             out (drive it there, then lock it), but there was no way to simply hand control
+             back without also commanding a manoeuvre. Never greyed out by the GPS-fix rule:
+             leaving remote must work with or without a fix. -->
+        <button id="btnExitRemote" onclick="sendCommand('IDLE')" style="display:none; background:#ffcc00; color:#1a1a1a;">EXIT REMOTE</button>
     </div>
 
     <div class="inputRow">
@@ -546,13 +551,16 @@ function getStatusText(status) {
     const s = parseInt(status);
     switch(s) {
         case 7: return "IDLE";
-        case 8: return "IDELING";
+        case 8: return "IDLING";
         case 12: return "LOCKING";
         case 13: return "LOCKED";
         case 14: return "LOCK POS";
         case 15: return "DOCKING";
         case 16: return "DOCKED";
         case 17: return "DOC";
+        case 24: return "UNLOCK";
+        case 25: return "REMOTE";
+        case 26: return "REMOTEING";
         default: return "STATUS: " + s;
     }
 }
@@ -1086,6 +1094,10 @@ function updateUI() {
     const isIdle = String(b.Status).trim() === "7";
     const isLocked = ["12", "13", "14"].includes(String(b.Status).trim());
     const isDocking = ["15", "16", "17"].includes(String(b.Status).trim());
+    // REMOTE (25) / REMOTEING (26) used to match none of the above, so the button block fell
+    // into its final else and disabled LOCK and DOCK - the dashboard looked frozen while the
+    // buoy was simply being driven from the CYD.
+    const isRemote = ["25", "26"].includes(String(b.Status).trim());
     
     // Show/hide wind parameters in top right based on LOCKED mode
     document.getElementById("windStdContainer").style.visibility = isLocked ? "visible" : "hidden";
@@ -1113,8 +1125,22 @@ function updateUI() {
     const dockBtn = document.getElementById("btnDock");
     const btnSend = document.getElementById("btnSend");
     const btnMap = document.getElementById("btnMap");
+    const exitRemoteBtn = document.getElementById("btnExitRemote");
 
-    if (isLocked) {
+    exitRemoteBtn.style.display = isRemote ? "" : "none";
+
+    if (isRemote) {
+        // Both transitions are legitimate from remote control - the usual workflow is to drive
+        // the buoy to a spot and then lock it there - so keep the normal labels and let the
+        // backend's toggle logic in /command decide what LOCK and DOCK mean.
+        lockBtn.innerText = "LOCK";
+        lockBtn.classList.remove('lock-btn-active');
+        lockBtn.disabled = false;
+        dockBtn.innerText = "DOCK";
+        dockBtn.classList.remove('dock-btn-active');
+        dockBtn.classList.remove('lock-btn-active');
+        dockBtn.disabled = false;
+    } else if (isLocked) {
         lockBtn.innerText = "IDLE";
         lockBtn.classList.add('lock-btn-active');
         lockBtn.disabled = false;

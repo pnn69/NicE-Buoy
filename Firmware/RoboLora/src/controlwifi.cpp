@@ -67,7 +67,7 @@ static int statik = IDLE;
 static RoboStruct msgIdOut;
 static RoboStruct topWifiIn;
 static RoboStruct udpBuffer;
-static RoboStruct udpBufferRecieved;
+static RoboStruct udpBufferReceived;
 
 static bool ota = false;
 static int8_t id = 0;

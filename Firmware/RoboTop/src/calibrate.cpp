@@ -21,7 +21,7 @@ double sailedDir = -1;
  * 
  * @param calibrate Pointer to a RoboStruct containing current and target status.
  */
-void compasOffestCallibration(RoboStruct *calibrate)
+void compasOffestCalibration(RoboStruct *calibrate)
 {
 
     if (calibratStatus == 0)

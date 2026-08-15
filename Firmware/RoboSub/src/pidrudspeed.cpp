@@ -157,7 +157,7 @@ void rudderPid(RoboStruct *rud)
     }
 
     // --- DRIFT & LOCK LOGIC ---
-    if (rud->status == IDLE || rud->status == IDELING) {
+    if (rud->status == IDLE || rud->status == IDLING) {
         target_forward = 0;
         rotation_power = 0;
     }

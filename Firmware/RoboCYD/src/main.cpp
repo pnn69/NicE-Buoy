@@ -68,6 +68,17 @@ void handle_touch_calibration();
 void start_touch_calibration();
 void update_radar_map_dynamic();
 
+// --- Buoy Map screen geometry (240x320 Portrait) ---
+// Everything on this page is size 2 text (12x16 px, max 20 characters per line),
+// so the plot is pulled in a little to leave room for the labels around it.
+#define MAP_CX          120  // Plot centre X
+#define MAP_CY          140  // Plot centre Y
+#define MAP_R            72  // Plot half-width: X 48..192, Y 68..212
+#define MAP_HEADER_Y     30  // Range / Demo Mode banner (top of size 2 text)
+#define MAP_LEGEND_Y1   244  // Start line legend (middle of size 2 text)
+#define MAP_LEGEND_Y2   264  // Wind legend (middle of size 2 text)
+#define MAP_BACK_Y      280  // BACK button top edge (height 35)
+
 // Helper function to draw beautifully tapered, thick compass arrows with distinct arrowheads at their tips
 void draw_compass_arrow(int cx, int cy, int L, float angle_deg, uint16_t color) {
     float theta = angle_deg * PI / 180.0;
@@ -523,40 +534,40 @@ void draw_resting_ui() {
     if (selected_buoy_idx == -1) {
         if (in_radar_map_mode) {
             // --- Static Radar Map Screen (240x320 Portrait) ---
+            tft.setTextPadding(0); // Stale padding from the nav screens would eat into the labels below
             tft.setTextColor(TFT_CYAN, TFT_BLACK);
             tft.setTextSize(2);
             tft.setTextDatum(TC_DATUM);
-            tft.drawString("BUOY MAP", w / 2, 15);
-            
-            tft.drawFastHLine(15, 45, w - 30, TFT_WHITE);
-            
-            // Center of radar is X = 120, Y = 150. Outer radius is 80.
-            int cx = 120, cy = 150, r_max = 80;
-            
+            tft.drawString("BUOY MAP", w / 2, 4);
+
+            tft.drawFastHLine(15, 26, w - 30, TFT_WHITE);
+
+            int cx = MAP_CX, cy = MAP_CY, r_max = MAP_R;
+
             // Draw crosshairs (plain N-up plot, no windrose rings)
             tft.drawFastHLine(cx - r_max - 5, cy, r_max * 2 + 10, TFT_DARKGREY);
             tft.drawFastVLine(cx, cy - r_max, r_max * 2 + 10, TFT_DARKGREY);
 
-            // Draw cardinal direction markers
+            // Draw cardinal direction markers, clear of the plot area on all four sides
             tft.setTextColor(TFT_GREEN, TFT_BLACK);
-            tft.setTextSize(1);
+            tft.setTextSize(2);
             tft.setTextDatum(BC_DATUM);
-            tft.drawString("N", cx, cy - r_max - 8);
+            tft.drawString("N", cx, cy - r_max - 2);
             tft.setTextDatum(TC_DATUM);
-            tft.drawString("S", cx, cy + r_max + 8);
+            tft.drawString("S", cx, cy + r_max + 2);
             tft.setTextDatum(MR_DATUM);
-            tft.drawString("W", cx - r_max - 8, cy);
+            tft.drawString("W", cx - r_max - 4, cy);
             tft.setTextDatum(ML_DATUM);
-            tft.drawString("E", cx + r_max + 8, cy);
-            
+            tft.drawString("E", cx + r_max + 4, cy);
+
             tft.setFreeFont(&FreeSansBold9pt7b);
             tft.setTextSize(1);
             tft.setTextDatum(MC_DATUM);
-            
-            // Draw BACK button (Y: 265 to 300, height 35, width 180) centered!
-            tft.fillRoundRect(30, 265, 180, 35, 5, TFT_BLUE);
+
+            // Draw BACK button (height 35, width 180) centered!
+            tft.fillRoundRect(30, MAP_BACK_Y, 180, 35, 5, TFT_BLUE);
             tft.setTextColor(TFT_WHITE, TFT_BLUE);
-            tft.drawString("BACK", w / 2, 282);
+            tft.drawString("BACK", w / 2, MAP_BACK_Y + 17);
 
             tft.setFreeFont(NULL);
 
@@ -1150,8 +1161,8 @@ void loop() {
         if (selected_buoy_idx == -1) {
             if (in_radar_map_mode) {
                 // --- RADAR MAP SCREEN TOUCH INTERACTION ---
-                // BACK Button: Y: 265 to 300, X: 30 to 210
-                if (touchY >= 265 && touchY <= 300 && touchX >= 30 && touchX <= 210) {
+                // BACK Button: X: 30 to 210, Y: MAP_BACK_Y to MAP_BACK_Y + 35
+                if (touchY >= MAP_BACK_Y && touchY <= MAP_BACK_Y + 35 && touchX >= 30 && touchX <= 210) {
                     in_radar_map_mode = false;
                     last_transition_ms = millis();
                     reset_button_draw_cache();
@@ -1832,21 +1843,28 @@ static void draw_start_line_segment(int x1, int y1, int x2, int y2) {
     tft.drawLine(x1 + 1, y1, x2 + 1, y2, TFT_MAGENTA);
 }
 
-// Two legend lines live in the free strip between the radar circle and the BACK button (Y: 239 to 263)
-#define MAP_LEGEND_Y_STARTLINE 245
-#define MAP_LEGEND_Y_WIND      257
-
+// The two legend lines live in the strip between the plot and the BACK button.
+// Size 2 text is 16 px tall, so each line owns a 20 px band and is cleared in full
+// (the text background alone cannot erase a previous, longer string).
 static void draw_map_legend_line(int y, const char *text, uint16_t color) {
-    tft.fillRect(0, y - 6, 240, 13, TFT_BLACK);
+    tft.fillRect(0, y - 10, 240, 20, TFT_BLACK);
     tft.setFreeFont(NULL);
+    tft.setTextPadding(0);
     tft.setTextColor(color, TFT_BLACK);
-    tft.setTextSize(1);
+    tft.setTextSize(2);
     tft.setTextDatum(MC_DATUM);
     tft.drawString(text, 120, y);
 }
 
 static void draw_start_line_legend(const char *text, uint16_t color) {
-    draw_map_legend_line(MAP_LEGEND_Y_STARTLINE, text, color);
+    draw_map_legend_line(MAP_LEGEND_Y1, text, color);
+}
+
+// Draw one buoy marker. No B1/B2/B3 label: the dots are already colour coded
+// (B1 green, B2 orange, B3 cyan) and the label only added clutter to a small plot.
+static void draw_buoy_marker(int x, int y, uint16_t color) {
+    tft.fillCircle(x, y, 5, color);
+    tft.drawCircle(x, y, 5, TFT_WHITE);
 }
 
 // Draw the wind on the radar: an arrow parked on the upwind rim, blowing inwards towards the centre.
@@ -1864,7 +1882,7 @@ static void draw_wind_overlay(int cx, int cy) {
     }
 
     if (wind_idx == -1) {
-        draw_map_legend_line(MAP_LEGEND_Y_WIND, "WIND: no data", TFT_DARKGREY);
+        draw_map_legend_line(MAP_LEGEND_Y2, "WIND: no data", TFT_DARKGREY);
         return;
     }
 
@@ -1872,12 +1890,12 @@ static void draw_wind_overlay(int cx, int cy) {
     float theta = wdir * PI / 180.0;
     float s = sin(theta), c = cos(theta);
 
-    // Tail on the upwind rim (r = 76), tip pointing inwards (r = 48): the arrow flies with the wind.
-    // Both ends stay inside the radar clear rectangle so the arrow is wiped on every refresh.
-    int tail_x = cx + (int)(76 * s);
-    int tail_y = cy - (int)(76 * c);
-    int tip_x  = cx + (int)(48 * s);
-    int tip_y  = cy - (int)(48 * c);
+    // Tail on the upwind rim, tip pointing inwards: the arrow flies with the wind.
+    // Both ends stay inside the plot clear rectangle so the arrow is wiped on every refresh.
+    int tail_x = cx + (int)((MAP_R - 4) * s);
+    int tail_y = cy - (int)((MAP_R - 4) * c);
+    int tip_x  = cx + (int)((MAP_R - 32) * s);
+    int tip_y  = cy - (int)((MAP_R - 32) * c);
 
     // 3 pixel wide shaft
     tft.drawLine(tail_x, tail_y, tip_x, tip_y, TFT_YELLOW);
@@ -1886,29 +1904,30 @@ static void draw_wind_overlay(int cx, int cy) {
     tft.drawLine(tail_x, tail_y + 1, tip_x, tip_y + 1, TFT_YELLOW);
     tft.drawLine(tail_x, tail_y - 1, tip_x, tip_y - 1, TFT_YELLOW);
 
-    // Arrowhead: base sits 9 pixels back up-wind of the tip, wings 5 pixels to either side
-    int base_x = cx + (int)(57 * s);
-    int base_y = cy - (int)(57 * c);
-    int wing1_x = base_x + (int)(5 * c);
-    int wing1_y = base_y + (int)(5 * s);
-    int wing2_x = base_x - (int)(5 * c);
-    int wing2_y = base_y - (int)(5 * s);
+    // Arrowhead: base sits 10 pixels back up-wind of the tip, wings 6 pixels to either side
+    int base_x = cx + (int)((MAP_R - 22) * s);
+    int base_y = cy - (int)((MAP_R - 22) * c);
+    int wing1_x = base_x + (int)(6 * c);
+    int wing1_y = base_y + (int)(6 * s);
+    int wing2_x = base_x - (int)(6 * c);
+    int wing2_y = base_y - (int)(6 * s);
     tft.fillTriangle(tip_x, tip_y, wing1_x, wing1_y, wing2_x, wing2_y, TFT_YELLOW);
 
-    char buf[48];
+    // Max 20 characters at size 2
+    char buf[24];
     if (buoys[wind_idx].wind_std != 0) {
-        sprintf(buf, "WIND %03.0f deg +/-%0.0f (B%d)", wdir, buoys[wind_idx].wind_std, wind_idx + 1);
+        sprintf(buf, "WIND %03.0f +/-%0.0f", wdir, buoys[wind_idx].wind_std);
     } else {
-        sprintf(buf, "WIND %03.0f deg (B%d)", wdir, wind_idx + 1);
+        sprintf(buf, "WIND %03.0f", wdir);
     }
-    draw_map_legend_line(MAP_LEGEND_Y_WIND, buf, TFT_YELLOW);
+    draw_map_legend_line(MAP_LEGEND_Y2, buf, TFT_YELLOW);
 }
 
 // Dynamically draw buoy markers on the radar map screen in real-time
 void update_radar_map_dynamic() {
     int w = tft.width();
     int h = tft.height();
-    int cx = 120, cy = 150, r_max = 80;
+    int cx = MAP_CX, cy = MAP_CY, r_max = MAP_R;
 
     // The navigation screens leave a text padding width behind; clear it or every
     // label below paints a wide black bar over the radar grid.
@@ -1940,7 +1959,7 @@ void update_radar_map_dynamic() {
         lon_orig /= valid_count;
     }
 
-    // Clear only the plot area (X: 40 to 200, Y: 70 to 230) first to prevent trails!
+    // Clear only the plot area (X: 48 to 192, Y: 68 to 212) first to prevent trails!
     tft.fillRect(cx - r_max, cy - r_max, r_max * 2 + 1, r_max * 2 + 1, TFT_BLACK);
 
     // Redraw the N-up crosshair inside the cleared region (no windrose rings)
@@ -1963,16 +1982,16 @@ void update_radar_map_dynamic() {
         
         if (any_present) {
             // No GPS fix yet, but buoys are present! Let's show a beautiful Demo Mode plot so they can verify!
+            tft.fillRect(0, MAP_HEADER_Y, 240, 16, TFT_BLACK);
             tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-            tft.setTextSize(1);
-            tft.setTextDatum(BC_DATUM);
-            tft.drawString("Demo Mode (No GPS Fix)", cx, cy - r_max - 15);
-            
+            tft.setTextSize(2);
+            tft.setTextDatum(TC_DATUM);
+            tft.drawString("DEMO (no fix)", cx, MAP_HEADER_Y);
+
             // Mock positions: a typical course layout, B1/B2 on the start line, B3 as the upwind HEAD mark
-            int mock_offsets_x[3] = {-40, 40, 0};
-            int mock_offsets_y[3] = {35, 35, -50};
+            int mock_offsets_x[3] = {-36, 36, 0};
+            int mock_offsets_y[3] = {32, 32, -45};
             uint16_t buoy_colors[3] = {TFT_GREEN, TFT_ORANGE, TFT_CYAN};
-            char label[8];
 
             int mock_x[3], mock_y[3];
             bool mock_valid[3] = {false, false, false};
@@ -2009,36 +2028,27 @@ void update_radar_map_dynamic() {
             }
             if (ma != -1) {
                 draw_start_line_segment(mock_x[ma], mock_y[ma], mock_x[mb], mock_y[mb]);
-                char legend[40];
-                sprintf(legend, "START LINE: B%d - B%d (demo)", ma + 1, mb + 1);
+                char legend[24];
+                sprintf(legend, "LINE demo");
                 draw_start_line_legend(legend, TFT_MAGENTA);
             } else {
-                draw_start_line_legend("START LINE: need 2 buoys", TFT_DARKGREY);
+                draw_start_line_legend("LINE: need 2", TFT_DARKGREY);
             }
 
             for (int i = 0; i < 3; i++) {
                 if (mock_valid[i]) {
-                    int plot_x = mock_x[i];
-                    int plot_y = mock_y[i];
-
-                    tft.fillCircle(plot_x, plot_y, 5, buoy_colors[i]);
-                    tft.drawCircle(plot_x, plot_y, 5, TFT_WHITE);
-
-                    tft.setTextColor(buoy_colors[i], TFT_BLACK);
-                    tft.setTextSize(1);
-                    tft.setTextDatum(TC_DATUM);
-                    sprintf(label, "B%d", i + 1);
-                    tft.drawString(label, plot_x, plot_y + 7);
+                    draw_buoy_marker(mock_x[i], mock_y[i], buoy_colors[i]);
                 }
             }
             return;
         } else {
             // No buoy has a valid GPS fix yet and no buoy is active!
+            tft.fillRect(0, MAP_HEADER_Y, 240, 16, TFT_BLACK);
             tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-            tft.setTextSize(1);
+            tft.setTextSize(2);
             tft.setTextDatum(MC_DATUM);
-            tft.drawString("AWAITING TELEMETRY...", cx, cy - 10);
-            tft.drawString("Turn on active buoys", cx, cy + 10);
+            tft.drawString("AWAITING", cx, cy - 12);
+            tft.drawString("TELEMETRY", cx, cy + 12);
             draw_start_line_legend("", TFT_BLACK); // Clear any stale start line legend
             return;
         }
@@ -2064,20 +2074,20 @@ void update_radar_map_dynamic() {
     else if (max_dist > 25.0) scale_range = 50.0;
     else scale_range = 25.0;
     
-    // Scale factor: pixels per meter (80 pixels from the centre to the edge = scale_range meters)
-    float S = 80.0 / scale_range;
+    // Scale factor: pixels per meter (MAP_R pixels from the centre to the edge = scale_range meters)
+    float S = (float)MAP_R / scale_range;
 
-    // Print the dynamic range scale on screen
+    // Print the dynamic range scale on screen (cleared in full, a shorter string cannot erase a longer one)
+    tft.fillRect(0, MAP_HEADER_Y, 240, 16, TFT_BLACK);
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    tft.setTextSize(1);
-    tft.setTextDatum(BC_DATUM);
-    char scale_buf[32];
-    sprintf(scale_buf, "Range: %0.0fm to edge", scale_range);
-    tft.drawString(scale_buf, cx, cy - r_max - 15);
+    tft.setTextSize(2);
+    tft.setTextDatum(TC_DATUM);
+    char scale_buf[24];
+    sprintf(scale_buf, "EDGE = %0.0fm", scale_range);
+    tft.drawString(scale_buf, cx, MAP_HEADER_Y);
 
     // 3. Convert every valid buoy position into screen pixels
     uint16_t buoy_colors[3] = {TFT_GREEN, TFT_ORANGE, TFT_CYAN};
-    char label[8];
 
     int plot_x[3], plot_y[3];
 
@@ -2122,26 +2132,18 @@ void update_radar_map_dynamic() {
         // Line first, so the buoy dots are drawn on top of it
         draw_start_line_segment(plot_x[sl_a], plot_y[sl_a], plot_x[sl_b], plot_y[sl_b]);
 
-        char legend[48];
-        sprintf(legend, "START LINE B%d-B%d: %0.0fm", sl_a + 1, sl_b + 1, sl_dist);
+        // Max 20 characters at size 2
+        char legend[24];
+        sprintf(legend, "LINE %0.0fm", sl_dist);
         draw_start_line_legend(legend, TFT_MAGENTA);
     } else {
-        draw_start_line_legend("START LINE: need 2 fixed buoys", TFT_DARKGREY);
+        draw_start_line_legend("LINE: need 2 fixes", TFT_DARKGREY);
     }
 
     // 5. Plot each valid active buoy on top of the start line
     for (int i = 0; i < 3; i++) {
         if (b_valid[i]) {
-            // Draw buoy position dot
-            tft.fillCircle(plot_x[i], plot_y[i], 5, buoy_colors[i]);
-            tft.drawCircle(plot_x[i], plot_y[i], 5, TFT_WHITE);
-
-            // Draw text label B1, B2, or B3 right below or next to the dot
-            tft.setTextColor(buoy_colors[i], TFT_BLACK);
-            tft.setTextSize(1);
-            tft.setTextDatum(TC_DATUM);
-            sprintf(label, "B%d", i + 1);
-            tft.drawString(label, plot_x[i], plot_y[i] + 7);
+            draw_buoy_marker(plot_x[i], plot_y[i], buoy_colors[i]);
         }
     }
 }

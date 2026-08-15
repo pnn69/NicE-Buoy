@@ -31,7 +31,7 @@ sercom_patterns = [
 
 main_patterns = [
     "Entering IDLE state (ramping down)",
-    "IDLE command recieved (ramping down)",
+    "IDLE command received (ramping down)",
     "New rudder PID settings",
     "Rudder PID stored",
     "New speed PID settings",

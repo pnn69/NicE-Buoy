@@ -226,7 +226,7 @@ void updateOled(RoboStruct *buoy, adcDataType *adc) {
 
     switch (buoy->status) {
         case IDLE:
-        case IDELING:
+        case IDLING:
             drawIdleScreen(buoy, adc);
             break;
 

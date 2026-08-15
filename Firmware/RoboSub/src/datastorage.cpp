@@ -348,7 +348,7 @@ void softIron(RoboStruct *buoy, bool get)
  * @param buoy Pointer to the main state structure.
  * @param get True to read from memory, false to write to memory.
  */
-void CompassCallibrationFactors(RoboStruct *buoy, bool get)
+void CompassCalibrationFactors(RoboStruct *buoy, bool get)
 {
     softIron(buoy, get);
     hardIron(buoy, get);
@@ -359,7 +359,7 @@ void CompassCallibrationFactors(RoboStruct *buoy, bool get)
 /**
  * @brief Reads or writes raw Min/Max magnetic float values (Legacy/Fallback).
  */
-void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, float *MinX, float *MinY, float *MinZ, bool get)
+void CompassCalibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, float *MinX, float *MinY, float *MinZ, bool get)
 {
     startMem();
     if (get)

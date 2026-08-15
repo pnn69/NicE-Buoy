@@ -64,13 +64,73 @@ void initloraqueue(void)
 //  Store to ack buffer
 //***************************************************************************************************
 /**
+ * @brief Tells whether a command changes the buoy's operating mode.
+ *
+ * Only one mode change can be outstanding per target: see storeAckMsg().
+ *
+ * @param cmd The command to classify.
+ * @return true for commands that put the buoy into a different operating state.
+ */
+static bool isModeCmd(int cmd)
+{
+    switch (cmd)
+    {
+    case IDLE:
+    case UNLOCK:
+    case REMOTE:
+    case LOCKING:
+    case LOCKED:
+    case LOCKPOS:
+    case SETLOCKPOS:
+    case DOCKING:
+    case DOCKED:
+    case DOCKPOS:
+    case SETDOCKPOS:
+        return true;
+    default:
+        return false;
+    }
+}
+
+/**
  * @brief Stores a message in the pending queue awaiting an acknowledgment.
- * 
+ *
+ * Enforces one live entry per (target, semantic class) before inserting, because the
+ * frames carry no sequence number: a receiver cannot tell a retransmit from a fresh
+ * command, so it is always last-heard-wins. Without this, pressing LOCK and then IDLE
+ * within the ~7 s retry window left the older LOCK entry in a lower slot, and chkAckMsg()
+ * (which always returns the lowest occupied slot) kept re-sending it - dragging the buoy
+ * back into the mode the operator had just left.
+ *
+ * Two supersede rules, both scoped to the same recipient so the SENDTRACK fan-out keeps
+ * one independent entry per buoy:
+ *   - same cmd  -> replace, so idempotent parameter sets stop accumulating slots;
+ *   - mode vs mode -> the newer command evicts the older one.
+ *
  * @param ackBuffer The message structure to store.
  */
 void storeAckMsg(RoboStruct ackBuffer)
 {
+    bool newIsMode = isModeCmd(ackBuffer.cmd);
     int i = 0;
+
+    /* Purge everything this message supersedes for the same target */
+    while (i < 10)
+    {
+        if (pendingMsg[i].cmd != 0 && pendingMsg[i].IDr == ackBuffer.IDr &&
+            (pendingMsg[i].cmd == ackBuffer.cmd || (newIsMode && isModeCmd(pendingMsg[i].cmd))))
+        {
+            // Serial.println("superseded pending msg:" + String(pendingMsg[i].cmd) + " on pos:" + String(i) + " by msg:" + String(ackBuffer.cmd));
+            pendingMsg[i].ack = 0;
+            pendingMsg[i].cmd = 0;
+            pendingMsg[i].IDs = 0;
+            pendingMsg[i].IDr = 0;
+            pendingMsg[i].retry = 0;
+        }
+        i++;
+    }
+
+    i = 0;
     while (i < 10)
     {
         if (pendingMsg[i].cmd == 0)
@@ -81,6 +141,7 @@ void storeAckMsg(RoboStruct ackBuffer)
         }
         i++;
     }
+    Serial.println("#Error: LoRa ack table full, msg:" + String(ackBuffer.cmd) + " for:" + String(ackBuffer.IDr, HEX) + " dropped");
 }
 
 //***************************************************************************************************
@@ -175,7 +236,7 @@ String removeWhitespace(String str)
 }
 
 //***************************************************************************************************
-//  Recieve and decode incomming lora message
+//  Receive and decode incoming lora message
 //***************************************************************************************************
 /**
  * @brief Parses an incoming LoRa packet and routes it to the correct queues.
@@ -209,7 +270,7 @@ void onReceive(int packetSize)
     if (is_addressed_to_me && in.ack == ACK) // A message form me so check if its a ACK message
     {
         removeAckMsg(in);
-        // printf("#Lora Ack recieved buffer cleared\r\n");
+        // printf("#Lora Ack received buffer cleared\r\n");
         return;
     }
     if (is_addressed_to_me || in.IDr == BUOYIDALL || in.IDr == 0) // A message form

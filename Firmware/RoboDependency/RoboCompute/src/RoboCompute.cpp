@@ -444,7 +444,7 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + formatFloat(dataOut->tgSpeed, 0);
         break;
     case IDLE:
-    case IDELING:
+    case IDLING:
         out += ",0,0";
         break;
     case PING:
@@ -791,7 +791,7 @@ bool recalcStartLine(struct RoboStruct rsl[3])
         }
 
         twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &midLat, &midLng);
-        // rsl[0].wDir, not rsl[1].wDir: handelStatus() copies the master's filtered wind into
+        // rsl[0].wDir, not rsl[1].wDir: handleStatus() copies the master's filtered wind into
         // slot 0 immediately before calling this, so slot 0 is the authoritative wind source.
         // The other two branches already used it; this one differed, which would have squared
         // the line against a different buoy's wind reading.
@@ -1003,7 +1003,7 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
     // than a fake zero.
     //
     // NOTE ON STACK USAGE: src is a reference and nothing here copies a whole RoboStruct.
-    // RoboStruct is ~500 bytes and this runs in the loop task below handelRfData() and
+    // RoboStruct is ~500 bytes and this runs in the loop task below handleRfData() and
     // AddDataToBuoyBase(); copying it here overflowed the stack, which reboots the ESP32.
 
     // Envelope - rfDeCode()/RoboDecode() always fill these in

@@ -435,7 +435,7 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + formatFloat(dataOut->tgSpeed, 0);
         break;
     case IDLE:
-    case IDELING:
+    case IDLING:
         out += ",0,0";
         break;
     case PING:

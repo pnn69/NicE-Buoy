@@ -37,7 +37,7 @@ Two concrete failures:
   packet addressed to B, buoy Y receives it (still `IDs` = original sender),
   rebroadcasts it, X receives it again, forever. Commands excluded from the
   dedup filter (`REMOTE`, `DIRDIST`, `SETUPDATA`, `LOCKING`, `DOCKING`,
-  `IDELING`) have nothing to stop the loop.
+  `IDLING`) have nothing to stop the loop.
 
 ---
 
@@ -77,7 +77,7 @@ values.
 ### 5. `RoboCompute/src/RoboCompute.cpp:423` — encoder/decoder asymmetry
 
 `RoboCode` gained `case DOCKING:` / `case LOCKING:` (5 payload fields) and
-`case IDELING:` (line 436), but `RoboDecode` has no matching cases — the
+`case IDLING:` (line 436), but `RoboDecode` has no matching cases — the
 receiver falls into `default:`, discards `tgDir` / `tgDist` / `tgSpeed` /
 `wDir` / `wStd` and prints `RoboDecode: Unknown CMD %d` for every such packet.
 
@@ -156,7 +156,7 @@ different buoy.
 The new end-of-loop status broadcast fires on every `mainData.status` change
 with no rate limit and no coordination with the periodic telemetry timer,
 pushing to both `udpOut` and `loraOut`. The loop body has no delay of its own,
-so any state that oscillates between two values (e.g. IDELING↔IDLE handling at
+so any state that oscillates between two values (e.g. IDLING↔IDLE handling at
 `main.cpp:1770-1780`) will fill the 10-deep LoRa queue.
 
 Consider a minimum interval or debounce.

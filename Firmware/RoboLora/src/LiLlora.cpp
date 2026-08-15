@@ -144,7 +144,7 @@ RoboStruct chkAckMsg(void)
 }
 
 //***************************************************************************************************
-//  Recieve and decode incomming lora message
+//  Receive and decode incoming lora message
 //***************************************************************************************************
 void onReceive(int packetSize)
 {
@@ -190,7 +190,7 @@ void onReceive(int packetSize)
     if ((in.IDr == buoyId || in.IDr == 0x99) && in.ack == ACK) // A message form me so check if its a ACK message
     {
         removeAckMsg(in);
-        // printf("#Lora Ack recieved buffer cleared\r\n");
+        // printf("#Lora Ack received buffer cleared\r\n");
         return;
     }
     if (in.IDr == buoyId || in.IDr == BUOYIDALL || in.IDr == 0x99) // A message form me so check if its a ACK message

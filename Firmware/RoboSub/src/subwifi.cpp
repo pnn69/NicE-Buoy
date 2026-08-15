@@ -572,7 +572,7 @@ void WiFiTask(void *arg) {
             subServer.send(404, "text/plain", "showactualdata page not found on LittleFS");
         }
     });
-    subServer.on("/callibration", HTTP_GET, [](){
+    subServer.on("/calibration", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");
@@ -767,7 +767,7 @@ void WiFiTask(void *arg) {
         const char* statusStr = "UNKNOWN";
         switch (stat_val) {
             case IDLE: statusStr = "IDLE"; break;
-            case IDELING: statusStr = "IDELING"; break;
+            case IDLING: statusStr = "IDLING"; break;
             case LOCKED: statusStr = "LOCKED"; break;
             case DOCKED: statusStr = "DOCKED"; break;
             case DIRDIST: statusStr = "DIRDIST"; break;

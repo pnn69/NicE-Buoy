@@ -1044,7 +1044,7 @@ void loop() {
                 
                 if (currentStatus == "LOCKED" || currentStatus == "LOCKING" || currentStatus == "DOCKED" || currentStatus == "DOCKING") {
                     tft.drawString("SENDING IDLE...", tft.width() / 2, tft.height() / 2);
-                    send_buoy_command(buoys[selected_buoy_idx].id, 8); // Send IDELING (8)
+                    send_buoy_command(buoys[selected_buoy_idx].id, 8); // Send IDLING (8)
                 } else {
                     tft.drawString("SENDING LOCK...", tft.width() / 2, tft.height() / 2);
                     send_buoy_command(buoys[selected_buoy_idx].id, 12); // Send LOCKING (12)

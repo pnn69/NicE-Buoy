@@ -21,7 +21,7 @@ class MsgType:
     NAC = 5
     INF = 6
     IDLE = 7
-    IDELING = 8
+    IDLING = 8
     PING = 9
     PONG = 10
     ERROR = 11
@@ -39,7 +39,7 @@ class MsgType:
     DOCKPOS = 23
     UNLOCK = 24
     REMOTE = 25
-    REMOTEING = 26
+    REMOTING = 26
     DIRDIST = 47
     TOPDATA = 51
     PIDRUDDER = 55
@@ -606,7 +606,7 @@ class RoboMonitor:
     def on_lock_click(self, idx):
         b = self.buoy_frames[idx]
         if not b['id']: return
-        cmd = MsgType.IDELING if int(b['data'].get("Status", "0")) in [MsgType.LOCKING, MsgType.LOCKED, MsgType.LOCK_POS] else MsgType.LOCKING
+        cmd = MsgType.IDLING if int(b['data'].get("Status", "0")) in [MsgType.LOCKING, MsgType.LOCKED, MsgType.LOCK_POS] else MsgType.LOCKING
         sent_via_lora = self.send_udp_command(b['id'], cmd)
         if sent_via_lora:
             target_time = time.time() + 2.0
@@ -621,7 +621,7 @@ class RoboMonitor:
     def on_dock_click(self, idx):
         b = self.buoy_frames[idx]
         if not b['id']: return
-        cmd = MsgType.IDELING if int(b['data'].get("Status", "0")) in [MsgType.DOCKING, MsgType.DOCKED, MsgType.DOC] else MsgType.DOCKING
+        cmd = MsgType.IDLING if int(b['data'].get("Status", "0")) in [MsgType.DOCKING, MsgType.DOCKED, MsgType.DOC] else MsgType.DOCKING
         sent_via_lora = self.send_udp_command(b['id'], cmd)
         if sent_via_lora:
             target_time = time.time() + 2.0

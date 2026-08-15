@@ -15,7 +15,7 @@ static int statik = IDLE;
 static RoboStruct msgIdOut;
 static RoboStruct topWifiIn;
 static RoboStruct udpBuffer;
-static RoboStruct udpBufferRecieved;
+static RoboStruct udpBufferReceived;
 static LedData wifiCollorUtil;
 static bool ota = false;
 static int8_t id = 0;
@@ -403,7 +403,7 @@ void WiFiTask(void *arg)
 
         if (cmdStr == "LOCK") {
             if (bid == 1) {
-                if (mainData.status == LOCKED || mainData.status == LOCKING) { mainData.status = IDELING; cmdEnum = IDELING; }
+                if (mainData.status == LOCKED || mainData.status == LOCKING) { mainData.status = IDLING; cmdEnum = IDLING; }
                 else { mainData.status = LOCKING; cmdEnum = LOCKING; }
             } else {
                 if (buoyPara[bid-1].status == LOCKED || buoyPara[bid-1].status == LOCKING) cmdEnum = IDLE;
@@ -412,7 +412,7 @@ void WiFiTask(void *arg)
         }
         else if (cmdStr == "DOCK") {
             if (bid == 1) {
-                if (mainData.status == DOCKING || mainData.status == DOCKED) { mainData.status = IDELING; cmdEnum = IDELING; }
+                if (mainData.status == DOCKING || mainData.status == DOCKED) { mainData.status = IDLING; cmdEnum = IDLING; }
                 else { mainData.status = DOCKING; cmdEnum = DOCKING; }
             } else {
                 if (buoyPara[bid-1].status == DOCKING || buoyPara[bid-1].status == DOCKED) cmdEnum = IDLE;
@@ -420,7 +420,7 @@ void WiFiTask(void *arg)
             }
         }
         else if (cmdStr == "SETUP" || cmdStr == "SUBSETUP" || cmdStr == "SETUPDATA") cmdEnum = SETUPDATA;
-        else if (cmdStr == "IDLE") { if (bid == 1) mainData.status = IDELING; cmdEnum = IDELING; }
+        else if (cmdStr == "IDLE") { if (bid == 1) mainData.status = IDLING; cmdEnum = IDLING; }
         else if (cmdStr == "DIRDIST") { 
             cmdEnum = DIRDIST; 
             if (bid == 1) {
@@ -555,7 +555,7 @@ void WiFiTask(void *arg)
 
             // A command for another buoy has to leave this buoy over BOTH transports: the target
             // may be on WiFi, reachable only over LoRa, or both.
-            // Do NOT route this via udpIn -- handelRfData() then sees from_udp == true and bridges
+            // Do NOT route this via udpIn -- handleRfData() then sees from_udp == true and bridges
             // it to LoRa only, so a WiFi-connected buoy never receives it.
             xQueueSend(udpOut, (void *)&msg, 10);
             xQueueSend(loraOut, (void *)&msg, 10);

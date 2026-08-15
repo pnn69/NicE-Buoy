@@ -12,7 +12,7 @@
 void initMemory(void);
 void memDockPos(RoboStruct *buoy, bool get);
 void memBuoyId(uint64_t *id, bool get);
-void CompassCallibrationFactors(RoboStruct *buoy, bool get);
+void CompassCalibrationFactors(RoboStruct *buoy, bool get);
 void Declination(RoboStruct *buoy, bool get);
 void CompasOffset(RoboStruct *buoy, bool get);
 void computeParameters(RoboStruct *buoy, bool get);
@@ -24,7 +24,7 @@ void thrusterSwap(RoboStruct *buoy, bool get);
 void apParameters(String *ap, String *ww, bool get);
 void hardIron(RoboStruct *buoy, bool get);
 void softIron(RoboStruct *buoy, bool get);
-void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, float *MinX, float *MinY, float *MinZ, bool get);
+void CompassCalibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, float *MinX, float *MinY, float *MinZ, bool get);
 void CompassOffsetCorrection(double *offset, bool get);
 void MechanicalCorrection(double *correction, bool get);
 void memBnoCalib(uint8_t *data, bool get);

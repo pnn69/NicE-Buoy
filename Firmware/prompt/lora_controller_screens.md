@@ -5,7 +5,7 @@ This document defines the layout, behavior, and data requirements for the three 
 ---
 
 ## 1. IdleScreen
-**Active Modes:** `IDLE`, `IDELING`
+**Active Modes:** `IDLE`, `IDLING`
 
 ### Purpose
 Provides detailed GPS telemetry when the buoy is standing by.

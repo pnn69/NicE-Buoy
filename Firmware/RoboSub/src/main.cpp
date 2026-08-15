@@ -110,7 +110,7 @@ void setup()
     mainData.IDs = mainData.mac;
     mainData.IDr = BUOYIDALL;
     printf("Robobuoy ID: %08x\n\r", mainData.mac);
-    initwifi(); // buoyID is mac adress esp32
+    initwifi(); // buoyID is mac address esp32
     initMemory();
     pidRudderParameters(&mainData, MEM_GET);
     pidSpeedParameters(&mainData, MEM_GET);
@@ -213,7 +213,7 @@ int countKeyPressesWithTimeoutAndLongPressDetecton()
  * @brief Processes the detected key presses to trigger specific actions.
  * Examples: 5 presses to calibrate magnetic north, 1 or 10 presses to start compass calibration.
  */
-void handelKeyPress(void)
+void handleKeyPress(void)
 {
     int presses = countKeyPressesWithTimeoutAndLongPressDetecton();
     if (presses > 0)
@@ -254,7 +254,7 @@ static int pendingStatus = -1;
  * @brief Handles changes in the system's operational status.
  * 
  * This function monitors the main status of the RoboBuoy system. Specifically, 
- * it detects if the system transitions into the IDELING state. If so, it ensures 
+ * it detects if the system transitions into the IDLING state. If so, it ensures 
  * that the ESC (Electronic Speed Controller) speeds are set to 0, stopping the motors, 
  * and then transitions the system to the IDLE state. It also queues the updated 
  * status for serial transmission.
@@ -262,9 +262,9 @@ static int pendingStatus = -1;
  * @param stat Pointer to the `RoboStruct` containing the current system state, speed values, and operational status.
  * @return void This function does not return a value.
  */
-void handelStatus(RoboStruct *stat)
+void handleStatus(RoboStruct *stat)
 {
-    if (stat->status == IDELING)
+    if (stat->status == IDLING)
     {
         // Wait for motor ramps to reach 0 before fully transitioning
         if (stat->speedBb == 0 && stat->speedSb == 0)
@@ -281,7 +281,7 @@ void handelStatus(RoboStruct *stat)
     }
 }
 //***************************************************************************************************
-//  Handle incomming data
+//  Handle incoming data
 //***************************************************************************************************
 /**
  * @brief Handles incoming serial and RF data for the RoboBuoy system.
@@ -294,13 +294,13 @@ void handelStatus(RoboStruct *stat)
  *
  * @param ser Pointer to a RoboStruct structure containing the current state and parameters of the RoboBuoy.
  */
-void handelSerandRfdata(RoboStruct *ser)
+void handleSerandRfdata(RoboStruct *ser)
 {
 
     dataIn.IDr = -1;
     if (xQueueReceive(serIn, (void *)&dataIn, 0) == pdTRUE) // New serial data
     {
-        printf("Serial command recieved %d\r\n", dataIn.cmd);
+        printf("Serial command received %d\r\n", dataIn.cmd);
         mainData.lastSerIn = millis();
         PwrOff = millis();
         if (mainLedStatus.color != CRGB::DarkBlue)
@@ -319,13 +319,13 @@ void handelSerandRfdata(RoboStruct *ser)
             switch (dataIn.cmd)
             {
             case IDLE:
-            case IDELING:
-                if (ser->status != IDELING && ser->status != IDLE)
+            case IDLING:
+                if (ser->status != IDLING && ser->status != IDLE)
                 {
                     ser->tgDist = 0;
                     ser->tgSpeed = 0;
                     ser->tgDir = 0;
-                    ser->status = IDELING;
+                    ser->status = IDLING;
                     printf("IDLE command received. Initiating smooth motor ramp down.\r\n");
                 }
                 break;
@@ -338,7 +338,7 @@ void handelSerandRfdata(RoboStruct *ser)
                         {
                             printf("DIRDIST command received! Transitioning from status %d to %d via smooth ramp down.\r\n", ser->status, targetStatus);
                             pendingStatus = targetStatus;
-                            ser->status = IDELING;
+                            ser->status = IDLING;
                         }
                         else
                         {
@@ -355,7 +355,7 @@ void handelSerandRfdata(RoboStruct *ser)
             case TGDIRSPEED:
                 if (ser->status != TGDIRSPEED)
                 {
-                    printf("TGDIRSPEED command recieved!");
+                    printf("TGDIRSPEED command received!");
                     ser->tgDist = 0;
                     initRudPid(ser);
                     initSpeedPid(ser);
@@ -368,7 +368,7 @@ void handelSerandRfdata(RoboStruct *ser)
             case REMOTE:
                 if (ser->status != REMOTE)
                 {
-                    printf("REMOTE command recieved!");
+                    printf("REMOTE command received!");
                     ser->status = REMOTE;
                 }
                 ser->tgDir = dataIn.tgDir;
@@ -382,7 +382,7 @@ void handelSerandRfdata(RoboStruct *ser)
                         printf("LOCKED command received! Transitioning from DOCKED via smooth ramp down.\r\n");
                         ser->tgDist = 0;
                         pendingStatus = LOCKED;
-                        ser->status = IDELING;
+                        ser->status = IDLING;
                         ser->locked = false;
                     }
                     else
@@ -404,7 +404,7 @@ void handelSerandRfdata(RoboStruct *ser)
                         printf("DOCKED command received! Transitioning from LOCKED via smooth ramp down.\r\n");
                         ser->tgDist = 0;
                         pendingStatus = DOCKED;
-                        ser->status = IDELING;
+                        ser->status = IDLING;
                         memDockPos(&dataIn, MEM_GET);
                         ser->locked = false;
                     }
@@ -524,7 +524,7 @@ void handelSerandRfdata(RoboStruct *ser)
                     response.IDr = dataIn.IDs;
                     response.cmd = STORE_COMPASS_OFFSET;
                     response.ack = INF;
-                    response.status = IDELING; // Force a status sync back to Top
+                    response.status = IDLING; // Force a status sync back to Top
                     xQueueSend(serOut, (void *)&response, 10);
                 }
                 break;
@@ -553,7 +553,7 @@ void handelSerandRfdata(RoboStruct *ser)
                         response.IDr = dataIn.IDs;
                         response.cmd = SET_AS_NORTH;
                         response.ack = INF;
-                        response.status = IDELING;
+                        response.status = IDLING;
                         xQueueSend(serOut, (void *)&response, 10);
                     }
                 }
@@ -575,7 +575,7 @@ void handelSerandRfdata(RoboStruct *ser)
                 vTaskResume(compassTaskHandle);
                 {
                     RoboStruct response = mainData;
-                    response.status = IDELING;
+                    response.status = IDLING;
                     xQueueSend(serOut, (void *)&response, 10);
                 }
                 ser->status = IDLE;
@@ -726,7 +726,7 @@ void handelSerandRfdata(RoboStruct *ser)
  * 
  * This function monitors the time elapsed since the last serial communication. 
  * If no data is received for 5 seconds, it transitions the system to a safe 
- * IDELING state, halts the motors, and turns the status LED red to indicate a 
+ * IDLING state, halts the motors, and turns the status LED red to indicate a 
  * timeout. If communication is lost for an extended period (5 minutes), it 
  * initiates a complete power-down sequence to preserve battery life, disabling 
  * the power supply and ESCs.
@@ -734,7 +734,7 @@ void handelSerandRfdata(RoboStruct *ser)
  * @param ser Pointer to the main `RoboStruct` containing system state and timestamps for last communication.
  * @return void This function does not return a value.
  */
-void handelSerialTimeOut(RoboStruct *ser)
+void handleSerialTimeOut(RoboStruct *ser)
 {
     if (ser->lastSerIn + 1000 * 5 < millis())
     {
@@ -746,7 +746,7 @@ void handelSerialTimeOut(RoboStruct *ser)
             mainLedStatus.color = CRGB::Red;
             mainLedStatus.blink = BLINK_SLOW;
             xQueueSend(ledStatus, (void *)&mainLedStatus, 10); // update util led
-            ser->status = IDELING;
+            ser->status = IDLING;
         }
     }
     //***************************************************************************************************
@@ -827,7 +827,7 @@ void handleTimerRoutines(RoboStruct *in)
         escOut.speedsb = in->speedSb;
         xQueueSend(escspeed, (void *)&escOut, 10);
         break;
-    case IDELING:
+    case IDLING:
         if (pidTimer < millis())
         {
             pidTimer = millis() + 20; // 20ms
@@ -949,9 +949,9 @@ void loop(void)
     while (true)
     {
         //***************************************************************************************************
-        //      Status change handeling
+        //      Status change handling
         //***************************************************************************************************
-        handelStatus(&mainData);
+        handleStatus(&mainData);
         //***************************************************************************************************
         //      Timer routines
         //***************************************************************************************************
@@ -959,7 +959,7 @@ void loop(void)
         //***************************************************************************************************
         //      Check front key
         //***************************************************************************************************
-        handelKeyPress();
+        handleKeyPress();
         //***************************************************************************************************
         //      New compass data
         //***************************************************************************************************
@@ -967,11 +967,11 @@ void loop(void)
         //***************************************************************************************************
         //      new serial message and udp
         //***************************************************************************************************
-        handelSerandRfdata(&mainData);
+        handleSerandRfdata(&mainData);
         //***************************************************************************************************
         //      Serial watchdog
         //***************************************************************************************************
-        handelSerialTimeOut(&mainData);
+        handleSerialTimeOut(&mainData);
         vTaskDelay(pdMS_TO_TICKS(5));
     }
 }

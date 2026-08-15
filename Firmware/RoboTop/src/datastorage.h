@@ -11,7 +11,7 @@
 void initMemory(void);
 void memBuoyId(int8_t *id, bool get);
 void apParameters(String *ap, String *ww, bool get);
-void CompassCallibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, float *MinX, float *MinY, float *MinZ, bool get);
+void CompassCalibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, float *MinX, float *MinY, float *MinZ, bool get);
 void CompasOffset(RoboStruct *buoy, bool get);
 void CompassOffsetCorrection(int *delta, bool get);
 void MechanicalCorrection(double *correction, bool get);

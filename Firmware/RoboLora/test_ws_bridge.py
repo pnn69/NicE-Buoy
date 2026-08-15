@@ -72,7 +72,7 @@ def on_open(ws):
         
         # Scenario 2: Send IDLE command to restore
         print("\n💤 Sending IDLE command with Target ID '1'...")
-        idle_cmd = make_command("1", 8) # MsgType.IDELING = 8
+        idle_cmd = make_command("1", 8) # MsgType.IDLING = 8
         print(f"[SEND] {idle_cmd.strip()}")
         ws.send(idle_cmd)
         
