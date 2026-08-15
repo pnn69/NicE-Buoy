@@ -42,6 +42,7 @@ unsigned long last_left_touch_time = 0;
 unsigned long last_right_touch_time = 0;
 unsigned long simultaneous_touch_start = 0;
 bool both_touched_previously = false;
+unsigned long cal_touch_start = 0;
 
 void draw_calibration_screen();
 void handle_touch_calibration();
@@ -1154,34 +1155,32 @@ void loop() {
                 // CALIBRATE TOUCH Button: Y 246 to 320, X 10 to 230 (uses the entire bottom screen area for maximum sensitivity!)
                 else if (touchY >= 246 && touchY <= 320 && touchX >= 10 && touchX <= 230) {
                     unsigned long now = millis();
-                    if (touchX < 120) {
-                        last_left_touch_time = now;
-                    }
-                    else {
-                        last_right_touch_time = now;
-                    }
-                    
-                    // If BOTH halves are being touched simultaneously (jitter-tolerant)
-                    if (now - last_left_touch_time < 1500 && now - last_right_touch_time < 1500) {
-                        if (!both_touched_previously) {
-                            simultaneous_touch_start = now;
-                            both_touched_previously = true;
-                            Serial.println("Simultaneous touch started!");
-                        } else if (now - simultaneous_touch_start >= 3000) {
-                            Serial.println("Simultaneous touch held for 3 seconds! Entering calibration screen.");
-                            both_touched_previously = false;
-                            last_transition_ms = now;
-                            start_touch_calibration();
-                        } else {
-                            // Draw holding progress bar below the button (at Y: 280)
-                            int elapsed = now - simultaneous_touch_start;
-                            int progress_width = (elapsed * 180) / 3000;
-                            if (progress_width > 180) progress_width = 180;
-                            tft.fillRect(30, 280, progress_width, 2, TFT_GREEN);
-                        }
+                    if (cal_touch_start == 0) {
+                        cal_touch_start = now;
+                        // Change button color to show active visual feedback on press!
+                        tft.fillRoundRect(30, 250, 180, 28, 4, TFT_YELLOW);
+                        tft.setTextColor(TFT_BLACK, TFT_YELLOW);
+                        tft.setTextSize(1);
+                        tft.setTextDatum(MC_DATUM);
+                        tft.drawString("HOLD 3 SECONDS...", 120, 264);
+                    } else if (now - cal_touch_start >= 3000) {
+                        cal_touch_start = 0;
+                        // Reset button color back to normal
+                        tft.fillRoundRect(30, 250, 180, 28, 4, TFT_DARKGREY);
+                        tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+                        tft.setTextSize(1);
+                        tft.setTextDatum(MC_DATUM);
+                        tft.drawString("CALIBRATE TOUCH", 120, 264);
+                        
+                        Serial.println("Calibration button held for 3 seconds! Entering calibration screen.");
+                        last_transition_ms = now;
+                        start_touch_calibration();
                     } else {
-                        both_touched_previously = false;
-                        tft.fillRect(30, 280, 180, 2, TFT_BLACK);
+                        // Draw holding progress bar below the button (at Y: 280)
+                        int elapsed = now - cal_touch_start;
+                        int progress_width = (elapsed * 180) / 3000;
+                        if (progress_width > 180) progress_width = 180;
+                        tft.fillRect(30, 280, progress_width, 2, TFT_GREEN);
                     }
                 }
             }
@@ -1510,6 +1509,18 @@ void loop() {
             both_touched_previously = false;
             // Erase the green holding progress bar
             tft.fillRect(30, 280, 180, 2, TFT_BLACK);
+        }
+        if (cal_touch_start != 0) {
+            cal_touch_start = 0;
+            // Erase the green holding progress bar
+            tft.fillRect(30, 280, 180, 2, TFT_BLACK);
+            
+            // Redraw the button back to normal (TFT_DARKGREY)
+            tft.fillRoundRect(30, 250, 180, 28, 4, TFT_DARKGREY);
+            tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+            tft.setTextSize(1);
+            tft.setTextDatum(MC_DATUM);
+            tft.drawString("CALIBRATE TOUCH", tft.width() / 2, 264);
         }
     }
 
