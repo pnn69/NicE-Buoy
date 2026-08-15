@@ -81,7 +81,7 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     if (sender_id == "98" || sender_id == "99") return;
     
     // We have a verified valid incoming message from a buoy! Update blink timers dynamically:
-    if (source == "UDP") {
+    if (source.startsWith("UDP")) {
         last_udp_blink_ms = millis();
     } else if (source == "LoRa") {
         last_global_lora_blink_ms = millis(); // Always update global lora blink on any incoming valid packet!
