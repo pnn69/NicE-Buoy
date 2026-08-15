@@ -986,6 +986,10 @@ void update_dynamic_ui() {
         // Draw global LoRa blinking dot on mainscreen after "LoRa: 433M" (at X: 190, Y: h - 29)
         uint16_t globalLoraDotColor = (millis() - last_global_lora_blink_ms < 300) ? TFT_CYAN : TFT_BLACK;
         tft.fillCircle(190, h - 29, 4, globalLoraDotColor);
+        
+        // Draw global UDP blinking dot on mainscreen right of the IP address (at X: 230, Y: h - 13)
+        uint16_t globalUdpDotColor = (millis() - last_udp_blink_ms < 300) ? TFT_GREEN : TFT_BLACK;
+        tft.fillCircle(230, h - 13, 4, globalUdpDotColor);
     } else {
         if (in_setup_mode) {
             // --- Setup Dynamic values on Display ---
