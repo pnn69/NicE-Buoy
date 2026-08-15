@@ -147,23 +147,23 @@ void setup()
     mainData.mac = espMac();
     mainData.IDs = mainData.mac;
     mainData.status = IDLE;
-    memDockPos(&mainData, GET);
-    memDockApproach(&mainData, GET);
+    memDockPos(&mainData, MEM_GET);
+    memDockApproach(&mainData, MEM_GET);
 
     // Automatically migrate stored NVM dock position to the new requested default
     // printf("Updating stored Dock Position to the new default: 52.29302221327865, 4.932541137977593\r\n");
     // mainData.tgLat = 52.29302221327865;
     // mainData.tgLng = 4.932541137977593;
-    // memDockPos(&mainData, SET);
+    // memDockPos(&mainData, MEM_PUT);
 
 
-    thrusterInversion(&mainData, GET);
-    pidRudderParameters(&mainData, GET);
-    pidSpeedParameters(&mainData, GET);
-    computeParameters(&mainData, GET);
+    thrusterInversion(&mainData, MEM_GET);
+    pidRudderParameters(&mainData, MEM_GET);
+    pidSpeedParameters(&mainData, MEM_GET);
+    computeParameters(&mainData, MEM_GET);
     
     int tempOffset = 0;
-    CompassOffsetCorrection(&tempOffset, GET);
+    CompassOffsetCorrection(&tempOffset, MEM_GET);
     mainData.compassOffset = (double)tempOffset;
 
     // Print all loaded parameters from NVM to Serial Port
@@ -513,8 +513,8 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
 
     case DOCKING:
         beep(1, buzzer); // Play the beautiful 3-tone arpeggio sequence upon successfully entering DOCK mode
-        memDockPos(stat, GET);
-        memDockApproach(stat, GET);
+        memDockPos(stat, MEM_GET);
+        memDockApproach(stat, MEM_GET);
         stat->status = DOCKED;
         stat->tgDist = 0.0;
         stat->tgDir = 0.0;
@@ -636,7 +636,7 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
             printf("Storing docpositoin\r\n");
             stat->tgLat = stat->lat;
             stat->tgLng = stat->lng;
-            memDockPos(stat, SET);
+            memDockPos(stat, MEM_PUT);
             beep(1000, buzzer);
         }
         else
@@ -908,7 +908,7 @@ void handleTimerRoutines(RoboStruct *timer)
                 RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
                 if(timer->dockingToWaypoint == true && timer->tgDist <5)
                 {
-                    memDockPos(timer, GET);
+                    memDockPos(timer, MEM_GET);
                     timer->dockingToWaypoint = false;    
                 }
             } else {
@@ -1037,12 +1037,6 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
 
     if (RfIn.IDr != -1)
     {
-        // Fix corruption by using correct format specifiers for 32-bit hex IDs
-        if(from_udp) {
-            // printf("handelRfData: Processing UDP message. Target: %08X, Sender: %08X, cmd: %d, ack: %d\r\n",
-            //        (unsigned int)RfIn.IDr, (unsigned int)RfIn.IDs, (int)RfIn.cmd, (int)RfIn.ack);
-        }
-        
         // Deduplication Filter for Mode Commands
         static int lastInCmd = -1;
         static int lastInStatus = -1;
@@ -1071,10 +1065,17 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
         // --- BRIDGING LOGIC ---
         // If the message is NOT for us and NOT a broadcast, bridge it to the other interface
         // treat IDr == 0 as a legacy broadcast
-        bool is_for_me = (RfIn.IDr == RfOut->mac || RfIn.IDr == RfOut->IDs || RfIn.IDr == BUOYIDALL || RfIn.IDr == 0);
+        // A broadcast is addressed to every buoy, so it must be executed locally as well as
+        // forwarded. Whether a broadcast is actually allowed to change our state is decided
+        // per command further down, where the sender must be the web/remote (0x98/0x99).
+        bool is_broadcast = (RfIn.IDr == BUOYIDALL || RfIn.IDr == 0);
+        bool is_for_me = (RfIn.IDr == RfOut->mac || RfIn.IDr == RfOut->IDs || is_broadcast);
 
         if (!is_for_me)
         {
+            // Always bridge to the interface the packet did NOT arrive on. Sending it back out
+            // on the arrival interface re-broadcasts it with the original sender ID, which the
+            // IDs != espMac() self-filter in udp_setup cannot catch -> endless rebroadcast loop.
             if (from_udp) {
                 xQueueSend(loraOut, (void *)&RfIn, 0);
             } else {
@@ -1082,9 +1083,10 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             }
             return; // Done with bridging
         }
-        else if (from_udp && (RfIn.IDr == BUOYIDALL || RfIn.IDr == 0))
+        else if (from_udp && is_broadcast)
         {
-            // If it is a broadcast command from UDP/WiFi, forward a copy to LoRa so other buoys receive it too!
+            // Broadcast arrived over UDP/WiFi: handle it locally (below) and forward a copy to
+            // LoRa so buoys without a WiFi link receive it too.
             xQueueSend(loraOut, (void *)&RfIn, 0);
         }
 
@@ -1198,7 +1200,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case PIDRUDDERSET:
-                pidRudderParameters(&RfIn, SET);
+                pidRudderParameters(&RfIn, MEM_PUT);
                 printf("#PIDRUDDERSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kpr, RfIn.Kir, RfIn.Kdr);
                 RfIn.ack = SET; // Tell Sub to save to EEPROM
                 RfIn.IDr = BUOYIDALL;
@@ -1221,21 +1223,23 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 break;
             case SETUPDATA:
             {
-                printf("Received SETUPDATA command. ack=%d, IDs=0x%08lX, dockDist=%d, dockDir=%d, dockWP=%s\r\n", 
+                printf("Received SETUPDATA command. ack=%d, IDs=0x%08lX, dockDist=%d, dockDir=%d, dockWP=%s\r\n",
                        RfIn.ack, RfIn.IDs, RfIn.dockApproachDist, RfIn.dockApproachDir, RfIn.dockingToWaypoint ? "YES" : "NO");
-                // Check if the command/response is local to the master or if it originates from a remote buoy
+                // Check if the command/response is local to the master or if it originates from a remote buoy.
+                // Without this gate a SETUPDATA relayed over LoRa by another buoy would overwrite our own
+                // PID / compass / thruster configuration with that buoy's values.
                 bool is_local = (RfIn.IDs == RfOut->mac || RfIn.IDs == 0x98 || RfIn.IDs == 0x99 || from_udp);
                 if (is_local && (RfIn.ack == 1 || RfIn.ack == 3 || RfIn.ack == 2)) // 1=GET, 2=SET, 3=GETACK
                 {
                     
                     if (RfIn.ack == 2 || RfIn.ack == 3) { // 2=SET, 3=GETACK
                         // Unpack and commit the incoming PID and configuration values to local flash/EEPROM storage
-                        pidRudderParameters(&RfIn, SET);
-                        pidSpeedParameters(&RfIn, SET);
-                        CompasOffset(&RfIn, SET);
-                        thrusterSwap(&RfIn, SET);
-                        thrusterInversion(&RfIn, SET);
-                        computeParameters(&RfIn, SET);
+                        pidRudderParameters(&RfIn, MEM_PUT);
+                        pidSpeedParameters(&RfIn, MEM_PUT);
+                        CompasOffset(&RfIn, MEM_PUT);
+                        thrusterSwap(&RfIn, MEM_PUT);
+                        thrusterInversion(&RfIn, MEM_PUT);
+                        computeParameters(&RfIn, MEM_PUT);
 
                         RfOut->Kpr = RfIn.Kpr; RfOut->Kir = RfIn.Kir; RfOut->Kdr = RfIn.Kdr;
                         RfOut->Kps = RfIn.Kps; RfOut->Kis = RfIn.Kis; RfOut->Kds = RfIn.Kds;
@@ -1250,7 +1254,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                             RfOut->dockApproachDist = RfIn.dockApproachDist;
                             RfOut->dockApproachDir = RfIn.dockApproachDir;
                             RfOut->dockingToWaypoint = RfIn.dockingToWaypoint;
-                            memDockApproach(RfOut, SET);
+                            memDockApproach(RfOut, MEM_PUT);
                         }
                         
                         // FORWARD TO SUB: Force the Sub to physically commit these parameters to its local persistent EEPROM/flash.
@@ -1271,14 +1275,16 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     // Forward to Sub to trigger a fresh update. 
                     // Overwrite the sender ID with our own Top MAC address to ensure the half-duplex serial driver
                     // recognizes and ignores self-echoed transactions.
-                    // Only forward to local Sub if the command is explicitly addressed to the master (bid == 1)
+                    // Only forward to our local Sub if the command is explicitly addressed to us.
+                    // A broadcast SETUPDATA would otherwise make every buoy commit another buoy's
+                    // configuration to its own Sub EEPROM.
                     if (RfIn.IDr == RfOut->mac) {
                         RfIn.IDr = BUOYIDALL;
                         RfIn.IDs = espMac();
                         printf("DEBUG_SETUPDATA: Forwarding to Sub via serOut. maxSpeed=%d, ack=%d\r\n", RfIn.maxSpeed, RfIn.ack);
                         if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
                             printf("ERROR: Failed to queue SETUPDATA forward request to serOut!\r\n");
-                        } 
+                        }
                     }
                 }
                 else
@@ -1306,7 +1312,17 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     }
 
                     if (targetIdx != -1) {
-                        *buoyPara[targetIdx] = RfIn;
+                        // Merge instead of assigning: a SETUPDATA reply carries no position or
+                        // status, so a plain overwrite would blank the remote buoy's fix until
+                        // its next telemetry packet arrived.
+                        int rev = buoyPara[targetIdx]->sub_status;
+                        MergeBuoyData(buoyPara[targetIdx], RfIn);
+                        // The revision counter is not part of the wire format, so bump it here the
+                        // same way handelSerialData() does for our own Sub. The web Setup dialog
+                        // only opens once rev advances past the value it saw when it asked, so
+                        // without this a remote buoy's Setup would sit on "Collecting data..."
+                        // until it timed out, even though the data had already arrived.
+                        buoyPara[targetIdx]->sub_status = rev + 1;
                         if (targetIdx == 0) RfOut->IDs = RfIn.IDs; // Sync mainData ID
                     }
                     // Forward across interfaces
@@ -1316,7 +1332,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 break;
             }
             case PIDSPEEDSET:
-                pidSpeedParameters(&RfIn, SET);
+                pidSpeedParameters(&RfIn, MEM_PUT);
                 printf("#PIDSPEEDSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kps, RfIn.Kis, RfIn.Kds);
                 RfOut->cmd = PIDSPEEDSET;
                 RfIn.ack = SET; // Tell Sub to save to EEPROM
@@ -1404,8 +1420,8 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case DOCKPOS: // Get the positon to dock
-                memDockPos(RfOut, GET);
-                memDockApproach(RfOut, GET);
+                memDockPos(RfOut, MEM_GET);
+                memDockApproach(RfOut, MEM_GET);
                 RfOut->cmd = DOCKPOS;
                 RfOut->ack = INF;
                 if (from_udp) xQueueSend(udpOut, (void *)RfOut, 0);
@@ -1416,7 +1432,7 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     RfOut->tgLat = RfOut->lat;
                     RfOut->tgLng = RfOut->lng;
-                    memDockPos(RfOut, SET);
+                    memDockPos(RfOut, MEM_PUT);
                     beep(1000, buzzer);
                 }
                 else
@@ -1801,7 +1817,7 @@ void handelSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                 printf("Store Doc pos)\r\n");
                 ser->tgLat = ser->lat;
                 ser->tgLng = ser->lng;
-                memDockPos(ser, SET);
+                memDockPos(ser, MEM_PUT);
             }
             ser->status = IDELING;
             break;
@@ -1943,6 +1959,21 @@ void loop(void)
             // Set a future grace period to prevent spamming wakeup before sub can respond
             lastRealSerIn = millis() + 10000; // 15-second delay until next potential watchdog trigger
             isSerConnected = false;
+        }
+
+        // Immediate wireless broadcast on local status changes (evaluated at the end of the loop,
+        // AFTER all state machine, GPS, serial, and navigation changes have been fully handled and calculated).
+        static int lastLocalStatus = -1;
+        if (mainData.status != lastLocalStatus)
+        {
+            lastLocalStatus = mainData.status;
+            RoboStruct statusUpdate = mainData;
+            statusUpdate.IDs = mainData.mac;
+            statusUpdate.IDr = BUOYIDALL;
+            statusUpdate.ack = INF;
+            statusUpdate.cmd = (mainData.status == LOCKED || mainData.status == DOCKED) ? TOPDATA : BUOYPOS;
+            xQueueSend(udpOut, (void *)&statusUpdate, 0);
+            xQueueSend(loraOut, (void *)&statusUpdate, 0);
         }
     }
 }

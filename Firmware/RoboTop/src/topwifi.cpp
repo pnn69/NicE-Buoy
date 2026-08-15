@@ -268,25 +268,23 @@ void WiFiTask(void *arg)
     udp_setup(1001);
     SPIFFS.begin(true);
 
-    static String indexHtmlCache = "";
-    File file = SPIFFS.open("/index.html", "r");
-    if(file) {
-        indexHtmlCache = file.readString();
-        file.close();
-        Serial.println("WiFiTask: Cached index.html in RAM (" + String(indexHtmlCache.length()) + " bytes)");
-    } else {
-        Serial.println("WiFiTask: Failed to open /index.html for caching");
-    }
-
     server.on("/", HTTP_GET, [](){
         server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         server.sendHeader("Pragma", "no-cache");
         server.sendHeader("Expires", "-1");
-        if(indexHtmlCache.length() > 0) {
-            server.send(200, "text/html", indexHtmlCache);
-        } else {
-            server.send(404, "text/plain", "File not found in RAM cache. Please check SPIFFS filesystem.");
+
+        // Stream straight from SPIFFS rather than caching the ~46 KB page in a RAM String at boot.
+        // File::readString() grows the String incrementally and, when a reallocation fails on a
+        // fragmented heap, silently returns a SHORT string with no error: buoy 2 came up serving
+        // 42351 of 46209 bytes, cut off mid-<script>, so none of the page JS ran. Streaming also
+        // means a new SPIFFS upload takes effect without needing a reboot.
+        File f = SPIFFS.open("/index.html", "r");
+        if (!f) {
+            server.send(404, "text/plain", "index.html not found on SPIFFS");
+            return;
         }
+        server.streamFile(f, "text/html");
+        f.close();
     });
 
     server.on("/data", HTTP_GET, []()
@@ -335,6 +333,8 @@ void WiFiTask(void *arg)
         json += "\"dockAppDist\":\"" + String(mainData.dockApproachDist) + "\",";
         json += "\"dockAppDir\":\"" + String(mainData.dockApproachDir) + "\",";
         json += "\"dockToWP\":\"" + String(mainData.dockingToWaypoint ? "true" : "false") + "\",";
+        json += "\"TgLat\":\"" + String(mainData.tgLat, 6) + "\",";
+        json += "\"TgLng\":\"" + String(mainData.tgLng, 6) + "\",";
         json += "\"Lat\":\"" + String(mainData.lat, 6) + "\",";
         json += "\"Lng\":\"" + String(mainData.lng, 6) + "\",";
         json += "\"GpsFix\":\"" + String(mainData.gpsFix ? "true" : "false") + "\"";
@@ -383,6 +383,8 @@ void WiFiTask(void *arg)
             json += "\"dockAppDist\":\"" + String(buoyPara[i].dockApproachDist) + "\",";
             json += "\"dockAppDir\":\"" + String(buoyPara[i].dockApproachDir) + "\",";
             json += "\"dockToWP\":\"" + String(buoyPara[i].dockingToWaypoint ? "true" : "false") + "\",";
+            json += "\"TgLat\":\"" + String(buoyPara[i].tgLat, 6) + "\",";
+            json += "\"TgLng\":\"" + String(buoyPara[i].tgLng, 6) + "\",";
             json += "\"Lat\":\"" + String(buoyPara[i].lat, 6) + "\",";
             json += "\"Lng\":\"" + String(buoyPara[i].lng, 6) + "\",";
             json += "\"GpsFix\":\"" + String(buoyPara[i].gpsFix ? "true" : "false") + "\"";
@@ -469,12 +471,12 @@ void WiFiTask(void *arg)
                     if (server.hasArg("dockAppDir")) mainData.dockApproachDir = server.arg("dockAppDir").toInt();
                     if (server.hasArg("dockToWP")) mainData.dockingToWaypoint = (server.arg("dockToWP").toInt() != 0);
 
-                    pidRudderParameters(&mainData, SET);
-                    pidSpeedParameters(&mainData, SET);
-                    computeParameters(&mainData, SET);
-                    memDockApproach(&mainData, SET);
+                    pidRudderParameters(&mainData, MEM_PUT);
+                    pidSpeedParameters(&mainData, MEM_PUT);
+                    computeParameters(&mainData, MEM_PUT);
+                    memDockApproach(&mainData, MEM_PUT);
                     int offset = (int)mainData.compassOffset;
-                    CompassOffsetCorrection(&offset, SET);
+                    CompassOffsetCorrection(&offset, MEM_PUT);
 
                     msg = mainData;
                     msg.IDs = 0x99; msg.IDr = mainData.mac;
@@ -499,7 +501,6 @@ void WiFiTask(void *arg)
                     msg.ack = INF;
                 }
             }
-            // printf("Sending command %d to udpIn (local/forward to sub)\r\n", msg.cmd);
             xQueueSend(udpIn, (void *)&msg, 10);
         } else {
             RoboStruct msg = buoyPara[bid-1]; 
@@ -552,9 +553,14 @@ void WiFiTask(void *arg)
                 msg.ack = SET;
             }
 
-            xQueueSend(serOut, (void *)&msg, 10);
+            // A command for another buoy has to leave this buoy over BOTH transports: the target
+            // may be on WiFi, reachable only over LoRa, or both.
+            // Do NOT route this via udpIn -- handelRfData() then sees from_udp == true and bridges
+            // it to LoRa only, so a WiFi-connected buoy never receives it.
+            xQueueSend(udpOut, (void *)&msg, 10);
+            xQueueSend(loraOut, (void *)&msg, 10);
         }
-        server.send(200, "text/plain", "OK"); 
+        server.send(200, "text/plain", "OK");
     });
 
     server.begin();

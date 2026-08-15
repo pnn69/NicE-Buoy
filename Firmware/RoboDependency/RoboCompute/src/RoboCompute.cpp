@@ -39,8 +39,6 @@ void RoboDecode(String data, RoboStruct *dataStore)
     dataStore->status = numbers[1].toInt();
     switch (dataStore->cmd)
     {
-    case NOP:
-        break;
     case SETUPDATA:
           dataStore->Kpr = numbers[2].toDouble();
           dataStore->Kir = numbers[3].toDouble();
@@ -53,13 +51,9 @@ void RoboDecode(String data, RoboStruct *dataStore)
           dataStore->pivotSpeed = numbers[10].toDouble();
           dataStore->compassOffset = numbers[11].toDouble();
           dataStore->holdRad = numbers[12].toDouble();
-          if (count > 13 && numbers[13].length() > 0) dataStore->revBB = (bool)numbers[13].toInt();
-          if (count > 14 && numbers[14].length() > 0) dataStore->revSB = (bool)numbers[14].toInt();
-          if (count > 15 && numbers[15].length() > 0) dataStore->swap_BB_SB = (bool)numbers[15].toInt();
-          if (count > 16 && numbers[16].length() > 0) dataStore->compass_trim_enabled = (bool)numbers[16].toInt();
-          if (count > 17 && numbers[17].length() > 0) dataStore->dockApproachDist = numbers[17].toInt();
-          if (count > 18 && numbers[18].length() > 0) dataStore->dockApproachDir = numbers[18].toInt();
-          if (count > 19 && numbers[19].length() > 0) dataStore->dockingToWaypoint = (bool)numbers[19].toInt();
+          if (numbers[13].length() > 0) dataStore->revBB = (bool)numbers[13].toInt();
+          if (numbers[14].length() > 0) dataStore->revSB = (bool)numbers[14].toInt();
+          if (numbers[15].length() > 0) dataStore->swap_BB_SB = (bool)numbers[15].toInt();
           break;
     case IDLE:
         dataStore->speed = 0;
@@ -154,21 +148,12 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->tgLng = numbers[3].toDouble();
         dataStore->wDir = numbers[4].toDouble();
         dataStore->wStd = numbers[5].toDouble();
-        dataStore->dockApproachDist = numbers[6].toInt();
-        dataStore->dockApproachDir = numbers[7].toInt();
-        dataStore->dockingToWaypoint = (bool)numbers[8].toInt();
-
         break;
     case SETLOCKPOS:
     case SETDOCKPOS:
         dataStore->tgLat = numbers[2].toDouble();
         dataStore->tgLng = numbers[3].toDouble();
         break;
-    case SET_DOCWP:
-        dataStore->dockApproachDist = numbers[2].toInt();
-        dataStore->dockApproachDir = numbers[3].toInt();
-        dataStore->dockingToWaypoint = (bool)numbers[4].toInt();
-    break;
     case DIRDIST:
         dataStore->tgDir = numbers[2].toDouble();
         dataStore->tgDist = numbers[3].toDouble();
@@ -245,21 +230,16 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->magSoft[2][2] = numbers[10].toDouble();
         break;
     case STORE_COMPASS_OFFSET:
-        dataStore->compass_trim = numbers[2].toDouble();
-        break;
-    case SET_AS_NORTH:
-    case STOREASDOC:
-    case LOCK_POS:
+        dataStore->compassOffset = numbers[2].toDouble();
         break;
     case ADAPTIVE_TRIM:
+        // Both fields are assigned unconditionally: RoboCode() compresses any all-zero token to
+        // an empty string, so "trim disabled" and "trim 0.0" arrive as "". Treating an empty
+        // field as "keep previous value" here would make it impossible to ever clear the trim.
         dataStore->compass_trim = numbers[2].toDouble();
-        if (count > 3) dataStore->compass_trim_enabled = (bool)numbers[3].toInt();
+        dataStore->compass_trim_enabled = (bool)numbers[3].toInt();
         break;
-    case RESET_RUDDER_PID:
-    case RESET_SPEED_PID:
-    case RESET_SPEED_RUD_PID:
-    case WAKEUP:
-    case REBOOT:
+    case SET_AS_NORTH:
         break;
     default:
         printf("RoboDecode: Unknown CMD %d\r\n", dataStore->cmd);
@@ -275,25 +255,21 @@ String RoboCode(const RoboStruct *dataOut)
     switch (dataOut->cmd)
     {
     case SETUPDATA:
-          out += "," + formatFloat(dataOut->Kpr, 5);
-          out += "," + formatFloat(dataOut->Kir, 5);
-          out += "," + formatFloat(dataOut->Kdr, 5);
-          out += "," + formatFloat(dataOut->Kps, 5);
-          out += "," + formatFloat(dataOut->Kis, 5);
-          out += "," + formatFloat(dataOut->Kds, 5);
-          out += "," + String(dataOut->maxSpeed);
-          out += "," + String(dataOut->minSpeed);
-          out += "," + formatFloat(dataOut->pivotSpeed, 2);
-          out += "," + formatFloat(dataOut->compassOffset, 2);
-          out += "," + formatFloat(dataOut->holdRad, 2);
-          out += "," + String((int)dataOut->revBB);
-          out += "," + String((int)dataOut->revSB);
-          out += "," + String((int)dataOut->swap_BB_SB);
-          out += "," + String((int)dataOut->compass_trim_enabled);
-          out += "," + String(dataOut->dockApproachDist);
-          out += "," + String(dataOut->dockApproachDir);
-          out += "," + String((int)dataOut->dockingToWaypoint);
-          break;
+        out += "," + formatFloat(dataOut->Kpr, 5);
+        out += "," + formatFloat(dataOut->Kir, 5);
+        out += "," + formatFloat(dataOut->Kdr, 5);
+        out += "," + formatFloat(dataOut->Kps, 5);
+        out += "," + formatFloat(dataOut->Kis, 5);
+        out += "," + formatFloat(dataOut->Kds, 5);
+        out += "," + String(dataOut->maxSpeed);
+        out += "," + String(dataOut->minSpeed);
+        out += "," + formatFloat(dataOut->pivotSpeed, 2);
+        out += "," + formatFloat(dataOut->compassOffset, 2);
+        out += "," + formatFloat(dataOut->holdRad, 2);
+        out += "," + String((int)dataOut->revBB);
+        out += "," + String((int)dataOut->revSB);
+        out += "," + String((int)dataOut->swap_BB_SB);
+        break;
     case DIRSPEED:
         out += "," + formatFloat(dataOut->dirMag, 2);
         out += "," + String(dataOut->speed);
@@ -400,16 +376,8 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + formatFloat(dataOut->tgLng, 10);
         out += "," + formatFloat(dataOut->wDir, 1);
         out += "," + formatFloat(dataOut->wStd, 1);
-        out += "," + String(dataOut->dockApproachDist);
-        out += "," + String(dataOut->dockApproachDir);
-        out += "," + String((int)dataOut->dockingToWaypoint);
         break;
-     case SET_DOCWP:
-        out += "," + String(dataOut->dockApproachDist);
-        out += "," + String(dataOut->dockApproachDir);
-        out += "," + String((int)dataOut->dockingToWaypoint);
-    break;
-        case WINDDATA:
+    case WINDDATA:
         out += "," + formatFloat(dataOut->wDir, 1);
         out += "," + formatFloat(dataOut->wStd, 1);
         break;
@@ -455,19 +423,16 @@ String RoboCode(const RoboStruct *dataOut)
     case STORE_COMPASS_OFFSET:
         out += "," + formatFloat(dataOut->compassOffset, 2);
         break;
-    case SET_AS_NORTH:
-    case STOREASDOC:
-    case LOCK_POS:
-        break;
     case ADAPTIVE_TRIM:
-        out += "," + formatFloat(dataOut->compass_trim, 4);
+        out += "," + formatFloat(dataOut->compass_trim, 3);
         out += "," + String((int)dataOut->compass_trim_enabled);
-          out += "," + String(dataOut->dockApproachDist);
-          out += "," + String(dataOut->dockApproachDir);
-          out += "," + String((int)dataOut->dockingToWaypoint);
+        break;
+    case SET_AS_NORTH:
         break;
     case DOCKED:
     case LOCKED:
+    case DOCKING:
+    case LOCKING:
         out += "," + formatFloat(dataOut->tgDir, 1);
         out += "," + formatFloat(dataOut->tgDist, 1);
         out += "," + formatFloat(dataOut->tgSpeed, 1);
@@ -479,18 +444,13 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + formatFloat(dataOut->tgSpeed, 0);
         break;
     case IDLE:
+    case IDELING:
         out += ",0,0";
         break;
     case PING:
         return String(PING);
     case PONG:
         return String(PONG);
-    case RESET_RUDDER_PID:
-    case RESET_SPEED_PID:
-    case RESET_SPEED_RUD_PID:
-    case WAKEUP:
-    case REBOOT:
-        break;
     default:
         printf("RoboCode: Unknown formatter <%d>\r\n", dataOut->cmd);
         break;
@@ -739,30 +699,316 @@ double calculateAngleSigned(double x1, double y1, double x2, double y2)
     return angle;
 }
 
-void recalcStartLine(struct RoboStruct rsl[3])
+double computeWindAngle(double windDegrees, double lat, double lon, double centroidLat, double centroidLon)
 {
-    int presentCount = 0, idx[3];
-    for (int i = 0; i < 3; i++) if (rsl[i].tgLat != 0.0) idx[presentCount++] = i;
-    if (presentCount < 2) return;
-    double midLat = (rsl[idx[0]].tgLat + rsl[idx[1]].tgLat) / 2;
-    double midLng = (rsl[idx[0]].tgLng + rsl[idx[1]].tgLng) / 2;
-    double d = distanceBetween(rsl[idx[0]].tgLat, rsl[idx[0]].tgLng, rsl[idx[1]].tgLat, rsl[idx[1]].tgLng);
-    adjustPositionDirDist(fmod(rsl[idx[0]].wDir + 270, 360), d / 2, midLat, midLng, &rsl[idx[0]].tgLat, &rsl[idx[0]].tgLng);
-    adjustPositionDirDist(fmod(rsl[idx[0]].wDir + 90, 360), d / 2, midLat, midLng, &rsl[idx[1]].tgLat, &rsl[idx[1]].tgLng);
-    rsl[idx[0]].trackPos = PORT;
-    rsl[idx[1]].trackPos = STARBOARD;
+    double bearing = calculateBearing(centroidLat, centroidLon, lat, lon);
+    double angleDifference = fabs(windDegrees - bearing);
+    if (angleDifference > 180)
+        angleDifference = 360 - angleDifference;
+    return angleDifference;
 }
 
-void reCalcTrack(struct RoboStruct rsl[3]) {}
+#define INVALID_POINT(p) ((p).tgLat == 0.0 || (p).tgLng == 0.0)
+
+void threePointAverage(struct RoboStruct p3[3], double *latgem, double *lnggem)
+{
+    *latgem = (p3[0].tgLat + p3[1].tgLat + p3[2].tgLat) / 3;
+    *lnggem = (p3[0].tgLng + p3[1].tgLng + p3[2].tgLng) / 3;
+}
+
+void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double *latgem, double *longem)
+{
+    *latgem = (lat1 + lat2) / 2;
+    *longem = (lon1 + lon2) / 2;
+}
+
+void recalcStartLine(struct RoboStruct rsl[3])
+{
+    double d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng);
+    double d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+    double d2 = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+
+    double midLat, midLng;
+    double angleSb, angleBb;
+
+    printf("# Winddir 0:%.2f 1:%.3f 2:%.2f \r\n", rsl[0].wDir, rsl[1].wDir, rsl[2].wDir);
+
+    if (d0 < d1 && d0 < d2)
+    {
+        if (INVALID_POINT(rsl[0]) || INVALID_POINT(rsl[1]))
+        {
+            printf("# No data to compute with (0-1)\r\n");
+            return;
+        }
+
+        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng, &midLat, &midLng);
+        angleSb = fmod(rsl[0].wDir + 90.0, 360.0);
+        angleBb = fmod(angleSb + 180.0, 360.0);
+
+        adjustPositionDirDist(angleBb, d0 / 2, midLat, midLng, &rsl[0].tgLat, &rsl[0].tgLng); // PORT
+        adjustPositionDirDist(angleSb, d0 / 2, midLat, midLng, &rsl[1].tgLat, &rsl[1].tgLng); // STARBOARD
+
+        rsl[0].trackPos = PORT;
+        rsl[1].trackPos = STARBOARD;
+    }
+    else if (d1 < d0 && d1 < d2)
+    {
+        if (INVALID_POINT(rsl[0]) || INVALID_POINT(rsl[2]))
+        {
+            printf("# No data to compute with (0-2)\r\n");
+            return;
+        }
+
+        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &midLat, &midLng);
+        angleSb = fmod(rsl[0].wDir + 90.0, 360.0);
+        angleBb = fmod(angleSb + 180.0, 360.0);
+
+        adjustPositionDirDist(angleBb, d1 / 2, midLat, midLng, &rsl[0].tgLat, &rsl[0].tgLng); // PORT
+        adjustPositionDirDist(angleSb, d1 / 2, midLat, midLng, &rsl[2].tgLat, &rsl[2].tgLng); // STARBOARD
+
+        rsl[0].trackPos = PORT;
+        rsl[2].trackPos = STARBOARD;
+    }
+    else if (d2 < d0 && d2 < d1)
+    {
+        if (INVALID_POINT(rsl[1]) || INVALID_POINT(rsl[2]))
+        {
+            printf("# No data to compute with (1-2)\r\n");
+            return;
+        }
+
+        twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &midLat, &midLng);
+        angleSb = fmod(rsl[1].wDir + 90.0, 360.0);
+        angleBb = fmod(angleSb + 180.0, 360.0);
+
+        adjustPositionDirDist(angleBb, d2 / 2, midLat, midLng, &rsl[1].tgLat, &rsl[1].tgLng); // PORT
+        adjustPositionDirDist(angleSb, d2 / 2, midLat, midLng, &rsl[2].tgLat, &rsl[2].tgLng); // STARBOARD
+
+        rsl[1].trackPos = PORT;
+        rsl[2].trackPos = STARBOARD;
+    }
+}
+
+void reCalcTrack(struct RoboStruct rsl[3])
+{
+    double d0, d1, d2;
+    double startLineL, centerPont2Startline, centerPoint2Head;
+    double angleSb, angleBb, angle180;
+    double lat2gem, lng2gem;
+    double lat3gem, lng3gem;
+
+    // Reset track positions
+    for (int i = 0; i < 3; i++)
+    {
+        rsl[i].trackPos = -1;
+        if (rsl[i].tgLng == 0 || rsl[i].tgLat == 0)
+        {
+            printf("# No data to compute with\r\n");
+            return;
+        }
+    }
+
+    // Midpoint of three buoys
+    threePointAverage(rsl, &lat3gem, &lng3gem);
+    printf("midpoint =(%.12f,%.12f)\r\n", lat3gem, lng3gem);
+
+    // Distances between buoys
+    d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng);
+    d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+    d2 = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+
+    // Determine start line and midpoint of that line
+    if (d0 < d1 && d0 < d2)
+    {
+        startLineL = d0;
+        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng, &lat2gem, &lng2gem);
+    }
+    else if (d1 < d2 && d1 < d0)
+    {
+        startLineL = d1;
+        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &lat2gem, &lng2gem);
+    }
+    else
+    {
+        startLineL = d2;
+        twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &lat2gem, &lng2gem);
+    }
+
+    // Compute wind angles to midpoint
+    double b0 = computeWindAngle(rsl[0].wDir, rsl[0].tgLat, rsl[0].tgLng, lat3gem, lng3gem);
+    double b1 = computeWindAngle(rsl[0].wDir, rsl[1].tgLat, rsl[1].tgLng, lat3gem, lng3gem);
+    double b2 = computeWindAngle(rsl[0].wDir, rsl[2].tgLat, rsl[2].tgLng, lat3gem, lng3gem);
+
+    printf("winddir =(%.1f)\r\n", rsl[0].wDir);
+
+    angle180 = rsl[0].wDir + 180;
+    if (angle180 > 360)
+        angle180 -= 360;
+
+    angleSb = rsl[0].wDir + 90;
+    if (angleSb > 360)
+        angleSb -= 360;
+
+    angleBb = angleSb + 180;
+    if (angleBb > 360)
+        angleBb -= 360;
+
+    // Determine which buoy is HEAD (closest to wind direction)
+    if (b0 < b1 && b0 < b2)
+    {
+        centerPoint2Head = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, lat3gem, lng3gem);
+        centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);
+        adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[0].tgLat, &rsl[0].tgLng); // HEAD
+        adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);
+        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng); // PORT
+        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng); // STARBOARD
+        rsl[0].trackPos = HEAD;
+        rsl[1].trackPos = PORT;
+        rsl[2].trackPos = STARBOARD;
+    }
+    else if (b1 < b0 && b1 < b2)
+    {
+        centerPoint2Head = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, lat3gem, lng3gem);
+        centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);
+        adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[1].tgLat, &rsl[1].tgLng); // HEAD
+        adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);
+        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[0].tgLat, &rsl[0].tgLng); // PORT
+        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng); // STARBOARD
+        rsl[1].trackPos = HEAD;
+        rsl[0].trackPos = PORT;
+        rsl[2].trackPos = STARBOARD;
+    }
+    else
+    {
+        centerPoint2Head = distanceBetween(rsl[2].tgLat, rsl[2].tgLng, lat3gem, lng3gem);
+        centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);
+        adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[2].tgLat, &rsl[2].tgLng); // HEAD
+        adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);
+        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[0].tgLat, &rsl[0].tgLng); // PORT
+        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng); // STARBOARD
+        rsl[2].trackPos = HEAD;
+        rsl[0].trackPos = PORT;
+        rsl[1].trackPos = STARBOARD;
+    }
+}
 
 void trackPosPrint(int c)
 {
     if (c == HEAD) printf("HEAD");
     else if (c == PORT) printf("PORT");
     else if (c == STARBOARD) printf("STARBOARD");
+    else printf("NON");
 }
 
-RoboStruct calcTrackPos(RoboStruct rsl[3]) { return rsl[0]; }
+RoboStruct calcTrackPos(RoboStruct rsl[3])
+{
+    double dir = 0;
+    double d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng); // compute length p0 p1
+    double d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng); // compute length p0 p2
+    double d2 = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng); // compute length p1 p2
+    if (d0 < d1 && d0 < d2)
+    {
+        dir = calculateBearing(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng);
+        if (smallestAngle(rsl[0].wDir, dir) >= 0)
+        {
+            rsl[0].trackPos = PORT;
+            rsl[1].trackPos = STARBOARD;
+            rsl[2].trackPos = HEAD;
+        }
+        else
+        {
+            rsl[0].trackPos = STARBOARD;
+            rsl[1].trackPos = PORT;
+            rsl[2].trackPos = HEAD;
+        }
+    }
+    if (d1 < d0 && d1 < d2)
+    {
+        dir = calculateBearing(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+        if (smallestAngle(rsl[0].wDir, dir) >= 0)
+        {
+            rsl[0].trackPos = PORT;
+            rsl[1].trackPos = HEAD;
+            rsl[2].trackPos = STARBOARD;
+        }
+        else
+        {
+            rsl[0].trackPos = STARBOARD;
+            rsl[1].trackPos = HEAD;
+            rsl[2].trackPos = PORT;
+        }
+    }
+    if (d2 < d0 && d2 < d1)
+    {
+        dir = calculateBearing(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+        if (smallestAngle(rsl[0].wDir, dir) >= 0)
+        {
+            rsl[0].trackPos = HEAD;
+            rsl[1].trackPos = PORT;
+            rsl[2].trackPos = STARBOARD;
+        }
+        else
+        {
+            rsl[0].trackPos = HEAD;
+            rsl[1].trackPos = STARBOARD;
+            rsl[2].trackPos = PORT;
+        }
+    }
+    printf("# dir= %.0f\r\n", dir);
+    return rsl[0];
+}
+
+void MergeBuoyData(RoboStruct *dst, RoboStruct src)
+{
+    // Storing a received message means overwriting the whole cached struct, but every message
+    // type only carries a SUBSET of the fields on the wire. Everything the incoming message does
+    // not carry has to be carried over from what we already knew, otherwise the recurring
+    // BUOYPOS/TOPDATA telemetry blanks it roughly once per second. That single defect caused two
+    // separate symptoms: a remote buoy's set point survived only one telemetry cycle after it
+    // locked (so the field view never drew it), and its SETUPDATA reply was wiped well before the
+    // web UI could poll it (so the Setup dialog always timed out).
+    bool carriesTarget = (src.cmd == LOCKPOS || src.cmd == DOCKPOS ||
+                          src.cmd == SETLOCKPOS || src.cmd == SETDOCKPOS);
+    bool carriesConfig = (src.cmd == SETUPDATA);
+    bool carriesTrim = (src.cmd == ADAPTIVE_TRIM);
+
+    RoboStruct prev = *dst;
+    *dst = src;
+
+    if (!carriesTarget)
+    {
+        dst->tgLat = prev.tgLat;
+        dst->tgLng = prev.tgLng;
+    }
+    if (!carriesConfig)
+    {
+        dst->Kpr = prev.Kpr; dst->Kir = prev.Kir; dst->Kdr = prev.Kdr;
+        dst->Kps = prev.Kps; dst->Kis = prev.Kis; dst->Kds = prev.Kds;
+        dst->maxSpeed = prev.maxSpeed;
+        dst->minSpeed = prev.minSpeed;
+        dst->pivotSpeed = prev.pivotSpeed;
+        dst->compassOffset = prev.compassOffset;
+        dst->holdRad = prev.holdRad;
+        dst->revBB = prev.revBB;
+        dst->revSB = prev.revSB;
+        dst->swap_BB_SB = prev.swap_BB_SB;
+        dst->sub_status = prev.sub_status; // revision counter the web UI polls on
+    }
+    if (!carriesTrim)
+    {
+        dst->compass_trim = prev.compass_trim;
+        dst->compass_trim_enabled = prev.compass_trim_enabled;
+    }
+    // A SETUPDATA/ADAPTIVE_TRIM reply carries no position, so keep the last known fix as well.
+    if (!carriesTarget && (carriesConfig || carriesTrim))
+    {
+        dst->lat = prev.lat;
+        dst->lng = prev.lng;
+        dst->status = prev.status;
+        dst->gpsFix = prev.gpsFix;
+        dst->dirMag = prev.dirMag;
+    }
+}
 
 void AddDataToBuoyBase(RoboStruct dataIn, RoboStruct *buoyPara[3])
 {
@@ -770,7 +1016,7 @@ void AddDataToBuoyBase(RoboStruct dataIn, RoboStruct *buoyPara[3])
     {
         if (buoyPara[i] && (dataIn.IDs == buoyPara[i]->IDs || buoyPara[i]->IDs == 0))
         {
-            *buoyPara[i] = dataIn;
+            MergeBuoyData(buoyPara[i], dataIn);
             return;
         }
     }

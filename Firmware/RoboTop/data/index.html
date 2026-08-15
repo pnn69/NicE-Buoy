@@ -218,9 +218,10 @@ input {
   <button onclick="openTab('Field')" id="btn_Field">Field</button>
 </div>
 
-<div style="margin: 10px 0; display: flex; justify-content: center; align-items: center; gap: 15px;">
+<div style="margin: 10px 0; display: flex; justify-content: center; align-items: center; gap: 15px; position: relative;">
+  <span id="buoyIdContainer" style="font-size: 28px; font-weight: bold; color: #555; vertical-align: middle; display: inline-block;"><span id="buoyIdText">---</span></span>
+  <span style="font-size: 28px; font-weight: bold; color: #bbb; vertical-align: middle; display: inline-block;">|</span>
   <h1 id="title" style="margin: 0; display: inline-block; vertical-align: middle;">WAITING...</h1>
-  <span id="pingContainer" style="font-size: 22px; font-weight: bold; color: #003366; vertical-align: middle;">Ping: <span id="pingVal" style="color: #ff9900; font-weight: bold;">0</span>ms</span>
 </div>
 
 <div id="fieldWrapper" style="display:none; width:100%; max-width:800px; margin:0 auto; background:white; border:1px solid #ccc; border-radius:8px; overflow:hidden;">
@@ -314,11 +315,12 @@ input {
     </div>
 
     <!-- Active Trim Controls -->
-    <div style="margin-top:15px; display:flex; justify-content:space-around; align-items:center; background:#f8f9fa; padding:10px; border-radius:8px; border:1px solid #ddd; gap: 8px;">
+    <div style="margin-top:15px; display:flex; justify-content:space-between; align-items:center; background:#f8f9fa; padding:10px; border-radius:8px; border:1px solid #ddd; gap: 8px;">
         <div style="font-size:14px; font-weight:bold; color:black; white-space:nowrap;">Active Trim: <span id="activeTrimText" style="color:red;">Disabled</span></div>
         <div style="font-size:14px; font-weight:bold; color:black; white-space:nowrap;">Correction: <span id="correctionText">0.00</span></div>
         <button id="btnToggleTrim" onclick="toggleActiveTrim()" style="background:#ffc107; color:black; font-weight:bold; margin:0; padding:5px 12px; width:auto; height:32px; font-size:13px; border-radius:4px; border:none; cursor:pointer;">Toggle Trim</button>
         <button id="btnClearTrim" onclick="clearActiveTrim()" style="background:#f85149; color:white; font-weight:bold; margin:0; padding:5px 12px; width:auto; height:32px; font-size:13px; border-radius:4px; border:none; cursor:pointer;">Clear</button>
+        <span id="pingContainer" style="font-size: 13px; font-weight: bold; color: #003366; white-space: nowrap; vertical-align: middle; margin-left:auto;">Ping: <span id="pingVal" style="color: #ff9900; font-weight: bold;">0</span>ms</span>
     </div>
 </div>
 
@@ -411,9 +413,9 @@ input {
 <script>
 let currentBuoy = 1;
 let buoyData = {
-    1: { ID: "TEST_TOP", Status: 13, BB: 65, SB: -40, TgDist: 3.2, PIDI: 0.45, SubPerc: 85, MagDir: 45, TgDir: 50, WDir: 10, GpsDir: 40, GpsFix: "true", Lat: "52.3731", Lng: "4.8926" },
-    2: { ID: "TEST_SUB1", Status: 7, BB: 0, SB: 0, TgDist: 0, PIDI: 0, SubPerc: 42, MagDir: 180, TgDir: null, WDir: null, GpsDir: null, GpsFix: "false", Lat: "52.3580", Lng: "4.8686" },
-    3: { ID: "TEST_SUB2", Status: 16, BB: -15, SB: 15, TgDist: 15.5, PIDI: -0.12, SubPerc: 18, MagDir: 275, TgDir: 285, WDir: null, GpsDir: 265, GpsFix: "true", Lat: "52.3563", Lng: "4.8811" }
+    1: { ID: "TEST_TOP", Status: 13, BB: 65, SB: -40, TgDist: 3.2, PIDI: 0.45, SubPerc: 85, MagDir: 45, TgDir: 50, WDir: 10, GpsDir: 40, GpsFix: "true", Lat: "52.3731", Lng: "4.8926", TgLat: "52.3735", TgLng: "4.8931" },
+    2: { ID: "TEST_SUB1", Status: 7, BB: 0, SB: 0, TgDist: 0, PIDI: 0, SubPerc: 42, MagDir: 180, TgDir: null, WDir: null, GpsDir: null, GpsFix: "false", Lat: "52.3580", Lng: "4.8686", TgLat: "0", TgLng: "0" },
+    3: { ID: "TEST_SUB2", Status: 16, BB: -15, SB: 15, TgDist: 15.5, PIDI: -0.12, SubPerc: 18, MagDir: 275, TgDir: 285, WDir: null, GpsDir: 265, GpsFix: "true", Lat: "52.3563", Lng: "4.8811", TgLat: "52.3558", TgLng: "4.8805" }
 };
 
 function updateConfig() {
@@ -705,10 +707,19 @@ function drawField() {
         let b = buoyData[i];
         const hasFix = b && String(b.GpsFix || "0").trim().toLowerCase() === "true" || String(b.GpsFix || "0").trim() === "1";
         if (b && b.ID !== "0" && hasFix && b.Lat && b.Lng && !isNaN(parseFloat(b.Lat)) && !isNaN(parseFloat(b.Lng))) {
+            // A buoy only has a set point while it is actually holding one. When it is idle the
+            // TgLat/TgLng fields still contain the last (or a stale stored) target. Drawing that
+            // is not just cosmetic: the target is included in the auto-scale bounds below, so one
+            // stale target kilometres away shrinks the scale until every buoy collapses into a
+            // single dot in the middle of the field.
+            const st = parseInt(b.Status);
+            const holdsTarget = (st === 12 || st === 13 || st === 14 || st === 15 || st === 16);
             validBuoys.push({
                 id: i,
                 lat: parseFloat(b.Lat),
                 lng: parseFloat(b.Lng),
+                tgLat: (holdsTarget && b.TgLat) ? parseFloat(b.TgLat) : 0,
+                tgLng: (holdsTarget && b.TgLng) ? parseFloat(b.TgLng) : 0,
                 wDir: parseFloat(b.WDir) || 0,
                 heading: parseFloat(b.MagDir) || 0
             });
@@ -742,7 +753,19 @@ function drawField() {
         let cx = dist * Math.sin(relBearing);
         let cy = -dist * Math.cos(relBearing);
 
-        points.push({ ...b, cx, cy });
+        // Target waypoint coords
+        let tgCx = null, tgCy = null;
+        if (b.tgLat && b.tgLng && b.tgLat !== 0 && b.tgLng !== 0) {
+            let tdx = (b.tgLng - refLng) * Math.cos(refLat * deg2rad) * 111320;
+            let tdy = (b.tgLat - refLat) * 111000;
+            let tdist = Math.sqrt(tdx*tdx + tdy*tdy);
+            let tbearing = Math.atan2(tdx, tdy);
+            let trelBearing = tbearing - (refWDir * deg2rad);
+            tgCx = tdist * Math.sin(trelBearing);
+            tgCy = -tdist * Math.cos(trelBearing);
+        }
+
+        points.push({ ...b, cx, cy, tgCx, tgCy });
     });
 
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -754,6 +777,13 @@ function drawField() {
         if (p.cy > maxY) maxY = p.cy;
         sumX += p.cx;
         sumY += p.cy;
+
+        if (p.tgCx !== null && p.tgCy !== null) {
+            if (p.tgCx < minX) minX = p.tgCx;
+            if (p.tgCx > maxX) maxX = p.tgCx;
+            if (p.tgCy < minY) minY = p.tgCy;
+            if (p.tgCy > maxY) maxY = p.tgCy;
+        }
     });
 
     let centerX = sumX / points.length;
@@ -813,6 +843,40 @@ function drawField() {
         }
     }
     ctx.setLineDash([]);
+
+    // Target Waypoint Lines and Waypoints
+    points.forEach(p => {
+        if (p.tgCx !== null && p.tgCy !== null) {
+            let sx = (p.cx - centerX) * scale;
+            let sy = (p.cy - centerY) * scale;
+            let tgSx = (p.tgCx - centerX) * scale;
+            let tgSy = (p.tgCy - centerY) * scale;
+
+            // Dashed line from buoy to its waypoint
+            ctx.strokeStyle = "rgba(255, 140, 0, 0.6)"; // Dark orange, transparent
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            ctx.lineTo(tgSx, tgSy);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Waypoint circle marker
+            ctx.fillStyle = "rgba(255, 140, 0, 0.85)"; // Orange fill
+            ctx.strokeStyle = "black";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(tgSx, tgSy, 5, 0, Math.PI*2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Label for Waypoint
+            ctx.fillStyle = "darkorange";
+            ctx.font = "italic bold 12px Arial";
+            ctx.fillText("T" + p.id, tgSx + 12, tgSy + 4);
+        }
+    });
 
     // Buoys
     points.forEach(p => {
@@ -937,7 +1001,17 @@ function updateUI() {
     controls.style.display = 'block';
 
     // Status and Strings
-    titleEl.innerText = getStatusText(b.Status);
+    const statusText = getStatusText(b.Status);
+    titleEl.innerText = statusText;
+    const statusIndicatorText = document.getElementById("statusIndicatorText");
+    if (statusIndicatorText) {
+        statusIndicatorText.innerText = statusText;
+    }
+    const buoyIdText = document.getElementById("buoyIdText");
+    if (buoyIdText) {
+        buoyIdText.innerText = b.ID ? String(b.ID).toUpperCase() : "---";
+    }
+
     const tgDist = parseFloat(b.TgDist || 0);
     const pidIs = parseFloat(b.PIDI || 0);
     const pidIr = parseFloat(b.PIDR || 0);
@@ -960,7 +1034,7 @@ function updateUI() {
         const trimEnabled = (String(b.compass_trim_enabled).toLowerCase() === "true" || b.compass_trim_enabled === 1 || b.compass_trim_enabled === "1" || b.compass_trim_enabled === true);
         activeTrimText.innerText = trimEnabled ? "Enabled" : "Disabled";
         activeTrimText.style.color = trimEnabled ? "green" : "red";
-        
+
         const corrFactor = parseFloat(b.compass_trim !== undefined ? b.compass_trim : (b.mechanicCorrection || 0));
         correctionText.innerText = (corrFactor >= 0 ? "+" : "") + corrFactor.toFixed(2) + "°";
     }
@@ -1091,10 +1165,16 @@ function fetchData() {
         });
 }
 
-window.onload = () => {
+function initPage() {
     openTab(1);
     fetchData();
-};
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initPage);
+} else {
+    initPage();
+}
 </script>
 
 </body>
