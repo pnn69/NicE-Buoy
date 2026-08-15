@@ -433,9 +433,9 @@ input[type=checkbox] {
 <!-- Collecting Data Overlay -->
 <div id="collectingOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1100; justify-content:center; align-items:center;">
     <div style="background:#252525; padding:30px; border-radius:10px; text-align:center; border:1px solid #333; box-shadow: 0 4px 15px rgba(0,0,0,0.6);">
-        <h2 style="margin-bottom:15px; color:#00d1ff;">Collecting data...</h2>
-        <div style="font-size:18px; font-weight:bold; color:#aaa;">Please wait for Sub Buoy response</div>
-        <div id="collectingTimer" style="margin-top:10px; font-size:14px; color:#888;">Timeout in 2s</div>
+        <h2 id="collectingTitle" style="margin-bottom:15px; color:#00d1ff;">Collecting data...</h2>
+        <div id="collectingText" style="font-size:18px; font-weight:bold; color:#aaa;">Please wait for Sub Buoy response</div>
+        <div id="collectingTimer" style="margin-top:10px; font-size:14px; color:#888;">Timeout in 5s</div>
     </div>
 </div>
 
@@ -591,24 +591,59 @@ function openMap() {
 let waitingForSetupData = false;
 let setupTimeoutTimer = null;
 let requestedRev = 0;
+let requestedBuoy = null;
+
+// The dialog is only ever filled in when a buoy answers. Everything below exists so that a
+// buoy which does NOT answer can never leave another buoy's values on screen: a remote buoy
+// whose rev never advances used to inherit whatever the previously opened buoy had left in
+// the inputs, under its own "Setup Buoy N" heading.
+function blankSetupFields() {
+    ["Kpr","Kir","Kdr","Kps","Kis","Kds","maxSpeed","minSpeed","pivotSpeed","compassOffset",
+     "holdrad","mechanicCorrection","dockAppDist","dockAppDir"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
+    ["revBB","revSB","swap_BB_SB","compass_trim_enabled","dockToWP"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.checked = false;
+    });
+}
 
 function openSetup(bid) {
     if (bid !== undefined) currentBuoy = bid;
 
     const b = buoyData[currentBuoy];
     requestedRev = parseInt(b ? b.rev : 0) || 0;
+    requestedBuoy = currentBuoy;
+
+    // Never show a half-populated form: the modal stays hidden until real data arrives, and the
+    // stale values are cleared now so they cannot be submitted by a later UPDATE CONFIG either.
+    document.getElementById("setupModal").style.display = "none";
+    blankSetupFields();
 
     // 1. Show "Collecting data..." overlay
+    document.getElementById("collectingTitle").innerText = "Collecting data...";
+    document.getElementById("collectingTitle").style.color = "#00d1ff";
+    document.getElementById("collectingText").innerText = "Please wait for Buoy " + currentBuoy + " to respond";
     document.getElementById("collectingOverlay").style.display = "flex";
 
     waitingForSetupData = true;
 
-    // 2. Set a 5-second timeout to close the overlay if no response
+    // 2. Set a 5-second timeout. Report the failure rather than quietly dropping the overlay:
+    //    the dialog must not open at all, because a blank form submitted with UPDATE CONFIG
+    //    would write zeros into a perfectly good buoy.
     if (setupTimeoutTimer) clearTimeout(setupTimeoutTimer);
     setupTimeoutTimer = setTimeout(() => {
         if (waitingForSetupData) {
             waitingForSetupData = false;
-            document.getElementById("collectingOverlay").style.display = "none";
+            const failedFor = requestedBuoy;
+            requestedBuoy = null;
+            document.getElementById("collectingTitle").innerText = "No response";
+            document.getElementById("collectingTitle").style.color = "#f85149";
+            document.getElementById("collectingText").innerText = "Buoy " + failedFor + " did not send its setup";
+            setTimeout(() => {
+                document.getElementById("collectingOverlay").style.display = "none";
+            }, 2500);
         }
     }, 5000);
 
@@ -625,12 +660,19 @@ function openSetup(bid) {
 
 function closeSetup() {
     document.getElementById("setupModal").style.display = "none";
+    document.getElementById("collectingOverlay").style.display = "none";
+    if (setupTimeoutTimer) clearTimeout(setupTimeoutTimer);
     waitingForSetupData = false;
+    requestedBuoy = null;
 }
 
 function updateSetupModal() {
     // If we are waiting for data, check if we've received a NEW revision yet
     if (waitingForSetupData) {
+        // Only accept the answer for the buoy we actually asked. Switching tabs mid-wait would
+        // otherwise fill the dialog from whichever buoy happened to bump its rev first.
+        if (requestedBuoy !== currentBuoy) return;
+
         const b = buoyData[currentBuoy];
         if (!b) return;
 
@@ -699,9 +741,12 @@ function sendSetupCommand(cmd) {
 
 /* Tabs */
 function openTab(id) {
+    // The Setup dialog belongs to the buoy it was opened for. Leaving it up across a tab switch
+    // left its heading and its values pointing at different buoys.
+    if (currentBuoy !== id && typeof closeSetup === "function") closeSetup();
     currentBuoy = id;
     document.querySelectorAll(".tab button").forEach(b => b.classList.remove("active"));
-    
+
     if (id === 'Field') {
         document.getElementById("btn_Field").classList.add("active");
         document.getElementById("title").innerText = "Field View";

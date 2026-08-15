@@ -1356,19 +1356,30 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     // Prioritize Buoy 0 (Main) if its IDs matches or if it hasn't synced its Sub ID yet.
 
                     int targetIdx = -1;
-                    for (int i = 0; i < 3; i++) {
-                        if (buoyPara[i]->IDs == RfIn.IDs) {
-                            targetIdx = i;
-                            break;
-                        }
+                    // A reply carrying either of OUR identities is ours, and slot 0 is the only
+                    // slot that may hold it. We answer to both the physical MAC and the logical
+                    // ID re-synced from the Sub; the old test matched slot 0 by IDs alone and
+                    // fell back to "first free slot from 1", so when those two diverged our own
+                    // setup reply was filed under a remote buoy. The web Setup dialog then
+                    // showed our PID / limits / compass values under that buoy's number, and its
+                    // rev counter advanced, which is what made the wrong data look freshly
+                    // fetched rather than stale.
+                    if (RfIn.IDs == RfOut->mac || RfIn.IDs == RfOut->IDs) {
+                        targetIdx = 0;
                     }
-                    if (targetIdx == -1) {
-                        // Avoid slot 0 for fallback if the packet is from another buoy
-                        int start_idx = (RfIn.IDs == RfOut->mac) ? 0 : 1;
-                        for (int i = start_idx; i < 3; i++) {
-                            if (buoyPara[i]->IDs == 0) {
+                    else {
+                        for (int i = 1; i < 3; i++) {
+                            if (buoyPara[i]->IDs == RfIn.IDs) {
                                 targetIdx = i;
                                 break;
+                            }
+                        }
+                        if (targetIdx == -1) {
+                            for (int i = 1; i < 3; i++) {
+                                if (buoyPara[i]->IDs == 0) {
+                                    targetIdx = i;
+                                    break;
+                                }
                             }
                         }
                     }
@@ -1385,7 +1396,11 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                         // without this a remote buoy's Setup would sit on "Collecting data..."
                         // until it timed out, even though the data had already arrived.
                         buoyPara[targetIdx]->sub_status = rev + 1;
-                        if (targetIdx == 0) RfOut->IDs = RfIn.IDs; // Sync mainData ID
+                        // Sync mainData ID on first contact only. This was a no-op before, since
+                        // slot 0 could only be selected when its IDs already equalled RfIn.IDs.
+                        // Now that a reply matching our MAC also lands here, an unguarded
+                        // assignment would overwrite the logical ID synced from the Sub.
+                        if (targetIdx == 0 && RfOut->IDs == 0) RfOut->IDs = RfIn.IDs;
                     }
                     // Forward across interfaces
                     if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
