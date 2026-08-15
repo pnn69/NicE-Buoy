@@ -8,6 +8,7 @@ struct BuoyData {
     bool present = false;
     unsigned long last_seen_ms = 0;
     String ip_addr = ""; // Connection IP address (empty if LoRa only)
+    int lora_rssi = -999; // LoRa received signal strength indicator (-999 if no active LoRa telemetry)
     
     // Telemetry fields
     String status = "UNKNOWN";
@@ -66,7 +67,7 @@ extern bool in_mannav_mode;    // True when manually navigating the buoy!
 extern unsigned long last_udp_blink_ms;
 extern unsigned long last_lora_blink_ms;
 
-void parse_buoy_packet(const String &packetStr, const String &source);
+void parse_buoy_packet(const String &packetStr, const String &source, int rssi = -999);
 void send_buoy_command(const String &buoy_id, int cmd_code);
 
 // Query setup parameters from buoy exactly matching webpage GET formatting

@@ -939,12 +939,14 @@ void update_dynamic_ui() {
             int current_present = (buoys[i].id == "") ? -1 : (buoys[i].present ? 1 : 0);
             
             static String last_drawn_ips[3] = {"", "", ""};
+            static int last_drawn_rssis[3] = {-999, -999, -999};
             
-            // Only draw/redraw if the ID, online presence, or IP address changed!
-            if (buoys[i].id != last_drawn_ids[i] || current_present != last_drawn_present[i] || buoys[i].ip_addr != last_drawn_ips[i]) {
+            // Only draw/redraw if the ID, online presence, IP address, or RSSI changed!
+            if (buoys[i].id != last_drawn_ids[i] || current_present != last_drawn_present[i] || buoys[i].ip_addr != last_drawn_ips[i] || buoys[i].lora_rssi != last_drawn_rssis[i]) {
                 last_drawn_ids[i] = buoys[i].id;
                 last_drawn_present[i] = current_present;
                 last_drawn_ips[i] = buoys[i].ip_addr;
+                last_drawn_rssis[i] = buoys[i].lora_rssi;
                 
                 // Clear only this button's area first (height 40!)
                 tft.fillRect(10, y, w - 20, 40, TFT_BLACK);
@@ -965,7 +967,20 @@ void update_dynamic_ui() {
                     tft.setTextDatum(TC_DATUM);
                     tft.drawString("Buoy " + String(i+1) + ": " + buoys[i].id, w / 2, y + 3);
                     
-                    String conn_str = (buoys[i].ip_addr == "") ? "LoRa only" : buoys[i].ip_addr;
+                    String conn_str = "";
+                    if (buoys[i].ip_addr == "") {
+                        if (buoys[i].lora_rssi != -999) {
+                            conn_str = "LoRa: " + String(buoys[i].lora_rssi) + "dBm";
+                        } else {
+                            conn_str = "LoRa only";
+                        }
+                    } else {
+                        if (buoys[i].lora_rssi != -999) {
+                            conn_str = buoys[i].ip_addr + " (" + String(buoys[i].lora_rssi) + ")";
+                        } else {
+                            conn_str = buoys[i].ip_addr;
+                        }
+                    }
                     tft.drawString(conn_str, w / 2, y + 20);
                 } else {
                     // Offline: Red button

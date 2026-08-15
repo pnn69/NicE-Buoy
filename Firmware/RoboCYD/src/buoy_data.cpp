@@ -27,7 +27,7 @@ uint8_t calculate_crc(const String &content) {
     return crc;
 }
 
-void parse_buoy_packet(const String &packetStr, const String &source) {
+void parse_buoy_packet(const String &packetStr, const String &source, int rssi) {
     // If the corresponding communication channel is disabled, silently discard the message
     bool is_udp = source.startsWith("UDP");
     if (is_udp && !udp_enabled) return;
@@ -118,6 +118,8 @@ void parse_buoy_packet(const String &packetStr, const String &source) {
     buoys[buoy_idx].last_seen_ms = millis();
     if (source.startsWith("UDP:")) {
         buoys[buoy_idx].ip_addr = source.substring(4);
+    } else if (source == "LoRa") {
+        buoys[buoy_idx].lora_rssi = rssi;
     }
     
     int status_code = atoi(fields[4].c_str());
