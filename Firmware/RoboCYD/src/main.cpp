@@ -988,7 +988,7 @@ void update_dynamic_ui() {
         tft.fillCircle(190, h - 29, 4, globalLoraDotColor);
         
         // Draw global UDP blinking dot on mainscreen right of the IP address (at X: 230, Y: h - 13)
-        uint16_t globalUdpDotColor = (millis() - last_udp_blink_ms < 300) ? TFT_GREEN : TFT_BLACK;
+        uint16_t globalUdpDotColor = (millis() - last_udp_blink_ms < 100) ? TFT_GREEN : TFT_BLACK;
         tft.fillCircle(230, h - 13, 4, globalUdpDotColor);
     } else {
         if (in_setup_mode) {
