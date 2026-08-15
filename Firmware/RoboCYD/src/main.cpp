@@ -915,9 +915,9 @@ void update_nav_dynamic() {
     tft.setTextDatum(TL_DATUM);
     tft.setTextPadding(65); // Overwrite old RSSI smoothly!
     if (b.lora_rssi != -999) {
-        sprintf(buf, "R:%d", b.lora_rssi);
+        sprintf(buf, "%d", b.lora_rssi);
     } else {
-        sprintf(buf, "R:---");
+        sprintf(buf, "---");
     }
     tft.drawString(buf, 15, 5);
 }
