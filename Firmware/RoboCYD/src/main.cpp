@@ -7,6 +7,22 @@
 #include "buoy_data.h"
 #include "RGBledDriver.h"
 
+// Pick the buoy whose wind reading should drive a course computation.
+//
+// COMPUTESTART/COMPUTETRACK are executed by whichever buoy receives them, and that buoy squares
+// the start line against ITS OWN wind direction. Sending the command to "the first buoy in the
+// list" is therefore not safe: a buoy with a failed compass reports wDir/wStd as 0/0, which is
+// indistinguishable from a real due-north calm, and the line silently comes out squared to north.
+// Same test the wind overlay already uses to decide it has no data to draw.
+static int pick_wind_reference_buoy() {
+    for (int i = 0; i < 3; i++) {
+        if (buoys[i].id != "" && (buoys[i].wind_dir != 0 || buoys[i].wind_std != 0)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 unsigned long lastUIUpdate = 0;
 int lastKnownState = -2; // Used to trigger a static redraw on state change
 bool lastSetupState = false; // Tracks setup screen state transitions
@@ -1152,19 +1168,16 @@ void loop() {
                     tft.setTextDatum(MC_DATUM);
                     tft.drawString("COMPUTING...", tft.width() / 2, 180);
                     
-                    // Find first active buoy and send command 62 (COMPUTESTART)
-                    bool sent = false;
-                    for (int i = 0; i < 3; i++) {
-                        if (buoys[i].id != "") {
-                            send_buoy_command(buoys[i].id, 62);
-                            sent = true;
-                            break;
-                        }
-                    }
-                    if (!sent) {
+                    // Send COMPUTESTART (62) to a buoy that actually has a wind reading - the
+                    // receiving buoy squares the start line against its own wind, so picking one
+                    // reporting 0/0 would lay the line out against a fake northerly.
+                    int wind_idx = pick_wind_reference_buoy();
+                    if (wind_idx >= 0) {
+                        send_buoy_command(buoys[wind_idx].id, 62);
+                    } else {
                         tft.fillRect(10, 150, 220, 60, TFT_BLACK);
                         tft.setTextColor(TFT_RED, TFT_BLACK);
-                        tft.drawString("NO ACTIVE BUOY!", tft.width() / 2, 180);
+                        tft.drawString("NO WIND DATA!", tft.width() / 2, 180);
                     }
                     delay(800);
                     reset_button_draw_cache();
@@ -1178,19 +1191,15 @@ void loop() {
                     tft.setTextDatum(MC_DATUM);
                     tft.drawString("COMPUTING...", tft.width() / 2, 180);
                     
-                    // Find first active buoy and send command 63 (COMPUTETRACK)
-                    bool sent = false;
-                    for (int i = 0; i < 3; i++) {
-                        if (buoys[i].id != "") {
-                            send_buoy_command(buoys[i].id, 63);
-                            sent = true;
-                            break;
-                        }
-                    }
-                    if (!sent) {
+                    // Send COMPUTETRACK (63) to a buoy that actually has a wind reading, for the
+                    // same reason as ALIGN STARTLINE above.
+                    int wind_idx = pick_wind_reference_buoy();
+                    if (wind_idx >= 0) {
+                        send_buoy_command(buoys[wind_idx].id, 63);
+                    } else {
                         tft.fillRect(10, 150, 220, 60, TFT_BLACK);
                         tft.setTextColor(TFT_RED, TFT_BLACK);
-                        tft.drawString("NO ACTIVE BUOY!", tft.width() / 2, 180);
+                        tft.drawString("NO WIND DATA!", tft.width() / 2, 180);
                     }
                     delay(800);
                     reset_button_draw_cache();
