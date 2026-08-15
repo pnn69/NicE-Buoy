@@ -422,6 +422,8 @@ String RoboCode(const RoboStruct *dataOut)
         break;
     case DOCKED:
     case LOCKED:
+    case DOCKING:
+    case LOCKING:
         out += "," + String(dataOut->tgDir, 1);
         out += "," + String(dataOut->tgDist, 1);
         out += "," + String(dataOut->tgSpeed, 1);
@@ -433,6 +435,7 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->tgSpeed, 0);
         break;
     case IDLE:
+    case IDELING:
         out += ",0,0";
         break;
     case PING:
@@ -687,28 +690,255 @@ double calculateAngleSigned(double x1, double y1, double x2, double y2)
     return angle;
 }
 
-void recalcStartLine(struct RoboStruct rsl[3])
+#define INVALID_POINT(p) ((p).tgLat == 0.0 || (p).tgLng == 0.0)
+
+void threePointAverage(struct RoboStruct p3[3], double *latgem, double *lnggem)
 {
-    int presentCount = 0, idx[3];
-    for (int i = 0; i < 3; i++) if (rsl[i].tgLat != 0.0) idx[presentCount++] = i;
-    if (presentCount < 2) return;
-    double midLat = (rsl[idx[0]].tgLat + rsl[idx[1]].tgLat) / 2;
-    double midLng = (rsl[idx[0]].tgLng + rsl[idx[1]].tgLng) / 2;
-    double d = distanceBetween(rsl[idx[0]].tgLat, rsl[idx[0]].tgLng, rsl[idx[1]].tgLat, rsl[idx[1]].tgLng);
-    adjustPositionDirDist(fmod(rsl[idx[0]].wDir + 270, 360), d / 2, midLat, midLng, &rsl[idx[0]].tgLat, &rsl[idx[0]].tgLng);
-    adjustPositionDirDist(fmod(rsl[idx[0]].wDir + 90, 360), d / 2, midLat, midLng, &rsl[idx[1]].tgLat, &rsl[idx[1]].tgLng);
+    *latgem = (p3[0].tgLat + p3[1].tgLat + p3[2].tgLat) / 3;
+    *lnggem = (p3[0].tgLng + p3[1].tgLng + p3[2].tgLng) / 3;
 }
 
-void reCalcTrack(struct RoboStruct rsl[3]) {}
+void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double *latgem, double *longem)
+{
+    *latgem = (lat1 + lat2) / 2;
+    *longem = (lon1 + lon2) / 2;
+}
+
+void recalcStartLine(struct RoboStruct rsl[3])
+{
+    double d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng);
+    double d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+    double d2 = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+
+    double midLat, midLng;
+    double angleSb, angleBb;
+
+    printf("# Winddir 0:%.2f 1:%.3f 2:%.2f \r\n", rsl[0].wDir, rsl[1].wDir, rsl[2].wDir);
+
+    if (d0 < d1 && d0 < d2)
+    {
+        if (INVALID_POINT(rsl[0]) || INVALID_POINT(rsl[1]))
+        {
+            printf("# No data to compute with (0-1)\r\n");
+            return;
+        }
+
+        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng, &midLat, &midLng);
+        angleSb = fmod(rsl[0].wDir + 90.0, 360.0);
+        angleBb = fmod(angleSb + 180.0, 360.0);
+
+        adjustPositionDirDist(angleBb, d0 / 2, midLat, midLng, &rsl[0].tgLat, &rsl[0].tgLng); // PORT
+        adjustPositionDirDist(angleSb, d0 / 2, midLat, midLng, &rsl[1].tgLat, &rsl[1].tgLng); // STARBOARD
+
+        rsl[0].trackPos = PORT;
+        rsl[1].trackPos = STARBOARD;
+    }
+    else if (d1 < d0 && d1 < d2)
+    {
+        if (INVALID_POINT(rsl[0]) || INVALID_POINT(rsl[2]))
+        {
+            printf("# No data to compute with (0-2)\r\n");
+            return;
+        }
+
+        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &midLat, &midLng);
+        angleSb = fmod(rsl[0].wDir + 90.0, 360.0);
+        angleBb = fmod(angleSb + 180.0, 360.0);
+
+        adjustPositionDirDist(angleBb, d1 / 2, midLat, midLng, &rsl[0].tgLat, &rsl[0].tgLng); // PORT
+        adjustPositionDirDist(angleSb, d1 / 2, midLat, midLng, &rsl[2].tgLat, &rsl[2].tgLng); // STARBOARD
+
+        rsl[0].trackPos = PORT;
+        rsl[2].trackPos = STARBOARD;
+    }
+    else if (d2 < d0 && d2 < d1)
+    {
+        if (INVALID_POINT(rsl[1]) || INVALID_POINT(rsl[2]))
+        {
+            printf("# No data to compute with (1-2)\r\n");
+            return;
+        }
+
+        twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &midLat, &midLng);
+        angleSb = fmod(rsl[1].wDir + 90.0, 360.0);
+        angleBb = fmod(angleSb + 180.0, 360.0);
+
+        adjustPositionDirDist(angleBb, d2 / 2, midLat, midLng, &rsl[1].tgLat, &rsl[1].tgLng); // PORT
+        adjustPositionDirDist(angleSb, d2 / 2, midLat, midLng, &rsl[2].tgLat, &rsl[2].tgLng); // STARBOARD
+
+        rsl[1].trackPos = PORT;
+        rsl[2].trackPos = STARBOARD;
+    }
+}
+
+void reCalcTrack(struct RoboStruct rsl[3])
+{
+    double d0, d1, d2;
+    double startLineL, centerPont2Startline, centerPoint2Head;
+    double angleSb, angleBb, angle180;
+    double lat2gem, lng2gem;
+    double lat3gem, lng3gem;
+
+    // Reset track positions
+    for (int i = 0; i < 3; i++)
+    {
+        rsl[i].trackPos = -1;
+        if (rsl[i].tgLng == 0 || rsl[i].tgLat == 0)
+        {
+            printf("# No data to compute with\r\n");
+            return;
+        }
+    }
+
+    // Midpoint of three buoys
+    threePointAverage(rsl, &lat3gem, &lng3gem);
+    printf("midpoint =(%.12f,%.12f)\r\n", lat3gem, lng3gem);
+
+    // Distances between buoys
+    d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng);
+    d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+    d2 = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+
+    // Determine start line and midpoint of that line
+    if (d0 < d1 && d0 < d2)
+    {
+        startLineL = d0;
+        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng, &lat2gem, &lng2gem);
+    }
+    else if (d1 < d2 && d1 < d0)
+    {
+        startLineL = d1;
+        twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &lat2gem, &lng2gem);
+    }
+    else
+    {
+        startLineL = d2;
+        twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &lat2gem, &lng2gem);
+    }
+
+    // Compute wind angles to midpoint
+    double b0 = computeWindAngle(rsl[0].wDir, rsl[0].tgLat, rsl[0].tgLng, lat3gem, lng3gem);
+    double b1 = computeWindAngle(rsl[0].wDir, rsl[1].tgLat, rsl[1].tgLng, lat3gem, lng3gem);
+    double b2 = computeWindAngle(rsl[0].wDir, rsl[2].tgLat, rsl[2].tgLng, lat3gem, lng3gem);
+
+    printf("winddir =(%.1f)\r\n", rsl[0].wDir);
+
+    angle180 = rsl[0].wDir + 180;
+    if (angle180 > 360)
+        angle180 -= 360;
+
+    angleSb = rsl[0].wDir + 90;
+    if (angleSb > 360)
+        angleSb -= 360;
+
+    angleBb = angleSb + 180;
+    if (angleBb > 360)
+        angleBb -= 360;
+
+    // Determine which buoy is HEAD (closest to wind direction)
+    if (b0 < b1 && b0 < b2)
+    {
+        centerPoint2Head = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, lat3gem, lng3gem);
+        centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);
+        adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[0].tgLat, &rsl[0].tgLng); // HEAD
+        adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);
+        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng); // PORT
+        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng); // STARBOARD
+        rsl[0].trackPos = HEAD;
+        rsl[1].trackPos = PORT;
+        rsl[2].trackPos = STARBOARD;
+    }
+    else if (b1 < b0 && b1 < b2)
+    {
+        centerPoint2Head = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, lat3gem, lng3gem);
+        centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);
+        adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[1].tgLat, &rsl[1].tgLng); // HEAD
+        adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);
+        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[0].tgLat, &rsl[0].tgLng); // PORT
+        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng); // STARBOARD
+        rsl[1].trackPos = HEAD;
+        rsl[0].trackPos = PORT;
+        rsl[2].trackPos = STARBOARD;
+    }
+    else
+    {
+        centerPoint2Head = distanceBetween(rsl[2].tgLat, rsl[2].tgLng, lat3gem, lng3gem);
+        centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);
+        adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[2].tgLat, &rsl[2].tgLng); // HEAD
+        adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);
+        adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[0].tgLat, &rsl[0].tgLng); // PORT
+        adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng); // STARBOARD
+        rsl[2].trackPos = HEAD;
+        rsl[0].trackPos = PORT;
+        rsl[1].trackPos = STARBOARD;
+    }
+}
 
 void trackPosPrint(int c)
 {
     if (c == HEAD) printf("HEAD");
     else if (c == PORT) printf("PORT");
     else if (c == STARBOARD) printf("STARBOARD");
+    else printf("NON");
 }
 
-RoboStruct calcTrackPos(RoboStruct rsl[3]) { return rsl[0]; }
+RoboStruct calcTrackPos(RoboStruct rsl[3])
+{
+    double dir = 0;
+    double d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng); // compute length p0 p1
+    double d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng); // compute length p0 p2
+    double d2 = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng); // compute length p1 p2
+    if (d0 < d1 && d0 < d2)
+    {
+        dir = calculateBearing(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng);
+        if (smallestAngle(rsl[0].wDir, dir) >= 0)
+        {
+            rsl[0].trackPos = PORT;
+            rsl[1].trackPos = STARBOARD;
+            rsl[2].trackPos = HEAD;
+        }
+        else
+        {
+            rsl[0].trackPos = STARBOARD;
+            rsl[1].trackPos = PORT;
+            rsl[2].trackPos = HEAD;
+        }
+    }
+    if (d1 < d0 && d1 < d2)
+    {
+        dir = calculateBearing(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+        if (smallestAngle(rsl[0].wDir, dir) >= 0)
+        {
+            rsl[0].trackPos = PORT;
+            rsl[1].trackPos = HEAD;
+            rsl[2].trackPos = STARBOARD;
+        }
+        else
+        {
+            rsl[0].trackPos = STARBOARD;
+            rsl[1].trackPos = HEAD;
+            rsl[2].trackPos = PORT;
+        }
+    }
+    if (d2 < d0 && d2 < d1)
+    {
+        dir = calculateBearing(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+        if (smallestAngle(rsl[0].wDir, dir) >= 0)
+        {
+            rsl[0].trackPos = HEAD;
+            rsl[1].trackPos = PORT;
+            rsl[2].trackPos = STARBOARD;
+        }
+        else
+        {
+            rsl[0].trackPos = HEAD;
+            rsl[1].trackPos = STARBOARD;
+            rsl[2].trackPos = PORT;
+        }
+    }
+    printf("# dir= %.0f\r\n", dir);
+    return rsl[0];
+}
 
 void AddDataToBuoyBase(RoboStruct dataIn, RoboStruct *buoyPara[3])
 {
