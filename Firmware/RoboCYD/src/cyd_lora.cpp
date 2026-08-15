@@ -60,11 +60,11 @@ void check_lora_packets() {
         Serial.print("): ");
         Serial.println(message);
         
-        // Parse incoming packet and update our buoy data structure
-        parse_buoy_packet(message, "LoRa");
-
         // Fetch active packet RSSI directly from the Ra-02 LoRa radio
         int rssi = LoRa.packetRssi();
+
+        // Parse incoming packet and update our buoy data structure
+        parse_buoy_packet(message, "LoRa", rssi);
 
         // Broadcast over WebSockets so the webpage shows real-time LoRa telemetry!
         broadcast_websocket_lora(message, rssi);
