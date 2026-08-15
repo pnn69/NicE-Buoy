@@ -6,18 +6,29 @@
 <title>Robobuoy Dashboard</title>
 
 <style>
+/*
+ * Dark theme matching the RoboSub web interface, so both boards look like one
+ * system. Palette taken from RoboSub/data/index.html:
+ *   page #1a1a1a   panel #252525 / #1e1e1e   border #333 / #555
+ *   accent cyan #00d1ff   amber #ffcc00   red #f85149 / #ff3333
+ *   blue #58a6ff   green #10b981 / #56d364   purple #8b5cf6   muted #aaa
+ */
 body {
     font-family: Arial, sans-serif;
-    background: #e6e6e6;
+    background: #1a1a1a;
+    color: #fff;
     text-align: center;
     margin: 10px;
 }
 
+hr { border: none; border-top: 1px solid #333; }
+h2, h4 { color: #00d1ff; }
+
 /* Tabs */
 .tab {
   overflow: hidden;
-  border: 1px solid #ccc;
-  background-color: #f1f1f1;
+  border: 1px solid #333;
+  background-color: #252525;
   margin-bottom: 15px;
   display: flex;
 }
@@ -28,16 +39,19 @@ body {
   padding: 12px 5px;
   cursor: pointer;
   background: inherit;
+  color: #fff;
   font-size: 16px;
   transition: 0.3s;
 }
 
 .tab button:hover {
-  background-color: #ddd;
+  background-color: #333;
 }
 
 .tab button.active {
-  background: #ccc;
+  background: #00d1ff;
+  color: #1a1a1a;
+  font-weight: bold;
 }
 
 /* Layout */
@@ -60,8 +74,8 @@ body {
     width: 25px;
     height: 250px;
     margin: 5px auto;
-    background: #dcdcdc;
-    border: 1px solid #777;
+    background: #333;
+    border: 1px solid #555;
     border-radius: 4px;
     position: relative;
     overflow: hidden;
@@ -95,21 +109,21 @@ body {
     position: absolute;
     width: 100%;
     height: 2px;
-    background: black;
+    background: #888;
     top: 50%;
 }
 
 .bar-positive {
     position: absolute;
     width: 100%;
-    background: green;
+    background: #56d364;
     bottom: 50%;
 }
 
 .bar-negative {
     position: absolute;
     width: 100%;
-    background: red;
+    background: #f85149;
     top: 50%;
 }
 
@@ -123,10 +137,11 @@ body {
 .compassCircle {
     width: 250px;
     height: 250px;
-    border: 3px solid black;
+    border: 3px solid #2c2c2c;
     border-radius: 50%;
     margin: auto;
     position: relative;
+    background: #161616;
 }
 
 .dirLabel {
@@ -134,7 +149,7 @@ body {
     font-weight: bold;
     font-size: 18px;
 }
-.n { top:5px; left:50%; transform:translateX(-50%); }
+.n { top:5px; left:50%; transform:translateX(-50%); color:#ff3333; }
 .s { bottom:5px; left:50%; transform:translateX(-50%); }
 .e { right:5px; top:50%; transform:translateY(-50%); }
 .w { left:5px; top:50%; transform:translateY(-50%); }
@@ -143,9 +158,9 @@ body {
 .battery {
     width: 200px;
     height: 20px;
-    background: #ccc;
+    background: #333;
     border-radius: 6px;
-    border: 1px solid #777;
+    border: 1px solid #555;
     margin: auto;
     position: relative;
 }
@@ -153,7 +168,7 @@ body {
 .batteryFill {
     position: absolute;
     height: 100%;
-    background: green;
+    background: #2a6a2a;
 }
 
 /* Buttons */
@@ -161,26 +176,29 @@ button {
     padding: 8px 20px;
     margin: 5px;
     font-size: 16px;
-    border-radius: 8px;
-    border: 1px solid #777;
+    border-radius: 4px;
+    border: none;
     cursor: pointer;
-    background: #eee;
+    background: #00d1ff;
+    color: #1a1a1a;
+    font-weight: bold;
 }
 
 button:disabled {
-    background: #ccc;
+    background: #333;
+    color: #777;
     cursor: not-allowed;
 }
 
 .lock-btn-active {
-    background: green;
-    color: white;
-    border: 2px solid darkgreen;
+    background: #10b981;
+    color: #fff;
+    border: 2px solid #0d7a5f;
 }
 .dock-btn-active {
-    background: #2196f3;
-    color: white;
-    border: 2px solid #0069d9;
+    background: #58a6ff;
+    color: #0d1117;
+    border: 2px solid #1f6feb;
 }
 
 /* Inputs */
@@ -196,14 +214,20 @@ input {
     width: 70px;
     padding: 4px;
     font-size: 16px;
-    border: 1px solid #ccc;
+    background: #333;
+    color: #fff;
+    border: 1px solid #555;
     border-radius: 4px;
+}
+
+input[type=checkbox] {
+    accent-color: #00d1ff;
 }
 
 #title {
     font-size: 28px;
     font-weight: bold;
-    color: #003366;
+    color: #00d1ff;
     margin-bottom: 10px;
 }
 </style>
@@ -219,18 +243,18 @@ input {
 </div>
 
 <div style="margin: 10px 0; display: flex; justify-content: center; align-items: center; gap: 15px; position: relative;">
-  <span id="buoyIdContainer" style="font-size: 28px; font-weight: bold; color: #555; vertical-align: middle; display: inline-block;"><span id="buoyIdText">---</span></span>
-  <span style="font-size: 28px; font-weight: bold; color: #bbb; vertical-align: middle; display: inline-block;">|</span>
+  <span id="buoyIdContainer" style="font-size: 28px; font-weight: bold; color: #aaa; vertical-align: middle; display: inline-block;"><span id="buoyIdText">---</span></span>
+  <span style="font-size: 28px; font-weight: bold; color: #555; vertical-align: middle; display: inline-block;">|</span>
   <h1 id="title" style="margin: 0; display: inline-block; vertical-align: middle;">WAITING...</h1>
 </div>
 
-<div id="fieldWrapper" style="display:none; width:100%; max-width:800px; margin:0 auto; background:white; border:1px solid #ccc; border-radius:8px; overflow:hidden;">
+<div id="fieldWrapper" style="display:none; width:100%; max-width:800px; margin:0 auto; background:#161616; border:1px solid #333; border-radius:8px; overflow:hidden;">
     <div style="height:400px; width:100%;">
         <canvas id="fieldCanvas" style="width:100%; height:100%;"></canvas>
     </div>
-    <div style="padding: 10px; background: #eee; border-top: 1px solid #ccc; display: flex; justify-content: center; gap: 10px;">
-        <button onclick="sendFieldCommand('COMPUTESTART')" style="background: #2196f3; color: white; font-weight: bold;">COMPUTE STARTLINE</button>
-        <button onclick="sendFieldCommand('COMPUTETRACK')" style="background: #4caf50; color: white; font-weight: bold;">COMPUTE TRACK</button>
+    <div style="padding: 10px; background: #1e1e1e; border-top: 1px solid #333; display: flex; justify-content: center; gap: 10px;">
+        <button onclick="sendFieldCommand('COMPUTESTART')" style="background: #58a6ff; color: #0d1117; font-weight: bold;">COMPUTE STARTLINE</button>
+        <button onclick="sendFieldCommand('COMPUTETRACK')" style="background: #10b981; color: white; font-weight: bold;">COMPUTE TRACK</button>
     </div>
 </div>
 
@@ -239,13 +263,13 @@ input {
         <div>BB</div>
         <div class="side-bar" id="barBB"><div class="zero-line"></div></div>
         <div id="bbValue" class="valueText">0%</div>
-        <div id="isVal" style="font-size:14px; font-weight:bold; color:purple; margin-top:10px;">Is:0</div>
+        <div id="isVal" style="font-size:14px; font-weight:bold; color:#8b5cf6; margin-top:10px;">Is:0</div>
     </div>
 
     <div>
         <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-            <span id="distanceText" style="font-size:28px;color:red;font-weight:bold;">0m</span>
-            <div id="windStdContainer" style="text-align: right; color:blue; font-weight:bold; font-size:20px; line-height:1.2;">
+            <span id="distanceText" style="font-size:28px;color:#ff3333;font-weight:bold;">0m</span>
+            <div id="windStdContainer" style="text-align: right; color:#58a6ff; font-weight:bold; font-size:20px; line-height:1.2;">
                 <div id="intervalSpeedText">Wind:0</div>
                 <div id="intervalRudderText">STD:0</div>
             </div>
@@ -260,35 +284,35 @@ input {
         </div>
 
         <div style="display:flex; justify-content:space-between; margin-top:8px;">
-            <span id="targetDirText" style="font-size:24px;color:red;font-weight:bold;">Tg:---</span>
-            <span id="magDirText" style="font-size:24px;color:green;font-weight:bold;">Mag:---</span>
+            <span id="targetDirText" style="font-size:24px;color:#ff3333;font-weight:bold;">Tg:---</span>
+            <span id="magDirText" style="font-size:24px;color:#56d364;font-weight:bold;">Mag:---</span>
         </div>
 
         <div style="display:flex;gap:10px;align-items:center;justify-content:center;margin-top:10px;">
             <span>17V</span>
             <div class="battery">
                 <div id="batteryFill" class="batteryFill"></div>
-                <div id="batteryText" style="position:absolute; width:100%; text-align:center; font-weight:bold; color:black; line-height:20px;">0.0V</div>
+                <div id="batteryText" style="position:absolute; width:100%; text-align:center; font-weight:bold; color:#fff; line-height:20px;">0.0V</div>
             </div>
             <span>25V</span>
         </div>
 
         <div style="margin-top:10px; display:none;">
             <div style="display:flex;gap:10px;align-items:center;justify-content:center;margin-top:2px;">
-                <span style="color:orange;font-weight:bold;">-5A</span>
-                <div class="battery" style="background:#ddd; position:relative;">
-                    <div id="currentFill" class="batteryFill" style="background:orange; width:0%;"></div>
-                    <div id="currentBarText" style="position:absolute; width:100%; text-align:center; font-weight:bold; color:black; line-height:20px;">0.0A</div>
+                <span style="color:#ffcc00;font-weight:bold;">-5A</span>
+                <div class="battery" style="background:#333; position:relative;">
+                    <div id="currentFill" class="batteryFill" style="background:#ffcc00; width:0%;"></div>
+                    <div id="currentBarText" style="position:absolute; width:100%; text-align:center; font-weight:bold; color:#fff; line-height:20px;">0.0A</div>
                 </div>
-                <span style="color:orange;font-weight:bold;">20A</span>
+                <span style="color:#ffcc00;font-weight:bold;">20A</span>
             </div>
         </div>
 
         <div style="margin-top:10px;">
-            <span style="color:red;">■ Target</span>
-            <span style="color:green;">■ Mag</span>
-            <span style="color:blue;">■ Wind</span>
-            <span style="color:black;">■ GPS</span>
+            <span style="color:#ff3333;">■ Target</span>
+            <span style="color:#56d364;">■ Mag</span>
+            <span style="color:#58a6ff;">■ Wind</span>
+            <span style="color:#eee;">■ GPS</span>
         </div>
     </div>
 
@@ -296,7 +320,7 @@ input {
         <div>SB</div>
         <div class="side-bar" id="barSB"><div class="zero-line"></div></div>
         <div id="sbValue" class="valueText">0%</div>
-        <div id="irVal" style="font-size:14px; font-weight:bold; color:purple; margin-top:10px;">Ir:0</div>
+        <div id="irVal" style="font-size:14px; font-weight:bold; color:#8b5cf6; margin-top:10px;">Ir:0</div>
     </div>
 </div>
 
@@ -315,21 +339,21 @@ input {
     </div>
 
     <!-- Active Trim Controls -->
-    <div style="margin-top:15px; display:flex; justify-content:space-between; align-items:center; background:#f8f9fa; padding:10px; border-radius:8px; border:1px solid #ddd; gap: 8px;">
-        <div style="font-size:14px; font-weight:bold; color:black; white-space:nowrap;">Active Trim: <span id="activeTrimText" style="color:red;">Disabled</span></div>
-        <div style="font-size:14px; font-weight:bold; color:black; white-space:nowrap;">Correction: <span id="correctionText">0.00</span></div>
-        <button id="btnToggleTrim" onclick="toggleActiveTrim()" style="background:#ffc107; color:black; font-weight:bold; margin:0; padding:5px 12px; width:auto; height:32px; font-size:13px; border-radius:4px; border:none; cursor:pointer;">Toggle Trim</button>
+    <div style="margin-top:15px; display:flex; justify-content:space-between; align-items:center; background:#252525; padding:10px; border-radius:8px; border:1px solid #333; gap: 8px;">
+        <div style="font-size:14px; font-weight:bold; color:#fff; white-space:nowrap;">Active Trim: <span id="activeTrimText" style="color:#ff3333;">Disabled</span></div>
+        <div style="font-size:14px; font-weight:bold; color:#fff; white-space:nowrap;">Correction: <span id="correctionText">0.00</span></div>
+        <button id="btnToggleTrim" onclick="toggleActiveTrim()" style="background:#ffcc00; color:#1a1a1a; font-weight:bold; margin:0; padding:5px 12px; width:auto; height:32px; font-size:13px; border-radius:4px; border:none; cursor:pointer;">Toggle Trim</button>
         <button id="btnClearTrim" onclick="clearActiveTrim()" style="background:#f85149; color:white; font-weight:bold; margin:0; padding:5px 12px; width:auto; height:32px; font-size:13px; border-radius:4px; border:none; cursor:pointer;">Clear</button>
-        <span id="pingContainer" style="font-size: 13px; font-weight: bold; color: #003366; white-space: nowrap; vertical-align: middle; margin-left:auto;">Ping: <span id="pingVal" style="color: #ff9900; font-weight: bold;">0</span>ms</span>
+        <span id="pingContainer" style="font-size: 13px; font-weight: bold; color: #aaa; white-space: nowrap; vertical-align: middle; margin-left:auto;">Ping: <span id="pingVal" style="color: #ffcc00; font-weight: bold;">0</span>ms</span>
     </div>
 </div>
 
 <!-- Setup Modal -->
 <div id="setupModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; overflow-y:auto;">
-    <div style="background:#fff; margin: 5% auto; padding:20px; width:90%; max-width:400px; border-radius:10px; text-align:left;">
+    <div style="background:#252525; margin: 5% auto; padding:20px; width:90%; max-width:400px; border-radius:10px; text-align:left; border:1px solid #333;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <h2 style="margin:0;">Setup Buoy <span id="setupBuoyId"></span></h2>
-            <button onclick="closeSetup()" style="margin:0; background:red; color:white;">X</button>
+            <button onclick="closeSetup()" style="margin:0; background:#f85149; color:white;">X</button>
         </div>
         <hr style="margin: 8px 0;">
         
@@ -390,22 +414,22 @@ input {
         
         <hr style="margin: 15px 0 10px 0;">
         
-        <button onclick="updateConfig()" style="width:100%; background:#28a745; color:white; font-weight:bold; height: 45px; font-size: 18px; margin: 0 0 15px 0;">UPDATE CONFIG</button>
+        <button onclick="updateConfig()" style="width:100%; background:#10b981; color:white; font-weight:bold; height: 45px; font-size: 18px; margin: 0 0 15px 0;">UPDATE CONFIG</button>
 
         <h4 style="margin: 10px 0 8px 0;">In-Field Calibration</h4>
         <div style="display:flex; flex-direction:column; gap:8px;">
-            <button onclick="sendSetupCommand('MANUAL_CALIB')" style="width:100%; background:#d9534f; color:white; font-weight:bold; height: 45px; font-size: 16px; margin:0;">Desk Calibration (60s Figure-8)</button>
-            <button onclick="sendSetupCommand('SET_AS_NORTH')" style="width:100%; background:#5bc0de; color:white; font-weight:bold; height: 45px; font-size: 16px; margin:0;">Set as North</button>
-            <button onclick="if(confirm('Are you sure you want to reboot this buoy?')) sendSetupCommand('REBOOT')" style="width:100%; background:#f0ad4e; color:white; font-weight:bold; height: 45px; font-size: 16px; margin:0;">Reboot Buoy</button>
+            <button onclick="sendSetupCommand('MANUAL_CALIB')" style="width:100%; background:#f85149; color:white; font-weight:bold; height: 45px; font-size: 16px; margin:0;">Desk Calibration (60s Figure-8)</button>
+            <button onclick="sendSetupCommand('SET_AS_NORTH')" style="width:100%; background:#58a6ff; color:#0d1117; font-weight:bold; height: 45px; font-size: 16px; margin:0;">Set as North</button>
+            <button onclick="if(confirm('Are you sure you want to reboot this buoy?')) sendSetupCommand('REBOOT')" style="width:100%; background:#ffcc00; color:#1a1a1a; font-weight:bold; height: 45px; font-size: 16px; margin:0;">Reboot Buoy</button>
         </div>
     </div>
 </div>
 
 <!-- Collecting Data Overlay -->
 <div id="collectingOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1100; justify-content:center; align-items:center;">
-    <div style="background:#fff; padding:30px; border-radius:10px; text-align:center; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
-        <h2 style="margin-bottom:15px; color:#003366;">Collecting data...</h2>
-        <div style="font-size:18px; font-weight:bold; color:#555;">Please wait for Sub Buoy response</div>
+    <div style="background:#252525; padding:30px; border-radius:10px; text-align:center; border:1px solid #333; box-shadow: 0 4px 15px rgba(0,0,0,0.6);">
+        <h2 style="margin-bottom:15px; color:#00d1ff;">Collecting data...</h2>
+        <div style="font-size:18px; font-weight:bold; color:#aaa;">Please wait for Sub Buoy response</div>
         <div id="collectingTimer" style="margin-top:10px; font-size:14px; color:#888;">Timeout in 2s</div>
     </div>
 </div>
@@ -727,7 +751,7 @@ function drawField() {
     }
 
     if (validBuoys.length === 0) {
-        ctx.fillStyle = "black";
+        ctx.fillStyle = "#aaa";
         ctx.font = "20px Arial";
         ctx.textAlign = "center";
         ctx.fillText("No GPS Data Available", canvas.width/2, canvas.height/2);
@@ -797,25 +821,25 @@ function drawField() {
     ctx.translate(canvas.width/2, canvas.height/2);
 
     // Wind Arrow at center (points UP)
-    ctx.strokeStyle = "rgba(0,0,255,0.5)";
+    ctx.strokeStyle = "rgba(88,166,255,0.6)";
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(0, 30);
     ctx.lineTo(0, -30);
     ctx.stroke();
     ctx.beginPath();
-    ctx.fillStyle = "rgba(0,0,255,0.5)";
+    ctx.fillStyle = "rgba(88,166,255,0.6)";
     ctx.moveTo(0, -40);
     ctx.lineTo(-8, -20);
     ctx.lineTo(8, -20);
     ctx.fill();
-    ctx.fillStyle = "blue";
+    ctx.fillStyle = "#58a6ff";
     ctx.font = "14px Arial";
     ctx.textAlign = "center";
     ctx.fillText("Wind", 0, 45);
 
     // Distance lines
-    ctx.strokeStyle = "rgba(0,0,0,0.3)";
+    ctx.strokeStyle = "rgba(255,255,255,0.18)";
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 5]);
     for(let i=0; i<points.length; i++) {
@@ -837,7 +861,7 @@ function drawField() {
             let dist = Math.sqrt(dx*dx + dy*dy).toFixed(1);
             let mx = (sx1 + sx2) / 2;
             let my = (sy1 + sy2) / 2;
-            ctx.fillStyle = "black";
+            ctx.fillStyle = "#aaa";
             ctx.font = "bold 12px Arial";
             ctx.fillText(dist + "m", mx, my - 5);
         }
@@ -853,7 +877,7 @@ function drawField() {
             let tgSy = (p.tgCy - centerY) * scale;
 
             // Dashed line from buoy to its waypoint
-            ctx.strokeStyle = "rgba(255, 140, 0, 0.6)"; // Dark orange, transparent
+            ctx.strokeStyle = "rgba(255, 204, 0, 0.6)"; // Amber, transparent
             ctx.lineWidth = 2;
             ctx.setLineDash([4, 4]);
             ctx.beginPath();
@@ -863,8 +887,8 @@ function drawField() {
             ctx.setLineDash([]);
 
             // Waypoint circle marker
-            ctx.fillStyle = "rgba(255, 140, 0, 0.85)"; // Orange fill
-            ctx.strokeStyle = "black";
+            ctx.fillStyle = "rgba(255, 204, 0, 0.85)"; // Amber fill
+            ctx.strokeStyle = "#1a1a1a";
             ctx.lineWidth = 1.5;
             ctx.beginPath();
             ctx.arc(tgSx, tgSy, 5, 0, Math.PI*2);
@@ -872,7 +896,7 @@ function drawField() {
             ctx.stroke();
 
             // Label for Waypoint
-            ctx.fillStyle = "darkorange";
+            ctx.fillStyle = "#ffcc00";
             ctx.font = "italic bold 12px Arial";
             ctx.fillText("T" + p.id, tgSx + 12, tgSy + 4);
         }
@@ -883,15 +907,15 @@ function drawField() {
         let sx = (p.cx - centerX) * scale;
         let sy = (p.cy - centerY) * scale;
 
-        ctx.fillStyle = "red";
-        ctx.strokeStyle = "black"; // Reset stroke to black for the circle
+        ctx.fillStyle = "#ff3333";
+        ctx.strokeStyle = "#1a1a1a"; // Reset stroke to page background for the circle
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.arc(sx, sy, 8, 0, Math.PI*2);
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = "black";
+        ctx.fillStyle = "#fff";
         ctx.font = "bold 14px Arial";
         // Move the text slightly further away from the circle (from sx + 15 to sx + 18, and sy + 6 to sy + 8)
         ctx.fillText("B" + p.id, sx + 18, sy + 8);
@@ -902,7 +926,7 @@ function drawField() {
         let hx = sx + 20 * Math.sin(hRad);
         let hy = sy - 20 * Math.cos(hRad);
 
-        ctx.strokeStyle = "green";
+        ctx.strokeStyle = "#56d364";
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(sx, sy);
@@ -948,7 +972,7 @@ function drawCompass(mag, target, wind, gps) {
 
     ctx.beginPath();
     ctx.arc(center, center, radius, 0, 2 * Math.PI);
-    ctx.strokeStyle = "#bbb";
+    ctx.strokeStyle = "#555";
     ctx.stroke();
 
     function arrow(angle, color, length, width) {
@@ -977,10 +1001,10 @@ function drawCompass(mag, target, wind, gps) {
         ctx.fill();
     }
 
-    arrow(mag, "green", 0.9, 3);
-    arrow(wind, "blue", 0.7, 2);
-    arrow(gps, "black", 0.8, 2);
-    arrow(target, "red", 1.0, 4);
+    arrow(mag, "#56d364", 0.9, 3);
+    arrow(wind, "#58a6ff", 0.7, 2);
+    arrow(gps, "#eee", 0.8, 2);
+    arrow(target, "#ff3333", 1.0, 4);
 }
 
 /* Update UI */
@@ -1033,7 +1057,7 @@ function updateUI() {
     if (activeTrimText && correctionText) {
         const trimEnabled = (String(b.compass_trim_enabled).toLowerCase() === "true" || b.compass_trim_enabled === 1 || b.compass_trim_enabled === "1" || b.compass_trim_enabled === true);
         activeTrimText.innerText = trimEnabled ? "Enabled" : "Disabled";
-        activeTrimText.style.color = trimEnabled ? "green" : "red";
+        activeTrimText.style.color = trimEnabled ? "#56d364" : "#ff3333";
 
         const corrFactor = parseFloat(b.compass_trim !== undefined ? b.compass_trim : (b.mechanicCorrection || 0));
         correctionText.innerText = (corrFactor >= 0 ? "+" : "") + corrFactor.toFixed(2) + "°";
@@ -1048,7 +1072,7 @@ function updateUI() {
     const subVolt = parseFloat(b.SubVolt || 0);
     const batteryFill = document.getElementById("batteryFill");
     batteryFill.style.width = perc + "%";
-    batteryFill.style.background = perc > 20 ? 'green' : 'red';
+    batteryFill.style.background = perc > 20 ? '#2a6a2a' : '#f85149';
     document.getElementById("batteryText").innerText = (!isNaN(subVolt)) ? subVolt.toFixed(1) + "V" : "0.0V";
 
     // Current (Amps)
