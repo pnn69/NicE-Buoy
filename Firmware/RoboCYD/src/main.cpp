@@ -904,22 +904,22 @@ void update_nav_dynamic() {
     
     // --- 7. Update Blinking Telemetry Indicators (Top-Left for UDP, Top-Right for LoRa) ---
     uint16_t udpDotColor = (millis() - last_udp_blink_ms < 300) ? TFT_GREEN : TFT_BLACK;
-    tft.fillCircle(15, 22, 4, udpDotColor);
+    tft.fillCircle(15, 13, 4, udpDotColor);
     
     uint16_t loraDotColor = (millis() - last_lora_blink_ms < 300) ? TFT_CYAN : TFT_BLACK;
-    tft.fillCircle(225, 22, 4, loraDotColor);
+    tft.fillCircle(225, 13, 4, loraDotColor);
     
-    // --- 8. Update Live LoRa RSSI in Top-Left Corner of Header (Y: 5, X: 15) ---
+    // --- 8. Update Live LoRa RSSI in Top-Left Corner of Header (Y: 10, X: 25) ---
     tft.setTextColor(TFT_CYAN, TFT_BLACK);
-    tft.setTextSize(2);
+    tft.setTextSize(1); // Smaller font size 1!
     tft.setTextDatum(TL_DATUM);
-    tft.setTextPadding(65); // Overwrite old RSSI smoothly!
+    tft.setTextPadding(30); // Compact padding to prevent overwriting center ID!
     if (b.lora_rssi != -999) {
         sprintf(buf, "%d", b.lora_rssi);
     } else {
         sprintf(buf, "---");
     }
-    tft.drawString(buf, 15, 5);
+    tft.drawString(buf, 25, 10);
 }
 
 void update_dynamic_ui() {
