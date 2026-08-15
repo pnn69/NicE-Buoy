@@ -51,9 +51,25 @@ void RoboDecode(String data, RoboStruct *dataStore)
           dataStore->pivotSpeed = numbers[10].toDouble();
           dataStore->compassOffset = numbers[11].toDouble();
           dataStore->holdRad = numbers[12].toDouble();
-          if (numbers[13].length() > 0) dataStore->revBB = (bool)numbers[13].toInt();
-          if (numbers[14].length() > 0) dataStore->revSB = (bool)numbers[14].toInt();
-          if (numbers[15].length() > 0) dataStore->swap_BB_SB = (bool)numbers[15].toInt();
+          // Presence is decided by the field COUNT, not by whether the token is empty.
+          // RoboCode() compresses any all-zero token to "" (see the note in the ADAPTIVE_TRIM
+          // case), so an empty field here means the value is zero - testing .length() would make
+          // it impossible to ever clear a flag or set a distance back to 0. A frame that is
+          // simply shorter, from an older node or from the CYD's GET query, leaves the current
+          // values untouched.
+          if (count > 13) dataStore->revBB = (bool)numbers[13].toInt();
+          if (count > 14) dataStore->revSB = (bool)numbers[14].toInt();
+          if (count > 15) dataStore->swap_BB_SB = (bool)numbers[15].toInt();
+          // The CYD has always put these four on the wire (send_buoy_setup() in
+          // RoboCYD/src/buoy_data.cpp) and reads them back at the same offsets, but this decoder
+          // stopped at swap_BB_SB, so they arrived as whatever the receive struct happened to
+          // hold - zero. RoboTop then committed that zero to its NVM on a CYD "SAVE SETUP"
+          // (handleRfData case SETUPDATA), which is how the dock approach settings silently
+          // reset themselves to 0/0/false.
+          if (count > 16) dataStore->compass_trim_enabled = (bool)numbers[16].toInt();
+          if (count > 17) dataStore->dockApproachDist = numbers[17].toInt();
+          if (count > 18) dataStore->dockApproachDir = numbers[18].toInt();
+          if (count > 19) dataStore->dockingToWaypoint = (bool)numbers[19].toInt();
           break;
     case IDLE:
         dataStore->speed = 0;
@@ -269,6 +285,13 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String((int)dataOut->revBB);
         out += "," + String((int)dataOut->revSB);
         out += "," + String((int)dataOut->swap_BB_SB);
+        // Same four fields the CYD sends, in the same order it parses them back
+        // (fields[19..22] there, numbers[16..19] here). Without them a buoy's SETUPDATA reply
+        // could never tell anyone what its dock approach actually is.
+        out += "," + String((int)dataOut->compass_trim_enabled);
+        out += "," + String(dataOut->dockApproachDist);
+        out += "," + String(dataOut->dockApproachDir);
+        out += "," + String((int)dataOut->dockingToWaypoint);
         break;
     case DIRSPEED:
         out += "," + formatFloat(dataOut->dirMag, 2);
@@ -1078,6 +1101,10 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
         dst->holdRad = src.holdRad;
         dst->revBB = src.revBB;         dst->revSB = src.revSB;
         dst->swap_BB_SB = src.swap_BB_SB;
+        dst->compass_trim_enabled = src.compass_trim_enabled;
+        dst->dockApproachDist = src.dockApproachDist;
+        dst->dockApproachDir = src.dockApproachDir;
+        dst->dockingToWaypoint = src.dockingToWaypoint;
         break;
 
     case ADAPTIVE_TRIM:
