@@ -1,0 +1,5 @@
+this system will be used to controle 3 bouys.
+there are two ways of communication. UDP trough the wifi channel and lora messages.
+Look in the dir C:\tmp\NicE-Buoy\Firmware\RoboLora how the communication is been handled.
+On the display make 3 buttons one for each bouy make the button green and react on a click if the the bouy is pressent
+when clicked show the data of that bouy like been done in C:\tmp\NicE-Buoy\Firmware\RoboPythonDisplay

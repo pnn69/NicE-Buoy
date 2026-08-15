@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICM-20948 9DoF Telemetry</title>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(17, 24, 39, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-color: #f3f4f6;
+            --text-muted: #9ca3af;
+            --cyan: #06b6d4;
+            --green: #10b981;
+            --purple: #8b5cf6;
+            --orange: #f97316;
+            --red: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.1) 0px, transparent 50%),
+                radial-gradient(at 50% 0%, rgba(139, 92, 246, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-color);
+            min-height: 100vh;
+            padding: 1.5rem;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 1.5rem;
+        }
+
+        @media (min-width: 768px) {
+            header {
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+            }
+        }
+
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            background: linear-gradient(to right, var(--cyan), var(--purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.375rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--red);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .status-badge.connected {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--green);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: currentColor;
+            display: inline-block;
+        }
+
+        .status-badge.connected .status-dot {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.5; }
+            100% { transform: scale(0.9); opacity: 1; }
+        }
+
+        .meta-item {
+            font-size: 0.875rem;
+            background-color: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.5rem;
+            color: var(--text-muted);
+        }
+
+        .meta-item strong {
+            color: var(--text-color);
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (min-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (min-width: 1200px) {
+            .dashboard-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .card:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 0.75rem;
+        }
+
+        .card-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card-accent-cyan { border-top: 3px solid var(--cyan); }
+        .card-accent-green { border-top: 3px solid var(--green); }
+        .card-accent-purple { border-top: 3px solid var(--purple); }
+        .card-accent-orange { border-top: 3px solid var(--orange); }
+
+        .data-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .data-label {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .data-value-group {
+            text-align: right;
+        }
+
+        .data-value {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-color);
+        }
+
+        .data-unit {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-left: 0.25rem;
+        }
+
+        /* Progress bars for Gyro, etc. */
+        .progress-container {
+            width: 100%;
+            height: 6px;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 9999px;
+            overflow: hidden;
+            margin-top: 0.25rem;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            transition: width 0.1s ease-out;
+            border-radius: 9999px;
+        }
+
+        .bg-cyan { background-color: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+        .bg-green { background-color: var(--green); box-shadow: 0 0 8px var(--green); }
+        .bg-purple { background-color: var(--purple); box-shadow: 0 0 8px var(--purple); }
+        .bg-orange { background-color: var(--orange); box-shadow: 0 0 8px var(--orange); }
+
+        /* Canvas visualizers */
+        .canvas-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 0.75rem;
+            padding: 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        canvas {
+            max-width: 100%;
+            display: block;
+        }
+
+        /* Full width card for settings/OTA */
+        .card-full {
+            grid-column: 1 / -1;
+        }
+
+        .ota-instructions {
+            background-color: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.875rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            color: #38bdf8;
+        }
+
+        .axis-indicator {
+            display: inline-block;
+            width: 1.25rem;
+            font-weight: 800;
+            text-align: center;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            line-height: 1.25rem;
+            margin-right: 0.25rem;
+        }
+        .axis-x { background-color: rgba(6, 182, 212, 0.15); color: var(--cyan); }
+        .axis-y { background-color: rgba(16, 185, 129, 0.15); color: var(--green); }
+        .axis-z { background-color: rgba(139, 92, 246, 0.15); color: var(--purple); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>ICM-20948 IMU Telemetry</h1>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">High-Speed Real-Time Sensor Diagnostics</p>
+            </div>
+            <div class="header-meta">
+                <span id="conn-status" class="status-badge">
+                    <span class="status-dot"></span>
+                    <span id="conn-text">Connecting...</span>
+                </span>
+                <span class="meta-item">RSSI: <strong id="wifi-rssi">-</strong> dBm</span>
+                <span class="meta-item">Uptime: <strong id="sys-uptime">-</strong>s</span>
+                <span class="meta-item">Device: <strong>ICM20948</strong></span>
+            </div>
+        </header>
+
+        <div class="dashboard-grid">
+            <!-- Accelerometer Card -->
+            <div class="card card-accent-cyan">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <svg width="20" height="20" fill="none" stroke="var(--cyan)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        Accelerometer
+                    </h2>
+                </div>
+                <div class="data-list">
+                    <div>
+                        <div class="data-row">
+                            <span class="data-label"><span class="axis-indicator axis-x">X</span>Linear Accel X</span>
+                            <div class="data-value-group">
+                                <span id="acc-x" class="data-value">0.00</span><span class="data-unit">mg</span>
+                            </div>
+                        </div>
+                        <div class="progress-container"><div id="acc-bar-x" class="progress-bar bg-cyan"></div></div>
+                    </div>
+                    <div>
+                        <div class="data-row">
+                            <span class="data-label"><span class="axis-indicator axis-y">Y</span>Linear Accel Y</span>
+                            <div class="data-value-group">
+                                <span id="acc-y" class="data-value">0.00</span><span class="data-unit">mg</span>
+                            </div>
+                        </div>
+                        <div class="progress-container"><div id="acc-bar-y" class="progress-bar bg-cyan"></div></div>
+                    </div>
+                    <div>
+                        <div class="data-row">
+                            <span class="data-label"><span class="axis-indicator axis-z">Z</span>Linear Accel Z</span>
+                            <div class="data-value-group">
+                                <span id="acc-z" class="data-value">0.00</span><span class="data-unit">mg</span>
+                            </div>
+                        </div>
+                        <div class="progress-container"><div id="acc-bar-z" class="progress-bar bg-cyan"></div></div>
+                    </div>
+                    <div style="border-top: 1px dashed rgba(255,255,255,0.05); padding-top: 0.5rem; margin-top: 0.25rem;">
+                        <div class="data-row" style="margin-bottom: 0.25rem;">
+                            <span class="data-label">Damping Factor (k)</span>
+                            <div class="data-value-group">
+                                <span id="damping-val-acc" class="data-value" style="font-size: 1rem;">0.15</span>
+                            </div>
+                        </div>
+                        <input type="range" id="damping-slider-acc" min="0.01" max="1.0" step="0.01" value="0.15" style="width: 100%; accent-color: var(--cyan); background: rgba(255,255,255,0.05); border-radius: 4px; height: 6px; cursor: pointer; border: none; outline: none;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem;">
+                            <span>0.01 (Heavy Damping)</span>
+                            <span>1.00 (No Damping)</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="accel-canvas" width="220" height="150"></canvas>
+                </div>
+            </div>
+
+            <!-- Gyroscope Card -->
+            <div class="card card-accent-green">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <svg width="20" height="20" fill="none" stroke="var(--green)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 15H19M9 17h.01M15 17h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        Gyroscope
+                    </h2>
+                </div>
+                <div class="data-list">
+                    <div>
+                        <div class="data-row">
+                            <span class="data-label"><span class="axis-indicator axis-x">X</span>Roll Rate (X)</span>
+                            <div class="data-value-group">
+                                <span id="gyro-x" class="data-value">0.00</span><span class="data-unit">DPS</span>
+                            </div>
+                        </div>
+                        <div class="progress-container"><div id="gyro-bar-x" class="progress-bar bg-green"></div></div>
+                    </div>
+                    <div>
+                        <div class="data-row">
+                            <span class="data-label"><span class="axis-indicator axis-y">Y</span>Pitch Rate (Y)</span>
+                            <div class="data-value-group">
+                                <span id="gyro-y" class="data-value">0.00</span><span class="data-unit">DPS</span>
+                            </div>
+                        </div>
+                        <div class="progress-container"><div id="gyro-bar-y" class="progress-bar bg-green"></div></div>
+                    </div>
+                    <div>
+                        <div class="data-row">
+                            <span class="data-label"><span class="axis-indicator axis-z">Z</span>Yaw Rate (Z)</span>
+                            <div class="data-value-group">
+                                <span id="gyro-z" class="data-value">0.00</span><span class="data-unit">DPS</span>
+                            </div>
+                        </div>
+                        <div class="progress-container"><div id="gyro-bar-z" class="progress-bar bg-green"></div></div>
+                    </div>
+                    <div style="border-top: 1px dashed rgba(255,255,255,0.05); padding-top: 0.5rem; margin-top: 0.25rem;">
+                        <div class="data-row" style="margin-bottom: 0.25rem;">
+                            <span class="data-label">Damping Factor (k)</span>
+                            <div class="data-value-group">
+                                <span id="damping-val-gyro" class="data-value" style="font-size: 1rem;">0.15</span>
+                            </div>
+                        </div>
+                        <input type="range" id="damping-slider-gyro" min="0.01" max="1.0" step="0.01" value="0.15" style="width: 100%; accent-color: var(--green); background: rgba(255,255,255,0.05); border-radius: 4px; height: 6px; cursor: pointer; border: none; outline: none;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem;">
+                            <span>0.01 (Heavy Damping)</span>
+                            <span>1.00 (No Damping)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Attitude / Orientation Card -->
+            <div class="card card-accent-orange">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <svg width="20" height="20" fill="none" stroke="var(--orange)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                        Attitude
+                    </h2>
+                </div>
+                <div class="data-list">
+                    <div>
+                        <div class="data-row">
+                            <span class="data-label">Roll (Φ)</span>
+                            <div class="data-value-group">
+                                <span id="att-roll" class="data-value">0.0</span><span class="data-unit">°</span>
+                            </div>
+                        </div>
+                        <div class="progress-container"><div id="att-bar-roll" class="progress-bar bg-orange"></div></div>
+                    </div>
+                    <div>
+                        <div class="data-row">
+                            <span class="data-label">Pitch (θ)</span>
+                            <div class="data-value-group">
+                                <span id="att-pitch" class="data-value">0.0</span><span class="data-unit">°</span>
+                            </div>
+                        </div>
+                        <div class="progress-container"><div id="att-bar-pitch" class="progress-bar bg-orange"></div></div>
+                    </div>
+                    <div style="border-top: 1px dashed rgba(255,255,255,0.05); padding-top: 0.5rem; margin-top: 0.25rem;">
+                        <div class="data-row" style="margin-bottom: 0.25rem;">
+                            <span class="data-label">Damping Factor (k)</span>
+                            <div class="data-value-group">
+                                <span id="damping-val" class="data-value" style="font-size: 1rem;">0.15</span>
+                            </div>
+                        </div>
+                        <input type="range" id="damping-slider" min="0.01" max="1.0" step="0.01" value="0.15" style="width: 100%; accent-color: var(--orange); background: rgba(255,255,255,0.05); border-radius: 4px; height: 6px; cursor: pointer; border: none; outline: none;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem;">
+                            <span>0.01 (Heavy Damping)</span>
+                            <span>1.00 (No Damping)</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="horizon-canvas" width="220" height="150"></canvas>
+                </div>
+            </div>
+
+            <!-- Magnetometer / Compass Card -->
+            <div class="card card-accent-purple">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <svg width="20" height="20" fill="none" stroke="var(--purple)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        Magnetometer
+                    </h2>
+                </div>
+                <div class="data-list">
+                    <div>
+                        <div class="data-row">
+                            <span class="data-label"><span class="axis-indicator axis-x">X</span>Mag Flux X</span>
+                            <div class="data-value-group">
+                                <span id="mag-x" class="data-value">0.00</span><span class="data-unit">µT</span>
+                            </div>
+                        </div>
+                        <div class="progress-container"><div id="mag-bar-x" class="progress-bar bg-purple"></div></div>
+                    </div>
+                    <div>
+                        <div class="data-row">
+                            <span class="data-label"><span class="axis-indicator axis-y">Y</span>Mag Flux Y</span>
+                            <div class="data-value-group">
+                                <span id="mag-y" class="data-value">0.00</span><span class="data-unit">µT</span>
+                            </div>
+                        </div>
+                        <div class="progress-container"><div id="mag-bar-y" class="progress-bar bg-purple"></div></div>
+                    </div>
+                    <div>
+                        <div class="data-row">
+                            <span class="data-label"><span class="axis-indicator axis-z">Z</span>Mag Flux Z</span>
+                            <div class="data-value-group">
+                                <span id="mag-z" class="data-value">0.00</span><span class="data-unit">µT</span>
+                            </div>
+                        </div>
+                        <div class="progress-container"><div id="mag-bar-z" class="progress-bar bg-purple"></div></div>
+                    </div>
+                    <div style="border-top: 1px dashed rgba(255,255,255,0.05); padding-top: 0.5rem; margin-top: 0.25rem;">
+                        <div class="data-row">
+                            <span class="data-label">Compass Heading</span>
+                            <div class="data-value-group">
+                                <span id="mag-heading" class="data-value">0</span><span class="data-unit">°</span>
+                            </div>
+                        </div>
+                        <div class="progress-container"><div id="mag-bar-heading" class="progress-bar bg-purple"></div></div>
+                    </div>
+                    <div style="border-top: 1px dashed rgba(255,255,255,0.05); padding-top: 0.5rem; margin-top: 0.25rem;">
+                        <div class="data-row" style="margin-bottom: 0.25rem;">
+                            <span class="data-label">Damping Factor (k)</span>
+                            <div class="data-value-group">
+                                <span id="damping-val-mag" class="data-value" style="font-size: 1rem;">0.15</span>
+                            </div>
+                        </div>
+                        <input type="range" id="damping-slider-mag" min="0.01" max="1.0" step="0.01" value="0.15" style="width: 100%; accent-color: var(--purple); background: rgba(255,255,255,0.05); border-radius: 4px; height: 6px; cursor: pointer; border: none; outline: none;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem;">
+                            <span>0.01 (Heavy Damping)</span>
+                            <span>1.00 (No Damping)</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="compass-canvas" width="220" height="150"></canvas>
+                </div>
+            </div>
+
+            <!-- Environment & System Diagnostics -->
+            <div class="card card-accent-orange">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <svg width="20" height="20" fill="none" stroke="var(--orange)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/></svg>
+                        Diagnostics
+                    </h2>
+                </div>
+                <div class="data-list">
+                    <div>
+                        <div class="data-row">
+                            <span class="data-label">IMU Temperature</span>
+                            <div class="data-value-group">
+                                <span id="sys-temp" class="data-value">0.0</span><span class="data-unit">°C</span>
+                            </div>
+                        </div>
+                        <div class="progress-container"><div id="sys-bar-temp" class="progress-bar bg-orange"></div></div>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Free Heap</span>
+                        <div class="data-value-group">
+                            <span id="sys-heap" class="data-value">-</span><span class="data-unit">KB</span>
+                        </div>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">IP Address</span>
+                        <div class="data-value-group" style="font-family: monospace; font-weight: bold;">
+                            <span id="sys-ip">-</span>
+                        </div>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">WiFi SSID</span>
+                        <div class="data-value-group" style="font-family: monospace; font-weight: bold; color: var(--text-muted)">
+                            <span id="sys-ssid">-</span>
+                        </div>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Sensor Status</span>
+                        <div class="data-value-group">
+                            <span id="sys-sensor-status" style="font-weight: bold; color: var(--red);">Disconnected</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Magnetic Heading Analysis: 5 Compasses (Full Width Card) -->
+            <div class="card card-full card-accent-purple">
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 0.75rem;">
+                    <h2 class="card-title">
+                        <svg width="20" height="20" fill="none" stroke="var(--purple)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        Magnetic Heading Analysis (5 Compasses)
+                    </h2>
+                    <a href="/calibration.html" class="status-badge connected" style="text-decoration: none; font-weight: bold; background-color: rgba(139, 92, 246, 0.15); color: var(--purple); border-color: rgba(139, 92, 246, 0.3); padding: 0.375rem 0.75rem; border-radius: 9999px; font-size: 0.875rem;">
+                        Open Calibration Page &rarr;
+                    </a>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; text-align: center; margin-top: 0.5rem;">
+                    <!-- Compass 1: Raw -->
+                    <div style="background: rgba(0,0,0,0.2); padding: 0.75rem; border-radius: 0.75rem; border: 1px solid rgba(255,255,255,0.03); display: flex; flex-direction: column; align-items: center; justify-content: space-between; min-height: 240px;">
+                        <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 0.25rem;">1. Raw Data</div>
+                        <div class="canvas-container" style="background: transparent; border: none; padding: 0; width: 100%;">
+                            <canvas id="compass-raw" width="160" height="150"></canvas>
+                        </div>
+                        <div style="font-family: monospace; font-size: 1.15rem; font-weight: bold; margin-top: 0.25rem;" id="heading-raw">-°</div>
+                    </div>
+
+                    <!-- Compass 2: Hard Iron Only -->
+                    <div style="background: rgba(0,0,0,0.2); padding: 0.75rem; border-radius: 0.75rem; border: 1px solid rgba(255,255,255,0.03); display: flex; flex-direction: column; align-items: center; justify-content: space-between; min-height: 240px;">
+                        <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 0.25rem;">2. Hard Iron Offset</div>
+                        <div class="canvas-container" style="background: transparent; border: none; padding: 0; width: 100%;">
+                            <canvas id="compass-hard" width="160" height="150"></canvas>
+                        </div>
+                        <div style="font-family: monospace; font-size: 1.15rem; font-weight: bold; margin-top: 0.25rem;" id="heading-hard">-°</div>
+                    </div>
+
+                    <!-- Compass 3: Soft Iron Only -->
+                    <div style="background: rgba(0,0,0,0.2); padding: 0.75rem; border-radius: 0.75rem; border: 1px solid rgba(255,255,255,0.03); display: flex; flex-direction: column; align-items: center; justify-content: space-between; min-height: 240px;">
+                        <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 0.25rem;">3. Soft Iron Scaling</div>
+                        <div class="canvas-container" style="background: transparent; border: none; padding: 0; width: 100%;">
+                            <canvas id="compass-soft" width="160" height="150"></canvas>
+                        </div>
+                        <div style="font-family: monospace; font-size: 1.15rem; font-weight: bold; margin-top: 0.25rem;" id="heading-soft">-°</div>
+                    </div>
+
+                    <!-- Compass 4: Both Compensations -->
+                    <div style="background: rgba(0,0,0,0.2); padding: 0.75rem; border-radius: 0.75rem; border: 1px solid rgba(255,255,255,0.03); display: flex; flex-direction: column; align-items: center; justify-content: space-between; min-height: 240px;">
+                        <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 0.25rem; color: var(--cyan);">4. Both Iron Comp</div>
+                        <div class="canvas-container" style="background: transparent; border: none; padding: 0; width: 100%;">
+                            <canvas id="compass-both" width="160" height="150"></canvas>
+                        </div>
+                        <div style="font-family: monospace; font-size: 1.15rem; font-weight: bold; margin-top: 0.25rem; color: var(--cyan);" id="heading-both">-°</div>
+                    </div>
+
+                    <!-- Compass 5: Full Tilt + Both Iron -->
+                    <div style="background: rgba(16, 185, 129, 0.04); padding: 0.75rem; border-radius: 0.75rem; border: 1px solid rgba(16, 185, 129, 0.15); display: flex; flex-direction: column; align-items: center; justify-content: space-between; min-height: 240px;">
+                        <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 0.25rem; color: var(--green);">5. Full Tilt + Both</div>
+                        <div class="canvas-container" style="background: transparent; border: none; padding: 0; width: 100%;">
+                            <canvas id="compass-full" width="160" height="150"></canvas>
+                        </div>
+                        <div style="font-family: monospace; font-size: 1.15rem; font-weight: bold; margin-top: 0.25rem; color: var(--green);" id="heading-full">-°</div>
+                    </div>
+                </div>
+
+                <!-- Calibration Matrix Display -->
+                <div style="border-top: 1px dashed rgba(255,255,255,0.05); padding-top: 0.75rem; margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                    <div style="font-weight: bold; font-size: 0.9rem;">Currently Used Calibration Parameters:</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
+                        <!-- Hard Iron Offset Vector -->
+                        <div style="background: rgba(0,0,0,0.25); padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1px solid rgba(255,255,255,0.03);">
+                            <div style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 0.15rem;">Hard Iron Offset Vector (V_x, V_y, V_z):</div>
+                            <div style="font-family: monospace; font-weight: bold; font-size: 0.95rem; color: var(--cyan);" id="display-hard-vector">Vx: 0.00, Vy: 0.00, Vz: 0.00</div>
+                        </div>
+                        <!-- Soft Iron Matrix -->
+                        <div style="background: rgba(0,0,0,0.25); padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1px solid rgba(255,255,255,0.03);">
+                            <div style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 0.15rem;">Soft Iron Scaling Vector (S_x, S_y, S_z):</div>
+                            <div style="font-family: monospace; font-weight: bold; font-size: 0.95rem; color: var(--green);" id="display-soft-vector">Sx: 1.00, Sy: 1.00, Sz: 1.00</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OTA Status and Help Card (Full Width) -->
+            <div class="card card-full card-accent-purple">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <svg width="20" height="20" fill="none" stroke="var(--purple)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                        OTA Firmware Over-The-Air Update
+                    </h2>
+                </div>
+                <p style="color: var(--text-muted); font-size: 0.95rem;">
+                    This board is running standard ArduinoOTA with hostname <strong style="color:var(--text-color)">ICM20948</strong>. You can compile and deploy new updates wirelessly.
+                </p>
+                <div class="ota-instructions">
+# Flash firmware OTA using PlatformIO CLI:
+pio run -t upload --upload-port <DEVICE_IP_OR_HOSTNAME>
+
+# Or with automatic mDNS device discovery:
+pio device list --mdns
+pio run -t upload --upload-port ICM20948.local</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // UI Elements
+        const connStatus = document.getElementById('conn-status');
+        const connText = document.getElementById('conn-text');
+        const wifiRssi = document.getElementById('wifi-rssi');
+        const sysUptime = document.getElementById('sys-uptime');
+        
+        const accX = document.getElementById('acc-x');
+        const accY = document.getElementById('acc-y');
+        const accZ = document.getElementById('acc-z');
+        const accBarX = document.getElementById('acc-bar-x');
+        const accBarY = document.getElementById('acc-bar-y');
+        const accBarZ = document.getElementById('acc-bar-z');
+        
+        const gyroX = document.getElementById('gyro-x');
+        const gyroY = document.getElementById('gyro-y');
+        const gyroZ = document.getElementById('gyro-z');
+        const gyroBarX = document.getElementById('gyro-bar-x');
+        const gyroBarY = document.getElementById('gyro-bar-y');
+        const gyroBarZ = document.getElementById('gyro-bar-z');
+        
+        const magX = document.getElementById('mag-x');
+        const magY = document.getElementById('mag-y');
+        const magZ = document.getElementById('mag-z');
+        const magBarX = document.getElementById('mag-bar-x');
+        const magBarY = document.getElementById('mag-bar-y');
+        const magBarZ = document.getElementById('mag-bar-z');
+        const magBarHeading = document.getElementById('mag-bar-heading');
+        const magHeadingVal = document.getElementById('mag-heading');
+        
+        const attRoll = document.getElementById('att-roll');
+        const attPitch = document.getElementById('att-pitch');
+        const attBarRoll = document.getElementById('att-bar-roll');
+        const attBarPitch = document.getElementById('att-bar-pitch');
+        
+        const sysTemp = document.getElementById('sys-temp');
+        const sysBarTemp = document.getElementById('sys-bar-temp');
+        const sysHeap = document.getElementById('sys-heap');
+        const sysIp = document.getElementById('sys-ip');
+        const sysSsid = document.getElementById('sys-ssid');
+        const sysSensorStatus = document.getElementById('sys-sensor-status');
+
+        // Canvases
+        const accelCanvas = document.getElementById('accel-canvas');
+        const horizonCanvas = document.getElementById('horizon-canvas');
+        const compassCanvas = document.getElementById('compass-canvas');
+
+        // Setup SSE connection
+        function startSSE() {
+            console.log("Connecting to EventSource...");
+            const source = new EventSource('/events');
+
+            source.onopen = function(event) {
+                connStatus.classList.add('connected');
+                connText.innerText = "Connected";
+            };
+
+            source.onerror = function(event) {
+                if (source.readyState == EventSource.CLOSED) {
+                    console.log("SSE Connection closed.");
+                } else {
+                    console.error("SSE Connection error. Retrying...");
+                }
+                connStatus.classList.remove('connected');
+                connText.innerText = "Reconnecting...";
+                
+                // Reset diagnostics sensor status on disconnect
+                sysSensorStatus.innerText = "Offline";
+                sysSensorStatus.style.color = "var(--red)";
+            };
+
+            source.addEventListener('sensor_data', function(e) {
+                try {
+                    const data = JSON.parse(e.data);
+                    updateTelemetry(data);
+                } catch (err) {
+                    console.error("Failed to parse event JSON", err);
+                }
+            }, false);
+        }
+
+        // Limit range helper
+        function limit(val, min, max) {
+            return Math.min(Math.max(val, min), max);
+        }
+
+        function updateTelemetry(data) {
+            // Sync initial damping values from ESP32 NVS if not already done
+            if (!isNvsSynced && data.damp_acc !== undefined) {
+                isNvsSynced = true;
+                dampingK_acc = data.damp_acc;
+                dampingK_gyro = data.damp_gyro;
+                dampingK_mag = data.damp_mag;
+                dampingK_att = data.damp_att;
+
+                // Sync Slider UI positions and textual labels
+                document.getElementById('damping-slider-acc').value = dampingK_acc;
+                document.getElementById('damping-val-acc').innerText = dampingK_acc.toFixed(2);
+
+                document.getElementById('damping-slider-gyro').value = dampingK_gyro;
+                document.getElementById('damping-val-gyro').innerText = dampingK_gyro.toFixed(2);
+
+                document.getElementById('damping-slider-mag').value = dampingK_mag;
+                document.getElementById('damping-val-mag').innerText = dampingK_mag.toFixed(2);
+
+                document.getElementById('damping-slider').value = dampingK_att;
+                document.getElementById('damping-val').innerText = dampingK_att.toFixed(2);
+                
+                console.log("Damping factors synchronized from ESP32 NVS.");
+            }
+
+            // System metadata
+            wifiRssi.innerText = data.rssi || '-';
+            sysUptime.innerText = data.uptime || '0';
+            
+            const temp_val = data.temp || 0;
+            sysTemp.innerText = temp_val.toFixed(1);
+            sysBarTemp.style.width = `${limit((temp_val / 80) * 100, 0, 100)}%`;
+            
+            sysHeap.innerText = data.heap !== undefined ? Math.round(data.heap / 1024) : '-';
+            sysIp.innerText = data.ip || '-';
+            sysSsid.innerText = data.ssid || '-';
+            
+            if (data.sensor_ok) {
+                sysSensorStatus.innerText = "Active";
+                sysSensorStatus.style.color = "var(--green)";
+            } else {
+                sysSensorStatus.innerText = "Error/Missing";
+                sysSensorStatus.style.color = "var(--red)";
+            }
+
+            // Accelerometer (in mg, typical scale +/- 2000mg, with user-defined damping factor)
+            const ax_raw = data.ax || 0;
+            const ay_raw = data.ay || 0;
+            const az_raw = data.az || 0;
+
+            // Initialize or apply EMA filter based on dynamic k
+            if (dampedAX === 0.0 && ax_raw !== 0.0) {
+                dampedAX = ax_raw;
+                dampedAY = ay_raw;
+                dampedAZ = az_raw;
+            } else {
+                dampedAX = (1 - dampingK_acc) * dampedAX + dampingK_acc * ax_raw;
+                dampedAY = (1 - dampingK_acc) * dampedAY + dampingK_acc * ay_raw;
+                dampedAZ = (1 - dampingK_acc) * dampedAZ + dampingK_acc * az_raw;
+            }
+
+            const ax_val = dampedAX;
+            const ay_val = dampedAY;
+            const az_val = dampedAZ;
+            accX.innerText = ax_val.toFixed(0);
+            accY.innerText = ay_val.toFixed(0);
+            accZ.innerText = az_val.toFixed(0);
+            drawAccelCrosshair(ax_val, ay_val);
+            
+            // Update Accel progress bars (scaled -2000 to +2000 mg, centered)
+            accBarX.style.width = `${limit(((ax_val + 2000) / 4000) * 100, 0, 100)}%`;
+            accBarY.style.width = `${limit(((ay_val + 2000) / 4000) * 100, 0, 100)}%`;
+            accBarZ.style.width = `${limit(((az_val + 2000) / 4000) * 100, 0, 100)}%`;
+
+            // Gyroscope (in DPS, typical scale +/- 250 DPS, with user-defined damping factor)
+            const gx_raw = data.gx || 0;
+            const gy_raw = data.gy || 0;
+            const gz_raw = data.gz || 0;
+
+            // Initialize or apply EMA filter based on dynamic k
+            if (dampedGX === 0.0 && gx_raw !== 0.0) {
+                dampedGX = gx_raw;
+                dampedGY = gy_raw;
+                dampedGZ = gz_raw;
+            } else {
+                dampedGX = (1 - dampingK_gyro) * dampedGX + dampingK_gyro * gx_raw;
+                dampedGY = (1 - dampingK_gyro) * dampedGY + dampingK_gyro * gy_raw;
+                dampedGZ = (1 - dampingK_gyro) * dampedGZ + dampingK_gyro * gz_raw;
+            }
+
+            const gx_val = dampedGX;
+            const gy_val = dampedGY;
+            const gz_val = dampedGZ;
+            gyroX.innerText = gx_val.toFixed(1);
+            gyroY.innerText = gy_val.toFixed(1);
+            gyroZ.innerText = gz_val.toFixed(1);
+            
+            // Update Gyro progress bars (scaled -250 to +250 DPS, centered)
+            gyroBarX.style.width = `${limit(((gx_val + 250) / 500) * 100, 0, 100)}%`;
+            gyroBarY.style.width = `${limit(((gy_val + 250) / 500) * 100, 0, 100)}%`;
+            gyroBarZ.style.width = `${limit(((gz_val + 250) / 500) * 100, 0, 100)}%`;
+
+            // Magnetometer (in uT, with user-defined damping factor)
+            const mx_raw = data.mx || 0;
+            const my_raw = data.my || 0;
+            const mz_raw = data.mz || 0;
+
+            // Initialize or apply EMA filter based on dynamic k
+            if (dampedMX === 0.0 && mx_raw !== 0.0) {
+                dampedMX = mx_raw;
+                dampedMY = my_raw;
+                dampedMZ = mz_raw;
+            } else {
+                dampedMX = (1 - dampingK_mag) * dampedMX + dampingK_mag * mx_raw;
+                dampedMY = (1 - dampingK_mag) * dampedMY + dampingK_mag * my_raw;
+                dampedMZ = (1 - dampingK_mag) * dampedMZ + dampingK_mag * mz_raw;
+            }
+
+            const mx_val = dampedMX;
+            const my_val = dampedMY;
+            const mz_val = dampedMZ;
+            magX.innerText = mx_val.toFixed(1);
+            magY.innerText = my_val.toFixed(1);
+            magZ.innerText = mz_val.toFixed(1);
+            
+            // Update Mag progress bars (scaled -100 to +100 uT, centered)
+            magBarX.style.width = `${limit(((mx_val + 100) / 200) * 100, 0, 100)}%`;
+            magBarY.style.width = `${limit(((my_val + 100) / 200) * 100, 0, 100)}%`;
+            magBarZ.style.width = `${limit(((mz_val + 100) / 200) * 100, 0, 100)}%`;
+
+            // 1. Calculate Attitude Orientation (Roll & Pitch from Accel - Roll inverted per hardware mounting)
+            // Roll: -atan2(ay, az)
+            // Pitch: atan2(-ax, sqrt(ay^2 + az^2))
+            const rRadRaw = -Math.atan2(ay_val, az_val);
+            const pRadRaw = Math.atan2(-ax_val, Math.sqrt(ay_val*ay_val + az_val*az_val));
+
+            // Apply damping (Exponential Moving Average filter) to smooth attitude and compass tilt correction.
+            // Dynamically adjusted in real-time by the user via the dashboard slider!
+            const k = dampingK_att;
+            dampedRRad = (1 - k) * dampedRRad + k * rRadRaw;
+            dampedPRad = (1 - k) * dampedPRad + k * pRadRaw;
+
+            const rRad = dampedRRad;
+            const pRad = dampedPRad;
+
+            const roll = rRad * (180 / Math.PI);
+            const pitch = pRad * (180 / Math.PI);
+            attRoll.innerText = roll.toFixed(1);
+            attPitch.innerText = pitch.toFixed(1);
+            
+            // Update Attitude progress bars (Roll -180 to 180, Pitch -90 to 90)
+            attBarRoll.style.width = `${limit(((roll + 180) / 360) * 100, 0, 100)}%`;
+            attBarPitch.style.width = `${limit(((pitch + 90) / 180) * 100, 0, 100)}%`;
+            
+            drawArtificialHorizon(roll, pitch);
+
+            // 2. Compute 5 Compasses under different calibrations
+            // Angle constants for tilt compensation
+            const cosRoll = Math.cos(rRad);
+            const sinRoll = Math.sin(rRad);
+            const cosPitch = Math.cos(pRad);
+            const sinPitch = Math.sin(pRad);
+
+            // -- Compass 1: Raw Data (No hard/soft iron calibration, no tilt-compensation)
+            let headingRaw = Math.atan2(mx_val, my_val) * (180 / Math.PI);
+            if (headingRaw < 0) headingRaw += 360;
+            document.getElementById('heading-raw').innerText = `${Math.round(headingRaw)}°`;
+            drawCompass(document.getElementById('compass-raw'), headingRaw, '#9ca3af');
+
+            // -- Compass 2: Hard Iron Only (Subtracts offset Vx, Vy, Vz, no soft scaling, no tilt-compensation)
+            let hx = mx_val - hardIron.vx;
+            let hy = my_val - hardIron.vy;
+            let headingHard = Math.atan2(hx, hy) * (180 / Math.PI);
+            if (headingHard < 0) headingHard += 360;
+            document.getElementById('heading-hard').innerText = `${Math.round(headingHard)}°`;
+            drawCompass(document.getElementById('compass-hard'), headingHard, 'var(--cyan)');
+
+            // -- Compass 3: Soft Iron Only (Multiplies scaling Sx, Sy, Sz, no hard offsets, no tilt-compensation)
+            let sx = mx_val * softIron.sx;
+            let sy = my_val * softIron.sy;
+            let headingSoft = Math.atan2(sx, sy) * (180 / Math.PI);
+            if (headingSoft < 0) headingSoft += 360;
+            document.getElementById('heading-soft').innerText = `${Math.round(headingSoft)}°`;
+            drawCompass(document.getElementById('compass-soft'), headingSoft, 'var(--orange)');
+
+            // -- Compass 4: Both Compensations (Hard offsets + Soft scaling, no tilt-compensation)
+            let bx = (mx_val - hardIron.vx) * softIron.sx;
+            let by = (my_val - hardIron.vy) * softIron.sy;
+            let headingBoth = Math.atan2(bx, by) * (180 / Math.PI);
+            if (headingBoth < 0) headingBoth += 360;
+            document.getElementById('heading-both').innerText = `${Math.round(headingBoth)}°`;
+            drawCompass(document.getElementById('compass-both'), headingBoth, 'var(--purple)');
+
+            // -- Compass 5: Full Tilt + Both Iron (Hard offsets + Soft scaling + Pitch/Roll tilt projection!)
+            // Correct the magnetometer vector for hard and soft iron first
+            let cx_cal = (mx_val - hardIron.vx) * softIron.sx;
+            let cy_cal = (my_val - hardIron.vy) * softIron.sy;
+            let cz_cal = (mz_val - hardIron.vz) * softIron.sz;
+
+            // Project corrected values onto virtual horizontal plane (tilt compensation)
+            let Xh = cx_cal * cosPitch + cy_cal * sinRoll * sinPitch - cz_cal * cosRoll * sinPitch;
+            let Yh = cy_cal * cosRoll + cz_cal * sinRoll;
+
+            let headingFull = Math.atan2(Xh, Yh) * (180 / Math.PI);
+            if (headingFull < 0) headingFull += 360;
+            document.getElementById('heading-full').innerText = `${Math.round(headingFull)}°`;
+            drawCompass(document.getElementById('compass-full'), headingFull, 'var(--green)');
+
+            // -- Primary Telemetry Card Compass (We'll use Full Tilt + Both as our best estimate!)
+            magHeadingVal.innerText = Math.round(headingFull);
+            magBarHeading.style.width = `${limit((headingFull / 360) * 100, 0, 100)}%`;
+            drawCompass(compassCanvas, headingFull, 'var(--purple)');
+        }
+
+        // Draw Accelerometer bubble level / crosshair
+        function drawAccelCrosshair(ax, ay) {
+            const ctx = accelCanvas.getContext('2d');
+            const w = accelCanvas.width;
+            const h = accelCanvas.height;
+            const cx = w / 2;
+            const cy = h / 2;
+            const maxVal = 1000; // 1g scale
+            
+            ctx.clearRect(0, 0, w, h);
+            
+            // Draw grid lines
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, cy); ctx.lineTo(w, cy);
+            ctx.moveTo(cx, 0); ctx.lineTo(cx, h);
+            ctx.stroke();
+
+            // Draw concentric target circles
+            ctx.strokeStyle = 'rgba(6, 182, 212, 0.15)';
+            for (let r = 25; r <= 60; r += 17) {
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+                ctx.stroke();
+            }
+
+            // Map acceleration values to coordinates (clamp to boundary)
+            // Scale is +/- 1000mg
+            const dx = limit((ax / maxVal) * (w / 2 - 10), -w/2 + 10, w/2 - 10);
+            const dy = limit((ay / maxVal) * (h / 2 - 10), -h/2 + 10, h/2 - 10);
+
+            // Draw active dynamic indicator (cyan ball)
+            ctx.beginPath();
+            ctx.arc(cx + dx, cy + dy, 8, 0, 2 * Math.PI);
+            ctx.fillStyle = 'var(--cyan)';
+            ctx.shadowColor = 'var(--cyan)';
+            ctx.shadowBlur = 10;
+            ctx.fill();
+            ctx.shadowBlur = 0; // Reset shadow
+
+            // Crosshair center dot
+            ctx.beginPath();
+            ctx.arc(cx, cy, 3, 0, 2 * Math.PI);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.fill();
+        }
+
+        // Draw Artificial Horizon / Attitude indicator
+        function drawArtificialHorizon(roll, pitch) {
+            const ctx = horizonCanvas.getContext('2d');
+            const w = horizonCanvas.width;
+            const h = horizonCanvas.height;
+            const cx = w / 2;
+            const cy = h / 2;
+            const r = Math.min(w, h) / 2 - 10;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Clip drawing inside a circle to simulate aviation instrument
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+            ctx.clip();
+
+            // Translate and rotate based on roll/pitch
+            ctx.translate(cx, cy);
+            ctx.rotate(-roll * Math.PI / 180);
+            
+            // Pitch offset (1 degree = approx 1.2 pixels, clamp value)
+            const pitchOffset = limit(pitch * 1.2, -r, r);
+            ctx.translate(0, pitchOffset);
+
+            // Draw Sky (Light Blue)
+            ctx.fillStyle = '#0284c7';
+            ctx.fillRect(-w, -h*2, w*2, h*2);
+
+            // Draw Ground (Brownish/Deep Green)
+            ctx.fillStyle = '#15803d';
+            ctx.fillRect(-w, 0, w*2, h*2);
+
+            // Draw Horizon Line
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(-r*2, 0);
+            ctx.lineTo(r*2, 0);
+            ctx.stroke();
+
+            // Pitch ladder/scale ticks
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '8px monospace';
+            ctx.textAlign = 'center';
+            ctx.lineWidth = 1;
+            
+            const step = 15; // 15 degrees per tick
+            for (let p = -60; p <= 60; p += step) {
+                if (p === 0) continue;
+                const py = -p * 1.2; // scale factor
+                ctx.beginPath();
+                ctx.moveTo(-15, py);
+                ctx.lineTo(15, py);
+                ctx.stroke();
+                ctx.fillText(p, 25, py + 3);
+                ctx.fillText(p, -25, py + 3);
+            }
+
+            ctx.restore();
+
+            // Draw static airplane reference symbol (doesn't rotate)
+            ctx.strokeStyle = 'var(--orange)';
+            ctx.lineWidth = 3;
+            ctx.shadowColor = 'var(--orange)';
+            ctx.shadowBlur = 4;
+            ctx.beginPath();
+            // Left wing
+            ctx.moveTo(cx - 30, cy); ctx.lineTo(cx - 10, cy);
+            // Center indicator
+            ctx.moveTo(cx - 10, cy); ctx.lineTo(cx - 5, cy + 5);
+            ctx.lineTo(cx + 5, cy + 5);
+            ctx.lineTo(cx + 10, cy);
+            // Right wing
+            ctx.moveTo(cx + 10, cy); ctx.lineTo(cx + 30, cy);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Draw frame ring
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, 2*Math.PI);
+            ctx.stroke();
+        }
+
+        // Damping variables for Pitch and Roll
+        let dampedRRad = 0.0;
+        let dampedPRad = 0.0;
+        
+        // 4 Separate Damping Factors (load from localStorage with default 0.15)
+        let dampingK_att = parseFloat(localStorage.getItem('damping_factor_att')) || 0.15;
+        let dampingK_acc = parseFloat(localStorage.getItem('damping_factor_acc')) || 0.15;
+        let dampingK_gyro = parseFloat(localStorage.getItem('damping_factor_gyro')) || 0.15;
+        let dampingK_mag = parseFloat(localStorage.getItem('damping_factor_mag')) || 0.15;
+        let isNvsSynced = false;
+
+        // Damping variables for raw sensors
+        let dampedAX = 0.0;
+        let dampedAY = 0.0;
+        let dampedAZ = 0.0;
+        
+        let dampedGX = 0.0;
+        let dampedGY = 0.0;
+        let dampedGZ = 0.0;
+        
+        let dampedMX = 0.0;
+        let dampedMY = 0.0;
+        let dampedMZ = 0.0;
+
+        // Load Calibration Parameters from LocalStorage
+        let hardIron = { vx: 0.0, vy: 0.0, vz: 0.0 };
+        let softIron = { sx: 1.0, sy: 1.0, sz: 1.0 };
+
+        function loadCalibration() {
+            try {
+                const storedHard = localStorage.getItem('calibration_hard_iron');
+                const storedSoft = localStorage.getItem('calibration_soft_iron');
+                if (storedHard) hardIron = JSON.parse(storedHard);
+                if (storedSoft) softIron = JSON.parse(storedSoft);
+            } catch (e) {
+                console.error("Failed to load calibration parameters", e);
+            }
+            // Display current parameters
+            document.getElementById('display-hard-vector').innerText = 
+                `Vx: ${hardIron.vx.toFixed(2)} µT, Vy: ${hardIron.vy.toFixed(2)} µT, Vz: ${hardIron.vz.toFixed(2)} µT`;
+            document.getElementById('display-soft-vector').innerText = 
+                `Sx: ${softIron.sx.toFixed(3)}, Sy: ${softIron.sy.toFixed(3)}, Sz: ${softIron.sz.toFixed(3)}`;
+        }
+
+        // Draw Compass Rose / Magnetometer (highly generic for multiple compasses)
+        function drawCompass(canvas, heading, color) {
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            const cx = w / 2;
+            const cy = h / 2;
+            const r = Math.min(w, h) / 2 - 8;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Draw background ring
+            ctx.strokeStyle = color ? color.replace('1)', '0.12').replace('0.7)', '0.12') : 'rgba(139, 92, 246, 0.12)';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+            ctx.stroke();
+
+            // Rotate based on magnetic heading
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(-heading * Math.PI / 180); // Rotate counter to heading so North rotates appropriately
+
+            // Compass ticks (every 30 degrees)
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 1;
+            for (let deg = 0; deg < 360; deg += 30) {
+                const angle = deg * Math.PI / 180;
+                const isMajor = deg % 90 === 0;
+                const len = isMajor ? 6 : 3;
+                ctx.beginPath();
+                ctx.moveTo((r - len) * Math.cos(angle), (r - len) * Math.sin(angle));
+                ctx.lineTo(r * Math.cos(angle), r * Math.sin(angle));
+                ctx.stroke();
+            }
+
+            // Draw Cardinal letters
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 9px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            ctx.fillText('N', 0, -r + 10);
+            ctx.fillText('S', 0, r - 10);
+            ctx.fillText('E', r - 10, 0);
+            ctx.fillText('W', -r + 10, 0);
+
+            // Draw Compass Needle (North = Colored, South = Gray)
+            ctx.shadowBlur = 4;
+            ctx.shadowColor = color || 'rgba(239, 68, 68, 0.5)';
+            ctx.fillStyle = color || 'var(--red)'; // North
+            ctx.beginPath();
+            ctx.moveTo(0, -r + 13);
+            ctx.lineTo(4, 0);
+            ctx.lineTo(-4, 0);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.shadowColor = 'rgba(255, 255, 255, 0.05)';
+            ctx.fillStyle = '#4b5563'; // South
+            ctx.beginPath();
+            ctx.moveTo(0, r - 13);
+            ctx.lineTo(4, 0);
+            ctx.lineTo(-4, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.restore();
+
+            // Center pivot dot
+            ctx.beginPath();
+            ctx.arc(cx, cy, 3, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+        }
+
+        // Initialize on page load
+        window.onload = function() {
+            // Load custom calibration matrices
+            loadCalibration();
+
+            // Setup Damping Sliders
+            // 1. Accelerometer Damping
+            const dampingSliderAcc = document.getElementById('damping-slider-acc');
+            const dampingValAcc = document.getElementById('damping-val-acc');
+            dampingSliderAcc.value = dampingK_acc;
+            dampingValAcc.innerText = dampingK_acc.toFixed(2);
+            dampingSliderAcc.oninput = function() {
+                dampingK_acc = parseFloat(this.value);
+                dampingValAcc.innerText = dampingK_acc.toFixed(2);
+                localStorage.setItem('damping_factor_acc', dampingK_acc);
+            };
+            dampingSliderAcc.onchange = function() {
+                fetch(`/set-damping?sensor=acc&val=${this.value}`).catch(err => console.error(err));
+            };
+
+            // 2. Gyroscope Damping
+            const dampingSliderGyro = document.getElementById('damping-slider-gyro');
+            const dampingValGyro = document.getElementById('damping-val-gyro');
+            dampingSliderGyro.value = dampingK_gyro;
+            dampingValGyro.innerText = dampingK_gyro.toFixed(2);
+            dampingSliderGyro.oninput = function() {
+                dampingK_gyro = parseFloat(this.value);
+                dampingValGyro.innerText = dampingK_gyro.toFixed(2);
+                localStorage.setItem('damping_factor_gyro', dampingK_gyro);
+            };
+            dampingSliderGyro.onchange = function() {
+                fetch(`/set-damping?sensor=gyro&val=${this.value}`).catch(err => console.error(err));
+            };
+
+            // 3. Magnetometer Damping
+            const dampingSliderMag = document.getElementById('damping-slider-mag');
+            const dampingValMag = document.getElementById('damping-val-mag');
+            dampingSliderMag.value = dampingK_mag;
+            dampingValMag.innerText = dampingK_mag.toFixed(2);
+            dampingSliderMag.oninput = function() {
+                dampingK_mag = parseFloat(this.value);
+                dampingValMag.innerText = dampingK_mag.toFixed(2);
+                localStorage.setItem('damping_factor_mag', dampingK_mag);
+            };
+            dampingSliderMag.onchange = function() {
+                fetch(`/set-damping?sensor=mag&val=${this.value}`).catch(err => console.error(err));
+            };
+
+            // 4. Attitude Damping
+            const dampingSliderAtt = document.getElementById('damping-slider');
+            const dampingValAtt = document.getElementById('damping-val');
+            dampingSliderAtt.value = dampingK_att;
+            dampingValAtt.innerText = dampingK_att.toFixed(2);
+            dampingSliderAtt.oninput = function() {
+                dampingK_att = parseFloat(this.value);
+                dampingValAtt.innerText = dampingK_att.toFixed(2);
+                localStorage.setItem('damping_factor_att', dampingK_att);
+            };
+            dampingSliderAtt.onchange = function() {
+                fetch(`/set-damping?sensor=att&val=${this.value}`).catch(err => console.error(err));
+            };
+
+            // Draw default blank state canvas plots
+            drawAccelCrosshair(0, 0);
+            drawArtificialHorizon(0, 0);
+            
+            // Draw all 6 compasses (primary + 5 analysis compasses)
+            drawCompass(compassCanvas, 0, 'var(--purple)');
+            drawCompass(document.getElementById('compass-raw'), 0, '#9ca3af');
+            drawCompass(document.getElementById('compass-hard'), 0, 'var(--cyan)');
+            drawCompass(document.getElementById('compass-soft'), 0, 'var(--orange)');
+            drawCompass(document.getElementById('compass-both'), 0, 'var(--purple)');
+            drawCompass(document.getElementById('compass-full'), 0, 'var(--green)');
+            
+            // Connect to server event stream
+            startSSE();
+        };
+    </script>
+</body>
+</html>
