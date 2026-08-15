@@ -486,10 +486,7 @@ void update_mannav_dynamic() {
     tft.drawCircle(120, 95, 45, TFT_WHITE);
     tft.fillCircle(120, 95, 3, TFT_WHITE);
     
-    // --- 5. Update Blinking Telemetry Indicators (Top-Left for UDP, Top-Right for LoRa) ---
-    uint16_t udpDotColor = (millis() - last_udp_blink_ms < 300) ? TFT_GREEN : TFT_BLACK;
-    tft.fillCircle(15, 13, 4, udpDotColor);
-    
+    // --- 5. Update Blinking Telemetry Indicators (Top-Right for LoRa only) ---
     uint16_t loraDotColor = (millis() - last_lora_blink_ms < 300) ? TFT_CYAN : TFT_BLACK;
     tft.fillCircle(225, 13, 4, loraDotColor);
 }
@@ -902,10 +899,7 @@ void update_nav_dynamic() {
         tft.fillRect(127, 224, 7, 7, TFT_BLACK);
     }
     
-    // --- 7. Update Blinking Telemetry Indicators (Top-Left for UDP, Top-Right for LoRa) ---
-    uint16_t udpDotColor = (millis() - last_udp_blink_ms < 300) ? TFT_GREEN : TFT_BLACK;
-    tft.fillCircle(55, 13, 4, udpDotColor);
-    
+    // --- 7. Update Blinking Telemetry Indicators (Top-Right for LoRa only) ---
     uint16_t loraDotColor = (millis() - last_lora_blink_ms < 300) ? TFT_CYAN : TFT_BLACK;
     tft.fillCircle(230, 13, 4, loraDotColor);
     
