@@ -38,6 +38,7 @@ int cal_rx1 = 0, cal_ry1 = 0;
 int cal_rx2 = 0, cal_ry2 = 0;
 uint16_t temp_minx = 300, temp_maxx = 3800, temp_miny = 260, temp_maxy = 3800;
 unsigned long save_screen_start_ms = 0;
+unsigned long cal_started_ms = 0;
 unsigned long last_left_touch_time = 0;
 unsigned long last_right_touch_time = 0;
 unsigned long simultaneous_touch_start = 0;
@@ -1543,6 +1544,12 @@ void draw_calibration_screen() {
 }
 
 void handle_touch_calibration() {
+    // Ignore all touches for the first 800ms after entering calibration
+    // to allow the user to lift their finger from the menu button!
+    if (millis() - cal_started_ms < 800) {
+        return;
+    }
+
     if (cal_state == 2) {
         unsigned long elapsed = millis() - save_screen_start_ms;
         if (elapsed >= 3000) {
@@ -1695,5 +1702,6 @@ void start_touch_calibration() {
     cal_state = 0;
     cal_rx1 = 0; cal_ry1 = 0;
     cal_rx2 = 0; cal_ry2 = 0;
+    cal_started_ms = millis(); // Set transition timestamp for lockout delay!
     draw_calibration_screen();
 }
