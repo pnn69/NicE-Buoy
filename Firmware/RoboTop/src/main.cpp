@@ -13,6 +13,12 @@
 #include "sercom.h"
 #include "calibrate.h"
 
+// Give the Arduino loop task real headroom. RoboStruct is ~500 bytes and the receive path
+// (loop -> handelRfData -> AddDataToBuoyBase -> MergeBuoyData) keeps several of them live at
+// once, on top of the 3 KB JSON work elsewhere. The 8 KB default left very little margin, and a
+// stack overflow on an ESP32 is not a clean error - it panics and reboots.
+SET_LOOP_TASK_STACK_SIZE(16 * 1024);
+
 // #define BUFLENMHRG 60 // one sampel each sec so 60 sec for stabilisation
 RoboStruct mainData;
 // RoboStruct b0, b1, b2;
@@ -137,7 +143,9 @@ void setup()
         wifiConfig = 0; // Setup normal accespoint
     }
     printf("Creating task WiFi...\r\n");
-    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 4000, &wifiConfig, configMAX_PRIORITIES - 10, NULL, 0);
+    // 8 KB, not 4 KB: WiFiTask runs the whole WebServer (request parsing, ~3 KB /data JSON
+    // building, SPIFFS file streaming) plus the UDP handling, and 4 KB left no margin.
+    xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8192, &wifiConfig, configMAX_PRIORITIES - 10, NULL, 0);
     printf("Creating task Serial communication...\r\n");
     xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
     printf("Creating task LoRa communication...\r\n");
@@ -556,6 +564,17 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         break;
 
     case COMPUTESTART:
+        // The start line is squared against THIS buoy's wind reading, so refuse when we do not
+        // have one. A buoy with a failed compass reports wDir/wStd as 0/0, which is
+        // indistinguishable from a real due-north calm - computing anyway silently lays the line
+        // out against a fake northerly and sends both buoys to the wrong places.
+        if (stat->wDir == 0.0 && stat->wStd == 0.0)
+        {
+            printf("#Start line NOT computed - this buoy has no wind reading (wDir/wStd are 0)\r\n");
+            beep(-1, buzzer);
+            stat->status = LOCKED;
+            break;
+        }
         buoyPara[0].wDir = stat->wDir;
         calcTrackPos(buoyPara);
         for (int i = 0; i < 3; i++)
@@ -563,8 +582,11 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
             trackPosPrint(buoyPara[i].trackPos);
             printf(" = (%.12f,%.12f)\r\n", buoyPara[i].tgLat, buoyPara[i].tgLng);
         }
-        recalcStartLine(buoyPara);
-        if ((buoyPara[0].trackPos != -1 && buoyPara[1].trackPos != -1) || (buoyPara[0].trackPos != -1 && buoyPara[2].trackPos != -1) || (buoyPara[1].trackPos != -1 && buoyPara[2].trackPos != -1))
+        // Trust the return value, not trackPos: calcTrackPos() above has already filled trackPos
+        // in, so testing it here reported success even when recalcStartLine() had bailed out on
+        // missing lock positions - complete with the confirmation beep and a SENDTRACK that
+        // pushed uncomputed (often zero) positions to the other buoys.
+        if (recalcStartLine(buoyPara))
         {
             beep(1, buzzer);
             stat->status = SENDTRACK;
@@ -572,25 +594,37 @@ void handelStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         }
         else
         {
+            printf("#Start line NOT computed - lock all deployed buoys first\r\n");
             beep(-1, buzzer);
             stat->status = LOCKED;
         }
         break;
     case COMPUTETRACK:
+        // Same wind guard as COMPUTESTART: the whole track is laid out relative to wDir.
+        if (stat->wDir == 0.0 && stat->wStd == 0.0)
+        {
+            printf("#Track NOT computed - this buoy has no wind reading (wDir/wStd are 0)\r\n");
+            beep(-1, buzzer);
+            stat->status = LOCKED;
+            break;
+        }
         buoyPara[0].wDir = stat->wDir;
         for (int i = 0; i < 3; i++)
         {
             trackPosPrint(buoyPara[i].trackPos);
             printf(" = (%.12f,%.12f)\r\n", buoyPara[i].tgLat, buoyPara[i].tgLng);
         }
-        reCalcTrack(buoyPara);
-        if (buoyPara[0].trackPos != -1 || buoyPara[1].trackPos != -1 || buoyPara[2].trackPos != -1)
+        // Same fix as COMPUTESTART. The old test was even weaker here: it ORed the three
+        // trackPos values, so one stale entry left over from a previous computation was enough
+        // to report success after reCalcTrack() had bailed out.
+        if (reCalcTrack(buoyPara))
         {
             beep(1, buzzer);
             stat->status = SENDTRACK;
         }
         else
         {
+            printf("#Track NOT computed - needs three buoys with a lock position\r\n");
             beep(-1, buzzer);
             stat->status = LOCKED;
         }
@@ -930,6 +964,28 @@ void handleTimerRoutines(RoboStruct *timer)
             xQueueSend(serOut, (void *)timer, 0); // send course and distance to sub
             timer->cmd = DIRMDIRTGDIRG;
             xQueueSend(udpOut, (void *)timer, 0); // send course and distance to udp
+
+            // Periodically re-announce our waypoint while holding station.
+            // LOCKPOS/DOCKPOS is otherwise sent exactly once, on the state transition, and it is
+            // the only message type carrying tgLat/tgLng - the recurring BUOYPOS/TOPDATA
+            // telemetry does not. So a single lost packet left the other buoys and the CYD
+            // without our target until the next manual lock, and their field view drew nothing.
+            // ack = INF keeps this out of the LoRa ACK retry table: it is a beacon, and the next
+            // one is only 5 s away, so retransmitting each copy 5x would just add channel load.
+            static unsigned long nextWaypointBeacon = 0;
+            if (timer->tgLat != 0.0 && timer->tgLng != 0.0 && millis() > nextWaypointBeacon)
+            {
+                nextWaypointBeacon = millis() + 5000;
+                unsigned long savedIDr = timer->IDr;
+                int savedAck = timer->ack;
+                timer->IDr = BUOYIDALL;
+                timer->cmd = (timer->status == DOCKED) ? DOCKPOS : LOCKPOS;
+                timer->ack = INF;
+                xQueueSend(udpOut, (void *)timer, 0);
+                xQueueSend(loraOut, (void *)timer, 0);
+                timer->IDr = savedIDr;
+                timer->ack = savedAck;
+            }
         }
         else if (timer->status == REMOTE) // Remote controlled
         {
@@ -1447,6 +1503,26 @@ void handelRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 AddDataToBuoyBase(RfIn, buoyParaPtrs);
                 RfOut->status = LOCKED;
                 RfOut->lastSerOut = 0; // Force immediate update to sub
+
+                // Announce the commanded waypoint, the way a manual lock does. This case sets
+                // LOCKED directly instead of going through LOCKING, so handelStatus() never runs
+                // its LOCKPOS broadcast and nobody else learned the new target - after a
+                // COMPUTE STARTLINE the other buoy and the CYD kept showing the old one.
+                //
+                // Deliberately NOT routed through case LOCKING: that sets tgLat/tgLng to the
+                // CURRENT position, which would throw away the waypoint we were just given.
+                //
+                // Reuses RfIn rather than declaring another RoboStruct - it is ~500 bytes and
+                // this runs in the loop task.
+                RfIn.IDr = BUOYIDALL;
+                RfIn.cmd = LOCKPOS;
+                RfIn.status = RfOut->status;
+                RfIn.wDir = RfOut->wDir;
+                RfIn.wStd = RfOut->wStd;
+                RfIn.ack = INF; // INF, not SET: SET would enter the LoRa ACK retry table and be
+                                // retransmitted 5x, and the periodic re-broadcast already covers loss
+                xQueueSend(udpOut, (void *)&RfIn, 0);
+                xQueueSend(loraOut, (void *)&RfIn, 10);
                 break;
             case IDELING:
             case IDLE:

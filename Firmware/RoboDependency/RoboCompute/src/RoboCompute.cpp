@@ -722,7 +722,11 @@ void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double 
     *longem = (lon1 + lon2) / 2;
 }
 
-void recalcStartLine(struct RoboStruct rsl[3])
+// Returns true only when a start line was actually computed.
+// The caller used to infer success from the trackPos fields, but calcTrackPos() sets those
+// before this runs, so a bail-out here still looked like success: you got the confirmation beep
+// and a SENDTRACK while nothing had been calculated.
+bool recalcStartLine(struct RoboStruct rsl[3])
 {
     double d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng);
     double d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng);
@@ -738,58 +742,79 @@ void recalcStartLine(struct RoboStruct rsl[3])
         if (INVALID_POINT(rsl[0]) || INVALID_POINT(rsl[1]))
         {
             printf("# No data to compute with (0-1)\r\n");
-            return;
+            return false;
         }
 
         twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng, &midLat, &midLng);
         angleSb = fmod(rsl[0].wDir + 90.0, 360.0);
         angleBb = fmod(angleSb + 180.0, 360.0);
 
-        adjustPositionDirDist(angleBb, d0 / 2, midLat, midLng, &rsl[0].tgLat, &rsl[0].tgLng); // PORT
-        adjustPositionDirDist(angleSb, d0 / 2, midLat, midLng, &rsl[1].tgLat, &rsl[1].tgLng); // STARBOARD
+        // Keep the side assignment calcTrackPos() already derived from the wind bearing, so each
+        // buoy moves to the end of the line it is nearest to. Hardcoding rsl[0] to PORT sent the
+        // local buoy to the port end whatever the wind was doing, which made the pair swap sides
+        // and cross each other's path on the way there.
+        bool firstIsStarboard = (rsl[0].trackPos == STARBOARD);
+        adjustPositionDirDist(firstIsStarboard ? angleSb : angleBb, d0 / 2, midLat, midLng, &rsl[0].tgLat, &rsl[0].tgLng);
+        adjustPositionDirDist(firstIsStarboard ? angleBb : angleSb, d0 / 2, midLat, midLng, &rsl[1].tgLat, &rsl[1].tgLng);
 
-        rsl[0].trackPos = PORT;
-        rsl[1].trackPos = STARBOARD;
+        rsl[0].trackPos = firstIsStarboard ? STARBOARD : PORT;
+        rsl[1].trackPos = firstIsStarboard ? PORT : STARBOARD;
+        return true;
     }
     else if (d1 < d0 && d1 < d2)
     {
         if (INVALID_POINT(rsl[0]) || INVALID_POINT(rsl[2]))
         {
             printf("# No data to compute with (0-2)\r\n");
-            return;
+            return false;
         }
 
         twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &midLat, &midLng);
         angleSb = fmod(rsl[0].wDir + 90.0, 360.0);
         angleBb = fmod(angleSb + 180.0, 360.0);
 
-        adjustPositionDirDist(angleBb, d1 / 2, midLat, midLng, &rsl[0].tgLat, &rsl[0].tgLng); // PORT
-        adjustPositionDirDist(angleSb, d1 / 2, midLat, midLng, &rsl[2].tgLat, &rsl[2].tgLng); // STARBOARD
+        // Same as above: respect the side calcTrackPos() picked for this pair.
+        bool firstIsStarboard = (rsl[0].trackPos == STARBOARD);
+        adjustPositionDirDist(firstIsStarboard ? angleSb : angleBb, d1 / 2, midLat, midLng, &rsl[0].tgLat, &rsl[0].tgLng);
+        adjustPositionDirDist(firstIsStarboard ? angleBb : angleSb, d1 / 2, midLat, midLng, &rsl[2].tgLat, &rsl[2].tgLng);
 
-        rsl[0].trackPos = PORT;
-        rsl[2].trackPos = STARBOARD;
+        rsl[0].trackPos = firstIsStarboard ? STARBOARD : PORT;
+        rsl[2].trackPos = firstIsStarboard ? PORT : STARBOARD;
+        return true;
     }
     else if (d2 < d0 && d2 < d1)
     {
         if (INVALID_POINT(rsl[1]) || INVALID_POINT(rsl[2]))
         {
             printf("# No data to compute with (1-2)\r\n");
-            return;
+            return false;
         }
 
         twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &midLat, &midLng);
-        angleSb = fmod(rsl[1].wDir + 90.0, 360.0);
+        // rsl[0].wDir, not rsl[1].wDir: handelStatus() copies the master's filtered wind into
+        // slot 0 immediately before calling this, so slot 0 is the authoritative wind source.
+        // The other two branches already used it; this one differed, which would have squared
+        // the line against a different buoy's wind reading.
+        angleSb = fmod(rsl[0].wDir + 90.0, 360.0);
         angleBb = fmod(angleSb + 180.0, 360.0);
 
-        adjustPositionDirDist(angleBb, d2 / 2, midLat, midLng, &rsl[1].tgLat, &rsl[1].tgLng); // PORT
-        adjustPositionDirDist(angleSb, d2 / 2, midLat, midLng, &rsl[2].tgLat, &rsl[2].tgLng); // STARBOARD
+        // Same as above: respect the side calcTrackPos() picked for this pair.
+        bool firstIsStarboard = (rsl[1].trackPos == STARBOARD);
+        adjustPositionDirDist(firstIsStarboard ? angleSb : angleBb, d2 / 2, midLat, midLng, &rsl[1].tgLat, &rsl[1].tgLng);
+        adjustPositionDirDist(firstIsStarboard ? angleBb : angleSb, d2 / 2, midLat, midLng, &rsl[2].tgLat, &rsl[2].tgLng);
 
-        rsl[1].trackPos = PORT;
-        rsl[2].trackPos = STARBOARD;
+        rsl[1].trackPos = firstIsStarboard ? STARBOARD : PORT;
+        rsl[2].trackPos = firstIsStarboard ? PORT : STARBOARD;
+        return true;
     }
+
+    // No branch matched: the three separations are equal (typically all-zero targets), so
+    // there is no shortest leg to use as the start line.
+    printf("# No usable buoy pair for a start line\r\n");
+    return false;
 }
 
-void reCalcTrack(struct RoboStruct rsl[3])
+bool reCalcTrack(struct RoboStruct rsl[3])
 {
     double d0, d1, d2;
     double startLineL, centerPont2Startline, centerPoint2Head;
@@ -803,8 +828,10 @@ void reCalcTrack(struct RoboStruct rsl[3])
         rsl[i].trackPos = -1;
         if (rsl[i].tgLng == 0 || rsl[i].tgLat == 0)
         {
-            printf("# No data to compute with\r\n");
-            return;
+            // Needs all THREE buoys to have a valid lock position; with only two deployed this
+            // always bails, so COMPUTE TRACK is a three-buoy operation.
+            printf("# No data to compute with (buoy %d has no lock position)\r\n", i);
+            return false;
         }
     }
 
@@ -890,6 +917,7 @@ void reCalcTrack(struct RoboStruct rsl[3])
         rsl[0].trackPos = PORT;
         rsl[1].trackPos = STARBOARD;
     }
+    return true;
 }
 
 void trackPosPrint(int c)
@@ -958,63 +986,136 @@ RoboStruct calcTrackPos(RoboStruct rsl[3])
     return rsl[0];
 }
 
-void MergeBuoyData(RoboStruct *dst, RoboStruct src)
+void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
 {
-    // Storing a received message means overwriting the whole cached struct, but every message
-    // type only carries a SUBSET of the fields on the wire. Everything the incoming message does
-    // not carry has to be carried over from what we already knew, otherwise the recurring
-    // BUOYPOS/TOPDATA telemetry blanks it roughly once per second. That single defect caused two
-    // separate symptoms: a remote buoy's set point survived only one telemetry cycle after it
-    // locked (so the field view never drew it), and its SETUPDATA reply was wiped well before the
-    // web UI could poll it (so the Setup dialog always timed out).
-    bool carriesTarget = (src.cmd == LOCKPOS || src.cmd == DOCKPOS ||
-                          src.cmd == SETLOCKPOS || src.cmd == SETDOCKPOS);
-    bool carriesConfig = (src.cmd == SETUPDATA);
-    bool carriesTrim = (src.cmd == ADAPTIVE_TRIM);
+    // Copy ONLY the fields the incoming message actually carries on the wire.
+    //
+    // This used to be a plain "*dst = src". Every message type carries only a subset of the
+    // struct, so a wholesale copy blanked everything the message did not contain. Because the
+    // buoys alternate BUOYPOS and TOPDATA roughly twice a second, any field carried by one but
+    // not the other visibly flickered between its real value and 0 - the sub voltage is only in
+    // TOPDATA/SUBDATA, so every BUOYPOS zeroed it. The same defect wiped a remote buoy's set
+    // point one telemetry cycle after it locked, and its SETUPDATA reply before the web UI could
+    // read it.
+    //
+    // The field lists below mirror RoboDecode() above; keep them in step when the wire format
+    // changes. Anything not listed keeps its previous value, so a stale reading is shown rather
+    // than a fake zero.
+    //
+    // NOTE ON STACK USAGE: src is a reference and nothing here copies a whole RoboStruct.
+    // RoboStruct is ~500 bytes and this runs in the loop task below handelRfData() and
+    // AddDataToBuoyBase(); copying it here overflowed the stack, which reboots the ESP32.
 
-    RoboStruct prev = *dst;
-    *dst = src;
+    // Envelope - rfDeCode()/RoboDecode() always fill these in
+    dst->IDs = src.IDs;
+    dst->IDr = src.IDr;
+    dst->ack = src.ack;
+    dst->cmd = src.cmd;
+    dst->status = src.status;
 
-    if (!carriesTarget)
+    switch (src.cmd)
     {
-        dst->tgLat = prev.tgLat;
-        dst->tgLng = prev.tgLng;
-    }
-    if (!carriesConfig)
-    {
-        dst->Kpr = prev.Kpr; dst->Kir = prev.Kir; dst->Kdr = prev.Kdr;
-        dst->Kps = prev.Kps; dst->Kis = prev.Kis; dst->Kds = prev.Kds;
-        dst->maxSpeed = prev.maxSpeed;
-        dst->minSpeed = prev.minSpeed;
-        dst->pivotSpeed = prev.pivotSpeed;
-        dst->compassOffset = prev.compassOffset;
-        dst->holdRad = prev.holdRad;
-        dst->revBB = prev.revBB;
-        dst->revSB = prev.revSB;
-        dst->swap_BB_SB = prev.swap_BB_SB;
-        dst->sub_status = prev.sub_status; // revision counter the web UI polls on
-    }
-    if (!carriesTrim)
-    {
-        dst->compass_trim = prev.compass_trim;
-        dst->compass_trim_enabled = prev.compass_trim_enabled;
-    }
-    // A SETUPDATA/ADAPTIVE_TRIM reply carries no position, so keep the last known fix as well.
-    if (!carriesTarget && (carriesConfig || carriesTrim))
-    {
-        dst->lat = prev.lat;
-        dst->lng = prev.lng;
-        dst->status = prev.status;
-        dst->gpsFix = prev.gpsFix;
-        dst->dirMag = prev.dirMag;
+    case BUOYPOS:
+        dst->lat = src.lat;             dst->lng = src.lng;
+        dst->dirMag = src.dirMag;
+        dst->wDir = src.wDir;           dst->wStd = src.wStd;
+        dst->topAccuP = src.topAccuP;   dst->subAccuP = src.subAccuP;
+        dst->gpsFix = src.gpsFix;       dst->gpsSat = src.gpsSat;
+        break;
+
+    case TOPDATA:
+        dst->dirMag = src.dirMag;       dst->gpsDir = src.gpsDir;
+        dst->tgDir = src.tgDir;         dst->tgDist = src.tgDist;
+        dst->wDir = src.wDir;           dst->wStd = src.wStd;
+        dst->speedBb = src.speedBb;     dst->speedSb = src.speedSb;
+        dst->ip = src.ip;               dst->ir = src.ir;
+        dst->subAccuV = src.subAccuV;   dst->subAccuP = src.subAccuP;
+        dst->subAccuI = src.subAccuI;
+        dst->lat = src.lat;             dst->lng = src.lng;
+        dst->gpsFix = src.gpsFix;       dst->gpsSat = src.gpsSat;
+        break;
+
+    case SUBDATA:
+        dst->dirMag = src.dirMag;
+        dst->speedBb = src.speedBb;     dst->speedSb = src.speedSb;
+        dst->ip = src.ip;               dst->ir = src.ir;
+        dst->subAccuV = src.subAccuV;   dst->subAccuP = src.subAccuP;
+        dst->subAccuI = src.subAccuI;
+        break;
+
+    case SUBACCU:
+        dst->subAccuV = src.subAccuV;   dst->subAccuP = src.subAccuP;
+        dst->subAccuI = src.subAccuI;
+        break;
+
+    case SUBPWR:
+        dst->speedSet = src.speedSet;   dst->speed = src.speed;
+        dst->speedBb = src.speedBb;     dst->speedSb = src.speedSb;
+        dst->subAccuV = src.subAccuV;   dst->subAccuI = src.subAccuI;
+        break;
+
+    case LOCKPOS:
+    case DOCKPOS:
+        dst->tgLat = src.tgLat;         dst->tgLng = src.tgLng;
+        dst->wDir = src.wDir;           dst->wStd = src.wStd;
+        break;
+
+    case SETLOCKPOS:
+    case SETDOCKPOS:
+        dst->tgLat = src.tgLat;         dst->tgLng = src.tgLng;
+        break;
+
+    case DIRDIST:
+        dst->tgDir = src.tgDir;         dst->tgDist = src.tgDist;
+        break;
+
+    case SETUPDATA:
+        dst->Kpr = src.Kpr; dst->Kir = src.Kir; dst->Kdr = src.Kdr;
+        dst->Kps = src.Kps; dst->Kis = src.Kis; dst->Kds = src.Kds;
+        dst->maxSpeed = src.maxSpeed;   dst->minSpeed = src.minSpeed;
+        dst->pivotSpeed = src.pivotSpeed;
+        dst->compassOffset = src.compassOffset;
+        dst->holdRad = src.holdRad;
+        dst->revBB = src.revBB;         dst->revSB = src.revSB;
+        dst->swap_BB_SB = src.swap_BB_SB;
+        break;
+
+    case ADAPTIVE_TRIM:
+        dst->compass_trim = src.compass_trim;
+        dst->compass_trim_enabled = src.compass_trim_enabled;
+        break;
+
+    default:
+        // Unknown / not a telemetry message: fall back to the original behaviour.
+        *dst = src;
+        break;
     }
 }
 
-void AddDataToBuoyBase(RoboStruct dataIn, RoboStruct *buoyPara[3])
+// dataIn is a const reference: it used to be taken by value, which put another ~500 byte
+// RoboStruct on the stack of the loop task on every single telemetry packet.
+void AddDataToBuoyBase(const RoboStruct &dataIn, RoboStruct *buoyPara[3])
 {
+    // An ID of 0 is not a buoy, so never allocate a slot for it.
+    if (dataIn.IDs == 0) return;
+
+    // Two passes, deliberately. The old single pass accepted either an ID match OR the first
+    // free slot, whichever came first in index order - so if a buoy was already held in slot 2
+    // and slot 1 happened to be free, its next message was filed in slot 1 and the base ended up
+    // with the same buoy twice. That duplicate then broke the start line calculation: the distance
+    // between a buoy and its own phantom copy is zero, which always wins the "shortest leg"
+    // comparison in calcTrackPos()/recalcStartLine().
     for (int i = 0; i < 3; i++)
     {
-        if (buoyPara[i] && (dataIn.IDs == buoyPara[i]->IDs || buoyPara[i]->IDs == 0))
+        if (buoyPara[i] && dataIn.IDs == buoyPara[i]->IDs)
+        {
+            MergeBuoyData(buoyPara[i], dataIn);
+            return;
+        }
+    }
+    for (int i = 0; i < 3; i++)
+    {
+        if (buoyPara[i] && buoyPara[i]->IDs == 0)
         {
             MergeBuoyData(buoyPara[i], dataIn);
             return;

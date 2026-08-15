@@ -241,12 +241,13 @@ void threePointAverage(struct RoboStruct p3[3], double *latgem, double *lnggem);
 void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double *latgem, double *longem);
 void windDirectionToVector(double windDegrees, double *windX, double *windY);
 double calculateAngle(double x1, double y1, double x2, double y2);
-void recalcStartLine(struct RoboStruct rsl[3]);
-void reCalcTrack(struct RoboStruct rsl[3]);
+// Both return true only when they actually computed new positions.
+bool recalcStartLine(struct RoboStruct rsl[3]);
+bool reCalcTrack(struct RoboStruct rsl[3]);
 void trackPosPrint(int c);
 RoboStruct calcTrackPos(RoboStruct rsl[3]);
-void MergeBuoyData(RoboStruct *dst, RoboStruct src);
-void AddDataToBuoyBase(RoboStruct dataIn, RoboStruct *buoyPara[3]);
+void MergeBuoyData(RoboStruct *dst, const RoboStruct &src);
+void AddDataToBuoyBase(const RoboStruct &dataIn, RoboStruct *buoyPara[3]);
 int GetDataPosFromBuoyBase(uint64_t id, RoboStruct buoyPara[3]);
 
 #endif
