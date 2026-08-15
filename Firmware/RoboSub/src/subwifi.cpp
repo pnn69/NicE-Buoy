@@ -435,10 +435,10 @@ void WiFiTask(void *arg) {
                 pr_damping = 1.0f - val;
                 if (pr_damping < 0.0f) pr_damping = 0.0f;
                 if (pr_damping > 0.99f) pr_damping = 0.99f;
-                memPrDamping(&pr_damping, SET);
+                memPrDamping(&pr_damping, MEM_PUT);
             }
 
-            memDampingFactors(&damp_acc, &damp_gyro, &damp_mag, &damp_att, SET);
+            memDampingFactors(&damp_acc, &damp_gyro, &damp_mag, &damp_att, MEM_PUT);
             Serial.printf("subServer: Saved damping coefficient: %s = %.2f\n\r", sensor.c_str(), val);
             subServer.send(200, "text/plain", "OK");
         } else {
@@ -453,7 +453,7 @@ void WiFiTask(void *arg) {
             
             // Save to Preferences NVS immediately
             extern void memInterpEnabled(bool *, bool);
-            memInterpEnabled(&temp_enabled, SET);
+            memInterpEnabled(&temp_enabled, MEM_PUT);
             
             subServer.send(200, "text/plain", "OK");
         } else {
@@ -498,13 +498,13 @@ void WiFiTask(void *arg) {
     });
     subServer.on("/save_harmonic", HTTP_GET, [](){
         extern float measured_angles[9];
-        memInterpolationTable(measured_angles, SET);
+        memInterpolationTable(measured_angles, MEM_PUT);
         subServer.send(200, "text/plain", "OK");
     });
     // Legacy alias
     subServer.on("/save_interpolation", HTTP_GET, [](){
         extern float measured_angles[9];
-        memInterpolationTable(measured_angles, SET);
+        memInterpolationTable(measured_angles, MEM_PUT);
         subServer.send(200, "text/plain", "OK");
     });
     subServer.on("/reset_harmonic", HTTP_GET, [](){
@@ -512,7 +512,7 @@ void WiFiTask(void *arg) {
         for (int i = 0; i < 9; i++) {
             measured_angles[i] = i * 45.0f;
         }
-        memInterpolationTable(measured_angles, SET);
+        memInterpolationTable(measured_angles, MEM_PUT);
         extern void computeFourierCoefficients();
         computeFourierCoefficients();
         subServer.send(200, "text/plain", "OK");
@@ -523,7 +523,7 @@ void WiFiTask(void *arg) {
         for (int i = 0; i < 9; i++) {
             measured_angles[i] = i * 45.0f;
         }
-        memInterpolationTable(measured_angles, SET);
+        memInterpolationTable(measured_angles, MEM_PUT);
         extern void computeFourierCoefficients();
         computeFourierCoefficients();
         subServer.send(200, "text/plain", "OK");
@@ -596,7 +596,7 @@ void WiFiTask(void *arg) {
             xSemaphoreGive(mainDataMutex);
         }
         if (success) {
-            CompasOffset(&mainData, SET);
+            CompasOffset(&mainData, MEM_PUT);
             global_params_rev++;
             subServer.send(200, "text/plain", "OK");
         } else {
@@ -663,25 +663,25 @@ void WiFiTask(void *arg) {
         }
         
         if (paramUpdated) {
-            if(p=="kpr" || p=="kir" || p=="kdr"){pidRudderParameters(&mainData,SET);initRudPid(&mainData);}
-            else if(p=="kps" || p=="kis" || p=="kds"){pidSpeedParameters(&mainData,SET);initSpeedPid(&mainData);}
-            else if(p=="coff"){CompasOffset(&mainData,SET);}
-            else if(p=="pvspd"){speedMaxMin(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
-            else if(p=="holdrad"){computeParameters(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
-            else if(p=="minspd" || p=="maxspd"){speedMaxMin(&mainData,SET);initSpeedPid(&mainData);initRudPid(&mainData);}
-            else if(p=="revbb" || p=="revsb"){thrusterInversion(&mainData,SET);}
-            else if(p=="tswap"){thrusterSwap(&mainData,SET);}
+            if(p=="kpr" || p=="kir" || p=="kdr"){pidRudderParameters(&mainData,MEM_PUT);initRudPid(&mainData);}
+            else if(p=="kps" || p=="kis" || p=="kds"){pidSpeedParameters(&mainData,MEM_PUT);initSpeedPid(&mainData);}
+            else if(p=="coff"){CompasOffset(&mainData,MEM_PUT);}
+            else if(p=="pvspd"){speedMaxMin(&mainData,MEM_PUT);initSpeedPid(&mainData);initRudPid(&mainData);}
+            else if(p=="holdrad"){computeParameters(&mainData,MEM_PUT);initSpeedPid(&mainData);initRudPid(&mainData);}
+            else if(p=="minspd" || p=="maxspd"){speedMaxMin(&mainData,MEM_PUT);initSpeedPid(&mainData);initRudPid(&mainData);}
+            else if(p=="revbb" || p=="revsb"){thrusterInversion(&mainData,MEM_PUT);}
+            else if(p=="tswap"){thrusterSwap(&mainData,MEM_PUT);}
             else if(p=="cavg"){
                 extern int compass_avg_len;
-                memCompassAvg(&compass_avg_len, SET);
+                memCompassAvg(&compass_avg_len, MEM_PUT);
             }
             else if(p=="ctrim" || p=="ctrim_en" || p=="ctrim_clr"){
                 float trim_val = (float)mainData.compass_trim;
                 bool trim_en = mainData.compass_trim_enabled;
-                memCompassTrim(&trim_val, &trim_en, SET);
+                memCompassTrim(&trim_val, &trim_en, MEM_PUT);
             }
             else if(p=="prdamp"){
-                memPrDamping(&pr_damping, SET);
+                memPrDamping(&pr_damping, MEM_PUT);
             }
         }
         subServer.send(200,"text/plain","OK");

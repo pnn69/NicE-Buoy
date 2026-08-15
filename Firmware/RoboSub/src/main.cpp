@@ -112,13 +112,13 @@ void setup()
     printf("Robobuoy ID: %08x\n\r", mainData.mac);
     initwifi(); // buoyID is mac adress esp32
     initMemory();
-    pidRudderParameters(&mainData, GET);
-    pidSpeedParameters(&mainData, GET);
-    speedMaxMin(&mainData, GET);
-    CompasOffset(&mainData, GET);
-    computeParameters(&mainData, GET);
-    thrusterInversion(&mainData, GET);
-    thrusterSwap(&mainData, GET);
+    pidRudderParameters(&mainData, MEM_GET);
+    pidSpeedParameters(&mainData, MEM_GET);
+    speedMaxMin(&mainData, MEM_GET);
+    CompasOffset(&mainData, MEM_GET);
+    computeParameters(&mainData, MEM_GET);
+    thrusterInversion(&mainData, MEM_GET);
+    thrusterSwap(&mainData, MEM_GET);
     
     initledqueue();
     // Core 0: Start LED Task immediately on boot so we can show dynamic status (e.g. fast yellow blinking) during calibration
@@ -405,7 +405,7 @@ void handelSerandRfdata(RoboStruct *ser)
                         ser->tgDist = 0;
                         pendingStatus = DOCKED;
                         ser->status = IDELING;
-                        memDockPos(&dataIn, GET);
+                        memDockPos(&dataIn, MEM_GET);
                         ser->locked = false;
                     }
                     else
@@ -414,7 +414,7 @@ void handelSerandRfdata(RoboStruct *ser)
                         ser->tgDist = 0;
                         initRudPid(ser);
                         initSpeedPid(ser);
-                        memDockPos(&dataIn, GET);
+                        memDockPos(&dataIn, MEM_GET);
                         ser->status = DOCKED;
                         ser->locked = false;
                     }
@@ -427,15 +427,15 @@ void handelSerandRfdata(RoboStruct *ser)
                     response.IDr = dataIn.IDs;
                     response.cmd = PIDRUDDER;
                     response.ack = INF;
-                    pidRudderParameters(&response, GET);
+                    pidRudderParameters(&response, MEM_GET);
                     xQueueSend(serOut, (void *)&response, 10);
                 }
                 break;
             case PIDRUDDERSET:
                 global_params_rev++;
 // printf("New rudder PID settings pr:%0.2f ir:%0.2f dr:%0.2f\r\n", dataIn.Kpr, dataIn.Kir, dataIn.Kdr);
-                pidRudderParameters(&dataIn, SET);
-                pidRudderParameters(ser, GET);
+                pidRudderParameters(&dataIn, MEM_PUT);
+                pidRudderParameters(ser, MEM_GET);
                 initRudPid(ser);
 // printf("Rudder PID stored pr:%0.2f ir:%0.2f dr:%0.2f\r\n", ser->Kpr, ser->Kir, ser->Kdr);
                 
@@ -454,15 +454,15 @@ void handelSerandRfdata(RoboStruct *ser)
                     response.IDr = dataIn.IDs;
                     response.cmd = PIDSPEED;
                     response.ack = INF;
-                    pidSpeedParameters(&response, GET);
+                    pidSpeedParameters(&response, MEM_GET);
                     xQueueSend(serOut, (void *)&response, 10);
                 }
                 break;
             case PIDSPEEDSET:
                 global_params_rev++;
 // printf("New speed PID settings ps:%0.2f is:%0.2f ds:%0.2f\r\n", dataIn.Kps, dataIn.Kis, dataIn.Kds);
-                pidSpeedParameters(&dataIn, SET);
-                pidSpeedParameters(ser, GET);
+                pidSpeedParameters(&dataIn, MEM_PUT);
+                pidSpeedParameters(ser, MEM_GET);
                 initSpeedPid(ser);
 // printf("Speed PID stored ps:%0.2f is:%0.2f ds:%0.2f\r\n", ser->Kps, ser->Kis, ser->Kds);
                 
@@ -495,7 +495,7 @@ void handelSerandRfdata(RoboStruct *ser)
                     
                     float trim_val = (float)mainData.compass_trim;
                     bool trim_en = mainData.compass_trim_enabled;
-                    memCompassTrim(&trim_val, &trim_en, SET);
+                    memCompassTrim(&trim_val, &trim_en, MEM_PUT);
                     global_params_rev++;
 
                     RoboStruct response = mainData;
@@ -509,8 +509,8 @@ void handelSerandRfdata(RoboStruct *ser)
                 break;
             case STORE_DECLINATION:
                 printf("Declinaton set to: %f", dataIn.declination);
-                Declination(&dataIn, SET);
-                Declination(ser, GET);
+                Declination(&dataIn, MEM_PUT);
+                Declination(ser, MEM_GET);
                 InitCompass();
                 break;
             case STORE_COMPASS_OFFSET:
@@ -542,7 +542,7 @@ void handelSerandRfdata(RoboStruct *ser)
                         xSemaphoreGive(mainDataMutex);
                     }
                     if (success) {
-                        CompasOffset(&mainData, SET);
+                        CompasOffset(&mainData, MEM_PUT);
                         global_params_rev++;
                         printf("SET_AS_NORTH command received via serial! Offset adjusted to %0.2f and saved to NVS.\r\n", newOffset);
                         extern QueueHandle_t buzzer;
@@ -609,15 +609,15 @@ void handelSerandRfdata(RoboStruct *ser)
                         response.IDr = dataIn.IDs;
                         response.cmd = MAXMINPWR;
                         response.ack = INF;
-                        speedMaxMin(&response, GET);
+                        speedMaxMin(&response, MEM_GET);
                         xQueueSend(serOut, (void *)&response, 10);
                     }
                     break;
                 case MAXMINPWRSET:
                 global_params_rev++;
                 printf("New Speed settings Max:%d Min:%d Pivot:%0.2f\r\n", dataIn.maxSpeed, dataIn.minSpeed, dataIn.pivotSpeed);
-                speedMaxMin(&dataIn, SET);
-                speedMaxMin(ser, GET);
+                speedMaxMin(&dataIn, MEM_PUT);
+                speedMaxMin(ser, MEM_GET);
                 initRudPid(ser);
                 initSpeedPid(ser);
                 printf("Max speed %d Min speed %d\r\n", ser->maxSpeed, ser->minSpeed);
@@ -641,35 +641,35 @@ void handelSerandRfdata(RoboStruct *ser)
                     response.cmd = SETUPDATA;
                     response.ack = INF;
                     // Fetch all data before sending
-                    pidRudderParameters(&response, GET);
-                    pidSpeedParameters(&response, GET);
-                    speedMaxMin(&response, GET);
-                    CompasOffset(&response, GET);
-                    thrusterSwap(&response, GET);
-                    thrusterInversion(&response, GET);
-                    computeParameters(&response, GET); 
+                    pidRudderParameters(&response, MEM_GET);
+                    pidSpeedParameters(&response, MEM_GET);
+                    speedMaxMin(&response, MEM_GET);
+                    CompasOffset(&response, MEM_GET);
+                    thrusterSwap(&response, MEM_GET);
+                    thrusterInversion(&response, MEM_GET);
+                    computeParameters(&response, MEM_GET); 
                     xQueueSend(serOut, (void *)&response, 10);
 // printf("Sent SETUPDATA back to %X\r\n", response.IDr);
                 }
                 else if (dataIn.ack == SET)
                 {
 // printf("New setup received. Updating PID and Inversion flags.\r\n");
-                    pidRudderParameters(&dataIn, SET);
-                    pidSpeedParameters(&dataIn, SET);
-                    speedMaxMin(&dataIn, SET);
-                    CompasOffset(&dataIn, SET);
-                    thrusterSwap(&dataIn, SET);
-                    thrusterInversion(&dataIn, SET);
-                    computeParameters(&dataIn, SET);
+                    pidRudderParameters(&dataIn, MEM_PUT);
+                    pidSpeedParameters(&dataIn, MEM_PUT);
+                    speedMaxMin(&dataIn, MEM_PUT);
+                    CompasOffset(&dataIn, MEM_PUT);
+                    thrusterSwap(&dataIn, MEM_PUT);
+                    thrusterInversion(&dataIn, MEM_PUT);
+                    computeParameters(&dataIn, MEM_PUT);
                     
                     // Reload into running config
-                    pidRudderParameters(ser, GET);
-                    pidSpeedParameters(ser, GET);
-                    speedMaxMin(ser, GET);
-                    CompasOffset(ser, GET);
-                    thrusterSwap(ser, GET);
-                    thrusterInversion(ser, GET);
-                    computeParameters(ser, GET);
+                    pidRudderParameters(ser, MEM_GET);
+                    pidSpeedParameters(ser, MEM_GET);
+                    speedMaxMin(ser, MEM_GET);
+                    CompasOffset(ser, MEM_GET);
+                    thrusterSwap(ser, MEM_GET);
+                    thrusterInversion(ser, MEM_GET);
+                    computeParameters(ser, MEM_GET);
                     mainData.compassOffset = ser->compassOffset; // Ensure compassTask uses the new offset immediately!
                     
                     initRudPid(ser);
@@ -686,12 +686,12 @@ void handelSerandRfdata(RoboStruct *ser)
                 break;
             case HARDIRONFACTORS:
                 dataIn.mac = espMac();
-                hardIron(&dataIn, SET);
+                hardIron(&dataIn, MEM_PUT);
                 InitCompass();
                 break;
             case SOFTIRONFACTORS:
                 dataIn.mac = espMac();
-                softIron(&dataIn, SET);
+                softIron(&dataIn, MEM_PUT);
                 InitCompass();
                 break;
             case RESET_RUDDER_PID:
@@ -900,7 +900,7 @@ void handleTimerRoutines(RoboStruct *in)
             
             float trim_val = (float)mainData.compass_trim;
             bool trim_en = mainData.compass_trim_enabled;
-            memCompassTrim(&trim_val, &trim_en, SET);
+            memCompassTrim(&trim_val, &trim_en, MEM_PUT);
             printf("Background Saved Compass Trim -> Val: %.3f, En: %d\r\n", trim_val, trim_en);
         }
     }

@@ -48,8 +48,8 @@ void resetRudPid()
  */
 void initRudPid(RoboStruct *rud)
 {
-    speedMaxMin(rud, GET);
-    pidRudderParameters(rud, GET);
+    speedMaxMin(rud, MEM_GET);
+    pidRudderParameters(rud, MEM_GET);
     rudderPID.SetSampleTime(20);
     rudderPID.SetTunings(rud->Kpr, rud->Kir, rud->Kdr, P_ON_E);
     rudderPID.SetOutputLimits(-100, 100);
@@ -88,11 +88,11 @@ void resetSpeedPid()
  */
 void initSpeedPid(RoboStruct *speed)
 {
-    speedMaxMin(speed, GET);
+    speedMaxMin(speed, MEM_GET);
     speedPID.SetSampleTime(20);
-    pidSpeedParameters(speed, GET);
+    pidSpeedParameters(speed, MEM_GET);
     speedPID.SetTunings(speed->Kps, speed->Kis, speed->Kds, P_ON_E);
-    computeParameters(speed, GET);
+    computeParameters(speed, MEM_GET);
     speedPID.SetOutputLimits(0, speed->maxSpeed); // Use actual maxSpeed limit
     resetSpeedPid();
     speed->ip = speedPID.GetITerm();

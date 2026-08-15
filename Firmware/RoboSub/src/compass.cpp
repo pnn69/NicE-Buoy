@@ -366,9 +366,9 @@ bool InitCompass(void)
     CompasOffset(&mainData, true);
     MechanicalCorrection(&mainData.mechanicCorrection, true);
     extern int compass_avg_len;
-    memCompassAvg(&compass_avg_len, GET);
-    memPrDamping(&pr_damping, GET);
-    memDampingFactors(&damp_acc, &damp_gyro, &damp_mag, &damp_att, GET);
+    memCompassAvg(&compass_avg_len, MEM_GET);
+    memPrDamping(&pr_damping, MEM_GET);
+    memDampingFactors(&damp_acc, &damp_gyro, &damp_mag, &damp_att, MEM_GET);
     // Attitude damping dynamically maps to pr_damping (where pr_damping = 1.0f - damp_att)
     pr_damping = 1.0f - damp_att;
     if (pr_damping < 0.0f) pr_damping = 0.0f;
@@ -376,15 +376,15 @@ bool InitCompass(void)
     
     float trim_val = 0.0f;
     bool trim_en = false;
-    memCompassTrim(&trim_val, &trim_en, GET);
+    memCompassTrim(&trim_val, &trim_en, MEM_GET);
     mainData.compass_trim = trim_val;
     mainData.compass_trim_enabled = trim_en;
 
     // Initialize 8-point linear interpolation table from Preferences NVM
-    memInterpolationTable(measured_angles, GET);
+    memInterpolationTable(measured_angles, MEM_GET);
     computeFourierCoefficients();
     bool temp_enabled = false;
-    memInterpEnabled(&temp_enabled, GET);
+    memInterpEnabled(&temp_enabled, MEM_GET);
     interp_enabled = temp_enabled;
 
     // Reset complementary yaw filter tracking state on sensor restart

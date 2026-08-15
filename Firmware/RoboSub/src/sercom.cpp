@@ -146,7 +146,7 @@ void SercomTask(void *arg)
                 }
                 if (index == 9)
                 {
-                    softIron(&serDataIn, SET);
+                    softIron(&serDataIn, MEM_PUT);
                     InitCompass();
                 }
             }
@@ -164,7 +164,7 @@ void SercomTask(void *arg)
                 }
                 if (index == 3)
                 {
-                    hardIron(&serDataIn, SET);
+                    hardIron(&serDataIn, MEM_PUT);
                     InitCompass();
                 }
             }

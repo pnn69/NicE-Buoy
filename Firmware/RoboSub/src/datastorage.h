@@ -1,8 +1,12 @@
 #ifndef DATASTORAGE_H_
 #define DATASTORAGE_H_
 
-#define GET true
-#define SET false
+// Direction flags for the storage API below.
+// NOTE: these deliberately do NOT reuse the names GET/SET. Those are msg_t enum constants
+// (GET=1, SET=2) used for the protocol ack field, and defining them as macros here silently
+// rewrote every ack assignment in this project to true/false -> ack=1/ack=0 instead of 1/2.
+#define MEM_GET true
+#define MEM_PUT false
 #include <RoboCompute.h>
 
 void initMemory(void);
