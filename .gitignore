@@ -98,3 +98,9 @@ fp-info-cache
 .gemini/
 gha-creds-*.json
 .claude/
+
+# Windows Explorer folder settings
+desktop.ini
+
+# Serial capture / build logs from the compass test sketches
+*.log
