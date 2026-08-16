@@ -1077,12 +1077,19 @@ function updateUI() {
     mainWrapper.style.display = 'flex';
     controls.style.display = 'block';
 
+    // GPS fix is needed before the status text, because without a fix the mode the buoy reports
+    // is meaningless for the operator - what matters is that it cannot be positioned at all.
+    const gpsFix = String(b.GpsFix || "0").trim();
+    const hasFix = (gpsFix === "1" || gpsFix.toLowerCase() === "true");
+
     // Status and Strings
-    const statusText = getStatusText(b.Status);
+    const statusText = hasFix ? getStatusText(b.Status) : "NO GPS FIX";
     titleEl.innerText = statusText;
+    titleEl.style.color = hasFix ? "" : "#f85149";
     const statusIndicatorText = document.getElementById("statusIndicatorText");
     if (statusIndicatorText) {
         statusIndicatorText.innerText = statusText;
+        statusIndicatorText.style.color = hasFix ? "" : "#f85149";
     }
     const buoyIdText = document.getElementById("buoyIdText");
     if (buoyIdText) {
@@ -1170,6 +1177,7 @@ function updateUI() {
     const dockBtn = document.getElementById("btnDock");
     const btnSend = document.getElementById("btnSend");
     const btnMap = document.getElementById("btnMap");
+    const btnSetup = document.getElementById("btnSetup");
     const exitRemoteBtn = document.getElementById("btnExitRemote");
 
     exitRemoteBtn.style.display = isRemote ? "" : "none";
@@ -1220,9 +1228,7 @@ function updateUI() {
         dockBtn.disabled = true;
     }
 
-    const gpsFix = String(b.GpsFix || "0").trim();
-    const hasFix = (gpsFix === "1" || gpsFix.toLowerCase() === "true");
-    
+    // hasFix was determined at the top of updateUI (it also drives the status text).
     if (!hasFix) {
         btnSend.disabled = true;
         btnMap.disabled = true;
@@ -1232,6 +1238,17 @@ function updateUI() {
         btnSend.disabled = false;
         btnMap.disabled = false;
         // lockBtn and dockBtn enabled state is already handled by the status logic above
+    }
+
+    // Every field in the Setup dialog is owned by the Sub, so a silent Sub can only ever produce
+    // the "did not send its setup" timeout on a blank form - which is also dangerous, because
+    // UPDATE CONFIG on a blank form writes zeros. Grey the button instead of offering that.
+    // SubOk is absent for older firmware and in the offline test data: treat unknown as OK.
+    if (btnSetup) {
+        const subOk = (b.SubOk === undefined) ? true
+                      : (String(b.SubOk).trim().toLowerCase() === "true" || String(b.SubOk).trim() === "1");
+        btnSetup.disabled = !subOk;
+        btnSetup.title = subOk ? "" : "Sub is not sending data";
     }
 
     updateSetupModal();

@@ -337,7 +337,8 @@ void WiFiTask(void *arg)
         json += "\"TgLng\":\"" + String(mainData.tgLng, 6) + "\",";
         json += "\"Lat\":\"" + String(mainData.lat, 6) + "\",";
         json += "\"Lng\":\"" + String(mainData.lng, 6) + "\",";
-        json += "\"GpsFix\":\"" + String(mainData.gpsFix ? "true" : "false") + "\"";
+        json += "\"GpsFix\":\"" + String(mainData.gpsFix ? "true" : "false") + "\",";
+        json += "\"SubOk\":\"" + String(subSerialAlive() ? "true" : "false") + "\"";
         json += "},";
 
         for (int i = 1; i < 3; i++) {
@@ -387,7 +388,12 @@ void WiFiTask(void *arg)
             json += "\"TgLng\":\"" + String(buoyPara[i].tgLng, 6) + "\",";
             json += "\"Lat\":\"" + String(buoyPara[i].lat, 6) + "\",";
             json += "\"Lng\":\"" + String(buoyPara[i].lng, 6) + "\",";
-            json += "\"GpsFix\":\"" + String(buoyPara[i].gpsFix ? "true" : "false") + "\"";
+            json += "\"GpsFix\":\"" + String(buoyPara[i].gpsFix ? "true" : "false") + "\",";
+            // A remote buoy's Sub link is not observable from here - the telemetry we hold for it
+            // comes from ITS Top over LoRa, and the protocol carries no sub-link flag. Report "true"
+            // so SETUP stays available for remote buoys; if their Sub is mute the existing 5 s
+            // "Buoy N did not send its setup" timeout in the dialog is what reports it.
+            json += "\"SubOk\":\"true\"";
             json += "}";
             if (i < 2) json += ",";
         }

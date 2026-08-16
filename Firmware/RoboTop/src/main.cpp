@@ -1984,6 +1984,28 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
     }
 }
 
+/**
+ * @brief Is our own Sub still sending data over the serial link?
+ *
+ * Used by the web dashboard (/data -> "SubOk") to grey out SETUP: every value in that dialog comes
+ * from the Sub, so with a mute Sub the request can only time out on an empty form.
+ *
+ * Deliberately based on lastRealSerIn and not on mainData.lastSerIn: handleSerialTimeOut() above
+ * resets lastSerIn to millis() when it turns the util LED red, so that field never stays stale and
+ * cannot be used to detect silence. The 3 s window is slightly wider than that LED's 2 s so the
+ * button does not flicker on a single dropped telemetry frame.
+ */
+bool subSerialAlive(void)
+{
+    // Nothing received since boot: millis() - 0 is small for the first seconds, which would
+    // otherwise read as "alive" before the Sub has ever spoken.
+    if (lastRealSerIn == 0) return false;
+    // Note that the serial watchdog parks lastRealSerIn in the future as a grace period after a
+    // wakeup. The unsigned subtraction then wraps to a huge value, which correctly reads as dead -
+    // the Sub really is silent while it reboots.
+    return (millis() - lastRealSerIn) < 3000;
+}
+
 //***************************************************************************************************
 //      Main loop
 //***************************************************************************************************

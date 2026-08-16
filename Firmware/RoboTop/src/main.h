@@ -6,4 +6,7 @@
 #include "../../RoboDependency\RobobuoyVersion.h"
 #include "topwifi.h"
 
+// Implemented in main.cpp, which owns the serial-link state to our own Sub.
+bool subSerialAlive(void);
+
 #endif /* MAIN_H_ */
