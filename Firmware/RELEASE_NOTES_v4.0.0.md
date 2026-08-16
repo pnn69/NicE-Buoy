@@ -42,7 +42,7 @@ The core shared library has been optimized for low-bandwidth environments.
 
 ### 1. Bandwidth Optimization
 - **Dynamic Field Truncation**: The `rfCode` function now skips long strings of empty/zeroed data fields for simple **GET** and **ACK** packets.
-- **Transitional State Support**: Added missing handlers for `IDELING`, `DOCKING`, and `RESET` commands to prevent "Unknown CMD" errors across the fleet.
+- **Transitional State Support**: Added missing handlers for `IDLING`, `DOCKING`, and `RESET` commands to prevent "Unknown CMD" errors across the fleet.
 
 ### 2. Diagnostic Improvements
 - **Correct Hex Formatting**: Fixed `printf` corruption where ESP32 MAC IDs were appearing as `lX`. They now show as clean, 8-digit uppercase hex strings (e.g., `B7A5B578`).

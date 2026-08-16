@@ -17,8 +17,12 @@ bool setup_data_loaded = false; // Initialize to false
 bool in_mannav_mode = false;    // Initialize to false
 
 unsigned long last_udp_blink_ms = 0;
+unsigned long last_udp_sel_blink_ms = 0;
 unsigned long last_lora_blink_ms = 0;
 unsigned long last_global_lora_blink_ms = 0;
+
+unsigned long last_udp_tx_ms = 0;
+unsigned long last_lora_tx_ms = 0;
 
 uint8_t calculate_crc(const String &content) {
     uint8_t crc = 0;
@@ -82,7 +86,12 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     
     // We have a verified valid incoming message from a buoy! Update blink timers dynamically:
     if (source.startsWith("UDP")) {
-        last_udp_blink_ms = millis();
+        last_udp_blink_ms = millis(); // Global blink on any incoming valid packet
+
+        // Update selected buoy udp blink ONLY if a buoy is selected AND it matches the sender of the packet!
+        if (selected_buoy_idx != -1 && buoys[selected_buoy_idx].id == sender_id) {
+            last_udp_sel_blink_ms = millis();
+        }
     } else if (source == "LoRa") {
         last_global_lora_blink_ms = millis(); // Always update global lora blink on any incoming valid packet!
         

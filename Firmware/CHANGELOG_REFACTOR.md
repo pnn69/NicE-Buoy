@@ -62,7 +62,7 @@ This document summarizes the changes made to the Robobuoy firmware ecosystem to 
 ## 4. GPS System Overhaul (`RobobuoyTop`)
 - **Thread Safety**: Refactored `RouteToPoint` to use standalone mathematical functions instead of the shared `TinyGPSPlus` object.
   - **Why**: Prevented race conditions between the asynchronous GPS task and the main logic loop.
-- **Outlier Recovery**: Improved `handelGpsData` in `main.cpp`.
+- **Outlier Recovery**: Improved `handleGpsData` in `main.cpp`.
   - **Feature**: Added a "persistent outlier" check. If the GPS receives 30 consecutive "jumps" >50m, it now accepts the new position. This allows the buoy to recover if it is physically moved while powered on.
 
 ## 5. Task Performance & Stability

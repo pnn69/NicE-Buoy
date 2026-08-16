@@ -188,6 +188,7 @@ void SercomTask(void *arg)
             {
                 RoboStruct serDataIn;
                 rfDeCode(serStringIn, &serDataIn);
+                printf("SER_TOP_IN>%s<\r\n", serStringIn.c_str());
                 if (serDataIn.IDs != -1 && serDataIn.IDs != mac)
                 {
                     lastRx = millis();
@@ -222,7 +223,7 @@ void SercomTask(void *arg)
             if (serDataOut.IDs == 0) serDataOut.IDs = mac;
             String out = rfCode(&serDataOut);
             Serial1.println(out);
-            printf("SER_TOP_OUT>%s<\r\n", out.c_str());
+            // printf("SER_TOP_OUT>%s<\r\n", out.c_str());
             if (serDataOut.ack == GETACK)
             
             {

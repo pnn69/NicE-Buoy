@@ -64,9 +64,14 @@ extern bool in_setup_mode;
 extern bool setup_data_loaded; // True once SETUPDATA is successfully received from the buoy!
 extern bool in_mannav_mode;    // True when manually navigating the buoy!
 
-extern unsigned long last_udp_blink_ms;
-extern unsigned long last_lora_blink_ms;
+extern unsigned long last_udp_blink_ms;      // Any incoming UDP packet
+extern unsigned long last_udp_sel_blink_ms;  // UDP packet from the currently selected buoy only
+extern unsigned long last_lora_blink_ms;     // LoRa packet from the currently selected buoy only
 extern unsigned long last_global_lora_blink_ms;
+
+// Outgoing traffic timestamps - the indicator dots turn RED while transmitting
+extern unsigned long last_udp_tx_ms;
+extern unsigned long last_lora_tx_ms;
 
 void parse_buoy_packet(const String &packetStr, const String &source, int rssi = -999);
 void send_buoy_command(const String &buoy_id, int cmd_code);

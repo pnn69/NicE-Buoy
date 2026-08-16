@@ -82,7 +82,10 @@ void check_lora_packets() {
 void send_lora_packet(const String &message) {
     Serial.print("Sending LoRa packet: ");
     Serial.println(message);
-    
+
+    // Turn the on-screen LoRa indicator dot RED for the duration of the transmit blink
+    last_lora_tx_ms = millis();
+
     // Active RF Blinker indicator: Blink RED on transmission
     ChangeRGBColor(RGB_COLOR_1); // Red
     

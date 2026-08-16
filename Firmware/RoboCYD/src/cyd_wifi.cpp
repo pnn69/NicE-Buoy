@@ -327,6 +327,9 @@ void handle_ota() {
 }
 
 void udp_broadcast(const String &message) {
+    // Turn the on-screen UDP indicator dot RED for the duration of the transmit blink
+    last_udp_tx_ms = millis();
+
     // Explicitly broadcast to all devices on port 1001, matching RoboLora controlwifi
     udp.broadcastTo(message.c_str(), 1001);
 }

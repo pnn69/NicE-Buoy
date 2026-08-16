@@ -79,6 +79,20 @@ void update_radar_map_dynamic();
 #define MAP_LEGEND_Y2   264  // Wind legend (middle of size 2 text)
 #define MAP_BACK_Y      280  // BACK button top edge (height 35)
 
+// Colour for a traffic indicator dot. Transmitting wins over receiving, so an outgoing
+// command always shows up as RED even if telemetry is streaming in at the same time.
+// 500 ms, comfortably longer than the 250 ms UI refresh tick so a one-shot command is never missed
+#define TRAFFIC_TX_BLINK_MS 500
+
+uint16_t traffic_dot_color(unsigned long tx_ms, unsigned long rx_ms, unsigned long rx_window, uint16_t rx_color) {
+    unsigned long now = millis();
+
+    if (tx_ms != 0 && now - tx_ms < TRAFFIC_TX_BLINK_MS) return TFT_RED;
+    if (rx_ms != 0 && now - rx_ms < rx_window) return rx_color;
+
+    return TFT_BLACK;
+}
+
 // Helper function to draw beautifully tapered, thick compass arrows with distinct arrowheads at their tips
 void draw_compass_arrow(int cx, int cy, int L, float angle_deg, uint16_t color) {
     float theta = angle_deg * PI / 180.0;
@@ -521,7 +535,7 @@ void update_mannav_dynamic() {
     tft.fillCircle(120, 95, 3, TFT_WHITE);
     
     // --- 5. Update Blinking Telemetry Indicators (Top-Right for LoRa only) ---
-    uint16_t loraDotColor = (millis() - last_lora_blink_ms < 300) ? TFT_CYAN : TFT_BLACK;
+    uint16_t loraDotColor = traffic_dot_color(last_lora_tx_ms, last_lora_blink_ms, 300, TFT_CYAN);
     tft.fillCircle(225, 13, 4, loraDotColor);
 }
 
@@ -980,10 +994,14 @@ void update_nav_dynamic() {
         tft.fillRect(127, 224, 7, 7, TFT_BLACK);
     }
     
-    // --- 7. Update Blinking Telemetry Indicators (Top-Right for LoRa only) ---
-    uint16_t loraDotColor = (millis() - last_lora_blink_ms < 300) ? TFT_CYAN : TFT_BLACK;
+    // --- 7. Update Blinking Telemetry Indicators (Top-Right, UDP sits left of LoRa) ---
+    // Both only blink for traffic belonging to THIS buoy; red while transmitting.
+    uint16_t udpDotColor = traffic_dot_color(last_udp_tx_ms, last_udp_sel_blink_ms, 100, TFT_GREEN);
+    tft.fillCircle(212, 13, 4, udpDotColor);
+
+    uint16_t loraDotColor = traffic_dot_color(last_lora_tx_ms, last_lora_blink_ms, 300, TFT_CYAN);
     tft.fillCircle(230, 13, 4, loraDotColor);
-    
+
     // --- 8. Update Live LoRa RSSI in Top-Left Corner of Header (Y: 5, X: 5) ---
     tft.setTextColor(TFT_CYAN, TFT_BLACK);
     tft.setTextSize(2); // One step bigger (Size 2!)
@@ -1077,10 +1095,11 @@ void update_dynamic_ui() {
         
         // Both traffic indicators share one right-hand column (X: 230), each vertically
         // centred on its own status line: LoRa on the "LoRa: 433M" line, UDP on the IP line.
-        uint16_t globalLoraDotColor = (millis() - last_global_lora_blink_ms < 300) ? TFT_CYAN : TFT_BLACK;
+        // RED while transmitting, cyan / green on reception.
+        uint16_t globalLoraDotColor = traffic_dot_color(last_lora_tx_ms, last_global_lora_blink_ms, 300, TFT_CYAN);
         tft.fillCircle(230, h - 29, 4, globalLoraDotColor);
 
-        uint16_t globalUdpDotColor = (millis() - last_udp_blink_ms < 100) ? TFT_GREEN : TFT_BLACK;
+        uint16_t globalUdpDotColor = traffic_dot_color(last_udp_tx_ms, last_udp_blink_ms, 100, TFT_GREEN);
         tft.fillCircle(230, h - 13, 4, globalUdpDotColor);
     } else {
         if (in_setup_mode) {
