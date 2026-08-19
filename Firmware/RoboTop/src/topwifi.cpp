@@ -5,6 +5,7 @@
 #include <AsyncUDP.h>
 #include "main.h"
 #include "topwifi.h"
+#include "gpscalib.h"
 #include "leds.h"
 #include "datastorage.h"
 #include "buzzer.h"
@@ -338,7 +339,9 @@ void WiFiTask(void *arg)
         json += "\"Lat\":\"" + String(mainData.lat, 6) + "\",";
         json += "\"Lng\":\"" + String(mainData.lng, 6) + "\",";
         json += "\"GpsFix\":\"" + String(mainData.gpsFix ? "true" : "false") + "\",";
-        json += "\"SubOk\":\"" + String(subSerialAlive() ? "true" : "false") + "\"";
+        json += "\"SubOk\":\"" + String(subSerialAlive() ? "true" : "false") + "\",";
+        // Progress line for the GPS Fourier calibration; empty string whenever no run is active.
+        json += "\"CalibMsg\":\"" + String(gpsCalibProgress()) + "\"";
         json += "},";
 
         for (int i = 1; i < 3; i++) {
@@ -405,6 +408,9 @@ void WiFiTask(void *arg)
         int bid = server.arg("bid").toInt();
         String cmdStr = server.arg("cmd");
         int cmdEnum = -1;
+        // Set by the still-water variant of the GPS Fourier command below. Kept out of
+        // the query string so the mode can never be half-specified.
+        bool gpsCalStill = false;
         // printf("Web Command received: bid=%d, cmd=%s\r\n", bid, cmdStr.c_str());
 
         if (cmdStr == "LOCK") {
@@ -443,6 +449,8 @@ void WiFiTask(void *arg)
         else if (cmdStr == "CALIB_COMPASS") cmdEnum = INFIELD_CALIBRATE;
         else if (cmdStr == "MANUAL_CALIB") cmdEnum = CALIBRATE_MAGNETIC_COMPASS;
         else if (cmdStr == "CALIB_OFFSET") cmdEnum = INFIELD_OFFSET_CALIBRATE;
+        else if (cmdStr == "CALIB_GPS_FOURIER") cmdEnum = GPS_FOURIER_CALIBRATE;
+        else if (cmdStr == "CALIB_GPS_FOURIER_STILL") { cmdEnum = GPS_FOURIER_CALIBRATE; gpsCalStill = true; }
         else if (cmdStr == "SET_AS_NORTH") cmdEnum = SET_AS_NORTH;
         else if (cmdStr == "REBOOT") cmdEnum = REBOOT;
         else if (cmdStr == "ADAPTIVE_TRIM") cmdEnum = ADAPTIVE_TRIM;
@@ -503,6 +511,9 @@ void WiFiTask(void *arg)
                     if (server.hasArg("compass_trim")) msg.compass_trim = server.arg("compass_trim").toFloat();
                     if (server.hasArg("compass_trim_enabled")) msg.compass_trim_enabled = (server.arg("compass_trim_enabled").toInt() != 0);
                     msg.ack = SET;
+                } else if (cmdEnum == GPS_FOURIER_CALIBRATE) {
+                    msg.gpsCalStillWater = gpsCalStill;
+                    msg.ack = INF;
                 } else {
                     msg.ack = INF;
                 }

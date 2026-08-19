@@ -75,8 +75,9 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     // Extract command code first to verify if this is an actual telemetry or setup packet
     int cmd = atoi(fields[3].c_str());
     
-    // TELEMETRY: Ignore any auxiliary command echoes, except standard status updates and SETUPDATA (83)!
-    if (cmd != 51 && cmd != 19 && cmd != 83) return;
+    // TELEMETRY: Ignore any auxiliary command echoes, except standard status updates, SETUPDATA (83)
+    // and the GPS Fourier calibration progress report (90).
+    if (cmd != 51 && cmd != 19 && cmd != 83 && cmd != 90) return;
     
     String sender_id = fields[1];
     sender_id.trim();
@@ -157,8 +158,24 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         buoys[buoy_idx].sb_power = 0;
     }
     else if (status_code == 25) buoys[buoy_idx].status = "REMOTE";
+    // GPS_FOURIER_CALIBRATE: the Top is sailing its eight compass calibration legs.
+    else if (status_code == 89) buoys[buoy_idx].status = "GPS CALIB";
     else buoys[buoy_idx].status = "MODE " + String(status_code);
     
+    // Parse GPS_FOURIER_STATUS (CMD = 90).
+    // fields[0..4] are IDr, IDs, ack, cmd, status - the payload starts at 5.
+    if (cmd == 90 && fields.size() >= 11) {
+        buoys[buoy_idx].cal_seen_ms = millis();
+        buoys[buoy_idx].cal_step    = atoi(fields[5].c_str());
+        buoys[buoy_idx].cal_leg     = atoi(fields[6].c_str());
+        buoys[buoy_idx].cal_cmd_dir = atof(fields[7].c_str());
+        buoys[buoy_idx].cal_dist    = atof(fields[9].c_str());
+        buoys[buoy_idx].cal_err     = atof(fields[10].c_str());
+        // fields[11] only exists on a Top new enough to send it.
+        if (fields.size() >= 12) buoys[buoy_idx].cal_last_err = atof(fields[11].c_str());
+        return; // carries no position or battery data - nothing else here applies
+    }
+
     // Parse TOPDATA (CMD = 51)
     if (cmd == 51 && fields.size() >= 21) {
         buoys[buoy_idx].mag_dir = atof(fields[5].c_str());
@@ -244,6 +261,25 @@ void send_buoy_command(const String &buoy_id, int cmd_code) {
     Serial.printf("Broadcasting Command: %s\n", finalPacket.c_str());
     
     // Send over both LoRa and UDP!
+    send_lora_packet(finalPacket);
+    udp_broadcast(finalPacket);
+}
+
+void send_gps_fourier_calibrate(const String &buoy_id, bool still_water) {
+    // Same envelope as send_buoy_command(), but with the still-water flag in the first payload
+    // field. RoboTop reads it as fields[5]; an empty payload there decodes as 0, which is the
+    // current-tolerant pair-averaged mode.
+    String cmdStr = buoy_id + ",98,3,89,89," + String(still_water ? 1 : 0);
+
+    uint8_t crc = calculate_crc(cmdStr);
+    char crc_buf[8];
+    sprintf(crc_buf, "*%02X", crc);
+
+    String finalPacket = "$" + cmdStr + String(crc_buf);
+
+    Serial.printf("Broadcasting GPS Fourier calibrate (%s): %s\n",
+                  still_water ? "still water" : "pair averaged", finalPacket.c_str());
+
     send_lora_packet(finalPacket);
     udp_broadcast(finalPacket);
 }

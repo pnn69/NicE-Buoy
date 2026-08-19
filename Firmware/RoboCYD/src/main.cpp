@@ -137,7 +137,12 @@ void reset_button_draw_cache() {
     }
 }
 
+// Set whenever the setup screen is repainted from scratch, so the calibration panel knows its
+// cached contents are no longer on the glass.
+bool gps_cal_panel_dirty = true;
+
 void draw_setup_static() {
+    gps_cal_panel_dirty = true;
     int w = tft.width();
     int h = tft.height();
     int idx = selected_buoy_idx;
@@ -148,22 +153,32 @@ void draw_setup_static() {
     tft.setTextColor(TFT_CYAN, TFT_BLACK);
     tft.setTextSize(2);
     tft.setTextDatum(TC_DATUM);
-    tft.drawString("SETUP: " + buoys[idx].id, w / 2, 5);
+    // Page 4 holds no settings at all, so calling it SETUP was misleading exactly where it
+    // matters most - it is the page that commands the buoy to sail for half an hour.
+    // No buoy ID here: the nav screen this was opened from already shows it as its own
+    // header, so repeating it only costs width.
+    // Width at text size 2 is 12 px per character on a 240 px screen, so the longer of the
+    // two is 18 chars = 216 px and clears both edges by 12 px.
+    tft.drawString(setup_page == 3 ? "COMPASS OFFSET CAL" : "SETUP", w / 2, 5);
     
     tft.drawFastHLine(15, 27, w - 30, TFT_WHITE);
     
     // Draw Single large Plus/Minus Adjustment Buttons Row (Y: 195 to 225)
     // If not loaded yet, these buttons are drawn disabled (Dark Grey) to protect the buoy NVM!
-    uint16_t adjMinusColor = setup_data_loaded ? TFT_RED : TFT_DARKGREY;
-    uint16_t adjMinusText = setup_data_loaded ? TFT_WHITE : TFT_LIGHTGREY;
+    // On the ACTIONS page "+" starts the selected calibration and "-" has no meaning at all, so
+    // they are gated separately. Elsewhere both follow the setup-loaded guard as before.
+    bool adjPlusUsable = setup_data_loaded || setup_page == 3;
+    bool adjMinusUsable = setup_data_loaded && setup_page != 3;
+    uint16_t adjMinusColor = adjMinusUsable ? TFT_RED : TFT_DARKGREY;
+    uint16_t adjMinusText = adjMinusUsable ? TFT_WHITE : TFT_LIGHTGREY;
     tft.fillRoundRect(15, 195, 60, 30, 4, adjMinusColor);
     tft.setTextColor(adjMinusText, adjMinusColor);
     tft.setTextSize(2);
     tft.setTextDatum(MC_DATUM);
     tft.drawString("-", 45, 210);
     
-    uint16_t adjPlusColor = setup_data_loaded ? TFT_GREEN : TFT_DARKGREY;
-    uint16_t adjPlusText = setup_data_loaded ? TFT_BLACK : TFT_LIGHTGREY;
+    uint16_t adjPlusColor = adjPlusUsable ? TFT_GREEN : TFT_DARKGREY;
+    uint16_t adjPlusText = adjPlusUsable ? TFT_BLACK : TFT_LIGHTGREY;
     tft.fillRoundRect(165, 195, 60, 30, 4, adjPlusColor);
     tft.setTextColor(adjPlusText, adjPlusColor);
     tft.drawString("+", 195, 210);
@@ -182,7 +197,7 @@ void draw_setup_static() {
     tft.fillRoundRect(85, 235, 70, 35, 4, TFT_ORANGE);
     tft.setTextColor(TFT_BLACK, TFT_ORANGE);
     char pg_buf[16];
-    sprintf(pg_buf, "PG %d/3", setup_page + 1);
+    sprintf(pg_buf, "PG %d/4", setup_page + 1);
     tft.drawString(pg_buf, 120, 252);
     
     uint16_t saveBtnColor = setup_data_loaded ? TFT_GREEN : TFT_DARKGREY;
@@ -673,13 +688,112 @@ void draw_resting_ui() {
     }
 }
 
+// Live GPS Fourier calibration progress, drawn on the ACTIONS page below the two start buttons.
+// Fed by GPS_FOURIER_STATUS (cmd 90); see parse_buoy_packet() in buoy_data.cpp.
+void draw_gps_cal_panel(BuoyData &b) {
+    int w = tft.width();
+
+    // The Top only reports while a run is active, so silence means no run. 15 s is comfortably
+    // longer than the 5 s LoRa report interval, so a single dropped frame does not blank the panel.
+    bool live = (b.cal_seen_ms != 0) && (millis() - b.cal_seen_ms < 15000);
+
+    static int   c_idx = -1;
+    static bool  c_live = false;
+    static int   c_step = -1, c_leg = -1;
+    static float c_dir = -999, c_dist = -999, c_err = -999, c_last = -999;
+    if (!gps_cal_panel_dirty && c_idx == selected_buoy_idx && c_live == live &&
+        c_step == b.cal_step && c_leg == b.cal_leg && c_dir == b.cal_cmd_dir &&
+        c_dist == b.cal_dist && c_err == b.cal_err && c_last == b.cal_last_err) {
+        return;
+    }
+    gps_cal_panel_dirty = false;
+    c_idx = selected_buoy_idx; c_live = live;
+    c_step = b.cal_step; c_leg = b.cal_leg; c_dir = b.cal_cmd_dir;
+    c_dist = b.cal_dist; c_err = b.cal_err; c_last = b.cal_last_err;
+
+    tft.fillRect(8, 71, w - 16, 118, TFT_BLACK);
+    tft.setTextSize(1);
+    tft.setTextDatum(TL_DATUM);
+    char buf[64];
+    if (!live) {
+        tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+        tft.drawString("No calibration running.", 14, 80);
+        tft.drawString("STILLWTR: no current, corrects", 14, 100);
+        tft.drawString("hard iron too. Wrong choice in", 14, 112);
+        tft.drawString("a current spoils the compass.", 14, 124);
+        tft.drawString("CURRENT: safe in moving water,", 14, 144);
+        tft.drawString("cannot correct hard iron.", 14, 156);
+        tft.drawString("8 legs, about 30 minutes.", 14, 176);
+        tft.setTextDatum(MC_DATUM);
+        return;
+    }
+
+    // gpscal_step_t from RoboCompute.h
+    const char *phase;
+    uint16_t phaseCol = TFT_YELLOW;
+    switch (b.cal_step) {
+        case 1:  phase = "READING TABLE"; break;
+        case 2:  phase = "SETTLING";      break;
+        case 3:  phase = "MEASURING";     break;
+        case 4:  phase = "STORING TABLE"; break;
+        case 5:  phase = "DONE";    phaseCol = TFT_GREEN; break;
+        case 6:  phase = "ABORTED"; phaseCol = TFT_RED;   break;
+        default: phase = "IDLE";    phaseCol = TFT_DARKGREY; break;
+    }
+
+    tft.setTextSize(2);
+    tft.setTextColor(phaseCol, TFT_BLACK);
+    tft.drawString(phase, 14, 78);
+
+    tft.setTextSize(1);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    sprintf(buf, "Leg %d of 8   commanded %03.0f deg", b.cal_leg + 1, b.cal_cmd_dir);
+    tft.drawString(buf, 14, 104);
+
+    sprintf(buf, "Sailed %0.0f m of 100 m", b.cal_dist);
+    tft.drawString(buf, 14, 122);
+
+    // Progress bar for the current leg
+    int barW = (int)((b.cal_dist / 100.0f) * (w - 32));
+    if (barW < 0) barW = 0;
+    if (barW > w - 32) barW = w - 32;
+    tft.drawRect(14, 134, w - 32, 8, TFT_DARKGREY);
+    tft.fillRect(15, 135, barW ? barW - 2 : 0, 6, TFT_CYAN);
+
+    // The live error is held at 0 by the Top until the leg has run 10 m, because below that the
+    // displacement is inside GPS noise and the bearing is meaningless. Say so rather than showing
+    // a confident 0.0.
+    tft.setTextColor(TFT_CYAN, TFT_BLACK);
+    if (b.cal_step == 3 && b.cal_dist < 10.0f) {
+        tft.drawString("Live error: settling...", 14, 152);
+    } else {
+        sprintf(buf, "Live error: %+0.1f deg", b.cal_err);
+        tft.drawString(buf, 14, 152);
+    }
+
+    tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+    if (b.cal_leg > 0 || b.cal_step >= 4) {
+        sprintf(buf, "Last completed leg: %+0.1f deg", b.cal_last_err);
+        tft.drawString(buf, 14, 170);
+    } else {
+        tft.drawString("No leg completed yet", 14, 170);
+    }
+
+    // Restore what the rest of update_setup_dynamic() expects. TFT_eSPI datum is global state and
+    // this function is called from the middle of that routine.
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextSize(1);
+}
+
 void update_setup_dynamic() {
     int w = tft.width();
     int idx = selected_buoy_idx;
     BuoyData &b = buoys[idx];
     char buf[64];
     
-    if (!setup_data_loaded) {
+    // Page 4 carries no setup values at all, only the calibration actions and their progress, so
+    // it must not be held behind the SETUPDATA reply the way the parameter pages are.
+    if (!setup_data_loaded && setup_page != 3) {
         // Display beautiful loading overlay while awaiting the NMEA response packet from buoy
         tft.setTextSize(2);
         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
@@ -697,13 +811,18 @@ void update_setup_dynamic() {
     tft.setTextDatum(MC_DATUM);
     
     // Array of 16 parameter names symmetrically grouped
-    String names[24] = {
+    String names[32] = {
         "Rud P:", "Rud I:", "Rud D:", "MaxSpd:",
         "Spd P:", "Spd I:", "Spd D:", "MinSpd:",
         "PvtSpd:", "HoldRad:", "BB Inv:", "Swap:",
         "CompOff:", "SetNorth", "SB Inv:", "TrimEn:",
         "Appr Dist", "Appr Dir", "DockToWP", "",
-        "", "", "", ""
+        "", "", "", "",
+        // Page 4 (ACTIONS): 24 (top left) and 28 (top right) are the two GPS Fourier
+        // calibration modes. They are not editable values - tapping selects, and the "+"
+        // button below actually starts the run.
+        "GPS CAL", "", "", "",
+        "GPS CAL", "", "", ""
     };
     
     // Draw 8 grid boxes for the current Setup Page (4 rows x 2 columns)
@@ -715,6 +834,10 @@ void update_setup_dynamic() {
         
         int global_idx = setup_page * 8 + i;
         
+        // On the ACTIONS page only the two top boxes exist; the rest of the grid area is given
+        // over to the progress panel drawn after this loop.
+        if (setup_page == 3 && global_idx != 24 && global_idx != 28) continue;
+        
         // Highlight selected parameter box in Yellow, otherwise draw in Dark Grey
         uint16_t boxColor = (global_idx == selected_param_idx) ? TFT_YELLOW : TFT_DARKGREY;
         uint16_t textColor = (global_idx == selected_param_idx) ? TFT_YELLOW : TFT_WHITE;
@@ -724,6 +847,12 @@ void update_setup_dynamic() {
         
         if (global_idx == 13) {
             tft.drawString("SET NORTH", x + 54, y + 16);
+        } else if (global_idx == 24 || global_idx == 28) {
+            // Deliberately two separate entries rather than one box with a toggle: picking the
+            // wrong mode is the one way this calibration can leave the compass worse than it
+            // found it, so the choice has to be explicit at the moment you start it.
+            tft.setTextColor(global_idx == 24 ? TFT_GREEN : TFT_ORANGE, TFT_BLACK);
+            tft.drawString(global_idx == 24 ? "CAL STILLWTR" : "CAL CURRENT", x + 54, y + 16);
         } else if (global_idx == 10) {
             tft.setTextColor(b.rev_bb ? TFT_GREEN : textColor, TFT_BLACK);
             sprintf(buf, "BB Inv: %s", b.rev_bb ? "YES" : "NO");
@@ -765,10 +894,21 @@ void update_setup_dynamic() {
         }
     }
     
+    if (setup_page == 3) draw_gps_cal_panel(b);
+    
     // Draw currently selected value in big text in center of adjustment row (Y: 195 to 225)
     tft.setTextSize(2);
     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-    if (selected_param_idx == 13) {
+    if (setup_page == 3) {
+        // Clear the strip between the two buttons (they occupy x 15..75 and x 165..225).
+        tft.fillRect(78, 196, 84, 28, TFT_BLACK);
+        bool armed = (selected_param_idx == 24 || selected_param_idx == 28);
+        tft.setTextDatum(MC_DATUM); // set, not inherited - see the note above draw_gps_cal_panel()
+        tft.setTextSize(1); // "TAP + TO RUN" at size 2 is 144 px and the gap is 84
+        tft.setTextColor(armed ? (selected_param_idx == 24 ? TFT_GREEN : TFT_ORANGE) : TFT_DARKGREY,
+                         TFT_BLACK);
+        tft.drawString(armed ? "TAP + TO RUN" : "SELECT MODE", 120, 210);
+    } else if (selected_param_idx == 13) {
         tft.drawString("TAP +", 115, 210);
     } else if (selected_param_idx == 10) {
         tft.drawString(b.rev_bb ? "YES" : "NO", 115, 210);
@@ -1311,7 +1451,7 @@ void loop() {
                     int local_idx = c * 4 + r; // 0 to 7
                     int tapped_idx = setup_page * 8 + local_idx; // Map to 0-15 based on page!
                     
-                    if (tapped_idx >= 0 && tapped_idx <= 18) {
+                    if ((tapped_idx >= 0 && tapped_idx <= 18) || tapped_idx == 24 || tapped_idx == 28) {
                         // Change focus selection
                         selected_param_idx = tapped_idx;
                         
@@ -1332,14 +1472,20 @@ void loop() {
                             buoys[selected_buoy_idx].swap_bb_sb = !buoys[selected_buoy_idx].swap_bb_sb;
                         } else if (selected_param_idx == 15) {
                             buoys[selected_buoy_idx].compass_trim_enabled = !buoys[selected_buoy_idx].compass_trim_enabled;
-                        }
                         } else if (selected_param_idx == 18) {
                             buoys[selected_buoy_idx].dock_to_wp = !buoys[selected_buoy_idx].dock_to_wp;
+                        }
                     }
                 }
                 // 2. Large Plus / Minus Button Clicks (Y: 190 to 230)
                 else if (touchY >= 190 && touchY <= 230) {
                     BuoyData &b = buoys[selected_buoy_idx];
+                    
+                    // The ACTIONS page holds no editable parameters. Only the two calibration
+                    // boxes respond here; anything else still selected from another page must be
+                    // left alone rather than edited invisibly.
+                    bool adjArmed = (setup_page != 3) ||
+                                    selected_param_idx == 24 || selected_param_idx == 28;
                     
                     // Determine custom step size based on highlighted parameter
                     float step = 0.05;
@@ -1353,7 +1499,7 @@ void loop() {
                         step = 0.5;   // Hold Radius step size
                     }
                     
-                    if (touchX >= 10 && touchX <= 75) {
+                    if (adjArmed && touchX >= 10 && touchX <= 75) {
                         // MINUS
                         Serial.printf("CYD Touch: MINUS for param %d, step=%0.3f (current dist=%d, dir=%d)\n", selected_param_idx, step, b.dock_app_dist, b.dock_app_dir);
                         if (selected_param_idx == 0) { b.kpr -= step; if (b.kpr < 0) b.kpr = 0; }
@@ -1374,8 +1520,9 @@ void loop() {
                         else if (selected_param_idx == 16) { b.dock_app_dist -= (int)step; if (b.dock_app_dist < 0) b.dock_app_dist = 0; }
                         else if (selected_param_idx == 17) { b.dock_app_dir -= (int)step; if (b.dock_app_dir < 0) b.dock_app_dir += 360; }
                         else if (selected_param_idx == 18) { b.dock_to_wp = !b.dock_to_wp; }
+                        // 24 and 25 (the calibration actions) are intentionally absent here.
                     }
-                    else if (touchX >= 155 && touchX <= 230) {
+                    else if (adjArmed && touchX >= 155 && touchX <= 230) {
                         // PLUS
                         Serial.printf("CYD Touch: PLUS for param %d, step=%0.3f (current dist=%d, dir=%d)\n", selected_param_idx, step, b.dock_app_dist, b.dock_app_dir);
                         if (selected_param_idx == 0) { b.kpr += step; }
@@ -1402,6 +1549,31 @@ void loop() {
                         else if (selected_param_idx == 16) { b.dock_app_dist += (int)step; }
                         else if (selected_param_idx == 17) { b.dock_app_dir += (int)step; if (b.dock_app_dir >= 360) b.dock_app_dir -= 360; }
                         else if (selected_param_idx == 18) { b.dock_to_wp = !b.dock_to_wp; }
+                        else if (selected_param_idx == 24 || selected_param_idx == 28) {
+                            // Two-step on purpose: tapping the box on the ACTIONS page only
+                            // selects it, and this is the confirming press. Unlike every other
+                            // entry here it commands the buoy to sail for half an hour, so it must
+                            // not be reachable with a single stray touch.
+                            bool still = (selected_param_idx == 24);
+                            send_gps_fourier_calibrate(b.id, still);
+                            tft.fillRect(0, 60, tft.width(), 120, TFT_BLACK);
+                            tft.setTextDatum(MC_DATUM);
+                            tft.setTextSize(2);
+                            tft.setTextColor(still ? TFT_GREEN : TFT_ORANGE, TFT_BLACK);
+                            tft.drawString("GPS CAL STARTED", tft.width() / 2, 100);
+                            tft.setTextSize(1);
+                            tft.setTextColor(TFT_WHITE, TFT_BLACK);
+                            tft.drawString(still ? "still water - per leg" : "current - pair averaged",
+                                           tft.width() / 2, 130);
+                            tft.drawString("8 legs, about 30 minutes", tft.width() / 2, 148);
+                            delay(1500);
+                            // This overlay painted over the panel's area. The grid boxes are
+                            // redrawn unconditionally on the next pass, but the panel is cached,
+                            // so without this it would decide nothing had changed and leave the
+                            // overlay on the glass until the first report happened to differ.
+                            extern bool gps_cal_panel_dirty;
+                            gps_cal_panel_dirty = true;
+                        }
                     }
                     reset_button_draw_cache(); // Force complete update redraw
                 }
@@ -1417,7 +1589,7 @@ void loop() {
                     }
                     // PAGE Toggle Button (X: 81 to 155) - Toggles Setup Page 1, 2 & 3!
                     else if (touchX >= 81 && touchX <= 155) {
-                        setup_page = (setup_page + 1) % 3; // Cycle through 0, 1, 2
+                        setup_page = (setup_page + 1) % 4; // Cycle through 0, 1, 2, 3 (3 = ACTIONS)
                         last_transition_ms = millis();
                         reset_button_draw_cache();
                         draw_resting_ui();

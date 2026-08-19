@@ -257,6 +257,31 @@ void RoboDecode(String data, RoboStruct *dataStore)
         break;
     case SET_AS_NORTH:
         break;
+    case STORE_INTERPOLATION_TABLE:
+        // Presence is decided by the field COUNT, exactly as in SETUPDATA: RoboCode() compresses
+        // an all-zero token to "", so an empty field here means 0.0 and not "absent". A GET
+        // request that carries no table at all must leave the receiver's own copy untouched.
+        if (count > 9)
+        {
+            for (int i = 0; i < 8; i++)
+                dataStore->interpolationTable[i] = numbers[2 + i].toFloat();
+        }
+        break;
+    case GPS_FOURIER_CALIBRATE:
+        // Count-based, like every other optional field here: a frame from a node that
+        // predates the still-water mode carries no payload and must stay in the safe
+        // pair-averaged mode.
+        if (count > 2) dataStore->gpsCalStillWater = (bool)numbers[2].toInt();
+        break;
+    case GPS_FOURIER_STATUS:
+        dataStore->gpsCalStep = numbers[2].toInt();
+        dataStore->gpsCalLeg = numbers[3].toInt();
+        dataStore->tgDir = numbers[4].toDouble();
+        dataStore->dirMag = numbers[5].toDouble();
+        dataStore->gpsCalDist = numbers[6].toDouble();
+        dataStore->gpsCalErr = numbers[7].toDouble();
+        if (count > 8) dataStore->gpsCalLastErr = numbers[8].toDouble();
+        break;
     default:
         printf("RoboDecode: Unknown CMD %d\r\n", dataStore->cmd);
         break;
@@ -451,6 +476,25 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String((int)dataOut->compass_trim_enabled);
         break;
     case SET_AS_NORTH:
+        break;
+    case STORE_INTERPOLATION_TABLE:
+        // A GET request still puts its (identity) table on the wire rather than sending a short
+        // frame: the decoder keys on the field count, so a short frame would be indistinguishable
+        // from a truncated one.
+        for (int i = 0; i < 8; i++)
+            out += "," + formatFloat(dataOut->interpolationTable[i], 2);
+        break;
+    case GPS_FOURIER_CALIBRATE:
+        out += "," + String((int)dataOut->gpsCalStillWater);
+        break;
+    case GPS_FOURIER_STATUS:
+        out += "," + String(dataOut->gpsCalStep);
+        out += "," + String(dataOut->gpsCalLeg);
+        out += "," + formatFloat(dataOut->tgDir, 0);
+        out += "," + formatFloat(dataOut->dirMag, 1);
+        out += "," + formatFloat(dataOut->gpsCalDist, 0);
+        out += "," + formatFloat(dataOut->gpsCalErr, 2);
+        out += "," + formatFloat(dataOut->gpsCalLastErr, 2);
         break;
     case DOCKED:
     case LOCKED:
@@ -1110,6 +1154,23 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
     case ADAPTIVE_TRIM:
         dst->compass_trim = src.compass_trim;
         dst->compass_trim_enabled = src.compass_trim_enabled;
+        break;
+
+    // Listed so these can never reach the default below, which is a wholesale copy and would
+    // blank the buoy's position, battery and set point - the exact defect this function exists
+    // to prevent. Neither is fed into the buoy base today; that is a property of the callers,
+    // not something worth relying on here.
+    case GPS_FOURIER_STATUS:
+        dst->gpsCalStep = src.gpsCalStep;
+        dst->gpsCalLeg = src.gpsCalLeg;
+        dst->tgDir = src.tgDir;         dst->dirMag = src.dirMag;
+        dst->gpsCalDist = src.gpsCalDist;
+        dst->gpsCalErr = src.gpsCalErr;
+        dst->gpsCalLastErr = src.gpsCalLastErr;
+        break;
+
+    case STORE_INTERPOLATION_TABLE:
+        for (int i = 0; i < 8; i++) dst->interpolationTable[i] = src.interpolationTable[i];
         break;
 
     default:

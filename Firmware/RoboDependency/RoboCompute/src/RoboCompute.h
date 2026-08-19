@@ -104,8 +104,47 @@ typedef enum
     ADAPTIVE_TRIM,
     REBOOT,
     SET_DOCWP,
-	SET_AS_NORTH
+	SET_AS_NORTH,
+    // Carries the Sub's 8-point Fourier interpolation table (RoboStruct::interpolationTable).
+    // ack GET/GETACK asks the Sub for the table that is currently IN EFFECT; ack SET hands it a
+    // new one to commit to NVS and recompute the Fourier coefficients from. Either way the Sub
+    // answers with ack INF and the table it now holds.
+    STORE_INTERPOLATION_TABLE,
+    // Starts the Top's GPS-based Fourier compass calibration run (8 navigation legs).
+    // Payload: fields[5] = gpsCalStillWater, see RoboStruct below. An older node that sends no
+    // payload at all is read as 0, i.e. the current-tolerant pair-averaged mode.
+    GPS_FOURIER_CALIBRATE,
+    // Broadcast progress report while a GPS Fourier calibration is running, ack INF.
+    // Payload order (and the field index a raw comma-splitter such as RoboCYD's sees, where
+    // fields[0..4] are IDr, IDs, ack, cmd, status):
+    //   fields[5]  gpsCalStep      phase, see gpscal_step_t below
+    //   fields[6]  gpsCalLeg       leg being sailed, 0..7, indexes into the 0/180/45/225/... order
+    //   fields[7]  tgDir           heading the buoy was told to steer for this leg
+    //   fields[8]  dirMag          heading it is actually reporting right now
+    //   fields[9]  gpsCalDist      metres covered on this leg so far (0 outside the measuring phase)
+    //   fields[10] gpsCalErr       LIVE signed error of the leg named in fields[6], degrees - the
+    //                              bearing from that leg's start fix to the current fix, minus the
+    //                              commanded heading. This is the value that will be recorded when
+    //                              the leg ends, so it can be watched settling. Valid only once
+    //                              fields[9] has passed 10 m; below that the displacement is too
+    //                              short for a bearing and this reads 0.
+    //   fields[11] gpsCalLastErr   signed error of the last COMPLETED leg, degrees
+    // One extra frame is forced on completion (step DONE) and on abort (step ABORTED), so a
+    // listener always sees how the run ended rather than just silence.
+    GPS_FOURIER_STATUS
 } msg_t;
+
+// Phase reported in RoboStruct::gpsCalStep by GPS_FOURIER_STATUS.
+typedef enum
+{
+    GPSCAL_IDLE = 0,
+    GPSCAL_FETCH_TABLE = 1, // asking the Sub which interpolation table it is applying
+    GPSCAL_SETTLE = 2,      // steering the leg heading, waiting for it to hold steady
+    GPSCAL_RUN = 3,         // measuring the GPS displacement over the leg
+    GPSCAL_STORE = 4,       // handing the finished table to the Sub
+    GPSCAL_DONE = 5,        // finished, returning to the start position
+    GPSCAL_ABORTED = 6      // stopped early, see the Top's serial log for the reason
+} gpscal_step_t;
 
 struct RoboStruct
 {
@@ -179,6 +218,27 @@ struct RoboStruct
     bool compass_trim_enabled = false;
     double pitch = 0.0;
     double roll = 0.0;
+    // 8-point compass interpolation table, in the same units and order as the Sub's
+    // measured_angles[0..7]: entry i is the compass reading observed while the buoy actually
+    // pointed at i * 45 degrees true. The identity default means "no correction".
+    float interpolationTable[8] = {0.0f, 45.0f, 90.0f, 135.0f, 180.0f, 225.0f, 270.0f, 315.0f};
+    // Progress of a GPS Fourier calibration run, carried by GPS_FOURIER_STATUS.
+    int gpsCalStep = 0;      // gpscal_step_t
+    int gpsCalLeg = 0;       // 0..7
+    double gpsCalDist = 0;    // metres covered on the current leg
+    double gpsCalErr = 0;     // live signed error of the leg in progress, degrees
+    double gpsCalLastErr = 0; // signed error of the last completed leg, degrees
+    // How the calibration is allowed to interpret the difference between opposite legs.
+    //
+    // false - pair-averaged. Anything that flips sign between a heading and its opposite is taken
+    //         to be current and discarded. Immune to a steady set, but it also discards a genuine
+    //         one-cycle (hard iron) deviation, which has the identical signature. Corrects the
+    //         constant and two-cycle terms only.
+    // true  - still water. Each leg's error is used directly as the deviation at that heading, so
+    //         the one-cycle term survives and the full curve is corrected. ONLY valid when there
+    //         really is no current and negligible windage - otherwise the current is permanently
+    //         written into the compass table.
+    bool gpsCalStillWater = false;
 };
 
 struct RoboStructGps

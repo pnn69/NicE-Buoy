@@ -50,6 +50,17 @@ struct BuoyData {
     int dock_app_dist = 20;
     int dock_app_dir = 180;
     bool dock_to_wp = false;
+
+    // GPS Fourier compass calibration progress, from GPS_FOURIER_STATUS (cmd 90).
+    // cal_seen_ms is 0 until the first report arrives; the display uses it to decide whether it
+    // has anything worth showing rather than drawing a stale run from an hour ago.
+    unsigned long cal_seen_ms = 0;
+    int cal_step = 0;        // gpscal_step_t: 0 idle, 1 fetch, 2 settle, 3 run, 4 store, 5 done, 6 aborted
+    int cal_leg = 0;         // 0..7
+    float cal_cmd_dir = 0;   // heading commanded for this leg
+    float cal_dist = 0;      // metres covered on this leg
+    float cal_err = 0;       // live error of the leg in progress
+    float cal_last_err = 0;  // error of the last completed leg
 };
 
 extern BuoyData buoys[3];
@@ -75,6 +86,11 @@ extern unsigned long last_lora_tx_ms;
 
 void parse_buoy_packet(const String &packetStr, const String &source, int rssi = -999);
 void send_buoy_command(const String &buoy_id, int cmd_code);
+
+// Starts a GPS Fourier compass calibration run on the buoy's Top. Needs its own sender
+// because send_buoy_command() emits an empty payload, and the still-water flag lives in
+// the first payload field.
+void send_gps_fourier_calibrate(const String &buoy_id, bool still_water);
 
 // Query setup parameters from buoy exactly matching webpage GET formatting
 void query_buoy_setup(const String &buoy_id);

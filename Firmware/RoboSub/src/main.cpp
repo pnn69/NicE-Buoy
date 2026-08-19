@@ -684,6 +684,70 @@ void handleSerandRfdata(RoboStruct *ser)
                     printf("Sent updated SETUPDATA back\r\n");
                 }
                 break;
+            case STORE_INTERPOLATION_TABLE:
+                {
+                    // The Fourier correction table lives in compass.cpp; subwifi.cpp reaches it
+                    // the same way, with local externs rather than a header entry.
+                    extern float measured_angles[9];
+                    extern void computeFourierCoefficients();
+                    extern volatile bool interp_enabled;
+
+                    if (dataIn.ack == GET || dataIn.ack == GETACK)
+                    {
+                        RoboStruct response = mainData;
+                        response.IDs = mainData.mac;
+                        response.IDr = dataIn.IDs;
+                        response.cmd = STORE_INTERPOLATION_TABLE;
+                        response.ack = INF;
+                        // Report the table that is actually IN EFFECT, not the one in NVS. With
+                        // the harmonic correction switched off the compass is uncorrected, so the
+                        // effective table is the identity - and the Top builds its new table on
+                        // top of whatever we report here. Reporting a stored-but-unused table
+                        // would make it subtract the same deviation twice.
+                        for (int i = 0; i < 8; i++)
+                            response.interpolationTable[i] = interp_enabled ? measured_angles[i] : (float)(i * 45);
+                        xQueueSend(serOut, (void *)&response, 10);
+                        printf("Sent interpolation table (harmonic correction %s)\r\n", interp_enabled ? "ON" : "OFF");
+                    }
+                    else if (dataIn.ack == SET)
+                    {
+                        // Only an explicit SET writes. Our own INF reply is already dropped by the
+                        // IDs != mac echo filter in SercomTask, but keying on SET means a frame
+                        // that ever did get echoed back could not start a store/reply ping-pong
+                        // across NVS.
+                        global_params_rev++;
+                        for (int i = 0; i < 8; i++)
+                            measured_angles[i] = dataIn.interpolationTable[i];
+                        // Entry 8 is the 360 degree wrap of entry 0 and is not used by
+                        // computeFourierCoefficients(), but memInterpolationTable() stores all
+                        // nine and the Sub's harmonic web page displays them.
+                        measured_angles[8] = measured_angles[0] + 360.0f;
+                        memInterpolationTable(measured_angles, MEM_PUT);
+                        computeFourierCoefficients();
+
+                        // A table nobody applies is worthless, and the flag is off by default -
+                        // a buoy that has just been calibrated must sail on the result.
+                        bool enable = true;
+                        interp_enabled = true;
+                        memInterpEnabled(&enable, MEM_PUT);
+
+                        printf("Stored new interpolation table: ");
+                        for (int i = 0; i < 8; i++) printf("%.2f ", measured_angles[i]);
+                        printf("\r\n");
+
+                        // Echo it back so the Top can verify what actually landed in NVS, and so
+                        // its retransmit entry for this command is cleared.
+                        RoboStruct response = mainData;
+                        response.IDs = mainData.mac;
+                        response.IDr = dataIn.IDs;
+                        response.cmd = STORE_INTERPOLATION_TABLE;
+                        response.ack = INF;
+                        for (int i = 0; i < 8; i++)
+                            response.interpolationTable[i] = measured_angles[i];
+                        xQueueSend(serOut, (void *)&response, 10);
+                    }
+                }
+                break;
             case HARDIRONFACTORS:
                 dataIn.mac = espMac();
                 hardIron(&dataIn, MEM_PUT);

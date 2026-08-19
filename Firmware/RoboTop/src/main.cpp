@@ -12,6 +12,7 @@
 #include "loratop.h"
 #include "sercom.h"
 #include "calibrate.h"
+#include "gpscalib.h"
 
 // Give the Arduino loop task real headroom. RoboStruct is ~500 bytes and the receive path
 // (loop -> handleRfData -> AddDataToBuoyBase -> MergeBuoyData) keeps several of them live at
@@ -326,6 +327,7 @@ void buttonTask(void *arg)
 //      Five press: sail to dock position
 //      Four short presses and one long: store as docposition
 //      nine short presses and onle long: start calibration of magnetic compass
+//      Seven short presses and one long: start the GPS Fourier compass calibration (8 legs, ~30 min)
 //***************************************************************************************************
 /**
  * @brief Processes button press results and updates the buoy status.
@@ -370,6 +372,14 @@ void handleKeyPress(RoboStruct *key)
             case 110:
                 key->status = START_CALIBRATE_MAGNETIC_COMPASS;
                 break;
+            case 108:
+                // The button cannot ask which mode you want, so it picks the conservative one:
+                // pair averaging can only ever leave a residual error, while still-water mode on
+                // a day with a current writes that current into the compass table. Use the web
+                // Setup dialog to choose still water deliberately.
+                key->gpsCalStillWater = false;
+                key->status = GPS_FOURIER_CALIBRATE;
+                break;
             default:
                 beep(-1, buzzer);
                 break;
@@ -389,7 +399,8 @@ void handleKeyPress(RoboStruct *key)
 void buttonLight(RoboStruct *sta)
 {
     static int lastCalibState = 0;
-    int currentCalibState = (sta->status == CALIBRATE_MAGNETIC_COMPASS || sta->status == INFIELD_CALIBRATE) ? 1 : 0;
+    int currentCalibState = (sta->status == CALIBRATE_MAGNETIC_COMPASS || sta->status == INFIELD_CALIBRATE ||
+                             sta->status == GPS_FOURIER_CALIBRATE) ? 1 : 0;
     
     if (currentCalibState != lastCalibState) {
         if (currentCalibState == 1) {
@@ -445,6 +456,34 @@ void buttonLight(RoboStruct *sta)
     }
 }
 
+/**
+ * @brief Copies THIS buoy's freshly computed track position out of the shared buoy base.
+ *
+ * Slot 0 of buoyPara is always us - loop() refills it from mainData every pass and clears any
+ * other slot that claims our identity. It has to be read HERE, in the same handleStatus() call
+ * that computed it: SENDTRACK runs on the NEXT loop iteration, and by then "buoyPara[0] = mainData"
+ * at the top of the loop has already overwritten the computed target with our old lock position.
+ *
+ * Identifying ourselves by ID instead does not work, which is what the old SENDTRACK code tried:
+ * mainData.IDs holds the SUB's MAC (re-synced in handleSerialData) or 0, never the Top MAC it was
+ * compared against, so the copy never happened and this buoy stayed on its lock position while the
+ * others sailed to their ends of the line.
+ */
+static void adoptOwnTrackTarget(RoboStruct *stat, RoboStruct buoyPara[3])
+{
+    if (buoyPara[0].tgLat == 0.0 || buoyPara[0].tgLng == 0.0)
+    {
+        printf("#Own track position was not computed - holding current position\r\n");
+        return;
+    }
+    stat->tgLat = buoyPara[0].tgLat;
+    stat->tgLng = buoyPara[0].tgLng;
+    stat->trackPos = buoyPara[0].trackPos;
+    printf("#Own track position = ");
+    trackPosPrint(stat->trackPos);
+    printf(" (%.12f,%.12f)\r\n", stat->tgLat, stat->tgLng);
+}
+
 //***************************************************************************************************
 //  status actions
 //***************************************************************************************************
@@ -466,7 +505,12 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
     lastStatus = stat->status;
 
     RoboStruct LoraTx;
-    stat->IDs = stat->buoyId;
+    // stat->mac, not stat->buoyId: buoyId is never assigned anywhere in RoboTop, so this line used
+    // to zero our own sender ID on every pass of the main loop. Both transports patch a zero back
+    // to the MAC on the way out, which is why it was invisible - but buoyPara[0] is filled from
+    // mainData at the top of the loop, so the buoy base and the dashboard saw ID 0 for us. This
+    // now matches what handleTimerRoutines() already does a few lines earlier in the same loop.
+    stat->IDs = stat->mac;
     LoraTx = *stat;
     stat->IDr = BUOYIDALL;
     switch (stat->status)
@@ -595,6 +639,7 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         if (recalcStartLine(buoyPara))
         {
             beep(1, buzzer);
+            adoptOwnTrackTarget(stat, buoyPara);
             stat->status = SENDTRACK;
             printf("#Send track info\r\n");
         }
@@ -626,6 +671,7 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         if (reCalcTrack(buoyPara))
         {
             beep(1, buzzer);
+            adoptOwnTrackTarget(stat, buoyPara);
             stat->status = SENDTRACK;
         }
         else
@@ -636,24 +682,25 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         }
         break;
     case SENDTRACK:
-        for (int i = 0; i < 3; i++)
+        // Start at 1: slot 0 is us, and our own end of the line was already taken by
+        // adoptOwnTrackTarget() in COMPUTESTART/COMPUTETRACK. The old loop started at 0 and tried
+        // to recognise us by "IDs != stat->buoyId" - buoyId is always 0, so that test never
+        // excluded anything, and we broadcast a SETLOCKPOS addressed to our own Sub's MAC. Our own
+        // is_for_me test in handleRfData() matches that ID, so the packet came back in over UDP and
+        // re-set the target we had just computed.
+        for (int i = 1; i < 3; i++)
         {
-            if (buoyPara[i].trackPos != 0 && buoyPara[i].IDs != 0 && buoyPara[i].IDs != stat->buoyId)
+            if (buoyPara[i].trackPos != 0 && buoyPara[i].IDs != 0)
             {
                 memcpy(&LoraTx, &buoyPara[i], sizeof(RoboStruct));
                 trackPosPrint(buoyPara[i].trackPos);
                 printf("n = (%.12f,%.12f)\r\n", buoyPara[i].tgLat, buoyPara[i].tgLng);
                 LoraTx.IDr = buoyPara[i].IDs;
-                LoraTx.IDs = stat->buoyId;
+                LoraTx.IDs = stat->mac;
                 LoraTx.cmd = SETLOCKPOS;
                 LoraTx.ack = GETACK;
                 xQueueSend(loraOut, (void *)&LoraTx, 10); // send out through Lora
                 xQueueSend(udpOut, (void *)&LoraTx, 10);  // send out through WiFi
-            }
-            if (buoyPara[i].IDs == stat->mac)
-            {
-                stat->tgLat = buoyPara[i].tgLat;
-                stat->tgLng = buoyPara[i].tgLng;
             }
         }
         stat->status = LOCKED;
@@ -916,6 +963,7 @@ void handleTimerRoutines(RoboStruct *timer)
 {
     handleInfieldCompassCalibration(timer);
     handleInfieldOffsetCalibration(timer);
+    handleGpsFourierCalibration(timer);
 
     timer->IDs = timer->mac;
     timer->IDr = BUOYIDALL;
@@ -1648,6 +1696,29 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
                 break;
+            case GPS_FOURIER_CALIBRATE:
+                // Runs entirely on the Top - it steers the buoy and does the arithmetic, and only
+                // talks to the Sub through TGDIRSPEED and STORE_INTERPOLATION_TABLE. So this is
+                // NOT forwarded to the Sub, it just arms our own state machine.
+                if (RfIn.IDr == RfOut->mac || ((RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) && (RfIn.IDs == 0x99 || RfIn.IDs == 0x98)))
+                {
+                    if (RfOut->status != GPS_FOURIER_CALIBRATE)
+                    {
+                        // Latched into mainData before the status flips, because the state machine
+                        // reads the mode out of mainData on the pass where it starts the run.
+                        RfOut->gpsCalStillWater = RfIn.gpsCalStillWater;
+                        printf("#Status set to GPS_FOURIER_CALIBRATE (%s)\r\n",
+                               RfIn.gpsCalStillWater ? "still water" : "pair averaged");
+                        RfOut->status = GPS_FOURIER_CALIBRATE;
+                    }
+                }
+                else
+                {
+                    // Forward across interfaces
+                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                }
+                break;
             case REBOOT:
                 RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
@@ -1868,6 +1939,14 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                 // printf("DEBUG: Received Kpr=%f, Kir=%f, Kdr=%f, Kps=%f, Kis=%f, Kds=%f\r\n", serDataIn.Kpr, serDataIn.Kir, serDataIn.Kdr, serDataIn.Kps, serDataIn.Kis, serDataIn.Kds);
                 // printf("Setup data PID and Compass received from Sub and updated (Rev: %d)\r\n", target->sub_status);
             }
+            break;
+        case STORE_INTERPOLATION_TABLE:
+            // Answer to either half of the calibration handshake: the table the Sub is running, or
+            // the echo of the one it has just stored.
+            printf("Interpolation table from Sub:");
+            for (int i = 0; i < 8; i++) printf(" %.2f", serDataIn.interpolationTable[i]);
+            printf("\r\n");
+            gpsCalibTableReply(&serDataIn);
             break;
         case PONG:
             break;

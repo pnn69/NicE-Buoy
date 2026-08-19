@@ -425,6 +425,9 @@ input[type=checkbox] {
         <div style="display:flex; flex-direction:column; gap:8px;">
             <button onclick="sendSetupCommand('MANUAL_CALIB')" style="width:100%; background:#f85149; color:white; font-weight:bold; height: 45px; font-size: 16px; margin:0;">Desk Calibration (60s Figure-8)</button>
             <button onclick="sendSetupCommand('SET_AS_NORTH')" style="width:100%; background:#58a6ff; color:#0d1117; font-weight:bold; height: 45px; font-size: 16px; margin:0;">Set as North</button>
+            <button onclick="startGpsFourier(true)" style="width:100%; background:#a371f7; color:white; font-weight:bold; height: 45px; font-size: 16px; margin:0;">GPS Fourier Cal - still water</button>
+            <button onclick="startGpsFourier(false)" style="width:100%; background:#6e40c9; color:white; font-weight:bold; height: 45px; font-size: 16px; margin:0;">GPS Fourier Cal - current running</button>
+            <div id="calibMsg" style="display:none; font-size:13px; color:#a371f7; text-align:center; padding:4px 0;"></div>
             <button onclick="if(confirm('Are you sure you want to reboot this buoy?')) sendSetupCommand('REBOOT')" style="width:100%; background:#ffcc00; color:#1a1a1a; font-weight:bold; height: 45px; font-size: 16px; margin:0;">Reboot Buoy</button>
         </div>
     </div>
@@ -561,6 +564,7 @@ function getStatusText(status) {
         case 24: return "UNLOCK";
         case 25: return "REMOTE";
         case 26: return "REMOTEING";
+        case 89: return "GPS FOURIER CAL";
         default: return "STATUS: " + s;
     }
 }
@@ -718,6 +722,36 @@ function updateSetupModal() {
             setChecked("dockToWP", b.dockToWP);
         }
     }
+}
+
+// The run takes roughly half an hour and drives the buoy over eight 100 m legs, so make sure
+// that is what the operator meant before the thrusters spin up.
+function startGpsFourier(stillWater) {
+    // The two modes differ only in how the difference between opposite legs is read. In still
+    // water that difference is residual hard iron and must be corrected; with a current running it
+    // is the current and must be thrown away. Picking the wrong one is not cosmetic - still-water
+    // mode on a tidal day writes the current straight into the compass table.
+    const detail = stillWater
+        ? "STILL WATER mode: corrects each heading on its own measurement, including the one-cycle "
+          + "hard-iron error.
+
+Only choose this if there is genuinely no current and little "
+          + "windage - otherwise the current gets written into the compass table."
+        : "CURRENT RUNNING mode: opposite legs are averaged so a steady current cancels.
+
+"
+          + "Safe in moving water, but it cannot correct one-cycle (hard-iron) error.";
+    if (!confirm("Start the GPS Fourier compass calibration?
+
+" + detail
+               + "
+
+The buoy will sail 8 legs of at least 100 m (about 30 minutes) and then "
+               + "return to where it is now. Make sure it has open water all around and a GPS fix."
+               + "
+
+Press IDLE at any time to stop.")) return;
+    sendSetupCommand(stillWater ? 'CALIB_GPS_FOURIER_STILL' : 'CALIB_GPS_FOURIER');
 }
 
 function sendSetupCommand(cmd) {
@@ -1076,6 +1110,15 @@ function updateUI() {
 
     mainWrapper.style.display = 'flex';
     controls.style.display = 'block';
+
+    // Only this buoy's Top runs the GPS Fourier state machine, so the progress line only exists
+    // for buoy 1 - hide it for the others rather than showing a stale message under their setup.
+    const calibEl = document.getElementById("calibMsg");
+    if (calibEl) {
+        const msg = (currentBuoy === 1 && b.CalibMsg) ? b.CalibMsg : "";
+        calibEl.innerText = msg;
+        calibEl.style.display = msg ? "block" : "none";
+    }
 
     // GPS fix is needed before the status text, because without a fix the mode the buoy reports
     // is meaningless for the operator - what matters is that it cannot be positioned at all.
