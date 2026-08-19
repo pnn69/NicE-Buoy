@@ -33,6 +33,17 @@ bool lastLoadedState = false; // Tracks setup data loaded transitions
 int setup_page = 0;
 int lastSetupPage = -1; // Used to track page swaps
 
+// Retry state for the SETUPDATA request.
+//
+// The request is a single unacknowledged packet, and so is the reply, over a path with four
+// separate chances to drop it: CYD -> LoRa/UDP -> RoboTop -> half duplex serial -> Sub, and all
+// the way back. Asking once meant any single loss left "LOADING DATA FROM BUOY..." on screen
+// forever, with leaving and re-entering the screen as the only way to ask again.
+#define SETUP_QUERY_INTERVAL_MS 2500UL
+#define SETUP_QUERY_MAX_TRIES   8
+unsigned long setup_query_next_ms = 0;
+int setup_query_tries = 0;
+
 // Screen transition lock-out timestamp to prevent touch propagation leakages
 unsigned long last_transition_ms = 0;
 
@@ -798,12 +809,27 @@ void update_setup_dynamic() {
         tft.setTextSize(2);
         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
         tft.setTextDatum(MC_DATUM);
-        tft.drawString("LOADING DATA", w / 2, 85);
-        tft.drawString("FROM BUOY...", w / 2, 115);
+        char lbuf[48];
+        bool gaveUp = (setup_query_tries >= SETUP_QUERY_MAX_TRIES);
+        if (gaveUp) {
+            tft.setTextColor(TFT_RED, TFT_BLACK);
+            tft.drawString("NO REPLY", w / 2, 85);
+            tft.drawString("FROM BUOY", w / 2, 115);
+        } else {
+            tft.drawString("LOADING DATA", w / 2, 85);
+            tft.drawString("FROM BUOY...", w / 2, 115);
+        }
         
         tft.setTextSize(1);
-        tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        tft.drawString("Awaiting LoRa/UDP packet", w / 2, 160);
+        tft.setTextColor(gaveUp ? TFT_ORANGE : TFT_DARKGREY, TFT_BLACK);
+        tft.setTextPadding(200); // the attempt counter shortens as it climbs; pad so it self-erases
+        if (gaveUp) {
+            tft.drawString("Tap BACK, then SETUP to retry", w / 2, 160);
+        } else {
+            sprintf(lbuf, "Awaiting reply - attempt %d of %d", setup_query_tries, SETUP_QUERY_MAX_TRIES);
+            tft.drawString(lbuf, w / 2, 160);
+        }
+        tft.setTextPadding(0);
         return;
     }
     
@@ -1780,6 +1806,9 @@ void loop() {
                         last_transition_ms = millis();
                         
                         // Send query to buoy to fetch its PID / calibration coefficients exactly matching webpage GET formatting
+                        // This is attempt 1; loop() repeats it until the buoy answers.
+                        setup_query_tries = 1;
+                        setup_query_next_ms = millis() + SETUP_QUERY_INTERVAL_MS;
                         query_buoy_setup(buoys[selected_buoy_idx].id);
                         reset_button_draw_cache();
                         draw_resting_ui();
@@ -1806,6 +1835,22 @@ void loop() {
             tft.setTextDatum(MC_DATUM);
             tft.drawString("CALIBRATE TOUCH", tft.width() / 2, 264);
         }
+    }
+
+    // Re-ask for the setup data until it arrives. Nothing along the request path acknowledges or
+    // retransmits, so without this a single dropped packet strands the screen on its loading
+    // overlay. Stops once the data lands or after SETUP_QUERY_MAX_TRIES, so a buoy that is simply
+    // not there does not get polled forever.
+    if (in_setup_mode && !setup_data_loaded &&
+        selected_buoy_idx >= 0 && selected_buoy_idx < 3 &&
+        buoys[selected_buoy_idx].id.length() > 0 &&
+        setup_query_tries < SETUP_QUERY_MAX_TRIES &&
+        (long)(millis() - setup_query_next_ms) >= 0)
+    {
+        setup_query_tries++;
+        setup_query_next_ms = millis() + SETUP_QUERY_INTERVAL_MS;
+        Serial.printf("SETUPDATA not received, retry %d of %d\n", setup_query_tries, SETUP_QUERY_MAX_TRIES);
+        query_buoy_setup(buoys[selected_buoy_idx].id);
     }
 
     // Refresh dynamic screen details every 250 milliseconds
