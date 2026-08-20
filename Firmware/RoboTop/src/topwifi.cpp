@@ -333,6 +333,12 @@ void WiFiTask(void *arg)
         json += "\"SubVolt\":\"" + String(mainData.subAccuV, 2) + "\",";
         json += "\"SubCurr\":\"" + String(mainData.subAccuI, 2) + "\",";
         json += "\"SubPerc\":\"" + String(mainData.subAccuP) + "\",";
+        // The Top runs its own battery and, unlike the Sub, does not disable the ESP32
+        // brownout detector - so a dip here resets the Top while the Sub carries on.
+        // Without these three that failure is invisible from the network.
+        json += "\"TopVolt\":\"" + String(mainData.topAccuV, 2) + "\",";
+        json += "\"TopCurr\":\"" + String(mainData.topAccuI, 2) + "\",";
+        json += "\"TopPerc\":\"" + String(mainData.topAccuP) + "\",";
         json += "\"PIDI\":\"" + String(mainData.ip, 2) + "\",";
         json += "\"PIDR\":\"" + String(mainData.ir, 2) + "\",";
         json += "\"rev\":" + String(mainData.sub_status) + ",";
