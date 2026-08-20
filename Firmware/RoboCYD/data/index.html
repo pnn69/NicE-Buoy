@@ -551,9 +551,9 @@
                 </div>
 
                 <div class="modal-col">
-                    <!-- Limits & Motors -->
+                    <!-- Speed Limits -->
                     <div class="form-section">
-                        <h4>Limits & Motors</h4>
+                        <h4>Speed Limits</h4>
                         <div class="form-row flex-wrap">
                             <div class="form-group half-width">
                                 <label>Max Speed:</label>
@@ -567,33 +567,65 @@
                                 <label>Pivot Speed:</label>
                                 <input type="number" step="0.01" id="setup-pivotSpeed" required>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Compass & Radius -->
+                    <div class="form-section">
+                        <h4>Compass &amp; Radius</h4>
+                        <div class="form-row flex-wrap">
                             <div class="form-group half-width">
                                 <label>Compass Offset:</label>
                                 <input type="number" step="1" id="setup-compassOffset" required>
-                                <button type="button" class="btn btn-secondary" id="setup-setNorth-btn" style="margin-top: 5px; padding: 4px 8px; font-size: 11px;">Set as North</button>
                             </div>
-                            <div class="form-group full-width">
-                                <label>Hold Radius (meters):</label>
+                            <div class="form-group half-width">
+                                <label>Hold Radius (m):</label>
                                 <input type="number" step="0.1" id="setup-holdRad" required>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Motor & Trim Options -->
+                    <!-- Compass Active Trim -->
                     <div class="form-section">
-                        <h4>Motor & Trim Options</h4>
+                        <h4>Compass Active Trim</h4>
                         <div class="checkbox-section">
-                            <label class="checkbox-label">
+                            <label class="checkbox-label full-width-checkbox">
                                 <input type="checkbox" id="setup-compassTrimEnabled">
                                 <span>Active Trim Enabled</span>
                             </label>
+                        </div>
+                    </div>
+
+                    <!-- Harmonic Correction -->
+                    <div class="form-section">
+                        <h4>Harmonic Correction</h4>
+                        <div class="checkbox-section">
+                            <label class="checkbox-label full-width-checkbox">
+                                <input type="checkbox" id="setup-harmonic">
+                                <span>Apply Fourier compass table</span>
+                            </label>
+                        </div>
+                        <div style="font-size:11px; color:#888; margin-top:4px;">
+                            Switches the 8-point table from the GPS Fourier calibration on or off.
+                            Off means the compass runs uncorrected, even when a table is stored.
+                        </div>
+                    </div>
+
+                    <!-- Thruster Settings -->
+                    <div class="form-section">
+                        <h4>Thruster Settings</h4>
+                        <div class="checkbox-section">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="setup-revBB">
+                                <span>BB Inverted</span>
+                            </label>
                             <label class="checkbox-label">
                                 <input type="checkbox" id="setup-revSB">
-                                <span>Reverse SB</span>
+                                <span>SB Inverted</span>
                             </label>
                             <label class="checkbox-label full-width-checkbox">
                                 <input type="checkbox" id="setup-swap">
-                                <span>Swap BB/SB</span>
+                                <span>Swap BB/SB Thrusters</span>
                             </label>
                         </div>
                     </div>
@@ -607,12 +639,12 @@
                                 <input type="number" step="1" min="0" id="setup-dockAppDist" required>
                             </div>
                             <div class="form-group half-width">
-                                <label>Approach Dir (�):</label>
+                                <label>Approach Dir (deg):</label>
                                 <input type="number" step="1" min="0" max="359" id="setup-dockAppDir" required>
                             </div>
                         </div>
                         <div class="checkbox-section" style="margin-top: 5px;">
-                            <label class="checkbox-label">
+                            <label class="checkbox-label full-width-checkbox">
                                 <input type="checkbox" id="setup-dockToWP">
                                 <span>Dock to Waypoint</span>
                             </label>
@@ -621,7 +653,20 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary btn-save" id="setup-save-btn">Save & Close</button>
+                    <button type="submit" class="btn btn-primary btn-save" id="setup-save-btn">Save &amp; Close</button>
+
+                    <!-- In-Field Calibration. Same actions, same order and the same wording as
+                         RoboTop's Setup dialog. These fire immediately and do NOT wait for Save. -->
+                    <div class="form-section" style="width:100%; margin-top:12px;">
+                        <h4>In-Field Calibration</h4>
+                        <div style="display:flex; flex-direction:column; gap:6px;">
+                            <button type="button" class="btn btn-secondary" id="setup-deskCal-btn">Desk Calibration (60s Figure-8)</button>
+                            <button type="button" class="btn btn-secondary" id="setup-setNorth-btn">Set as North</button>
+                            <button type="button" class="btn btn-secondary" id="setup-gpsStill-btn">GPS Fourier Cal - still water</button>
+                            <button type="button" class="btn btn-secondary" id="setup-gpsCurrent-btn">GPS Fourier Cal - current running</button>
+                            <button type="button" class="btn btn-secondary" id="setup-reboot-btn">Reboot Buoy</button>
+                        </div>
+                    </div>
                 </div>
             </form>
         </div>

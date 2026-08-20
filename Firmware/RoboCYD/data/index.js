@@ -506,6 +506,12 @@ function parseMessage(message, source, senderIp = null, loraRssi = null, udpRssi
                 "dockAppDir": fields[21] || "180",
                 "dockToWP": fields[22] || "0"
             });
+            // Field 23 is tri-state: 1 = off, 2 = on, empty/0 = the buoy did not report it.
+            // RoboTop compresses an all-zero token to "", so a plain 0 could not be told apart
+            // from a field an older node never sent - leave the last known value alone then.
+            if (fields.length > 23 && fields[23] !== "" && fields[23] !== "0") {
+                parsedData["harmonic_enabled"] = (fields[23] === "2") ? "1" : "0";
+            }
         } else if (cmd === MsgType.ADAPTIVE_TRIM && fields.length >= 6) {
             Object.assign(parsedData, {
                 "compass_trim": fields[5],
@@ -1075,6 +1081,51 @@ function initUIEventListeners() {
         document.getElementById("setup-compassOffset").value = newOffset;
     });
     
+    // In-Field Calibration buttons. These act at once and do not wait for Save, exactly as the
+    // matching buttons in RoboTop's Setup dialog do. Command numbers are the msg_t values in
+    // RoboCompute.h; sender 99 is the same ID the rest of this page already uses.
+    const setupActionBuoy = () => {
+        if (activeSetupBuoyIndex === null) return null;
+        const b = buoys[activeSetupBuoyIndex];
+        return (b && b.id) ? b : null;
+    };
+    const sendSetupAction = (cmd, payload) => {
+        const b = setupActionBuoy();
+        if (!b) return;
+        sendCommand(b.id, `${b.id},99,3,${cmd},${cmd},${payload === undefined ? "" : payload}`);
+    };
+
+    document.getElementById("setup-deskCal-btn").addEventListener("click", () => {
+        if (!confirm("Start the 60 second desk calibration?\n\nTurn the buoy in figures of eight "
+                   + "for the whole minute. This replaces the stored hard/soft iron calibration.")) return;
+        sendSetupAction(27); // CALIBRATE_MAGNETIC_COMPASS
+    });
+
+    // The two modes differ only in how the difference between opposite legs is read. In still
+    // water that difference is residual hard iron and must be corrected; with a current running it
+    // is the current and must be thrown away. Picking the wrong one is not cosmetic - still-water
+    // mode on a tidal day writes the current straight into the compass table.
+    const startGpsFourier = (stillWater) => {
+        const detail = stillWater
+            ? "STILL WATER mode: corrects each heading on its own measurement, including the "
+              + "one-cycle hard-iron error.\n\nOnly choose this if there is genuinely no current "
+              + "and little windage - otherwise the current gets written into the compass table."
+            : "CURRENT RUNNING mode: opposite legs are averaged so a steady current cancels.\n\n"
+              + "Safe in moving water, but it cannot correct one-cycle (hard-iron) error.";
+        if (!confirm("Start the GPS Fourier compass calibration?\n\n" + detail
+                   + "\n\nThe buoy will sail 8 legs of at least 100 m (about 30 minutes) and then "
+                   + "return to where it is now. Make sure it has open water all around and a GPS fix."
+                   + "\n\nPress IDLE at any time to stop.")) return;
+        sendSetupAction(89, stillWater ? "1" : "0"); // GPS_FOURIER_CALIBRATE
+    };
+    document.getElementById("setup-gpsStill-btn").addEventListener("click", () => startGpsFourier(true));
+    document.getElementById("setup-gpsCurrent-btn").addEventListener("click", () => startGpsFourier(false));
+
+    document.getElementById("setup-reboot-btn").addEventListener("click", () => {
+        if (!confirm("Are you sure you want to reboot this buoy?")) return;
+        sendSetupAction(85); // REBOOT
+    });
+
     // Modal save submission
     document.getElementById("modal-form").addEventListener("submit", (e) => {
         e.preventDefault();
@@ -1138,7 +1189,9 @@ function querySetupAndPoll() {
         
         const trimEn = b.data["compass_trim_enabled"] === "1" || b.data["compass_trim_enabled"] === 1 || b.data["compass_trim_enabled"] === true || b.data["compass_trim_enabled"] === "true";
         document.getElementById("setup-compassTrimEnabled").checked = trimEn;
+        document.getElementById("setup-revBB").checked = b.data["revBB"] === "1";
         document.getElementById("setup-revSB").checked = b.data["revSB"] === "1";
+        document.getElementById("setup-harmonic").checked = b.data["harmonic_enabled"] === "1";
         document.getElementById("setup-swap").checked = b.data["swap_BB_SB"] === "1";
         document.getElementById("setup-dockAppDist").value = parseInt(b.data["dockAppDist"]) || 20;
         document.getElementById("setup-dockAppDir").value = parseInt(b.data["dockAppDir"]) || 180;
@@ -1183,13 +1236,15 @@ function saveSetupForm() {
         document.getElementById("setup-pivotSpeed").value,
         document.getElementById("setup-compassOffset").value,
         document.getElementById("setup-holdRad").value,
-        b.data["revBB"] || "0",
+        document.getElementById("setup-revBB").checked ? "1" : "0",
         document.getElementById("setup-revSB").checked ? "1" : "0",
         document.getElementById("setup-swap").checked ? "1" : "0",
         trimEn,
         document.getElementById("setup-dockAppDist").value,
         document.getElementById("setup-dockAppDir").value,
-        document.getElementById("setup-dockToWP").checked ? "1" : "0"
+        document.getElementById("setup-dockToWP").checked ? "1" : "0",
+        // Tri-state, see the parser above: never a plain 0.
+        document.getElementById("setup-harmonic").checked ? "2" : "1"
     ];
     
     // Construct message: Target,99,SET,SETUPDATA,Status,vals...
