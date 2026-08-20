@@ -31,6 +31,156 @@ bool lastLoadedState = false; // Tracks setup data loaded transitions
 
 // Setup page index (0 for Page 1, 1 for Page 2)
 int setup_page = 0;
+
+// -------------------------------------------------------------------------------------------
+// Setup screen slot map.
+//
+// The pages mirror the section headings of RoboTop's web Setup dialog one for one, in the same
+// order and with the same labels, so the two interfaces can be used interchangeably. A page is
+// 4 rows x 2 columns; slot = page * 8 + local, where local 0..3 is the LEFT column top to bottom
+// and 4..7 the RIGHT column. An empty name is a gap: not drawn, not selectable.
+//
+// The GPS Fourier calibration has a page to itself instead of sharing "In-Field Calibration"
+// with the other four actions, because its live progress panel needs three of the four rows.
+// -------------------------------------------------------------------------------------------
+#define SETUP_PAGES 6
+#define SETUP_SLOTS (SETUP_PAGES * 8)
+
+enum SetupSlot {
+    S_RUD_P  = 0,  S_RUD_I  = 1,  S_RUD_D = 2,
+    S_SPD_P  = 4,  S_SPD_I  = 5,  S_SPD_D = 6,
+    S_MAXSPD = 8,  S_MINSPD = 9,  S_PIVOT = 10,
+    S_COMPOFF = 12, S_HOLDRAD = 13,
+    S_TRIMEN = 16, S_HARMONIC = 17,
+    S_REVBB  = 20, S_REVSB = 21, S_SWAP = 22,
+    S_APPDIST = 24, S_APPDIR = 25, S_DOCKWP = 26,
+    S_DESKCAL = 32, S_SETNORTH = 33, S_REBOOT = 34,
+    S_GPSSTILL = 40, S_GPSCURR = 44
+};
+
+static const char *SETUP_NAMES[SETUP_SLOTS] = {
+    /* 1 PID              */ "Rud P:", "Rud I:", "Rud D:", "",      "Spd P:", "Spd I:", "Spd D:", "",
+    /* 2 SPEED & COMPASS  */ "MaxSpd:", "MinSpd:", "PvtSpd:", "",   "CompOff:", "HoldRad:", "", "",
+    /* 3 TRIM & THRUSTERS */ "TrimEn:", "Harmonic:", "", "",        "BB Inv:", "SB Inv:", "Swap:", "",
+    /* 4 DOCKING          */ "Appr Dist", "Appr Dir", "DockToWP", "", "", "", "", "",
+    /* 5 CALIBRATION      */ "Desk Cal", "Set North", "Reboot", "", "", "", "", "",
+    /* 6 GPS COMPASS CAL  */ "CAL STILLWTR", "", "", "",            "CAL CURRENT", "", "", ""
+};
+
+// Shown where the screen used to just say "SETUP" - these are the <h4> headings of the web form.
+static const char *SETUP_PAGE_TITLES[SETUP_PAGES] = {
+    "PID", "SPEED & COMPASS", "TRIM & THRUSTERS", "DOCKING", "CALIBRATION", "GPS COMPASS CAL"
+};
+
+// Pages holding no editable value. They must not be held behind the SETUPDATA reply the way the
+// parameter pages are, and "-" means nothing on them.
+static inline bool setup_is_action_page(int page) { return page == 4 || page == 5; }
+
+static inline bool setup_slot_used(int slot) {
+    return slot >= 0 && slot < SETUP_SLOTS && SETUP_NAMES[slot][0] != 0;
+}
+
+// Slots that DO something when "+" is pressed rather than holding a number.
+static inline bool setup_slot_is_action(int slot) {
+    return slot == S_DESKCAL || slot == S_SETNORTH || slot == S_REBOOT ||
+           slot == S_GPSSTILL || slot == S_GPSCURR;
+}
+
+static inline bool setup_slot_is_bool(int slot) {
+    return slot == S_TRIMEN || slot == S_HARMONIC || slot == S_REVBB ||
+           slot == S_REVSB  || slot == S_SWAP     || slot == S_DOCKWP;
+}
+
+static bool setup_bool_get(const BuoyData &b, int slot) {
+    switch (slot) {
+        case S_TRIMEN:   return b.compass_trim_enabled;
+        case S_HARMONIC: return b.harmonic_enabled;
+        case S_REVBB:    return b.rev_bb;
+        case S_REVSB:    return b.rev_sb;
+        case S_SWAP:     return b.swap_bb_sb;
+        case S_DOCKWP:   return b.dock_to_wp;
+        default:         return false;
+    }
+}
+
+static void setup_bool_toggle(BuoyData &b, int slot) {
+    switch (slot) {
+        case S_TRIMEN:   b.compass_trim_enabled = !b.compass_trim_enabled; break;
+        case S_HARMONIC: b.harmonic_enabled     = !b.harmonic_enabled;     break;
+        case S_REVBB:    b.rev_bb               = !b.rev_bb;               break;
+        case S_REVSB:    b.rev_sb               = !b.rev_sb;               break;
+        case S_SWAP:     b.swap_bb_sb           = !b.swap_bb_sb;           break;
+        case S_DOCKWP:   b.dock_to_wp           = !b.dock_to_wp;           break;
+        default: break;
+    }
+}
+
+// The value on its own, without the label - used both inside the box and in the big readout
+// between "-" and "+", so the two can never disagree.
+static void setup_value_text(const BuoyData &b, int slot, char *out, size_t n) {
+    switch (slot) {
+        case S_RUD_P:   snprintf(out, n, "%0.3f", b.kpr); break;
+        case S_RUD_I:   snprintf(out, n, "%0.3f", b.kir); break;
+        case S_RUD_D:   snprintf(out, n, "%0.3f", b.kdr); break;
+        case S_SPD_P:   snprintf(out, n, "%0.3f", b.kps); break;
+        case S_SPD_I:   snprintf(out, n, "%0.3f", b.kis); break;
+        case S_SPD_D:   snprintf(out, n, "%0.3f", b.kds); break;
+        case S_PIVOT:   snprintf(out, n, "%0.3f", b.pivot_speed); break;
+        case S_MAXSPD:  snprintf(out, n, "%0.0f", b.max_speed); break;
+        case S_MINSPD:  snprintf(out, n, "%0.0f", b.min_speed); break;
+        case S_COMPOFF: snprintf(out, n, "%0.0f", b.compass_offset); break;
+        case S_HOLDRAD: snprintf(out, n, "%0.1fm", b.hold_radius); break;
+        case S_APPDIST: snprintf(out, n, "%dm", b.dock_app_dist); break;
+        case S_APPDIR:  snprintf(out, n, "%d deg", b.dock_app_dir); break;
+        default:        if (n) out[0] = 0; break;
+    }
+}
+
+static float setup_step(int slot) {
+    switch (slot) {
+        case S_RUD_I: case S_RUD_D: case S_SPD_I: case S_SPD_D: return 0.005f;
+        case S_MAXSPD: case S_MINSPD:                           return 5.0f;
+        case S_COMPOFF: case S_APPDIST: case S_APPDIR:          return 1.0f;
+        case S_HOLDRAD:                                         return 0.5f;
+        default:                                                return 0.05f;
+    }
+}
+
+// One place for the "+" / "-" arithmetic and its limits, instead of the two mirrored if-chains
+// this used to carry - keeping those in step by hand is what let the tap handler and the adjust
+// handler disagree about which slots exist.
+static void setup_adjust(BuoyData &b, int slot, bool plus) {
+    float st = setup_step(slot) * (plus ? 1.0f : -1.0f);
+    switch (slot) {
+        case S_RUD_P: b.kpr += st; if (b.kpr < 0) b.kpr = 0; break;
+        case S_RUD_I: b.kir += st; if (b.kir < 0) b.kir = 0; break;
+        case S_RUD_D: b.kdr += st; if (b.kdr < 0) b.kdr = 0; break;
+        case S_SPD_P: b.kps += st; if (b.kps < 0) b.kps = 0; break;
+        case S_SPD_I: b.kis += st; if (b.kis < 0) b.kis = 0; break;
+        case S_SPD_D: b.kds += st; if (b.kds < 0) b.kds = 0; break;
+        case S_MAXSPD: b.max_speed += st;
+                       if (b.max_speed < 0) b.max_speed = 0;
+                       if (b.max_speed > 100) b.max_speed = 100; break;
+        case S_MINSPD: b.min_speed += st;   // may legitimately be negative
+                       if (b.min_speed < -100) b.min_speed = -100;
+                       if (b.min_speed > 100) b.min_speed = 100; break;
+        case S_PIVOT:  b.pivot_speed += st;
+                       if (b.pivot_speed < 0) b.pivot_speed = 0;
+                       if (b.pivot_speed > 1.0) b.pivot_speed = 1.0; break;
+        case S_COMPOFF: b.compass_offset += st;
+                        if (b.compass_offset < -180) b.compass_offset = -180;
+                        if (b.compass_offset > 180) b.compass_offset = 180; break;
+        case S_HOLDRAD: b.hold_radius += st;
+                        if (b.hold_radius < 0.5) b.hold_radius = 0.5;
+                        if (b.hold_radius > 10.0) b.hold_radius = 10.0; break;
+        case S_APPDIST: b.dock_app_dist += (int)st;
+                        if (b.dock_app_dist < 0) b.dock_app_dist = 0; break;
+        case S_APPDIR:  b.dock_app_dir += (int)st;
+                        if (b.dock_app_dir < 0) b.dock_app_dir += 360;
+                        if (b.dock_app_dir >= 360) b.dock_app_dir -= 360; break;
+        default: break;
+    }
+}
 int lastSetupPage = -1; // Used to track page swaps
 
 // Retry state for the SETUPDATA request.
@@ -164,13 +314,14 @@ void draw_setup_static() {
     tft.setTextColor(TFT_CYAN, TFT_BLACK);
     tft.setTextSize(2);
     tft.setTextDatum(TC_DATUM);
-    // Page 4 holds no settings at all, so calling it SETUP was misleading exactly where it
-    // matters most - it is the page that commands the buoy to sail for half an hour.
+    // The heading names the section, exactly as the web Setup form does, so the page you are
+    // on is obvious - and so that the page that commands the buoy to sail for half an hour is
+    // never labelled the same as the parameter pages.
     // No buoy ID here: the nav screen this was opened from already shows it as its own
-    // header, so repeating it only costs width.
+    // header, so repeating it only costs width. Longest title is 16 chars = 192 px at size 2.
     // Width at text size 2 is 12 px per character on a 240 px screen, so the longer of the
     // two is 18 chars = 216 px and clears both edges by 12 px.
-    tft.drawString(setup_page == 3 ? "COMPASS OFFSET CAL" : "SETUP", w / 2, 5);
+    tft.drawString(SETUP_PAGE_TITLES[setup_page % SETUP_PAGES], w / 2, 5);
     
     tft.drawFastHLine(15, 27, w - 30, TFT_WHITE);
     
@@ -178,8 +329,8 @@ void draw_setup_static() {
     // If not loaded yet, these buttons are drawn disabled (Dark Grey) to protect the buoy NVM!
     // On the ACTIONS page "+" starts the selected calibration and "-" has no meaning at all, so
     // they are gated separately. Elsewhere both follow the setup-loaded guard as before.
-    bool adjPlusUsable = setup_data_loaded || setup_page == 3;
-    bool adjMinusUsable = setup_data_loaded && setup_page != 3;
+    bool adjPlusUsable = setup_data_loaded || setup_is_action_page(setup_page);
+    bool adjMinusUsable = setup_data_loaded && !setup_is_action_page(setup_page);
     uint16_t adjMinusColor = adjMinusUsable ? TFT_RED : TFT_DARKGREY;
     uint16_t adjMinusText = adjMinusUsable ? TFT_WHITE : TFT_LIGHTGREY;
     tft.fillRoundRect(15, 195, 60, 30, 4, adjMinusColor);
@@ -208,7 +359,7 @@ void draw_setup_static() {
     tft.fillRoundRect(85, 235, 70, 35, 4, TFT_ORANGE);
     tft.setTextColor(TFT_BLACK, TFT_ORANGE);
     char pg_buf[16];
-    sprintf(pg_buf, "PG %d/4", setup_page + 1);
+    sprintf(pg_buf, "PG %d/%d", setup_page + 1, SETUP_PAGES);
     tft.drawString(pg_buf, 120, 252);
     
     uint16_t saveBtnColor = setup_data_loaded ? TFT_GREEN : TFT_DARKGREY;
@@ -804,7 +955,7 @@ void update_setup_dynamic() {
     
     // Page 4 carries no setup values at all, only the calibration actions and their progress, so
     // it must not be held behind the SETUPDATA reply the way the parameter pages are.
-    if (!setup_data_loaded && setup_page != 3) {
+    if (!setup_data_loaded && !setup_is_action_page(setup_page)) {
         // Display beautiful loading overlay while awaiting the NMEA response packet from buoy
         tft.setTextSize(2);
         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
@@ -836,140 +987,72 @@ void update_setup_dynamic() {
     tft.setTextSize(1);
     tft.setTextDatum(MC_DATUM);
     
-    // Array of 16 parameter names symmetrically grouped
-    String names[32] = {
-        "Rud P:", "Rud I:", "Rud D:", "MaxSpd:",
-        "Spd P:", "Spd I:", "Spd D:", "MinSpd:",
-        "PvtSpd:", "HoldRad:", "BB Inv:", "Swap:",
-        "CompOff:", "SetNorth", "SB Inv:", "TrimEn:",
-        "Appr Dist", "Appr Dir", "DockToWP", "Harmonic",
-        "", "", "", "",
-        // Page 4 (ACTIONS): 24 (top left) and 28 (top right) are the two GPS Fourier
-        // calibration modes. They are not editable values - tapping selects, and the "+"
-        // button below actually starts the run.
-        "GPS CAL", "", "", "",
-        "GPS CAL", "", "", ""
-    };
-    
-    // Draw 8 grid boxes for the current Setup Page (4 rows x 2 columns)
+    // Draw the 8 grid boxes of the current page (4 rows x 2 columns). Slots with no name are
+    // gaps in the layout and are skipped entirely - drawing them used to leave a stray value in
+    // the empty boxes at the bottom of the docking page.
+    char vbuf[24];
     for (int i = 0; i < 8; i++) {
         int r = i % 4;       // Row index (0 to 3)
         int c = i / 4;       // Col index (0 to 1)
         int x = (c == 0) ? 10 : 122;
         int y = 35 + r * 36; // Double-height boxes! (32px height, 4px gap = 36px offset)
-        
+
         int global_idx = setup_page * 8 + i;
-        
-        // On the ACTIONS page only the two top boxes exist; the rest of the grid area is given
-        // over to the progress panel drawn after this loop.
-        if (setup_page == 3 && global_idx != 24 && global_idx != 28) continue;
-        
+        if (!setup_slot_used(global_idx)) continue;
+
         // Highlight selected parameter box in Yellow, otherwise draw in Dark Grey
         uint16_t boxColor = (global_idx == selected_param_idx) ? TFT_YELLOW : TFT_DARKGREY;
         uint16_t textColor = (global_idx == selected_param_idx) ? TFT_YELLOW : TFT_WHITE;
-        
+
         tft.drawRoundRect(x, y, 108, 32, 4, boxColor);
         tft.setTextColor(textColor, TFT_BLACK);
-        
-        if (global_idx == 13) {
-            tft.drawString("SET NORTH", x + 54, y + 16);
-        } else if (global_idx == 24 || global_idx == 28) {
+
+        if (setup_slot_is_bool(global_idx)) {
+            bool on = setup_bool_get(b, global_idx);
+            tft.setTextColor(on ? TFT_GREEN : textColor, TFT_BLACK);
+            sprintf(buf, "%s %s", SETUP_NAMES[global_idx], on ? "YES" : "NO");
+            tft.drawString(buf, x + 54, y + 16);
+        } else if (global_idx == S_GPSSTILL || global_idx == S_GPSCURR) {
             // Deliberately two separate entries rather than one box with a toggle: picking the
             // wrong mode is the one way this calibration can leave the compass worse than it
             // found it, so the choice has to be explicit at the moment you start it.
-            tft.setTextColor(global_idx == 24 ? TFT_GREEN : TFT_ORANGE, TFT_BLACK);
-            tft.drawString(global_idx == 24 ? "CAL STILLWTR" : "CAL CURRENT", x + 54, y + 16);
-        } else if (global_idx == 10) {
-            tft.setTextColor(b.rev_bb ? TFT_GREEN : textColor, TFT_BLACK);
-            sprintf(buf, "BB Inv: %s", b.rev_bb ? "YES" : "NO");
-            tft.drawString(buf, x + 54, y + 16);
-        } else if (global_idx == 14) {
-            tft.setTextColor(b.rev_sb ? TFT_GREEN : textColor, TFT_BLACK);
-            sprintf(buf, "SB Inv: %s", b.rev_sb ? "YES" : "NO");
-            tft.drawString(buf, x + 54, y + 16);
-        } else if (global_idx == 11) {
-            tft.setTextColor(b.swap_bb_sb ? TFT_GREEN : textColor, TFT_BLACK);
-            sprintf(buf, "Swap: %s", b.swap_bb_sb ? "YES" : "NO");
-            tft.drawString(buf, x + 54, y + 16);
-        } else if (global_idx == 15) {
-            tft.setTextColor(b.compass_trim_enabled ? TFT_GREEN : textColor, TFT_BLACK);
-            sprintf(buf, "TrimEn: %s", b.compass_trim_enabled ? "YES" : "NO");
-            tft.drawString(buf, x + 54, y + 16);
-        } else if (global_idx == 16) {
-            sprintf(buf, "App Dist: %d m", b.dock_app_dist);
-            tft.drawString(buf, x + 54, y + 16);
-        } else if (global_idx == 17) {
-            sprintf(buf, "App Dir: %d deg", b.dock_app_dir);
-            tft.drawString(buf, x + 54, y + 16);
-        } else if (global_idx == 18) {
-            tft.setTextColor(b.dock_to_wp ? TFT_GREEN : textColor, TFT_BLACK);
-            sprintf(buf, "DockToWP: %s", b.dock_to_wp ? "YES" : "NO");
-            tft.drawString(buf, x + 54, y + 16);
-        } else if (global_idx == 19) {
-            // The Fourier table the GPS calibration on the ACTIONS page produces is only applied
-            // while this is on, so it belongs on a setup page and not just on the Sub's own
-            // web page, which is unreachable out on the water.
-            tft.setTextColor(b.harmonic_enabled ? TFT_GREEN : textColor, TFT_BLACK);
-            sprintf(buf, "Harmonic: %s", b.harmonic_enabled ? "YES" : "NO");
-            tft.drawString(buf, x + 54, y + 16);
+            tft.setTextColor(global_idx == S_GPSSTILL ? TFT_GREEN : TFT_ORANGE, TFT_BLACK);
+            tft.drawString(SETUP_NAMES[global_idx], x + 54, y + 16);
+        } else if (global_idx == S_REBOOT) {
+            tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+            tft.drawString(SETUP_NAMES[global_idx], x + 54, y + 16);
+        } else if (setup_slot_is_action(global_idx)) {
+            tft.drawString(SETUP_NAMES[global_idx], x + 54, y + 16);
         } else {
-            if (global_idx == 9) {
-                sprintf(buf, "%s %0.1fm", names[global_idx].c_str(), b.hold_radius);
-            } else if (global_idx == 3 || global_idx == 7 || global_idx == 12) {
-                float val = (global_idx == 3) ? b.max_speed : (global_idx == 7) ? b.min_speed : b.compass_offset;
-                sprintf(buf, "%s %0.0f", names[global_idx].c_str(), val);
-            } else {
-                float val = (global_idx == 0) ? b.kpr : (global_idx == 1) ? b.kir : (global_idx == 2) ? b.kdr :
-                            (global_idx == 4) ? b.kps : (global_idx == 5) ? b.kis : (global_idx == 6) ? b.kds : b.pivot_speed;
-                sprintf(buf, "%s %0.3f", names[global_idx].c_str(), val);
-            }
+            setup_value_text(b, global_idx, vbuf, sizeof(vbuf));
+            sprintf(buf, "%s %s", SETUP_NAMES[global_idx], vbuf);
             tft.drawString(buf, x + 54, y + 16);
         }
     }
-    
-    if (setup_page == 3) draw_gps_cal_panel(b);
+
+    if (setup_page == 5) draw_gps_cal_panel(b);
     
     // Draw currently selected value in big text in center of adjustment row (Y: 195 to 225)
     tft.setTextSize(2);
     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-    if (setup_page == 3) {
+    if (setup_is_action_page(setup_page)) {
         // Clear the strip between the two buttons (they occupy x 15..75 and x 165..225).
         tft.fillRect(78, 196, 84, 28, TFT_BLACK);
-        bool armed = (selected_param_idx == 24 || selected_param_idx == 28);
+        bool armed = setup_slot_is_action(selected_param_idx);
         tft.setTextDatum(MC_DATUM); // set, not inherited - see the note above draw_gps_cal_panel()
         tft.setTextSize(1); // "TAP + TO RUN" at size 2 is 144 px and the gap is 84
-        tft.setTextColor(armed ? (selected_param_idx == 24 ? TFT_GREEN : TFT_ORANGE) : TFT_DARKGREY,
-                         TFT_BLACK);
-        tft.drawString(armed ? "TAP + TO RUN" : "SELECT MODE", 120, 210);
-    } else if (selected_param_idx == 13) {
-        tft.drawString("TAP +", 115, 210);
-    } else if (selected_param_idx == 10) {
-        tft.drawString(b.rev_bb ? "YES" : "NO", 115, 210);
-    } else if (selected_param_idx == 14) {
-        tft.drawString(b.rev_sb ? "YES" : "NO", 115, 210);
-    } else if (selected_param_idx == 11) {
-        tft.drawString(b.swap_bb_sb ? "YES" : "NO", 115, 210);
-    } else if (selected_param_idx == 15) {
-        tft.drawString(b.compass_trim_enabled ? "YES" : "NO", 115, 210);
-    } else if (selected_param_idx == 18) {
-        tft.drawString(b.dock_to_wp ? "YES" : "NO", 115, 210);
-    } else if (selected_param_idx == 19) {
-        tft.drawString(b.harmonic_enabled ? "YES" : "NO", 115, 210);
-    } else {
-        if (selected_param_idx == 9) {
-            sprintf(buf, "%0.1fm", b.hold_radius);
-        } else if (selected_param_idx == 16) {
-            sprintf(buf, "%dm", b.dock_app_dist);
-        } else if (selected_param_idx == 17) {
-            sprintf(buf, "%d deg", b.dock_app_dir);
-        } else if (selected_param_idx == 3 || selected_param_idx == 7 || selected_param_idx == 12) {
-            float val = (selected_param_idx == 3) ? b.max_speed : (selected_param_idx == 7) ? b.min_speed : b.compass_offset;
-            sprintf(buf, "%0.0f", val);
-        } else {
-            float val = (selected_param_idx == 0) ? b.kpr : (selected_param_idx == 1) ? b.kir : (selected_param_idx == 2) ? b.kdr :
-                        (selected_param_idx == 4) ? b.kps : (selected_param_idx == 5) ? b.kis : (selected_param_idx == 6) ? b.kds : b.pivot_speed;
-            sprintf(buf, "%0.3f", val);
+        uint16_t col = TFT_DARKGREY;
+        if (armed) {
+            col = (selected_param_idx == S_GPSSTILL) ? TFT_GREEN
+                : (selected_param_idx == S_GPSCURR || selected_param_idx == S_REBOOT) ? TFT_ORANGE
+                : TFT_YELLOW;
         }
+        tft.setTextColor(col, TFT_BLACK);
+        tft.drawString(armed ? "TAP + TO RUN" : "SELECT ACTION", 120, 210);
+    } else if (setup_slot_is_bool(selected_param_idx)) {
+        tft.drawString(setup_bool_get(b, selected_param_idx) ? "YES" : "NO", 115, 210);
+    } else {
+        setup_value_text(b, selected_param_idx, buf, sizeof(buf));
         tft.drawString(buf, 115, 210);
     }
 }
@@ -1486,32 +1569,25 @@ void loop() {
                     int local_idx = c * 4 + r; // 0 to 7
                     int tapped_idx = setup_page * 8 + local_idx; // Map to 0-15 based on page!
                     
-                    // 19 is the Harmonic toggle - the last real entry on the DOCKING page.
-                    if ((tapped_idx >= 0 && tapped_idx <= 19) || tapped_idx == 24 || tapped_idx == 28) {
+                    if (setup_slot_used(tapped_idx)) {
                         // Change focus selection
                         selected_param_idx = tapped_idx;
-                        
-                        // "SET NORTH" (index 13) acts as a quick instant trigger!
-                        if (selected_param_idx == 13) {
-                            BuoyData &b = buoys[selected_buoy_idx];
+
+                        BuoyData &b = buoys[selected_buoy_idx];
+                        if (setup_slot_is_bool(selected_param_idx)) {
+                            // Boolean Toggles: Symmetrical instant toggles on tap!
+                            setup_bool_toggle(b, selected_param_idx);
+                        } else if (selected_param_idx == S_SETNORTH && setup_data_loaded) {
+                            // "SET NORTH" acts as a quick instant trigger. It only rewrites the
+                            // compass offset, so it must not run before the buoy has told us what
+                            // that offset currently is - otherwise it computes from a zero.
                             b.compass_offset = b.compass_offset - b.mag_dir;
                             while (b.compass_offset < -180) b.compass_offset += 360;
                             while (b.compass_offset > 180) b.compass_offset -= 360;
-                            selected_param_idx = 12; // Auto focus to Compass Offset (index 12) to see the computed value
-                        }
-                        // Boolean Toggles: Symmetrical instant toggles on tap!
-                        else if (selected_param_idx == 10) {
-                            buoys[selected_buoy_idx].rev_bb = !buoys[selected_buoy_idx].rev_bb;
-                        } else if (selected_param_idx == 14) {
-                            buoys[selected_buoy_idx].rev_sb = !buoys[selected_buoy_idx].rev_sb;
-                        } else if (selected_param_idx == 11) {
-                            buoys[selected_buoy_idx].swap_bb_sb = !buoys[selected_buoy_idx].swap_bb_sb;
-                        } else if (selected_param_idx == 15) {
-                            buoys[selected_buoy_idx].compass_trim_enabled = !buoys[selected_buoy_idx].compass_trim_enabled;
-                        } else if (selected_param_idx == 18) {
-                            buoys[selected_buoy_idx].dock_to_wp = !buoys[selected_buoy_idx].dock_to_wp;
-                        } else if (selected_param_idx == 19) {
-                            buoys[selected_buoy_idx].harmonic_enabled = !buoys[selected_buoy_idx].harmonic_enabled;
+                            // Jump to the compass page and highlight the offset so the computed
+                            // value is actually visible, then SAVE sends it.
+                            setup_page = S_COMPOFF / 8;
+                            selected_param_idx = S_COMPOFF;
                         }
                     }
                 }
@@ -1519,82 +1595,32 @@ void loop() {
                 else if (touchY >= 190 && touchY <= 230) {
                     BuoyData &b = buoys[selected_buoy_idx];
                     
-                    // The ACTIONS page holds no editable parameters. Only the two calibration
-                    // boxes respond here; anything else still selected from another page must be
-                    // left alone rather than edited invisibly.
-                    bool adjArmed = (setup_page != 3) ||
-                                    selected_param_idx == 24 || selected_param_idx == 28;
-                    
-                    // Determine custom step size based on highlighted parameter
-                    float step = 0.05;
-                    if (selected_param_idx == 1 || selected_param_idx == 2 || selected_param_idx == 5 || selected_param_idx == 6) {
-                        step = 0.005; // Kir, Kdr, Kis, Kds step size
-                    } else if (selected_param_idx == 3 || selected_param_idx == 7) {
-                        step = 5.0;   // MaxSpeed, MinSpeed step size
-                    } else if (selected_param_idx == 12 || selected_param_idx == 16 || selected_param_idx == 17) {
-                        step = 1.0;   // Compass Offset, Appr Dist and Appr Dir step size
-                    } else if (selected_param_idx == 9) {
-                        step = 0.5;   // Hold Radius step size
-                    }
-                    
+                    // The action pages hold no editable parameters. Only their own boxes
+                    // respond here; anything else still selected from another page must be left
+                    // alone rather than edited invisibly.
+                    bool adjArmed = !setup_is_action_page(setup_page) ||
+                                    setup_slot_is_action(selected_param_idx);
+
                     if (adjArmed && touchX >= 10 && touchX <= 75) {
-                        // MINUS
-                        Serial.printf("CYD Touch: MINUS for param %d, step=%0.3f (current dist=%d, dir=%d)\n", selected_param_idx, step, b.dock_app_dist, b.dock_app_dir);
-                        if (selected_param_idx == 0) { b.kpr -= step; if (b.kpr < 0) b.kpr = 0; }
-                        else if (selected_param_idx == 1) { b.kir -= step; if (b.kir < 0) b.kir = 0; }
-                        else if (selected_param_idx == 2) { b.kdr -= step; if (b.kdr < 0) b.kdr = 0; }
-                        else if (selected_param_idx == 3) { b.max_speed -= step; if (b.max_speed < 0) b.max_speed = 0; }
-                        else if (selected_param_idx == 4) { b.kps -= step; if (b.kps < 0) b.kps = 0; }
-                        else if (selected_param_idx == 5) { b.kis -= step; if (b.kis < 0) b.kis = 0; }
-                        else if (selected_param_idx == 6) { b.kds -= step; if (b.kds < 0) b.kds = 0; }
-                        else if (selected_param_idx == 7) { b.min_speed -= step; if (b.min_speed < -100) b.min_speed = -100; } // Allowed to go negative!
-                        else if (selected_param_idx == 8) { b.pivot_speed -= step; if (b.pivot_speed < 0) b.pivot_speed = 0; }
-                        else if (selected_param_idx == 9) { b.hold_radius -= step; if (b.hold_radius < 0.5) b.hold_radius = 0.5; }
-                        else if (selected_param_idx == 10) { b.rev_bb = !b.rev_bb; } // Toggle boolean on minus tap as well!
-                        else if (selected_param_idx == 11) { b.swap_bb_sb = !b.swap_bb_sb; }
-                        else if (selected_param_idx == 12) { b.compass_offset -= step; if (b.compass_offset < -180) b.compass_offset = -180; }
-                        else if (selected_param_idx == 14) { b.rev_sb = !b.rev_sb; }
-                        else if (selected_param_idx == 15) { b.compass_trim_enabled = !b.compass_trim_enabled; }
-                        else if (selected_param_idx == 16) { b.dock_app_dist -= (int)step; if (b.dock_app_dist < 0) b.dock_app_dist = 0; }
-                        else if (selected_param_idx == 17) { b.dock_app_dir -= (int)step; if (b.dock_app_dir < 0) b.dock_app_dir += 360; }
-                        else if (selected_param_idx == 18) { b.dock_to_wp = !b.dock_to_wp; }
-                        else if (selected_param_idx == 19) { b.harmonic_enabled = !b.harmonic_enabled; }
-                        // 24 and 25 (the calibration actions) are intentionally absent here.
+                        // MINUS - no meaning on an action page
+                        if (!setup_slot_is_action(selected_param_idx)) {
+                            if (setup_slot_is_bool(selected_param_idx)) {
+                                setup_bool_toggle(b, selected_param_idx); // toggle on minus too
+                            } else {
+                                setup_adjust(b, selected_param_idx, false);
+                            }
+                        }
                     }
                     else if (adjArmed && touchX >= 155 && touchX <= 230) {
                         // PLUS
-                        Serial.printf("CYD Touch: PLUS for param %d, step=%0.3f (current dist=%d, dir=%d)\n", selected_param_idx, step, b.dock_app_dist, b.dock_app_dir);
-                        if (selected_param_idx == 0) { b.kpr += step; }
-                        else if (selected_param_idx == 1) { b.kir += step; }
-                        else if (selected_param_idx == 2) { b.kdr += step; }
-                        else if (selected_param_idx == 3) { b.max_speed += step; if (b.max_speed > 100) b.max_speed = 100; }
-                        else if (selected_param_idx == 4) { b.kps += step; }
-                        else if (selected_param_idx == 5) { b.kis += step; }
-                        else if (selected_param_idx == 6) { b.kds += step; }
-                        else if (selected_param_idx == 7) { b.min_speed += step; if (b.min_speed > 100) b.min_speed = 100; }
-                        else if (selected_param_idx == 8) { b.pivot_speed += step; if (b.pivot_speed > 1.0) b.pivot_speed = 1.0; }
-                        else if (selected_param_idx == 9) { b.hold_radius += step; if (b.hold_radius > 10.0) b.hold_radius = 10.0; }
-                        else if (selected_param_idx == 10) { b.rev_bb = !b.rev_bb; } // Toggle boolean on plus tap as well!
-                        else if (selected_param_idx == 11) { b.swap_bb_sb = !b.swap_bb_sb; }
-                        else if (selected_param_idx == 12) { b.compass_offset += step; if (b.compass_offset > 180) b.compass_offset = 180; }
-                        else if (selected_param_idx == 13) {
-                            b.compass_offset = b.compass_offset - b.mag_dir;
-                            while (b.compass_offset < -180) b.compass_offset += 360;
-                            while (b.compass_offset > 180) b.compass_offset -= 360;
-                            selected_param_idx = 12;
-                        }
-                        else if (selected_param_idx == 14) { b.rev_sb = !b.rev_sb; }
-                        else if (selected_param_idx == 15) { b.compass_trim_enabled = !b.compass_trim_enabled; }
-                        else if (selected_param_idx == 16) { b.dock_app_dist += (int)step; }
-                        else if (selected_param_idx == 17) { b.dock_app_dir += (int)step; if (b.dock_app_dir >= 360) b.dock_app_dir -= 360; }
-                        else if (selected_param_idx == 18) { b.dock_to_wp = !b.dock_to_wp; }
-                        else if (selected_param_idx == 19) { b.harmonic_enabled = !b.harmonic_enabled; }
-                        else if (selected_param_idx == 24 || selected_param_idx == 28) {
-                            // Two-step on purpose: tapping the box on the ACTIONS page only
+                        if (setup_slot_is_bool(selected_param_idx)) {
+                            setup_bool_toggle(b, selected_param_idx); // toggle on plus as well!
+                        } else if (selected_param_idx == S_GPSSTILL || selected_param_idx == S_GPSCURR) {
+                            // Two-step on purpose: tapping the box on the action page only
                             // selects it, and this is the confirming press. Unlike every other
                             // entry here it commands the buoy to sail for half an hour, so it must
                             // not be reachable with a single stray touch.
-                            bool still = (selected_param_idx == 24);
+                            bool still = (selected_param_idx == S_GPSSTILL);
                             send_gps_fourier_calibrate(b.id, still);
                             tft.fillRect(0, 60, tft.width(), 120, TFT_BLACK);
                             tft.setTextDatum(MC_DATUM);
@@ -1613,6 +1639,38 @@ void loop() {
                             // overlay on the glass until the first report happened to differ.
                             extern bool gps_cal_panel_dirty;
                             gps_cal_panel_dirty = true;
+                        } else if (selected_param_idx == S_DESKCAL) {
+                            // Same two-step. 60 s of figure-of-eight on the bench; harmless
+                            // afloat but it throws away the running compass calibration.
+                            send_buoy_command(b.id, 27); // CALIBRATE_MAGNETIC_COMPASS
+                            tft.fillRect(0, 60, tft.width(), 120, TFT_BLACK);
+                            tft.setTextDatum(MC_DATUM);
+                            tft.setTextSize(2);
+                            tft.setTextColor(TFT_RED, TFT_BLACK);
+                            tft.drawString("DESK CAL STARTED", tft.width() / 2, 100);
+                            tft.setTextSize(1);
+                            tft.setTextColor(TFT_WHITE, TFT_BLACK);
+                            tft.drawString("turn the buoy in figures of 8", tft.width() / 2, 130);
+                            tft.drawString("for 60 seconds", tft.width() / 2, 148);
+                            delay(1500);
+                        } else if (selected_param_idx == S_REBOOT) {
+                            send_buoy_command(b.id, 85); // REBOOT
+                            tft.fillRect(0, 60, tft.width(), 120, TFT_BLACK);
+                            tft.setTextDatum(MC_DATUM);
+                            tft.setTextSize(2);
+                            tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+                            tft.drawString("REBOOTING BUOY", tft.width() / 2, 110);
+                            delay(1500);
+                        } else if (selected_param_idx == S_SETNORTH) {
+                            if (setup_data_loaded) {
+                                b.compass_offset = b.compass_offset - b.mag_dir;
+                                while (b.compass_offset < -180) b.compass_offset += 360;
+                                while (b.compass_offset > 180) b.compass_offset -= 360;
+                                setup_page = S_COMPOFF / 8;
+                                selected_param_idx = S_COMPOFF;
+                            }
+                        } else {
+                            setup_adjust(b, selected_param_idx, true);
                         }
                     }
                     reset_button_draw_cache(); // Force complete update redraw
@@ -1629,7 +1687,7 @@ void loop() {
                     }
                     // PAGE Toggle Button (X: 81 to 155) - Toggles Setup Page 1, 2 & 3!
                     else if (touchX >= 81 && touchX <= 155) {
-                        setup_page = (setup_page + 1) % 4; // Cycle through 0, 1, 2, 3 (3 = ACTIONS)
+                        setup_page = (setup_page + 1) % SETUP_PAGES;
                         last_transition_ms = millis();
                         reset_button_draw_cache();
                         draw_resting_ui();

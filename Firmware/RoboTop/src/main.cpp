@@ -1712,6 +1712,13 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
                 break;
+            // The Sub has always handled this (its case CALIBRATE_MAGNETIC_COMPASS), and the web
+            // page and the CYD both offer it, but nothing here forwarded it - so "Desk
+            // Calibration" pressed anywhere other than the Top's own button did nothing at all.
+            case CALIBRATE_MAGNETIC_COMPASS:
+                RfIn.IDr = BUOYIDALL;
+                xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
+                break;
             case GPS_FOURIER_CALIBRATE:
                 // Runs entirely on the Top - it steers the buoy and does the arithmetic, and only
                 // talks to the Sub through TGDIRSPEED and STORE_INTERPOLATION_TABLE. So this is
