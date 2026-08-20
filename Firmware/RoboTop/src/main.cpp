@@ -167,13 +167,23 @@ void setup()
 
 
     thrusterInversion(&mainData, MEM_GET);
+    // handleRfData() writes this on every SETUPDATA SET but nothing ever read it back, so after a
+    // reboot the Top reported "not swapped" until the Sub happened to answer a SETUPDATA.
+    thrusterSwap(&mainData, MEM_GET);
     pidRudderParameters(&mainData, MEM_GET);
     pidSpeedParameters(&mainData, MEM_GET);
     computeParameters(&mainData, MEM_GET);
-    
-    int tempOffset = 0;
-    CompassOffsetCorrection(&tempOffset, MEM_GET);
-    mainData.compassOffset = (double)tempOffset;
+
+    // Two keys hold the same number: "magCorr" (double, written by handleRfData) and the legacy
+    // "Delta" (int, written by the web handler). Prefer the double - reading only the int threw
+    // away the decimals of an offset the Setup page lets you enter in steps of 0.1.
+    CompasOffset(&mainData, MEM_GET);
+    if (mainData.compassOffset == 0)
+    {
+        int tempOffset = 0;
+        CompassOffsetCorrection(&tempOffset, MEM_GET);
+        mainData.compassOffset = (double)tempOffset;
+    }
 
     // Print all loaded parameters from NVM to Serial Port
     printf("\r\n==================================================\r\n");
@@ -187,6 +197,7 @@ void setup()
     printf("PID Speed       : Kp=%.4f, Ki=%.4f, Kd=%.4f\r\n", mainData.Kps, mainData.Kis, mainData.Kds);
     printf("Computation     : maxOffsetDist=%d, maxSpeed=%d, minSpeed=%d, pivotSpeed=%.2f, holdRad=%.2f\r\n", 
            mainData.maxOfsetDist, mainData.maxSpeed, mainData.minSpeed, mainData.pivotSpeed, mainData.holdRad);
+    printf("Thruster Swap   : %s\r\n", mainData.swap_BB_SB ? "True" : "False");
     printf("Compass Offset  : %.2f degrees\r\n", mainData.compassOffset);
     printf("==================================================\r\n\r\n");
 
@@ -1360,6 +1371,10 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                         RfOut->revBB = RfIn.revBB;
                         RfOut->revSB = RfIn.revSB;
                         RfOut->swap_BB_SB = RfIn.swap_BB_SB;
+                        // SETUPDATA field 16. The Sub owns the trim and re-announces it every
+                        // second over ADAPTIVE_TRIM, but taking it here means the Setup page shows
+                        // the new state at once instead of on the next broadcast.
+                        RfOut->compass_trim_enabled = RfIn.compass_trim_enabled;
                         if (RfIn.IDs == 0x98 || RfIn.IDs == 0x99) {
                             RfOut->dockApproachDist = RfIn.dockApproachDist;
                             RfOut->dockApproachDir = RfIn.dockApproachDir;
@@ -1897,6 +1912,9 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                 target->revBB = serDataIn.revBB;
                 target->revSB = serDataIn.revSB;
                 target->swap_BB_SB = serDataIn.swap_BB_SB;
+                // What the Sub reports here is what it actually has in NVS, so it is the
+                // authority for the Setup page's "Active Trim Enabled" tick box.
+                target->compass_trim_enabled = serDataIn.compass_trim_enabled;
                 target->sub_status++; // Use sub_status as a local revision counter for Web UI
 
                 // Inject our local docking parameters into the sub response before forwarding!

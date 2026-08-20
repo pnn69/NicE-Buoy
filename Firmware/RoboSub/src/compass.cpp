@@ -364,7 +364,6 @@ bool InitCompass(void)
     // Load remaining persistent parameters
     CompassOffsetCorrection(&mainData.compassOffset, true);
     CompasOffset(&mainData, true);
-    MechanicalCorrection(&mainData.mechanicCorrection, true);
     extern int compass_avg_len;
     memCompassAvg(&compass_avg_len, MEM_GET);
     memPrDamping(&pr_damping, MEM_GET);

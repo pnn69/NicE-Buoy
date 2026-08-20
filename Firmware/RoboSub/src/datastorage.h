@@ -26,7 +26,6 @@ void hardIron(RoboStruct *buoy, bool get);
 void softIron(RoboStruct *buoy, bool get);
 void CompassCalibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, float *MinX, float *MinY, float *MinZ, bool get);
 void CompassOffsetCorrection(double *offset, bool get);
-void MechanicalCorrection(double *correction, bool get);
 void memBnoCalib(uint8_t *data, bool get);
 void memIcmCalib(float *hi, float *si, bool get);
 void memCompassAvg(int *avg, bool get);

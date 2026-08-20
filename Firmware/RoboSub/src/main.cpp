@@ -671,7 +671,21 @@ void handleSerandRfdata(RoboStruct *ser)
                     thrusterInversion(ser, MEM_GET);
                     computeParameters(ser, MEM_GET);
                     mainData.compassOffset = ser->compassOffset; // Ensure compassTask uses the new offset immediately!
-                    
+
+                    // The Setup page's "Active Trim Enabled" tick box travels in THIS frame
+                    // (SETUPDATA field 16, see RoboCode()), not in ADAPTIVE_TRIM. Until now only
+                    // ADAPTIVE_TRIM acted on the flag, so saving the setup stored nothing and the
+                    // 1 Hz ADAPTIVE_TRIM broadcast put the old state straight back on the Top's
+                    // web page - the tick box looked like it had no effect at all.
+                    // Only the FLAG is carried here; the accumulated trim value is not in this
+                    // frame and must be left exactly as it is.
+                    mainData.compass_trim_enabled = dataIn.compass_trim_enabled;
+                    {
+                        float trim_val = (float)mainData.compass_trim;
+                        bool trim_en = mainData.compass_trim_enabled;
+                        memCompassTrim(&trim_val, &trim_en, MEM_PUT);
+                    }
+
                     initRudPid(ser);
                     initSpeedPid(ser);
 

@@ -328,7 +328,6 @@ void WiFiTask(void *arg)
         json += "\"revBB\":\"" + String(mainData.revBB ? "true" : "false") + "\",";
         json += "\"revSB\":\"" + String(mainData.revSB ? "true" : "false") + "\",";
         json += "\"swap_BB_SB\":\"" + String(mainData.swap_BB_SB ? "true" : "false") + "\",";
-        json += "\"mechanicCorrection\":\"" + String(mainData.mechanicCorrection, 2) + "\",";
         json += "\"compass_trim_enabled\":\"" + String(mainData.compass_trim_enabled ? "true" : "false") + "\",";
         json += "\"compass_trim\":\"" + String(mainData.compass_trim, 3) + "\",";
         json += "\"dockAppDist\":\"" + String(mainData.dockApproachDist) + "\",";
@@ -381,7 +380,6 @@ void WiFiTask(void *arg)
             json += "\"revBB\":\"" + String(buoyPara[i].revBB ? "true" : "false") + "\",";
             json += "\"revSB\":\"" + String(buoyPara[i].revSB ? "true" : "false") + "\",";
             json += "\"swap_BB_SB\":\"" + String(buoyPara[i].swap_BB_SB ? "true" : "false") + "\",";
-            json += "\"mechanicCorrection\":\"" + String(buoyPara[i].mechanicCorrection, 2) + "\",";
             json += "\"compass_trim_enabled\":\"" + String(buoyPara[i].compass_trim_enabled ? "true" : "false") + "\",";
             json += "\"compass_trim\":\"" + String(buoyPara[i].compass_trim, 3) + "\",";
             json += "\"dockAppDist\":\"" + String(buoyPara[i].dockApproachDist) + "\",";
@@ -480,7 +478,6 @@ void WiFiTask(void *arg)
                     mainData.revSB = server.arg("revSB").toInt();
                     mainData.swap_BB_SB = server.arg("swap_BB_SB").toInt();
                     if (server.hasArg("compass_trim_enabled")) mainData.compass_trim_enabled = (server.arg("compass_trim_enabled").toInt() != 0);
-                    if (server.hasArg("mech")) mainData.mechanicCorrection = server.arg("mech").toFloat();
                     if (server.hasArg("dockAppDist")) mainData.dockApproachDist = server.arg("dockAppDist").toInt();
                     if (server.hasArg("dockAppDir")) mainData.dockApproachDir = server.arg("dockAppDir").toInt();
                     if (server.hasArg("dockToWP")) mainData.dockingToWaypoint = (server.arg("dockToWP").toInt() != 0);
@@ -489,6 +486,9 @@ void WiFiTask(void *arg)
                     pidSpeedParameters(&mainData, MEM_PUT);
                     computeParameters(&mainData, MEM_PUT);
                     memDockApproach(&mainData, MEM_PUT);
+                    // Keep the legacy int key in step with the double that handleRfData() stores,
+                    // otherwise the two disagree by the fractional part of the offset.
+                    CompasOffset(&mainData, MEM_PUT);
                     int offset = (int)mainData.compassOffset;
                     CompassOffsetCorrection(&offset, MEM_PUT);
 
@@ -538,7 +538,6 @@ void WiFiTask(void *arg)
                 msg.maxSpeed = server.arg("max").toInt(); msg.minSpeed = server.arg("min").toInt(); msg.pivotSpeed = server.arg("pivot").toFloat();
             } else if (cmdEnum == STORE_COMPASS_OFFSET) {
                 msg.compassOffset = server.arg("offset").toFloat();
-                if (server.hasArg("mech")) msg.mechanicCorrection = server.arg("mech").toFloat();
             } else if (cmdEnum == SETUPDATA) {
                 if (server.hasArg("Kpr")) {
                     msg.Kpr = server.arg("Kpr").toFloat();
@@ -556,7 +555,6 @@ void WiFiTask(void *arg)
                     msg.revSB = server.arg("revSB").toInt();
                     msg.swap_BB_SB = server.arg("swap_BB_SB").toInt();
                     if (server.hasArg("compass_trim_enabled")) msg.compass_trim_enabled = (server.arg("compass_trim_enabled").toInt() != 0);
-                    if (server.hasArg("mech")) msg.mechanicCorrection = server.arg("mech").toFloat();
                     if (server.hasArg("dockAppDist")) msg.dockApproachDist = server.arg("dockAppDist").toInt();
                     if (server.hasArg("dockAppDir")) msg.dockApproachDir = server.arg("dockAppDir").toInt();
                     if (server.hasArg("dockToWP")) msg.dockingToWaypoint = (server.arg("dockToWP").toInt() != 0);

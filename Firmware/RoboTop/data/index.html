@@ -375,14 +375,9 @@ input[type=checkbox] {
         <div class="inputRow" style="margin-top: 0;">Offset <input id="compassOffset" type="number" step="0.1" style="width:50px;"> Radius <input id="holdrad" type="number" step="0.1" min="1.5" style="width:50px;"></div>
         
         <h4 style="margin: 5px 0 2px 0;">Compass Active Trim</h4>
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-            <div style="display:flex; align-items:center; gap:5px;">
-                <input id="compass_trim_enabled" type="checkbox" style="width:20px; height:20px; margin:0;">
-                <label for="compass_trim_enabled" style="font-size:14px; font-weight:bold;">Active Trim Enabled</label>
-            </div>
-            <div style="font-size:14px; font-weight:bold;">
-                Mech Corr <input id="mechanicCorrection" type="number" step="0.01" style="width:60px; height:25px; text-align:center;">
-            </div>
+        <div style="display:flex; align-items:center; gap:5px; margin-bottom:10px;">
+            <input id="compass_trim_enabled" type="checkbox" style="width:20px; height:20px; margin:0;">
+            <label for="compass_trim_enabled" style="font-size:14px; font-weight:bold;">Active Trim Enabled</label>
         </div>
         
         <h4 style="margin: 8px 0 5px 0;">Thruster Settings</h4>
@@ -486,7 +481,6 @@ function updateConfig() {
         revSB: getChecked('revSB'),
         swap_BB_SB: getChecked('swap_BB_SB'),
         compass_trim_enabled: getChecked('compass_trim_enabled'),
-        mech: getVal('mechanicCorrection'),
         dockAppDist: getVal('dockAppDist'),
         dockAppDir: getVal('dockAppDir'),
         dockToWP: getChecked('dockToWP')
@@ -522,7 +516,6 @@ function toggleActiveTrim() {
         .then(data => {
             console.log("Toggle Active Trim response:", data);
             b.compass_trim_enabled = nextTrimState;
-            b.mechanicCorrection = 0;
             updateUI();
         })
         .catch(error => {
@@ -603,7 +596,7 @@ let requestedBuoy = null;
 // the inputs, under its own "Setup Buoy N" heading.
 function blankSetupFields() {
     ["Kpr","Kir","Kdr","Kps","Kis","Kds","maxSpeed","minSpeed","pivotSpeed","compassOffset",
-     "holdrad","mechanicCorrection","dockAppDist","dockAppDir"].forEach(id => {
+     "holdrad","dockAppDist","dockAppDir"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = "";
     });
@@ -707,7 +700,6 @@ function updateSetupModal() {
             setVal("pivotSpeed", b.pivotSpeed);
             setVal("compassOffset", b.compassOffset);
             setVal("holdrad", b.holdrad);
-            setVal("mechanicCorrection", b.mechanicCorrection);
             setVal("dockAppDist", b.dockAppDist);
             setVal("dockAppDir", b.dockAppDir);
 
@@ -733,24 +725,14 @@ function startGpsFourier(stillWater) {
     // mode on a tidal day writes the current straight into the compass table.
     const detail = stillWater
         ? "STILL WATER mode: corrects each heading on its own measurement, including the one-cycle "
-          + "hard-iron error.
-
-Only choose this if there is genuinely no current and little "
+          + "hard-iron error.\n\nOnly choose this if there is genuinely no current and little "
           + "windage - otherwise the current gets written into the compass table."
-        : "CURRENT RUNNING mode: opposite legs are averaged so a steady current cancels.
-
-"
+        : "CURRENT RUNNING mode: opposite legs are averaged so a steady current cancels.\n\n"
           + "Safe in moving water, but it cannot correct one-cycle (hard-iron) error.";
-    if (!confirm("Start the GPS Fourier compass calibration?
-
-" + detail
-               + "
-
-The buoy will sail 8 legs of at least 100 m (about 30 minutes) and then "
+    if (!confirm("Start the GPS Fourier compass calibration?\n\n" + detail
+               + "\n\nThe buoy will sail 8 legs of at least 100 m (about 30 minutes) and then "
                + "return to where it is now. Make sure it has open water all around and a GPS fix."
-               + "
-
-Press IDLE at any time to stop.")) return;
+               + "\n\nPress IDLE at any time to stop.")) return;
     sendSetupCommand(stillWater ? 'CALIB_GPS_FOURIER_STILL' : 'CALIB_GPS_FOURIER');
 }
 
@@ -1162,7 +1144,7 @@ function updateUI() {
         activeTrimText.innerText = trimEnabled ? "Enabled" : "Disabled";
         activeTrimText.style.color = trimEnabled ? "#56d364" : "#ff3333";
 
-        const corrFactor = parseFloat(b.compass_trim !== undefined ? b.compass_trim : (b.mechanicCorrection || 0));
+        const corrFactor = parseFloat(b.compass_trim || 0);
         correctionText.innerText = (corrFactor >= 0 ? "+" : "") + corrFactor.toFixed(2) + "°";
     }
 

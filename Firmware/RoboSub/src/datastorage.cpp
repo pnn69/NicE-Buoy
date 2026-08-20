@@ -428,21 +428,6 @@ void thrusterSwap(RoboStruct *buoy, bool get)
     stopMem();
 }
 
-void MechanicalCorrection(double *correction, bool get)
-{
-    startMem();
-    if (get)
-    {
-        *correction = storage.getDouble("mechCorr", 0);
-        if (isnan(*correction)) *correction = 0;
-    }
-    else
-    {
-        storage.putDouble("mechCorr", *correction);
-    }
-    stopMem();
-}
-
 void memBnoCalib(uint8_t *data, bool get)
 {
     startMem();

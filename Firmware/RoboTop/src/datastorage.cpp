@@ -78,24 +78,6 @@ void CompasOffset(RoboStruct *buoy, bool get)
 }
 
 /**
- * @brief Gets or sets the mechanical correction delta in memory.
- */
-void MechanicalCorrection(double *correction, bool get)
-{
-    startMem();
-    if (get)
-    {
-        *correction = storage.getDouble("mechCorr", 0);
-        if (isnan(*correction)) *correction = 0;
-    }
-    else
-    {
-        storage.putDouble("mechCorr", *correction);
-    }
-    stopMem();
-}
-
-/**
  * @brief Gets or sets the docking position in memory.
  */
 void memDockPos(RoboStruct *buoy, bool get)

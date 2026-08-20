@@ -14,7 +14,6 @@ void apParameters(String *ap, String *ww, bool get);
 void CompassCalibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, float *MinX, float *MinY, float *MinZ, bool get);
 void CompasOffset(RoboStruct *buoy, bool get);
 void CompassOffsetCorrection(int *delta, bool get);
-void MechanicalCorrection(double *correction, bool get);
 void memDockPos(RoboStruct *buoy, bool get);
 void memDockApproach(RoboStruct *buoy, bool get);
 void thrusterInversion(RoboStruct *buoy, bool get);
