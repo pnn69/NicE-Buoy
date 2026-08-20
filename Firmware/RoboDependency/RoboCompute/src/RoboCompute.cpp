@@ -70,6 +70,13 @@ void RoboDecode(String data, RoboStruct *dataStore)
           if (count > 17) dataStore->dockApproachDist = numbers[17].toInt();
           if (count > 18) dataStore->dockApproachDir = numbers[18].toInt();
           if (count > 19) dataStore->dockingToWaypoint = (bool)numbers[19].toInt();
+          // Tri-state, see RoboCode(): 0 (or empty) means the sender did not specify it, so keep
+          // whatever we already have; 1 = off, 2 = on.
+          if (count > 20)
+          {
+              int interp = numbers[20].toInt();
+              if (interp != 0) dataStore->interpEnabled = (interp == 2);
+          }
           break;
     case IDLE:
         dataStore->speed = 0;
@@ -317,6 +324,12 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->dockApproachDist);
         out += "," + String(dataOut->dockApproachDir);
         out += "," + String((int)dataOut->dockingToWaypoint);
+        // Deliberately tri-state - 1 = off, 2 = on - and NOT the plain 0/1 the fields above use.
+        // The zero-compressor at the end of this function turns an all-zero token into "", so a
+        // plain 0 would be indistinguishable from a field that a shorter frame never sent at all.
+        // RoboControl.py still writes SETUPDATA frames that stop at swap_BB_SB, and those must
+        // not be able to silently switch the harmonic correction off.
+        out += "," + String(dataOut->interpEnabled ? 2 : 1);
         break;
     case DIRSPEED:
         out += "," + formatFloat(dataOut->dirMag, 2);

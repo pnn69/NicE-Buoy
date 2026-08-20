@@ -238,6 +238,10 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         if (fields.size() > 20) buoys[buoy_idx].dock_app_dist = atoi(fields[20].c_str());
         if (fields.size() > 21) buoys[buoy_idx].dock_app_dir = atoi(fields[21].c_str());
         if (fields.size() > 22) buoys[buoy_idx].dock_to_wp = (fields[22] == "1");
+        // Tri-state so that "0"/empty means the buoy never reported it - a plain 0 could not
+        // be told apart from the zero-compression RoboTop applies to the payload.
+        if (fields.size() > 23 && fields[23] != "" && fields[23] != "0")
+            buoys[buoy_idx].harmonic_enabled = (fields[23] == "2");
 
         // Mark setup parameters as successfully loaded if this is the buoy currently active!
         if (selected_buoy_idx == buoy_idx) {
@@ -305,12 +309,13 @@ void send_buoy_setup(int buoy_idx) {
     
     // Construct standard SET command payload using SET (2) and unique Display Sender ID "98"
     char cmdPayload[256];
-    sprintf(cmdPayload, "%s,98,2,83,7,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.0f,%0.0f,%0.2f,%0.0f,%0.1f,%d,%d,%d,%d,%d,%d,%d",
+    sprintf(cmdPayload, "%s,98,2,83,7,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.0f,%0.0f,%0.2f,%0.0f,%0.1f,%d,%d,%d,%d,%d,%d,%d,%d",
             b.id.c_str(),
             b.kpr, b.kir, b.kdr, b.kps, b.kis, b.kds,
             b.max_speed, b.min_speed, b.pivot_speed, b.compass_offset, b.hold_radius,
             b.rev_bb ? 1 : 0, b.rev_sb ? 1 : 0, b.swap_bb_sb ? 1 : 0, b.compass_trim_enabled ? 1 : 0,
-            b.dock_app_dist, b.dock_app_dir, b.dock_to_wp ? 1 : 0);
+            b.dock_app_dist, b.dock_app_dir, b.dock_to_wp ? 1 : 0,
+            b.harmonic_enabled ? 2 : 1);
             
     uint8_t crc = calculate_crc(cmdPayload);
     char finalPacket[320];

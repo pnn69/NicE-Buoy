@@ -221,6 +221,10 @@ struct RoboStruct
     // measured_angles[0..7]: entry i is the compass reading observed while the buoy actually
     // pointed at i * 45 degrees true. The identity default means "no correction".
     float interpolationTable[8] = {0.0f, 45.0f, 90.0f, 135.0f, 180.0f, 225.0f, 270.0f, 315.0f};
+    // Whether the Sub actually APPLIES interpolationTable to its heading (its interp_enabled).
+    // The table and the switch are separate: a stored table that is not applied leaves the
+    // compass uncorrected. Carried by SETUPDATA field 20 - see the note in RoboCode().
+    bool interpEnabled = false;
     // Progress of a GPS Fourier calibration run, carried by GPS_FOURIER_STATUS.
     int gpsCalStep = 0;      // gpscal_step_t
     int gpsCalLeg = 0;       // 0..7

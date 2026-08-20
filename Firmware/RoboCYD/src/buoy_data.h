@@ -50,6 +50,9 @@ struct BuoyData {
     int dock_app_dist = 20;
     int dock_app_dir = 180;
     bool dock_to_wp = false;
+    // Whether the buoy applies its 8-point Fourier compass table (the Sub's interp_enabled).
+    // SETUPDATA fields[23], tri-state on the wire: 1 = off, 2 = on, empty = not reported.
+    bool harmonic_enabled = false;
 
     // GPS Fourier compass calibration progress, from GPS_FOURIER_STATUS (cmd 90).
     // cal_seen_ms is 0 until the first report arrives; the display uses it to decide whether it

@@ -330,6 +330,7 @@ void WiFiTask(void *arg)
         json += "\"swap_BB_SB\":\"" + String(mainData.swap_BB_SB ? "true" : "false") + "\",";
         json += "\"compass_trim_enabled\":\"" + String(mainData.compass_trim_enabled ? "true" : "false") + "\",";
         json += "\"compass_trim\":\"" + String(mainData.compass_trim, 3) + "\",";
+        json += "\"harmonicEnabled\":\"" + String(mainData.interpEnabled ? "true" : "false") + "\",";
         json += "\"dockAppDist\":\"" + String(mainData.dockApproachDist) + "\",";
         json += "\"dockAppDir\":\"" + String(mainData.dockApproachDir) + "\",";
         json += "\"dockToWP\":\"" + String(mainData.dockingToWaypoint ? "true" : "false") + "\",";
@@ -382,6 +383,7 @@ void WiFiTask(void *arg)
             json += "\"swap_BB_SB\":\"" + String(buoyPara[i].swap_BB_SB ? "true" : "false") + "\",";
             json += "\"compass_trim_enabled\":\"" + String(buoyPara[i].compass_trim_enabled ? "true" : "false") + "\",";
             json += "\"compass_trim\":\"" + String(buoyPara[i].compass_trim, 3) + "\",";
+            json += "\"harmonicEnabled\":\"" + String(buoyPara[i].interpEnabled ? "true" : "false") + "\",";
             json += "\"dockAppDist\":\"" + String(buoyPara[i].dockApproachDist) + "\",";
             json += "\"dockAppDir\":\"" + String(buoyPara[i].dockApproachDir) + "\",";
             json += "\"dockToWP\":\"" + String(buoyPara[i].dockingToWaypoint ? "true" : "false") + "\",";
@@ -478,6 +480,8 @@ void WiFiTask(void *arg)
                     mainData.revSB = server.arg("revSB").toInt();
                     mainData.swap_BB_SB = server.arg("swap_BB_SB").toInt();
                     if (server.hasArg("compass_trim_enabled")) mainData.compass_trim_enabled = (server.arg("compass_trim_enabled").toInt() != 0);
+                    // Owned by the Sub - the Top only relays it, so there is nothing to store here.
+                    if (server.hasArg("harmonic")) mainData.interpEnabled = (server.arg("harmonic").toInt() != 0);
                     if (server.hasArg("dockAppDist")) mainData.dockApproachDist = server.arg("dockAppDist").toInt();
                     if (server.hasArg("dockAppDir")) mainData.dockApproachDir = server.arg("dockAppDir").toInt();
                     if (server.hasArg("dockToWP")) mainData.dockingToWaypoint = (server.arg("dockToWP").toInt() != 0);
@@ -555,6 +559,7 @@ void WiFiTask(void *arg)
                     msg.revSB = server.arg("revSB").toInt();
                     msg.swap_BB_SB = server.arg("swap_BB_SB").toInt();
                     if (server.hasArg("compass_trim_enabled")) msg.compass_trim_enabled = (server.arg("compass_trim_enabled").toInt() != 0);
+                    if (server.hasArg("harmonic")) msg.interpEnabled = (server.arg("harmonic").toInt() != 0);
                     if (server.hasArg("dockAppDist")) msg.dockApproachDist = server.arg("dockAppDist").toInt();
                     if (server.hasArg("dockAppDir")) msg.dockApproachDir = server.arg("dockAppDir").toInt();
                     if (server.hasArg("dockToWP")) msg.dockingToWaypoint = (server.arg("dockToWP").toInt() != 0);

@@ -1375,6 +1375,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                         // second over ADAPTIVE_TRIM, but taking it here means the Setup page shows
                         // the new state at once instead of on the next broadcast.
                         RfOut->compass_trim_enabled = RfIn.compass_trim_enabled;
+                        RfOut->interpEnabled = RfIn.interpEnabled;
                         if (RfIn.IDs == 0x98 || RfIn.IDs == 0x99) {
                             RfOut->dockApproachDist = RfIn.dockApproachDist;
                             RfOut->dockApproachDir = RfIn.dockApproachDir;
@@ -1915,6 +1916,9 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                 // What the Sub reports here is what it actually has in NVS, so it is the
                 // authority for the Setup page's "Active Trim Enabled" tick box.
                 target->compass_trim_enabled = serDataIn.compass_trim_enabled;
+                // The harmonic correction switch lives on the Sub; this reply is the only
+                // place the Top ever learns its state.
+                target->interpEnabled = serDataIn.interpEnabled;
                 target->sub_status++; // Use sub_status as a local revision counter for Web UI
 
                 // Inject our local docking parameters into the sub response before forwarding!

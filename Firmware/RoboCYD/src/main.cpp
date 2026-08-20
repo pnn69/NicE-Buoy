@@ -842,7 +842,7 @@ void update_setup_dynamic() {
         "Spd P:", "Spd I:", "Spd D:", "MinSpd:",
         "PvtSpd:", "HoldRad:", "BB Inv:", "Swap:",
         "CompOff:", "SetNorth", "SB Inv:", "TrimEn:",
-        "Appr Dist", "Appr Dir", "DockToWP", "",
+        "Appr Dist", "Appr Dir", "DockToWP", "Harmonic",
         "", "", "", "",
         // Page 4 (ACTIONS): 24 (top left) and 28 (top right) are the two GPS Fourier
         // calibration modes. They are not editable values - tapping selects, and the "+"
@@ -905,6 +905,13 @@ void update_setup_dynamic() {
             tft.setTextColor(b.dock_to_wp ? TFT_GREEN : textColor, TFT_BLACK);
             sprintf(buf, "DockToWP: %s", b.dock_to_wp ? "YES" : "NO");
             tft.drawString(buf, x + 54, y + 16);
+        } else if (global_idx == 19) {
+            // The Fourier table the GPS calibration on the ACTIONS page produces is only applied
+            // while this is on, so it belongs on a setup page and not just on the Sub's own
+            // web page, which is unreachable out on the water.
+            tft.setTextColor(b.harmonic_enabled ? TFT_GREEN : textColor, TFT_BLACK);
+            sprintf(buf, "Harmonic: %s", b.harmonic_enabled ? "YES" : "NO");
+            tft.drawString(buf, x + 54, y + 16);
         } else {
             if (global_idx == 9) {
                 sprintf(buf, "%s %0.1fm", names[global_idx].c_str(), b.hold_radius);
@@ -946,6 +953,8 @@ void update_setup_dynamic() {
         tft.drawString(b.compass_trim_enabled ? "YES" : "NO", 115, 210);
     } else if (selected_param_idx == 18) {
         tft.drawString(b.dock_to_wp ? "YES" : "NO", 115, 210);
+    } else if (selected_param_idx == 19) {
+        tft.drawString(b.harmonic_enabled ? "YES" : "NO", 115, 210);
     } else {
         if (selected_param_idx == 9) {
             sprintf(buf, "%0.1fm", b.hold_radius);
@@ -1477,7 +1486,8 @@ void loop() {
                     int local_idx = c * 4 + r; // 0 to 7
                     int tapped_idx = setup_page * 8 + local_idx; // Map to 0-15 based on page!
                     
-                    if ((tapped_idx >= 0 && tapped_idx <= 18) || tapped_idx == 24 || tapped_idx == 28) {
+                    // 19 is the Harmonic toggle - the last real entry on the DOCKING page.
+                    if ((tapped_idx >= 0 && tapped_idx <= 19) || tapped_idx == 24 || tapped_idx == 28) {
                         // Change focus selection
                         selected_param_idx = tapped_idx;
                         
@@ -1500,6 +1510,8 @@ void loop() {
                             buoys[selected_buoy_idx].compass_trim_enabled = !buoys[selected_buoy_idx].compass_trim_enabled;
                         } else if (selected_param_idx == 18) {
                             buoys[selected_buoy_idx].dock_to_wp = !buoys[selected_buoy_idx].dock_to_wp;
+                        } else if (selected_param_idx == 19) {
+                            buoys[selected_buoy_idx].harmonic_enabled = !buoys[selected_buoy_idx].harmonic_enabled;
                         }
                     }
                 }
@@ -1546,6 +1558,7 @@ void loop() {
                         else if (selected_param_idx == 16) { b.dock_app_dist -= (int)step; if (b.dock_app_dist < 0) b.dock_app_dist = 0; }
                         else if (selected_param_idx == 17) { b.dock_app_dir -= (int)step; if (b.dock_app_dir < 0) b.dock_app_dir += 360; }
                         else if (selected_param_idx == 18) { b.dock_to_wp = !b.dock_to_wp; }
+                        else if (selected_param_idx == 19) { b.harmonic_enabled = !b.harmonic_enabled; }
                         // 24 and 25 (the calibration actions) are intentionally absent here.
                     }
                     else if (adjArmed && touchX >= 155 && touchX <= 230) {
@@ -1575,6 +1588,7 @@ void loop() {
                         else if (selected_param_idx == 16) { b.dock_app_dist += (int)step; }
                         else if (selected_param_idx == 17) { b.dock_app_dir += (int)step; if (b.dock_app_dir >= 360) b.dock_app_dir -= 360; }
                         else if (selected_param_idx == 18) { b.dock_to_wp = !b.dock_to_wp; }
+                        else if (selected_param_idx == 19) { b.harmonic_enabled = !b.harmonic_enabled; }
                         else if (selected_param_idx == 24 || selected_param_idx == 28) {
                             // Two-step on purpose: tapping the box on the ACTIONS page only
                             // selects it, and this is the confirming press. Unlike every other

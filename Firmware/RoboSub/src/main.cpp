@@ -648,6 +648,13 @@ void handleSerandRfdata(RoboStruct *ser)
                     thrusterSwap(&response, MEM_GET);
                     thrusterInversion(&response, MEM_GET);
                     computeParameters(&response, MEM_GET); 
+                    {
+                        // The harmonic (Fourier) correction switch lives in compass.cpp, not in a
+                        // MEM_GET helper - report the flag that is actually in effect so the Top
+                        // and the CYD can show it.
+                        extern volatile bool interp_enabled;
+                        response.interpEnabled = interp_enabled;
+                    }
                     xQueueSend(serOut, (void *)&response, 10);
 // printf("Sent SETUPDATA back to %X\r\n", response.IDr);
                 }
@@ -684,6 +691,24 @@ void handleSerandRfdata(RoboStruct *ser)
                         float trim_val = (float)mainData.compass_trim;
                         bool trim_en = mainData.compass_trim_enabled;
                         memCompassTrim(&trim_val, &trim_en, MEM_PUT);
+                    }
+
+                    // Harmonic (Fourier) correction on/off. The 8-point table itself is not in
+                    // this frame and is never touched here - only whether it gets applied.
+                    // dataIn.interpEnabled keeps its previous value when the sender did not
+                    // specify the field (see the tri-state note in RoboCode()), so a short frame
+                    // from an older node cannot switch this off behind the operator's back.
+                    {
+                        extern volatile bool interp_enabled;
+                        bool want = dataIn.interpEnabled;
+                        if (want != interp_enabled)
+                        {
+                            interp_enabled = want;
+                            memInterpEnabled(&want, MEM_PUT);
+                            printf("Harmonic correction switched %s by SETUPDATA\r\n", want ? "ON" : "OFF");
+                        }
+                        ser->interpEnabled = interp_enabled;
+                        mainData.interpEnabled = interp_enabled;
                     }
 
                     initRudPid(ser);
