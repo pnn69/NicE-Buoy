@@ -273,7 +273,13 @@ void send_gps_fourier_calibrate(const String &buoy_id, bool still_water) {
     // Same envelope as send_buoy_command(), but with the still-water flag in the first payload
     // field. RoboTop reads it as fields[5]; an empty payload there decodes as 0, which is the
     // current-tolerant pair-averaged mode.
-    String cmdStr = buoy_id + ",98,3,89,89," + String(still_water ? 1 : 0);
+    //
+    // ack 6 = INF, matching what RoboTop's own web page sends for this command. NOT 3 (GETACK):
+    // that enrols the packet in RoboTop's LoRa retransmit table (retry = 5, loratop.cpp) and no
+    // immediate ACK is ever sent for a GETACK, so the start command was re-sent about once a
+    // second for five seconds. RoboTop ignores a repeat once the run is under way, so this never
+    // broke anything - it just filled the air at the worst possible moment.
+    String cmdStr = buoy_id + ",98,6,89,89," + String(still_water ? 1 : 0);
 
     uint8_t crc = calculate_crc(cmdStr);
     char crc_buf[8];
