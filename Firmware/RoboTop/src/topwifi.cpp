@@ -486,15 +486,10 @@ void WiFiTask(void *arg)
                     if (server.hasArg("dockAppDir")) mainData.dockApproachDir = server.arg("dockAppDir").toInt();
                     if (server.hasArg("dockToWP")) mainData.dockingToWaypoint = (server.arg("dockToWP").toInt() != 0);
 
-                    pidRudderParameters(&mainData, MEM_PUT);
-                    pidSpeedParameters(&mainData, MEM_PUT);
-                    computeParameters(&mainData, MEM_PUT);
+                    // Only the docking approach is ours to keep. The PIDs, speed limits,
+                    // compass offset and thruster wiring flags belong to the Sub; they reach it
+                    // in the SETUPDATA frame built below and it stores them itself.
                     memDockApproach(&mainData, MEM_PUT);
-                    // Keep the legacy int key in step with the double that handleRfData() stores,
-                    // otherwise the two disagree by the fractional part of the offset.
-                    CompasOffset(&mainData, MEM_PUT);
-                    int offset = (int)mainData.compassOffset;
-                    CompassOffsetCorrection(&offset, MEM_PUT);
 
                     msg = mainData;
                     msg.IDs = 0x99; msg.IDr = mainData.mac;

@@ -166,24 +166,15 @@ void setup()
     // memDockPos(&mainData, MEM_PUT);
 
 
-    thrusterInversion(&mainData, MEM_GET);
-    // handleRfData() writes this on every SETUPDATA SET but nothing ever read it back, so after a
-    // reboot the Top reported "not swapped" until the Sub happened to answer a SETUPDATA.
-    thrusterSwap(&mainData, MEM_GET);
-    pidRudderParameters(&mainData, MEM_GET);
-    pidSpeedParameters(&mainData, MEM_GET);
-    computeParameters(&mainData, MEM_GET);
-
-    // Two keys hold the same number: "magCorr" (double, written by handleRfData) and the legacy
-    // "Delta" (int, written by the web handler). Prefer the double - reading only the int threw
-    // away the decimals of an offset the Setup page lets you enter in steps of 0.1.
-    CompasOffset(&mainData, MEM_GET);
-    if (mainData.compassOffset == 0)
-    {
-        int tempOffset = 0;
-        CompassOffsetCorrection(&tempOffset, MEM_GET);
-        mainData.compassOffset = (double)tempOffset;
-    }
+    // Nothing else is restored here, on purpose. Thruster inversion and swap describe the
+    // wiring at the Sub - esc.cpp is the only code in the system that applies them - and the
+    // compass, its offset and both PID loops live on the Sub as well. The Sub is the single
+    // owner of all of it: the Top asks for SETUPDATA as soon as the serial link comes up
+    // (handleSerialData) and keeps the answer in RAM to display and relay, nothing more.
+    //
+    // A second copy in the Top's own flash is what made a Sub moved to another hull look like
+    // corrupted settings - each Top went on reporting its stale cached values until the new Sub
+    // got round to answering.
 
     // Print all loaded parameters from NVM to Serial Port
     printf("\r\n==================================================\r\n");
@@ -192,13 +183,7 @@ void setup()
     printf("MAC/ID          : %08lX\r\n", mainData.mac);
     printf("Dock Position   : Lat=%.12f, Lng=%.12f\r\n", mainData.tgLat, mainData.tgLng);
     printf("Dock Approach   : Dist=%d m, Dir=%d deg, ToWayPoint=%s\r\n", mainData.dockApproachDist, mainData.dockApproachDir, mainData.dockingToWaypoint ? "True" : "False");
-    printf("Thruster Invert : BB=%s, SB=%s\r\n", mainData.revBB ? "True" : "False", mainData.revSB ? "True" : "False");
-    printf("PID Rudder      : Kp=%.4f, Ki=%.4f, Kd=%.4f\r\n", mainData.Kpr, mainData.Kir, mainData.Kdr);
-    printf("PID Speed       : Kp=%.4f, Ki=%.4f, Kd=%.4f\r\n", mainData.Kps, mainData.Kis, mainData.Kds);
-    printf("Computation     : maxOffsetDist=%d, maxSpeed=%d, minSpeed=%d, pivotSpeed=%.2f, holdRad=%.2f\r\n", 
-           mainData.maxOfsetDist, mainData.maxSpeed, mainData.minSpeed, mainData.pivotSpeed, mainData.holdRad);
-    printf("Thruster Swap   : %s\r\n", mainData.swap_BB_SB ? "True" : "False");
-    printf("Compass Offset  : %.2f degrees\r\n", mainData.compassOffset);
+    printf("Thrusters, PID and compass offset are the Sub's - asked for at serial link-up\r\n");
     printf("==================================================\r\n\r\n");
 
     // Initialize background task-based button handling
@@ -1321,7 +1306,6 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case PIDRUDDERSET:
-                pidRudderParameters(&RfIn, MEM_PUT);
                 printf("#PIDRUDDERSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kpr, RfIn.Kir, RfIn.Kdr);
                 RfIn.ack = SET; // Tell Sub to save to EEPROM
                 RfIn.IDr = BUOYIDALL;
@@ -1354,14 +1338,10 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     
                     if (RfIn.ack == 2 || RfIn.ack == 3) { // 2=SET, 3=GETACK
-                        // Unpack and commit the incoming PID and configuration values to local flash/EEPROM storage
-                        pidRudderParameters(&RfIn, MEM_PUT);
-                        pidSpeedParameters(&RfIn, MEM_PUT);
-                        CompasOffset(&RfIn, MEM_PUT);
-                        thrusterSwap(&RfIn, MEM_PUT);
-                        thrusterInversion(&RfIn, MEM_PUT);
-                        computeParameters(&RfIn, MEM_PUT);
-
+                        // Deliberately not written to our own flash: every value below belongs
+                        // to the Sub, which commits it when we forward this frame with ack = SET.
+                        // We keep a RAM copy only so the web page and the CYD have something to
+                        // show until the Sub reports back.
                         RfOut->Kpr = RfIn.Kpr; RfOut->Kir = RfIn.Kir; RfOut->Kdr = RfIn.Kdr;
                         RfOut->Kps = RfIn.Kps; RfOut->Kis = RfIn.Kis; RfOut->Kds = RfIn.Kds;
                         RfOut->maxSpeed = RfIn.maxSpeed; RfOut->minSpeed = RfIn.minSpeed;
@@ -1473,7 +1453,6 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 break;
             }
             case PIDSPEEDSET:
-                pidSpeedParameters(&RfIn, MEM_PUT);
                 printf("#PIDSPEEDSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kps, RfIn.Kis, RfIn.Kds);
                 RfOut->cmd = PIDSPEEDSET;
                 RfIn.ack = SET; // Tell Sub to save to EEPROM

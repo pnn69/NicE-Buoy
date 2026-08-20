@@ -1,4 +1,9 @@
 // https://github.com/espressif/arduino-esp32/blob/master/libraries/Preferences/src/Preferences.cpp
+// The Top stores only what the Top owns: its buoy id, WiFi credentials, the dock position and
+// the dock approach. Everything else the Setup dialog shows - both PID sets, the speed limits,
+// the compass offset and the thruster inversion/swap flags - is the Sub's, because the Sub is
+// what runs the PID loops, carries the compass and drives the ESCs. It keeps them in its own
+// NVS and reports them in SETUPDATA; the Top holds the reply in RAM to display and relay.
 #include <Preferences.h>
 #include <main.h>
 Preferences storage;
@@ -38,41 +43,6 @@ void memBuoyId(int8_t *id, bool get)
     else
     {
         storage.putChar("buoyId", *id);
-    }
-    stopMem();
-}
-
-/**
- * @brief Legacy wrapper for compass offset.
- */
-void CompassOffsetCorrection(int *delta, bool get)
-{
-    startMem();
-    if (get)
-    {
-        *delta = storage.getInt("Delta", 0);
-    }
-    else
-    {
-        storage.putInt("Delta", *delta);
-    }
-    stopMem();
-}
-
-/**
- * @brief Gets or sets the compass offset correction in memory.
- */
-void CompasOffset(RoboStruct *buoy, bool get)
-{
-    startMem();
-    if (get)
-    {
-        buoy->compassOffset = storage.getDouble("magCorr", 0);
-        if (isnan(buoy->compassOffset)) buoy->compassOffset = 0;
-    }
-    else
-    {
-        storage.putDouble("magCorr", buoy->compassOffset);
     }
     stopMem();
 }
@@ -132,124 +102,3 @@ void memDockApproach(RoboStruct *buoy, bool get)
     stopMem();
 }
 
-/**
- * @brief Gets or sets the thruster inversion settings in memory.
- */
-void thrusterInversion(RoboStruct *buoy, bool get)
-{
-    startMem();
-    if (get)
-    {
-        buoy->revBB = storage.getBool("revBB", false);
-        buoy->revSB = storage.getBool("revSB", false);
-    }
-    else
-    {
-        storage.putBool("revBB", buoy->revBB);
-        storage.putBool("revSB", buoy->revSB);
-    }
-    stopMem();
-}
-
-/**
- * @brief Gets or sets general computation parameters in memory.
- */
-void computeParameters(RoboStruct *buoy, bool get)
-{
-    startMem();
-    if (get)
-    {
-        buoy->maxOfsetDist = storage.getInt("maxOfsetDist", 8);
-        buoy->maxSpeed = storage.getInt("maxSpeed", 75);
-        buoy->minSpeed = storage.getInt("minSpeed", 0);
-        buoy->pivotSpeed = storage.getDouble("pivotSpeed", 0.5);
-        if (isnan(buoy->pivotSpeed)) buoy->pivotSpeed = 0.5;
-        if (buoy->pivotSpeed < 0.4) buoy->pivotSpeed = 0.5; // Enforce minimum safety floor to match sub and provide enough pivot torque
-        buoy->holdRad = storage.getDouble("holdRad", 2.0);
-        if (isnan(buoy->holdRad)) buoy->holdRad = 2.0;
-    }
-    else
-    {
-        storage.putInt("maxOfsetDist", buoy->maxOfsetDist);
-        storage.putInt("maxSpeed", buoy->maxSpeed);
-        storage.putInt("minSpeed", buoy->minSpeed);
-        storage.putDouble("pivotSpeed", buoy->pivotSpeed);
-        storage.putDouble("holdRad", buoy->holdRad);
-    }
-    stopMem();
-}
-
-/**
- * @brief Gets or sets PID speed parameters in memory.
- */
-void pidSpeedParameters(RoboStruct *buoy, bool get)
-{
-    startMem();
-    if (get)
-    {
-        buoy->Kps = storage.getDouble("Kps", 20);
-        if (isnan(buoy->Kps)) buoy->Kps = 20;
-        buoy->Kis = storage.getDouble("Kis", 0.05);
-        if (isnan(buoy->Kis)) buoy->Kis = 0.05;
-        buoy->Kds = storage.getDouble("Kds", 0);
-        if (isnan(buoy->Kds)) buoy->Kds = 0;
-    }
-    else
-    {
-        storage.putDouble("Kps", buoy->Kps);
-        storage.putDouble("Kis", buoy->Kis);
-        storage.putDouble("Kds", buoy->Kds);
-    }
-    stopMem();
-}
-
-/**
- * @brief Gets or sets PID rudder parameters in memory.
- */
-void pidRudderParameters(RoboStruct *buoy, bool get)
-{
-    startMem();
-    if (get)
-    {
-        buoy->Kpr = storage.getDouble("Kpr", 0.5);
-        if (isnan(buoy->Kpr)) buoy->Kpr = 0.5;
-        buoy->Kir = storage.getDouble("Kir", 0.02);
-        if (isnan(buoy->Kir)) buoy->Kir = 0.02;
-        buoy->Kdr = storage.getDouble("Kdr", 0);
-        if (isnan(buoy->Kdr)) buoy->Kdr = 0;
-    }
-    else
-    {
-        storage.putDouble("Kpr", buoy->Kpr);
-        storage.putDouble("Kir", buoy->Kir);
-        storage.putDouble("Kdr", buoy->Kdr);
-    }
-    stopMem();
-}
-
-void thrusterSwap(RoboStruct *buoy, bool get)
-{
-    startMem();
-    if (get)
-    {
-        buoy->swap_BB_SB = storage.getBool("tSwap", false);
-    }
-    else
-    {
-        storage.putBool("tSwap", buoy->swap_BB_SB);
-    }
-    stopMem();
-}
-
-void defautls(RoboStruct *buoy)
-{
-    buoy->Kpr = 0.5;
-    buoy->Kir = 0.02;
-    buoy->Kdr = 0;
-    pidRudderParameters(buoy, false);
-
-    buoy->Kps = 20;
-    buoy->Kis = 0.05;
-    buoy->Kds = 0;
-    pidSpeedParameters(buoy, false);
-}
