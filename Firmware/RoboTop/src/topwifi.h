@@ -9,6 +9,9 @@ extern WebServer server;
 extern RoboStruct mainData;
 extern RoboStruct buoyPara[3];
 
+// Plain-words reason for the last restart, also reported in /data as "ResetReason".
+const char *resetReasonText();
+
 unsigned long espMac(void);
 unsigned long initwifiqueue(void);
 void udpSend(String data);

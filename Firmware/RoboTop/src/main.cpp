@@ -181,6 +181,7 @@ void setup()
     printf("        LOADED PARAMETERS FROM NVM / FLASH        \r\n");
     printf("==================================================\r\n");
     printf("MAC/ID          : %08lX\r\n", mainData.mac);
+    printf("Last reset      : %s\r\n", resetReasonText());
     printf("Dock Position   : Lat=%.12f, Lng=%.12f\r\n", mainData.tgLat, mainData.tgLng);
     printf("Dock Approach   : Dist=%d m, Dir=%d deg, ToWayPoint=%s\r\n", mainData.dockApproachDist, mainData.dockApproachDir, mainData.dockingToWaypoint ? "True" : "False");
     printf("Thrusters, PID and compass offset are the Sub's - asked for at serial link-up\r\n");

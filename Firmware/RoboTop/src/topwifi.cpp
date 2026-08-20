@@ -8,6 +8,28 @@
 #include "gpscalib.h"
 #include "leds.h"
 #include "datastorage.h"
+#include <esp_system.h>
+
+// Why the Top last restarted, in plain words. Without this a buoy that "keeps crashing" is
+// indistinguishable from one being power-cycled, browning out, or hitting a watchdog, and
+// none of that is visible out on the water where there is no USB cable.
+const char *resetReasonText()
+{
+    switch (esp_reset_reason())
+    {
+    case ESP_RST_POWERON:   return "power-on";      // cold start / power cycle
+    case ESP_RST_EXT:       return "reset-pin";
+    case ESP_RST_SW:        return "software";      // our own ESP.restart(): OTA or REBOOT
+    case ESP_RST_PANIC:     return "PANIC";         // crash - exception or failed assert
+    case ESP_RST_INT_WDT:   return "WATCHDOG-int";
+    case ESP_RST_TASK_WDT:  return "WATCHDOG-task"; // a task stopped feeding the dog
+    case ESP_RST_WDT:       return "WATCHDOG";
+    case ESP_RST_BROWNOUT:  return "BROWNOUT";      // supply dipped: power, not code
+    case ESP_RST_DEEPSLEEP: return "deep-sleep";
+    case ESP_RST_SDIO:      return "sdio";
+    default:                return "unknown";
+    }
+}
 #include "buzzer.h"
 #include "loratop.h"
 #include "sercom.h"
@@ -341,7 +363,10 @@ void WiFiTask(void *arg)
         json += "\"GpsFix\":\"" + String(mainData.gpsFix ? "true" : "false") + "\",";
         json += "\"SubOk\":\"" + String(subSerialAlive() ? "true" : "false") + "\",";
         // Progress line for the GPS Fourier calibration; empty string whenever no run is active.
-        json += "\"CalibMsg\":\"" + String(gpsCalibProgress()) + "\"";
+        json += "\"CalibMsg\":\"" + String(gpsCalibProgress()) + "\",";
+        // Diagnostics: seconds since boot, and what ended the previous run.
+        json += "\"Uptime\":" + String(millis() / 1000) + ",";
+        json += "\"ResetReason\":\"" + String(resetReasonText()) + "\"";
         json += "},";
 
         for (int i = 1; i < 3; i++) {
