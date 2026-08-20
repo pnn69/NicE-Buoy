@@ -1092,7 +1092,10 @@ function initUIEventListeners() {
     const sendSetupAction = (cmd, payload) => {
         const b = setupActionBuoy();
         if (!b) return;
-        sendCommand(b.id, `${b.id},99,3,${cmd},${cmd},${payload === undefined ? "" : payload}`);
+        // ack 6 = INF. NOT 3 (GETACK): RoboTop's LoRa sender puts a GETACK packet in its
+        // retransmit table with retry = 5 and resends it until the target answers, and none
+        // of these actions answers - REBOOT sent as GETACK reboots the buoy five times.
+        sendCommand(b.id, `${b.id},99,6,${cmd},${cmd},${payload === undefined ? "" : payload}`);
     };
 
     document.getElementById("setup-deskCal-btn").addEventListener("click", () => {

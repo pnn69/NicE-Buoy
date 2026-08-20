@@ -1642,7 +1642,7 @@ void loop() {
                         } else if (selected_param_idx == S_DESKCAL) {
                             // Same two-step. 60 s of figure-of-eight on the bench; harmless
                             // afloat but it throws away the running compass calibration.
-                            send_buoy_command(b.id, 27); // CALIBRATE_MAGNETIC_COMPASS
+                            send_buoy_command(b.id, 27, 6); // CALIBRATE_MAGNETIC_COMPASS, ack=INF
                             tft.fillRect(0, 60, tft.width(), 120, TFT_BLACK);
                             tft.setTextDatum(MC_DATUM);
                             tft.setTextSize(2);
@@ -1654,7 +1654,10 @@ void loop() {
                             tft.drawString("for 60 seconds", tft.width() / 2, 148);
                             delay(1500);
                         } else if (selected_param_idx == S_REBOOT) {
-                            send_buoy_command(b.id, 85); // REBOOT
+                            // INF, not GETACK: a rebooting buoy never answers, so GETACK
+                            // leaves the packet in the LoRa retry table and reboots it five
+                            // times over.
+                            send_buoy_command(b.id, 85, 6); // REBOOT
                             tft.fillRect(0, 60, tft.width(), 120, TFT_BLACK);
                             tft.setTextDatum(MC_DATUM);
                             tft.setTextSize(2);

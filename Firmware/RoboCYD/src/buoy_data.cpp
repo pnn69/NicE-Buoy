@@ -251,10 +251,10 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     }
 }
 
-void send_buoy_command(const String &buoy_id, int cmd_code) {
+void send_buoy_command(const String &buoy_id, int cmd_code, int ack) {
     // Standard command formatting: $Target,Sender,ACK,CMD,Status,Data1,Data2...*CRC
     // Use unique Display Sender ID "98" to ensure proper bi-directional LoRa routing!
-    String cmdStr = buoy_id + ",98,3," + String(cmd_code) + "," + String(cmd_code) + ",,,,,,";
+    String cmdStr = buoy_id + ",98," + String(ack) + "," + String(cmd_code) + "," + String(cmd_code) + ",,,,,,";
     
     uint8_t crc = calculate_crc(cmdStr);
     char crc_buf[8];

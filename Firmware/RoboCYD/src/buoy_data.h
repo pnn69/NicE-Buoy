@@ -88,7 +88,11 @@ extern unsigned long last_udp_tx_ms;
 extern unsigned long last_lora_tx_ms;
 
 void parse_buoy_packet(const String &packetStr, const String &source, int rssi = -999);
-void send_buoy_command(const String &buoy_id, int cmd_code);
+// ack defaults to GETACK (3), which puts the packet in RoboTop's LoRa retransmit table
+// (loratop.cpp: retry = 5, resent until the target answers). Pass INF (6) for anything the
+// target cannot acknowledge - a REBOOT sent as GETACK is retried five times and reboots the
+// buoy five times.
+void send_buoy_command(const String &buoy_id, int cmd_code, int ack = 3);
 
 // Starts a GPS Fourier compass calibration run on the buoy's Top. Needs its own sender
 // because send_buoy_command() emits an empty payload, and the still-water flag lives in

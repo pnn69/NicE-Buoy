@@ -1743,6 +1743,16 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case REBOOT:
+                // Belt and braces against a reboot storm. A sender that puts REBOOT in the LoRa
+                // retransmit table (ack GETACK/SET -> retry = 5 in loratop.cpp) can never be
+                // acknowledged by a buoy that is busy restarting, so every retry lands on a
+                // freshly booted Top and reboots it again. Ignoring reboots for the first few
+                // seconds of a boot breaks that cycle whatever the sender does.
+                if (millis() < 15000) {
+                    printf("REBOOT ignored: only %lu ms since boot, treating it as a retry of the "
+                           "reboot we just performed.\r\n", millis());
+                    break;
+                }
                 RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
                 printf("REBOOT command received! Forwarding to Sub and rebooting Top...\r\n");
