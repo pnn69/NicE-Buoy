@@ -322,14 +322,18 @@ bool sendLora(String loraTransmitt)
  * 
  * @param arg Task arguments (Pointer to mainData RoboStruct).
  */
+#include "udplog.h"
+
 void LoraTask(void *arg)
 {
     pMainData = (RoboStruct *)arg;
     unsigned long retransmittReady = 0;
     while (1)
     {
+        crumbAt(CRUMB_LORA, 200);
         // Continuously poll for any incoming LoRa packets to prevent RX FIFO buffer overflow
         onReceive(LoRa.parsePacket()); 
+        crumbAt(CRUMB_LORA, 201);
         
         // Process any telemetry messages queued for LoRa transmission
         if (xQueueReceive(loraOut, (void *)&loraMsgout, 1) == pdTRUE)
@@ -344,13 +348,16 @@ void LoraTask(void *arg)
                 }
             }
             
+            crumbAt(CRUMB_LORA, 202);
             String loraString = rfCode(&loraMsgout);
             int retries = 0;
+            crumbAt(CRUMB_LORA, 203);
             
             // Non-blocking wait and send loop:
             // Continues to listen to the radio interface while backing off to avoid missing inbound packets.
             while (sendLora(String(loraString)) != true)
             {
+                crumbAt(CRUMB_LORA, 204);
                 onReceive(LoRa.parsePacket()); // Keep receiving while waiting to transmit!
                 vTaskDelay(pdMS_TO_TICKS(10)); // Shorter sleep (10ms instead of 50ms) to increase system responsiveness
                 retries++;
@@ -366,8 +373,10 @@ void LoraTask(void *arg)
                 }
             }
             // If the transmission expects a receipt confirmation (GETACK/SET), store it in our retry table
+            crumbAt(CRUMB_LORA, 205);
             if (loraMsgout.ack == GETACK || loraMsgout.ack == SET)
             {
+                crumbAt(CRUMB_LORA, 206);
                 loraMsgout.retry = 5;
                 storeAckMsg(loraMsgout);                            // put data in buffer (will be removed on ack)
                 retransmittReady = millis() + 900 + random(0, 150); // give some time for ack

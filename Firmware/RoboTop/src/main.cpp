@@ -13,6 +13,27 @@
 #include "sercom.h"
 #include "calibrate.h"
 #include "gpscalib.h"
+#include "udplog.h"
+
+// Every beep, tagged with the line that asked for it. Sound is the buoy's only feedback in the
+// field, so knowing which beep fired - and whether the next line is a fresh boot banner - is what
+// separates "it acknowledged the command" from "it crashed and restarted".
+// The high-rate telemetry commands. Logging every one of these put roughly 31 blocking UDP sends
+// a second on the wire from the loop task - 98% of it noise, and a plausible way to wedge lwIP.
+// Both Tops hung (rather than panicking and recovering) on builds that did it, so the traffic is
+// now confined to the commands we are actually hunting.
+static inline bool noisyCmd(int cmd)
+{
+    return cmd == TOPDATA || cmd == BUOYPOS || cmd == SUBDATA || cmd == SUBACCU ||
+           cmd == SUBPWR || cmd == DIRMDIRTGDIRG || cmd == DIRDIST || cmd == ADAPTIVE_TRIM;
+}
+
+static inline void beepLogged(int sound, QueueHandle_t q, int line)
+{
+    udpLog("BEEP tone=%d from main.cpp:%d", sound, line);
+    beep(sound, q);
+}
+#define beep(s, q) beepLogged((s), (q), __LINE__)
 
 // Give the Arduino loop task real headroom. RoboStruct is ~500 bytes and the receive path
 // (loop -> handleRfData -> AddDataToBuoyBase -> MergeBuoyData) keeps several of them live at
@@ -584,9 +605,17 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         break;
 
     case DOCKING:
+        crumb(10);
+        udpLog("DOCK 10 enter gpsFix=%d lat=%.6f lng=%.6f", (int)stat->gpsFix, stat->lat, stat->lng);
         beep(1, buzzer); // Play the beautiful 3-tone arpeggio sequence upon successfully entering DOCK mode
+        crumb(11);
         memDockPos(stat, MEM_GET);
+        crumb(12);
         memDockApproach(stat, MEM_GET);
+        crumb(13);
+        udpLog("DOCK 13 loaded tg=%.6f,%.6f dist=%d dir=%d wp=%d",
+               stat->tgLat, stat->tgLng, stat->dockApproachDist, stat->dockApproachDir,
+               (int)stat->dockingToWaypoint);
         stat->status = DOCKED;
         stat->tgDist = 0.0;
         stat->tgDir = 0.0;
@@ -599,6 +628,8 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
             adjustPositionDirDist((double)stat->dockApproachDir, (double)stat->dockApproachDist, stat->tgLat, stat->tgLng, &stat->tgLat, &stat->tgLng);
             printf("Docking waypoint-> tgLat:%.8f tgLng:%.8f\r\n", stat->tgLat, stat->tgLng);
         }
+        crumb(14);
+        udpLog("DOCK 14 after waypoint adjust tg=%.6f,%.6f", stat->tgLat, stat->tgLng);
         stat->cmd = DOCKPOS;
         // INF, not SET - the same fix case LOCKING already carries, which was never applied here.
         // stat->IDr is BUOYIDALL at this point, so an ACK can never match in removeAckMsg() and a
@@ -610,8 +641,12 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         xQueueSend(udpOut, (void *)stat, 0);
         xQueueSend(loraOut, (void *)stat, 10);
 
+        crumb(15);
+        udpLog("DOCK 15 broadcast done, about to route");
         if (stat->lat != 0.0 && stat->lng != 0.0 && stat->tgLat != 0.0 && stat->tgLng != 0.0) {
             RouteToPoint(stat->lat, stat->lng, stat->tgLat, stat->tgLng, &stat->tgDist, &stat->tgDir);
+            crumb(16);
+            udpLog("DOCK 16 routed dist=%.2f dir=%.2f", stat->tgDist, stat->tgDir);
         } else {
             if (stat->tgLat == 0.0) printf("WARNING: Dock position not set in memory!\r\n");
         }
@@ -1187,6 +1222,14 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
 
     if (RfIn.IDr != -1)
     {
+        crumb(1);
+        if (!noisyCmd(RfIn.cmd))
+        {
+            udpLog("RF in  cmd=%d ack=%d st=%d IDr=%08lX IDs=%08lX via=%s",
+                   RfIn.cmd, RfIn.ack, RfIn.status, (unsigned long)RfIn.IDr,
+                   (unsigned long)RfIn.IDs, from_udp ? "udp" : "lora");
+        }
+
         // Deduplication Filter for Mode Commands
         static int lastInCmd = -1;
         static int lastInStatus = -1;
@@ -1220,6 +1263,13 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
         // per command further down, where the sender must be the web/remote (0x98/0x99).
         bool is_broadcast = (RfIn.IDr == BUOYIDALL || RfIn.IDr == 0);
         bool is_for_me = (RfIn.IDr == RfOut->mac || RfIn.IDr == RfOut->IDs || is_broadcast);
+        crumb(2);
+        if (!noisyCmd(RfIn.cmd))
+        {
+            udpLog("RF route bcast=%d forme=%d mymac=%08lX myids=%08lX",
+                   (int)is_broadcast, (int)is_for_me, (unsigned long)RfOut->mac,
+                   (unsigned long)RfOut->IDs);
+        }
 
         if (!is_for_me)
         {
@@ -1253,6 +1303,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
         // --- LOCAL HANDLING (For this buoy or ALL) ---
         if (is_for_me)
         {
+            crumb(1000 + RfIn.cmd);
             switch (RfIn.cmd)
             {
             case BUOYPOS:
@@ -1603,6 +1654,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     break;
                 }
+                crumb(20);
                 // Answered out of RfIn rather than a second RoboStruct. Reading the dock straight
                 // into RfOut (= mainData) is what we must not do - memDockPos() writes tgLat/tgLng
                 // and that silently retargeted us at the dock whatever we were doing, including
@@ -1610,7 +1662,9 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 // on a stack that already carries RfIn; case SETLOCKPOS reuses RfIn for the same
                 // reason. RfIn is ours to scribble on, and we are finished reading it here.
                 memDockPos(&RfIn, MEM_GET);
+                crumb(21);
                 memDockApproach(&RfIn, MEM_GET);
+                crumb(22);
                 // Address the answer at whoever asked. It used to inherit IDr = BUOYIDALL from
                 // mainData, so every answer was broadcast to the whole fleet and every other Top
                 // took it for a fresh question.
@@ -1620,6 +1674,9 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfIn.ack = INF;
                 if (from_udp) xQueueSend(udpOut, (void *)&RfIn, 0);
                 else xQueueSend(loraOut, (void *)&RfIn, 0);
+                crumb(23);
+                udpLog("DOCKPOS answered to %08lX via %s", (unsigned long)RfIn.IDr,
+                       from_udp ? "udp" : "lora");
                 break;
             }
             case STOREASDOC: // Store location as doc location
@@ -1918,6 +1975,13 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
     if (xQueueReceive(serIn, (void *)&serDataIn, 1) == pdTRUE)
     {
         lastRealSerIn = millis();
+        crumb(2000 + serDataIn.cmd);
+        if (!noisyCmd(serDataIn.cmd))
+        {
+            udpLog("SER in cmd=%d ack=%d IDr=%08lX IDs=%08lX",
+                   serDataIn.cmd, serDataIn.ack, (unsigned long)serDataIn.IDr,
+                   (unsigned long)serDataIn.IDs);
+        }
         if (!isSerConnected)
         {
             isSerConnected = true;
@@ -2198,6 +2262,11 @@ void loop(void)
     mainData.mac = espMac();
     if (mainData.IDs == 0) mainData.IDs = espMac();
     Serial.println("Main loop running!");
+    {
+        char tag[20];
+        snprintf(tag, sizeof(tag), "TOP-%08lx", (unsigned long)espMac());
+        udpLogBegin(tag);
+    }
     mainData.status = IDLE;
     mainCollorGps.color = CRGB::DarkRed;
     mainCollorGps.blink = BLINK_FAST;
@@ -2235,31 +2304,46 @@ void loop(void)
         //***************************************************************************************************
         //      Timer routines
         //***************************************************************************************************
+        crumb(90);
         handleTimerRoutines(&mainData);
+        {
+            static unsigned long lastHealth = 0;
+            if (millis() - lastHealth > 2000)
+            {
+                lastHealth = millis();
+                udpLogHealth();
+            }
+        }
         //***************************************************************************************************
         //      Check front key
         //***************************************************************************************************
+        crumb(91);
         handleKeyPress(&mainData);
         //***************************************************************************************************
         //      status actions
         //***************************************************************************************************
+        crumb(92);
         handleStatus(&mainData, buoyPara);
         //***************************************************************************************************
         //      New data Rf data (UTP or Lora)
         //***************************************************************************************************
+        crumb(93);
         handleRfData(&mainData, buoyParaPtrs);
         //****************************************************************************************************
         //      New GPS data
         //***************************************************************************************************
+        crumb(94);
         handleGpsData(&mainData);
         //***************************************************************************************************
         //      New serial data
         //***************************************************************************************************
         // mainData = handleSerialData(mainData);
+        crumb(95);
         handleSerialData(&mainData, buoyParaPtrs);
         //***************************************************************************************************
         //      Light button control
         //***************************************************************************************************
+        crumb(96);
         buttonLight(&mainData);
         //***************************************************************************************************
         //      Serial watchdog

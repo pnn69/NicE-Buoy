@@ -14,6 +14,7 @@
 #include "adc.h"
 #include "sercom.h"
 #include "pidrudspeed.h"
+#include "udplog.h"
 // #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h" // needed to disable brownout detector
 
@@ -302,6 +303,8 @@ void handleSerandRfdata(RoboStruct *ser)
     {
         printf("Serial command received %d\r\n", dataIn.cmd);
         mainData.lastSerIn = millis();
+        udpLog("SER in cmd=%d ack=%d IDr=%08lX IDs=%08lX",
+               dataIn.cmd, dataIn.ack, (unsigned long)dataIn.IDr, (unsigned long)dataIn.IDs);
         PwrOff = millis();
         if (mainLedStatus.color != CRGB::DarkBlue)
         {
@@ -655,6 +658,7 @@ void handleSerandRfdata(RoboStruct *ser)
                         extern volatile bool interp_enabled;
                         response.interpEnabled = interp_enabled;
                     }
+                    udpLog("SETUPDATA reply -> IDr=%08lX", (unsigned long)response.IDr);
                     xQueueSend(serOut, (void *)&response, 10);
 // printf("Sent SETUPDATA back to %X\r\n", response.IDr);
                 }
@@ -1040,6 +1044,11 @@ void handleTimerRoutines(RoboStruct *in)
  */
 void loop(void)
 {
+    {
+        char tag[20];
+        snprintf(tag, sizeof(tag), "SUB-%08lx", (unsigned long)espMac());
+        udpLogBegin(tag);
+    }
 
     mainLedStatus.color = CRGB::Black;
     mainLedStatus.blink = BLINK_OFF;

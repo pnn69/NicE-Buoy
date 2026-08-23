@@ -34,6 +34,7 @@ const char *resetReasonText()
 }
 #include "buzzer.h"
 #include "loratop.h"
+#include "udplog.h"
 #include "sercom.h"
 
 static int statik = IDLE;
@@ -511,6 +512,17 @@ void WiFiTask(void *arg)
         json += "\"CalibMsg\":\"" + String(gpsCalibProgress()) + "\",";
         // Diagnostics: seconds since boot, and what ended the previous run.
         json += "\"Uptime\":" + String(millis() / 1000) + ",";
+        json += "\"Crumb\":" + String(crumbSlotAtLastReset(CRUMB_LOOP)) + ",";
+        json += "\"CrumbLora\":" + String(crumbSlotAtLastReset(CRUMB_LORA)) + ",";
+        json += "\"CrumbWifi\":" + String(crumbSlotAtLastReset(CRUMB_WIFI)) + ",";
+        json += "\"CrumbSer\":" + String(crumbSlotAtLastReset(CRUMB_SER)) + ",";
+        json += "\"StkLoop\":" + String(crumbStackFree(CRUMB_LOOP)) + ",";
+        json += "\"StkLora\":" + String(crumbStackFree(CRUMB_LORA)) + ",";
+        json += "\"StkWifi\":" + String(crumbStackFree(CRUMB_WIFI)) + ",";
+        json += "\"StkSer\":" + String(crumbStackFree(CRUMB_SER)) + ",";
+        json += "\"HeapFree\":" + String(ESP.getFreeHeap()) + ",";
+        json += "\"HeapMin\":" + String(ESP.getMinFreeHeap()) + ",";
+        json += "\"HeapMaxBlk\":" + String(ESP.getMaxAllocHeap()) + ",";
         json += "\"ResetReason\":\"" + String(resetReasonText()) + "\"";
         json += "},";
 
@@ -774,8 +786,10 @@ void WiFiTask(void *arg)
     static unsigned long connectionStartedTime = 0;
 
     for (;;) {
+        crumbAt(CRUMB_WIFI, 400);
         netLoopTicks++;
         server.handleClient();
+        crumbAt(CRUMB_WIFI, 401);
         if (ota) ArduinoOTA.handle();
         
         // Serve the wildcard DNS that drives the captive portal. Cheap, and only while we are
@@ -850,7 +864,9 @@ void WiFiTask(void *arg)
                     msgIdOut.tgDist -= msgIdOut.holdRad;
                 }
             }
+            crumbAt(CRUMB_WIFI, 402);
             udp.broadcast(rfCode(&msgIdOut).c_str());
+            crumbAt(CRUMB_WIFI, 403);
             netUdpTx++;
         }
         delay(1);

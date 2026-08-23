@@ -111,6 +111,8 @@ RoboStruct SerchkAckMsg(void)
 /**
  * @brief FreeRTOS task handling all half-duplex serial communication.
  */
+#include "udplog.h"
+
 void SercomTask(void *arg)
 {
     unsigned long lastRx = millis();
@@ -122,8 +124,10 @@ void SercomTask(void *arg)
     Serial.setTimeout(100);
     while (1)
     {
+        crumbAt(CRUMB_SER, 300);
         if (Serial.available())
         {
+            crumbAt(CRUMB_SER, 301);
             String serStringIn = Serial.readStringUntil('\n');
             serStringIn.trim();
             if (serStringIn.length() > 0)
@@ -138,8 +142,10 @@ void SercomTask(void *arg)
             }
         }
 
+        crumbAt(CRUMB_SER, 302);
         if (Serial1.available())
         {
+            crumbAt(CRUMB_SER, 303);
             String serStringIn = Serial1.readStringUntil('\n');
             serStringIn.trim();
             if (serStringIn.length() > 0)
