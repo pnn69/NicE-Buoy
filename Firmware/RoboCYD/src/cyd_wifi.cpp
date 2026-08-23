@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
+#include <DNSServer.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include <AsyncUDP.h>
@@ -18,104 +19,140 @@ AsyncUDP udp;
 WebServer server(80);
 WebSocketsServer webSocket(81);
 
-bool scan_and_connect_wifi() {
-    Serial.println("Starting WiFi scan...");
-    tft.fillScreen(TFT_BLACK);
-    tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    tft.setTextSize(2);
-    tft.drawString("WiFi Scan...", 20, 20);
+//***************************************************************************************************
+//      Network policy: at home we are a client, in the field we are the network
+//***************************************************************************************************
+// The CYD decides once, at boot: if NicE_WiFi is in reach we join it like everything else; if it
+// is not, we become Robo_WiFi and the buoys come to us. That is the whole of the field network -
+// the Tops join us, the Sub deliberately does not (it keeps to its own SUB_<id> AP so the client
+// slots stay free for the Tops and a phone).
+//
+// Deciding once, rather than continuously, is on purpose: migrating home mid-session would tear
+// Robo_WiFi out from under every Top at once. We do re-check in the background, but only while
+// nobody is connected to us - see cyd_wifi_background() at the bottom of this file.
+static const char *HOME_SSID   = "NicE_WiFi";
+static const char *HOME_PASS   = "!Ni1001100110";
+static const char *FIELD_SSID  = "Robo_WiFi";
+static const char *FIELD_PASS  = "geenanker";
+static const char *MDNS_HOST   = "robocyd";   // http://robocyd.local, in either mode
 
-    WiFi.mode(WIFI_STA);
-    WiFi.disconnect();
-    delay(100);
+static DNSServer dnsServer;    // wildcard DNS, so joining Robo_WiFi opens the dashboard by itself
+static bool apActive = false;  // we are currently Robo_WiFi
 
-    int n = WiFi.scanNetworks();
-    Serial.printf("Scan done: %d networks found\n", n);
-
-    bool robobuoy_found = false;
-    bool nice_wifi_found = false;
-
-    for (int i = 0; i < n; ++i) {
-        String ssid = WiFi.SSID(i);
-        if (ssid == "ROBOBUOY") {
-            robobuoy_found = true;
-        } else if (ssid == "NicE_WiFi") {
-            nice_wifi_found = true;
-        }
+// mDNS gives us a name that works in both modes. The captive portal below cannot do that: we will
+// not hijack DNS on NicE_WiFi, only on our own network.
+static void start_mdns() {
+    MDNS.end();
+    if (MDNS.begin(MDNS_HOST)) {
+        MDNS.addService("http", "tcp", 80);
+        // ArduinoOTA.begin() calls MDNS.begin() with its own hostname, so the two must agree or
+        // whichever runs last wins and the name we advertise is not the name we printed. Both now
+        // use MDNS_HOST. Re-advertising the OTA service here matters too: folding Robo_WiFi away
+        // tears mDNS down and back up, which would otherwise drop OTA off the air.
+        MDNS.enableArduino(3232);
+        Serial.printf("[WiFi] reachable as http://%s.local\r\n", MDNS_HOST);
     }
+}
 
-    // PRIORITIZE "NicE_WiFi" to join same subnet as RoboLora module (192.168.1.x)
-    if (nice_wifi_found) {
-        Serial.println("Found 'NicE_WiFi'. Connecting...");
-        tft.drawString("Connecting to NicE_WiFi...", 20, 50);
-        WiFi.begin("NicE_WiFi", "!Ni1001100110");
-    } else if (robobuoy_found) {
-        Serial.println("Found 'ROBOBUOY'. Connecting...");
-        tft.drawString("Connecting to ROBOBUOY...", 20, 50);
-        WiFi.begin("ROBOBUOY", "");
-    } else {
-        Serial.println("No configured WiFi found. AP mode fallback...");
-        tft.drawString("WiFi not found!", 20, 50);
-        tft.drawString("Starting AP: RoboCYD", 20, 80);
-        WiFi.softAP("RoboCYD", "");
-        return false;
-    }
+// Try one network, without scanning for it first.
+//
+// WiFi.scanNetworks() is the blocking form: it walks all thirteen channels and stalls everything
+// for seconds. Once we are also running a softAP that drags the single radio off our own channel
+// long enough for a connected Top or phone to give up on us. begin() does its own short, targeted
+// probe and simply fails on timeout when the AP is not there - the only thing the scan ever told
+// us that we actually needed.
+static bool try_connect(const char *ssid, const char *pass, uint32_t timeoutMs) {
+    Serial.printf("[WiFi] trying '%s' ... ", ssid);
+    WiFi.begin(ssid, pass);
 
-    unsigned long conn_timeout = millis();
+    unsigned long start = millis();
     while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-        if (millis() - conn_timeout > 15000) {
-            Serial.println("\nConnection timed out. Starting AP RoboCYD...");
-            tft.drawString("WiFi Timeout!", 20, 80);
-            tft.drawString("Starting AP: RoboCYD", 20, 110);
-            WiFi.softAP("RoboCYD", "");
+        if (millis() - start > timeoutMs) {
+            Serial.println("not there");
+            WiFi.disconnect();
             return false;
         }
-    }
-
-    // CRITICAL: Explicitly wait for DHCP to assign a valid IP address before starting mDNS/OTA!
-    // WL_CONNECTED occurs on AP association, but initializing network responders while local IP is still 0.0.0.0
-    // causes the lwIP network stack to instantly crash and reboot the ESP32.
-    Serial.println("\nWiFi Associated. Waiting for DHCP IP...");
-    tft.drawString("Acquiring IP...", 20, 80);
-    
-    unsigned long ip_timeout = millis();
-    while (WiFi.localIP() == IPAddress(0, 0, 0, 0)) {
         delay(100);
-        Serial.print("o");
-        if (millis() - ip_timeout > 6000) { // 6 seconds timeout for DHCP IP lease
-            Serial.println("\nFailed to acquire DHCP IP. AP fallback...");
-            tft.drawString("IP Lease Failed!", 20, 110);
-            WiFi.softAP("RoboCYD", "");
-            return false;
-        }
     }
 
-    Serial.println("\nWiFi CONNECTED");
-    WiFi.setSleep(WIFI_PS_NONE); // Disable sleep to ensure fast OTA
-    IPAddress ip = WiFi.localIP();
-    Serial.print("IP Address: ");
-    Serial.println(ip);
+    // Associated is not the same as usable. WL_CONNECTED fires on association, but starting mDNS
+    // or OTA while the lease is still 0.0.0.0 takes the lwIP stack - and the chip - down with it.
+    while (WiFi.localIP() == IPAddress(0, 0, 0, 0)) {
+        if (millis() - start > timeoutMs + 6000) {
+            Serial.println("no DHCP lease");
+            WiFi.disconnect();
+            return false;
+        }
+        delay(100);
+    }
 
-    char buf[64];
-    sprintf(buf, "IP: %s", ip.toString().c_str());
-    tft.drawString("Connected!", 20, 80);
-    tft.drawString(buf, 20, 110);
-    delay(1000);
+    WiFi.setSleep(WIFI_PS_NONE);
+    Serial.printf("joined, IP %s\r\n", WiFi.localIP().toString().c_str());
     return true;
 }
 
+// Become Robo_WiFi: the field network the Tops look for.
+static void start_field_ap() {
+    WiFi.mode(WIFI_AP);
+
+    // Same subnet as home on purpose, so the field network and the living room look identical
+    // from a browser's point of view, and the AP is its own gateway - handing out a gateway that
+    // never answers is what makes Android decide a network is broken and drop it.
+    IPAddress apIP(192, 168, 1, 1);
+    WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+
+    // max_connection defaults to 4 in the Arduino wrapper, which is exactly the budget of three
+    // Tops plus a phone and leaves nothing for a laptop. The ESP32 silicon allows 15; 8 is plenty.
+    if (WiFi.softAP(FIELD_SSID, FIELD_PASS, 1, 0, 8)) {
+        WiFi.setSleep(WIFI_PS_NONE);
+        apActive = true;
+
+        // Wildcard DNS: every lookup resolves to us, so a phone's own connectivity probe lands on
+        // our web server, gets the redirect from onNotFound instead of the 204 it expected, and
+        // opens the "sign in to network" sheet on the dashboard with nobody typing an address.
+        dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+        dnsServer.start(53, "*", apIP);
+
+        Serial.printf("[WiFi] AP '%s' up on %s\r\n", FIELD_SSID, WiFi.softAPIP().toString().c_str());
+        tft.drawString("AP: Robo_WiFi", 20, 80);
+        tft.drawString(WiFi.softAPIP().toString(), 20, 110);
+    } else {
+        Serial.println("[WiFi] softAP failed!");
+        tft.drawString("AP FAILED!", 20, 80);
+    }
+    start_mdns();
+}
+
+bool scan_and_connect_wifi() {
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setTextSize(2);
+    tft.drawString("WiFi...", 20, 20);
+
+    WiFi.mode(WIFI_STA);
+    tft.drawString("Trying NicE_WiFi...", 20, 50);
+
+    if (try_connect(HOME_SSID, HOME_PASS, 8000)) {
+        apActive = false;
+        start_mdns();
+        char buf[64];
+        sprintf(buf, "IP: %s", WiFi.localIP().toString().c_str());
+        tft.drawString("Connected!", 20, 80);
+        tft.drawString(buf, 20, 110);
+        delay(1000);
+        return true;
+    }
+
+    tft.drawString("No home WiFi.", 20, 50);
+    start_field_ap();
+    delay(1000);
+    return false;
+}
+
 void setup_Arduino_OTA() {
-    byte mac[6];
-    WiFi.macAddress(mac);
-    
-    // Declared static to ensure pointer string lives forever in global heap memory,
-    // avoiding stack deallocation pointers crashes inside ArduinoOTA/MDNS loops!
-    static char hostname[32];
-    sprintf(hostname, "CYD_%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    
-    ArduinoOTA.setHostname(hostname);
+    // Same name mDNS advertises - see the note in start_mdns(). Also drops the underscore, which
+    // is not legal in a hostname label.
+    ArduinoOTA.setHostname(MDNS_HOST);
     
     ArduinoOTA.onStart([]() {
         Serial.println("OTA Start");
@@ -196,7 +233,7 @@ void setup_Arduino_OTA() {
     ArduinoOTA.begin();
     // Redundant mDNS initialization removed (ArduinoOTA.begin() natively handles mDNS registration automatically,
     // thereby avoiding dual-allocation heap responder collisions and panics!).
-    Serial.printf("OTA Service initialized with hostname: %s.local\n", hostname);
+    Serial.printf("OTA Service initialized with hostname: %s.local\n", MDNS_HOST);
 }
 
 // WebSocket server event callback
@@ -248,18 +285,16 @@ void init_wifi_and_ota() {
         Serial.println("SPIFFS mounted successfully!");
     }
 
-    bool connected = scan_and_connect_wifi();
-    
-    // Only initialize station-dependent network systems if connection was successful
-    if (connected) {
-        setup_Arduino_OTA();
-    }
+    // Either we joined home or we are now Robo_WiFi; both are networks OTA can be reached over,
+    // and in the field being the AP is the only way it ever will be.
+    scan_and_connect_wifi();
+    setup_Arduino_OTA();
 
     // Configure WebServer HTTP standard Port 80 routes
     server.on("/", []() {
         server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         File file = SPIFFS.open("/index.html", "r");
-        if (file) {
+        if (file && !file.isDirectory()) {
             server.streamFile(file, "text/html");
             file.close();
         } else {
@@ -270,7 +305,7 @@ void init_wifi_and_ota() {
     server.on("/index.js", []() {
         server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         File file = SPIFFS.open("/index.js", "r");
-        if (file) {
+        if (file && !file.isDirectory()) {
             server.streamFile(file, "application/javascript");
             file.close();
         } else {
@@ -281,7 +316,7 @@ void init_wifi_and_ota() {
     server.on("/style.css", []() {
         server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         File file = SPIFFS.open("/style.css", "r");
-        if (file) {
+        if (file && !file.isDirectory()) {
             server.streamFile(file, "text/css");
             file.close();
         } else {
@@ -289,10 +324,19 @@ void init_wifi_and_ota() {
         }
     });
 
-    // Fallback/Captive Portal support
+    // Captive portal. A relative "/" is not enough for the phone's connectivity probe to follow -
+    // it has to be pointed at us by absolute address. Combined with the wildcard DNS above, this
+    // is what makes the "sign in to network" sheet open the dashboard when you join Robo_WiFi.
     server.onNotFound([]() {
-        server.sendHeader("Location", "/", true);
-        server.send(302, "text/plain", "");
+        // Only hijack unknown URLs while we are the access point - that is what makes the phone's
+        // captive-portal sheet open the dashboard. On a real network a 404 must stay a 404, or a
+        // mistyped fetch quietly comes back as the whole dashboard instead of an error.
+        if (apActive) {
+            server.sendHeader("Location", "http://" + WiFi.softAPIP().toString() + "/", true);
+            server.send(302, "text/plain", "");
+        } else {
+            server.send(404, "text/plain", "Not found");
+        }
     });
 
     server.begin();
@@ -349,4 +393,39 @@ void broadcast_websocket_lora(const String &payload, int rssi) {
 void handle_wifi_clients() {
     server.handleClient();
     webSocket.loop();
+
+    if (!apActive) {
+        return;
+    }
+
+    // Serve the wildcard DNS that drives the captive portal.
+    dnsServer.processNextRequest();
+
+    // Re-check for home in the background, but only while nobody is connected to us. With a Top
+    // or a phone attached, migrating would tear Robo_WiFi out from under them - and on the CYD
+    // clients are the normal state, so this only ever fires when the fleet is off or out of
+    // range. It is the "carried everything indoors" case, and it saves a power cycle.
+    static unsigned long lastHomeCheck = 0;
+    unsigned long now = millis();
+    if (WiFi.softAPgetStationNum() > 0) {
+        lastHomeCheck = now;
+        return;
+    }
+    if (now - lastHomeCheck < 45000) {
+        return;
+    }
+    lastHomeCheck = now;
+
+    Serial.println("[WiFi] nobody on Robo_WiFi - checking whether we are home yet");
+    WiFi.mode(WIFI_AP_STA);
+    if (try_connect(HOME_SSID, HOME_PASS, 8000)) {
+        dnsServer.stop();
+        WiFi.softAPdisconnect(true);
+        WiFi.mode(WIFI_STA);
+        apActive = false;
+        Serial.println("[WiFi] home found - Robo_WiFi folded away");
+        start_mdns();
+    } else {
+        WiFi.mode(WIFI_AP);
+    }
 }

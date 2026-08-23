@@ -3,6 +3,8 @@
 #include <WebServer.h>
 #include <ArduinoOTA.h>
 #include <AsyncUDP.h>
+#include <DNSServer.h>
+#include <ESPmDNS.h>
 #include "main.h"
 #include "topwifi.h"
 #include "gpscalib.h"
@@ -50,6 +52,96 @@ QueueHandle_t udpOut;
 QueueHandle_t udpIn;
 static unsigned long lastUpdMsg = 0;
 
+//***************************************************************************************************
+//      Network health instrumentation
+//***************************************************************************************************
+// A Top that "goes offline while the button still works" tells you almost nothing on its own: the
+// button task lives on core 1 and WiFiTask on core 0, so a working button only proves the chip did
+// not reboot. These counters, printed once every 10 s by the main loop, separate the three ways the
+// link can die - the WiFi task stopped looping, the radio lost its association, or the heap ran out
+// from under the web server - which is otherwise indistinguishable from the outside.
+static volatile uint32_t netLoopTicks = 0;   // ++ every WiFiTask iteration; frozen means task wedged
+static volatile uint32_t netHttpReqs = 0;    // pages and /data polls actually served
+static volatile uint32_t netUdpTx = 0;       // frames broadcast
+static volatile uint32_t netDisconnects = 0; // STA_DISCONNECTED events since boot
+static volatile int netLastReason = 0;       // reason code of the most recent one
+static volatile unsigned long netLastReqMs = 0;
+static TaskHandle_t netWifiTask = NULL;
+
+static const char *wifiStatusText(wl_status_t s)
+{
+    switch (s)
+    {
+    case WL_CONNECTED:       return "CONNECTED";
+    case WL_NO_SSID_AVAIL:   return "NO-SSID";
+    case WL_CONNECT_FAILED:  return "FAILED";
+    case WL_CONNECTION_LOST: return "LOST";
+    case WL_DISCONNECTED:    return "DISCONNECTED";
+    case WL_IDLE_STATUS:     return "IDLE";
+    case WL_SCAN_COMPLETED:  return "SCAN-DONE";
+    default:                 return "?";
+    }
+}
+
+// The reason codes are the 802.11 ones from esp_wifi_types.h. 200 BEACON_TIMEOUT and 201 NO_AP_FOUND
+// point at range or a router that stopped answering, 15 4WAY_HANDSHAKE_TIMEOUT at the key exchange,
+// 8 ASSOC_LEAVE at the AP deliberately kicking us off. Printing the number is the whole difference
+// between "the WiFi broke" and knowing which end broke it.
+static void onWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info)
+{
+    switch (event)
+    {
+    case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+        netDisconnects++;
+        netLastReason = info.wifi_sta_disconnected.reason;
+        printf("[NET] STA DISCONNECTED reason=%d (drop #%lu)\r\n", netLastReason, (unsigned long)netDisconnects);
+        break;
+    case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+        printf("[NET] STA GOT IP %s rssi=%d\r\n", WiFi.localIP().toString().c_str(), (int)WiFi.RSSI());
+        break;
+    case ARDUINO_EVENT_WIFI_STA_LOST_IP:
+        printf("[NET] STA LOST IP\r\n");
+        break;
+    default:
+        break;
+    }
+}
+
+// One line of network vitals. Called from the main loop rather than from the WiFi task on purpose:
+// the main loop is on core 1, so the line still gets printed when the WiFi task is the part that
+// died - and then reports loop=0, which says so outright.
+String netHealthLine()
+{
+    static uint32_t prevTicks = 0, prevReqs = 0, prevTx = 0;
+    uint32_t ticks = netLoopTicks, reqs = netHttpReqs, tx = netUdpTx;
+    uint32_t dTicks = ticks - prevTicks, dReqs = reqs - prevReqs, dTx = tx - prevTx;
+    prevTicks = ticks; prevReqs = reqs; prevTx = tx;
+
+    unsigned long idle = (netLastReqMs == 0) ? 0 : (millis() - netLastReqMs) / 1000UL;
+    char buf[320];
+    snprintf(buf, sizeof(buf),
+             "[NET] up=%lus loop=%lu wifi=%s ip=%s rssi=%d drops=%lu/last=%d http=%lu/idle=%lus udp=%lu "
+             "heap=%lu min=%lu maxblk=%lu stack=%lu%s",
+             (unsigned long)(millis() / 1000UL),
+             (unsigned long)dTicks,
+             wifiStatusText(WiFi.status()),
+             WiFi.localIP().toString().c_str(),
+             (int)WiFi.RSSI(),
+             (unsigned long)netDisconnects, netLastReason,
+             (unsigned long)dReqs, idle, (unsigned long)dTx,
+             (unsigned long)ESP.getFreeHeap(),
+             (unsigned long)ESP.getMinFreeHeap(),
+             (unsigned long)ESP.getMaxAllocHeap(),
+             (unsigned long)(netWifiTask ? uxTaskGetStackHighWaterMark(netWifiTask) : 0),
+             dTicks == 0 ? "   <<< WiFi TASK STALLED" : "");
+    return String(buf);
+}
+
+// Our identity on the network, filled in by build_identity() below. Declared up here because
+// setup_OTA() needs the mDNS hostname and runs before any of the WiFi policy code.
+static char ownApSsid[24] = "";  // TOP_b7a5099c
+static char mdnsHost[24] = "";   // top-b7a5099c  ->  http://top-b7a5099c.local
+
 WebServer server(80);
 
 /**
@@ -57,12 +149,10 @@ WebServer server(80);
  */
 bool setup_OTA()
 {
-    char buf[32];
-    byte mac[6];
-    WiFi.macAddress(mac);
     Serial.print("SETUP OTA...");
-    sprintf(buf, "Top_%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    ArduinoOTA.setHostname(buf);
+    // Same name mDNS advertises - see the note in start_mdns(). Also drops the underscore, which
+    // is not legal in a hostname label.
+    ArduinoOTA.setHostname(mdnsHost);
     ArduinoOTA.onStart([]() { Serial.println("OTA Start"); });
     ArduinoOTA.onEnd([]() { Serial.println("\nOTA End"); });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) { Serial.printf("Progress: %u%%\r", (progress / (total / 100))); });
@@ -72,124 +162,163 @@ bool setup_OTA()
     return true;
 }
 
-/**
- * @brief Scans for ROBOBUOY first, then falls back to NiCe_WiFi/NicE_WiFi.
- */
-bool scan_and_connect_wifi(IPAddress *tmp)
+//***************************************************************************************************
+//      Network policy: where we live, at home and in the field
+//***************************************************************************************************
+// One priority list, spelled the same way on the Top, the Sub and the CYD:
+//
+//      NicE_WiFi  ->  Robo_WiFi  ->  our own TOP_<id> AP
+//
+// Home first, deliberately. The CYD only raises Robo_WiFi when it cannot see NicE_WiFi, so at the
+// edge of the garden the CYD can still be on home while the buoys are not. A buoy that preferred
+// Robo_WiFi would then sit alone on its own AP with the CYD one network over. Home-first converges.
+static const char *HOME_SSID   = "NicE_WiFi";
+static const char *HOME_PASS   = "!Ni1001100110";
+static const char *FIELD_SSID  = "Robo_WiFi";
+static const char *FIELD_PASS  = "geenanker";
+static const char *OWN_AP_PASS = "geenanker";
+
+static DNSServer dnsServer;      // wildcard DNS, so joining our AP opens the dashboard by itself
+static bool apActive = false;    // our own AP is currently up
+// Short, readable identity. espMac() already folds the last four MAC bytes into the id the logs
+// call b7a5099c, and a phone's WiFi list is far easier to search for TOP_b7a5099c than for the
+// full twelve-hex MAC we used to advertise.
+static void build_identity()
 {
-    unsigned long timeout = millis();
-    Serial.println("Starting WiFi scan and connect sequence...");
+    snprintf(ownApSsid, sizeof(ownApSsid), "TOP_%08lx", (unsigned long)espMac());
+    // mDNS labels may not contain '_', so the hostname is spelled with a hyphen instead.
+    snprintf(mdnsHost, sizeof(mdnsHost), "top-%08lx", (unsigned long)espMac());
+}
 
-    // Set STA mode and disconnect to ensure reliable scanning
-    WiFi.mode(WIFI_STA);
-    WiFi.disconnect();
-    delay(100);
-
-    // Loop for up to 30 seconds
-    while (millis() - timeout < 30000)
+// The captive portal below only works while we are the access point - we will not hijack DNS on
+// NicE_WiFi or on the CYD's network. mDNS covers the other half: http://top-b7a5099c.local
+// resolves in both modes, so there is always a way in that is not a memorised IP address.
+static void start_mdns()
+{
+    MDNS.end();
+    if (MDNS.begin(mdnsHost))
     {
-        Serial.println("Scanning for networks...");
-        int n = WiFi.scanNetworks();
-        Serial.printf("Scan done: %d networks found\n", n);
+        MDNS.addService("http", "tcp", 80);
+        // ArduinoOTA.begin() calls MDNS.begin() with its own hostname, so the two must agree or
+        // whichever runs last wins and the name we advertise is not the name we printed. Both now
+        // use mdnsHost. Re-advertising the OTA service here matters too: every reconnect and every
+        // AP transition tears mDNS down and back up, which would otherwise drop OTA off the air.
+        MDNS.enableArduino(3232);
+        Serial.printf("[WiFi] reachable as http://%s.local\r\n", mdnsHost);
+    }
+}
 
-        if (n > 0)
+// Try one network, without scanning for it first.
+//
+// WiFi.scanNetworks() is the blocking form: it walks all thirteen channels and parks this task for
+// seconds at a time. Now that we always run a softAP alongside, that drags the single radio off
+// the AP's channel for long enough that a connected phone gives up on us, and it stalls
+// server.handleClient() and ArduinoOTA.handle() with it. begin() does its own short, targeted
+// probe for the one SSID we care about and simply fails on timeout when it is not there - which
+// is the only thing we ever wanted out of the scan.
+static bool try_connect(const char *ssid, const char *pass, uint32_t timeoutMs)
+{
+    Serial.printf("[WiFi] trying '%s' ... ", ssid);
+    WiFi.begin(ssid, pass);
+
+    unsigned long start = millis();
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        if (millis() - start > timeoutMs)
         {
-            bool robobuoy_found = false;
-            bool nice_wifi_found = false;
-            String nice_wifi_ssid = "";
-
-            for (int i = 0; i < n; ++i)
-            {
-                String ssid = WiFi.SSID(i);
-                if (ssid == "ROBOBUOY")
-                {
-                    robobuoy_found = true;
-                }
-                else if (ssid == "NicE_WiFi")
-                {
-                    nice_wifi_found = true;
-                    nice_wifi_ssid = ssid;
-                }
-            }
-
-            if (robobuoy_found)
-            {
-                Serial.println("Found 'ROBOBUOY'. Attempting connection...");
-                WiFi.begin("ROBOBUOY", "");
-                unsigned long conn_timeout = millis();
-                while (WiFi.status() != WL_CONNECTED)
-                {
-                    delay(500);
-                    Serial.print(".");
-                    if (millis() - conn_timeout > 15000)
-                    {
-                        Serial.println("\nConnection to 'ROBOBUOY' timed out.");
-                        break;
-                    }
-                }
-                if (WiFi.status() == WL_CONNECTED)
-                {
-                    Serial.println("\nCONNECTED to 'ROBOBUOY'");
-                    WiFi.setSleep(WIFI_PS_NONE); // Disable power-saving sleep
-                    *tmp = WiFi.localIP();
-                    Serial.print("WiFi IP address: ");
-                    Serial.println(*tmp);
-                    return true;
-                }
-                WiFi.disconnect();
-                delay(100);
-            }
-            else if (nice_wifi_found)
-            {
-                Serial.printf("Found '%s'. Attempting connection...\n", nice_wifi_ssid.c_str());
-                WiFi.begin(nice_wifi_ssid.c_str(), "!Ni1001100110");
-                unsigned long conn_timeout = millis();
-                while (WiFi.status() != WL_CONNECTED)
-                {
-                    delay(500);
-                    Serial.print(".");
-                    if (millis() - conn_timeout > 15000)
-                    {
-                        Serial.println("\nConnection to NiCe_WiFi timed out.");
-                        break;
-                    }
-                }
-                if (WiFi.status() == WL_CONNECTED)
-                {
-                    Serial.printf("\nCONNECTED to %s\n", nice_wifi_ssid.c_str());
-                    WiFi.setSleep(WIFI_PS_NONE); // Disable power-saving sleep
-                    *tmp = WiFi.localIP();
-                    Serial.print("WiFi IP address: ");
-                    Serial.println(*tmp);
-                    return true;
-                }
-                WiFi.disconnect();
-                delay(100);
-            }
+            Serial.println("not there");
+            WiFi.disconnect();
+            return false;
         }
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 
-    Serial.println("WiFi connection sequence completed without success.");
+    // Associated is not the same as usable. WL_CONNECTED fires on association, but bringing up
+    // mDNS or OTA while the lease is still 0.0.0.0 takes the lwIP stack - and the chip - with it.
+    while (WiFi.localIP() == IPAddress(0, 0, 0, 0))
+    {
+        if (millis() - start > timeoutMs + 6000)
+        {
+            Serial.println("no DHCP lease");
+            WiFi.disconnect();
+            return false;
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+
+    WiFi.setSleep(WIFI_PS_NONE);
+    Serial.printf("joined, IP %s\r\n", WiFi.localIP().toString().c_str());
+    return true;
+}
+
+/**
+ * @brief Home first, then the CYD's field AP. No scan anywhere - trying them in order gives the
+ *        same answer as scanning and then deciding, without taking the radio off channel.
+ */
+bool connect_known_wifi(IPAddress *tmp)
+{
+    if (!apActive)
+    {
+        WiFi.mode(WIFI_STA);
+    }
+    if (try_connect(HOME_SSID, HOME_PASS, 8000) || try_connect(FIELD_SSID, FIELD_PASS, 8000))
+    {
+        *tmp = WiFi.localIP();
+        return true;
+    }
+    Serial.println("[WiFi] neither NicE_WiFi nor Robo_WiFi in reach");
     return false;
 }
 
 /**
- * @brief Sets up a Wi-Fi Access Point with a static IP.
+ * @brief Brings up our own AP, plus the captive portal that makes it usable without an IP.
  */
 void setup_wifi_ap(String ap, String ww, IPAddress *tmp)
 {
-    WiFi.mode(WIFI_AP);
-    IPAddress local_IP(192, 168, 1, 84);
-    IPAddress subnet(255, 255, 255, 0);
-    IPAddress gateway(192, 168, 1, 5);
-    WiFi.softAPConfig(local_IP, gateway, subnet);
+    // AP_STA, not AP. WIFI_AP tears the station interface down, which is exactly why a buoy that
+    // fell back to its own AP used to stay there forever: it had no radio left to look for
+    // Robo_WiFi with, and only a power cycle brought it back. Keeping STA alive is what lets the
+    // hunt carry on underneath the AP.
+    WiFi.mode(WIFI_AP_STA);
 
-    if (WiFi.softAP(ap.c_str(), ww.c_str()))
+    // The AP is its own gateway. We used to advertise 192.168.1.5, where nothing answers, and
+    // Android reacts to a gateway that never replies by deciding the network is broken.
+    IPAddress apIP(192, 168, 4, 1);
+    WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+
+    // max_connection defaults to 4 in the Arduino wrapper; the ESP32 silicon allows 15.
+    if (WiFi.softAP(ap.c_str(), ww.length() ? ww.c_str() : NULL, 1, 0, 8))
     {
+        WiFi.setSleep(WIFI_PS_NONE);
         *tmp = WiFi.softAPIP();
-        Serial.print("AP IP address: "); Serial.println(*tmp);
+        apActive = true;
+
+        // Wildcard DNS: every lookup resolves to us, so the phone's own connectivity probe lands
+        // on our web server, gets the redirect below instead of the 204 it expected, and opens
+        // the "sign in to network" sheet on the dashboard without anyone typing an address.
+        dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+        dnsServer.start(53, "*", apIP);
+
+        Serial.printf("[WiFi] AP '%s' up on %s\r\n", ap.c_str(), tmp->toString().c_str());
     }
+    start_mdns();
+}
+
+/**
+ * @brief Folds our own AP away once we are on a real network again.
+ */
+static void stop_own_ap()
+{
+    if (!apActive)
+    {
+        return;
+    }
+    dnsServer.stop();
+    WiFi.softAPdisconnect(true);
+    WiFi.mode(WIFI_STA);
+    apActive = false;
+    Serial.println("[WiFi] own AP folded away, we are on a real network now");
+    start_mdns();
 }
 
 /**
@@ -252,6 +381,10 @@ void WiFiTask(void *arg)
     WiFi.macAddress(macarr);
     sprintf(macStr, "%02x%02x%02x%02x%02x%02x", macarr[0], macarr[1], macarr[2], macarr[3], macarr[4], macarr[5]);
     
+    netWifiTask = xTaskGetCurrentTaskHandle();
+    WiFi.onEvent(onWiFiEvent);
+    build_identity();
+
     IPAddress ip;
     String ap = "";
     String apww = "";
@@ -267,20 +400,16 @@ void WiFiTask(void *arg)
         wifiCollorUtil.fadeAmount = 5;
         xQueueSend(ledStatus, (void *)&wifiCollorUtil, 10);
         
-        if (!scan_and_connect_wifi(&ip)) {
-            // Setup Access Point for Top: TOP_(MAC)
-            byte mac[6];
-            char macUpper[20];
-            WiFi.macAddress(mac);
-            sprintf(macUpper, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-            ap = "TOP_";
-            ap += macUpper;
-            apww = "";
-            setup_wifi_ap(ap, apww, &ip);
-            runBackgroundReconnection = false;
+        if (!connect_known_wifi(&ip)) {
+            // Nothing in reach - raise our own AP so there is still a way in out on the water.
+            setup_wifi_ap(String(ownApSsid), String(OWN_AP_PASS), &ip);
         } else {
-            runBackgroundReconnection = true;
+            start_mdns();
         }
+        // Always on now, in both branches. A buoy sitting on its own AP has to keep hunting for
+        // Robo_WiFi - that is the entire point of AP_STA - and a buoy that did get on the network
+        // still has to cope with losing it later.
+        runBackgroundReconnection = true;
     }
     
     wifiCollorUtil.color = CRGB::Black;
@@ -292,6 +421,8 @@ void WiFiTask(void *arg)
     SPIFFS.begin(true);
 
     server.on("/", HTTP_GET, [](){
+        netHttpReqs++;
+        netLastReqMs = millis();
         server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         server.sendHeader("Pragma", "no-cache");
         server.sendHeader("Expires", "-1");
@@ -312,6 +443,8 @@ void WiFiTask(void *arg)
 
     server.on("/data", HTTP_GET, []()
               {
+        netHttpReqs++;
+        netLastReqMs = millis();
         String json = "{\"buoys\":[";
         // Buoy 1
         json += "{";
@@ -367,6 +500,7 @@ void WiFiTask(void *arg)
         json += "\"Lat\":\"" + String(mainData.lat, 6) + "\",";
         json += "\"Lng\":\"" + String(mainData.lng, 6) + "\",";
         json += "\"GpsFix\":\"" + String(mainData.gpsFix ? "true" : "false") + "\",";
+        json += "\"trackPos\":" + String(mainData.trackPos) + ",";
         json += "\"SubOk\":\"" + String(subSerialAlive() ? "true" : "false") + "\",";
         // Progress line for the GPS Fourier calibration; empty string whenever no run is active.
         json += "\"CalibMsg\":\"" + String(gpsCalibProgress()) + "\",";
@@ -423,6 +557,7 @@ void WiFiTask(void *arg)
             json += "\"Lat\":\"" + String(buoyPara[i].lat, 6) + "\",";
             json += "\"Lng\":\"" + String(buoyPara[i].lng, 6) + "\",";
             json += "\"GpsFix\":\"" + String(buoyPara[i].gpsFix ? "true" : "false") + "\",";
+            json += "\"trackPos\":" + String(buoyPara[i].trackPos) + ",";
             // A remote buoy's Sub link is not observable from here - the telemetry we hold for it
             // comes from ITS Top over LoRa, and the protocol carries no sub-link flag. Report "true"
             // so SETUP stays available for remote buoys; if their Sub is mute the existing 5 s
@@ -609,65 +744,94 @@ void WiFiTask(void *arg)
         server.send(200, "text/plain", "OK");
     });
 
+    // Anything we do not recognise goes to the dashboard. Together with the wildcard DNS this is
+    // what makes the phone's captive-portal sheet open on our page the moment you join TOP_<id>;
+    // on a real network it just means a stray URL still lands somewhere useful.
+    server.onNotFound([]() {
+        // Only hijack unknown URLs while we are the access point - that is what makes the phone's
+        // captive-portal sheet open the dashboard. On a real network a 404 must stay a 404, or a
+        // mistyped fetch quietly comes back as the whole dashboard instead of an error.
+        if (apActive) {
+            server.sendHeader("Location", "http://" + WiFi.softAPIP().toString() + "/", true);
+            server.send(302, "text/plain", "");
+        } else {
+            server.send(404, "text/plain", "Not found");
+        }
+    });
+
     server.begin();
     if (udpOut != NULL) {
         xQueueReset(udpOut);
     }
     
     static unsigned long lastBackgroundConnectAttempt = 0;
-    static int connectAttemptState = 0; // 0 = Idle, 1 = Connecting to ROBOBUOY, 2 = Connecting to NicE_WiFi
+    static int connectAttemptState = 0; // 0 = idle, 1 = trying NicE_WiFi, 2 = trying Robo_WiFi
     static unsigned long connectionStartedTime = 0;
 
     for (;;) {
+        netLoopTicks++;
         server.handleClient();
         if (ota) ArduinoOTA.handle();
         
-        // Field-Aware Background Wi-Fi reconnection state machine
+        // Serve the wildcard DNS that drives the captive portal. Cheap, and only while we are
+        // actually the access point.
+        if (apActive) {
+            dnsServer.processNextRequest();
+        }
+
+        // Field-aware background hunt for a real network, running underneath our own AP.
         if (runBackgroundReconnection) {
-            if (WiFi.softAPgetStationNum() > 0) {
-                // If a client is connected to our AP, immediately stop any background scans to prevent channel-jumping
+            unsigned long current_time = millis();
+
+            if (apActive && WiFi.softAPgetStationNum() > 0) {
+                // Somebody is on our AP. Stop hunting: with one radio we would have to leave the
+                // AP's channel to do it, and we are not knocking a phone off mid-session - being
+                // reachable right now beats being reachable on a better network in a minute.
                 if (connectAttemptState != 0) {
-                    Serial.println("[WiFi Background] Client connected to AP. Aborting background connection attempts to ensure AP stability.");
+                    Serial.println("[WiFi] client on our AP - holding off, AP stability wins");
                     WiFi.disconnect();
                     connectAttemptState = 0;
                 }
+                lastBackgroundConnectAttempt = current_time;
             }
             else if (WiFi.status() != WL_CONNECTED) {
-                unsigned long current_time = millis();
                 if (connectAttemptState == 0) {
-                    // If we are idle and 45 seconds have passed since the last attempt, start the cycle
                     if (current_time - lastBackgroundConnectAttempt > 45000) {
                         lastBackgroundConnectAttempt = current_time;
                         connectAttemptState = 1;
                         connectionStartedTime = current_time;
-                        Serial.println("[WiFi Background] Attempting to connect to 'ROBOBUOY'...");
-                        WiFi.begin("ROBOBUOY", "");
+                        Serial.printf("[WiFi] hunting '%s'...\r\n", HOME_SSID);
+                        WiFi.begin(HOME_SSID, HOME_PASS);
                     }
-                } else {
-                    // We are currently waiting for a connection to establish
-                    if (current_time - connectionStartedTime > 15000) {
-                        // Timeout after 15 seconds
-                        if (connectAttemptState == 1) {
-                            // Switch to NicE_WiFi
-                            connectAttemptState = 2;
-                            connectionStartedTime = current_time;
-                            Serial.println("[WiFi Background] 'ROBOBUOY' timed out. Attempting 'NicE_WiFi'...");
-                            WiFi.begin("NicE_WiFi", "!Ni1001100110");
-                        } else {
-                            // All attempts failed, go back to idle
-                            connectAttemptState = 0;
-                            Serial.println("[WiFi Background] All background Wi-Fi connection attempts timed out.");
-                            WiFi.disconnect(); // Clear active attempt
+                } else if (current_time - connectionStartedTime > 15000) {
+                    if (connectAttemptState == 1) {
+                        connectAttemptState = 2;
+                        connectionStartedTime = current_time;
+                        Serial.printf("[WiFi] no '%s', hunting '%s'...\r\n", HOME_SSID, FIELD_SSID);
+                        WiFi.begin(FIELD_SSID, FIELD_PASS);
+                    } else {
+                        connectAttemptState = 0;
+                        WiFi.disconnect();
+                        // Neither network in reach. Out on the water that is simply normal, so we
+                        // keep looking - but raise our own AP first, so you can still get at us.
+                        if (!apActive) {
+                            IPAddress apIp;
+                            setup_wifi_ap(String(ownApSsid), String(OWN_AP_PASS), &apIp);
                         }
                     }
                 }
-            } else {
-                // We are connected! Reset the state machine
+            }
+            else {
                 if (connectAttemptState != 0) {
-                    Serial.printf("[WiFi Background] Successfully connected to SSID: %s! IP: %s\n", 
+                    Serial.printf("[WiFi] joined '%s' as %s\r\n",
                                   WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
-                    WiFi.setSleep(WIFI_PS_NONE); // Disable power-saving sleep
+                    WiFi.setSleep(WIFI_PS_NONE);
                     connectAttemptState = 0;
+                    start_mdns();
+                }
+                // On a real network with nobody using our AP: fold it away (see stop_own_ap).
+                if (apActive && WiFi.softAPgetStationNum() == 0) {
+                    stop_own_ap();
                 }
             }
         }
@@ -682,6 +846,7 @@ void WiFiTask(void *arg)
                 }
             }
             udp.broadcast(rfCode(&msgIdOut).c_str());
+            netUdpTx++;
         }
         delay(1);
     }
