@@ -239,7 +239,7 @@ input[type=checkbox] {
   <button onclick="openTab(1)" id="btn_buoy1">Buoy 1</button>
   <button onclick="openTab(2)" id="btn_buoy2">Buoy 2</button>
   <button onclick="openTab(3)" id="btn_buoy3">Buoy 3</button>
-  <button onclick="openTab('Field')" id="btn_Field">Field</button>
+  <button onclick="openTab('Field')" id="btn_Field">Map</button>
 </div>
 
 <div style="margin: 10px 0; display: flex; justify-content: center; align-items: center; gap: 15px; position: relative;">
@@ -777,7 +777,7 @@ function openTab(id) {
 
     if (id === 'Field') {
         document.getElementById("btn_Field").classList.add("active");
-        document.getElementById("title").innerText = "Field View";
+        document.getElementById("title").innerText = "Map View";
         document.getElementById("mainWrapper").style.display = 'none';
         document.getElementById("controls").style.display = 'none';
         document.getElementById("fieldWrapper").style.display = 'block';
@@ -826,7 +826,8 @@ function drawField() {
                 tgLat: (holdsTarget && b.TgLat) ? parseFloat(b.TgLat) : 0,
                 tgLng: (holdsTarget && b.TgLng) ? parseFloat(b.TgLng) : 0,
                 wDir: parseFloat(b.WDir) || 0,
-                heading: parseFloat(b.MagDir) || 0
+                heading: parseFloat(b.MagDir) || 0,
+                trackPos: parseInt(b.trackPos) || 0
             });
         }
     }
@@ -891,8 +892,8 @@ function drawField() {
         }
     });
 
-    let centerX = sumX / points.length;
-    let centerY = sumY / points.length;
+    let centerX = (minX + maxX) / 2;
+    let centerY = (minY + maxY) / 2;
 
     let maxDim = Math.max(maxX - minX, maxY - minY);
     if (maxDim < 10) maxDim = 30; // default minimum span
@@ -949,6 +950,71 @@ function drawField() {
     }
     ctx.setLineDash([]);
 
+    // Draw Regatta Track Lines
+    let headBuoy = points.find(p => p.trackPos === 1);
+    let portBuoy = points.find(p => p.trackPos === 2);
+    let starboardBuoy = points.find(p => p.trackPos === 3);
+
+    function getBuoyCoords(b) {
+        if (!b) return null;
+        if (b.tgCx !== null && b.tgCy !== null) {
+            return { x: b.tgCx, y: b.tgCy };
+        }
+        return { x: b.cx, y: b.cy };
+    }
+
+    let headCoords = getBuoyCoords(headBuoy);
+    let portCoords = getBuoyCoords(portBuoy);
+    let starboardCoords = getBuoyCoords(starboardBuoy);
+
+    if (portCoords && starboardCoords) {
+        let psx = (portCoords.x - centerX) * scale;
+        let psy = (portCoords.y - centerY) * scale;
+        let ssx = (starboardCoords.x - centerX) * scale;
+        let ssy = (starboardCoords.y - centerY) * scale;
+
+        // Start Line: Solid thick amber/yellow line
+        ctx.strokeStyle = "rgba(255, 204, 0, 0.85)";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(psx, psy);
+        ctx.lineTo(ssx, ssy);
+        ctx.stroke();
+
+        // Start Line Text Label
+        let midSx = (psx + ssx) / 2;
+        let midSy = (psy + ssy) / 2;
+        ctx.fillStyle = "#ffcc00";
+        ctx.font = "italic bold 11px Arial";
+        ctx.fillText("Start Line", midSx, midSy - 10);
+    }
+
+    if (headCoords && portCoords && starboardCoords) {
+        let hsx = (headCoords.x - centerX) * scale;
+        let hsy = (headCoords.y - centerY) * scale;
+        let psx = (portCoords.x - centerX) * scale;
+        let psy = (portCoords.y - centerY) * scale;
+        let ssx = (starboardCoords.x - centerX) * scale;
+        let ssy = (starboardCoords.y - centerY) * scale;
+
+        // Port Leg: Dashed bright blue line
+        ctx.strokeStyle = "rgba(88, 166, 255, 0.8)";
+        ctx.lineWidth = 3;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(psx, psy);
+        ctx.lineTo(hsx, hsy);
+        ctx.stroke();
+
+        // Starboard Leg: Dashed bright green line
+        ctx.strokeStyle = "rgba(86, 211, 100, 0.8)";
+        ctx.beginPath();
+        ctx.moveTo(ssx, ssy);
+        ctx.lineTo(hsx, hsy);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
     // Target Waypoint Lines and Waypoints
     points.forEach(p => {
         if (p.tgCx !== null && p.tgCy !== null) {
@@ -999,7 +1065,23 @@ function drawField() {
         ctx.fillStyle = "#fff";
         ctx.font = "bold 14px Arial";
         // Move the text slightly further away from the circle (from sx + 15 to sx + 18, and sy + 6 to sy + 8)
-        ctx.fillText("B" + p.id, sx + 18, sy + 8);
+        let roleLabel = "";
+        let rPos = p.trackPos;
+        if (rPos === 0) {
+            // Fallback dynamic mapping if firmware has not assigned roles yet
+            if (validBuoys.length === 2) {
+                if (p.id === 1) rPos = 3; // STARBOARD
+                else if (p.id === 2) rPos = 2; // PORT
+            } else if (validBuoys.length === 3) {
+                if (p.id === 1) rPos = 1; // HEAD
+                else if (p.id === 2) rPos = 2; // PORT
+                else if (p.id === 3) rPos = 3; // STARBOARD
+            }
+        }
+        if (rPos === 1) roleLabel = " (HEAD)";
+        else if (rPos === 2) roleLabel = " (PORT)";
+        else if (rPos === 3) roleLabel = " (STBD)";
+        ctx.fillText("B" + p.id + roleLabel, sx + 18, sy + 8);
 
         // Heading relative to wind
         let relHeading = p.heading - refWDir;
@@ -1094,9 +1176,13 @@ function updateUI() {
     const titleEl = document.getElementById("title");
     const mainWrapper = document.getElementById("mainWrapper");
     const controls = document.getElementById("controls");
+    const buoyIdText = document.getElementById("buoyIdText");
 
     if (!b || b.ID === "0") {
         titleEl.innerText = `Buoy ${currentBuoy} Not Connected`;
+        if (buoyIdText) {
+            buoyIdText.innerText = "---";
+        }
         mainWrapper.style.display = 'none';
         controls.style.display = 'none';
         return;
@@ -1128,7 +1214,6 @@ function updateUI() {
         statusIndicatorText.innerText = statusText;
         statusIndicatorText.style.color = hasFix ? "" : "#f85149";
     }
-    const buoyIdText = document.getElementById("buoyIdText");
     if (buoyIdText) {
         buoyIdText.innerText = b.ID ? String(b.ID).toUpperCase() : "---";
     }
@@ -1302,6 +1387,24 @@ function fetchData() {
             data.buoys.forEach((b, i) => {
                 buoyData[i + 1] = b;
             });
+
+            // Dynamic tab button labeling based on active buoys count
+            const numValid = data.buoys.filter(b => b.ID && b.ID !== "0" && (String(b.GpsFix).toLowerCase() === "true" || b.GpsFix === "1" || b.GpsFix === 1)).length;
+            data.buoys.forEach((b, i) => {
+                const btn = document.getElementById("btn_buoy" + (i + 1));
+                if (btn) {
+                    let label = "Buoy " + (i + 1);
+                    if (numValid === 2) {
+                        if (i === 0) label += " (STBD)";
+                        else if (i === 1) label += " (PORT)";
+                    } else if (numValid === 3) {
+                        if (i === 0) label += " (HEAD)";
+                        else if (i === 1) label += " (PORT)";
+                        else if (i === 2) label += " (STBD)";
+                    }
+                    btn.innerText = label;
+                }
+            });
             if (currentBuoy === 'Field') {
                 drawField();
             } else {
@@ -1315,7 +1418,12 @@ function fetchData() {
 }
 
 function initPage() {
-    openTab(1);
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('tab') === 'map' || window.location.hash === '#map') {
+        openTab('Field');
+    } else {
+        openTab(1);
+    }
     fetchData();
 }
 

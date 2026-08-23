@@ -87,8 +87,12 @@ void GpsTask(void *arg)
             gpsdata.gpsSat = (int)gps.satellites.value();
             gpsdata.gpsFixAge = gps.location.age();
             
-            // A fix is valid if age is fresh and TinyGPS says it's valid
-            gpsdata.gpsFix = (gps.location.isValid() && gpsdata.gpsFixAge < 2000);
+            // A fix is valid if age is fresh, TinyGPS says it's valid, and it is not the 0,0
+            // placeholder. isValid() only means "a position field was parsed" - it stays true
+            // across a sentence carrying zeros, and passing that on as a fix sends the rest of
+            // the firmware chasing a point off the coast of Africa.
+            gpsdata.gpsFix = (gps.location.isValid() && gpsdata.gpsFixAge < 2000 &&
+                              !(gpsdata.lat == 0.0 && gpsdata.lng == 0.0));
             
             xQueueOverwrite(gpsQue, (void *)&gpsdata);
         }
