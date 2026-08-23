@@ -1053,6 +1053,14 @@ function initUIEventListeners() {
     
     // Modal window closes
     document.getElementById("modal-close-btn").addEventListener("click", closeSetupModal);
+
+    // Global Map Button Listener (opens standalone map webpage in a new tab)
+    const globalMapBtn = document.getElementById("global-map-btn");
+    if (globalMapBtn) {
+        globalMapBtn.addEventListener("click", () => {
+            window.open("/?view=map", "_blank");
+        });
+    }
     document.getElementById("setup-modal").addEventListener("click", (e) => {
         if (e.target.id === "setup-modal") closeSetupModal();
     });
@@ -1351,3 +1359,375 @@ function assignOtherDevice(deviceId) {
 // Bind handlers to global window scope so dynamic HTML onclick can trigger them
 window.assignOtherDevice = assignOtherDevice;
 window.renderOtherDevices = renderOtherDevices;
+
+
+// Standalone Fullscreen Map View Initializer (Super Safe & Isolated)
+const urlParams = new URLSearchParams(window.location.search);
+const isMapView = urlParams.get('view') === 'map' || window.location.hash === '#map';
+
+if (isMapView) {
+    document.addEventListener("DOMContentLoaded", () => {
+        // Hide standard dashboard layout elements
+        const header = document.querySelector("header");
+        if (header) header.style.display = "none";
+        const main = document.querySelector("main");
+        if (main) main.style.display = "none";
+        
+        // Show full map canvas container
+        const fullMapView = document.getElementById("full-map-view");
+        if (fullMapView) {
+            fullMapView.style.display = "block";
+            
+            // Adjust canvas size to window size dynamically
+            const canvas = document.getElementById("fieldCanvas");
+            if (canvas) {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                window.addEventListener("resize", () => {
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight;
+                    drawFieldMap();
+                });
+            }
+        }
+        
+        // Auto connect WebSocket if not already connected
+        if (typeof connectWebSocket === "function") {
+            setTimeout(connectWebSocket, 100);
+        }
+        
+        // Start independent high-performance map redraw loop
+        setInterval(drawFieldMap, 500);
+    });
+}
+
+// Project GPS coordinates to a new GPS position given bearing (degrees) and distance (meters)
+function projectCoords(lat, lng, bearing, distance) {
+    const R = 6371000; // Earth's radius in meters
+    const brng = bearing * Math.PI / 180;
+    const lat1 = lat * Math.PI / 180;
+    const lon1 = lng * Math.PI / 180;
+    const dR = distance / R;
+
+    const lat2 = Math.asin(Math.sin(lat1) * Math.cos(dR) +
+                           Math.cos(lat1) * Math.sin(dR) * Math.cos(brng));
+    const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(dR) * Math.cos(lat1),
+                                  Math.cos(dR) - Math.sin(lat1) * Math.sin(lat2));
+
+    return {
+        lat: lat2 * 180 / Math.PI,
+        lng: lon2 * 180 / Math.PI
+    };
+}
+
+// Draw the local radar map of the buoys and the computed regatta track on the canvas
+function drawFieldMap() {
+    const canvas = document.getElementById("fieldCanvas");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    let validBuoys = [];
+    buoys.forEach((b, i) => {
+        const lat = parseFloat(b.data["Latitude (Lat)"]);
+        const lng = parseFloat(b.data["Longitude (Lon)"]);
+        if (b.id && !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+            const statusVal = parseInt(b.data.Status || "0");
+            const holdsTarget = (statusVal === MsgType.LOCKING || statusVal === MsgType.LOCKED || statusVal === MsgType.DOCKING || statusVal === MsgType.DOCKED);
+            const dist = parseFloat(b.data["Target Dist"]);
+            const dir = parseFloat(b.data["Target Dir"]);
+            
+            let tgLat = null, tgLng = null;
+            if (holdsTarget && !isNaN(dist) && !isNaN(dir) && dist > 0) {
+                const tg = projectCoords(lat, lng, dir, dist);
+                tgLat = tg.lat;
+                tgLng = tg.lng;
+            }
+
+            validBuoys.push({
+                id: b.id,
+                index: i,
+                lat: lat,
+                lng: lng,
+                tgLat: tgLat,
+                tgLng: tgLng,
+                wDir: parseFloat(b.data["Wind Dir"]) || 0,
+                heading: parseFloat(b.data["Magnetic Dir"]) || 0,
+                holdsTarget: holdsTarget,
+                status: statusVal
+            });
+        }
+    });
+
+    if (validBuoys.length === 0) {
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "16px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("No Live GPS Data Available", canvas.width/2, canvas.height/2);
+        return;
+    }
+
+    const latRef = validBuoys[0].lat;
+    const lngRef = validBuoys[0].lng;
+    const deg2rad = Math.PI / 180;
+
+    let refWDir = 0;
+    let refBuoy = validBuoys.find(b => b.wDir > 0);
+    if (refBuoy) refWDir = refBuoy.wDir;
+
+    let points = [];
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    let sumX = 0, sumY = 0;
+
+    validBuoys.forEach(b => {
+        let cx = 0, cy = 0;
+        if (b.lat !== latRef || b.lng !== lngRef) {
+            let dy = (b.lat - latRef) * 111132.954;
+            let dx = (b.lng - lngRef) * 111132.954 * Math.cos(latRef * deg2rad);
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            let bearing = Math.atan2(dx, dy);
+            let relBearing = bearing - (refWDir * deg2rad);
+            cx = dist * Math.sin(relBearing);
+            cy = -dist * Math.cos(relBearing);
+        }
+
+        if (cx < minX) minX = cx;
+        if (cx > maxX) maxX = cx;
+        if (cy < minY) minY = cy;
+        if (cy > maxY) maxY = cy;
+        sumX += cx;
+        sumY += cy;
+
+        let tgCx = null, tgCy = null;
+        if (b.tgLat !== null && b.tgLng !== null) {
+            let dy = (b.tgLat - latRef) * 111132.954;
+            let dx = (b.tgLng - lngRef) * 111132.954 * Math.cos(latRef * deg2rad);
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            let bearing = Math.atan2(dx, dy);
+            let relBearing = bearing - (refWDir * deg2rad);
+            tgCx = dist * Math.sin(relBearing);
+            tgCy = -dist * Math.cos(relBearing);
+
+            if (tgCx < minX) minX = tgCx;
+            if (tgCx > maxX) maxX = tgCx;
+            if (tgCy < minY) minY = tgCy;
+            if (tgCy > maxY) maxY = tgCy;
+        }
+
+        let computedTrackPos = 0;
+        if (validBuoys.length === 2) {
+            // If only 2 buoys are deployed, they form the startline: Buoy 1 is STBD (3), Buoy 2 is PORT (2)
+            if (b.index === 0) computedTrackPos = 3;
+            else if (b.index === 1) computedTrackPos = 2;
+        } else {
+            // If 3 buoys are deployed, they form the full track: B1 is HEAD (1), B2 is PORT (2), B3 is STBD (3)
+            if (b.index === 0) computedTrackPos = 1;
+            else if (b.index === 1) computedTrackPos = 2;
+            else if (b.index === 2) computedTrackPos = 3;
+        }
+
+        points.push({
+            id: b.id,
+            cx: cx,
+            cy: cy,
+            tgCx: tgCx,
+            tgCy: tgCy,
+            heading: b.heading,
+            holdsTarget: b.holdsTarget,
+            status: b.status,
+            trackPos: computedTrackPos
+        });
+    });
+
+    let centerX = (minX + maxX) / 2;
+    let centerY = (minY + maxY) / 2;
+
+    let maxDim = Math.max(maxX - minX, maxY - minY);
+    if (maxDim < 10) maxDim = 30; // default minimum span
+    let scale = Math.min(canvas.width, canvas.height) * 0.7 / maxDim;
+
+    // Draw grid
+    ctx.strokeStyle = "rgba(71, 85, 105, 0.15)";
+    ctx.lineWidth = 1;
+    let step = 10;
+    if (maxDim > 100) step = 50;
+    if (maxDim > 500) step = 100;
+    
+    ctx.beginPath();
+    for (let x = -1000; x <= 1000; x += step) {
+        let sx = (x - centerX) * scale + canvas.width/2;
+        ctx.moveTo(sx, 0);
+        ctx.lineTo(sx, canvas.height);
+    }
+    for (let y = -1000; y <= 1000; y += step) {
+        let sy = (y - centerY) * scale + canvas.height/2;
+        ctx.moveTo(0, sy);
+        ctx.lineTo(canvas.width, sy);
+    }
+    ctx.stroke();
+
+    // Wind Indicator
+    ctx.strokeStyle = "#38bdf8";
+    ctx.fillStyle = "#38bdf8";
+    ctx.font = "bold 12px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText("Wind (" + refWDir.toFixed(0) + "°)", 15, 25);
+    drawArrow(ctx, 35, 65, 35, 35, "#38bdf8", 2.5);
+
+    // Distance lines
+    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    for(let i=0; i<points.length; i++) {
+        for(let j=i+1; j<points.length; j++) {
+            let p1 = points[i];
+            let p2 = points[j];
+            let sx1 = (p1.cx - centerX) * scale + canvas.width/2;
+            let sy1 = (p1.cy - centerY) * scale + canvas.height/2;
+            let sx2 = (p2.cx - centerX) * scale + canvas.width/2;
+            let sy2 = (p2.cy - centerY) * scale + canvas.height/2;
+
+            ctx.beginPath();
+            ctx.moveTo(sx1, sy1);
+            ctx.lineTo(sx2, sy2);
+            ctx.stroke();
+
+            let dist = Math.sqrt(Math.pow(p1.cx - p2.cx, 2) + Math.pow(p1.cy - p2.cy, 2));
+            let mx = (sx1 + sx2) / 2;
+            let my = (sy1 + sy2) / 2;
+            ctx.fillStyle = "#94a3b8";
+            ctx.font = "10px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText(dist.toFixed(0) + "m", mx, my - 4);
+        }
+    }
+    ctx.setLineDash([]);
+
+    // Draw Regatta Track Lines
+    let headBuoy = points.find(p => p.trackPos === 1);
+    let portBuoy = points.find(p => p.trackPos === 2);
+    let starboardBuoy = points.find(p => p.trackPos === 3);
+
+    function getCoords(p) {
+        if (!p) return null;
+        if (p.tgCx !== null && p.tgCy !== null) {
+            return { x: p.tgCx, y: p.tgCy };
+        }
+        return { x: p.cx, y: p.cy };
+    }
+
+    let headCoords = getCoords(headBuoy);
+    let portCoords = getCoords(portBuoy);
+    let starboardCoords = getCoords(starboardBuoy);
+
+    if (portCoords && starboardCoords) {
+        let psx = (portCoords.x - centerX) * scale + canvas.width/2;
+        let psy = (portCoords.y - centerY) * scale + canvas.height/2;
+        let ssx = (starboardCoords.x - centerX) * scale + canvas.width/2;
+        let ssy = (starboardCoords.y - centerY) * scale + canvas.height/2;
+
+        ctx.strokeStyle = "rgba(250, 204, 21, 0.85)"; // Amber Yellow
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(psx, psy);
+        ctx.lineTo(ssx, ssy);
+        ctx.stroke();
+
+        let midSx = (psx + ssx) / 2;
+        let midSy = (psy + ssy) / 2;
+        ctx.fillStyle = "#facc15";
+        ctx.font = "italic bold 10px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("Start Line", midSx, midSy - 8);
+    }
+
+    if (headCoords && portCoords && starboardCoords) {
+        let hsx = (headCoords.x - centerX) * scale + canvas.width/2;
+        let hsy = (headCoords.y - centerY) * scale + canvas.height/2;
+        let psx = (portCoords.x - centerX) * scale + canvas.width/2;
+        let psy = (portCoords.y - centerY) * scale + canvas.height/2;
+        let ssx = (starboardCoords.x - centerX) * scale + canvas.width/2;
+        let ssy = (starboardCoords.y - centerY) * scale + canvas.height/2;
+
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.8)"; // Blue
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.moveTo(psx, psy);
+        ctx.lineTo(hsx, hsy);
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(74, 222, 128, 0.8)"; // Green
+        ctx.beginPath();
+        ctx.moveTo(ssx, ssy);
+        ctx.lineTo(hsx, hsy);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    // Target Waypoint Lines and Waypoints
+    points.forEach(p => {
+        if (p.tgCx !== null && p.tgCy !== null) {
+            let sx = (p.cx - centerX) * scale + canvas.width/2;
+            let sy = (p.cy - centerY) * scale + canvas.height/2;
+            let tgSx = (p.tgCx - centerX) * scale + canvas.width/2;
+            let tgSy = (p.tgCy - centerY) * scale + canvas.height/2;
+
+            ctx.strokeStyle = "rgba(250, 204, 21, 0.5)"; // Amber line from buoy to its target
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            ctx.lineTo(tgSx, tgSy);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = "rgba(250, 204, 21, 0.85)";
+            ctx.strokeStyle = "#0f172a";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(tgSx, tgSy, 4, 0, Math.PI*2);
+            ctx.fill();
+            ctx.stroke();
+        }
+    });
+
+    // Buoys
+    points.forEach(p => {
+        let sx = (p.cx - centerX) * scale + canvas.width/2;
+        let sy = (p.cy - centerY) * scale + canvas.height/2;
+
+        ctx.fillStyle = "#ef4444"; // Red buoy
+        ctx.strokeStyle = "#0f172a";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 7, 0, Math.PI*2);
+        ctx.fill();
+        ctx.stroke();
+
+        let roleLabel = "";
+        if (p.trackPos === 1) roleLabel = " (HEAD)";
+        else if (p.trackPos === 2) roleLabel = " (PORT)";
+        else if (p.trackPos === 3) roleLabel = " (STBD)";
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 11px Arial";
+        ctx.textAlign = "left";
+        ctx.fillText("B" + p.id + roleLabel, sx + 12, sy + 4);
+
+        // Heading Arrow (Green)
+        if (p.heading !== null && !isNaN(p.heading)) {
+            let relHeading = p.heading - refWDir;
+            let hRad = relHeading * deg2rad;
+            let hx = sx + 15 * Math.sin(hRad);
+            let hy = sy - 15 * Math.cos(hRad);
+
+            ctx.strokeStyle = "#4ade80";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            ctx.lineTo(hx, hy);
+            ctx.stroke();
+        }
+    });
+}

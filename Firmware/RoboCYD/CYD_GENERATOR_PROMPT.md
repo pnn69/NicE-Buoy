@@ -307,8 +307,8 @@ bool scan_and_connect_wifi() {
     } else {
         Serial.println("No configured WiFi found. AP mode fallback...");
         tft.drawString("WiFi not found!", 20, 50);
-        tft.drawString("Starting AP: RoboCYD", 20, 80);
-        WiFi.softAP("RoboCYD", "");
+        tft.drawString("Starting AP: ROBOBUOY", 20, 80);
+        WiFi.softAP("ROBOBUOY", "");
         return false;
     }
 
@@ -317,10 +317,10 @@ bool scan_and_connect_wifi() {
         delay(500);
         Serial.print(".");
         if (millis() - conn_timeout > 15000) {
-            Serial.println("\nConnection timed out. Starting AP RoboCYD...");
+            Serial.println("\nConnection timed out. Starting AP ROBOBUOY...");
             tft.drawString("WiFi Timeout!", 20, 80);
-            tft.drawString("Starting AP: RoboCYD", 20, 110);
-            WiFi.softAP("RoboCYD", "");
+            tft.drawString("Starting AP: ROBOBUOY", 20, 110);
+            WiFi.softAP("ROBOBUOY", "");
             return false;
         }
     }

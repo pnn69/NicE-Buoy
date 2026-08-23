@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include "cyd_display.h"
 #include "cyd_touch.h"
+#include "boot_screen.h"
 #include "cyd_wifi.h"
 #include "cyd_lora.h"
 #include "buoy_data.h"
@@ -239,6 +240,17 @@ void update_radar_map_dynamic();
 #define MAP_LEGEND_Y1   244  // Start line legend (middle of size 2 text)
 #define MAP_LEGEND_Y2   264  // Wind legend (middle of size 2 text)
 #define MAP_BACK_Y      280  // BACK button top edge (height 35)
+
+// Text inset for the menu buoy buttons, which span X 10..230. Size 2 text is 12 px per
+// character, so the top row fits "Buoy n: b7a5b578" (16 chars, 192 px) from BTN_PAD_L with
+// room left for the one-character status badge hard against the right inset.
+#define BTN_PAD_L        14  // Left text edge
+#define BTN_PAD_R        14  // Right text edge, measured from the screen width
+
+// Furthest a waypoint may be from the fleet centre and still pull the plot range out to fit it.
+// A real course mark is tens of metres away; anything past this is a fault, so the plot keeps
+// the fleet readable and pegs the mark to the rim instead.
+#define MAP_WAYPOINT_MAX_M 300.0f
 
 // Colour for a traffic indicator dot. Transmitting wins over receiving, so an outgoing
 // command always shows up as RED even if telemetry is streaming in at the same time.
@@ -1273,6 +1285,27 @@ void update_nav_dynamic() {
     tft.drawString(buf, 5, 5);
 }
 
+// One-letter status badge for a menu button: I idle, L locked, D docked.
+//
+// LOCKING and DOCKING report the letter they are heading for, but settle_out comes back false
+// so the caller can colour them differently. That distinction earns its keep: a buoy that
+// cannot get a GPS fix sits in LOCKING indefinitely (RoboTop only promotes it to LOCKED once
+// gpsFix is true), and a badge that read a plain "L" there would claim it was holding station
+// when it has not even started. Anything else still gets a letter rather than a blank.
+static char status_badge(const String &status, bool &settled_out) {
+    settled_out = true;
+    if (status == "IDLE")      return 'I';
+    if (status == "LOCKED")    return 'L';
+    if (status == "DOCKED")    return 'D';
+
+    settled_out = false;
+    if (status == "LOCKING")   return 'L';
+    if (status == "DOCKING")   return 'D';
+    if (status == "REMOTE")    return 'R';
+    if (status == "GPS CALIB") return 'C';
+    return '?';
+}
+
 void update_dynamic_ui() {
     int w = tft.width();
     int h = tft.height();
@@ -1313,12 +1346,22 @@ void update_dynamic_ui() {
             int current_present = (buoys[i].id == "") ? -1 : (buoys[i].present ? 1 : 0);
             
             static String last_drawn_ips[3] = {"", "", ""};
-            
-            // Only draw/redraw if the ID, online presence, or IP address changed!
-            if (buoys[i].id != last_drawn_ids[i] || current_present != last_drawn_present[i] || buoys[i].ip_addr != last_drawn_ips[i]) {
+            // The status badge changes on its own, with the ID, presence and IP all unchanged -
+            // without it in the cache key the letter would be painted once and then never
+            // updated again.
+            static String last_drawn_status[3] = {"", "", ""};
+            // Kept OUT of the cache key on purpose. The RSSI changes with every LoRa packet, and
+            // putting it in the key would repaint the whole 40 px button at packet rate - which
+            // is the flicker the caching exists to avoid. It gets its own small repaint below.
+            static String last_drawn_rssi[3] = {"", "", ""};
+
+            // Only draw/redraw if the ID, online presence, IP address or status changed!
+            if (buoys[i].id != last_drawn_ids[i] || current_present != last_drawn_present[i] ||
+                buoys[i].ip_addr != last_drawn_ips[i] || buoys[i].status != last_drawn_status[i]) {
                 last_drawn_ids[i] = buoys[i].id;
                 last_drawn_present[i] = current_present;
                 last_drawn_ips[i] = buoys[i].ip_addr;
+                last_drawn_status[i] = buoys[i].status;
                 
                 // Clear only this button's area first (height 40!)
                 tft.fillRect(10, y, w - 20, 40, TFT_BLACK);
@@ -1334,13 +1377,37 @@ void update_dynamic_ui() {
                     tft.fillRoundRect(10, y, w - 20, 40, 5, TFT_GREEN);
                     tft.setTextColor(TFT_BLACK, TFT_GREEN);
                     
-                    // Draw name/ID at top half, and IP address / LoRa Only at bottom half (Both in font size 2 for height 40!)
+                    // Two rows of size 2 text in the 40 px button, each with a left and a right
+                    // field. Everything is aligned to the button edges rather than centred, so
+                    // the four columns line up down the whole list and can be read at a glance.
+                    //   top:    Buoy n: <id>        <status>
+                    //   bottom: <ip / LoRa only>    <rssi>
                     tft.setTextSize(2);
-                    tft.setTextDatum(TC_DATUM);
-                    tft.drawString("Buoy " + String(i+1) + ": " + buoys[i].id, w / 2, y + 3);
-                    
+
+                    tft.setTextDatum(TL_DATUM);
+                    tft.drawString("Buoy " + String(i+1) + ": " + buoys[i].id, BTN_PAD_L, y + 3);
+
+                    bool settled = true;
+                    char badge = status_badge(buoys[i].status, settled);
+                    // Black on green for a state the buoy has actually reached, red while it is
+                    // still on its way there.
+                    tft.setTextColor(settled ? TFT_BLACK : TFT_RED, TFT_GREEN);
+                    tft.setTextDatum(TR_DATUM);
+                    tft.drawString(String(badge), w - BTN_PAD_R, y + 3);
+                    tft.setTextColor(TFT_BLACK, TFT_GREEN);
+
                     String conn_str = (buoys[i].ip_addr == "") ? "LoRa only" : buoys[i].ip_addr;
-                    tft.drawString(conn_str, w / 2, y + 20);
+                    tft.setTextDatum(TL_DATUM);
+                    tft.drawString(conn_str, BTN_PAD_L, y + 20);
+
+                    // The RSSI is painted below, outside this cached block, because it moves with
+                    // every LoRa packet. Force that to happen now: this branch has just wiped the
+                    // whole button green, so whatever it last drew is gone from the glass.
+                    last_drawn_rssi[i] = "\x01";
+
+                    // Leave the datum as this branch always used to, so the [Waiting] / [Offline]
+                    // rows below still land where they did before.
+                    tft.setTextDatum(TC_DATUM);
                 } else {
                     // Offline: Red button
                     tft.fillRoundRect(10, y, w - 20, 40, 5, TFT_RED);
@@ -1349,8 +1416,26 @@ void update_dynamic_ui() {
                     tft.drawString("Buoy " + String(i+1) + ": [Offline]", w / 2, y + 20);
                 }
             }
+
+            // LoRa RSSI, bottom right, repainted on its own so a changing signal level does not
+            // drag the whole button through a clear-and-redraw. Blank when the buoy has not been
+            // heard over LoRa at all: lora_rssi is -999 then, and printing that would read as a
+            // measurement rather than the absence of one.
+            if (current_present == 1) {
+                String rssi_str = (buoys[i].lora_rssi == -999) ? "" : String(buoys[i].lora_rssi);
+                if (rssi_str != last_drawn_rssi[i]) {
+                    last_drawn_rssi[i] = rssi_str;
+                    // Wide enough for "-100", and clear of the IP text on the left
+                    tft.fillRect(w - BTN_PAD_R - 48, y + 19, 48, 17, TFT_GREEN);
+                    tft.setTextColor(TFT_BLACK, TFT_GREEN);
+                    tft.setTextSize(2);
+                    tft.setTextDatum(TR_DATUM);
+                    tft.drawString(rssi_str, w - BTN_PAD_R, y + 20);
+                    tft.setTextDatum(TC_DATUM);
+                }
+            }
         }
-        
+
         // Both traffic indicators share one right-hand column (X: 230), each vertically
         // centred on its own status line: LoRa on the "LoRa: 433M" line, UDP on the IP line.
         // RED while transmitting, cyan / green on reception.
@@ -1384,15 +1469,32 @@ void setup() {
     init_display();
     init_touch();
 
+    // The ROBOBUOY splash owns the screen for the rest of setup(). Both radios report their
+    // progress into its status band instead of drawing their own text screens, so there is one
+    // picture from power-on until the dashboard appears rather than three in a row.
+    boot_screen_begin();
+
     // Setup WiFi, OTA & UDP listener
+    boot_screen_status("WIFI");
     init_wifi_and_ota();
 
     // Initialize LoRa radio using MicroSD card SPI pins
+    boot_screen_status("LORA");
     init_lora();
 
     // Initialize standard random seed using ESP32's onboard hardware True Random Number Generator (TRNG)
     // to avoid ADC2/Wi-Fi hardware driver conflicts and crashes!
     randomSeed(esp_random());
+
+    // Leave the address up for the dwell rather than a "READY" that says nothing: whether we
+    // joined home or became Robo_WiFi, this is the one line worth reading off the splash.
+    String addr = (WiFi.getMode() & WIFI_MODE_AP) ? WiFi.softAPIP().toString()
+                                                  : WiFi.localIP().toString();
+    boot_screen_status(addr.c_str());
+
+    // Holds the splash until it has been up long enough to read, then goes inert - after this
+    // every boot_screen_* call is a no-op and the screen belongs to the dashboard.
+    boot_screen_end();
 
     // Initially draw the resting menu dashboard
     draw_resting_ui();
@@ -2178,6 +2280,63 @@ static void draw_buoy_marker(int x, int y, uint16_t color) {
     tft.drawCircle(x, y, 5, TFT_WHITE);
 }
 
+// Draw the waypoint a buoy was told to hold: a hollow ring with a cross through it, in that
+// buoy's own colour. Hollow versus the filled buoy dot is the whole distinction - "where it
+// should be" against "where it is" - so the two never need labels to tell apart.
+// pegged marks a target that had to be clamped to the plot rim because it lies outside the
+// range the plot covers; the extra outer ring stops it reading as a mark just off the fleet.
+static void draw_waypoint_marker(int x, int y, uint16_t color, bool pegged) {
+    tft.drawCircle(x, y, 4, color);
+    tft.drawFastHLine(x - 7, y, 15, color);
+    tft.drawFastVLine(x, y - 7, 15, color);
+    if (pegged) tft.drawCircle(x, y, 7, color);
+}
+
+// Dashed leader from a buoy to its waypoint. This is the "how far off am I" line: read its
+// length against the EDGE range in the banner. Dashed so it cannot be confused with the solid
+// magenta start line, and drawn before the buoy dots so those stay on top.
+static void draw_offset_line(int x1, int y1, int x2, int y2, uint16_t color) {
+    int dx = x2 - x1;
+    int dy = y2 - y1;
+    int steps = max(abs(dx), abs(dy));
+    if (steps <= 0) return;
+    for (int s = 0; s <= steps; s++) {
+        if (((s / 3) & 1) != 0) continue; // 3 pixels on, 3 off
+        tft.drawPixel(x1 + (dx * s) / steps, y1 + (dy * s) / steps, color);
+    }
+}
+
+// Print the offset in metres next to its waypoint, inside the plot, rather than in a legend
+// row: the strip below the plot is already taken by the S cardinal and the two legends, and
+// the number is easier to read against the leader it belongs to anyway. Size 1 (6x8 px) keeps
+// three of them legible without crowding the marks.
+static void draw_offset_label(int x, int y, float metres, uint16_t color) {
+    char buf[10];
+    if (metres >= 9999.0f)      snprintf(buf, sizeof(buf), ">9km");
+    else if (metres >= 999.5f)  snprintf(buf, sizeof(buf), "%0.1fk", metres / 1000.0f);
+    else if (metres >= 99.5f)   snprintf(buf, sizeof(buf), "%0.0fm", metres);
+    else                        snprintf(buf, sizeof(buf), "%0.1fm", metres);
+
+    int text_w = strlen(buf) * 6;
+
+    // Offer the label the space below-right of the mark, then flip it to the other side of
+    // whichever plot edge it would otherwise run past. The plot rectangle is wiped on every
+    // refresh, so anything drawn outside it would leave a trail.
+    int lx = x + 9;
+    int ly = y + 6;
+    if (lx + text_w > MAP_CX + MAP_R - 1) lx = x - 9 - text_w;
+    if (ly + 8 > MAP_CY + MAP_R - 1)      ly = y - 14;
+    lx = constrain(lx, MAP_CX - MAP_R + 1, MAP_CX + MAP_R - 1 - text_w);
+    ly = constrain(ly, MAP_CY - MAP_R + 1, MAP_CY + MAP_R - 1 - 8);
+
+    tft.setFreeFont(NULL);
+    tft.setTextPadding(0);
+    tft.setTextColor(color, TFT_BLACK);
+    tft.setTextSize(1);
+    tft.setTextDatum(TL_DATUM);
+    tft.drawString(buf, lx, ly);
+}
+
 // Draw the wind on the radar: an arrow parked on the upwind rim, blowing inwards towards the centre.
 // wind_dir follows the RoboCompute convention - the compass bearing the wind blows FROM
 // (recalcStartLine() places the HEAD mark in the wDir direction, i.e. upwind).
@@ -2268,6 +2427,24 @@ void update_radar_map_dynamic() {
     if (valid_count > 0) {
         lat_orig /= valid_count;
         lon_orig /= valid_count;
+    }
+
+    // 1b. The waypoint each buoy is steering at, and how far it currently is from it. Needs the
+    //     buoy's own fix as well as the target, because the whole point is to draw the gap
+    //     between the two - a target with no buoy to compare it against says nothing.
+    double wp_lat[3], wp_lon[3];
+    bool wp_valid[3] = {false, false, false};
+    float wp_off_m[3] = {0, 0, 0};
+
+    for (int i = 0; i < 3; i++) {
+        if (!b_valid[i] || !buoy_has_waypoint(buoys[i])) continue;
+        wp_lat[i] = buoys[i].tg_lat;
+        wp_lon[i] = buoys[i].tg_lon;
+        wp_valid[i] = true;
+
+        float dx = 0, dy = 0;
+        get_relative_meters(b_lat[i], b_lon[i], wp_lat[i], wp_lon[i], dx, dy);
+        wp_off_m[i] = sqrt(dx * dx + dy * dy);
     }
 
     // Clear only the plot area (X: 48 to 192, Y: 68 to 212) first to prevent trails!
@@ -2375,7 +2552,21 @@ void update_radar_map_dynamic() {
             if (d > max_dist) max_dist = d;
         }
     }
-    
+
+    // Waypoints widen the range too, so a buoy that is well off station still has its mark on
+    // screen - but only out to MAP_WAYPOINT_MAX_M. A target further away than that is a fault
+    // rather than a course (RoboTop's dock position leaking into tgLat puts it kilometres away),
+    // and zooming out to fit it would squash the whole fleet into one pixel. Those are clamped
+    // to the rim by the constrain below and drawn with the pegged ring instead.
+    for (int i = 0; i < 3; i++) {
+        if (wp_valid[i]) {
+            float dx, dy;
+            get_relative_meters(lat_orig, lon_orig, wp_lat[i], wp_lon[i], dx, dy);
+            float d = sqrt(dx*dx + dy*dy);
+            if (d > max_dist && d <= MAP_WAYPOINT_MAX_M) max_dist = d;
+        }
+    }
+
     // Determine the optimal discrete scale range (25m, 50m, 100m, 250m, 500m, 1000m)
     float scale_range = 50.0;
     if (max_dist > 500.0) scale_range = 1000.0;
@@ -2417,6 +2608,26 @@ void update_radar_map_dynamic() {
         }
     }
 
+    // 3b. Same conversion for the waypoints. A mark that lands outside the plot is clamped to
+    //     the rim rather than dropped, so "off station, that way" still reads at a glance;
+    //     wp_pegged records that it was clamped, and the metre label keeps the true figure.
+    int wp_x[3], wp_y[3];
+    bool wp_pegged[3] = {false, false, false};
+
+    for (int i = 0; i < 3; i++) {
+        if (!wp_valid[i]) continue;
+
+        float dx = 0, dy = 0;
+        get_relative_meters(lat_orig, lon_orig, wp_lat[i], wp_lon[i], dx, dy);
+
+        int px = cx + (int)(dx * S);
+        int py = cy - (int)(dy * S);
+
+        wp_x[i] = constrain(px, cx - r_max + 2, cx + r_max - 2);
+        wp_y[i] = constrain(py, cy - r_max + 2, cy + r_max - 2);
+        wp_pegged[i] = (wp_x[i] != px || wp_y[i] != py);
+    }
+
     // 4. Draw the start line between the two buoys that are closest together.
     // Same rule RoboCompute::recalcStartLine() applies: the shortest leg is the start line,
     // the remaining buoy is the HEAD (upwind) mark.
@@ -2449,6 +2660,15 @@ void update_radar_map_dynamic() {
         draw_start_line_legend(legend, TFT_MAGENTA);
     } else {
         draw_start_line_legend("LINE: need 2 fixes", TFT_DARKGREY);
+    }
+
+    // 4b. Each buoy's waypoint and the gap to it, under the buoy dots so the live position
+    //     always wins where the two overlap - which is exactly what "on station" looks like.
+    for (int i = 0; i < 3; i++) {
+        if (!wp_valid[i]) continue;
+        draw_offset_line(plot_x[i], plot_y[i], wp_x[i], wp_y[i], buoy_colors[i]);
+        draw_waypoint_marker(wp_x[i], wp_y[i], buoy_colors[i], wp_pegged[i]);
+        draw_offset_label(wp_x[i], wp_y[i], wp_off_m[i], buoy_colors[i]);
     }
 
     // 5. Plot each valid active buoy on top of the start line

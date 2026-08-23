@@ -24,6 +24,18 @@ unsigned long last_global_lora_blink_ms = 0;
 unsigned long last_udp_tx_ms = 0;
 unsigned long last_lora_tx_ms = 0;
 
+// How long a waypoint stays on the map after the last LOCKPOS/DOCKPOS that carried it.
+// RoboTop beacons one every 5 s while it holds station, so this is four missed beacons -
+// long enough to ride out LoRa losses, short enough that a buoy which has gone quiet or been
+// switched off stops claiming a target.
+#define WAYPOINT_STALE_MS 20000UL
+
+bool buoy_has_waypoint(const BuoyData &b) {
+    if (b.tg_pos_seen_ms == 0) return false;
+    if (b.tg_lat == 0.0 && b.tg_lon == 0.0) return false;
+    return (millis() - b.tg_pos_seen_ms) < WAYPOINT_STALE_MS;
+}
+
 uint8_t calculate_crc(const String &content) {
     uint8_t crc = 0;
     for (int i = 0; i < content.length(); i++) {
@@ -75,9 +87,16 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     // Extract command code first to verify if this is an actual telemetry or setup packet
     int cmd = atoi(fields[3].c_str());
     
-    // TELEMETRY: Ignore any auxiliary command echoes, except standard status updates, SETUPDATA (83)
-    // and the GPS Fourier calibration progress report (90).
-    if (cmd != 51 && cmd != 19 && cmd != 83 && cmd != 90) return;
+    // TELEMETRY: Ignore any auxiliary command echoes, except standard status updates, SETUPDATA (83),
+    // the GPS Fourier calibration progress report (90) and the waypoint beacons LOCKPOS (21) /
+    // DOCKPOS (23).
+    //
+    // SETLOCKPOS (20) is deliberately NOT accepted here even though it carries the same two
+    // fields: it is sent BY the Top that computed a start line TO another buoy, so its sender ID
+    // is the wrong buoy and the waypoint would be filed against the computer instead of the
+    // recipient. The recipient re-broadcasts it as LOCKPOS under its own ID anyway
+    // (RoboTop/src/main.cpp, case SETLOCKPOS), which is the copy we want.
+    if (cmd != 51 && cmd != 19 && cmd != 83 && cmd != 90 && cmd != 21 && cmd != 23) return;
     
     String sender_id = fields[1];
     sender_id.trim();
@@ -135,7 +154,14 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     // Update timestamps and online presence
     buoys[buoy_idx].present = true;
     buoys[buoy_idx].last_seen_ms = millis();
-    if (source.startsWith("UDP:")) {
+    // Only BUOYPOS and TOPDATA fix a buoy's IP address. Those two are broadcast by the buoy
+    // itself and are never relayed onward by another Top, so the UDP source address really is
+    // this buoy. Everything else can reach us second hand - a Top bridges frames it receives
+    // but that are not for it, keeping the ORIGINAL sender id - and taking the address off one
+    // of those files the relaying Top's IP against the originating buoy. That is how two rows
+    // in the menu ended up showing the same IP.
+    bool ip_is_authoritative = (cmd == 51 || cmd == 19);
+    if (source.startsWith("UDP:") && ip_is_authoritative) {
         buoys[buoy_idx].ip_addr = source.substring(4);
     } else if (source == "LoRa") {
         buoys[buoy_idx].lora_rssi = rssi;
@@ -148,6 +174,10 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         buoys[buoy_idx].status = "IDLE";
         buoys[buoy_idx].bb_power = 0; // Explicitly reset thrusters to 0% when IDLE!
         buoys[buoy_idx].sb_power = 0;
+        // An idle buoy is not steering at anything, so drop its waypoint at once rather than
+        // letting it fade out over the staleness window - the mark would otherwise sit on the
+        // map for another 20 s claiming a target the buoy has already abandoned.
+        buoys[buoy_idx].tg_pos_seen_ms = 0;
     }
     else if (status_code == 12) buoys[buoy_idx].status = "LOCKING";
     else if (status_code == 13) buoys[buoy_idx].status = "LOCKED";
@@ -157,7 +187,10 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         buoys[buoy_idx].bb_power = 0; // Reset thrusters when DOCKED
         buoys[buoy_idx].sb_power = 0;
     }
-    else if (status_code == 25) buoys[buoy_idx].status = "REMOTE";
+    else if (status_code == 25) {
+        buoys[buoy_idx].status = "REMOTE";
+        buoys[buoy_idx].tg_pos_seen_ms = 0; // Hand steering - no waypoint to hold. Same reason as IDLE.
+    }
     // GPS_FOURIER_CALIBRATE: the Top is sailing its eight compass calibration legs.
     else if (status_code == 89) buoys[buoy_idx].status = "GPS CALIB";
     else buoys[buoy_idx].status = "MODE " + String(status_code);
@@ -216,6 +249,25 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         
         buoys[buoy_idx].gps_fix = fields[12] == "1" ? "3D" : fields[12] == "2" ? "2D" : "NoFix";
         buoys[buoy_idx].gps_sat = atoi(fields[13].c_str());
+    }
+    // Parse LOCKPOS (CMD = 21) / DOCKPOS (CMD = 23) - the waypoint the buoy is steering at.
+    // Same payload for both (RoboCompute RoboCode/RoboDecode): tgLat, tgLng, wDir, wStd.
+    // RoboTop broadcasts this on the lock/dock transition and then every 5 s for as long as it
+    // holds station, so it doubles as a keep-alive for the mark on the map.
+    else if ((cmd == 21 || cmd == 23) && fields.size() >= 7) {
+        double t_lat = atof(fields[5].c_str());
+        double t_lon = atof(fields[6].c_str());
+        // 0/0 is what an unset target decodes to, and plotting it would drop a mark in the Gulf
+        // of Guinea and blow the plot scale out to thousands of kilometres.
+        if (t_lat != 0.0 || t_lon != 0.0) {
+            buoys[buoy_idx].tg_lat = t_lat;
+            buoys[buoy_idx].tg_lon = t_lon;
+            buoys[buoy_idx].tg_pos_seen_ms = millis();
+        }
+        if (fields.size() >= 9) {
+            buoys[buoy_idx].wind_dir = atof(fields[7].c_str());
+            buoys[buoy_idx].wind_std = atof(fields[8].c_str());
+        }
     }
     // Parse SETUPDATA (CMD = 83) dynamically with robust length checking!
     else if (cmd == 83 && fields.size() >= 6) {

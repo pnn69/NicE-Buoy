@@ -31,6 +31,14 @@ struct BuoyData {
     int gps_sat = 0;
     float current = 0;
 
+    // The waypoint the buoy was told to hold, from LOCKPOS/DOCKPOS (cmd 21/23) - the only
+    // frames that carry it. TOPDATA and BUOYPOS report where the buoy IS, never where it is
+    // supposed to be. 0/0 means never reported; tg_pos_seen_ms ages it out, because the Top
+    // stops beaconing the moment it leaves LOCKED/DOCKED and a stale mark is worse than none.
+    double tg_lat = 0;
+    double tg_lon = 0;
+    unsigned long tg_pos_seen_ms = 0;
+
     // Setup / Calibration fields (Preloaded with standard baseline defaults, matching the webpage!)
     float kpr = 1.20;
     float kir = 0.10;
@@ -86,6 +94,10 @@ extern unsigned long last_global_lora_blink_ms;
 // Outgoing traffic timestamps - the indicator dots turn RED while transmitting
 extern unsigned long last_udp_tx_ms;
 extern unsigned long last_lora_tx_ms;
+
+// True while this buoy's reported waypoint is fresh enough to plot. RoboTop re-broadcasts
+// LOCKPOS every 5 s for as long as it holds station, so four missed beacons means it stopped.
+bool buoy_has_waypoint(const BuoyData &b);
 
 void parse_buoy_packet(const String &packetStr, const String &source, int rssi = -999);
 // ack defaults to GETACK (3), which puts the packet in RoboTop's LoRa retransmit table
