@@ -188,7 +188,7 @@ void SercomTask(void *arg)
             {
                 RoboStruct serDataIn;
                 rfDeCode(serStringIn, &serDataIn);
-                printf("SER_TOP_IN>%s<\r\n", serStringIn.c_str());
+                // printf("SER_TOP_IN>%s<\r\n", serStringIn.c_str());
                 if (serDataIn.IDs != -1 && serDataIn.IDs != mac)
                 {
                     lastRx = millis();
