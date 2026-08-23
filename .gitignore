@@ -104,3 +104,8 @@ desktop.ini
 
 # Serial capture / build logs from the compass test sketches
 *.log
+
+# PlatformIO build output and downloaded dependencies.
+# Regenerated from platformio.ini - never belongs in the repo. Eleven libdeps
+# gitlinks had been committed by accident, which is why this rule arrived late.
+.pio/
