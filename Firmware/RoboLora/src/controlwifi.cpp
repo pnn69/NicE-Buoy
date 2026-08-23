@@ -53,14 +53,19 @@ static void build_identity()
 // else's network. mDNS covers the other half: http://lora-xxxxxxxx.local resolves in both modes.
 static void start_mdns()
 {
-    MDNS.end();
-    if (MDNS.begin(mdnsHost))
+    // Do NOT call MDNS.begin() or MDNS.end() here. ArduinoOTA.begin() already brings the mDNS
+    // responder up under this same hostname, and standing a second one next to it - or tearing
+    // it down while OTA still holds it - is exactly what the CYD file already warned about:
+    // "dual-allocation heap responder collisions and panics". We only add our own HTTP record
+    // on top of the responder OTA created, once.
+    static bool advertised = false;
+    if (advertised)
     {
-        MDNS.addService("http", "tcp", 80);
-        // ArduinoOTA.begin() calls MDNS.begin() with its own hostname, so the two must agree or
-        // whichever runs last wins. Re-advertising the OTA service matters too: every reconnect
-        // tears mDNS down and back up, which would otherwise drop OTA off the air.
-        MDNS.enableArduino(3232);
+        return;
+    }
+    if (MDNS.addService("http", "tcp", 80))
+    {
+        advertised = true;
         Serial.printf("[WiFi] reachable as http://%s.local\r\n", mdnsHost);
     }
 }
@@ -391,6 +396,7 @@ void WiFiTask(void *arg)
     Serial.print("IP address: ");
     Serial.println(ipTop);
     ota = setup_OTA();
+    start_mdns();   // after OTA created the responder, not before
     udp_setup(1001);
 
     // Mount SPIFFS filesystem

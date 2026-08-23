@@ -195,15 +195,19 @@ static void build_identity()
 // resolves in both modes, so there is always a way in that is not a memorised IP address.
 static void start_mdns()
 {
-    MDNS.end();
-    if (MDNS.begin(mdnsHost))
+    // Do NOT call MDNS.begin() or MDNS.end() here. ArduinoOTA.begin() already brings the mDNS
+    // responder up under this same hostname, and standing a second one next to it - or tearing
+    // it down while OTA still holds it - is exactly what the CYD file already warned about:
+    // "dual-allocation heap responder collisions and panics". We only add our own HTTP record
+    // on top of the responder OTA created, once.
+    static bool advertised = false;
+    if (advertised)
     {
-        MDNS.addService("http", "tcp", 80);
-        // ArduinoOTA.begin() calls MDNS.begin() with its own hostname, so the two must agree or
-        // whichever runs last wins and the name we advertise is not the name we printed. Both now
-        // use mdnsHost. Re-advertising the OTA service here matters too: every reconnect and every
-        // AP transition tears mDNS down and back up, which would otherwise drop OTA off the air.
-        MDNS.enableArduino(3232);
+        return;
+    }
+    if (MDNS.addService("http", "tcp", 80))
+    {
+        advertised = true;
         Serial.printf("[WiFi] reachable as http://%s.local\r\n", mdnsHost);
     }
 }
@@ -417,6 +421,7 @@ void WiFiTask(void *arg)
     xQueueSend(ledStatus, (void *)&wifiCollorUtil, 10);
     
     ota = setup_OTA();
+    start_mdns();   // after OTA created the responder, not before
     udp_setup(1001);
     SPIFFS.begin(true);
 

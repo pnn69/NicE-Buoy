@@ -1,4 +1,4 @@
-#include <Arduino.h>
+﻿#include <Arduino.h>
 #include "esp_log.h"
 #include <PID_v1.h>
 #include "main.h"
@@ -148,15 +148,32 @@ void setup()
     // building, SPIFFS file streaming) plus the UDP handling, and 4 KB left no margin.
     xTaskCreatePinnedToCore(WiFiTask, "WiFiTask", 8192, &wifiConfig, configMAX_PRIORITIES - 10, NULL, 0);
     printf("Creating task Serial communication...\r\n");
-    xTaskCreatePinnedToCore(SercomTask, "SerialTask", 4000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
+    // 4000 left this task 1248 bytes of headroom, measured with uxTaskGetStackHighWaterMark().
+    // It decodes into ~500-byte RoboStructs and builds Arduino Strings, so that is thinner than
+    // it looks. Same reasoning as LoraTask below, one size down.
+    xTaskCreatePinnedToCore(SercomTask, "SerialTask", 6000, NULL, configMAX_PRIORITIES - 2, NULL, 0);
     printf("Creating task LoRa communication...\r\n");
-    xTaskCreatePinnedToCore(LoraTask, "LoraTask", 4000, &mainData, configMAX_PRIORITIES - 2, NULL, 1);
+    // 4000 was not enough: /data reported StkLora = 100, i.e. this task had 100 BYTES of stack
+    // left while every other task had kilobytes. That is what the DOCK panics were - a canary
+    // trip, which is why every task's breadcrumb pointed at an idle wait rather than at the code
+    // that overflowed. rfCode() returns an Arduino String and onReceive() decodes into a ~500-byte
+    // RoboStruct, both on this stack, and a dock puts several through it back to back.
+    xTaskCreatePinnedToCore(LoraTask, "LoraTask", 8192, &mainData, configMAX_PRIORITIES - 2, NULL, 1);
     
     // Load local params
     mainData.mac = espMac();
     mainData.IDs = mainData.mac;
     mainData.status = IDLE;
-    memDockPos(&mainData, MEM_GET);
+    // Read the dock into a scratch struct, NOT into mainData. memDockPos() writes tgLat/tgLng,
+    // which is the live navigation target - loading it here left every buoy sitting at boot with
+    // the dock already entered as its destination. Any route into LOCKED that does not set a
+    // target of its own (the COMPUTESTART/COMPUTETRACK bail-outs, SENDTRACK, a LOCKED arriving
+    // over serial) then inherited it and sailed for the dock, kilometres away. Leaving tgLat/tgLng
+    // at 0 means those paths hit the "no target" guards in handleTimerRoutines() and hold station
+    // instead. The dock is read from NVS on demand by the DOCKING case, which is the only place
+    // that actually wants it.
+    RoboStruct dockCfg;
+    memDockPos(&dockCfg, MEM_GET);
     memDockApproach(&mainData, MEM_GET);
 
     // Automatically migrate stored NVM dock position to the new requested default
@@ -182,7 +199,7 @@ void setup()
     printf("==================================================\r\n");
     printf("MAC/ID          : %08lX\r\n", mainData.mac);
     printf("Last reset      : %s\r\n", resetReasonText());
-    printf("Dock Position   : Lat=%.12f, Lng=%.12f\r\n", mainData.tgLat, mainData.tgLng);
+    printf("Dock Position   : Lat=%.12f, Lng=%.12f\r\n", dockCfg.tgLat, dockCfg.tgLng);
     printf("Dock Approach   : Dist=%d m, Dir=%d deg, ToWayPoint=%s\r\n", mainData.dockApproachDist, mainData.dockApproachDir, mainData.dockingToWaypoint ? "True" : "False");
     printf("Thrusters, PID and compass offset are the Sub's - asked for at serial link-up\r\n");
     printf("==================================================\r\n\r\n");
@@ -583,7 +600,13 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
             printf("Docking waypoint-> tgLat:%.8f tgLng:%.8f\r\n", stat->tgLat, stat->tgLng);
         }
         stat->cmd = DOCKPOS;
-        stat->ack = SET;
+        // INF, not SET - the same fix case LOCKING already carries, which was never applied here.
+        // stat->IDr is BUOYIDALL at this point, so an ACK can never match in removeAckMsg() and a
+        // SET sits in the LoRa retry table for all five retransmits. stat->ack is not reset below
+        // either, so the RESET_SPEED_RUD_PID and DIRDIST sends that follow inherited it too: one
+        // dock jammed three of the ten pendingMsg slots and put the buoy on the air five times
+        // over for each. Nothing downstream reads ack for these commands.
+        stat->ack = INF;
         xQueueSend(udpOut, (void *)stat, 0);
         xQueueSend(loraOut, (void *)stat, 10);
 
@@ -619,7 +642,10 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         {
             printf("#Start line NOT computed - this buoy has no wind reading (wDir/wStd are 0)\r\n");
             beep(-1, buzzer);
-            stat->status = LOCKED;
+            // Hold whatever waypoint we already had, but never claim LOCKED without one:
+            // tgLat/tgLng is 0 until something sets a real target, and a buoy sitting in LOCKED
+            // on a zero target reports a bogus destination to the fleet and the display.
+            stat->status = (stat->tgLat != 0.0 && stat->tgLng != 0.0) ? LOCKED : IDLE;
             break;
         }
         buoyPara[0].wDir = stat->wDir;
@@ -644,7 +670,10 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         {
             printf("#Start line NOT computed - lock all deployed buoys first\r\n");
             beep(-1, buzzer);
-            stat->status = LOCKED;
+            // Hold whatever waypoint we already had, but never claim LOCKED without one:
+            // tgLat/tgLng is 0 until something sets a real target, and a buoy sitting in LOCKED
+            // on a zero target reports a bogus destination to the fleet and the display.
+            stat->status = (stat->tgLat != 0.0 && stat->tgLng != 0.0) ? LOCKED : IDLE;
         }
         break;
     case COMPUTETRACK:
@@ -653,7 +682,10 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         {
             printf("#Track NOT computed - this buoy has no wind reading (wDir/wStd are 0)\r\n");
             beep(-1, buzzer);
-            stat->status = LOCKED;
+            // Hold whatever waypoint we already had, but never claim LOCKED without one:
+            // tgLat/tgLng is 0 until something sets a real target, and a buoy sitting in LOCKED
+            // on a zero target reports a bogus destination to the fleet and the display.
+            stat->status = (stat->tgLat != 0.0 && stat->tgLng != 0.0) ? LOCKED : IDLE;
             break;
         }
         buoyPara[0].wDir = stat->wDir;
@@ -675,7 +707,10 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         {
             printf("#Track NOT computed - needs three buoys with a lock position\r\n");
             beep(-1, buzzer);
-            stat->status = LOCKED;
+            // Hold whatever waypoint we already had, but never claim LOCKED without one:
+            // tgLat/tgLng is 0 until something sets a real target, and a buoy sitting in LOCKED
+            // on a zero target reports a bogus destination to the fleet and the display.
+            stat->status = (stat->tgLat != 0.0 && stat->tgLng != 0.0) ? LOCKED : IDLE;
         }
         break;
     case SENDTRACK:
@@ -991,10 +1026,18 @@ void handleTimerRoutines(RoboStruct *timer)
             else if (timer->lat != 0.0 && timer->lng != 0.0 && timer->tgLat != 0.0 && timer->tgLng != 0.0) 
             {
                 RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
-                if(timer->dockingToWaypoint == true && timer->tgDist <5)
+                // Second leg of a two-stage dock approach: once the offset waypoint is reached,
+                // switch the target to the dock itself. DOCKED only - this branch is shared with
+                // LOCKED, and there it was silently throwing the lock away. Locking puts the buoy
+                // on its own position, so tgDist is ~0 and this fired within a few hundred ms,
+                // replacing the just-captured GPS fix with the stored dock position and sending
+                // the buoy off towards it. dockingToWaypoint is reloaded from NVS as true on
+                // every boot, so it struck the first lock after each restart and then appeared
+                // to cure itself for the rest of the power cycle.
+                if (timer->status == DOCKED && timer->dockingToWaypoint == true && timer->tgDist < 5)
                 {
                     memDockPos(timer, MEM_GET);
-                    timer->dockingToWaypoint = false;    
+                    timer->dockingToWaypoint = false;
                 }
             } else {
                 timer->tgDist = 0;
@@ -1190,10 +1233,20 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             }
             return; // Done with bridging
         }
-        else if (from_udp && is_broadcast)
+        else if (from_udp && is_broadcast && (RfIn.IDs == 0x99 || RfIn.IDs == 0x98))
         {
-            // Broadcast arrived over UDP/WiFi: handle it locally (below) and forward a copy to
-            // LoRa so buoys without a WiFi link receive it too.
+            // Broadcast COMMAND arrived over UDP/WiFi: handle it locally (below) and forward a
+            // copy to LoRa so buoys without a WiFi link receive it too.
+            //
+            // Restricted to the web (0x99) and the display (0x98), the same authority test the
+            // command cases below use. Without it this relayed every peer's telemetry as well:
+            // the other Top broadcasts BUOYPOS and TOPDATA over UDP every 250 ms, and we put all
+            // eight frames a second back on the air under ITS sender id. Measured on the bench,
+            // one idle buoy appeared to be transmitting ~3 LoRa frames/s - roughly 40% channel
+            // occupancy at the library default SF7/125 kHz - when its own timer only sends two
+            // frames every 5 s. The relayed copies are pure waste: every buoy already broadcasts
+            // its own telemetry on LoRa, so nobody needs us to repeat it, and the collisions it
+            // caused were losing the packets that mattered.
             xQueueSend(loraOut, (void *)&RfIn, 0);
         }
 
@@ -1540,14 +1593,35 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     else xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
-            case DOCKPOS: // Get the position to dock
-                memDockPos(RfOut, MEM_GET);
-                memDockApproach(RfOut, MEM_GET);
-                RfOut->cmd = DOCKPOS;
-                RfOut->ack = INF;
-                if (from_udp) xQueueSend(udpOut, (void *)RfOut, 0);
-                else xQueueSend(loraOut, (void *)RfOut, 0);
+            case DOCKPOS: // Someone is asking where our dock is - answer, do not act on it
+            {
+                // An INF frame is somebody's ANSWER, not a question. The reply built below is
+                // itself a DOCKPOS, so without this test two Tops answer each other's answers:
+                // on the wire after a dock, .78 broadcast DOCKPOS, .71 replied, and .78 then
+                // replied to that reply. Only questions get answered.
+                if (RfIn.ack == INF)
+                {
+                    break;
+                }
+                // Answered out of RfIn rather than a second RoboStruct. Reading the dock straight
+                // into RfOut (= mainData) is what we must not do - memDockPos() writes tgLat/tgLng
+                // and that silently retargeted us at the dock whatever we were doing, including
+                // holding a lock. But a private copy does not have to be a fresh ~500-byte struct
+                // on a stack that already carries RfIn; case SETLOCKPOS reuses RfIn for the same
+                // reason. RfIn is ours to scribble on, and we are finished reading it here.
+                memDockPos(&RfIn, MEM_GET);
+                memDockApproach(&RfIn, MEM_GET);
+                // Address the answer at whoever asked. It used to inherit IDr = BUOYIDALL from
+                // mainData, so every answer was broadcast to the whole fleet and every other Top
+                // took it for a fresh question.
+                RfIn.IDr = RfIn.IDs;
+                RfIn.IDs = RfOut->mac;
+                RfIn.cmd = DOCKPOS;
+                RfIn.ack = INF;
+                if (from_udp) xQueueSend(udpOut, (void *)&RfIn, 0);
+                else xQueueSend(loraOut, (void *)&RfIn, 0);
                 break;
+            }
             case STOREASDOC: // Store location as doc location
                 if (RfOut->gpsFix == true)
                 {
@@ -1769,6 +1843,15 @@ void handleGpsData(RoboStruct *gps)
 
     if (xQueueReceive(gpsQue, (void *)&gpsin, 0) == pdTRUE) // New gps data
     {
+        // A fix at exactly 0,0 is not a position, it is an uninitialised one. The receiver hands
+        // these out occasionally with the valid flag still set, and the outlier filter below
+        // treats them as a 5800 km jump - the distance from here to null island - so 30 of them
+        // in a row would be "accepted as the new position" and the buoy would try to sail there.
+        if (gpsin.lat == 0.0 && gpsin.lng == 0.0)
+        {
+            gpsin.gpsFix = false;
+        }
+
         if (gpsin.gpsFix)
         {
             // --- First valid fix initialization ---
@@ -2192,6 +2275,20 @@ void loop(void)
             // Set a future grace period to prevent spamming wakeup before sub can respond
             lastRealSerIn = millis() + 10000; // 15-second delay until next potential watchdog trigger
             isSerConnected = false;
+        }
+
+        //***************************************************************************************************
+        //      Network health heartbeat
+        //***************************************************************************************************
+        // Printed from here, not from the WiFi task: this loop runs on core 1 and the WiFi task on
+        // core 0, so the line keeps coming even when the WiFi task is the thing that stopped, and
+        // then says loop=0. Without it, a Top that drops off the network while the button still
+        // responds looks identical whether the task hung, the radio deassociated, or the heap ran dry.
+        static unsigned long netHealthTimer = 0;
+        if (millis() - netHealthTimer > 10000)
+        {
+            netHealthTimer = millis();
+            printf("%s\r\n", netHealthLine().c_str());
         }
 
         // Immediate wireless broadcast on local status changes (evaluated at the end of the loop,
