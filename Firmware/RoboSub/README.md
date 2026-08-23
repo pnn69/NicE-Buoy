@@ -7,7 +7,7 @@ The **`RoboSub`** firmware runs on the submerged ESP32 microcontroller of the Ni
 ## 🏗️ Subsystem Architecture & FreeRTOS Flow
 
 RoboSub utilizes FreeRTOS to manage real-time tasks across the dual cores of the ESP32:
-*   **Core 1 (High-Priority Navigation & Sensors)**: Processes timing-critical I2C sensor fusion (`CompassTask`), 100Hz PID locomotion loops (`EscTask`), and high-speed RS-485 serial bridge decoding (`SercomTask`). This guarantees isolated, high-precision timing away from Wi-Fi overhead.
+*   **Core 1 (High-Priority Navigation & Sensors)**: Processes timing-critical I2C sensor fusion (`CompassTask`), 100Hz PID locomotion loops (`EscTask`), and single-wire serial bridge decoding (`SercomTask`). This guarantees isolated, high-precision timing away from Wi-Fi overhead.
 *   **Core 0 (Communications & Visuals)**: Manages Wi-Fi networking client hooks (`WiFiTask`), addressable LED status animations (`LedTask`), and status buzzer audio signals (`buzzerTask`).
 
 ```
@@ -18,7 +18,7 @@ RoboSub utilizes FreeRTOS to manage real-time tasks across the dual cores of the
 ├───────────────────────────────────┼────────────────────────────────────┤
 │ - WiFiTask (Local AP Web Server)  │ - CompassTask (ICM-20948 Fusion)   │
 │ - LedTask (NeoPixel Animations)   │ - EscTask (100Hz PID Loco Loops)   │
-│ - buzzerTask (Audio Sounder Beeps)│ - SercomTask (RS-485 Serial Bridge)│
+│ - buzzTask (Audio Sounder Beeps)  │ - SerialTask (single-wire bridge)  │
 └───────────────────────────────────┴────────────────────────────────────┘
 ```
 
@@ -26,7 +26,7 @@ RoboSub utilizes FreeRTOS to manage real-time tasks across the dual cores of the
                       ┌────────────────────────────────────────┐
                       │             RoboTop (UART)             │
                       └───────────────────┬────────────────────┘
-                                          │ Half-Duplex RS-485
+                                          │ one wire, half duplex
                                           ▼
                       ┌────────────────────────────────────────┐
                       │               SercomTask               │
@@ -38,18 +38,15 @@ RoboSub utilizes FreeRTOS to manage real-time tasks across the dual cores of the
                   │ Queues / Mutex        │ Queues / Mutex         │ Queues
                   ▼                       ▼                        ▼
 ┌────────────────────────────────┐ ┌────────────────────────┐ ┌────────────────────────┐
-│           CompassTask          │ │        PIDTask         │ │        LedTask         │
-│  - ICM-20948 I2C Fusion (69/68)│ │  - Speed PID (100Hz)   │ │  - Status NeoPixels    │
-│  - Madgwick AHRS Filter (100Hz)│ │  - Rudder PID (100Hz)  │ │  - Battery Telemetry   │
-│  - 3D Copilot Web Calibration  │ │  - Differential Mix    │ └────────────────────────┘
-└────────────────────────────────┘ └──────────┬─────────────┘
-                                              │ PWM Duty Cycles
-                                              ▼
-                                   ┌────────────────────┐
-                                   │      EscTask       │
-                                   │  - Port Motor (BB) │
-                                   │  - Stbd Motor (SB) │
-                                   └────────────────────┘
+│           CompassTask          │ │        EscTask         │ │        LedTask         │
+│  - ICM-20948 I2C Fusion (69/68)│ │  - Rudder + speed PID  │ │  - Status NeoPixels    │
+│  - Madgwick AHRS Filter (100Hz)│ │    (pidrudspeed.cpp)   │ │  - Battery Telemetry   │
+│  - 3D Copilot Web Calibration  │ │  - Differential mix    │ └────────────────────────┘
+└────────────────────────────────┘ │  - Port (BB) / Stbd(SB)│
+                                   └────────────────────────┘
+
+     There is no separate PIDTask. The loops live in pidrudspeed.cpp and are
+     driven from EscTask, which also writes the ESC duty cycles.
 ```
 
 ---
@@ -87,7 +84,7 @@ RoboSub utilizes a high-performance **ICM-20948 9-DOF IMU** coupled with a mathe
 *   **Highly Stable Averaging Filter**: Runs heading outputs through a low-pass Exponential Moving Average (EMA) filter and caches them into a 25-step circular averaging buffer (`NUM_DIRECTIONS 25`), smoothing out MEMS noise and momentary magnetic anomalies caused by high-power thruster surges.
 
 ### 3. Dual-Loop PID Navigation (`pidrudspeed.cpp` / `pidrudspeed.h`)
-Autonomy is governed by independent, high-speed PID loops running at **100Hz** inside the `PIDTask`:
+Autonomy is governed by independent, high-speed PID loops running at **100Hz** in `pidrudspeed.cpp`, driven from `EscTask`:
 *   **Speed PID**: Computes the required thrust based on the remaining distance to the target waypoint.
 *   **Rudder PID**: Calculates the required heading correction to align the buoy's current heading with the target direction.
 *   **Navigation Modes**:
@@ -96,8 +93,15 @@ Autonomy is governed by independent, high-speed PID loops running at **100Hz** i
     *   `LOCKED`: Autonomous position-holding (GPS Anchor) using localized coordinate boundaries.
     *   `DOCKING`: Automated waypoint navigation to guide the buoy to its charging station or home harbor.
 
-### 4. UART Serial Interface & RS-485 Sercom (`sercom.cpp` / `sercom.h`)
-RoboSub communicates with the `RoboTop` over a single-wire half-duplex UART interface.
+### 4. UART Serial Interface (`sercom.cpp` / `sercom.h`)
+RoboSub communicates with the `RoboTop` over **one shared wire**, half duplex, with hardware
+separating the two directions (opto-isolated). Sub **RX 5 / TX 18**, Top **TX 22 / RX 21** - two
+GPIOs per board, but not two conductors.
+
+> **Diagnostic consequence:** a bad connector or wire stops traffic in *both* directions. A failure
+> in **one direction only** is in the direction-separation circuitry, which is per board. Swapping
+> the Sub between hulls localises such a fault to a specific board - that is how a dead receive
+> side was traced to one Sub rather than to its Top or the cable.
 
 *   **Half-Duplex Echo Filtering**: Because the RX and TX lines are tied together, the transmitting ESP32 receives its own transmissions. `SercomTask` filters out these loopback echoes by comparing the sender MAC address against its own address, discarding self-transmitted frames automatically.
 *   **Implicit Acknowledgments**: Every periodic `INF` telemetry response from RoboSub serves as an implicit acknowledgment for commands, which reduces communication overhead and prevents packet congestion.
@@ -105,12 +109,41 @@ RoboSub communicates with the `RoboTop` over a single-wire half-duplex UART inte
 ### 5. Wi-Fi Connectivity & Dashboard Web Server (`subwifi.cpp` / `subwifi.h`)
 RoboSub hosts a lightweight local web server to display real-time telemetry diagnostics and host the interactive 3D compass calibration tool:
 
-*   **Startup Wi-Fi Prioritization**:
-    *   **Priority 1**: On boot, the sub scans for an active **`"ROBOBUOY"`** access point and connects automatically (password `""`).
-    *   **Priority 2**: If `"ROBOBUOY"` is not found, it scans for **`"NiCe_WiFi"`** (or `"NicE_WiFi"`) and logs in with password **`"!Ni1001100110"`**.
-*   **Fallback Access Point**:
-    *   If neither network is discovered within 30 seconds of scanning, it falls back to Access Point mode with SSID **`"SUB_<MAC>"`** (where `<MAC>` is the uppercase hex MAC address of the ESP32) and password `""`.
-*   **Web Services**: Serves JSON telemetry via `/data` and operational parameters via `/params` lock-free and asynchronously.
+*   **Priority list**: `NicE_WiFi` (password `!Ni1001100110`) then its own **`SUB_<id>`** AP
+    (password `geenanker`, `192.168.4.1`, captive portal). No scanning - the SSID is tried directly
+    with a blind `WiFi.begin()`, because a scan blocks for seconds and drags the single radio off
+    the AP channel.
+*   **The Sub deliberately skips `Robo_WiFi`**, the CYD's field AP, to keep its client slots for the
+    Tops and a phone. Nothing is lost by this - see below.
+*   **The fallback AP keeps hunting.** It runs in `WIFI_AP_STA` and keeps looking for home
+    underneath, but will not tear itself down while a client is connected. Under water it will never
+    find anything, and that is the expected steady state.
+*   **mDNS**: reachable as `sub-<id>.local` in both modes. Only `ArduinoOTA.begin()` may initialise
+    the responder - a second one has crashed this hardware.
+*   **The Sub never transmits on UDP.** The broadcast in the WiFi loop is commented out, and the
+    `udpIn` queue is filled but never drained, so no UDP command reaches the handler either. All of
+    the Sub's telemetry reaches you folded into the Top's `TOPDATA`, heading and battery included.
+*   **Web Services**: `/data` (JSON telemetry) and `/params` (stored tuning), plus the compass
+    calibration endpoints.
+*   **Debug channel**: plain text on **UDP 1002**, silent at idle. Prints `SER in cmd=..` for every
+    frame arriving on the serial link - the quickest way to prove whether the Sub's receiver works
+    without opening the hull.
+
+### 5b. Power-down behaviour
+After reconnection the Sub sits in **power-down** and only wakes on an incoming command: send one,
+wait, then it communicates. Do not read a quiet Sub as a fault until it has been nudged. It is
+awake, though, if it is answering - a Sub that acknowledges several commands while its Top still
+reports `SubOk=false` is a real one-way break, not sleep.
+
+### 5c. The Sub owns the tuning
+Every parameter in the NVS section below lives here. The Top holds a RAM copy only, fetched with
+`SETUPDATA` when the serial link comes up. **`compassOffset`, `revBB`, `revSB` and `swap_BB_SB` are
+hull-specific** - they describe the physical boat, not this board - so moving a Sub to another hull
+carries the wrong values with it until they are re-entered.
+
+> `main.cpp`'s command filter accepts **any** `SETUPDATA` regardless of addressing
+> (`|| dataIn.cmd == SETUPDATA`). Harmless while the Sub has no UDP input path, but worth
+> remembering before one is added.
 
 ---
 
@@ -163,13 +196,15 @@ RoboSub utilizes the ESP32's **Preferences NVS (Non-Volatile Storage)** to store
 
 RoboSub is built and managed using the **PlatformIO** ecosystem:
 
-1.  **Configuration (`platformio.ini`)**: Defines build flags, libraries (`ESP32Servo`, `FastLED`, `ICM-20948`, `Madgwick`), and targets the `robo-esp-v3` environment.
-2.  **Compilation**:
-    ```powershell
-    C:\Users\Peter.d.Nijs\.platformio\penv\Scripts\platformio.exe run
-    ```
-3.  **OTA Upload**:
-    The subsystem supports Over-The-Air updates using PlatformIO's OTA upload protocol:
-    ```powershell
-    C:\Users\Peter.d.Nijs\.platformio\penv\Scripts\platformio.exe run -t upload
-    ```
+Environment **`robo-esp-v3`** (`board = esp32dev`). Libraries: `RoboCompute`, `RoboTone`, PID,
+`ESP32Servo`, `FastLED`, SparkFun ICM-20948, Madgwick.
+
+```bash
+pio run                                              # build
+pio run -t upload                                    # OTA, default 192.168.1.189
+pio run -t upload --upload-port sub-fe914828.local   # a different unit
+```
+
+`upload_protocol = espota`: the Subs live in sealed hulls and are not on USB, so serial was never
+the realistic path. A Sub that has just been reconnected may need a command first to wake it before
+it will answer.

@@ -38,12 +38,27 @@ RoboLora manages the relay of long-range telemetry frames with low latency, brid
 *   **Control Reception**: Translates downstream command strings originating from the desktop Python dashboard and packages them into target-specific LoRa transmission frames.
 
 ### 4. Advanced Web-Based Control Panel (`data/` / `controlwifi.cpp`)
-*   **Startup Wi-Fi Prioritization & Access Point Fallback**:
-    *   On startup, the gateway performs a network scan:
-        *   **Priority 1**: Looks for `"ROBOBUOY"` AP and connects using password `""`.
-        *   **Priority 2**: Looks for `"NiCe_WiFi"` (or `"NicE_WiFi"`) AP and connects using password `"!Ni1001100110"`.
-    *   If neither network is found after 30 seconds, it falls back to Access Point mode with SSID **`"ROBOBUOY"`** and password `""`.
-*   **Captive Portal & DNS Automatic Redirection**: Integrates a lightweight `DNSServer` running on standard UDP Port 53 in Access Point mode. All DNS requests are resolved and redirected to the ESP32's local AP IP address (`192.168.1.84`). Combined with an HTTP 302 redirect for unrecognized URLs, this forces connected operating systems (iOS, Android, Windows, macOS) to automatically launch the localized HTML5 dashboard control panel.
+*   **Priority list**: `NicE_WiFi` (password `!Ni1001100110`) then `Robo_WiFi` (password
+    `geenanker`) then its own **`LORA_<id>`** AP (password `geenanker`, `192.168.4.1`). No scanning:
+    the SSIDs are tried in order with a blind `WiFi.begin()`.
+*   **RoboLora is a client of the field network, not its host.** It used to raise the field AP
+    itself under the same name the CYD uses; two devices broadcasting one SSID on one subnet is two
+    separate networks wearing the same badge, and the fleet would split between them. **The CYD is
+    the field AP** - see [RoboCYD](../RoboCYD/README.md).
+*   **The fallback AP keeps hunting.** It runs in `WIFI_AP_STA` and keeps looking for a real network
+    underneath, but will not tear itself down while a client is connected.
+*   **mDNS**: reachable as `lora-<id>.local` in both modes. Only `ArduinoOTA.begin()` may initialise
+    the responder.
+*   **Captive Portal & DNS Redirection**: a `DNSServer` on UDP port 53 resolves every lookup to our
+    own AP address while we are the access point, so a phone's connectivity probe lands on the
+    dashboard and the "sign in to network" sheet opens it automatically. The 302 for unknown URLs is
+    aimed at `WiFi.softAPIP()` - it used to be hardcoded to `192.168.1.84`, which was the Top's old
+    AP address rather than ours - and it is **disabled when we are a station**, where a 404 must stay
+    a 404 or a mistyped fetch silently returns the whole dashboard.
+*   **Sender identity**: every frame RoboLora puts on UDP is stamped `IDs = 0x99`, the web-authority
+    ID. Buoys act on broadcast commands only from `0x99` (web/RoboLora) and `0x98` (the CYD), so this
+    stamp is what makes operator commands authoritative - and why it must not be applied to traffic
+    merely being relayed.
 *   **Intuitive Dashboard Interface**: Serves a highly customized HTML5 dashboard (`index.html`, `index.js`, `style.css`) from the local SPIFFS partition over an integrated Wi-Fi Access Point or Local Station.
 *   **Dual-Source Telemetry Prioritization**: Real-time client-side filter prioritizes high-speed UDP Wi-Fi data (updating fluidly at **250ms** intervals) and ignores slower, redundant LoRa packets (still logged in their respective consoles) to eliminate UI lag or gauge flickering.
 *   **Responsive Dual-Column Configuration Popup**: Restructured the setup modal into a dual-column layout on wider screens, placing Speed PID vertically under Rudder PID, and featuring highly legible, enlarged labels and values in bold blue monospace. Includes:
@@ -61,12 +76,17 @@ RoboLora manages the relay of long-range telemetry frames with low latency, brid
 
 RoboLora is managed via the **PlatformIO** ecosystem:
 
-1.  **Configuration (`platformio.ini`)**: Targets the local microcontroller environment (e.g., `pico32`) and binds dependency libraries such as `Adafruit_SSD1306` and custom `RoboTone` (CRC).
-2.  **Compilation**:
-    ```powershell
-    C:\Users\Peter.d.Nijs\.platformio\penv\Scripts\platformio.exe run
-    ```
-3.  **Upload**:
-    ```powershell
-    C:\Users\Peter.d.Nijs\.platformio\penv\Scripts\platformio.exe run -t upload
-    ```\n
+Environment **`pico32`**. Libraries include `RoboCompute`, `Adafruit_SSD1306` and `RoboTone`.
+
+```bash
+pio run                  # build
+pio run -t upload        # serial upload, upload_port = COM30
+```
+
+**There is no espota configuration**, and `COM30` may not exist on the machine you are using. The
+gateway does run ArduinoOTA, so flash it over the network directly:
+
+```bash
+python ~/.platformio/packages/framework-arduinoespressif32/tools/espota.py \
+       -i <ip> -p 3232 -f .pio/build/pico32/firmware.bin -r
+```\n

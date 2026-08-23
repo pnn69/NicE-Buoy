@@ -52,6 +52,19 @@ Ensure you have Python 3.10+ installed along with necessary dependencies:
 pip install pyserial
 ```
 
+### Also in this directory
+*   **`ota_device_discovery.py`** - scans for OTA-capable nodes on the LAN. Since every node now
+    also answers to an mDNS name (`top-<id>.local`, `sub-<id>.local`, `robocyd.local`,
+    `lora-<id>.local`), resolving those is usually quicker than a sweep.
+
+### Notes on the telemetry it receives
+*   **UDP port 1001** carries the protocol frames. Port **1002** carries a plain-text debug log from
+    the Tops and Subs, which is not part of the protocol and can be tailed separately.
+*   **Only the Tops transmit on UDP.** The Subs never do - their heading, battery and PID state
+    reach you folded into the Top's `TOPDATA`, under the Top's sender ID.
+*   **All IDs in a frame are hexadecimal.** The dashboard sends as `99` (`0x99`), the web-authority
+    ID; a buoy obeys a broadcast command only from `0x99` or `0x98` (the CYD).
+
 ### Running the Dashboard
 Connect your **`RoboLora`** USB gateway to an active COM port, navigate to the directory, and launch the application:
 ```bash

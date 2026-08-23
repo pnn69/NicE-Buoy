@@ -1,176 +1,112 @@
-# NicE-Buoy Autonomous Marine System Firmware
+# NicE-Buoy Firmware
 
-Welcome to the master repository for the **NicE-Buoy Autonomous Marine System**. This codebase powers a highly reliable, dual-processor autonomous marine buoy designed for GPS lock-to-position, remote configuration, automated sailing, and live telemetry tracking over LoRa and WiFi (UDP).
+This directory holds every firmware image in the system. For the system-level picture — architecture, the frame format, the protocol rules and the calibration state machines — see the [repository README](../README.md). This file is the firmware index: what each project is, how they are built and flashed, and the conventions they share.
 
----
-
-## 📌 Project Overview
-
-NicE-Buoy is an industrial-grade marine robotic system consisting of multiple hardware and software components. It utilizes a **dual-ESP32 architecture** split into a **Top Unit (RoboTop)** and a **Sub Unit (RoboSub)**, communicating over a half-duplex serial interface. This physical decoupling isolates high-frequency navigation, radio communication, and web server tasks (Top) from raw thruster driving, compass polling, and high-frequency PID motor loops (Sub).
+> These two files used to be near-identical copies, which is how they drifted apart. Keep system-wide material in the root README and firmware-specific material here.
 
 ---
 
-## 🏗️ System Architecture
+## Projects
+
+| Directory | Target | Role | README |
+|---|---|---|---|
+| `RoboTop` | ESP32 (`esp32dev`) | Buoy top: GPS, LoRa, WiFi, web dashboard, commands the Sub | [link](RoboTop/README.md) |
+| `RoboSub` | ESP32 (`esp32dev`) | Buoy sub: thrusters, ICM-20948 compass, PID, owns all tuning | [link](RoboSub/README.md) |
+| `RoboCYD` | ESP32 + 320x240 TFT | Touchscreen controller; **is** the field AP `Robo_WiFi` | [link](RoboCYD/README.md) |
+| `RoboLora` | ESP32 (`pico32`) | USB/WiFi to LoRa gateway with web UI | [link](RoboLora/README.md) |
+| `RoboDependency` | library | `RoboCompute` (maths, `RoboStruct`, codec) and `RoboTone` | [link](RoboDependency/README.md) |
+| `RoboChargingStation` | ESP32 | Solar monitoring and charging dock | [link](RoboChargingStation/README.md) |
+| `RoboPythonDisplay` | Python | Tkinter desktop dashboard | [link](RoboPythonDisplay/README.md) |
+
+`RoboTop` and `RoboSub` both link `RoboDependency`; change `RoboCompute` and **both** must be rebuilt and reflashed.
+
+---
+
+## 📶 WiFi policy (all devices)
+
+One priority list, identical everywhere:
 
 ```
-                    ┌──────────────────────────────────────────────┐
-                    │            RoboPythonDisplay (PC GUI)        │
-                    │         - Multi-buoy Tkinter Dashboard        │
-                    └──────────────┬───────────────────▲───────────┘
-                                   │ UDP               │ LoRa (via COM)
-                                   ▼                   ▼
-┌──────────────────────────────────┴───────────────────┴──────────────────────────────────┐
-│                                       RoboTop                                           │
-│  - GPS Polling (NMEA Parser)              - Wi-Fi Access Point & Station Web-Dashboard  │
-│  - LoRa RF Communication Task (LoraTask)  - UDP Broadcast Server (1001)                 │
-│  - Buzzer & RGB LED Indicators            - Serial Bridge over Half-Duplex RS-485       │
-└──────────────────────────────────────────┬──────────────────────────────────────────────┘
-                                           │ UART Half-Duplex Serial
-                                           ▼
-┌──────────────────────────────────────────┴──────────────────────────────────────────────┐
-│                                       RoboSub                                           │
-│  - Dual ESC Thruster Drivers (BB & SB)   - Compass Sensor Interface (HMC5883L/QMC5883L) │
-│  - Heading & Speed PID Loops (100Hz)     - Watchdog & I2C Sensor Re-initialization      │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
+NicE_WiFi  ->  Robo_WiFi  ->  own AP
 ```
 
-The codebase is structured into the following decoupled sub-projects:
+| Device | Priority list | In the field |
+|---|---|---|
+| RoboCYD | `NicE_WiFi` → *becomes* `Robo_WiFi` | the field AP |
+| RoboTop | `NicE_WiFi` → `Robo_WiFi` → `TOP_<id>` | joins the CYD |
+| RoboSub | `NicE_WiFi` → `SUB_<id>` | always its own AP |
+| RoboLora | `NicE_WiFi` → `Robo_WiFi` → `LORA_<id>` | joins the CYD |
 
-1.  **`RoboTop` (Top Unit)**:
-    *   **Processor**: ESP32 (running FreeRTOS).
-    *   **Responsibilities**: Acquires GPS coordinates, hosts the web-based HTML5 control dashboard, broadcasts status telemetry packets via UDP and LoRa, and delegates motor execution commands to the Sub Unit.
-    *   **Key Tasks**: `GpsTask` (NMEA parsing & outlier filtering), `LoraTask` (RF telemetry and acknowledgments), `WiFiTask` (Async web servers and UDP socket), and `SercomTask` (serial bridge).
-2.  **`RoboSub` (Sub Unit)**:
-    *   **Processor**: ESP32 (running FreeRTOS).
-    *   **Responsibilities**: Directly interfaces with physical actuators (stern and bow thrusters via electronic speed controllers) and reads sensor telemetry (I2C magnetic compass).
-    *   **Key Tasks**: `PIDTask` (high-speed heading/speed calculations), `CompassTask` (stuck-sensor watchdog and self-healing), and `SerialTask` (command execution).
-3.  **`RoboDependency` (`RoboCompute` Library)**:
-    *   **Responsibilities**: Common shared library loaded by both Top and Sub units.
-    *   **Features**: Holds navigation math algorithms (`RouteToPoint` shortest-path, distance, and angle calculation), the unified `RoboStruct` communication state structure, formatting libraries (`formatFloat`), and the core telemetry string encoder/decoder (`rfCode` and `rfDeCode`).
-4.  **`RoboLora` (LoRa Gateway / Controller)**:
-    *   **Responsibilities**: Serves as a standalone USB-to-LoRa serial gateway. Relays packets between the PC monitor software and the buoys over long-range RF channels. Also hosts an integrated Wi-Fi Access Point featuring a Captive Portal with automatic DNS redirection (resolving all Port 53 queries to the local IP `192.168.1.84` to automatically launch the HTML5 control dashboard on connected user devices).
-5.  **`RoboPythonDisplay` (Python GUI Monitor)**:
-    *   **Responsibilities**: A desktop control dashboard (`RoboControl.py`) built with Tkinter for live telemetry tracking of up to 3 buoys.
-    *   **Features**: Real-time windroses, thruster speed indicators (BB/SB), battery voltages, live socket listeners, and interactive PID parameter setting menus.
-6.  **`RoboChargingStation`**:
-    *   **Responsibilities**: Solar monitoring and charging dock automated control firmware.
+*   `NicE_WiFi` password `!Ni1001100110`; `Robo_WiFi` and every fallback AP use **`geenanker`**.
+*   `Robo_WiFi` is `192.168.1.1/24` with **8 client slots** (the Arduino default of 4 is exactly three Tops plus a phone). Per-node fallback APs are `192.168.4.1`, each its own gateway.
+*   **The Sub skips `Robo_WiFi` on purpose**, to keep the CYD's slots for the Tops and a phone. Nothing is lost — the Sub never transmits on UDP; its telemetry reaches you inside the Top's `TOPDATA`.
+*   Nodes **never stop hunting**: the fallback AP runs in `WIFI_AP_STA`, so a buoy on its own AP keeps looking for a real network underneath it. It will not tear its AP down while a client is connected.
+*   No scanning. `WiFi.scanNetworks()` blocks for seconds and drags the single radio off the AP channel; the SSIDs are tried in order with a blind `WiFi.begin()` instead.
 
----
+**Getting in without an IP address** — two mechanisms, because neither covers both modes:
 
-## 📡 Communication Protocol & Frame Format
+*   **Captive portal** while the node is an AP: wildcard DNS on port 53 means the phone's own connectivity probe lands on the dashboard. Off when the node is a station, where a 404 must stay a 404.
+*   **mDNS** in both modes: `top-<id>.local`, `sub-<id>.local`, `robocyd.local`, `lora-<id>.local`.
 
-The system communicates using a lightweight, proprietary, ASCII-based comma-separated protocol designed to optimize RF bandwidth while remaining human-readable.
+> Only `ArduinoOTA.begin()` may initialise mDNS. A second `MDNS.begin()` — or an `MDNS.end()` while OTA holds the responder — has crashed this hardware before. Add records with `MDNS.addService()` on top of the responder OTA created.
 
-### Frame Anatomy
-```
-$TargetID,SenderID,AckType,CommandType,Status,Param1,Param2,...,ParamN*CRC\n
-```
-
-*   **`$`**: Starting sentinel character.
-*   **`TargetID`**: Address of the recipient (e.g. `99` for PC, `0` or `1` for Broadcast, specific hex MAC ID).
-*   **`SenderID`**: Address of the transmitting station.
-*   **`AckType`**: Packet type classification:
-    *   `1 (GET)`: Request parameter values.
-    *   `2 (SET)`: Modify parameter values.
-    *   `3 (GETACK)`: Request command execution with receipt verification.
-    *   `4 (ACK)`: Receipt confirmation.
-    *   `6 (INF)`: Telemetry status update.
-*   **`CommandType`**: Integer mapping to system command (e.g., `51` for `TOPDATA`, `83` for `SETUPDATA`, `47` for `DIRDIST`).
-*   **`Status`**: Current state machine status of the buoy (`IDLE`, `LOCKED`, `DOCKING`, `CALIBRATION`, etc.).
-*   **`Params`**: Dynamic floating-point or integer parameters depending on the command.
-*   **`*`**: End-of-payload delimiter.
-*   **`CRC`**: 2-character hexadecimal CRC calculated by XOR'ing all characters between `$` and `*`.
+> Changing an SSID or the policy must be rolled out to the **whole fleet at home on `NicE_WiFi`**. A device left on the old scheme is unreachable in the field.
 
 ---
 
-## 🚀 Advanced Telemetry Optimizations
+## 🔌 UDP ports
 
-### 1. Bandwidth Compression
-To maximize LoRa airtime efficiency and range, telemetry strings undergo two compression steps in `RoboCompute.cpp`:
-*   **Float Trailing Stripping**: The `formatFloat()` function trims redundant trailing zeros and decimal points from float values (e.g. `12.5000` becomes `12.5`, `18.000` becomes `18`).
-*   **Zero Compression**: A post-processing encoder in `RoboCode()` searches for consecutive commas representing zeros and compresses them to empty strings (e.g., `,0,0,0,0,` is packed to `,,,,,`). This dramatically reduces LoRa packet sizes.
+| Port | Traffic |
+|---|---|
+| `1001` | protocol frames (`$...*CRC`) — telemetry and commands |
+| `1002` | plain-text debug log from Tops and Subs, silent at idle |
 
-### 2. Half-Duplex Wire Echo Filtering
-In the RS-485 single-wire physical interface connecting Top and Sub, the TX and RX lines are tied together. This causes the transmitting ESP32 to receive its own transmissions immediately.
-*   The `SercomTask` implements **Echo Filtering** by checking if the incoming packet sender ID matches its own MAC address and filtering out self-echoed `GET`, `GETACK`, or `SET` packets.
-*   It implements **Implicit ACKs**: any valid `INF` (Information) response from the Sub implicitly signals that it processed the command, allowing the Top's retry queue to clear without extra overhead.
-
-### 3. Hardware Self-Healing Watchdogs
-Marine environments are hostile to electronics. The system is designed to recover autonomously from failures:
-*   **LoRa Transceiver Watchdog**: If a LoRa packet transmission fails consistently over a 500ms window, the SPI channel or state machine is assumed locked. The system calls `InitLora()` to force a full hardware re-init.
-*   **Compass Watchdog**: If the I2C compass readings remain completely static for over 5 minutes while thruster power is applied, the system declares `COMPASS STUCK - REINIT` and forces sensor reinitialization.
-*   **Task Stacking & Watchdogs**: All FreeRTOS tasks contain safety-critical yielding (`vTaskDelay(1)`) on their pinned cores to prevent thread starvation and hardware watchdog resets.
-
----
-
-## 🧭 In-Field Navigation Calibration State Machines
-
-NicE-Buoy supports advanced calibration procedures directly in the water:
-
-1.  **In-Field Compass Spin Calibration**:
-    *   Puts the buoy into self-guided continuous rotation while measuring magnetic minimums/maximums to calculate hard-iron offsets.
-2.  **In-Field Offset Alignment**:
-    *   Sails the buoy on a linear trajectory (e.g., South/180°) using pure magnetic compass readings.
-    *   Tracks the actual track trajectory using high-accuracy GPS coordinates.
-    *   Calculates the angular difference between GPS heading and compass heading, updating the stored compass offset in memory to align physical thruster output with magnetic North.
-
----
-
-## 📶 Unified Wi-Fi Login & Access Point Fallback Procedure
-
-The system features a robust, prioritized Wi-Fi connection sequence across all devices on startup to ensure automatic, low-latency communication in the field or near a base station:
-
-1. **Prioritized Connection Logic (Station Mode)**:
-   - **Priority 1**: The device scans for an available access point named **`ROBOBUOY`**. If found, it connects automatically with an empty password (`""`).
-   - **Priority 2**: If `ROBOBUOY` is not found, the device scans for **`NiCe_WiFi`** (or its variant `NicE_WiFi`). If found, it logs in with password **`"!Ni1001100110"`**.
-2. **Access Point Mode Fallback**:
-   If neither network is found after 30 seconds of scanning, the device defaults to its own local Access Point:
-   - **`RoboSub` (Sub Unit)**: SSID **`SUB_<MAC>`** (where `<MAC>` is the uppercase hex MAC address of the ESP32), password `""`.
-   - **`RoboTop` (Top Unit)**: SSID **`TOP_<MAC>`** (where `<MAC>` is the uppercase hex MAC address of the ESP32), password `""`.
-   - **`RoboLora` (Gateway)**: SSID **`ROBOBUOY`**, password `""`.
-
----
-
-## 🛠️ Developer Guide
-
-### Prerequisites
-*   **Firmware**: [VS Code](https://code.visualstudio.com/) + [PlatformIO IDE](https://platformio.org/).
-*   **Python Monitor**: Python 3.10+ with `pyserial` and `tkinter`.
-
-### Compilation & Flash Commands
-Navigate to the desired subdirectory (`RoboTop`, `RoboSub`, `RoboLora`) and run PlatformIO CLI commands:
+Listening to the debug channel is the quickest way to see what a buoy is doing:
 
 ```bash
-# Build the project
-pio run
-
-# Upload via USB Serial
-pio run -t upload
-
-# Monitor Serial Output
-pio device monitor
-```
-
-### Over-The-Air (OTA) Updates
-The Top and Sub units support over-the-air firmware updates using ESP32's built-in OTA:
-1.  Connect your development machine to the buoy's local WiFi Access Point.
-2.  Query active OTA-enabled ports:
-    ```bash
-    pio device list --mdns
-    ```
-3.  Upload using the discovered IP:
-    ```bash
-    pio run -t upload --upload-port <DISCOVERED_IP>
-    ```
-
-### Running the Python GUI Dashboard
-Install dependencies and run:
-```bash
-pip install pyserial
-python RoboPythonDisplay/RoboControl.py
+python -c "import socket; s=socket.socket(2,2); s.bind(('',1002));
+while 1: print(s.recvfrom(2048)[0].decode('utf-8','replace'), end='')"
 ```
 
 ---
 
-## 📜 License & Contributions
-This project is proprietary and confidential. For contributions, pull requests, or feature requests, contact **Peter de Nijs** (`pnn69pnn@gmail.com`).
+## 🛠️ Build and flash
+
+```bash
+pio run                      # build
+pio run -t upload            # upload
+pio device monitor           # serial monitor
+```
+
+| Project | Default upload | Notes |
+|---|---|---|
+| `RoboTop` | OTA (`espota`, `192.168.1.71`) | a `data/` change also needs `pio run -t uploadfs` |
+| `RoboSub` | OTA (`espota`, `192.168.1.189`) | sealed hull, never on USB in practice |
+| `RoboCYD` | serial (`COM15`) | **no espota config** — see below |
+| `RoboLora` | serial (`COM30`) | **no espota config** — see below |
+
+Override the target per invocation:
+
+```bash
+pio run -t upload --upload-port 192.168.1.78
+pio run -t upload --upload-port top-b7a5b578.local
+```
+
+`RoboCYD` and `RoboLora` name COM ports that may not exist on the machine you are using, but both run ArduinoOTA, so flash them directly:
+
+```bash
+python ~/.platformio/packages/framework-arduinoespressif32/tools/espota.py \
+       -i <ip> -p 3232 -f .pio/build/<env>/firmware.bin -r
+```
+
+Environments: `RoboTop` → `robo-esp`, `RoboSub` → `robo-esp-v3`, `RoboCYD` → `cyd`, `RoboLora` → `pico32`.
+
+---
+
+## Conventions worth knowing before editing
+
+*   **The Sub owns the tuning.** PID gains, `compassOffset`, `holdRad`, `revBB`/`revSB`/`swap_BB_SB` live in the Sub's NVS. The Top keeps a RAM copy fetched via `SETUPDATA`. `compassOffset` and the thruster flags are **hull-specific** and do not belong to the board they are stored on.
+*   **The Sub has no LoRa.** Its only link to the outside is the serial line to its Top.
+*   **A broadcast must never ask for an ACK.** `IDr = BUOYIDALL` with `ack = SET`/`GETACK` can never be matched in `removeAckMsg()` and jams a LoRa retry slot for five retransmits. Use `INF` for beacons.
+*   **Only `0x99` (web/RoboLora) and `0x98` (CYD) may command by broadcast.** A buoy ignores broadcast commands from a peer buoy — that is what stops one buoy driving another.
+*   **Watch task stack headroom.** The Top's `/data` exposes `StkLoop`, `StkLora`, `StkWifi`, `StkSer`, `HeapFree`, `HeapMin`, `HeapMaxBlk`. A LoRa task left with 100 bytes of stack caused a panic that looked like everything except what it was.

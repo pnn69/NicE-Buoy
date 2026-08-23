@@ -7,94 +7,105 @@ The **`RoboTop`** firmware runs on the master ESP32 microcontroller of the NicE-
 ## 🏗️ Architecture & Core Tasks
 
 RoboTop leverages FreeRTOS to coordinate real-time operations across the ESP32's dual cores:
-*   **Core 0 (Communications & Serial Bus)**: Dedicated to hosting the web server, broadcasting UDP telemetry, running wireless client WebSockets, and managing RS-485 half-duplex serial bus scheduling (`SercomTask`).
-*   **Core 1 (GPS, Math & Long-Range RF)**: Focuses on high-precision GPS polling (UART), Great-Circle navigation math calculations, and SPI-driven long-range LoRa RF operations (`LoraTask`).
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                                RoboTop                                 │
-├───────────────────────────────────┬────────────────────────────────────┤
-│              Core 0               │               Core 1               │
-├───────────────────────────────────┼────────────────────────────────────┤
-│ - WiFiTask (Local AP Web Server)  │ - GpsTask (TinyGPS++ Polling)      │
-│ - SercomTask (RS-485 Serial Bridge)│ - LoraTask (SPI long-range RF)     │
-│ - UDP Broadcasting (Port 1001)    │ - Route Computation (Great-Circle) │
-└───────────────────────────────────┴────────────────────────────────────┘
+┌─────────────────────────────────────┬─────────────────────────────────────┐
+│               Core 0                │               Core 1                │
+├─────────────────────────────────────┼─────────────────────────────────────┤
+│ WiFiTask   8192  web, UDP, OTA      │ LoraTask   8192  SPI long-range RF  │
+│ SerialTask 6000  link to the Sub    │ GpsTask    2000  TinyGPS++ polling  │
+│                                     │ buttonTask 2048  press detection    │
+│                                     │ LedTask    2000  / buzzTask 2048    │
+└─────────────────────────────────────┴─────────────────────────────────────┘
+                 loop() on core 1: navigation, state machine, RF dispatch
 ```
+
+The numbers are stack sizes in bytes, and they matter. `LoraTask` was once given 4000 and ran with **100 bytes of headroom**, which tripped the stack canary under load and produced a panic that pointed at every task except the guilty one. Live headroom is published in `/data` as `StkLoop`, `StkLora`, `StkWifi`, `StkSer` — check it after any change that adds work to a task.
 
 ---
 
 ## ⚡ Core Functional Modules
 
 ### 1. GPS Acquisition & Navigation Telemetry
-*   **Hardware Interface**: Interlines with a GPS module (e.g., NEO-8M) over UART, polling raw NMEA sentences.
-*   **Sentence Parsing**: Leverages the `TinyGPSPlus` parser to extract exact latitude, longitude, heading, and Speed Over Ground (SOG).
-*   **Safety Filtering**: Implements outlier detection and HDOP (Horizontal Dilution of Precision) filtering to ignore coordinate spikes caused by satellite multipath interference in marine environments.
+*   **Hardware Interface**: GPS module over UART, polling raw NMEA sentences.
+*   **Sentence Parsing**: `TinyGPSPlus` extracts latitude, longitude, heading and speed over ground.
+*   **Fix validity**: a fix requires `isValid()` **and** an age under 2000 ms **and** a position that is not `0,0`. `isValid()` alone only means "a position field was parsed" — it stays true across a sentence carrying zeros, and passing that on sends the rest of the firmware chasing a point off the coast of Africa.
 
-### 2. Long-Range LoRa Telemetry Gateway (`loratop.cpp`)
-*   **Hardware Interface**: Interlines with an SPI-driven LoRa transceiver to establish long-range bidirectional telemetry channels with the shore-based monitoring station.
-*   **Retry & ACK Protocol**: Implements a dedicated transmission buffer and acknowledgement checking loop. Relies on structured ASCII frames and verification IDs.
-*   **Self-Healing SPI Watchdog**: Monitors SPI transaction states. If packet transmissions hang or fail consecutively over a 500ms window, the system automatically forces a full hardware and software reset of the LoRa registers (`InitLora()`).
+### 2. Long-Range LoRa Telemetry (`loratop.cpp`)
+*   **Hardware Interface**: SPI LoRa transceiver for bidirectional telemetry with the shore station and the other buoys.
+*   **Retry & ACK Protocol**: `pendingMsg[10]` holds frames sent with `ack = GETACK` or `SET`, retransmitting each up to 5 times until acknowledged.
+    > **A broadcast must never ask for an ACK.** An ACK for `IDr = BUOYIDALL` can never match in `removeAckMsg()`, so the frame occupies its slot for all five retransmits and re-broadcasts each time. Beacons use `INF`.
+*   **Self-Healing SPI Watchdog**: if transmission fails over a 500 ms window the radio is assumed locked and `InitLora()` forces a full re-init.
 
-### 3. Wi-Fi Access Point & Web Sockets (`topwifi.cpp`)
-*   **Startup Wi-Fi Prioritization**:
-    *   **Priority 1**: On boot, the top unit scans for an active **`"ROBOBUOY"`** access point and connects automatically (password `""`).
-    *   **Priority 2**: If `"ROBOBUOY"` is not found, it scans for **`"NiCe_WiFi"`** (or `"NicE_WiFi"`) and logs in with password **`"!Ni1001100110"`**.
-*   **Fallback Access Point**:
-    *   If neither network is discovered within 30 seconds of scanning, it falls back to Access Point mode with SSID **`"TOP_<MAC>"`** (where `<MAC>` is the uppercase hex MAC address of the ESP32) and password `""`.
-*   **HTML5 Dashboard**: Serves a highly interactive, responsive control web-dashboard from ESP32 local storage.
-*   **Asynchronous WebSockets**: Streams high-frequency telemetry (heading, speed, position, PID error states) directly to connected client browsers.
-*   **UDP Broadcast Server**: Periodically broadcasts system status strings over UDP (Port 1001) to enable instant discovery and monitoring by nearby desktop dashboards.
-*   **Optimized Dual-Rate Transmit Scheduler**: Implements dynamic rate separation in the supervisory clock:
-    *   **UDP/WiFi Telemetry (High-Frequency)**: Telemetry is transmitted at a rapid **250ms** interval to guarantee fluid, real-time feedback on web monitors.
-    *   **LoRa/RF Telemetry (Low-Frequency)**: Telemetry is throttled down to **5000ms (5 seconds)** with randomized collision-avoidance jitter to prevent channel crowding, conserve battery power, and abide by legal RF duty cycles.
+### 3. WiFi, Web Dashboard and OTA (`topwifi.cpp`)
+*   **Priority list**: `NicE_WiFi` → `Robo_WiFi` → its own `TOP_<id>` AP. No scanning — the SSIDs are tried in order with a blind `WiFi.begin()`, because `WiFi.scanNetworks()` blocks for seconds and drags the single radio off the AP channel.
+*   **Passwords**: `NicE_WiFi` is `!Ni1001100110`; `Robo_WiFi` and the fallback AP are **`geenanker`**.
+*   **The fallback AP keeps hunting.** It runs in `WIFI_AP_STA` on `192.168.4.1` (its own gateway, 8 client slots) and continues looking for a real network underneath — but it will **not** tear itself down while a client is connected.
+*   **Captive portal** while in AP mode: wildcard DNS on port 53, so joining `TOP_<id>` opens the dashboard by itself. Disabled as a station, where a 404 must remain a 404.
+*   **mDNS**: reachable as `top-<id>.local` in both modes. Only `ArduinoOTA.begin()` may initialise the responder — a second `MDNS.begin()` has crashed this hardware.
+*   **HTML5 Dashboard**: served from SPIFFS and streamed straight from the file, not cached in a RAM `String` (a fragmented heap silently truncated the page mid-`<script>`). The page **polls `/data`**; there is no WebSocket on the Top.
+*   **Endpoints**: `/` (dashboard), `/data` (JSON telemetry), `/command` (actions).
+*   **Dual-rate transmit scheduler**: UDP telemetry every **250 ms** for fluid web feedback; LoRa throttled to **5 s** with randomised jitter for collision avoidance, battery and duty-cycle reasons.
 
-### 4. RS-485 Half-Duplex Serial Bridge (`sercom.cpp`)
-*   **Physical Decoupling**: Communicates with `RoboSub` over a physical serial line using half-duplex RS-485.
-*   **Single-Wire Echo Filtering**: Since physical RX/TX lines are tied, the UART hardware receives its own transmissions. `SercomTask` filters out these loopback echoes by identifying its own MAC ID as the sender, ignoring these self-reflected frames.
-*   **Implicit ACK Handling**: Telemetry responses periodically received from the Sub unit are processed as implicit acknowledgements of command delivery, clearing retry buffers and maximizing serial bus availability.
+### 4. Single-Wire Half-Duplex Serial Bridge (`sercom.cpp`)
+*   **Physical layer**: **one shared wire**, half duplex, with hardware separating the directions (opto-isolated). The firmware names two GPIOs per board — Top **TX 22 / RX 21**, Sub **RX 5 / TX 18** — but that is not two conductors.
+    > **Diagnostic consequence:** a bad connector or wire stops traffic in *both* directions. A failure in **one direction only** is therefore in the direction-separation circuitry, which is per board — swap the Sub between hulls to localise it.
+*   **Echo filtering**: a transmitter hears itself on a shared wire, so frames whose sender ID is our own are discarded.
+*   **Implicit ACKs**: any valid `INF` from the Sub clears the retry buffer.
+*   **Watchdog**: `isSerConnected` clears after 2 s of silence and a fresh `SETUPDATA` request is issued when the Sub returns.
+*   **The Sub sleeps** after reconnection and only wakes on an incoming command — send one, wait, then it talks.
 
-### 5. Automated Regatta Start Line & Track Calculations
+### 5. Who owns the tuning
+The **Sub** owns it. PID gains, `compassOffset`, `holdRad`, `revBB`/`revSB`/`swap_BB_SB` live in the Sub's NVS; the Top keeps a RAM copy fetched with `SETUPDATA` when the serial link comes up. `/data` reports `rev` (the count of replies received) and `SubOk` (serial alive) — `rev: 0` with real values elsewhere means the Top has never heard back and is running on zeroed gains.
+
+### 6. Automated Regatta Start Line & Track Calculations
 To facilitate competitive sailing regattas, RoboTop coordinates the positions of multiple buoys to automatically establish a fair, geometrically synchronized starting line:
 
-*   **Intelligent Triangulation & Role Determination (`calcTrackPos`)**: Rather than relying on static or arrival-order database slots, RoboTop uses geometric triangulation and wind vectors to mathematically determine the roles of the three buoys (`PORT`, `STARBOARD`, or `HEAD`):
-    *   **Starting Line Identification**: Computes the Great-Circle distances between all three buoy pairs ($d_{0-1}$, $d_{0-2}$, and $d_{1-2}$). The two buoys with the **shortest distance** between them are mathematically identified as the starting line pins. The remaining, furthest buoy is automatically designated as the upwind **HEAD (windward) buoy**.
-    *   **Port vs. Starboard Allocation**: Calculates the geographic bearing between the two starting line pin buoys. It then measures the signed smallest angular difference relative to the live wind direction vector ($W_{\text{dir}}$):
-        *   If the signed angle is **positive ($\ge 0^\circ$)**, the first buoy is designated as the **PORT** pin and the second is the **STARBOARD** pin.
-        *   If the signed angle is **negative ($< 0^\circ$)**, the first buoy is designated as the **STARBOARD** pin and the second is the **PORT** pin.
-*   **Geographical Midpoint & Width Determination**: Identifies the participating start line buoys, computes their exact geographic midpoint using arithmetic coordinate averages, and calculates the total starting line width $d$ (Great-Circle distance) using the Haversine formula.
-*   **Wind-Aligned Perpendicular Squaring (`recalcStartLine`)**: Imports the live, filtered average wind direction ($W_{\text{dir}}$) from the master supervisor. To ensure a completely fair start, the starting line must be exactly perpendicular ($90^\circ$) to the wind direction:
-    *   **Port End Bearing**: $\theta_{\text{Port}} = (W_{\text{dir}} + 270^\circ) \bmod 360^\circ$
-    *   **Starboard End Bearing**: $\theta_{\text{Starboard}} = (W_{\text{dir}} + 90^\circ) \bmod 360^\circ$
-*   **Vector Position Projection (`adjustPositionDirDist`)**: Projects the new target coordinates outward from the calculated starting line midpoint along the Port and Starboard bearings by a distance of exactly $d / 2$. This dynamically aligns (squares) the starting line perpendicular to the wind while keeping its original midpoint and length perfectly intact.
-*   **Asynchronous Coordination Broadcast (`SENDTRACK`)**: Once starting line or course track parameters are calculated, RoboTop automatically schedules a broadcast over the long-range LoRa RF network (`loraOut`), dispatching updated coordinates to Port, Starboard, and Head buoys simultaneously to coordinate the entire fleet.
+*   **Intelligent Triangulation & Role Determination (`calcTrackPos`)**: Rather than relying on static or arrival-order database slots, RoboTop uses geometric triangulation and wind vectors to determine the roles of the three buoys (`PORT`, `STARBOARD`, `HEAD`):
+    *   **Starting Line Identification**: Computes the Great-Circle distances between all three buoy pairs. The two buoys with the **shortest distance** between them are the starting line pins; the furthest is the upwind **HEAD** buoy.
+    *   **Port vs. Starboard Allocation**: Calculates the bearing between the two pins and measures the signed smallest angular difference against the live wind direction $W_{\text{dir}}$. Positive ($\ge 0^\circ$) makes the first buoy **PORT**; negative makes it **STARBOARD**.
+*   **Geographical Midpoint & Width**: Computes the pins' midpoint by coordinate average and the line width $d$ by Haversine.
+*   **Wind-Aligned Perpendicular Squaring (`recalcStartLine`)**: The line must be exactly perpendicular to the wind:
+    *   Port end bearing: $\theta_{\text{Port}} = (W_{\text{dir}} + 270^\circ) \bmod 360^\circ$
+    *   Starboard end bearing: $\theta_{\text{Starboard}} = (W_{\text{dir}} + 90^\circ) \bmod 360^\circ$
+*   **Vector Position Projection (`adjustPositionDirDist`)**: Projects new targets outward from the midpoint along those bearings by $d/2$, squaring the line to the wind while keeping midpoint and length intact.
+*   **Asynchronous Coordination Broadcast (`SENDTRACK`)**: Dispatches updated coordinates to Port, Starboard and Head over LoRa.
 
-### 6. Advanced Circular Wind Telemetry & Standard Deviation
-To ensure the supervisor possesses steady, reliable, and noise-resistant wind references in turbulent marine environments, RoboTop employs specialized circular statistics to aggregate and smooth raw wind-vane angles:
+### 7. Advanced Circular Wind Telemetry & Standard Deviation
+*   **Circular Vector Addition (`averageWindVector`)**: Arithmetic averaging fails at the $360^\circ$ wrap (the mean of $350^\circ$ and $10^\circ$ is $180^\circ$ arithmetically but $0^\circ$ physically). Each sample $A_i$ is decomposed into unit vectors:
+    $$x_i = \cos(A_i \times \tfrac{\pi}{180}), \quad y_i = \sin(A_i \times \tfrac{\pi}{180})$$
+    and recombined with the four-quadrant arctangent:
+    $$W_{\text{dir}} = \text{atan2}(\bar{y}, \bar{x}) \times \tfrac{180}{\pi}$$
+*   **Yamartino Circular Standard Deviation (`deviationWindRose`)**: from the mean resultant length $R$
+    $$R = \frac{\sqrt{(\sum \cos A_i)^2 + (\sum \sin A_i)^2}}{N}, \qquad W_{\text{std}} = \sqrt{-2 \ln R} \times \tfrac{180}{\pi}$$
+    $R = 1$ is perfect alignment, $R = 0$ complete dispersal.
 
-*   **Circular Vector Addition (`averageWindVector`)**: Simple arithmetic averaging of angles fails near the $360^\circ$ wrap-around boundary (e.g., the average of $350^\circ$ and $10^\circ$ is mathematically $180^\circ$, but physically $0^\circ$/$360^\circ$). To solve this, RoboTop decomposes each wind angle sample $A_i$ into Cartesian unit vectors:
-    $$x_i = \cos(A_i \times \frac{\pi}{180}), \quad y_i = \sin(A_i \times \frac{\pi}{180})$$
-    It then aggregates and computes the mean coordinates ($\bar{x}, \bar{y}$), resolving the correct, physically continuous circular average direction using the four-quadrant arctangent function:
-    $$W_{\text{dir}} = \text{atan2}(\bar{y}, \bar{x}) \times \frac{180}{\pi}$$
-*   **Yamartino Circular Standard Deviation (`deviationWindRose`)**: Traditional linear standard deviation is highly vulnerable to wraps near North. RoboTop implements rigorous circular standard deviation by first calculating the magnitude of the mean resultant vector $R$:
-    $$R = \frac{\sqrt{(\sum \cos(A_i))^2 + (\sum \sin(A_i))^2}}{N}$$
-    The value $R$ acts as an indicator of wind vector consistency (where $R=1.0$ is perfect alignment and $R=0.0$ is complete dispersal). It then calculates the angular dispersion (circular standard deviation in degrees) using:
-    $$W_{\text{std}} = \sqrt{-2 \ln(R)} \times \frac{180}{\pi}$$
-    This establishes an incredibly stable, jitter-free Wind Standard Deviation index for navigation planning.
+### 8. Command Routing Rules (`handleRfData`)
+*   `IDr` is matched against our MAC; `1` (`BUOYIDALL`) and `0` are broadcasts.
+*   A **broadcast command is only obeyed when the sender is `0x99` (web/RoboLora) or `0x98` (CYD)**. A broadcast from a peer buoy is ignored — this is what stops one buoy commanding another.
+*   Frames that are not for us are **bridged to the other interface** (UDP↔LoRa), never back out the one they arrived on, which would loop.
+*   `DOCKPOS` is a *question*. The answer is addressed to the asker and sent as `INF`, and an `INF` frame is never answered — otherwise two Tops answer each other's answers indefinitely.
+
+---
+
+## 🩺 Diagnostics
+
+*   **Debug channel** — plain text broadcast on **UDP 1002**, silent at idle. Carries every non-telemetry RF and serial frame, the DOCK/DOCKPOS step markers and every beep with the line that requested it.
+*   **Breadcrumbs surviving a panic** — held in `RTC_NOINIT` memory and reported next boot as `Crumb`, `CrumbLora`, `CrumbWifi`, `CrumbSer`. `90–96` = loop phase, `1000+cmd` = RF command dispatched, `2000+cmd` = serial command, `200–206`/`300–303`/`400–403` = LoRa/Sercom/WiFi task.
+    > A **power cycle wipes RTC RAM** and the evidence with it. A reset-pin press or a panic reboot preserves it.
+*   **`/data` health fields** — `Uptime`, `ResetReason`, `SubOk`, `rev`, the four `Stk*` figures and `HeapFree` / `HeapMin` / `HeapMaxBlk`.
 
 ---
 
 ## 🛠️ Building & Flashing
 
-RoboTop is built and managed using the **PlatformIO** ecosystem:
+PlatformIO environment **`robo-esp`** (`board = esp32dev`). Dependencies: `RoboCompute`, `RoboTone`, Arduino-PID-Library, TinyGPSPlus, FastLED, arduino-LoRa, ArduinoOTA.
 
-1.  **Configuration (`platformio.ini`)**: Targets the `robo-esp-v3` environment and includes dependencies such as `TinyGPSPlus`, `Adafruit_BusIO`, and `WiFiManager`.
-2.  **Compilation**:
-    ```powershell
-    C:\Users\Peter.d.Nijs\.platformio\penv\Scripts\platformio.exe run
-    ```
-3.  **OTA Upload**:
-    The system supports Over-The-Air updates using PlatformIO's OTA upload protocol:
-    ```powershell
-    C:\Users\Peter.d.Nijs\.platformio\penv\Scripts\platformio.exe run -t upload
-    ```\n
+```bash
+pio run                                              # build
+pio run -t upload                                    # OTA, default 192.168.1.71
+pio run -t upload --upload-port top-b7a5b578.local   # a different unit
+pio run -t uploadfs                                  # required after any data/ change
+```
+
+`upload_protocol = espota`, so a plain upload goes over the network — the Tops are not normally on USB.
