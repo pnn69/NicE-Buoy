@@ -52,7 +52,6 @@ void initMemory(void)
         storage.putULong64("NicE_BuoyID", id);
         storage.putDouble("Docklat", 0.0);
         storage.putDouble("Docklon", 0.0);
-        storage.putDouble("declination", 2.6666666666); // Amsterdam default
         storage.putBool("revBB", false);
         storage.putBool("revSB", false);
         storage.putBool("tSwap", false);
@@ -117,28 +116,6 @@ void memDockPos(RoboStruct *buoy, bool get)
 }
 
 /**
- * @brief Reads or writes the magnetic declination offset from/to NVS.
- * Defaults to 2.666 degrees (Amsterdam 2025).
- *
- * @param buoy Pointer to the state structure containing declination.
- * @param get True to read from memory, false to write to memory.
- */
-void Declination(RoboStruct *buoy, bool get)
-{
-    startMem();
-    if (get)
-    {
-        buoy->declination = storage.getDouble("declination", 2.66666666); // amsterdam 2025
-        if (isnan(buoy->declination)) buoy->declination = 2.66666666;
-    }
-    else
-    {
-        storage.putDouble("declination", buoy->declination);
-    }
-    stopMem();
-}
-
-/**
  * @brief Reads or writes the user-defined compass heading offset from/to NVS.
  *
  * @param buoy Pointer to the state structure containing compassOffset.
@@ -155,6 +132,8 @@ void CompasOffset(RoboStruct *buoy, bool get)
     else
     {
         storage.putDouble("magCorr", buoy->compassOffset);
+        // One-time cleanup of the retired declination key, see RoboCompute.h.
+        if (storage.isKey("declination")) storage.remove("declination");
     }
     stopMem();
 }
@@ -368,7 +347,7 @@ void softIron(RoboStruct *buoy, bool get)
 
 /**
  * @brief Aggregates reads or writes for all compass-related calibration factors.
- * Includes Soft Iron matrix, Hard Iron offsets, Declination, and user Offset.
+ * Includes Soft Iron matrix, Hard Iron offsets and the user compass offset.
  *
  * @param buoy Pointer to the main state structure.
  * @param get True to read from memory, false to write to memory.
@@ -377,7 +356,6 @@ void CompassCalibrationFactors(RoboStruct *buoy, bool get)
 {
     softIron(buoy, get);
     hardIron(buoy, get);
-    Declination(buoy, get);
     CompasOffset(buoy, get);
 }
 

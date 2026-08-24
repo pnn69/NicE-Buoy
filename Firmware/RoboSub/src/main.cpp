@@ -290,7 +290,7 @@ void handleStatus(RoboStruct *stat)
  * This function processes new data received from either the serial interface or RF (UDP) communication.
  * It updates the system state, executes commands, and manages the control logic for the RoboBuoy.
  * The function checks for new serial data, updates LED status, and processes commands such as IDLE, DIRDIST,
- * DIRSPEED, REMOTE, LOCKED, DOCKED, PID tuning, declination settings, and power settings.
+ * DIRSPEED, REMOTE, LOCKED, DOCKED, PID tuning, compass offset, and power settings.
  * It also handles sending acknowledgments and updating PID parameters for rudder and speed controllers.
  *
  * @param ser Pointer to a RoboStruct structure containing the current state and parameters of the RoboBuoy.
@@ -511,10 +511,9 @@ void handleSerandRfdata(RoboStruct *ser)
                 }
                 break;
             case STORE_DECLINATION:
-                printf("Declinaton set to: %f", dataIn.declination);
-                Declination(&dataIn, MEM_PUT);
-                Declination(ser, MEM_GET);
-                InitCompass();
+                // Retired, see RoboCompute.h. Accepted and ignored: the heading correction the
+                // operator actually wants is compassOffset (STORE_COMPASS_OFFSET, just below).
+                printf("STORE_DECLINATION ignored - declination is retired, use the compass offset\r\n");
                 break;
             case STORE_COMPASS_OFFSET:
                 CompassOffsetCorrection(&dataIn.compassOffset, false);

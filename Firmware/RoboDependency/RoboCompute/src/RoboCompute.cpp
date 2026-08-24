@@ -186,7 +186,8 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->wStd = numbers[3].toDouble();
         break;
     case STORE_DECLINATION:
-        dataStore->declination = numbers[2].toDouble();
+        // Retired, see RoboCompute.h. The label is kept so an old node's frame is recognised and
+        // ignored quietly instead of tripping the "Unknown CMD" printf below.
         break;
     case MAXMINPWR:
     case MAXMINPWRSET:
@@ -461,7 +462,7 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->gpsDir);
         break;
     case STORE_DECLINATION:
-        out += "," + formatFloat(dataOut->declination, 2);
+        // Retired, see RoboCompute.h. Kept so it is not reported as an unknown formatter.
         break;
     case RAWCOMPASSDATA:
         out += "," + formatFloat(dataOut->magHard[0], 5);

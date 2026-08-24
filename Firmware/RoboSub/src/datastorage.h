@@ -13,7 +13,6 @@ void initMemory(void);
 void memDockPos(RoboStruct *buoy, bool get);
 void memBuoyId(uint64_t *id, bool get);
 void CompassCalibrationFactors(RoboStruct *buoy, bool get);
-void Declination(RoboStruct *buoy, bool get);
 void CompasOffset(RoboStruct *buoy, bool get);
 void computeParameters(RoboStruct *buoy, bool get);
 void speedMaxMin(RoboStruct *buoy, bool get);

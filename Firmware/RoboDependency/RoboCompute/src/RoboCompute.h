@@ -47,6 +47,13 @@ typedef enum
     CALIBRATE_MAGNETIC_COMPASS,
     START_CALIBRATE_MAGNETIC_COMPASS,
     LINEAR_CALIBRATING,
+    // RETIRED. Magnetic declination was stored, put on the wire and printed, but no code in any
+    // firmware ever applied it to a heading, and the only thing that could set it was an uncalled
+    // function in RoboTop/src/calibrate.cpp whose send was commented out. It is also redundant
+    // with compassOffset: that is measured by pointing the buoy at a known bearing, which already
+    // contains the local declination, so having both invites correcting for it twice.
+    // The two enumerators STAY so the numbering of every command after them is unchanged - a node
+    // that is not reflashed at the same moment must not start mis-routing commands.
     SET_DECLINATION,
     STORE_DECLINATION,
     DOCK_STORING,
@@ -231,7 +238,6 @@ struct RoboStruct
 
     int minSpeed = 0;
     int maxSpeed = 75;
-    double declination = 0;
     double compassOffset = 0;
     unsigned long buoyId = 0;
     unsigned long lastLoraIn = 0;

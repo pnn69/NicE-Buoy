@@ -11,7 +11,6 @@
 #include "adc.h"
 #include "loratop.h"
 #include "sercom.h"
-#include "calibrate.h"
 #include "gpscalib.h"
 #include "gpssim.h"
 #include "udplog.h"
@@ -1763,10 +1762,9 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case STORE_DECLINATION:
-                printf("Declinaton set to: %f\r\n", RfIn.declination);
-                RfOut->declination = RfIn.declination; // set inclination'
-                RfIn.ack = GETACK;
-                xQueueSend(serOut, (void *)&RfIn, 0); // update sub
+                // Retired, see RoboCompute.h. No longer stored, and no longer forwarded to the
+                // Sub - the heading correction that actually does something is compassOffset.
+                printf("STORE_DECLINATION ignored - declination is retired\r\n");
                 break;
             case MAXMINPWR:
                 if (RfIn.ack == GET || RfIn.ack == GETACK)
