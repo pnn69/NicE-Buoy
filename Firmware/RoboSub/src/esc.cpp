@@ -8,6 +8,7 @@
 #include "io_sub.h"
 #include "leds.h"
 #include "datastorage.h"
+#include "udplog.h"
 
 LedPwrtruct powerIndicator;
 QueueHandle_t escspeed;
@@ -82,10 +83,28 @@ void startESC(void)
     // Attach Servos via ESP32Servo library (Handles LEDC timers automatically and safely)
     servoBB.setPeriodHertz(ESC_FREQ);
     servoSB.setPeriodHertz(ESC_FREQ);
-    
-    // attach(pin, min, max)
+
+    // ESP32Servo defaults to a 10-bit LEDC timer. Over a 20 ms frame that is 19.53 us per tick,
+    // and usToTicks() truncates - so writeMicroseconds(1500) became 76 ticks and the ESC actually
+    // received 1484 us. Every stop pulse this firmware has ever sent was 15.6 us below neutral,
+    // on both channels. One ESC's deadband swallowed it; the other read it as a small command and
+    // the thruster turned slowly for as long as it had power.
+    //
+    // It also made the neutral trim almost useless: the whole 1400..1600 range was about ten
+    // distinct ticks, so most values changed nothing at all.
+    //
+    // 16 bits brings the error to 0.06 us and gives the trim ~327 real steps.
+    //
+    // AFTER attach, not before. The library's own comment says to call setTimerWidth() first, but
+    // attach() does the opposite of what that promises: when pinNumber < 0 - a fresh object, or
+    // any object that has been through detach() - it resets timer_width straight back to
+    // DEFAULT_TIMER_WIDTH. Setting it first is silently undone, which is why the first attempt at
+    // this fix changed nothing and the buoy still reported 1484 us. Called while attached, it
+    // detaches and re-attaches the LEDC pin at the new width, which is what we actually want.
     servoBB.attach(ESC_BB_PIN, ESC_MIN_US, ESC_MAX_US);
     servoSB.attach(ESC_SB_PIN, ESC_MIN_US, ESC_MAX_US);
+    servoBB.setTimerWidth(16);
+    servoSB.setTimerWidth(16);
     
     // Each thruster gets ITS OWN stop pulse, not a shared 1500. An ESC whose neutral is calibrated
     // a little low reads a nominal 1500 as a small forward command and creeps for as long as it has
@@ -93,10 +112,22 @@ void startESC(void)
     servoBB.writeMicroseconds(speedToPulse(0, false, esc_neutral_bb));
     servoSB.writeMicroseconds(speedToPulse(0, false, esc_neutral_sb));
 
+    // What the pin is REALLY doing, read back from the library rather than assumed. If these do
+    // not match the trim above, the timer resolution is wrong again.
+    udpLog("ESC arm: BB asked %d us got %d us | SB asked %d us got %d us",
+           esc_neutral_bb, servoBB.readMicroseconds(),
+           esc_neutral_sb, servoSB.readMicroseconds());
+
     // Keep neutral for 3 seconds to guarantee arming sequence completes
     vTaskDelay(pdMS_TO_TICKS(3000));
     Serial.printf("ESCs armed (neutral BB %d us, SB %d us)\r\n", esc_neutral_bb, esc_neutral_sb);
 }
+
+// What the pin is actually producing, read back from the library rather than assumed. The
+// difference between this and the trim is pure timer resolution, and it is the thing that was
+// quietly 15.6 us out - so it is worth being able to read it without a serial cable.
+int escActualPulseBb(void) { return servoBB.attached() ? servoBB.readMicroseconds() : 0; }
+int escActualPulseSb(void) { return servoSB.attached() ? servoSB.readMicroseconds() : 0; }
 
 void calculateLedColor(int speed, uint8_t& r, uint8_t& g) {
     if (speed > 0) { r = 0; g = map(speed, 0, 100, 0, 255); }

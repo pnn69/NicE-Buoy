@@ -18,6 +18,9 @@ typedef struct Message
 extern int esc_neutral_bb;
 extern int esc_neutral_sb;
 
+int escActualPulseBb(void);
+int escActualPulseSb(void);
+
 void initescqueue(void);
 void startESC(void);
 void beepESC(void);
