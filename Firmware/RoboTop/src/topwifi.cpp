@@ -8,6 +8,7 @@
 #include "main.h"
 #include "topwifi.h"
 #include "gpscalib.h"
+#include "gpssim.h"
 #include "leds.h"
 #include "datastorage.h"
 #include <esp_system.h>
@@ -510,6 +511,7 @@ void WiFiTask(void *arg)
         json += "\"SubOk\":\"" + String(subSerialAlive() ? "true" : "false") + "\",";
         // Progress line for the GPS Fourier calibration; empty string whenever no run is active.
         json += "\"CalibMsg\":\"" + String(gpsCalibProgress()) + "\",";
+        json += "\"SimMsg\":\"" + String(gpsSimReport()) + "\",";
         // Diagnostics: seconds since boot, and what ended the previous run.
         json += "\"Uptime\":" + String(millis() / 1000) + ",";
         json += "\"Crumb\":" + String(crumbSlotAtLastReset(CRUMB_LOOP)) + ",";
@@ -594,6 +596,23 @@ void WiFiTask(void *arg)
         // Set by the still-water variant of the GPS Fourier command below. Kept out of
         // the query string so the mode can never be half-specified.
         bool gpsCalStill = false;
+
+        // Bench simulation of position and heading. Answered here and now: it changes nothing on
+        // the buoy and sends nothing to the Sub, so it has no business going through the command
+        // queues below. See gpssim.h.
+        //   /command?cmd=GPSSIM&on=1&c0=0&a1=6&a2=4&mps=0.15
+        //   /command?cmd=GPSSIM&on=0
+        if (cmdStr == "GPSSIM")
+        {
+            bool on = (server.arg("on").toInt() != 0);
+            double c0  = server.hasArg("c0")  ? server.arg("c0").toDouble()  : 0.0;
+            double a1  = server.hasArg("a1")  ? server.arg("a1").toDouble()  : 6.0;
+            double a2  = server.hasArg("a2")  ? server.arg("a2").toDouble()  : 4.0;
+            double mps = server.hasArg("mps") ? server.arg("mps").toDouble() : 0.15;
+            gpsSimSet(on, c0, a1, a2, mps);
+            server.send(200, "text/plain", on ? "SIM ARMED" : "SIM DISARMED");
+            return;
+        }
         // printf("Web Command received: bid=%d, cmd=%s\r\n", bid, cmdStr.c_str());
 
         if (cmdStr == "LOCK") {

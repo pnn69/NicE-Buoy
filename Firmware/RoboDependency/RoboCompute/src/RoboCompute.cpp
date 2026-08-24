@@ -288,6 +288,9 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->gpsCalDist = numbers[6].toDouble();
         dataStore->gpsCalErr = numbers[7].toDouble();
         if (count > 8) dataStore->gpsCalLastErr = numbers[8].toDouble();
+        // Count-based like every other optional field here: a Top that predates the abort codes
+        // sends a shorter frame, and its runs simply report no reason rather than a wrong one.
+        if (count > 9) dataStore->gpsCalAbort = numbers[9].toInt();
         break;
     default:
         printf("RoboDecode: Unknown CMD %d\r\n", dataStore->cmd);
@@ -508,6 +511,7 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + formatFloat(dataOut->gpsCalDist, 0);
         out += "," + formatFloat(dataOut->gpsCalErr, 2);
         out += "," + formatFloat(dataOut->gpsCalLastErr, 2);
+        out += "," + String(dataOut->gpsCalAbort);
         break;
     case DOCKED:
     case LOCKED:
@@ -1174,6 +1178,7 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
     // to prevent. Neither is fed into the buoy base today; that is a property of the callers,
     // not something worth relying on here.
     case GPS_FOURIER_STATUS:
+        dst->gpsCalAbort = src.gpsCalAbort;
         dst->gpsCalStep = src.gpsCalStep;
         dst->gpsCalLeg = src.gpsCalLeg;
         dst->tgDir = src.tgDir;         dst->dirMag = src.dirMag;

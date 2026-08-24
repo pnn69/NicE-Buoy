@@ -13,6 +13,7 @@
 #include "sercom.h"
 #include "calibrate.h"
 #include "gpscalib.h"
+#include "gpssim.h"
 #include "udplog.h"
 
 // Every beep, tagged with the line that asked for it. Sound is the buoy's only feedback in the
@@ -2340,6 +2341,12 @@ void loop(void)
         // mainData = handleSerialData(mainData);
         crumb(95);
         handleSerialData(&mainData, buoyParaPtrs);
+        //***************************************************************************************************
+        //      Bench simulation of position and heading (normally disarmed, see gpssim.h)
+        //***************************************************************************************************
+        // Deliberately after handleSerialData(): that is where the Sub's real compass lands, so
+        // this has to run later to overrule it. Does nothing at all unless armed.
+        gpsSimUpdate(&mainData);
         //***************************************************************************************************
         //      Light button control
         //***************************************************************************************************

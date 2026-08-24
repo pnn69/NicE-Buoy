@@ -7,6 +7,8 @@
 #include "topwifi.h"
 #include "loratop.h"
 #include "buzzer.h"
+#include "gpssim.h"
+#include "udplog.h"
 
 //***************************************************************************************************
 //  Tunables
@@ -149,6 +151,7 @@ static void sendCalibStatus(RoboStruct *cal, int reportStep, bool force)
     msg.ack = INF;
     msg.status = cal->status;
     msg.gpsCalStep = reportStep;
+    msg.gpsCalAbort = cal->gpsCalAbort;
     // Clamped: legIdx runs to 8 once the last leg is measured, and a report of "leg 9 of 8" during
     // the table transfer helps nobody. Seven is the truthful answer there - it is the leg the buoy
     // last sailed. The error index below deliberately uses the UNCLAMPED value, so the store and
@@ -233,15 +236,26 @@ static void sendLegCommand(RoboStruct *cal, int heading)
     cmdMsg.status = TGDIRSPEED;
     cmdMsg.tgDir = (double)heading;
     cmdMsg.speedSet = GC_SPEED;
+    // On the bench the order drives the simulated hull instead of the real one. Sending it to the
+    // Sub as well would spin the thrusters dry for the whole run.
+    if (gpsSimActive())
+    {
+        gpsSimNoteCommand((double)heading, GC_SPEED);
+        return;
+    }
     xQueueSend(serOut, (void *)&cmdMsg, 0);
 }
 
 /**
  * @brief Cuts the thrusters and drops out of the calibration.
  */
-static void abortRun(RoboStruct *cal, const char *reason)
+static void abortRun(RoboStruct *cal, const char *reason, gpscal_abort_t why)
 {
     printf("#GPSFOURIER: ABORTED - %s\r\n", reason);
+    udpLog("GPSCAL ABORTED (%d) %s", (int)why, reason);
+    // Put the reason on the wire, not just in progressMsg. progressMsg only ever reached the
+    // Top's own web page; over LoRa the CYD could see THAT a run aborted but never why.
+    cal->gpsCalAbort = (int)why;
     snprintf(progressMsg, sizeof(progressMsg), "ABORTED: %.40s", reason);
     step = GC_IDLE;
     cal->tgDir = 0;
@@ -280,9 +294,23 @@ static void sendTable(RoboStruct *cal)
     msg.IDr = BUOYIDALL;
     msg.ack = SET; // SET also puts it in sercom's retransmit list until the Sub echoes it back
     for (int i = 0; i < 8; i++) msg.interpolationTable[i] = newTable[i];
-    xQueueSend(serOut, (void *)&msg, 10);
     tableSentAt = millis();
     tableTries++;
+    // A bench run must not overwrite the calibration the buoy actually sails on. Report what it
+    // WOULD have stored and fake the Sub's echo, so the run still completes through GC_STORE.
+    if (gpsSimActive())
+    {
+        udpLog("GPSSIM table NOT written: %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f",
+               newTable[0], newTable[1], newTable[2], newTable[3],
+               newTable[4], newTable[5], newTable[6], newTable[7]);
+        printf("#GPSSIM: table NOT written to the Sub. It would have been:");
+        for (int i = 0; i < 8; i++) printf(" %.2f", newTable[i]);
+        printf("\r\n");
+        for (int i = 0; i < 8; i++) tableReply[i] = newTable[i];
+        tableReplyValid = true;
+        return;
+    }
+    xQueueSend(serOut, (void *)&msg, 10);
 }
 
 /**
@@ -457,17 +485,18 @@ void handleGpsFourierCalibration(RoboStruct *cal)
         // happened to stop on.
         legIdx = 0;
         legRetries = 0;
+        cal->gpsCalAbort = GPSCAL_ABORT_NONE;   // a fresh run must not inherit the last reason
 
         if (!cal->gpsFix)
         {
-            abortRun(cal, "no GPS fix");
+            abortRun(cal, "no GPS fix", GPSCAL_ABORT_NO_FIX);
             return;
         }
         if (!subSerialAlive())
         {
             // Every heading in this routine comes from the Sub's compass over the serial link.
             // Without it dirMag is a stale number that would happily satisfy the settle test.
-            abortRun(cal, "Sub silent on the serial link");
+            abortRun(cal, "Sub silent on the serial link", GPSCAL_ABORT_SUB_SILENT);
             return;
         }
 
@@ -503,13 +532,13 @@ void handleGpsFourierCalibration(RoboStruct *cal)
     if (cal->gpsFix) lastFixTime = millis();
     else if (millis() - lastFixTime > GC_GPS_LOST_TIMEOUT)
     {
-        abortRun(cal, "GPS fix lost");
+        abortRun(cal, "GPS fix lost", GPSCAL_ABORT_FIX_LOST);
         return;
     }
 
     if (!subSerialAlive())
     {
-        abortRun(cal, "lost the serial link to the Sub");
+        abortRun(cal, "lost the serial link to the Sub", GPSCAL_ABORT_LINK_LOST);
         return;
     }
 
@@ -524,13 +553,13 @@ void handleGpsFourierCalibration(RoboStruct *cal)
     }
     else if (millis() - lastDirMagChange > GC_HEADING_STUCK_TIMEOUT)
     {
-        abortRun(cal, "compass heading frozen");
+        abortRun(cal, "compass heading frozen", GPSCAL_ABORT_HEADING_FROZEN);
         return;
     }
 
     if (cal->gpsFix && distanceBetween(homeLat, homeLon, cal->lat, cal->lng) > GC_MAX_HOME_DIST)
     {
-        abortRun(cal, "drifted too far from the start position");
+        abortRun(cal, "drifted too far from the start position", GPSCAL_ABORT_DRIFTED);
         return;
     }
 
@@ -562,7 +591,7 @@ void handleGpsFourierCalibration(RoboStruct *cal)
         {
             if (tableTries >= GC_TABLE_TRIES)
             {
-                abortRun(cal, "Sub never reported its interpolation table");
+                abortRun(cal, "Sub never reported its interpolation table", GPSCAL_ABORT_NO_TABLE);
                 return;
             }
             printf("#GPSFOURIER: no table from the Sub, retry %d/%d\r\n", tableTries + 1, GC_TABLE_TRIES);
@@ -612,7 +641,7 @@ void handleGpsFourierCalibration(RoboStruct *cal)
 
         if (millis() - stepStart > GC_SETTLE_TIMEOUT)
         {
-            abortRun(cal, "buoy never settled on the commanded heading");
+            abortRun(cal, "buoy never settled on the commanded heading", GPSCAL_ABORT_NO_SETTLE);
             return;
         }
         break;
@@ -649,7 +678,7 @@ void handleGpsFourierCalibration(RoboStruct *cal)
                        legIdx, err, legRetries, GC_MAX_LEG_RETRIES);
                 if (legRetries >= GC_MAX_LEG_RETRIES)
                 {
-                    abortRun(cal, "could not hold a leg long enough to measure it");
+                    abortRun(cal, "could not hold a leg long enough to measure it", GPSCAL_ABORT_LEG_UNSTABLE);
                     return;
                 }
                 step = GC_SETTLE;
@@ -708,7 +737,7 @@ void handleGpsFourierCalibration(RoboStruct *cal)
 
         if (millis() - stepStart > GC_LEG_TIMEOUT)
         {
-            abortRun(cal, "leg did not cover the minimum distance in time");
+            abortRun(cal, "leg did not cover the minimum distance in time", GPSCAL_ABORT_LEG_TOO_SLOW);
             return;
         }
         break;
@@ -749,7 +778,7 @@ void handleGpsFourierCalibration(RoboStruct *cal)
             printf("#GPSFOURIER: Sub echoed a different table, resending\r\n");
             if (tableTries >= GC_TABLE_TRIES)
             {
-                abortRun(cal, "Sub would not store the new table");
+                abortRun(cal, "Sub would not store the new table", GPSCAL_ABORT_TABLE_REFUSED);
                 return;
             }
             sendTable(cal);
@@ -760,7 +789,7 @@ void handleGpsFourierCalibration(RoboStruct *cal)
         {
             if (tableTries >= GC_TABLE_TRIES)
             {
-                abortRun(cal, "Sub never confirmed the new table");
+                abortRun(cal, "Sub never confirmed the new table", GPSCAL_ABORT_NO_CONFIRM);
                 return;
             }
             printf("#GPSFOURIER: no confirmation, resend %d/%d\r\n", tableTries + 1, GC_TABLE_TRIES);
@@ -779,6 +808,17 @@ void handleGpsFourierCalibration(RoboStruct *cal)
                    i, GC_LEGS[i], legDist[i], legBearing[i], legError[i]);
         }
         printf("#GPSFOURIER: returning to %.8f, %.8f\r\n", homeLat, homeLon);
+        // These only ever went to the USB port, which on a sealed hull or a buoy on the water is
+        // the one place nobody can read them. Mirror them to the UDP log so a finished run can be
+        // checked from the shore - or from a bench simulation.
+        for (int i = 0; i < 8; i++)
+        {
+            udpLog("GPSCAL leg %d cmd=%3d dist=%5.1fm gps=%5.1f err=%+5.1f",
+                   i, GC_LEGS[i], legDist[i], legBearing[i], legError[i]);
+        }
+        udpLog("GPSCAL table %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f",
+               newTable[0], newTable[1], newTable[2], newTable[3],
+               newTable[4], newTable[5], newTable[6], newTable[7]);
 
         cal->tgLat = homeLat;
         cal->tgLng = homeLon;
@@ -795,9 +835,21 @@ void handleGpsFourierCalibration(RoboStruct *cal)
         xQueueSend(serOut, (void *)&reset, 10);
 
         step = GC_IDLE;
-        snprintf(progressMsg, sizeof(progressMsg), "done - returning home");
-        cal->status = LOCKED;
-        cal->lastSerOut = 0; // force an immediate DIRDIST so the Sub starts navigating home
+        // Sailing home is real navigation: LOCKED makes handleTimerRoutines() send DIRDIST to the
+        // Sub, and the Sub drives its thrusters on that. Under simulation the home position is a
+        // fiction, so the leg suppression in sendLegCommand() is not enough on its own - this
+        // would hand the real hull a course to a place it was never at. Finish idle instead.
+        if (gpsSimActive())
+        {
+            snprintf(progressMsg, sizeof(progressMsg), "done - simulated, not returning home");
+            cal->status = IDLING;
+        }
+        else
+        {
+            snprintf(progressMsg, sizeof(progressMsg), "done - returning home");
+            cal->status = LOCKED;
+            cal->lastSerOut = 0; // force an immediate DIRDIST so the Sub starts navigating home
+        }
 
         // Terminal frames: the periodic report stops here, so these are the last word on how the
         // run ended and what it produced.

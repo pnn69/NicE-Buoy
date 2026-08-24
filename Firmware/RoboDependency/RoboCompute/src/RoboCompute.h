@@ -129,6 +129,9 @@ typedef enum
     //                              fields[9] has passed 10 m; below that the displacement is too
     //                              short for a bearing and this reads 0.
     //   fields[11] gpsCalLastErr   signed error of the last COMPLETED leg, degrees
+    //   fields[12] gpsCalAbort     why the run stopped, see gpscal_abort_t. 0 while it is still
+    //                              running or finished cleanly. Optional: a Top that predates
+    //                              this field simply sends a shorter frame.
     // One extra frame is forced on completion (step DONE) and on abort (step ABORTED), so a
     // listener always sees how the run ended rather than just silence.
     GPS_FOURIER_STATUS
@@ -143,8 +146,32 @@ typedef enum
     GPSCAL_RUN = 3,         // measuring the GPS displacement over the leg
     GPSCAL_STORE = 4,       // handing the finished table to the Sub
     GPSCAL_DONE = 5,        // finished, returning to the start position
-    GPSCAL_ABORTED = 6      // stopped early, see the Top's serial log for the reason
+    GPSCAL_ABORTED = 6      // stopped early - gpscal_abort_t below says why
 } gpscal_step_t;
+
+// Why a GPS Fourier run stopped, reported in RoboStruct::gpsCalAbort by GPS_FOURIER_STATUS.
+//
+// The reason used to exist only as a string in the Top's progressMsg, which reaches its own web
+// page and nothing else. Over LoRa the CYD could therefore show that a run had aborted but never
+// why, and after fifteen seconds even that aged out and the panel went back to "No calibration
+// running" - indistinguishable from the command never having arrived. Every abort now carries a
+// code, so the display can say what actually went wrong while standing on the shore.
+typedef enum
+{
+    GPSCAL_ABORT_NONE = 0,
+    GPSCAL_ABORT_NO_FIX = 1,          // no GPS fix when the run was asked for
+    GPSCAL_ABORT_SUB_SILENT = 2,      // Sub not answering on the serial link at the start
+    GPSCAL_ABORT_FIX_LOST = 3,        // fix went away mid-run
+    GPSCAL_ABORT_LINK_LOST = 4,       // serial link to the Sub went away mid-run
+    GPSCAL_ABORT_HEADING_FROZEN = 5,  // dirMag bit-identical for too long, compass task hung
+    GPSCAL_ABORT_DRIFTED = 6,         // wandered past the runaway guard from the start position
+    GPSCAL_ABORT_NO_TABLE = 7,        // Sub never reported the table it is applying
+    GPSCAL_ABORT_NO_SETTLE = 8,       // never held the commanded heading long enough to start
+    GPSCAL_ABORT_LEG_UNSTABLE = 9,    // could not hold a leg straight enough to measure it
+    GPSCAL_ABORT_LEG_TOO_SLOW = 10,   // leg did not cover the minimum distance in time
+    GPSCAL_ABORT_TABLE_REFUSED = 11,  // Sub echoed back a different table than it was sent
+    GPSCAL_ABORT_NO_CONFIRM = 12      // Sub never confirmed the new table
+} gpscal_abort_t;
 
 struct RoboStruct
 {
@@ -231,6 +258,7 @@ struct RoboStruct
     double gpsCalDist = 0;    // metres covered on the current leg
     double gpsCalErr = 0;     // live signed error of the leg in progress, degrees
     double gpsCalLastErr = 0; // signed error of the last completed leg, degrees
+    int gpsCalAbort = 0;      // gpscal_abort_t - why the run stopped, 0 while running
     // How the calibration is allowed to interpret the difference between opposite legs.
     //
     // false - pair-averaged. Anything that flips sign between a heading and its opposite is taken
