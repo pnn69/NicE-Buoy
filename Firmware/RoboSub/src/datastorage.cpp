@@ -197,14 +197,27 @@ void speedMaxMin(RoboStruct *buoy, bool get)
         buoy->maxSpeed = storage.getInt("maxSpeed", 0);
         buoy->minSpeed = storage.getInt("minSpeed", 0);
         buoy->pivotSpeed = storage.getDouble("pivotSpeed", 0.5);
-        if (isnan(buoy->pivotSpeed)) buoy->pivotSpeed = 0.5;
-        if (buoy->pivotSpeed < 0.4) buoy->pivotSpeed = 0.5; // Enforce minimum floor to overcome water resistance/stiction
+        // Sanity guard only - NOT a tuning floor. This used to snap anything below 0.4 up to 0.5
+        // "to overcome water resistance/stiction", and because the clamp sat on the READ side it
+        // made low pivot speeds impossible to set at all: the CYD's SETUPDATA save wrote 0.2 to
+        // NVS quite happily, then the reload two lines later in main.cpp handed 0.5 back to the
+        // running config and echoed 0.5 to the Top and the CYD. The Setup page just snapped back
+        // and the operator could see no reason why. How hard the buoy has to push to pivot is the
+        // operator's call, so the only thing rejected here is a value that cannot be a setting:
+        // NaN, zero/negative, or above full scale - i.e. a corrupt or never-written key.
+        if (isnan(buoy->pivotSpeed) || buoy->pivotSpeed <= 0.0 || buoy->pivotSpeed > 1.0)
+        {
+            buoy->pivotSpeed = 0.5;
+        }
     }
     else
     {
         storage.putInt("maxSpeed", buoy->maxSpeed);
         storage.putInt("minSpeed", buoy->minSpeed);
-        storage.putDouble("pivotSpeed", buoy->pivotSpeed);
+        // Same range as the read side, so a malformed frame cannot park an unusable value in NVS.
+        double pv = buoy->pivotSpeed;
+        if (isnan(pv) || pv <= 0.0 || pv > 1.0) pv = 0.5;
+        storage.putDouble("pivotSpeed", pv);
     }
     stopMem();
 }
