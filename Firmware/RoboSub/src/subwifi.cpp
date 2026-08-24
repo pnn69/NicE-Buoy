@@ -3,7 +3,8 @@
  * @brief Dashboard and WiFi Management for NicE-Buoy Sub.
  * 
  * This module is aligned directly with RoboTop's wifi implementation:
- * 1. Joins NicE_WiFi when it is in reach, otherwise raises its own SUB_<id> AP (see below).
+ * 1. Joins NicE_WiFi if it is in reach at boot, otherwise raises its own SUB_<id> AP and stays
+ *    there - one attempt, at startup, and never again (see below).
  * 2. High-performance WebServer (Port 80) serving the dashboard.
  * 3. Lock-free, heap-allocation-free /data and /params JSON endpoints.
  * 4. Paced loop utilizing the precise RTOS delay structure.
@@ -97,6 +98,14 @@ bool setup_OTA()
 // the serial line to the Top, and the Top already forwards every command, setting and calibration
 // down it. The Sub's UDP transmit has been switched off for a while too. All WiFi buys the Sub is
 // its own dashboard and OTA - and its own AP serves both.
+//
+// Home is tried ONCE, at boot. The old build kept hunting for NicE_WiFi every 45 seconds from
+// underneath the AP, and with one radio that is not free: WiFi.begin() takes the chip off the AP's
+// channel for the whole association attempt, up to 15 seconds of it. From the outside the SUB_<id>
+// AP simply vanished from the phone's WiFi list every three quarters of a minute and came back -
+// exactly the kind of fault you cannot debug out on the water. So once we have fallen back to our
+// own AP we stay on it until the next reboot: the AP is then rock steady, and getting back onto
+// home is a power cycle away.
 static const char *HOME_SSID   = "NicE_WiFi";
 static const char *HOME_PASS   = "!Ni1001100110";
 static const char *OWN_AP_PASS = "geenanker";
@@ -249,6 +258,20 @@ static void stop_own_ap()
 }
 
 /**
+ * @brief Settles on our own AP for good: no more association attempts, no more off-channel time.
+ *
+ * The station interface stays up (we remain in AP_STA) but is left idle and told not to
+ * auto-reconnect, so nothing in the driver can pull the radio away from the AP's channel behind
+ * our back. A reboot is what puts the Sub back on home.
+ */
+static void give_up_on_home()
+{
+    WiFi.setAutoReconnect(false);
+    WiFi.disconnect();
+    Serial.println("[WiFi] staying on our own AP until reboot - home is only tried at startup");
+}
+
+/**
  * @brief Retrieves the device's MAC address as an unsigned long.
  */
 unsigned long espMac(void) {
@@ -316,15 +339,18 @@ void WiFiTask(void *arg) {
         xQueueSend(ledStatus, (void *)&wifiCollorUtil, 10);
         
         if (!connect_known_wifi(&ip)) {
-            // Nothing in reach - raise our own AP so there is still a way in out on the water.
+            // Nothing in reach - raise our own AP so there is still a way in out on the water,
+            // and settle there. That was our one shot at home.
             setup_wifi_ap(String(ownApSsid), String(OWN_AP_PASS), &ip);
+            give_up_on_home();
+            runBackgroundReconnection = false;
         } else {
             start_mdns();
+            // We did get on the network, and no AP of ours is up to be disturbed, so it is still
+            // worth re-joining home if the link drops later. The moment that re-join fails and we
+            // have to raise our own AP, the hunt stops for good - see the loop below.
+            runBackgroundReconnection = true;
         }
-        // Always on now, in both branches. A Sub sitting on its own AP has to keep hunting for
-        // home - that is the entire point of AP_STA - and a Sub that did get on the network still
-        // has to cope with losing it later.
-        runBackgroundReconnection = true;
     }
     
     wifiCollorUtil.color = CRGB::Black;
@@ -989,8 +1015,10 @@ void WiFiTask(void *arg) {
             dnsServer.processNextRequest();
         }
 
-        // Background hunt for home, running underneath our own AP. Robo_WiFi is not on the list:
-        // see the note above connect_known_wifi().
+        // Re-join home if we lose it. This only ever runs on a Sub that was on home to begin
+        // with; one that fell back to its own AP at boot has already given up on home, and one
+        // that raises its AP below gives up at that moment. Robo_WiFi is not on the list: see the
+        // note above connect_known_wifi().
         if (runBackgroundReconnection) {
             unsigned long current_time = millis();
 
@@ -1016,13 +1044,15 @@ void WiFiTask(void *arg) {
                     }
                 } else if (current_time - connectionStartedTime > 15000) {
                     connectAttemptState = 0;
-                    WiFi.disconnect();
-                    // Home not in reach. Underwater that is simply the normal state, so we keep
-                    // looking - but raise our own AP first, so you can still get at us.
+                    // Home is gone. Raise our own AP so you can still get at us - and then stop
+                    // hunting, because every further attempt would drag the radio off the AP's
+                    // channel and make the AP flicker in and out of the phone's WiFi list.
                     if (!apActive) {
                         IPAddress apIp;
                         setup_wifi_ap(String(ownApSsid), String(OWN_AP_PASS), &apIp);
                     }
+                    give_up_on_home();
+                    runBackgroundReconnection = false;
                 }
             }
             else {

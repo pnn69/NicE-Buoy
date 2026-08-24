@@ -115,9 +115,12 @@ RoboSub hosts a lightweight local web server to display real-time telemetry diag
     the AP channel.
 *   **The Sub deliberately skips `Robo_WiFi`**, the CYD's field AP, to keep its client slots for the
     Tops and a phone. Nothing is lost by this - see below.
-*   **The fallback AP keeps hunting.** It runs in `WIFI_AP_STA` and keeps looking for home
-    underneath, but will not tear itself down while a client is connected. Under water it will never
-    find anything, and that is the expected steady state.
+*   **Home is tried once, at boot.** If `NicE_WiFi` is not in reach the Sub raises `SUB_<id>` and
+    stays on it until the next reboot - no periodic re-hunting. The old build retried every 45 s,
+    and because the ESP32 has one radio each attempt pulled it off the AP's channel for up to 15 s,
+    so the `SUB_<id>` AP kept vanishing from the phone's WiFi list and coming back. A Sub that *did*
+    join home at boot still re-joins if the link drops, but the first re-join that fails raises its
+    own AP and ends the hunt for good. To get back onto `NicE_WiFi`, power cycle.
 *   **mDNS**: reachable as `sub-<id>.local` in both modes. Only `ArduinoOTA.begin()` may initialise
     the responder - a second one has crashed this hardware.
 *   **The Sub never transmits on UDP.** The broadcast in the WiFi loop is commented out, and the
