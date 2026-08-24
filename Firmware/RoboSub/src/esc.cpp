@@ -7,6 +7,7 @@
 #include "esc.h"
 #include "io_sub.h"
 #include "leds.h"
+#include "datastorage.h"
 
 LedPwrtruct powerIndicator;
 QueueHandle_t escspeed;
@@ -21,23 +22,41 @@ Servo servoSB;
 
 unsigned long escStamp = 0;
 
+// Per-thruster stop pulse. Loaded from NVS in EscTask before the ESCs are ever armed.
+int esc_neutral_bb = ESC_NEUTRAL_NOMINAL_US;
+int esc_neutral_sb = ESC_NEUTRAL_NOMINAL_US;
+
 /**
- * @brief Converts speed % to microsecond pulse (1000-2000us)
+ * @brief Converts speed % to a microsecond pulse, hinged on this thruster's own neutral.
+ *
+ * Two straight lines rather than one, meeting exactly at the trimmed neutral: -100% still reaches
+ * ESC_MIN_US and +100% still reaches ESC_MAX_US, so trimming the stop point does not cost travel
+ * at either end - it only moves where "stop" sits. A single map() across the whole range would
+ * have skewed full scale as soon as the neutral moved off centre.
+ *
+ * Zero is returned as the neutral verbatim, never computed, so stop is always exactly the number
+ * that was trimmed and cannot drift by a microsecond of integer rounding.
  */
-uint16_t speedToPulse(int speed, bool invert)
+uint16_t speedToPulse(int speed, bool invert, int neutralUs)
 {
     if (invert) speed = -speed;
-    return (uint16_t)map(speed, -100, 100, ESC_MIN_US, ESC_MAX_US);
+    if (speed > 100) speed = 100;
+    if (speed < -100) speed = -100;
+    if (neutralUs < ESC_NEUTRAL_MIN_US || neutralUs > ESC_NEUTRAL_MAX_US) neutralUs = ESC_NEUTRAL_NOMINAL_US;
+
+    if (speed == 0) return (uint16_t)neutralUs;
+    if (speed > 0)  return (uint16_t)(neutralUs + (long)(ESC_MAX_US - neutralUs) * speed / 100);
+    return (uint16_t)(neutralUs + (long)(neutralUs - ESC_MIN_US) * speed / 100);
 }
 
 void triggerESC(void)
 {
     Serial.println("Triggering ESC Test Sequence...");
-    servoBB.writeMicroseconds(speedToPulse(10, false));
-    servoSB.writeMicroseconds(speedToPulse(10, false));
+    servoBB.writeMicroseconds(speedToPulse(10, false, esc_neutral_bb));
+    servoSB.writeMicroseconds(speedToPulse(10, false, esc_neutral_sb));
     vTaskDelay(pdMS_TO_TICKS(1000));
-    servoBB.writeMicroseconds(speedToPulse(0, false));
-    servoSB.writeMicroseconds(speedToPulse(0, false));
+    servoBB.writeMicroseconds(speedToPulse(0, false, esc_neutral_bb));
+    servoSB.writeMicroseconds(speedToPulse(0, false, esc_neutral_sb));
 }
 
 void playTone(int frequency) { }
@@ -68,14 +87,15 @@ void startESC(void)
     servoBB.attach(ESC_BB_PIN, ESC_MIN_US, ESC_MAX_US);
     servoSB.attach(ESC_SB_PIN, ESC_MIN_US, ESC_MAX_US);
     
-    // Write 1500us neutral signal
-    uint16_t neutral = speedToPulse(0, false);
-    servoBB.writeMicroseconds(neutral);
-    servoSB.writeMicroseconds(neutral);
-    
+    // Each thruster gets ITS OWN stop pulse, not a shared 1500. An ESC whose neutral is calibrated
+    // a little low reads a nominal 1500 as a small forward command and creeps for as long as it has
+    // power - which is exactly what the starboard thruster was doing after every arming.
+    servoBB.writeMicroseconds(speedToPulse(0, false, esc_neutral_bb));
+    servoSB.writeMicroseconds(speedToPulse(0, false, esc_neutral_sb));
+
     // Keep neutral for 3 seconds to guarantee arming sequence completes
     vTaskDelay(pdMS_TO_TICKS(3000));
-    Serial.println("ESCs Armed (Neutral 1500us sent)");
+    Serial.printf("ESCs armed (neutral BB %d us, SB %d us)\r\n", esc_neutral_bb, esc_neutral_sb);
 }
 
 void calculateLedColor(int speed, uint8_t& r, uint8_t& g) {
@@ -110,6 +130,10 @@ void EscTask(void *arg)
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 
+    // Before the first arming: the trim has to be in hand when the neutral pulse is first sent.
+    memEscNeutral(&esc_neutral_bb, &esc_neutral_sb, MEM_GET);
+    printf("ESC neutral trim: BB %d us, SB %d us\r\n", esc_neutral_bb, esc_neutral_sb);
+
     // Start with power enabled
     startESC();
     esc_power_on = true;
@@ -120,8 +144,10 @@ void EscTask(void *arg)
     while (1)
     {
         if (global_is_calibrating) {
-            servoBB.writeMicroseconds(1500); // Force neutral thrusters during calibration for safety and efficiency
-            servoSB.writeMicroseconds(1500);
+            // Trimmed neutral, not a bare 1500 - see speedToPulse(). A hard 1500 here was enough
+            // to keep an off-centre ESC turning right through a compass calibration.
+            servoBB.writeMicroseconds(speedToPulse(0, false, esc_neutral_bb));
+            servoSB.writeMicroseconds(speedToPulse(0, false, esc_neutral_sb));
             spsb = 0; spbb = 0; spsbAct = 0; spbbAct = 0;
             vTaskDelay(pdMS_TO_TICKS(50));
             continue;
@@ -177,8 +203,8 @@ void EscTask(void *arg)
                     s_sb = spbbAct;
                     s_bb = spsbAct;
                 }
-                servoSB.writeMicroseconds(speedToPulse(s_sb, mainData.revSB));
-                servoBB.writeMicroseconds(speedToPulse(s_bb, mainData.revBB));
+                servoSB.writeMicroseconds(speedToPulse(s_sb, mainData.revSB, esc_neutral_sb));
+                servoBB.writeMicroseconds(speedToPulse(s_bb, mainData.revBB, esc_neutral_bb));
                 global_speed_bb = s_bb;
                 global_speed_sb = s_sb;
             } else {

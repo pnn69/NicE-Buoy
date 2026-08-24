@@ -9,6 +9,15 @@ typedef struct Message
     int speedsb;
 } Message;
 
+// Nominal ESC stop pulse, and how far either thruster's trim may sit from it. See memEscNeutral().
+#define ESC_NEUTRAL_NOMINAL_US 1500
+#define ESC_NEUTRAL_MIN_US     1400
+#define ESC_NEUTRAL_MAX_US     1600
+
+// Live trim, loaded from NVS at boot. subwifi.cpp writes these from /setparam.
+extern int esc_neutral_bb;
+extern int esc_neutral_sb;
+
 void initescqueue(void);
 void startESC(void);
 void beepESC(void);

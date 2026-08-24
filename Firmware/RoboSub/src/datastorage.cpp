@@ -3,6 +3,7 @@
 #include <main.h>
 #include <RoboCompute.h>
 #include "subwifi.h"
+#include "esc.h"   // ESC_NEUTRAL_* limits used by memEscNeutral()
 Preferences storage;
 static SemaphoreHandle_t nvsMutex = NULL;
 
@@ -633,6 +634,38 @@ void memInterpolationTable(float *angles, bool get)
     else
     {
         storage.putBytes("meas_ang", angles, sizeof(float) * 9);
+    }
+    stopMem();
+}
+
+/**
+ * @brief Reads or writes the per-thruster ESC neutral pulse width, in microseconds.
+ *
+ * 1500 us is only nominally "stop". A bidirectional ESC stores its own neutral point, and the two
+ * units on a buoy are rarely calibrated identically - one of ours sits far enough off that a
+ * nominal 1500 is read as a small forward command and the thruster creeps for as long as the ESC
+ * has power. Rather than recalibrate the ESC in the field, trim the pulse the firmware sends.
+ *
+ * Clamped to +/-100 us of nominal. That is wide enough for any real ESC offset and narrow enough
+ * that a fat-fingered value cannot turn "stop" into meaningful thrust.
+ */
+void memEscNeutral(int *bb, int *sb, bool get)
+{
+    startMem();
+    if (get)
+    {
+        *bb = storage.getInt("escNeutBb", ESC_NEUTRAL_NOMINAL_US);
+        *sb = storage.getInt("escNeutSb", ESC_NEUTRAL_NOMINAL_US);
+        if (*bb < ESC_NEUTRAL_MIN_US || *bb > ESC_NEUTRAL_MAX_US) *bb = ESC_NEUTRAL_NOMINAL_US;
+        if (*sb < ESC_NEUTRAL_MIN_US || *sb > ESC_NEUTRAL_MAX_US) *sb = ESC_NEUTRAL_NOMINAL_US;
+    }
+    else
+    {
+        int b = *bb, s = *sb;
+        if (b < ESC_NEUTRAL_MIN_US || b > ESC_NEUTRAL_MAX_US) b = ESC_NEUTRAL_NOMINAL_US;
+        if (s < ESC_NEUTRAL_MIN_US || s > ESC_NEUTRAL_MAX_US) s = ESC_NEUTRAL_NOMINAL_US;
+        storage.putInt("escNeutBb", b);
+        storage.putInt("escNeutSb", s);
     }
     stopMem();
 }

@@ -28,6 +28,7 @@
 #include "subwifi.h"
 #include "leds.h"
 #include "buzzer.h"
+#include "esc.h"
 
 // Our identity on the network, filled in by build_identity() below. Declared up here because
 // setup_OTA() needs the mDNS hostname and runs before any of the WiFi policy code.
@@ -720,6 +721,20 @@ void WiFiTask(void *arg) {
                 mainData.compass_trim = 0.0f;
                 paramUpdated = true;
             }
+            // ESC stop-pulse trim, microseconds. Takes effect on the next 20 ms pulse, so you can
+            // watch a creeping thruster stop while you adjust it.
+            else if(p=="nbb"){
+                int t = (int)v;
+                if (t < ESC_NEUTRAL_MIN_US) t = ESC_NEUTRAL_MIN_US;
+                if (t > ESC_NEUTRAL_MAX_US) t = ESC_NEUTRAL_MAX_US;
+                esc_neutral_bb = t; paramUpdated = true;
+            }
+            else if(p=="nsb"){
+                int t = (int)v;
+                if (t < ESC_NEUTRAL_MIN_US) t = ESC_NEUTRAL_MIN_US;
+                if (t > ESC_NEUTRAL_MAX_US) t = ESC_NEUTRAL_MAX_US;
+                esc_neutral_sb = t; paramUpdated = true;
+            }
             else if(p=="prdamp"){
                 pr_damping = v;
                 if (pr_damping < 0.0f) pr_damping = 0.0f;
@@ -754,6 +769,9 @@ void WiFiTask(void *arg) {
             else if(p=="prdamp"){
                 memPrDamping(&pr_damping, MEM_PUT);
             }
+            else if(p=="nbb" || p=="nsb"){
+                memEscNeutral(&esc_neutral_bb, &esc_neutral_sb, MEM_PUT);
+            }
         }
         subServer.send(200,"text/plain","OK");
     });
@@ -784,8 +802,9 @@ void WiFiTask(void *arg) {
         
         char buf[700];
         snprintf(buf, sizeof(buf), 
-            "{\"kpr\":%.3f,\"kir\":%.3f,\"kdr\":%.3f,\"kps\":%.3f,\"kis\":%.3f,\"kds\":%.3f,\"coff\":%.1f,\"revbb\":%d,\"revsb\":%d,\"tswap\":%d,\"pvspd\":%.2f,\"minspd\":%d,\"maxspd\":%d,\"holdrad\":%.1f,\"cavg\":%d,\"ctrim\":%.3f,\"ctrim_en\":%d,\"prdamp\":%.3f}",
-            kpr, kir, kdr, kps, kis, kds, coff, revbb, revsb, tswap, pvspd, minspd, maxspd, holdrad, cavg, ctrim, ctrim_en, prdamp
+            "{\"kpr\":%.3f,\"kir\":%.3f,\"kdr\":%.3f,\"kps\":%.3f,\"kis\":%.3f,\"kds\":%.3f,\"coff\":%.1f,\"revbb\":%d,\"revsb\":%d,\"tswap\":%d,\"pvspd\":%.2f,\"minspd\":%d,\"maxspd\":%d,\"holdrad\":%.1f,\"cavg\":%d,\"ctrim\":%.3f,\"ctrim_en\":%d,\"prdamp\":%.3f,\"nbb\":%d,\"nsb\":%d}",
+            kpr, kir, kdr, kps, kis, kds, coff, revbb, revsb, tswap, pvspd, minspd, maxspd, holdrad, cavg, ctrim, ctrim_en, prdamp,
+            esc_neutral_bb, esc_neutral_sb
         );
         subServer.send(200, "application/json", buf);
     });
