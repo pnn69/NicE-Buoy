@@ -38,6 +38,9 @@ struct BuoyData {
     double tg_lat = 0;
     double tg_lon = 0;
     unsigned long tg_pos_seen_ms = 0;
+    // Why the last GPS Fourier run stopped (gpscal_abort_t). Sticky: kept after cal_seen_ms
+    // has aged out, so an abort is still readable minutes later instead of blinking past.
+    int cal_abort = 0;
 
     // Setup / Calibration fields (Preloaded with standard baseline defaults, matching the webpage!)
     float kpr = 1.20;

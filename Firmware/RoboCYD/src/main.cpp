@@ -242,8 +242,10 @@ void update_radar_map_dynamic();
 #define MAP_BACK_Y      280  // BACK button top edge (height 35)
 
 // Text inset for the menu buoy buttons, which span X 10..230. Size 2 text is 12 px per
-// character, so the top row fits "Buoy n: b7a5b578" (16 chars, 192 px) from BTN_PAD_L with
-// room left for the one-character status badge hard against the right inset.
+// character. The top row is spelled "Buoy1:b7a5b578" with no spaces around the colon: at
+// 14 chars it is 168 px and ends at x=182, well clear of the one-character status badge
+// that sits at 214..226 hard against the right inset. Spelled out as "Buoy n: <id>" it ran
+// to 192 px and left only 8 px of daylight, so the badge painted over the tail of the id.
 #define BTN_PAD_L        14  // Left text edge
 #define BTN_PAD_R        14  // Right text edge, measured from the screen width
 
@@ -842,8 +844,17 @@ void draw_resting_ui() {
             // Draw LoRa status on its own line above the IP address
             tft.drawString("LoRa: 433M", w / 2, h - 22);
             
-            // Draw local IP address on its own line below the LoRa status
-            IPAddress ip = WiFi.localIP();
+            IPAddress ip;
+
+            if (WiFi.getMode() & WIFI_MODE_AP)
+            {
+                ip = WiFi.softAPIP();
+            }
+            else
+            {
+                ip = WiFi.localIP();
+            }
+
             char ip_buf[48];
             sprintf(ip_buf, "IP: %s", ip.toString().c_str());
             tft.drawString(ip_buf, w / 2, h - 6);
@@ -864,22 +875,50 @@ void draw_resting_ui() {
 
 // Live GPS Fourier calibration progress, drawn on the ACTIONS page below the two start buttons.
 // Fed by GPS_FOURIER_STATUS (cmd 90); see parse_buoy_packet() in buoy_data.cpp.
+// gpscal_abort_t from RoboCompute.h, spelled out for the panel. The Top sends only the number.
+static const char *gps_cal_abort_text(int code) {
+    switch (code) {
+        case 1:  return "no GPS fix";
+        case 2:  return "Sub silent on serial";
+        case 3:  return "GPS fix lost";
+        case 4:  return "lost serial to Sub";
+        case 5:  return "compass frozen";
+        case 6:  return "drifted too far";
+        case 7:  return "Sub sent no table";
+        case 8:  return "never settled on heading";
+        case 9:  return "leg too unstable";
+        case 10: return "leg too slow";
+        case 11: return "Sub refused table";
+        case 12: return "Sub never confirmed";
+        default: return "reason not reported";
+    }
+}
+
 void draw_gps_cal_panel(BuoyData &b) {
     int w = tft.width();
 
     // The Top only reports while a run is active, so silence means no run. 15 s is comfortably
     // longer than the 5 s LoRa report interval, so a single dropped frame does not blank the panel.
     bool live = (b.cal_seen_ms != 0) && (millis() - b.cal_seen_ms < 15000);
+    // An abort is the one report you must not miss, and it is also the last one the Top ever
+    // sends - so the 15 s liveness window used to erase it and leave the panel reading "No
+    // calibration running", which is exactly what a command that never arrived looks like.
+    // Hold it on the glass until something else happens.
+    bool aborted = (b.cal_seen_ms != 0) && (b.cal_step == 6);
+    if (aborted) live = true;
 
     static int   c_idx = -1;
     static bool  c_live = false;
     static int   c_step = -1, c_leg = -1;
     static float c_dir = -999, c_dist = -999, c_err = -999, c_last = -999;
+    static int c_abort = -1;
     if (!gps_cal_panel_dirty && c_idx == selected_buoy_idx && c_live == live &&
         c_step == b.cal_step && c_leg == b.cal_leg && c_dir == b.cal_cmd_dir &&
-        c_dist == b.cal_dist && c_err == b.cal_err && c_last == b.cal_last_err) {
+        c_dist == b.cal_dist && c_err == b.cal_err && c_last == b.cal_last_err &&
+        c_abort == b.cal_abort) {
         return;
     }
+    c_abort = b.cal_abort;
     gps_cal_panel_dirty = false;
     c_idx = selected_buoy_idx; c_live = live;
     c_step = b.cal_step; c_leg = b.cal_leg; c_dir = b.cal_cmd_dir;
@@ -918,6 +957,20 @@ void draw_gps_cal_panel(BuoyData &b) {
     tft.setTextSize(2);
     tft.setTextColor(phaseCol, TFT_BLACK);
     tft.drawString(phase, 14, 78);
+
+    if (b.cal_step == 6) {
+        // Distance, live error and the progress bar all describe a leg that is no longer being
+        // sailed. The reason is the only thing worth the space.
+        tft.setTextSize(1);
+        tft.setTextColor(TFT_RED, TFT_BLACK);
+        tft.drawString(gps_cal_abort_text(b.cal_abort), 14, 104);
+        tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+        sprintf(buf, "stopped on leg %d of 8", b.cal_leg + 1);
+        tft.drawString(buf, 14, 124);
+        tft.drawString("fix the cause, then run it again", 14, 144);
+        tft.setTextDatum(MC_DATUM);
+        return;
+    }
 
     tft.setTextSize(1);
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -1371,7 +1424,7 @@ void update_dynamic_ui() {
                     tft.drawRoundRect(10, y, w - 20, 40, 5, TFT_DARKGREY);
                     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
                     tft.setTextSize(2);
-                    tft.drawString("Buoy " + String(i+1) + ": [Waiting]", w / 2, y + 20);
+                    tft.drawString("Buoy" + String(i+1) + ": [Waiting]", w / 2, y + 20);
                 } else if (current_present == 1) {
                     // Present: Green button
                     tft.fillRoundRect(10, y, w - 20, 40, 5, TFT_GREEN);
@@ -1385,7 +1438,7 @@ void update_dynamic_ui() {
                     tft.setTextSize(2);
 
                     tft.setTextDatum(TL_DATUM);
-                    tft.drawString("Buoy " + String(i+1) + ": " + buoys[i].id, BTN_PAD_L, y + 3);
+                    tft.drawString("Buoy" + String(i+1) + ":" + buoys[i].id, BTN_PAD_L, y + 3);
 
                     bool settled = true;
                     char badge = status_badge(buoys[i].status, settled);
@@ -1413,7 +1466,7 @@ void update_dynamic_ui() {
                     tft.fillRoundRect(10, y, w - 20, 40, 5, TFT_RED);
                     tft.setTextColor(TFT_WHITE, TFT_RED);
                     tft.setTextSize(2);
-                    tft.drawString("Buoy " + String(i+1) + ": [Offline]", w / 2, y + 20);
+                    tft.drawString("Buoy" + String(i+1) + ": [Offline]", w / 2, y + 20);
                 }
             }
 

@@ -206,6 +206,8 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         buoys[buoy_idx].cal_err     = atof(fields[10].c_str());
         // fields[11] only exists on a Top new enough to send it.
         if (fields.size() >= 12) buoys[buoy_idx].cal_last_err = atof(fields[11].c_str());
+        // fields[12] only exists on a Top new enough to send the abort reason.
+        if (fields.size() >= 13) buoys[buoy_idx].cal_abort = atoi(fields[12].c_str());
         return; // carries no position or battery data - nothing else here applies
     }
 

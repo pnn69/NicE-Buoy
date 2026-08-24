@@ -31,14 +31,14 @@ WebSocketsServer webSocket(81);
 // Deciding once, rather than continuously, is on purpose: migrating home mid-session would tear
 // Robo_WiFi out from under every Top at once. We do re-check in the background, but only while
 // nobody is connected to us - see cyd_wifi_background() at the bottom of this file.
-static const char *HOME_SSID   = "NicE_WiFi";
-static const char *HOME_PASS   = "!Ni1001100110";
-static const char *FIELD_SSID  = "Robo_WiFi";
-static const char *FIELD_PASS  = "geenanker";
-static const char *MDNS_HOST   = "robocyd";   // http://robocyd.local, in either mode
+static const char *HOME_SSID = "NicE_WiFi";
+static const char *HOME_PASS = "!Ni1001100110";
+static const char *FIELD_SSID = "Robo_WiFi";
+static const char *FIELD_PASS = "geenanker";
+static const char *MDNS_HOST = "robocyd"; // http://robocyd.local, in either mode
 
-static DNSServer dnsServer;    // wildcard DNS, so joining Robo_WiFi opens the dashboard by itself
-static bool apActive = false;  // we are currently Robo_WiFi
+static DNSServer dnsServer;   // wildcard DNS, so joining Robo_WiFi opens the dashboard by itself
+static bool apActive = false; // we are currently Robo_WiFi
 
 // mDNS gives us a name that works in both modes. The captive portal below cannot do that: we will
 // not hijack DNS on NicE_WiFi, only on our own network.
@@ -68,13 +68,16 @@ static void start_mdns()
 // long enough for a connected Top or phone to give up on us. begin() does its own short, targeted
 // probe and simply fails on timeout when the AP is not there - the only thing the scan ever told
 // us that we actually needed.
-static bool try_connect(const char *ssid, const char *pass, uint32_t timeoutMs) {
+static bool try_connect(const char *ssid, const char *pass, uint32_t timeoutMs)
+{
     Serial.printf("[WiFi] trying '%s' ... ", ssid);
     WiFi.begin(ssid, pass);
 
     unsigned long start = millis();
-    while (WiFi.status() != WL_CONNECTED) {
-        if (millis() - start > timeoutMs) {
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        if (millis() - start > timeoutMs)
+        {
             Serial.println("not there");
             WiFi.disconnect();
             return false;
@@ -88,8 +91,10 @@ static bool try_connect(const char *ssid, const char *pass, uint32_t timeoutMs) 
 
     // Associated is not the same as usable. WL_CONNECTED fires on association, but starting mDNS
     // or OTA while the lease is still 0.0.0.0 takes the lwIP stack - and the chip - down with it.
-    while (WiFi.localIP() == IPAddress(0, 0, 0, 0)) {
-        if (millis() - start > timeoutMs + 6000) {
+    while (WiFi.localIP() == IPAddress(0, 0, 0, 0))
+    {
+        if (millis() - start > timeoutMs + 6000)
+        {
             Serial.println("no DHCP lease");
             WiFi.disconnect();
             return false;
@@ -104,20 +109,26 @@ static bool try_connect(const char *ssid, const char *pass, uint32_t timeoutMs) 
 }
 
 // Become Robo_WiFi: the field network the Tops look for.
-static void start_field_ap() {
+static void start_field_ap()
+{
     WiFi.mode(WIFI_AP);
 
     // Same subnet as home on purpose, so the field network and the living room look identical
     // from a browser's point of view, and the AP is its own gateway - handing out a gateway that
     // never answers is what makes Android decide a network is broken and drop it.
-    IPAddress apIP(192, 168, 1, 1);
+    IPAddress apIP(192, 168, 4, 1);
     WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
 
     // max_connection defaults to 4 in the Arduino wrapper, which is exactly the budget of three
     // Tops plus a phone and leaves nothing for a laptop. The ESP32 silicon allows 15; 8 is plenty.
-    if (WiFi.softAP(FIELD_SSID, FIELD_PASS, 1, 0, 8)) {
+    if (WiFi.softAP(FIELD_SSID, FIELD_PASS, 1, 0, 8))
+    // if (WiFi.softAP(FIELD_SSID, FIELD_PASS))
+    {
+        Serial.printf("AP IP = %s\n", WiFi.softAPIP().toString().c_str());
         WiFi.setSleep(WIFI_PS_NONE);
         apActive = true;
+        String url = "http://" + WiFi.softAPIP().toString();
+        boot_screen_status(url.c_str());
 
         // Wildcard DNS: every lookup resolves to us, so a phone's own connectivity probe lands on
         // our web server, gets the redirect from onNotFound instead of the 204 it expected, and
@@ -128,7 +139,9 @@ static void start_field_ap() {
         Serial.printf("[WiFi] AP '%s' up on %s\r\n", FIELD_SSID, WiFi.softAPIP().toString().c_str());
         boot_screen_wifi(BOOT_WIFI_AP);
         boot_screen_status(WiFi.softAPIP().toString().c_str());
-    } else {
+    }
+    else
+    {
         Serial.println("[WiFi] softAP failed!");
         boot_screen_wifi(BOOT_WIFI_DOWN);
         boot_screen_status("AP FAILED");
@@ -136,13 +149,15 @@ static void start_field_ap() {
     start_mdns();
 }
 
-bool scan_and_connect_wifi() {
+bool scan_and_connect_wifi()
+{
     // No fillScreen here any more: the splash is already up and reports progress through its own
     // status band. Clearing the panel would throw the logo away a few hundred ms after drawing it.
     WiFi.mode(WIFI_STA);
     boot_screen_status("NicE_WiFi");
 
-    if (try_connect(HOME_SSID, HOME_PASS, 8000)) {
+    if (try_connect(HOME_SSID, HOME_PASS, 8000))
+    {
         apActive = false;
         start_mdns();
         boot_screen_wifi(BOOT_WIFI_CLIENT);
@@ -154,12 +169,14 @@ bool scan_and_connect_wifi() {
     return false;
 }
 
-void setup_Arduino_OTA() {
+void setup_Arduino_OTA()
+{
     // Same name mDNS advertises - see the note in start_mdns(). Also drops the underscore, which
     // is not legal in a hostname label.
     ArduinoOTA.setHostname(MDNS_HOST);
-    
-    ArduinoOTA.onStart([]() {
+
+    ArduinoOTA.onStart([]()
+                       {
         Serial.println("OTA Start");
         tft.fillScreen(TFT_BLACK);
         
@@ -172,16 +189,16 @@ void setup_Arduino_OTA() {
         tft.setTextColor(TFT_WHITE, TFT_BLACK);
         tft.setTextSize(3);
         tft.setTextDatum(MC_DATUM);
-        tft.drawString("OTA Update...", w / 2, h / 2 - 30);
-    });
-    
-    ArduinoOTA.onEnd([]() {
+        tft.drawString("OTA Update...", w / 2, h / 2 - 30); });
+
+    ArduinoOTA.onEnd([]()
+                     {
         Serial.println("\nOTA End");
         tft.fillScreen(TFT_BLACK);
-        tft.drawString("Restarting...", tft.width() / 2, tft.height() / 2);
-    });
-    
-    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+        tft.drawString("Restarting...", tft.width() / 2, tft.height() / 2); });
+
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
+                          {
         static int lastPercent = -1;
         int percent = progress / (total / 100);
         
@@ -227,14 +244,13 @@ void setup_Arduino_OTA() {
                     }
                 }
             }
-        }
-    });
-    
-    ArduinoOTA.onError([](ota_error_t error) {
+        } });
+
+    ArduinoOTA.onError([](ota_error_t error)
+                       {
         Serial.printf("Error[%u]\n", error);
-        ESP.restart();
-    });
-    
+        ESP.restart(); });
+
     ArduinoOTA.begin();
     // Redundant mDNS initialization removed (ArduinoOTA.begin() natively handles mDNS registration automatically,
     // thereby avoiding dual-allocation heap responder collisions and panics!).
@@ -242,51 +258,60 @@ void setup_Arduino_OTA() {
 }
 
 // WebSocket server event callback
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
-    switch(type) {
-        case WStype_DISCONNECTED:
-            Serial.printf("[%u] Web Client Disconnected!\n", num);
-            break;
-        case WStype_CONNECTED: {
-            IPAddress ip = webSocket.remoteIP(num);
-            Serial.printf("[%u] Web Client Connected from %s\n", num, ip.toString().c_str());
-            // Send welcome message to newly connected webpage clients
-            webSocket.sendTXT(num, "UDP:Welcome to RoboCYD Dashboard");
-            break;
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
+{
+    switch (type)
+    {
+    case WStype_DISCONNECTED:
+        Serial.printf("[%u] Web Client Disconnected!\n", num);
+        break;
+    case WStype_CONNECTED:
+    {
+        IPAddress ip = webSocket.remoteIP(num);
+        Serial.printf("[%u] Web Client Connected from %s\n", num, ip.toString().c_str());
+        // Send welcome message to newly connected webpage clients
+        webSocket.sendTXT(num, "UDP:Welcome to RoboCYD Dashboard");
+        break;
+    }
+    case WStype_TEXT:
+    {
+        String message = "";
+        message.reserve(length);
+        for (size_t i = 0; i < length; i++)
+        {
+            message += (char)payload[i];
         }
-        case WStype_TEXT: {
-            String message = "";
-            message.reserve(length);
-            for (size_t i = 0; i < length; i++) {
-                message += (char)payload[i];
-            }
-            
-            // Ensure message is trimmed and has proper line endings before transmission to hardware receivers
-            String trimmed = message;
-            trimmed.trim();
-            String finalMsg = trimmed + "\r\n";
 
-            Serial.print("WebSocket RX Command: ");
-            Serial.println(trimmed);
+        // Ensure message is trimmed and has proper line endings before transmission to hardware receivers
+        String trimmed = message;
+        trimmed.trim();
+        String finalMsg = trimmed + "\r\n";
 
-            // Forward the command directly over both communication channels with proper line endings!
-            parse_buoy_packet(trimmed, "UDP"); // Register the change locally on screen
-            send_lora_packet(finalMsg);         // Send to LoRa radio channel WITH \r\n
-            udp_broadcast(finalMsg);            // Send to UDP network channel WITH \r\n
-            break;
-        }
-        default:
-            break;
+        Serial.print("WebSocket RX Command: ");
+        Serial.println(trimmed);
+
+        // Forward the command directly over both communication channels with proper line endings!
+        parse_buoy_packet(trimmed, "UDP"); // Register the change locally on screen
+        send_lora_packet(finalMsg);        // Send to LoRa radio channel WITH \r\n
+        udp_broadcast(finalMsg);           // Send to UDP network channel WITH \r\n
+        break;
+    }
+    default:
+        break;
     }
 }
 
-void init_wifi_and_ota() {
+void init_wifi_and_ota()
+{
     // CRITICAL FIRST STEP: Mount SPIFFS filesystem FIRST, before connecting to WiFi or starting servers.
     // This isolates the filesystem mount from active network interrupts and thread allocations,
     // preventing watchdog timeouts and memory leaks.
-    if (!SPIFFS.begin(true)) {
+    if (!SPIFFS.begin(true))
+    {
         Serial.println("An Error has occurred while mounting SPIFFS");
-    } else {
+    }
+    else
+    {
         Serial.println("SPIFFS mounted successfully!");
     }
 
@@ -294,10 +319,11 @@ void init_wifi_and_ota() {
     // and in the field being the AP is the only way it ever will be.
     scan_and_connect_wifi();
     setup_Arduino_OTA();
-    start_mdns();   // after OTA created the responder, not before
+    start_mdns(); // after OTA created the responder, not before
 
     // Configure WebServer HTTP standard Port 80 routes
-    server.on("/", []() {
+    server.on("/", []()
+              {
         server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         File file = SPIFFS.open("/index.html", "r");
         if (file && !file.isDirectory()) {
@@ -305,10 +331,10 @@ void init_wifi_and_ota() {
             file.close();
         } else {
             server.send(404, "text/plain", "index.html not found");
-        }
-    });
+        } });
 
-    server.on("/index.js", []() {
+    server.on("/index.js", []()
+              {
         server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         File file = SPIFFS.open("/index.js", "r");
         if (file && !file.isDirectory()) {
@@ -316,10 +342,10 @@ void init_wifi_and_ota() {
             file.close();
         } else {
             server.send(404, "text/plain", "index.js not found");
-        }
-    });
+        } });
 
-    server.on("/style.css", []() {
+    server.on("/style.css", []()
+              {
         server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         File file = SPIFFS.open("/style.css", "r");
         if (file && !file.isDirectory()) {
@@ -327,13 +353,13 @@ void init_wifi_and_ota() {
             file.close();
         } else {
             server.send(404, "text/plain", "style.css not found");
-        }
-    });
+        } });
 
     // Captive portal. A relative "/" is not enough for the phone's connectivity probe to follow -
     // it has to be pointed at us by absolute address. Combined with the wildcard DNS above, this
     // is what makes the "sign in to network" sheet open the dashboard when you join Robo_WiFi.
-    server.onNotFound([]() {
+    server.onNotFound([]()
+                      {
         // Only hijack unknown URLs while we are the access point - that is what makes the phone's
         // captive-portal sheet open the dashboard. On a real network a 404 must stay a 404, or a
         // mistyped fetch quietly comes back as the whole dashboard instead of an error.
@@ -342,8 +368,7 @@ void init_wifi_and_ota() {
             server.send(302, "text/plain", "");
         } else {
             server.send(404, "text/plain", "Not found");
-        }
-    });
+        } });
 
     server.begin();
     Serial.println("HTTP WebServer started on port 80!");
@@ -354,9 +379,11 @@ void init_wifi_and_ota() {
     Serial.println("WebSocket Server started on port 81!");
 
     // Set up AsyncUDP listener on port 1001 for buoy broadcasts
-    if (udp.listen(1001)) {
+    if (udp.listen(1001))
+    {
         Serial.println("Listening on UDP port 1001 for Buoy telemetry...");
-        udp.onPacket([](AsyncUDPPacket packet) {
+        udp.onPacket([](AsyncUDPPacket packet)
+                     {
             String stringUdpIn = String((const char *)packet.data(), packet.length());
             
             // Parse locally
@@ -365,18 +392,21 @@ void init_wifi_and_ota() {
             // Broadcast over WebSockets to webpage clients using dynamic RSSI and IP
             int rssi = WiFi.RSSI();
             String senderIp = packet.remoteIP().toString();
-            broadcast_websocket_udp(stringUdpIn, rssi, senderIp);
-        });
-    } else {
+            broadcast_websocket_udp(stringUdpIn, rssi, senderIp); });
+    }
+    else
+    {
         Serial.println("Failed to bind UDP port 1001!");
     }
 }
 
-void handle_ota() {
+void handle_ota()
+{
     ArduinoOTA.handle();
 }
 
-void udp_broadcast(const String &message) {
+void udp_broadcast(const String &message)
+{
     // Turn the on-screen UDP indicator dot RED for the duration of the transmit blink
     last_udp_tx_ms = millis();
 
@@ -384,23 +414,27 @@ void udp_broadcast(const String &message) {
     udp.broadcastTo(message.c_str(), 1001);
 }
 
-void broadcast_websocket_udp(const String &payload, int rssi, const String &ip) {
+void broadcast_websocket_udp(const String &payload, int rssi, const String &ip)
+{
     // RoboLora protocol: UDP:RSSI:IP:$Payload
     String wsMsg = "UDP:" + String(rssi) + ":" + ip + ":" + payload;
     webSocket.broadcastTXT(wsMsg.c_str());
 }
 
-void broadcast_websocket_lora(const String &payload, int rssi) {
+void broadcast_websocket_lora(const String &payload, int rssi)
+{
     // RoboLora protocol: LORA:RSSI:$Payload
     String wsMsg = "LORA:" + String(rssi) + ":" + payload;
     webSocket.broadcastTXT(wsMsg.c_str());
 }
 
-void handle_wifi_clients() {
+void handle_wifi_clients()
+{
     server.handleClient();
     webSocket.loop();
 
-    if (!apActive) {
+    if (!apActive)
+    {
         return;
     }
 
@@ -413,25 +447,30 @@ void handle_wifi_clients() {
     // range. It is the "carried everything indoors" case, and it saves a power cycle.
     static unsigned long lastHomeCheck = 0;
     unsigned long now = millis();
-    if (WiFi.softAPgetStationNum() > 0) {
+    if (WiFi.softAPgetStationNum() > 0)
+    {
         lastHomeCheck = now;
         return;
     }
-    if (now - lastHomeCheck < 45000) {
+    if (now - lastHomeCheck < 45000)
+    {
         return;
     }
     lastHomeCheck = now;
 
     Serial.println("[WiFi] nobody on Robo_WiFi - checking whether we are home yet");
     WiFi.mode(WIFI_AP_STA);
-    if (try_connect(HOME_SSID, HOME_PASS, 8000)) {
+    if (try_connect(HOME_SSID, HOME_PASS, 8000))
+    {
         dnsServer.stop();
         WiFi.softAPdisconnect(true);
         WiFi.mode(WIFI_STA);
         apActive = false;
         Serial.println("[WiFi] home found - Robo_WiFi folded away");
         start_mdns();
-    } else {
+    }
+    else
+    {
         WiFi.mode(WIFI_AP);
     }
 }
