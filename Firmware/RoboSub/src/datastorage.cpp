@@ -160,10 +160,15 @@ void CompasOffset(RoboStruct *buoy, bool get)
 }
 
 /**
- * @brief Reads or writes target approach distance constraints from/to NVS.
- * Controls the active holding radius around a target point.
+ * @brief Reads or writes the station-keeping holding radius from/to NVS.
  *
- * @param buoy Pointer to the state structure containing min/max offset distances.
+ * maxOfsetDist used to live here too. It was never on the SETUPDATA wire, had no UI, and nothing
+ * in any firmware ever read it - but the SETUPDATA handler wrote it on every save from a struct
+ * field the decoder never filled in, so each save quietly stored the compiled-in default over
+ * whatever was there. That is the same pattern that used to reset the dock approach settings
+ * (see the note in RoboCompute.cpp). Retired rather than fixed: nothing consumed it.
+ *
+ * @param buoy Pointer to the state structure containing holdRad.
  * @param get True to read from memory, false to write to memory.
  */
 void computeParameters(RoboStruct *buoy, bool get)
@@ -173,12 +178,19 @@ void computeParameters(RoboStruct *buoy, bool get)
     {
         buoy->holdRad = storage.getDouble("holdRad", 2.0);
         if (isnan(buoy->holdRad)) buoy->holdRad = 2.0;
-        buoy->maxOfsetDist = storage.getInt("maxOfsetDist", 8);
+        // Raised to the floor, not reset to a default - unlike the pivot clamp this replaced,
+        // which snapped a legitimate 0.2 all the way to 0.5 and made low values unreachable.
+        // Here the floor IS the setting's minimum, so lifting a legacy value to exactly 1.5 is
+        // the honest answer and the UI sees the same number the buoy is using.
+        if (buoy->holdRad < HOLD_RADIUS_MIN) buoy->holdRad = HOLD_RADIUS_MIN;
     }
     else
     {
-        storage.putDouble("holdRad", buoy->holdRad);
-        storage.putInt("maxOfsetDist", buoy->maxOfsetDist);
+        double hr = buoy->holdRad;
+        if (isnan(hr) || hr < HOLD_RADIUS_MIN) hr = HOLD_RADIUS_MIN;
+        storage.putDouble("holdRad", hr);
+        // One-time cleanup of the retired key, so it stops occupying an NVS entry.
+        if (storage.isKey("maxOfsetDist")) storage.remove("maxOfsetDist");
     }
     stopMem();
 }

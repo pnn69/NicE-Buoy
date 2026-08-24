@@ -678,6 +678,7 @@ void WiFiTask(void *arg)
                     mainData.pivotSpeed = server.arg("pivotSpeed").toFloat();
                     mainData.compassOffset = server.arg("compassOffset").toFloat();
                     mainData.holdRad = server.arg("holdrad").toDouble();
+                    if (mainData.holdRad < HOLD_RADIUS_MIN) mainData.holdRad = HOLD_RADIUS_MIN;
                     mainData.revBB = server.arg("revBB").toInt();
                     mainData.revSB = server.arg("revSB").toInt();
                     mainData.swap_BB_SB = server.arg("swap_BB_SB").toInt();
@@ -752,6 +753,7 @@ void WiFiTask(void *arg)
                     msg.pivotSpeed = server.arg("pivotSpeed").toFloat();
                     msg.compassOffset = server.arg("compassOffset").toFloat();
                     msg.holdRad = server.arg("holdrad").toDouble();
+                    if (msg.holdRad < HOLD_RADIUS_MIN) msg.holdRad = HOLD_RADIUS_MIN;
                     msg.revBB = server.arg("revBB").toInt();
                     msg.revSB = server.arg("revSB").toInt();
                     msg.swap_BB_SB = server.arg("swap_BB_SB").toInt();

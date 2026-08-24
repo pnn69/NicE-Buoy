@@ -137,6 +137,12 @@ static void setup_value_text(const BuoyData &b, int slot, char *out, size_t n) {
     }
 }
 
+// Must match HOLD_RADIUS_MIN in RoboCompute.h. Spelled out again because the CYD does not link
+// RoboCompute - it speaks to the buoys over the CSV wire format only. This used to allow 0.5,
+// which the Sub then silently raised to 1.5 on arrival, so the Setup page showed a radius the
+// buoy was not using.
+#define CYD_HOLD_RADIUS_MIN 1.5f
+
 static float setup_step(int slot) {
     switch (slot) {
         case S_RUD_I: case S_RUD_D: case S_SPD_I: case S_SPD_D: return 0.005f;
@@ -172,7 +178,7 @@ static void setup_adjust(BuoyData &b, int slot, bool plus) {
                         if (b.compass_offset < -180) b.compass_offset = -180;
                         if (b.compass_offset > 180) b.compass_offset = 180; break;
         case S_HOLDRAD: b.hold_radius += st;
-                        if (b.hold_radius < 0.5) b.hold_radius = 0.5;
+                        if (b.hold_radius < CYD_HOLD_RADIUS_MIN) b.hold_radius = CYD_HOLD_RADIUS_MIN;
                         if (b.hold_radius > 10.0) b.hold_radius = 10.0; break;
         case S_APPDIST: b.dock_app_dist += (int)st;
                         if (b.dock_app_dist < 0) b.dock_app_dist = 0; break;

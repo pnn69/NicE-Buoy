@@ -137,6 +137,13 @@ typedef enum
     GPS_FOURIER_STATUS
 } msg_t;
 
+// Smallest holding radius the buoy will accept, metres. Below this the station-keeping zones in
+// pidrudspeed.cpp overlap: SUB_STATUS_PIVOT_PREP owns 1 m out to holdRad, so a radius near 1 m
+// leaves no pivot band at all and the buoy hunts. The Sub's web page has always enforced it; the
+// CYD used to allow 0.5 and the SETUPDATA path enforced nothing, so the same setting had three
+// different minima depending on where you typed it. One number, here, for all of them.
+#define HOLD_RADIUS_MIN 1.5
+
 // Phase reported in RoboStruct::gpsCalStep by GPS_FOURIER_STATUS.
 typedef enum
 {
@@ -222,7 +229,6 @@ struct RoboStruct
     double pivotSpeed = 0.2;
     double holdRad = 2.0;
 
-    int maxOfsetDist = 20;
     int minSpeed = 0;
     int maxSpeed = 75;
     double declination = 0;

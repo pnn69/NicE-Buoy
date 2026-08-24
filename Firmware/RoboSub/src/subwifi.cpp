@@ -691,7 +691,7 @@ void WiFiTask(void *arg) {
             else if(p=="coff"){mainData.compassOffset=v; paramUpdated = true;}
             else if(p=="pvspd"){mainData.pivotSpeed=v; paramUpdated = true;}
             else if(p=="holdrad"){
-                if(v < 1.5f) v = 1.5f;
+                if(v < HOLD_RADIUS_MIN) v = HOLD_RADIUS_MIN;
                 mainData.holdRad=v; paramUpdated = true;
             }
             else if(p=="minspd"){mainData.minSpeed=(int)v; paramUpdated = true;}
