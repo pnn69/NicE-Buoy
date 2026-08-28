@@ -323,17 +323,19 @@ void send_buoy_command(const String &buoy_id, int cmd_code, int ack) {
     udp_broadcast(finalPacket);
 }
 
-void send_gps_fourier_calibrate(const String &buoy_id, bool still_water) {
+void send_gps_fourier_calibrate(const String &buoy_id, bool still_water, float start_heading) {
     // Same envelope as send_buoy_command(), but with the still-water flag in the first payload
     // field. RoboTop reads it as fields[5]; an empty payload there decodes as 0, which is the
     // current-tolerant pair-averaged mode.
+    //
+    // The starting heading of the first leg in degrees (0..315) is passed in fields[6].
     //
     // ack 6 = INF, matching what RoboTop's own web page sends for this command. NOT 3 (GETACK):
     // that enrols the packet in RoboTop's LoRa retransmit table (retry = 5, loratop.cpp) and no
     // immediate ACK is ever sent for a GETACK, so the start command was re-sent about once a
     // second for five seconds. RoboTop ignores a repeat once the run is under way, so this never
     // broke anything - it just filled the air at the worst possible moment.
-    String cmdStr = buoy_id + ",98,6,89,89," + String(still_water ? 1 : 0);
+    String cmdStr = buoy_id + ",98,6,89,89," + String(still_water ? 1 : 0) + "," + String((int)start_heading);
 
     uint8_t crc = calculate_crc(cmdStr);
     char crc_buf[8];
@@ -405,6 +407,26 @@ void send_buoy_dirdist(int buoy_idx) {
     
     Serial.printf("Broadcasting REMOTE command: %s\n", finalPacket);
     
+    // Send over both LoRa and UDP channels
+    send_lora_packet(finalPacket);
+    udp_broadcast(finalPacket);
+}
+
+void send_man_fourier_calibrate(const String &buoy_id, int leg_idx, float offset_val) {
+    // Standard manual calibration NMEA command formatting
+    // CMD = 78 (INFIELD_OFFSET_CALIBRATE), ACK = 6 (INF), status = 78
+    // Data1 (leg_idx) = leg_idx
+    // Data2 (offset) = offset_val
+    char cmdPayload[256];
+    sprintf(cmdPayload, "%s,98,6,78,78,%d,%0.0f,,,,",
+            buoy_id.c_str(), leg_idx, offset_val);
+
+    uint8_t crc = calculate_crc(cmdPayload);
+    char finalPacket[320];
+    sprintf(finalPacket, "$%s*%02X", cmdPayload, crc);
+
+    Serial.printf("Broadcasting Manual Fourier Offset: %s\n", finalPacket);
+
     // Send over both LoRa and UDP channels
     send_lora_packet(finalPacket);
     udp_broadcast(finalPacket);

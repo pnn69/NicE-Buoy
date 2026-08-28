@@ -1,0 +1,64 @@
+# Proposal: Manual Fourier Calibration UI for RoboCYD
+
+## 1. Modifications to Page 6 ("GPS COMPASS CAL")
+- **Remove "CAL CURRENT"**: We will update the `SETUP_NAMES` array in `src/main.cpp` for slot 44. The label `"CAL CURRENT"` will be replaced with `"MAN CAL"`.
+- **Remove Old Logic**: We will completely remove the background logic and the `send_gps_fourier_calibrate(b.id, false, ...)` call previously associated with the `CAL CURRENT` option.
+- **New Trigger**: Tapping `+` when `"MAN CAL"` is selected will activate a new state flag, `in_man_fourier_cal_mode = true`, suspending the standard setup screen and seamlessly transitioning the display to the new calibration UI.
+
+## 2. The New Manual Fourier Calibration Screen
+A dedicated, full-screen interface will be drawn when `in_man_fourier_cal_mode` is active.
+
+### A. 8-Point Clickable Compass Rose
+- We will draw 8 dots in a circle (N, NE, E, SE, S, SW, W, NW) resembling the existing GPS COMPASS cal display.
+- **Clickable Directions**: The touchscreen handlers will map the coordinates of these 8 positions, allowing the user to select any of the 8 directions by tapping them.
+- **Steering**: When a position is selected (e.g. North/0°), the CYD will immediately set `tg_dir = selected_angle` and `tg_speed = 0.0f`. It will then call the existing `send_buoy_dirdist()` function. This sends the "speed dir" (REMOTE) command, forcing the buoy to steer to that target direction using its internal compass while maintaining zero forward speed (pivoting).
+
+### B. Visual Compass Feedback & Alignment
+- **The Physical Control Loop**: 
+  - When you command the buoy to steer to North (0°), it will rotate its thrusters until its internal compass reads 0°. 
+  - If the compass has a mounting or internal error of, say, `+73°`, the buoy will physically face `73°` (East of North) while believing and reporting that it is facing North.
+- **Real-time Adjustment**: 
+  - As you look at the physical buoy on the water, you will notice it is physically misaligned.
+  - You will use the `-` and `+` buttons on the CYD to adjust the calibration offset.
+  - When you change the offset, the buoy's corrected compass heading calculation shifts, which forces the buoy's active steering loop to physically rotate the buoy on the water in real-time.
+  - You continue adjusting the offset until the physical buoy on the water is visually pointing perfectly North (0°).
+- **The Raw Compass State**:
+  - At the exact moment the physical buoy is pointing perfectly North, its raw uncalibrated compass sensor actually reads `-73°` due to the mounting error.
+  - The visual compass arrow on the CYD screen will show this raw heading of `-73°`.
+
+### C. Relative Calibration vs. Absolute "Clean Slate"
+Making the corrections **relative** (loading the existing table as a starting baseline and adjusting from there) is an **excellent engineering option** with major field benefits. Let's compare them:
+
+* **Relative Mode (Tuning / Touch-up)**:
+  - *How it works*: When you enter the calibration screen, the CYD loads the *currently stored* Fourier table from the Sub as the starting baseline.
+  - *Benefit*: If your compass is already mostly accurate but has drifted by 1 or 2 degrees in a couple of directions, you don't have to rebuild the entire table from scratch. You can steer directly to East, adjust it by `-2°` relatively, and save. It takes 10 seconds.
+* **Absolute Mode (Clean Slate)**:
+  - *How it works*: You start with all corrections set to `0°`. 
+  - *Benefit*: Essential if you have relocated heavy hardware (like a battery or motor) or if the previous calibration table is completely corrupted or wildly incorrect.
+
+### D. The Best of Both Worlds Solution
+We don't have to choose! We can implement a hybrid system that gives you the maximum flexibility:
+1. **Default Baseline (Relative)**: By default, when entering the screen, the CYD pre-loads the existing 8-point table from the Sub into its local buffer. Any `+`/`-` clicks adjust these values relatively.
+2. **"RESET ALL" Button (Absolute)**: We will add a small **"RESET ALL"** button at the top corner of the screen. Tapping it zeroes out the entire buffer, allowing you to perform a complete absolute "clean slate" calibration of all 8 points from scratch whenever you need to.
+
+### E. CYD Local Buffer & Global Commit
+- **Local Buffer**: As you go around the 8 points dialing in the corrections, the offsets are **NOT** written to the buoy's persistent EEPROM step-by-step. Instead, the CYD maintains the 8-point table in its local temporary memory.
+- **Global Save Button**: A prominent **"SAVE ALL & APPLY"** button will be drawn on the screen.
+- **The Commit Step**: Once you have successfully aligned all desired directions (or as many as you wish):
+  1. Click **"SAVE ALL & APPLY"**.
+  2. The CYD will bundle the entire 8-point table and transmit it to the buoy.
+  3. The CYD will command the buoy to **re-enable Fourier table interpolation** (`harmonic_enabled = true`).
+  4. The buoy permanently writes the finalized, clean table to its persistent memory (EEPROM/flash).
+
+### F. 1-Degree Correction Buttons
+- Two prominent buttons (`-` and `+`) will be provided on the screen.
+- Tapping these buttons adjusts the offset in precise 1-degree steps. Each click immediately transmits the updated offset to the buoy, causing the physical buoy to rotate slightly in the water, giving you direct physical feedback.
+
+### G. Special "Set as North" Button
+- The screen will always initialize with the **North (0°)** position selected by default.
+- When the North position is selected, an exclusive **"SET AS NORTH"** button will appear. 
+- Because the physical compass can be mounted in an arbitrary direction, clicking this button will calculate and store the global `compass_offset` (the default offset) for the entire buoy.
+- **Dynamic Visibility**: If the user selects any other position (45°, 90°, etc.), this "SET AS NORTH" button will be completely removed/hidden from the interface to prevent accidental global orientation changes while tuning the individual Fourier offsets.
+
+### H. Exit / Back
+- A **"BACK"** button will clear the calibration mode flag, safely returning the user to Setup Page 6 without saving, acting as a "Cancel" action.

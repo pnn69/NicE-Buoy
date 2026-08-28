@@ -29,6 +29,12 @@ int lastKnownState = -2; // Used to trigger a static redraw on state change
 bool lastSetupState = false; // Tracks setup screen state transitions
 bool lastMannavState = false; // Tracks manual navigation screen state transitions
 bool lastLoadedState = false; // Tracks setup data loaded transitions
+bool lastManFourierCalState = false; // Tracks manual Fourier calibration screen state transitions
+
+bool in_man_fourier_cal_mode = false;
+int mancal_selected_leg = 0; // 0..7
+float mancal_offsets[8] = {0.0f};
+bool mancal_is_dirty = true;
 
 // Setup page index (0 for Page 1, 1 for Page 2)
 int setup_page = 0;
@@ -56,7 +62,7 @@ enum SetupSlot {
     S_REVBB  = 20, S_REVSB = 21, S_SWAP = 22,
     S_APPDIST = 24, S_APPDIR = 25, S_DOCKWP = 26,
     S_DESKCAL = 32, S_SETNORTH = 33, S_REBOOT = 34,
-    S_GPSSTILL = 40, S_GPSCURR = 44
+    S_GPSSTILL = 40, S_MANCAL = 44
 };
 
 static const char *SETUP_NAMES[SETUP_SLOTS] = {
@@ -65,7 +71,7 @@ static const char *SETUP_NAMES[SETUP_SLOTS] = {
     /* 3 TRIM & THRUSTERS */ "TrimEn:", "Harmonic:", "", "",        "BB Inv:", "SB Inv:", "Swap:", "",
     /* 4 DOCKING          */ "Appr Dist", "Appr Dir", "DockToWP", "", "", "", "", "",
     /* 5 CALIBRATION      */ "Desk Cal", "Set North", "Reboot", "", "", "", "", "",
-    /* 6 GPS COMPASS CAL  */ "CAL STILLWTR", "", "", "",            "CAL CURRENT", "", "", ""
+    /* 6 GPS COMPASS CAL  */ "CAL STILLWTR", "", "", "",            "MAN CAL", "", "", ""
 };
 
 // Shown where the screen used to just say "SETUP" - these are the <h4> headings of the web form.
@@ -84,7 +90,7 @@ static inline bool setup_slot_used(int slot) {
 // Slots that DO something when "+" is pressed rather than holding a number.
 static inline bool setup_slot_is_action(int slot) {
     return slot == S_DESKCAL || slot == S_SETNORTH || slot == S_REBOOT ||
-           slot == S_GPSSTILL || slot == S_GPSCURR;
+           slot == S_GPSSTILL || slot == S_MANCAL;
 }
 
 static inline bool setup_slot_is_bool(int slot) {
@@ -235,6 +241,8 @@ void draw_calibration_screen();
 void handle_touch_calibration();
 void start_touch_calibration();
 void update_radar_map_dynamic();
+void draw_mancal_static();
+void update_mancal_dynamic();
 
 // --- Buoy Map screen geometry (240x320 Portrait) ---
 // Everything on this page is size 2 text (12x16 px, max 20 characters per line),
@@ -500,7 +508,7 @@ void draw_mannav_static() {
     tft.setTextDatum(TC_DATUM);
     tft.drawString("MANUAL: " + buoys[idx].id, w / 2, 5);
     
-    tft.drawFastHLine(15, 27, w - 30, TFT_WHITE);
+    tft.drawFastHLine(15, 28, w - 30, TFT_WHITE);
     
     // Draw Compass Rose Circle at center (120, 95) with radius 45
     tft.drawCircle(120, 95, 45, TFT_WHITE);
@@ -731,9 +739,13 @@ void update_mannav_dynamic() {
     tft.drawCircle(120, 95, 45, TFT_WHITE);
     tft.fillCircle(120, 95, 3, TFT_WHITE);
     
-    // --- 5. Update Blinking Telemetry Indicators (Top-Right for LoRa only) ---
+    // --- 5. Update Blinking Telemetry Indicators (Top-Right, stacked vertically, LoRa on top of UDP) ---
+    // Both only blink for traffic belonging to THIS buoy; red while transmitting.
+    uint16_t udpDotColor = traffic_dot_color(last_udp_tx_ms, last_udp_sel_blink_ms, 100, TFT_GREEN);
+    tft.fillCircle(230, 20, 4, udpDotColor);
+
     uint16_t loraDotColor = traffic_dot_color(last_lora_tx_ms, last_lora_blink_ms, 300, TFT_CYAN);
-    tft.fillCircle(225, 13, 4, loraDotColor);
+    tft.fillCircle(230, 8, 4, loraDotColor);
 }
 
 void draw_resting_ui() {
@@ -866,7 +878,10 @@ void draw_resting_ui() {
             tft.drawString(ip_buf, w / 2, h - 6);
         }
     } else {
-        if (in_setup_mode) {
+        if (in_man_fourier_cal_mode) {
+            // --- Static Manual Fourier Calibration Screen ---
+            draw_mancal_static();
+        } else if (in_setup_mode) {
             // --- Static Setup screen on Display ---
             draw_setup_static();
         } else if (in_mannav_mode) {
@@ -935,15 +950,83 @@ void draw_gps_cal_panel(BuoyData &b) {
     tft.setTextDatum(TL_DATUM);
     char buf[64];
     if (!live) {
+        // Draw selection helper text on the left
+        tft.setTextDatum(TL_DATUM);
+        tft.setTextSize(1);
+        tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+        tft.drawString("Tap a dot to", 14, 80);
+        tft.drawString("select starting", 14, 94);
+        tft.drawString("direction of", 14, 108);
+        tft.drawString("the first leg.", 14, 122);
+        
         tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        tft.drawString("No calibration running.", 14, 80);
-        tft.drawString("STILLWTR: no current, corrects", 14, 100);
-        tft.drawString("hard iron too. Wrong choice in", 14, 112);
-        tft.drawString("a current spoils the compass.", 14, 124);
-        tft.drawString("CURRENT: safe in moving water,", 14, 144);
-        tft.drawString("cannot correct hard iron.", 14, 156);
-        tft.drawString("8 legs, about 30 minutes.", 14, 176);
+        tft.drawString("Calibration will", 14, 144);
+        tft.drawString("proceed CW.", 14, 158);
+
+        // Draw the 8 dots in a circle on the right side
+        int cx = 165;
+        int cy = 130;
+        int r_dots = 30;
+        int r_arrow = 48;
+
+        // Draw outer clockwise circular arrow
+        tft.drawCircle(cx, cy, r_arrow, TFT_DARKGREY);
+        tft.drawLine(cx + r_arrow, cy, cx + r_arrow - 4, cy - 5, TFT_DARKGREY);
+        tft.drawLine(cx + r_arrow, cy, cx + r_arrow + 4, cy - 5, TFT_DARKGREY);
+
+        // Draw the 8 dots
+        for (int i = 0; i < 8; i++) {
+            int angle_deg = i * 45;
+            float angle_rad = angle_deg * (float)M_PI / 180.0f;
+            int x = cx + (int)(r_dots * sin(angle_rad));
+            int y = cy - (int)(r_dots * cos(angle_rad));
+
+            bool is_selected = (angle_deg == (int)b.cal_start_heading);
+            if (is_selected) {
+                // Draw selected dot in bright green with a white ring
+                tft.fillCircle(x, y, 5, TFT_GREEN);
+                tft.drawCircle(x, y, 7, TFT_WHITE);
+            } else {
+                // Draw unselected dot in dark grey
+                tft.fillCircle(x, y, 3, TFT_DARKGREY);
+                tft.drawCircle(x, y, 4, TFT_BLACK);
+            }
+
+            // Draw directional labels (N, NE, E, SE, S, SW, W, NW) outside the dots
+            int r_label = r_dots + 11;
+            int lx = cx + (int)(r_label * sin(angle_rad));
+            int ly = cy - (int)(r_label * cos(angle_rad));
+            
+            tft.setTextSize(1);
+            tft.setTextColor(is_selected ? TFT_GREEN : TFT_DARKGREY, TFT_BLACK);
+            tft.setTextDatum(MC_DATUM);
+            
+            const char* label = "";
+            switch (angle_deg) {
+                case 0:   label = "N"; break;
+                case 45:  label = "NE"; break;
+                case 90:  label = "E"; break;
+                case 135: label = "SE"; break;
+                case 180: label = "S"; break;
+                case 225: label = "SW"; break;
+                case 270: label = "W"; break;
+                case 315: label = "NW"; break;
+            }
+            tft.drawString(label, lx, ly);
+        }
+
+        // Show start heading in center
+        tft.setTextSize(1);
+        tft.setTextColor(TFT_WHITE, TFT_BLACK);
         tft.setTextDatum(MC_DATUM);
+        char s_buf[16];
+        sprintf(s_buf, "%03d", (int)b.cal_start_heading);
+        tft.drawString("START", cx, cy - 6);
+        tft.drawString(s_buf, cx, cy + 6);
+
+        // Restore global TFT state
+        tft.setTextDatum(MC_DATUM);
+        tft.setTextSize(1);
         return;
     }
 
@@ -1083,7 +1166,7 @@ void update_setup_dynamic() {
             tft.setTextColor(on ? TFT_GREEN : textColor, TFT_BLACK);
             sprintf(buf, "%s %s", SETUP_NAMES[global_idx], on ? "YES" : "NO");
             tft.drawString(buf, x + 54, y + 16);
-        } else if (global_idx == S_GPSSTILL || global_idx == S_GPSCURR) {
+        } else if (global_idx == S_GPSSTILL || global_idx == S_MANCAL) {
             // Deliberately two separate entries rather than one box with a toggle: picking the
             // wrong mode is the one way this calibration can leave the compass worse than it
             // found it, so the choice has to be explicit at the moment you start it.
@@ -1115,7 +1198,7 @@ void update_setup_dynamic() {
         uint16_t col = TFT_DARKGREY;
         if (armed) {
             col = (selected_param_idx == S_GPSSTILL) ? TFT_GREEN
-                : (selected_param_idx == S_GPSCURR || selected_param_idx == S_REBOOT) ? TFT_ORANGE
+                : (selected_param_idx == S_MANCAL || selected_param_idx == S_REBOOT) ? TFT_ORANGE
                 : TFT_YELLOW;
         }
         tft.setTextColor(col, TFT_BLACK);
@@ -1335,7 +1418,7 @@ void update_nav_dynamic() {
     tft.setTextColor(TFT_CYAN, TFT_BLACK);
     tft.setTextSize(2); // One step bigger (Size 2!)
     tft.setTextDatum(TL_DATUM);
-    tft.setTextPadding(40); // Compact padding to prevent overwriting center ID!
+    tft.setTextPadding(55); // Expanded padding (55px) to fully cover -111 or -120 without ghosting!
     if (b.lora_rssi != -999) {
         sprintf(buf, "%d", b.lora_rssi);
     } else {
@@ -1370,10 +1453,10 @@ void update_dynamic_ui() {
     int h = tft.height();
     unsigned long now = millis();
     
-    // Check if buoys went offline (> 10 seconds since last transmission)
+    // Check if buoys went offline (> 60 seconds since last transmission)
     for (int i = 0; i < 3; i++) {
         if (buoys[i].id != "") {
-            if (now - buoys[i].last_seen_ms > 10000) { // 10 seconds timeout
+            if (now - buoys[i].last_seen_ms > 60000) { // 60 seconds timeout
                 buoys[i].present = false;
             }
         }
@@ -1484,8 +1567,8 @@ void update_dynamic_ui() {
                 String rssi_str = (buoys[i].lora_rssi == -999) ? "" : String(buoys[i].lora_rssi);
                 if (rssi_str != last_drawn_rssi[i]) {
                     last_drawn_rssi[i] = rssi_str;
-                    // Wide enough for "-100", and clear of the IP text on the left
-                    tft.fillRect(w - BTN_PAD_R - 48, y + 19, 48, 17, TFT_GREEN);
+                    // Expanded clearing rectangle (56px width) to guarantee full erasure of -111
+                    tft.fillRect(w - BTN_PAD_R - 56, y + 19, 56, 17, TFT_GREEN);
                     tft.setTextColor(TFT_BLACK, TFT_GREEN);
                     tft.setTextSize(2);
                     tft.setTextDatum(TR_DATUM);
@@ -1504,7 +1587,10 @@ void update_dynamic_ui() {
         uint16_t globalUdpDotColor = traffic_dot_color(last_udp_tx_ms, last_udp_blink_ms, 100, TFT_GREEN);
         tft.fillCircle(230, h - 13, 4, globalUdpDotColor);
     } else {
-        if (in_setup_mode) {
+        if (in_man_fourier_cal_mode) {
+            // --- Manual Fourier Calibration Screen ---
+            update_mancal_dynamic();
+        } else if (in_setup_mode) {
             // --- Setup Dynamic values on Display ---
             update_setup_dynamic();
         } else if (in_mannav_mode) {
@@ -1574,10 +1660,11 @@ void loop() {
     check_lora_packets();
 
     // Trigger dynamic interface redraws on screen state transitions
-    if (selected_buoy_idx != lastKnownState || in_setup_mode != lastSetupState || in_mannav_mode != lastMannavState || setup_data_loaded != lastLoadedState || setup_page != lastSetupPage) {
+    if (selected_buoy_idx != lastKnownState || in_setup_mode != lastSetupState || in_mannav_mode != lastMannavState || in_man_fourier_cal_mode != lastManFourierCalState || setup_data_loaded != lastLoadedState || setup_page != lastSetupPage) {
         lastKnownState = selected_buoy_idx;
         lastSetupState = in_setup_mode;
         lastMannavState = in_mannav_mode;
+        lastManFourierCalState = in_man_fourier_cal_mode;
         lastLoadedState = setup_data_loaded;
         lastSetupPage = setup_page;
         reset_button_draw_cache(); // Clear button draw cache to force complete redraw
@@ -1716,39 +1803,347 @@ void loop() {
                 }
             }
         } else {
-            if (in_setup_mode) {
-                // --- SETUP SCREEN TOUCH INTERACTION ---
-                // 1. Grid Parameter Selection (Y: 35 to 180, covers 4 rows x 2 columns)
-                // With only 4 rows, each box is 32 pixels high with a 4px gap (symmetrical 36px steps),
-                // completely eliminating row touch overlaps and resistive jitter shifts!
-                if (touchY >= 35 && touchY <= 180) {
-                    int r = (touchY - 35) / 36;
-                    if (r < 0) r = 0;
-                    if (r > 3) r = 3;
-                    int c = (touchX < 120) ? 0 : 1;
+            if (in_man_fourier_cal_mode) {
+                // --- MANUAL FOURIER CALIBRATION SCREEN TOUCH INTERACTION ---
+                
+                // 1. Compass Rose Dot Tap (Y: 40 to 180, covers the circle)
+                if (touchY >= 40 && touchY <= 180) {
+                    int cx = 120;
+                    int cy = 110;
+                    int r_dots = 38;
+                    for (int i = 0; i < 8; i++) {
+                        int angle_deg = i * 45;
+                        float angle_rad = angle_deg * (float)M_PI / 180.0f;
+                        int dot_x = cx + (int)(r_dots * sin(angle_rad));
+                        int dot_y = cy - (int)(r_dots * cos(angle_rad));
+                        
+                        int dx = touchX - dot_x;
+                        int dy = touchY - dot_y;
+                        if (dx*dx + dy*dy <= 18*18) { // 18-pixel touch catchment radius
+                            mancal_selected_leg = i;
+                            mancal_is_dirty = true;
+                            
+                            // Immediately command the buoy to steer to this target angle with speed = 0
+                            BuoyData &b = buoys[selected_buoy_idx];
+                            b.tg_dir = angle_deg;
+                            b.tg_speed = 0.0f;
+                            send_buoy_dirdist(selected_buoy_idx);
+                            
+                            Serial.printf("Mancal selected leg: %d (%d deg)\n", i, angle_deg);
+                            break;
+                        }
+                    }
+                }
+                // 2. Large Minus / Plus Adjustment Buttons (Generous Y: 200 to 255, no gaps!)
+                else if (touchY >= 200 && touchY <= 255) {
+                    BuoyData &b = buoys[selected_buoy_idx];
+                    float target_angle = mancal_selected_leg * 45.0f;
                     
-                    int local_idx = c * 4 + r; // 0 to 7
-                    int tapped_idx = setup_page * 8 + local_idx; // Map to 0-15 based on page!
-                    
-                    if (setup_slot_used(tapped_idx)) {
-                        // Change focus selection
-                        selected_param_idx = tapped_idx;
-
-                        BuoyData &b = buoys[selected_buoy_idx];
-                        if (setup_slot_is_bool(selected_param_idx)) {
-                            // Boolean Toggles: Symmetrical instant toggles on tap!
-                            setup_bool_toggle(b, selected_param_idx);
-                        } else if (selected_param_idx == S_SETNORTH && setup_data_loaded) {
-                            // "SET NORTH" acts as a quick instant trigger. It only rewrites the
-                            // compass offset, so it must not run before the buoy has told us what
-                            // that offset currently is - otherwise it computes from a zero.
-                            b.compass_offset = b.compass_offset - b.mag_dir;
+                    if (touchX >= 10 && touchX <= 60) {
+                        // MINUS 10 degrees
+                        mancal_offsets[mancal_selected_leg] -= 10.0f;
+                        if (mancal_offsets[mancal_selected_leg] < -180.0f) mancal_offsets[mancal_selected_leg] = -180.0f;
+                        
+                        // Ultra-fast surgical text update (avoid full-screen redraw)
+                        tft.fillRect(40, 192, tft.width() - 80, 22, TFT_BLACK);
+                        tft.setTextSize(2);
+                        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+                        tft.setTextDatum(MC_DATUM);
+                        char off_buf[16];
+                        sprintf(off_buf, "%+0.0f deg", mancal_offsets[mancal_selected_leg]);
+                        tft.drawString(off_buf, tft.width() / 2, 198);
+                        
+                        // Calculate target angle and apply offset to shift the steering target in real-time
+                        b.tg_dir = target_angle - mancal_offsets[mancal_selected_leg];
+                        while (b.tg_dir < 0.0f) b.tg_dir += 360.0f;
+                        while (b.tg_dir >= 360.0f) b.tg_dir -= 360.0f;
+                        b.tg_speed = 0.0f;
+                        send_buoy_dirdist(selected_buoy_idx);
+                        
+                        // Send the updated offset in real-time to the buoy (using command 78)
+                        send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_offsets[mancal_selected_leg]);
+                    }
+                    else if (touchX >= 65 && touchX <= 110) {
+                        // MINUS 1 degree
+                        mancal_offsets[mancal_selected_leg] -= 1.0f;
+                        if (mancal_offsets[mancal_selected_leg] < -180.0f) mancal_offsets[mancal_selected_leg] = -180.0f;
+                        
+                        // Ultra-fast surgical text update (avoid full-screen redraw)
+                        tft.fillRect(40, 192, tft.width() - 80, 22, TFT_BLACK);
+                        tft.setTextSize(2);
+                        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+                        tft.setTextDatum(MC_DATUM);
+                        char off_buf[16];
+                        sprintf(off_buf, "%+0.0f deg", mancal_offsets[mancal_selected_leg]);
+                        tft.drawString(off_buf, tft.width() / 2, 198);
+                        
+                        // Calculate target angle and apply offset to shift the steering target in real-time
+                        b.tg_dir = target_angle - mancal_offsets[mancal_selected_leg];
+                        while (b.tg_dir < 0.0f) b.tg_dir += 360.0f;
+                        while (b.tg_dir >= 360.0f) b.tg_dir -= 360.0f;
+                        b.tg_speed = 0.0f;
+                        send_buoy_dirdist(selected_buoy_idx);
+                        
+                        // Send the updated offset in real-time to the buoy (using command 78)
+                        send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_offsets[mancal_selected_leg]);
+                    }
+                    else if (touchX >= 130 && touchX <= 175) {
+                        // PLUS 1 degree
+                        mancal_offsets[mancal_selected_leg] += 1.0f;
+                        if (mancal_offsets[mancal_selected_leg] > 180.0f) mancal_offsets[mancal_selected_leg] = 180.0f;
+                        
+                        // Ultra-fast surgical text update (avoid full-screen redraw)
+                        tft.fillRect(40, 192, tft.width() - 80, 22, TFT_BLACK);
+                        tft.setTextSize(2);
+                        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+                        tft.setTextDatum(MC_DATUM);
+                        char off_buf[16];
+                        sprintf(off_buf, "%+0.0f deg", mancal_offsets[mancal_selected_leg]);
+                        tft.drawString(off_buf, tft.width() / 2, 198);
+                        
+                        // Calculate target angle and apply offset to shift the steering target in real-time
+                        b.tg_dir = target_angle - mancal_offsets[mancal_selected_leg];
+                        while (b.tg_dir < 0.0f) b.tg_dir += 360.0f;
+                        while (b.tg_dir >= 360.0f) b.tg_dir -= 360.0f;
+                        b.tg_speed = 0.0f;
+                        send_buoy_dirdist(selected_buoy_idx);
+                        
+                        // Send the updated offset in real-time to the buoy (using command 78)
+                        send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_offsets[mancal_selected_leg]);
+                    }
+                    else if (touchX >= 180 && touchX <= 230) {
+                        // PLUS 10 degrees
+                        mancal_offsets[mancal_selected_leg] += 10.0f;
+                        if (mancal_offsets[mancal_selected_leg] > 180.0f) mancal_offsets[mancal_selected_leg] = 180.0f;
+                        
+                        // Ultra-fast surgical text update (avoid full-screen redraw)
+                        tft.fillRect(40, 192, tft.width() - 80, 22, TFT_BLACK);
+                        tft.setTextSize(2);
+                        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+                        tft.setTextDatum(MC_DATUM);
+                        char off_buf[16];
+                        sprintf(off_buf, "%+0.0f deg", mancal_offsets[mancal_selected_leg]);
+                        tft.drawString(off_buf, tft.width() / 2, 198);
+                        
+                        // Calculate target angle and apply offset to shift the steering target in real-time
+                        b.tg_dir = target_angle - mancal_offsets[mancal_selected_leg];
+                        while (b.tg_dir < 0.0f) b.tg_dir += 360.0f;
+                        while (b.tg_dir >= 360.0f) b.tg_dir -= 360.0f;
+                        b.tg_speed = 0.0f;
+                        send_buoy_dirdist(selected_buoy_idx);
+                        
+                        // Send the updated offset in real-time to the buoy (using command 78)
+                        send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_offsets[mancal_selected_leg]);
+                    }
+                }
+                // 3. North / Store Button Row (Generous Y: 256 to 299, no gaps!)
+                else if (touchY >= 256 && touchY <= 299) {
+                    BuoyData &b = buoys[selected_buoy_idx];
+                    if (mancal_selected_leg == 0) {
+                        // Set as North: Generous X: 5 to 153
+                        if (touchX >= 5 && touchX <= 153) {
+                            Serial.println("MANCAL: Click registered on Set as North!");
+                            // Zero-latency visual feedback (highlight in white)
+                            tft.fillRoundRect(10, 260, 140, 35, 5, TFT_WHITE);
+                            tft.setTextColor(TFT_BLACK, TFT_WHITE);
+                            tft.setTextSize(1);
+                            tft.drawString("Set as North...", 80, 277);
+                            
+                            // Calculate global compass offset (mounting offset) by adding the manual dialed-in adjustment
+                            b.compass_offset = b.compass_offset + mancal_offsets[0];
                             while (b.compass_offset < -180) b.compass_offset += 360;
                             while (b.compass_offset > 180) b.compass_offset -= 360;
-                            // Jump to the compass page and highlight the offset so the computed
-                            // value is actually visible, then SAVE sends it.
-                            setup_page = S_COMPOFF / 8;
-                            selected_param_idx = S_COMPOFF;
+                            
+                            // Reset the North fourier correction back to 0.0f (it is now absorbed globally!)
+                            mancal_offsets[0] = 0.0f;
+                            
+                            // Send SETUPDATA update right away
+                            send_buoy_setup(selected_buoy_idx);
+                            
+                            // Send steering command again to refresh/re-evaluate the buoy control loop
+                            b.tg_dir = 0.0f;
+                            b.tg_speed = 0.0f;
+                            send_buoy_dirdist(selected_buoy_idx);
+                            
+                            delay(100); // Super-snappy highlight feel
+                            
+                            tft.fillRect(0, 195, tft.width(), 100, TFT_BLACK);
+                            tft.setTextDatum(MC_DATUM);
+                            tft.setTextSize(2);
+                            tft.setTextColor(TFT_GREEN, TFT_BLACK);
+                            tft.drawString("GLOBAL NORTH SET", tft.width() / 2, 230);
+                            delay(400); // Snappy success banner display
+                            mancal_is_dirty = true;
+                        }
+                        // STORE button: Generous X: 154 to 235
+                        else if (touchX >= 154 && touchX <= 235) {
+                            Serial.println("MANCAL: Click registered on STORE (North)!");
+                            tft.fillRoundRect(155, 260, 75, 35, 5, TFT_WHITE);
+                            tft.setTextColor(TFT_BLACK, TFT_WHITE);
+                            tft.setTextSize(1);
+                            tft.drawString("STORING...", 192, 277);
+                            
+                            send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_offsets[mancal_selected_leg]);
+                            
+                            delay(100); // Super-snappy highlight feel
+                            
+                            tft.fillRect(0, 195, tft.width(), 100, TFT_BLACK);
+                            tft.setTextDatum(MC_DATUM);
+                            tft.setTextSize(2);
+                            tft.setTextColor(TFT_GREEN, TFT_BLACK);
+                            tft.drawString("OFFSET STORED", tft.width() / 2, 230);
+                            delay(400); // Snappy success banner display
+                            mancal_is_dirty = true;
+                        }
+                    } else {
+                        // STORE OFFSET button: Generous X: 10 to 230
+                        if (touchX >= 10 && touchX <= 230) {
+                            Serial.println("MANCAL: Click registered on STORE OFFSET!");
+                            tft.fillRoundRect(30, 260, 180, 35, 5, TFT_WHITE);
+                            tft.setTextColor(TFT_BLACK, TFT_WHITE);
+                            tft.setTextSize(2);
+                            tft.drawString("STORING...", tft.width() / 2, 277);
+                            
+                            send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_offsets[mancal_selected_leg]);
+                            
+                            delay(100); // Super-snappy highlight feel
+                            
+                            tft.fillRect(0, 195, tft.width(), 100, TFT_BLACK);
+                            tft.setTextDatum(MC_DATUM);
+                            tft.setTextSize(2);
+                            tft.setTextColor(TFT_GREEN, TFT_BLACK);
+                            tft.drawString("OFFSET STORED", tft.width() / 2, 230);
+                            delay(400); // Snappy success banner display
+                            mancal_is_dirty = true;
+                        }
+                    }
+                }
+                // 4. Footer Buttons (Y: 300 to 320)
+                else if (touchY >= 300 && touchY <= 320) {
+                    BuoyData &b = buoys[selected_buoy_idx];
+                    // BACK / CANCEL (X: 10 to 115)
+                    if (touchX >= 10 && touchX <= 115) {
+                        // Send IDLE command immediately to shut down thrusters/motors!
+                        send_buoy_command(b.id, 8);
+                        
+                        in_man_fourier_cal_mode = false;
+                        in_setup_mode = true;
+                        last_transition_ms = millis();
+                        reset_button_draw_cache();
+                        draw_resting_ui();
+                    }
+                    // SAVE ALL & EXIT (X: 125 to 230)
+                    else if (touchX >= 125 && touchX <= 230) {
+                        // Re-enable Fourier table interpolation (harmonic_enabled = true)
+                        b.harmonic_enabled = true;
+                        // Send setup save command (which includes the new harmonic_enabled state!)
+                        send_buoy_setup(selected_buoy_idx);
+                        
+                        // Send IDLE command immediately to shut down thrusters/motors after calibration!
+                        send_buoy_command(b.id, 8);
+                        
+                        tft.fillRect(0, 195, tft.width(), 100, TFT_BLACK);
+                        tft.setTextDatum(MC_DATUM);
+                        tft.setTextSize(2);
+                        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+                        tft.drawString("CALIBRATION COMPLETE", tft.width() / 2, 230);
+                        delay(1200);
+                        
+                        in_man_fourier_cal_mode = false;
+                        in_setup_mode = true;
+                        last_transition_ms = millis();
+                        reset_button_draw_cache();
+                        draw_resting_ui();
+                    }
+                }
+            } else if (in_setup_mode) {
+                // --- SETUP SCREEN TOUCH INTERACTION ---
+                // 1. Grid Parameter Selection (Y: 35 to 189, covers 4 rows x 2 columns)
+                // With only 4 rows, each box is 32 pixels high with a 4px gap (symmetrical 36px steps),
+                // completely eliminating row touch overlaps and resistive jitter shifts!
+                if (touchY >= 35 && touchY <= 189) {
+                    if (setup_page == 5 && touchY >= 71) {
+                        // Handle GPS Cal Start direction dot touch!
+                        BuoyData &b = buoys[selected_buoy_idx];
+                        bool live = (b.cal_seen_ms != 0) && (millis() - b.cal_seen_ms < 15000);
+                        bool aborted = (b.cal_seen_ms != 0) && (b.cal_step == 6);
+                        if (aborted) live = true;
+
+                        if (!live) {
+                            int cx = 165;
+                            int cy = 130;
+                            int r_dots = 30;
+                            for (int i = 0; i < 8; i++) {
+                                int angle_deg = i * 45;
+                                float angle_rad = angle_deg * (float)M_PI / 180.0f;
+                                int dot_x = cx + (int)(r_dots * sin(angle_rad));
+                                int dot_y = cy - (int)(r_dots * cos(angle_rad));
+                                
+                                int dx = touchX - dot_x;
+                                int dy = touchY - dot_y;
+                                if (dx*dx + dy*dy <= 18*18) { // 18-pixel touch catchment radius
+                                    b.cal_start_heading = angle_deg;
+                                    extern bool gps_cal_panel_dirty;
+                                    gps_cal_panel_dirty = true;
+                                    Serial.printf("Selected GPS Cal Start Heading: %d deg\n", angle_deg);
+                                    break;
+                                }
+                            }
+                        }
+                    } else {
+                        int r = (touchY - 35) / 36;
+                        if (r < 0) r = 0;
+                        if (r > 3) r = 3;
+                        int c = (touchX < 120) ? 0 : 1;
+                        
+                        int local_idx = c * 4 + r; // 0 to 7
+                        int tapped_idx = setup_page * 8 + local_idx; // Map to 0-15 based on page!
+                        
+                        if (setup_slot_used(tapped_idx)) {
+                            // Change focus selection
+                            selected_param_idx = tapped_idx;
+
+                            BuoyData &b = buoys[selected_buoy_idx];
+                            if (selected_param_idx == S_MANCAL) {
+                                // Instantly trigger Manual Fourier Calibration!
+                                in_man_fourier_cal_mode = true;
+                                in_setup_mode = false;
+                                mancal_selected_leg = 0;
+                                // Clear local offsets buffer
+                                for (int i = 0; i < 8; i++) {
+                                    mancal_offsets[i] = 0.0f;
+                                }
+                                mancal_is_dirty = true;
+
+                                // Temporarily disable Fourier table interpolation on Sub
+                                b.harmonic_enabled = false;
+                                send_buoy_setup(selected_buoy_idx);
+
+                                // Send initial steering command to North
+                                b.tg_dir = 0.0f;
+                                b.tg_speed = 0.0f;
+                                send_buoy_dirdist(selected_buoy_idx);
+
+                                last_transition_ms = millis();
+                                reset_button_draw_cache();
+                                draw_resting_ui();
+                                return;
+                            }
+                            else if (setup_slot_is_bool(selected_param_idx)) {
+                                // Boolean Toggles: Symmetrical instant toggles on tap!
+                                setup_bool_toggle(b, selected_param_idx);
+                            } else if (selected_param_idx == S_SETNORTH && setup_data_loaded) {
+                                // "SET NORTH" acts as a quick instant trigger. It only rewrites the
+                                // compass offset, so it must not run before the buoy has told us what
+                                // that offset currently is - otherwise it computes from a zero.
+                                b.compass_offset = b.compass_offset - b.mag_dir;
+                                while (b.compass_offset < -180) b.compass_offset += 360;
+                                while (b.compass_offset > 180) b.compass_offset -= 360;
+                                // Jump to the compass page and highlight the offset so the computed
+                                // value is actually visible, then SAVE sends it.
+                                setup_page = S_COMPOFF / 8;
+                                selected_param_idx = S_COMPOFF;
+                            }
                         }
                     }
                 }
@@ -1776,22 +2171,20 @@ void loop() {
                         // PLUS
                         if (setup_slot_is_bool(selected_param_idx)) {
                             setup_bool_toggle(b, selected_param_idx); // toggle on plus as well!
-                        } else if (selected_param_idx == S_GPSSTILL || selected_param_idx == S_GPSCURR) {
+                        } else if (selected_param_idx == S_GPSSTILL) {
                             // Two-step on purpose: tapping the box on the action page only
                             // selects it, and this is the confirming press. Unlike every other
                             // entry here it commands the buoy to sail for half an hour, so it must
                             // not be reachable with a single stray touch.
-                            bool still = (selected_param_idx == S_GPSSTILL);
-                            send_gps_fourier_calibrate(b.id, still);
+                            send_gps_fourier_calibrate(b.id, true, b.cal_start_heading);
                             tft.fillRect(0, 60, tft.width(), 120, TFT_BLACK);
                             tft.setTextDatum(MC_DATUM);
                             tft.setTextSize(2);
-                            tft.setTextColor(still ? TFT_GREEN : TFT_ORANGE, TFT_BLACK);
+                            tft.setTextColor(TFT_GREEN, TFT_BLACK);
                             tft.drawString("GPS CAL STARTED", tft.width() / 2, 100);
                             tft.setTextSize(1);
                             tft.setTextColor(TFT_WHITE, TFT_BLACK);
-                            tft.drawString(still ? "still water - per leg" : "current - pair averaged",
-                                           tft.width() / 2, 130);
+                            tft.drawString("still water - per leg", tft.width() / 2, 130);
                             tft.drawString("8 legs, about 30 minutes", tft.width() / 2, 148);
                             delay(1500);
                             // This overlay painted over the panel's area. The grid boxes are
@@ -1800,6 +2193,39 @@ void loop() {
                             // overlay on the glass until the first report happened to differ.
                             extern bool gps_cal_panel_dirty;
                             gps_cal_panel_dirty = true;
+                        } else if (selected_param_idx == S_MANCAL) {
+                            // Symmetrical confirmation delay/press for Manual Cal transition:
+                            tft.fillRect(0, 60, tft.width(), 120, TFT_BLACK);
+                            tft.setTextDatum(MC_DATUM);
+                            tft.setTextSize(2);
+                            tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+                            tft.drawString("MANUAL CAL START", tft.width() / 2, 100);
+                            tft.setTextSize(1);
+                            tft.setTextColor(TFT_WHITE, TFT_BLACK);
+                            tft.drawString("pivots to 8 target sectors", tft.width() / 2, 130);
+                            tft.drawString("and stores 1-deg manual steps", tft.width() / 2, 148);
+                            delay(1500);
+
+                            // Set state variables
+                            in_man_fourier_cal_mode = true;
+                            in_setup_mode = false;
+                            mancal_selected_leg = 0;
+                            // Clear local offsets buffer
+                            for (int i = 0; i < 8; i++) {
+                                mancal_offsets[i] = 0.0f;
+                            }
+                            mancal_is_dirty = true;
+
+                            // Temporarily disable Fourier table interpolation on Sub
+                            b.harmonic_enabled = false;
+                            send_buoy_setup(selected_buoy_idx);
+
+                            // Send initial steering command to North
+                            b.tg_dir = 0.0f;
+                            b.tg_speed = 0.0f;
+                            send_buoy_dirdist(selected_buoy_idx);
+
+                            last_transition_ms = millis();
                         } else if (selected_param_idx == S_DESKCAL) {
                             // Same two-step. 60 s of figure-of-eight on the bench; harmless
                             // afloat but it throws away the running compass calibration.
@@ -2736,4 +3162,155 @@ void update_radar_map_dynamic() {
             draw_buoy_marker(plot_x[i], plot_y[i], buoy_colors[i]);
         }
     }
+}
+
+void draw_mancal_static() {
+    int w = tft.width();
+    tft.fillScreen(TFT_BLACK);
+    
+    tft.setTextColor(TFT_CYAN, TFT_BLACK);
+    tft.setTextSize(2);
+    tft.setTextDatum(TC_DATUM);
+    tft.drawString("MAN COMPASS CAL", w / 2, 15);
+    
+    tft.drawFastHLine(15, 45, w - 30, TFT_WHITE);
+    
+    mancal_is_dirty = true;
+}
+
+void update_mancal_dynamic() {
+    int w = tft.width();
+    BuoyData &b = buoys[selected_buoy_idx];
+    
+    // Draw the 8 dots in a circle (MOVED UP by shifting cy from 125 to 110!)
+    int cx = 120;
+    int cy = 110;
+    int r_dots = 38;
+    
+    // Static drawing elements that we only redraw if dirty
+    if (mancal_is_dirty) {
+        tft.fillRect(10, 48, w - 20, 130, TFT_BLACK); // Clear circle area
+        tft.fillRect(0, 180, w, 140, TFT_BLACK); // Cleanly clear lower labels, buttons and footers to prevent overlaps!
+        
+        // Draw dots and directional labels
+        for (int i = 0; i < 8; i++) {
+            int angle_deg = i * 45;
+            float angle_rad = angle_deg * (float)M_PI / 180.0f;
+            int x = cx + (int)(r_dots * sin(angle_rad));
+            int y = cy - (int)(r_dots * cos(angle_rad));
+            
+            bool is_selected = (i == mancal_selected_leg);
+            if (is_selected) {
+                tft.fillCircle(x, y, 6, TFT_GREEN);
+                tft.drawCircle(x, y, 8, TFT_WHITE);
+            } else {
+                tft.fillCircle(x, y, 4, TFT_DARKGREY);
+                tft.drawCircle(x, y, 5, TFT_BLACK);
+            }
+            
+            int r_label = r_dots + 13;
+            int lx = cx + (int)(r_label * sin(angle_rad));
+            int ly = cy - (int)(r_label * cos(angle_rad));
+            
+            tft.setTextSize(1);
+            tft.setTextColor(is_selected ? TFT_GREEN : TFT_LIGHTGREY, TFT_BLACK);
+            tft.setTextDatum(MC_DATUM);
+            
+            const char* label = "";
+            switch (angle_deg) {
+                case 0:   label = "N"; break;
+                case 45:  label = "NE"; break;
+                case 90:  label = "E"; break;
+                case 135: label = "SE"; break;
+                case 180: label = "S"; break;
+                case 225: label = "SW"; break;
+                case 270: label = "W"; break;
+                case 315: label = "NW"; break;
+            }
+            tft.drawString(label, lx, ly);
+        }
+    }
+    
+    // Dynamic compass arrow of buoy's actual mag heading
+    static float last_draw_mag_dir = -999.0f;
+    if (mancal_is_dirty || b.mag_dir != last_draw_mag_dir) {
+        // Erase old arrow
+        if (last_draw_mag_dir != -999.0f) {
+            draw_compass_arrow(cx, cy, r_dots - 8, last_draw_mag_dir, TFT_BLACK);
+        }
+        // Draw center dot
+        tft.fillCircle(cx, cy, 3, TFT_WHITE);
+        // Draw new arrow in Green representing what the buoy's compass reports
+        draw_compass_arrow(cx, cy, r_dots - 8, b.mag_dir, TFT_GREEN);
+        last_draw_mag_dir = b.mag_dir;
+    }
+    
+    // Draw state texts, buttons if dirty
+    if (mancal_is_dirty) {
+        // TARGET text
+        tft.setTextColor(TFT_WHITE, TFT_BLACK);
+        tft.setTextSize(1);
+        tft.setTextDatum(MC_DATUM);
+        char lbl_buf[32];
+        const char* dirs[] = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
+        sprintf(lbl_buf, "TARGET: %s (%d deg)", dirs[mancal_selected_leg], mancal_selected_leg * 45);
+        tft.drawString(lbl_buf, w / 2, 184);
+        
+        // Current Offset Text (In large text)
+        tft.setTextSize(2);
+        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+        char off_buf[16];
+        sprintf(off_buf, "%+0.0f deg", mancal_offsets[mancal_selected_leg]);
+        tft.drawString(off_buf, w / 2, 198);
+        
+        // Large Adjustment Minus/Plus Buttons (4 buttons)
+        tft.fillRoundRect(10, 215, 50, 35, 5, TFT_DARKGREY);
+        tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+        tft.setTextSize(1);
+        tft.drawString("-10", 35, 232);
+        
+        tft.fillRoundRect(65, 215, 45, 35, 5, TFT_DARKGREY);
+        tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+        tft.drawString("-1", 87, 232);
+        
+        tft.fillRoundRect(130, 215, 45, 35, 5, TFT_DARKGREY);
+        tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+        tft.drawString("+1", 152, 232);
+        
+        tft.fillRoundRect(180, 215, 50, 35, 5, TFT_DARKGREY);
+        tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+        tft.drawString("+10", 205, 232);
+        
+        // North / Store Button Row (Y: 260 to 295)
+        if (mancal_selected_leg == 0) {
+            // SET AS NORTH button
+            tft.fillRoundRect(10, 260, 140, 35, 5, TFT_ORANGE);
+            tft.setTextColor(TFT_BLACK, TFT_ORANGE);
+            tft.setTextSize(1);
+            tft.drawString("Set as North", 80, 277);
+            
+            // STORE button
+            tft.fillRoundRect(155, 260, 75, 35, 5, TFT_GREEN);
+            tft.setTextColor(TFT_BLACK, TFT_GREEN);
+            tft.drawString("STORE", 192, 277);
+        } else {
+            // STORE OFFSET button (large)
+            tft.fillRoundRect(30, 260, 180, 35, 5, TFT_GREEN);
+            tft.setTextColor(TFT_BLACK, TFT_GREEN);
+            tft.setTextSize(2);
+            tft.drawString("STORE OFFSET", w / 2, 277);
+        }
+        
+        // Footer Control Buttons (Y: 300 to 320)
+        tft.setTextSize(1);
+        tft.fillRoundRect(10, 300, 105, 20, 4, TFT_BLUE);
+        tft.setTextColor(TFT_WHITE, TFT_BLUE);
+        tft.drawString("BACK / CANCEL", 62, 310);
+        
+        tft.fillRoundRect(125, 300, 105, 20, 4, TFT_DARKGREY);
+        tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+        tft.drawString("SAVE ALL & EXIT", 177, 310);
+    }
+    
+    mancal_is_dirty = false;
 }

@@ -75,6 +75,7 @@ struct BuoyData {
     float cal_dist = 0;      // metres covered on this leg
     float cal_err = 0;       // live error of the leg in progress
     float cal_last_err = 0;  // error of the last completed leg
+    float cal_start_heading = 0; // selected direction of the first leg (0..315 deg)
 };
 
 extern BuoyData buoys[3];
@@ -112,7 +113,8 @@ void send_buoy_command(const String &buoy_id, int cmd_code, int ack = 3);
 // Starts a GPS Fourier compass calibration run on the buoy's Top. Needs its own sender
 // because send_buoy_command() emits an empty payload, and the still-water flag lives in
 // the first payload field.
-void send_gps_fourier_calibrate(const String &buoy_id, bool still_water);
+// Accepts start_heading (0..315 deg) as the direction of the first leg.
+void send_gps_fourier_calibrate(const String &buoy_id, bool still_water, float start_heading = 0.0f);
 
 // Query setup parameters from buoy exactly matching webpage GET formatting
 void query_buoy_setup(const String &buoy_id);
@@ -122,5 +124,8 @@ void send_buoy_setup(int buoy_idx);
 
 // Send dynamic DIRDIST (Manual Navigation target direction and speed)
 void send_buoy_dirdist(int buoy_idx);
+
+// Send manual Fourier calibration offset adjustment
+void send_man_fourier_calibrate(const String &buoy_id, int leg_idx, float offset_val);
 
 #endif // BUOY_DATA_H

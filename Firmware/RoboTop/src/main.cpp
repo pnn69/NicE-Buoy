@@ -1197,6 +1197,72 @@ void handleTimerRoutines(RoboStruct *timer)
 }
 
 // ***************************************************************************************************
+//  Command Hash Generator (FNV-1a 32-bit Hash)
+// ***************************************************************************************************
+/**
+ * @brief Computes a lightweight 32-bit FNV-1a hash of the core control and parameter fields 
+ *        of an incoming RoboStruct telemetry/command structure.
+ * 
+ * DESIGN RATIONALE:
+ * Inside the main execution thread, raw command strings (e.g. from LoRa or UDP WiFi packets)
+ * have already been parsed and discarded by background listener tasks before being pushed 
+ * into binary queues (`loraIn` and `udpIn`). Therefore, we cannot compare the raw string 
+ * or its direct CRC checksum in this routine.
+ * 
+ * To implement highly fast and memory-efficient duplicate detection without storing bulky 
+ * 500-byte structures in a history cache, we serialize only the active control and 
+ * parameter-bearing fields of the struct and feed them into a 32-bit FNV-1a non-cryptographic hash.
+ * 
+ * FIELDS INCLUDED IN THE HASH:
+ * - `cmd`: The command identifier (identifies the operation)
+ * - `IDs`: The source/sender identifier (identifies who sent it)
+ * - `IDr`: The recipient/destination identifier (identifies who should execute it)
+ * - `status`: The target physical state/status of the buoy
+ * - `ack`: The acknowledgment behavior/flag (e.g. SET, GET, ACK)
+ * - `tgLat` / `tgLng`: The destination GPS coordinates for navigation target updates
+ * - `tgDir` / `tgSpeed` / `tgDist`: The direct steering control parameters
+ * 
+ * FIELDS EXCLUDED (To avoid false mismatches on identical commands):
+ * - `loralstmsg`: Excluded because it holds the real-time RSSI signal strength (which varies).
+ * - `lastLoraIn`: Excluded because it holds the receipt timestamp (which changes on every packet).
+ * 
+ * @param msg The incoming decoded command structure to hash.
+ * @return uint32_t A highly unique 32-bit hash representing the semantic payload of the command.
+ */
+static uint32_t calculateCommandHash(const RoboStruct &msg)
+{
+    // FNV-1a 32-bit offset basis and prime constants
+    uint32_t hash = 2166136261U;
+    const uint32_t prime = 16777619U;
+
+    // Helper lambda to sequentially feed byte arrays into the FNV-1a multiplier step
+    auto hashBytes = [&](const uint8_t* bytes, size_t len) {
+        for (size_t i = 0; i < len; i++) {
+            hash ^= bytes[i];
+            hash *= prime;
+        }
+    };
+
+    // Feed the core operational identity fields
+    hashBytes((const uint8_t*)&msg.cmd, sizeof(msg.cmd));
+    hashBytes((const uint8_t*)&msg.IDs, sizeof(msg.IDs));
+    hashBytes((const uint8_t*)&msg.IDr, sizeof(msg.IDr));
+    hashBytes((const uint8_t*)&msg.status, sizeof(msg.status));
+    hashBytes((const uint8_t*)&msg.ack, sizeof(msg.ack));
+
+    // Feed the target geographical coordinates (critical for waypoint setting deduplication)
+    hashBytes((const uint8_t*)&msg.tgLat, sizeof(msg.tgLat));
+    hashBytes((const uint8_t*)&msg.tgLng, sizeof(msg.tgLng));
+
+    // Feed direct navigation metrics (critical for steering commands)
+    hashBytes((const uint8_t*)&msg.tgDir, sizeof(msg.tgDir));
+    hashBytes((const uint8_t*)&msg.tgSpeed, sizeof(msg.tgSpeed));
+    hashBytes((const uint8_t*)&msg.tgDist, sizeof(msg.tgDist));
+
+    return hash;
+}
+
+// ***************************************************************************************************
 // handle external data input
 // ***************************************************************************************************
 /**
@@ -1230,20 +1296,61 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                    (unsigned long)RfIn.IDs, from_udp ? "udp" : "lora");
         }
 
-        // Deduplication Filter for Mode Commands
-        static int lastInCmd = -1;
-        static int lastInStatus = -1;
-        static unsigned long lastInTime = 0;
+        // ===========================================================================================
+        //  5-Second Control/State Command Deduplication Filter
+        // ===========================================================================================
+        // To prevent duplicate command execution, we cache the 32-bit FNV-1a hashes of recently 
+        // processed commands. When a command arrives via LoRa and UDP simultaneously, the second 
+        // transmission will be silently discarded if its contents are identical.
+        // ===========================================================================================
+        #define CMD_HISTORY_SIZE 32
+        #define CMD_DUP_TIMEOUT_MS 5000UL // 5-second duplicate suppression window
 
-        if (RfIn.cmd != REMOTE && RfIn.cmd != TGDIRSPEED && RfIn.cmd != DIRDIST && RfIn.cmd != LOCKING && RfIn.cmd != DOCKING && RfIn.cmd != IDLING && RfIn.cmd != SETUPDATA)
+        struct CommandHistoryEntry {
+            uint32_t hash = 0;           // 32-bit FNV-1a hash of the command fields
+            unsigned long timestamp = 0; // The millisecond timestamp when the command was processed
+        };
+
+        static CommandHistoryEntry cmdHistory[CMD_HISTORY_SIZE];
+        static int cmdHistoryIndex = 0;
+
+        // CRITICAL FILTERING RULE:
+        // We only apply duplicate detection to active control or state-changing commands.
+        // We explicitly skip telemetry packets (BUOYPOS, TOPDATA, SUBDATA, SUBACCU, SUBPWR). 
+        // Telemetry must bypass deduplication so that they always update the live database 
+        // with "last seen" timestamps and current metrics, even if the values have not changed.
+        if (RfIn.cmd != BUOYPOS && RfIn.cmd != TOPDATA && RfIn.cmd != SUBDATA && RfIn.cmd != SUBACCU && RfIn.cmd != SUBPWR)
         {
-            if (RfIn.cmd == lastInCmd && RfIn.status == lastInStatus && (millis() - lastInTime < 2000))
+            uint32_t currentHash = calculateCommandHash(RfIn);
+            bool isDuplicate = false;
+            unsigned long now = millis();
+
+            // Search the history cache for a matching command hash within the 5-second window
+            for (int i = 0; i < CMD_HISTORY_SIZE; i++)
             {
+                if (cmdHistory[i].hash == currentHash)
+                {
+                    // Check if the match is within our 5-second tracking timeout
+                    if (now - cmdHistory[i].timestamp < CMD_DUP_TIMEOUT_MS)
+                    {
+                        isDuplicate = true;
+                        break;
+                    }
+                }
+            }
+
+            if (isDuplicate)
+            {
+                // Silent return to discard the redundant duplicate command
                 return;
             }
-            lastInCmd = RfIn.cmd;
-            lastInStatus = RfIn.status;
-            lastInTime = millis();
+
+            // Save the unique command hash and timestamp in the circular history buffer
+            cmdHistory[cmdHistoryIndex].hash = currentHash;
+            cmdHistory[cmdHistoryIndex].timestamp = now;
+            
+            // Advance the circular buffer index
+            cmdHistoryIndex = (cmdHistoryIndex + 1) % CMD_HISTORY_SIZE;
         }
 
         // Capture telemetry data from other buoys regardless of target ID before bridging
@@ -1840,8 +1947,10 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                         // Latched into mainData before the status flips, because the state machine
                         // reads the mode out of mainData on the pass where it starts the run.
                         RfOut->gpsCalStillWater = RfIn.gpsCalStillWater;
-                        printf("#Status set to GPS_FOURIER_CALIBRATE (%s)\r\n",
-                               RfIn.gpsCalStillWater ? "still water" : "pair averaged");
+                        RfOut->gpsCalStartHeading = RfIn.gpsCalStartHeading;
+                        printf("#Status set to GPS_FOURIER_CALIBRATE (%s, start dir: %.0f deg)\r\n",
+                               RfIn.gpsCalStillWater ? "still water" : "pair averaged",
+                               (double)RfIn.gpsCalStartHeading);
                         RfOut->status = GPS_FOURIER_CALIBRATE;
                     }
                 }
