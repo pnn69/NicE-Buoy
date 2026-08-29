@@ -148,6 +148,48 @@
                         </div>
                         <input type="range" id="mannav-speed-0" min="-100" max="100" value="0" style="width: 100%; cursor: pointer;">
                     </div>
+                    
+                    <!-- New Manual Fourier Compass Calibration Controls -->
+                    <div id="mancal-web-panel-0" style="display: none; border-top: 1px solid #475569; margin-top: 10px; padding-top: 10px;">
+                        <span style="font-size: 0.85rem; font-weight: bold; color: #facc15; display: block; margin-bottom: 8px;">Fourier Compass Calibration (MAN CAL)</span>
+                        
+                        <!-- 8 Cardinal Direction Grid -->
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px;">
+                            <button type="button" class="btn btn-secondary mancal-dot-0" data-leg="0" style="padding: 4px 0; font-size: 0.8rem; background-color: #3b82f6; color: white; font-weight: bold;">N (0°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-0" data-leg="1" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">NE (45°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-0" data-leg="2" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">E (90°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-0" data-leg="3" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">SE (135°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-0" data-leg="4" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">S (180°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-0" data-leg="5" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">SW (225°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-0" data-leg="6" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">W (270°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-0" data-leg="7" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">NW (315°)</button>
+                        </div>
+                        
+                        <!-- Real-time Adjustment Buttons Row -->
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                            <div style="display: flex; gap: 4px;">
+                                <button type="button" class="btn" id="mancal-btn-sub10-0" style="background-color: #475569; color: white; padding: 4px 8px; font-size: 0.8rem; font-weight: bold;">-10°</button>
+                                <button type="button" class="btn" id="mancal-btn-sub1-0" style="background-color: #475569; color: white; padding: 4px 8px; font-size: 0.8rem; font-weight: bold;">-1°</button>
+                            </div>
+                            
+                            <div style="text-align: center;">
+                                <span style="font-size: 0.75rem; color: #94a3b8; display: block; line-height: 1;">Correction</span>
+                                <span id="mancal-offset-val-0" style="font-size: 1.1rem; font-weight: bold; color: #facc15;">+0°</span>
+                            </div>
+                            
+                            <div style="display: flex; gap: 4px;">
+                                <button type="button" class="btn" id="mancal-btn-add1-0" style="background-color: #475569; color: white; padding: 4px 8px; font-size: 0.8rem; font-weight: bold;">+1°</button>
+                                <button type="button" class="btn" id="mancal-btn-add10-0" style="background-color: #475569; color: white; padding: 4px 8px; font-size: 0.8rem; font-weight: bold;">+10°</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Row (Set as North / Store Offset / Save All) -->
+                        <div style="display: flex; gap: 6px;">
+                            <button type="button" class="btn" id="mancal-web-setNorth-0" style="flex: 1.5; background-color: #f97316; color: black; font-weight: bold; font-size: 0.8rem; padding: 6px 0; border-radius: 4px;">Set as North</button>
+                            <button type="button" class="btn" id="mancal-web-store-0" style="flex: 1; background-color: #22c55e; color: black; font-weight: bold; font-size: 0.8rem; padding: 6px 0; border-radius: 4px;">STORE</button>
+                            <button type="button" class="btn" id="mancal-web-exit-0" style="flex: 1.2; background-color: #3b82f6; color: white; font-weight: bold; font-size: 0.8rem; padding: 6px 0; border-radius: 4px;">SAVE & EXIT</button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="parameters-panel">
@@ -297,6 +339,48 @@
                         </div>
                         <input type="range" id="mannav-speed-1" min="-100" max="100" value="0" style="width: 100%; cursor: pointer;">
                     </div>
+                    
+                    <!-- New Manual Fourier Compass Calibration Controls -->
+                    <div id="mancal-web-panel-1" style="display: none; border-top: 1px solid #475569; margin-top: 10px; padding-top: 10px;">
+                        <span style="font-size: 0.85rem; font-weight: bold; color: #facc15; display: block; margin-bottom: 8px;">Fourier Compass Calibration (MAN CAL)</span>
+                        
+                        <!-- 8 Cardinal Direction Grid -->
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px;">
+                            <button type="button" class="btn btn-secondary mancal-dot-1" data-leg="0" style="padding: 4px 0; font-size: 0.8rem; background-color: #3b82f6; color: white; font-weight: bold;">N (0°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-1" data-leg="1" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">NE (45°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-1" data-leg="2" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">E (90°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-1" data-leg="3" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">SE (135°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-1" data-leg="4" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">S (180°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-1" data-leg="5" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">SW (225°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-1" data-leg="6" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">W (270°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-1" data-leg="7" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">NW (315°)</button>
+                        </div>
+                        
+                        <!-- Real-time Adjustment Buttons Row -->
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                            <div style="display: flex; gap: 4px;">
+                                <button type="button" class="btn" id="mancal-btn-sub10-1" style="background-color: #475569; color: white; padding: 4px 8px; font-size: 0.8rem; font-weight: bold;">-10°</button>
+                                <button type="button" class="btn" id="mancal-btn-sub1-1" style="background-color: #475569; color: white; padding: 4px 8px; font-size: 0.8rem; font-weight: bold;">-1°</button>
+                            </div>
+                            
+                            <div style="text-align: center;">
+                                <span style="font-size: 0.75rem; color: #94a3b8; display: block; line-height: 1;">Correction</span>
+                                <span id="mancal-offset-val-1" style="font-size: 1.1rem; font-weight: bold; color: #facc15;">+0°</span>
+                            </div>
+                            
+                            <div style="display: flex; gap: 4px;">
+                                <button type="button" class="btn" id="mancal-btn-add1-1" style="background-color: #475569; color: white; padding: 4px 8px; font-size: 0.8rem; font-weight: bold;">+1°</button>
+                                <button type="button" class="btn" id="mancal-btn-add10-1" style="background-color: #475569; color: white; padding: 4px 8px; font-size: 0.8rem; font-weight: bold;">+10°</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Row (Set as North / Store Offset / Save All) -->
+                        <div style="display: flex; gap: 6px;">
+                            <button type="button" class="btn" id="mancal-web-setNorth-1" style="flex: 1.5; background-color: #f97316; color: black; font-weight: bold; font-size: 0.8rem; padding: 6px 0; border-radius: 4px;">Set as North</button>
+                            <button type="button" class="btn" id="mancal-web-store-1" style="flex: 1; background-color: #22c55e; color: black; font-weight: bold; font-size: 0.8rem; padding: 6px 0; border-radius: 4px;">STORE</button>
+                            <button type="button" class="btn" id="mancal-web-exit-1" style="flex: 1.2; background-color: #3b82f6; color: white; font-weight: bold; font-size: 0.8rem; padding: 6px 0; border-radius: 4px;">SAVE & EXIT</button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="parameters-panel">
@@ -445,6 +529,48 @@
                             <span id="mannav-speed-val-2" style="font-weight: bold; color: #4ade80;">0%</span>
                         </div>
                         <input type="range" id="mannav-speed-2" min="-100" max="100" value="0" style="width: 100%; cursor: pointer;">
+                    </div>
+                    
+                    <!-- New Manual Fourier Compass Calibration Controls -->
+                    <div id="mancal-web-panel-2" style="display: none; border-top: 1px solid #475569; margin-top: 10px; padding-top: 10px;">
+                        <span style="font-size: 0.85rem; font-weight: bold; color: #facc15; display: block; margin-bottom: 8px;">Fourier Compass Calibration (MAN CAL)</span>
+                        
+                        <!-- 8 Cardinal Direction Grid -->
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px;">
+                            <button type="button" class="btn btn-secondary mancal-dot-2" data-leg="0" style="padding: 4px 0; font-size: 0.8rem; background-color: #3b82f6; color: white; font-weight: bold;">N (0°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-2" data-leg="1" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">NE (45°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-2" data-leg="2" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">E (90°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-2" data-leg="3" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">SE (135°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-2" data-leg="4" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">S (180°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-2" data-leg="5" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">SW (225°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-2" data-leg="6" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">W (270°)</button>
+                            <button type="button" class="btn btn-secondary mancal-dot-2" data-leg="7" style="padding: 4px 0; font-size: 0.8rem; background-color: #334155; color: #94a3b8;">NW (315°)</button>
+                        </div>
+                        
+                        <!-- Real-time Adjustment Buttons Row -->
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                            <div style="display: flex; gap: 4px;">
+                                <button type="button" class="btn" id="mancal-btn-sub10-2" style="background-color: #475569; color: white; padding: 4px 8px; font-size: 0.8rem; font-weight: bold;">-10°</button>
+                                <button type="button" class="btn" id="mancal-btn-sub1-2" style="background-color: #475569; color: white; padding: 4px 8px; font-size: 0.8rem; font-weight: bold;">-1°</button>
+                            </div>
+                            
+                            <div style="text-align: center;">
+                                <span style="font-size: 0.75rem; color: #94a3b8; display: block; line-height: 1;">Correction</span>
+                                <span id="mancal-offset-val-2" style="font-size: 1.1rem; font-weight: bold; color: #facc15;">+0°</span>
+                            </div>
+                            
+                            <div style="display: flex; gap: 4px;">
+                                <button type="button" class="btn" id="mancal-btn-add1-2" style="background-color: #475569; color: white; padding: 4px 8px; font-size: 0.8rem; font-weight: bold;">+1°</button>
+                                <button type="button" class="btn" id="mancal-btn-add10-2" style="background-color: #475569; color: white; padding: 4px 8px; font-size: 0.8rem; font-weight: bold;">+10°</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Row (Set as North / Store Offset / Save All) -->
+                        <div style="display: flex; gap: 6px;">
+                            <button type="button" class="btn" id="mancal-web-setNorth-2" style="flex: 1.5; background-color: #f97316; color: black; font-weight: bold; font-size: 0.8rem; padding: 6px 0; border-radius: 4px;">Set as North</button>
+                            <button type="button" class="btn" id="mancal-web-store-2" style="flex: 1; background-color: #22c55e; color: black; font-weight: bold; font-size: 0.8rem; padding: 6px 0; border-radius: 4px;">STORE</button>
+                            <button type="button" class="btn" id="mancal-web-exit-2" style="flex: 1.2; background-color: #3b82f6; color: white; font-weight: bold; font-size: 0.8rem; padding: 6px 0; border-radius: 4px;">SAVE & EXIT</button>
+                        </div>
                     </div>
                 </div>
 
