@@ -3362,21 +3362,21 @@ void update_mancal_dynamic() {
     
     // Draw state texts, buttons if dirty
     if (mancal_is_dirty) {
-        // TARGET text
-        tft.setTextColor(TFT_WHITE, TFT_BLACK);
-        tft.setTextSize(1);
+        // TARGET text (Setpoint) - Larger and Light Blue (TFT_CYAN)
+        tft.setTextColor(TFT_CYAN, TFT_BLACK);
+        tft.setTextSize(2);
         tft.setTextDatum(MC_DATUM);
         char lbl_buf[32];
         const char* dirs[] = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
-        sprintf(lbl_buf, "TARGET: %s (%d deg)", dirs[mancal_selected_leg], mancal_selected_leg * 45);
-        tft.drawString(lbl_buf, w / 2, 184);
+        sprintf(lbl_buf, "TG: %s (%d deg)", dirs[mancal_selected_leg], mancal_selected_leg * 45);
+        tft.drawString(lbl_buf, w / 2, 186);
         
-        // Current Offset Text (In large text)
-        tft.setTextSize(2);
+        // Current Offset Text (In medium text, colored Yellow)
+        tft.setTextSize(1);
         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-        char off_buf[16];
-        sprintf(off_buf, "%+0.0f deg", mancal_offsets[mancal_selected_leg]);
-        tft.drawString(off_buf, w / 2, 198);
+        char off_buf[32];
+        sprintf(off_buf, "CORR: %+0.0f deg", mancal_offsets[mancal_selected_leg]);
+        tft.drawString(off_buf, w / 2, 203);
         
         // Large Adjustment Minus/Plus Buttons (4 buttons)
         tft.fillRoundRect(10, 215, 50, 35, 5, TFT_DARKGREY);
