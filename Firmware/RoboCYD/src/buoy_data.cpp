@@ -94,10 +94,10 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     // SETLOCKPOS (20) is deliberately NOT accepted here even though it carries the same two
     // fields: it is sent BY the Top that computed a start line TO another buoy, so its sender ID
     // is the wrong buoy and the waypoint would be filed against the computer instead of the
-    // recipient. The recipient re-broadcasts it as LOCKPOS under its own ID anyway
+    // recipient re-broadcasts it as LOCKPOS under its own ID anyway
     // (RoboTop/src/main.cpp, case SETLOCKPOS), which is the copy we want.
-    if (cmd != 51 && cmd != 19 && cmd != 83 && cmd != 90 && cmd != 21 && cmd != 23) return;
-    
+    if (cmd != 51 && cmd != 19 && cmd != 83 && cmd != 90 && cmd != 21 && cmd != 23 && cmd != 88) return;
+
     String sender_id = fields[1];
     sender_id.trim();
     

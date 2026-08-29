@@ -1674,6 +1674,29 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             }
+            case STORE_INTERPOLATION_TABLE:
+            {
+                printf("Received STORE_INTERPOLATION_TABLE command. ack=%d, IDs=0x%08lX\r\n", RfIn.ack, RfIn.IDs);
+                bool is_local = (RfIn.IDs == RfOut->mac || RfIn.IDs == 0x98 || RfIn.IDs == 0x99 || from_udp);
+                if (is_local && (RfIn.ack == 1 || RfIn.ack == 3 || RfIn.ack == 2)) // 1=GET, 2=SET, 3=GETACK
+                {
+                    if (RfIn.IDr == RfOut->mac || RfIn.IDr == RfOut->IDs || RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) {
+                        RfIn.IDr = BUOYIDALL;
+                        RfIn.IDs = espMac();
+                        printf("DEBUG_INTERPOLATION_TABLE: Forwarding to Sub via serOut. ack=%d\r\n", RfIn.ack);
+                        if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                            printf("ERROR: Failed to queue STORE_INTERPOLATION_TABLE forward request to serOut!\r\n");
+                        }
+                    }
+                }
+                else
+                {
+                    // Forward across interfaces
+                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                }
+                break;
+            }
             case PIDSPEEDSET:
                 printf("#PIDSPEEDSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kps, RfIn.Kis, RfIn.Kds);
                 RfOut->cmd = PIDSPEEDSET;

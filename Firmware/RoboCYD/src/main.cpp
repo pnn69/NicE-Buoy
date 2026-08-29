@@ -32,6 +32,7 @@ bool lastLoadedState = false; // Tracks setup data loaded transitions
 bool lastManFourierCalState = false; // Tracks manual Fourier calibration screen state transitions
 
 bool in_man_fourier_cal_mode = false;
+unsigned long mancal_started_ms = 0;
 int mancal_selected_leg = 0; // 0..7
 float mancal_offsets[8] = {0.0f};
 bool mancal_is_dirty = true;
@@ -243,6 +244,7 @@ void start_touch_calibration();
 void update_radar_map_dynamic();
 void draw_mancal_static();
 void update_mancal_dynamic();
+void send_mancal_table_to_sub(int buoy_idx);
 
 // --- Buoy Map screen geometry (240x320 Portrait) ---
 // Everything on this page is size 2 text (12x16 px, max 20 characters per line),
@@ -1844,6 +1846,11 @@ void loop() {
             }
         } else {
             if (in_man_fourier_cal_mode) {
+                // Symmetrically enforce touch lockout delay to prevent touch propagation leakage!
+                if (millis() - mancal_started_ms < 800) {
+                    return;
+                }
+                
                 // --- MANUAL FOURIER CALIBRATION SCREEN TOUCH INTERACTION ---
                 
                 // 1. Compass Rose Dot Tap (Y: 40 to 180, covers the circle)
@@ -2023,7 +2030,8 @@ void loop() {
                             tft.setTextSize(1);
                             tft.drawString("STORING...", 192, 277);
                             
-                            send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_offsets[mancal_selected_leg]);
+                            // Send the entire 8-point table as Command 88 SET to commit permanently to NVS!
+                            send_mancal_table_to_sub(selected_buoy_idx);
                             
                             delay(100); // Super-snappy highlight feel
                             
@@ -2044,7 +2052,8 @@ void loop() {
                             tft.setTextSize(2);
                             tft.drawString("STORING...", tft.width() / 2, 277);
                             
-                            send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_offsets[mancal_selected_leg]);
+                            // Send the entire 8-point table as Command 88 SET to commit permanently to NVS!
+                            send_mancal_table_to_sub(selected_buoy_idx);
                             
                             delay(100); // Super-snappy highlight feel
                             
@@ -2074,6 +2083,10 @@ void loop() {
                     }
                     // SAVE ALL & EXIT (X: 125 to 230)
                     else if (touchX >= 125 && touchX <= 230) {
+                        // First, permanently commit and store the 8 fourier table offsets to Sub NVS!
+                        send_mancal_table_to_sub(selected_buoy_idx);
+                        delay(200); // Give the queues a brief moment to dispatch before setup save
+                        
                         // Re-enable Fourier table interpolation (harmonic_enabled = true)
                         b.harmonic_enabled = true;
                         // Send setup save command (which includes the new harmonic_enabled state!)
@@ -2148,24 +2161,25 @@ void loop() {
                                 // Instantly trigger Manual Fourier Calibration!
                                 in_man_fourier_cal_mode = true;
                                 in_setup_mode = false;
-                                mancal_selected_leg = 0;
+                                mancal_selected_leg = -1; // -1 means NO active steering yet!
                                 // Clear local offsets buffer
                                 for (int i = 0; i < 8; i++) {
                                     mancal_offsets[i] = 0.0f;
                                 }
                                 mancal_is_dirty = true;
+                                mancal_started_ms = millis(); // Set transition lockout delay!
 
-                                // Query the buoy for its currently in-use 8-point fourier table (Command 88)
+                                // 1. Send IDLE command immediately first to shut down thrusters/motors on entry!
+                                send_buoy_command(b.id, 8);
+
+                                delay(200); // Prevent serial queue collisions and allow IDLE to process!
+
+                                // 2. Query the buoy for its currently in-use 8-point fourier table (Command 88)
                                 send_buoy_command(b.id, 88, 1); // 1 = GET
 
-                                // Temporarily disable Fourier table interpolation on Sub
+                                // 3. Temporarily disable Fourier table interpolation on Sub
                                 b.harmonic_enabled = false;
                                 send_buoy_setup(selected_buoy_idx);
-
-                                // Send initial steering command to North
-                                b.tg_dir = 0.0f;
-                                b.tg_speed = 0.0f;
-                                send_buoy_dirdist(selected_buoy_idx);
 
                                 last_transition_ms = millis();
                                 reset_button_draw_cache();
@@ -2252,21 +2266,22 @@ void loop() {
                             // Set state variables
                             in_man_fourier_cal_mode = true;
                             in_setup_mode = false;
-                            mancal_selected_leg = 0;
+                            mancal_selected_leg = -1; // -1 means NO active steering yet!
                             // Clear local offsets buffer
                             for (int i = 0; i < 8; i++) {
                                 mancal_offsets[i] = 0.0f;
                             }
                             mancal_is_dirty = true;
+                            mancal_started_ms = millis(); // Set transition lockout delay!
 
-                            // Temporarily disable Fourier table interpolation on Sub
+                            // 1. Send IDLE command immediately first to shut down thrusters/motors on entry!
+                            send_buoy_command(b.id, 8);
+
+                            delay(200); // Prevent serial queue collisions and allow IDLE to process!
+
+                            // 2. Temporarily disable Fourier table interpolation on Sub
                             b.harmonic_enabled = false;
                             send_buoy_setup(selected_buoy_idx);
-
-                            // Send initial steering command to North
-                            b.tg_dir = 0.0f;
-                            b.tg_speed = 0.0f;
-                            send_buoy_dirdist(selected_buoy_idx);
 
                             last_transition_ms = millis();
                         } else if (selected_param_idx == S_DESKCAL) {
@@ -3232,6 +3247,29 @@ void draw_mancal_static() {
     mancal_is_dirty = true;
 }
 
+void send_mancal_table_to_sub(int buoy_idx) {
+    BuoyData &b = buoys[buoy_idx];
+    // Target target, Sender 98, ACK SET (2), CMD 88 (STORE_INTERPOLATION_TABLE), status
+    // followed by the 8 computed table values
+    char cmdPayload[256];
+    float table[8];
+    for (int i = 0; i < 8; i++) {
+        float expected = i * 45.0f;
+        float off = mancal_offsets[i];
+        float val = expected - off;
+        while (val < 0.0f) val += 360.0f;
+        while (val >= 360.0f) val -= 360.0f;
+        table[i] = val;
+    }
+    
+    sprintf(cmdPayload, "%s,98,2,88,7,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f",
+            b.id.c_str(), table[0], table[1], table[2], table[3], table[4], table[5], table[6], table[7]);
+            
+    send_lora_packet(cmdPayload);
+    udp_broadcast(cmdPayload);
+    Serial.printf("Transmitted STORE_INTERPOLATION_TABLE (88) SET to Buoy: %s\n", b.id.c_str());
+}
+
 void update_mancal_dynamic() {
     int w = tft.width();
     BuoyData &b = buoys[selected_buoy_idx];
@@ -3329,7 +3367,11 @@ void update_mancal_dynamic() {
     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
     tft.setTextDatum(TR_DATUM);
     char corr_buf[16];
-    sprintf(corr_buf, "%+0.0f", mancal_offsets[mancal_selected_leg]);
+    if (mancal_selected_leg == -1) {
+        sprintf(corr_buf, "-");
+    } else {
+        sprintf(corr_buf, "%+0.0f", mancal_offsets[mancal_selected_leg]);
+    }
     tft.drawString(corr_buf, w - 15, 60);
     
     // Draw the Port (BB) and Starboard (SB) motor power speedbars dynamically centered at Y: 110
@@ -3365,58 +3407,95 @@ void update_mancal_dynamic() {
     
     // Draw state texts, buttons if dirty
     if (mancal_is_dirty) {
-        // TARGET text (Setpoint) - Larger and Light Blue (TFT_CYAN)
-        tft.setTextColor(TFT_CYAN, TFT_BLACK);
-        tft.setTextSize(2);
-        tft.setTextDatum(MC_DATUM);
-        char lbl_buf[32];
-        const char* dirs[] = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
-        sprintf(lbl_buf, "TG: %s (%d deg)", dirs[mancal_selected_leg], mancal_selected_leg * 45);
-        tft.drawString(lbl_buf, w / 2, 186);
-        
-        // Current Offset Text (In medium text, colored Yellow)
-        tft.setTextSize(1);
-        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-        char off_buf[32];
-        sprintf(off_buf, "CORR: %+0.0f deg", mancal_offsets[mancal_selected_leg]);
-        tft.drawString(off_buf, w / 2, 203);
-        
-        // Large Adjustment Minus/Plus Buttons (4 buttons)
-        tft.fillRoundRect(10, 215, 50, 35, 5, TFT_DARKGREY);
-        tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
-        tft.setTextSize(1);
-        tft.drawString("-10", 35, 232);
-        
-        tft.fillRoundRect(65, 215, 45, 35, 5, TFT_DARKGREY);
-        tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
-        tft.drawString("-1", 87, 232);
-        
-        tft.fillRoundRect(130, 215, 45, 35, 5, TFT_DARKGREY);
-        tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
-        tft.drawString("+1", 152, 232);
-        
-        tft.fillRoundRect(180, 215, 50, 35, 5, TFT_DARKGREY);
-        tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
-        tft.drawString("+10", 205, 232);
-        
-        // North / Store Button Row (Y: 260 to 295)
-        if (mancal_selected_leg == 0) {
-            // SET AS NORTH button
-            tft.fillRoundRect(10, 260, 140, 35, 5, TFT_ORANGE);
-            tft.setTextColor(TFT_BLACK, TFT_ORANGE);
-            tft.setTextSize(1);
-            tft.drawString("Set as North", 80, 277);
-            
-            // STORE button
-            tft.fillRoundRect(155, 260, 75, 35, 5, TFT_GREEN);
-            tft.setTextColor(TFT_BLACK, TFT_GREEN);
-            tft.drawString("STORE", 192, 277);
-        } else {
-            // STORE OFFSET button (large)
-            tft.fillRoundRect(30, 260, 180, 35, 5, TFT_GREEN);
-            tft.setTextColor(TFT_BLACK, TFT_GREEN);
+        if (mancal_selected_leg == -1) {
+            // TARGET text (Setpoint) - "TG: TAP DIRECTION"
+            tft.setTextColor(TFT_CYAN, TFT_BLACK);
             tft.setTextSize(2);
-            tft.drawString("STORE OFFSET", w / 2, 277);
+            tft.setTextDatum(MC_DATUM);
+            tft.drawString("TG: TAP DIRECTION", w / 2, 186);
+            
+            // Current Offset Text - "CORR: -" in size 2
+            tft.setTextSize(2);
+            tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+            tft.drawString("CORR: -", w / 2, 203);
+            
+            // Large Adjustment Minus/Plus Buttons (4 buttons)
+            tft.fillRoundRect(10, 215, 50, 35, 5, TFT_DARKGREY);
+            tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+            tft.setTextSize(1);
+            tft.drawString("-10", 35, 232);
+            
+            tft.fillRoundRect(65, 215, 45, 35, 5, TFT_DARKGREY);
+            tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+            tft.drawString("-1", 87, 232);
+            
+            tft.fillRoundRect(130, 215, 45, 35, 5, TFT_DARKGREY);
+            tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+            tft.drawString("+1", 152, 232);
+            
+            tft.fillRoundRect(180, 215, 50, 35, 5, TFT_DARKGREY);
+            tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+            tft.drawString("+10", 205, 232);
+            
+            // North / Store Button Row - prompt the user to start
+            tft.fillRoundRect(10, 260, w - 20, 35, 5, TFT_DARKGREY);
+            tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+            tft.setTextSize(1);
+            tft.drawString("SELECT A DIRECTION TO COMMENCE", w / 2, 277);
+        } else {
+            // TARGET text (Setpoint) - Larger and Light Blue (TFT_CYAN)
+            tft.setTextColor(TFT_CYAN, TFT_BLACK);
+            tft.setTextSize(2);
+            tft.setTextDatum(MC_DATUM);
+            char lbl_buf[32];
+            const char* dirs[] = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
+            sprintf(lbl_buf, "TG: %s (%d deg)", dirs[mancal_selected_leg], mancal_selected_leg * 45);
+            tft.drawString(lbl_buf, w / 2, 186);
+            
+            // Current Offset Text (In large size 2 text, colored Yellow)
+            tft.setTextSize(2);
+            tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+            char off_buf[32];
+            sprintf(off_buf, "CORR: %+0.0f deg", mancal_offsets[mancal_selected_leg]);
+            tft.drawString(off_buf, w / 2, 203);
+            
+            // Large Adjustment Minus/Plus Buttons (4 buttons)
+            tft.fillRoundRect(10, 215, 50, 35, 5, TFT_DARKGREY);
+            tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+            tft.setTextSize(1);
+            tft.drawString("-10", 35, 232);
+            
+            tft.fillRoundRect(65, 215, 45, 35, 5, TFT_DARKGREY);
+            tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+            tft.drawString("-1", 87, 232);
+            
+            tft.fillRoundRect(130, 215, 45, 35, 5, TFT_DARKGREY);
+            tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+            tft.drawString("+1", 152, 232);
+            
+            tft.fillRoundRect(180, 215, 50, 35, 5, TFT_DARKGREY);
+            tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+            tft.drawString("+10", 205, 232);
+            
+            // North / Store Button Row (Y: 260 to 295)
+            if (mancal_selected_leg == 0) {
+                // SET AS NORTH button
+                tft.fillRoundRect(10, 260, 140, 35, 5, TFT_ORANGE);
+                tft.setTextColor(TFT_BLACK, TFT_ORANGE);
+                tft.setTextSize(1);
+                tft.drawString("Set as North", 80, 277);
+                
+                // STORE button
+                tft.fillRoundRect(155, 260, 75, 35, 5, TFT_GREEN);
+                tft.setTextColor(TFT_BLACK, TFT_GREEN);
+                tft.drawString("STORE", 192, 277);
+            } else {
+                // STORE OFFSET button (large)
+                tft.fillRoundRect(30, 260, 180, 35, 5, TFT_GREEN);
+                tft.setTextColor(TFT_BLACK, TFT_GREEN);
+                tft.setTextSize(2);
+                tft.drawString("STORE OFFSET", w / 2, 277);
+            }
         }
         
         // Footer Control Buttons (Y: 300 to 320)
