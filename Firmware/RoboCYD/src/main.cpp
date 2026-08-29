@@ -1209,6 +1209,12 @@ void update_setup_dynamic() {
         setup_value_text(b, selected_param_idx, buf, sizeof(buf));
         tft.drawString(buf, 115, 210);
     }
+    
+    // Draw real-time traffic dots (UDP and LoRa) in the top-right corner of the setup page header (Y: 13)
+    uint16_t udpDotColor = traffic_dot_color(last_udp_tx_ms, last_udp_sel_blink_ms, 100, TFT_GREEN);
+    tft.fillCircle(212, 13, 4, udpDotColor);
+    uint16_t loraDotColor = traffic_dot_color(last_lora_tx_ms, last_lora_blink_ms, 300, TFT_CYAN);
+    tft.fillCircle(230, 13, 4, loraDotColor);
 }
 
 void update_nav_dynamic() {
@@ -1225,6 +1231,7 @@ void update_nav_dynamic() {
     static String last_nav_status = "";
     static bool was_mannav_mode = false;
     static bool was_setup_mode = false;
+    static String last_gps_fix = "";
     
     // Reset caches on buoy selection or screen mode change
     if (selected_buoy_idx != last_buoy_idx || in_mannav_mode != was_mannav_mode || in_setup_mode != was_setup_mode) {
@@ -1236,6 +1243,7 @@ void update_nav_dynamic() {
         last_sb_power = -999;
         last_battery_v = -1.0;
         last_nav_status = "";
+        last_gps_fix = "";
         
         old_mag_dir = -999.0;
         old_tg_dir = -999.0;
@@ -1425,6 +1433,38 @@ void update_nav_dynamic() {
         sprintf(buf, "---");
     }
     tft.drawString(buf, 5, 5);
+    
+    // --- 9. Dynamic Redraw of LOCK and DOCK buttons based on GPS Fix ---
+    if (b.gps_fix != last_gps_fix) {
+        last_gps_fix = b.gps_fix;
+        bool has_fix = (b.gps_fix == "3D" || b.gps_fix == "2D");
+        
+        tft.setFreeFont(&FreeSansBold9pt7b); // Use bold GFX font
+        tft.setTextSize(1);
+        tft.setTextDatum(MC_DATUM);
+        
+        if (has_fix) {
+            // Draw active colored buttons
+            tft.fillRoundRect(10, 240, 70, 35, 4, TFT_DARKGREEN);
+            tft.setTextColor(TFT_WHITE, TFT_DARKGREEN);
+            tft.drawString("LOCK", 45, 257);
+            
+            tft.fillRoundRect(85, 240, 70, 35, 4, TFT_YELLOW);
+            tft.setTextColor(TFT_BLACK, TFT_YELLOW);
+            tft.drawString("DOCK", 120, 257);
+        } else {
+            // Draw disabled grey buttons
+            tft.fillRoundRect(10, 240, 70, 35, 4, TFT_DARKGREY);
+            tft.setTextColor(TFT_LIGHTGREY, TFT_DARKGREY);
+            tft.drawString("LOCK", 45, 257);
+            
+            tft.fillRoundRect(85, 240, 70, 35, 4, TFT_DARKGREY);
+            tft.setTextColor(TFT_LIGHTGREY, TFT_DARKGREY);
+            tft.drawString("DOCK", 120, 257);
+        }
+        
+        tft.setFreeFont(NULL); // Restore default font
+    }
 }
 
 // One-letter status badge for a menu button: I idle, L locked, D docked.
@@ -2411,7 +2451,14 @@ void loop() {
                 }
                 // Row 1 Control Buttons: LOCK, DOCK, IDLE (Y: 235 to 277)
                 else if (touchY >= 235 && touchY <= 277) {
+                    BuoyData &b = buoys[selected_buoy_idx];
+                    bool has_fix = (b.gps_fix == "3D" || b.gps_fix == "2D");
+                    
                     if (touchX >= 5 && touchX <= 82) {
+                        if (!has_fix) {
+                            Serial.println("LOCK command ignored: No GPS Fix on Top!");
+                            return; // Ignore touch completely if no fix!
+                        }
                         tft.fillRect(10, 170, 220, 60, TFT_BLACK);
                         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
                         tft.setTextSize(2);
@@ -2421,6 +2468,10 @@ void loop() {
                         delay(600);
                         draw_resting_ui();
                     } else if (touchX >= 83 && touchX <= 157) {
+                        if (!has_fix) {
+                            Serial.println("DOCK command ignored: No GPS Fix on Top!");
+                            return; // Ignore touch completely if no fix!
+                        }
                         tft.fillRect(10, 170, 220, 60, TFT_BLACK);
                         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
                         tft.setTextSize(2);
@@ -3313,4 +3364,10 @@ void update_mancal_dynamic() {
     }
     
     mancal_is_dirty = false;
+    
+    // Draw real-time traffic dots (UDP and LoRa) in the top-right corner of the header (Y: 15)
+    uint16_t udpDotColor = traffic_dot_color(last_udp_tx_ms, last_udp_sel_blink_ms, 100, TFT_GREEN);
+    tft.fillCircle(212, 15, 4, udpDotColor);
+    uint16_t loraDotColor = traffic_dot_color(last_lora_tx_ms, last_lora_blink_ms, 300, TFT_CYAN);
+    tft.fillCircle(230, 15, 4, loraDotColor);
 }
