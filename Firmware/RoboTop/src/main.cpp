@@ -2231,6 +2231,16 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             for (int i = 0; i < 8; i++) printf(" %.2f", serDataIn.interpolationTable[i]);
             printf("\r\n");
             gpsCalibTableReply(&serDataIn);
+
+            // Broadcast the table over UDP and LoRa so clients can receive it!
+            serDataIn.IDr = BUOYIDALL;
+            serDataIn.IDs = espMac();
+            if (xQueueSend(udpOut, (void *)&serDataIn, pdMS_TO_TICKS(100)) != pdTRUE) {
+                printf("ERROR: Failed to queue table broadcast to udpOut!\r\n");
+            }
+            if (xQueueSend(loraOut, (void *)&serDataIn, pdMS_TO_TICKS(100)) != pdTRUE) {
+                printf("ERROR: Failed to queue table broadcast to loraOut!\r\n");
+            }
             break;
         case PONG:
             break;

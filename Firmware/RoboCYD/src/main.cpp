@@ -2155,6 +2155,9 @@ void loop() {
                                 }
                                 mancal_is_dirty = true;
 
+                                // Query the buoy for its currently in-use 8-point fourier table (Command 88)
+                                send_buoy_command(b.id, 88, 1); // 1 = GET
+
                                 // Temporarily disable Fourier table interpolation on Sub
                                 b.harmonic_enabled = false;
                                 send_buoy_setup(selected_buoy_idx);

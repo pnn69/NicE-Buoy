@@ -303,6 +303,25 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
             Serial.println("On-screen Setup Data loaded successfully from Buoy!");
         }
     }
+    // Parse STORE_INTERPOLATION_TABLE (CMD = 88) to pre-populate fourier offsets dynamically!
+    else if (cmd == 88 && fields.size() >= 13) {
+        Serial.printf("Parsing STORE_INTERPOLATION_TABLE (88) for Buoy: %s\n", sender_id.c_str());
+        if (selected_buoy_idx == buoy_idx) {
+            extern float mancal_offsets[8];
+            extern bool mancal_is_dirty;
+            
+            for (int i = 0; i < 8; i++) {
+                float tableVal = atof(fields[5 + i].c_str());
+                float offset = (i * 45) - tableVal;
+                while (offset < -180.0f) offset += 360.0f;
+                while (offset > 180.0f) offset -= 360.0f;
+                
+                mancal_offsets[i] = offset;
+            }
+            mancal_is_dirty = true;
+            Serial.println("Loaded 8 Fourier calibration offsets from Buoy onto CYD successfully!");
+        }
+    }
 }
 
 void send_buoy_command(const String &buoy_id, int cmd_code, int ack) {
