@@ -1216,8 +1216,14 @@ function initUIEventListeners() {
         // Send IDLE command to shut down thrusters/motors
         sendStatusCmd(b.id, MsgType.IDLING);
         
-        // Close overlay
-        document.getElementById("mancal-fullscreen-overlay").style.display = "none";
+        // Close overlay with smooth fade-out animation matching other modals
+        const overlay = document.getElementById("mancal-fullscreen-overlay");
+        if (overlay) {
+            overlay.classList.remove("active");
+            setTimeout(() => {
+                overlay.style.display = "none";
+            }, 200); // 200ms matches style.css modal-overlay transition time
+        }
         mancalWebActiveIndex = null;
     });
     
@@ -1248,8 +1254,14 @@ function initUIEventListeners() {
         // Send IDLE command to shut down thrusters/motors
         sendStatusCmd(b.id, MsgType.IDLING);
         
-        // Close overlay
-        document.getElementById("mancal-fullscreen-overlay").style.display = "none";
+        // Close overlay with smooth fade-out animation matching other modals
+        const overlay = document.getElementById("mancal-fullscreen-overlay");
+        if (overlay) {
+            overlay.classList.remove("active");
+            setTimeout(() => {
+                overlay.style.display = "none";
+            }, 200);
+        }
         mancalWebActiveIndex = null;
         
         alert("Manual Calibration saved successfully! Buoy set to IDLE.");
@@ -1365,11 +1377,13 @@ function initUIEventListeners() {
     };
     document.getElementById("setup-gpsStill-btn").addEventListener("click", () => startGpsFourier(true));
     document.getElementById("setup-manCal-btn").addEventListener("click", () => {
-        // 1. Close Setup Modal
+        // 1. Read active setup index FIRST before closing the modal clears it!
+        const index = activeSetupBuoyIndex !== null ? activeSetupBuoyIndex : 0;
+        
+        // 2. Close Setup Modal
         closeSetupModal();
         
-        // 2. Initialize active full-screen mancal indexes
-        const index = activeSetupBuoyIndex !== null ? activeSetupBuoyIndex : 0;
+        // 3. Initialize active full-screen mancal indexes with the correct index
         const b = buoys[index];
         if (!b.id) return;
         
@@ -1428,13 +1442,16 @@ function initUIEventListeners() {
         const remotePayload = `${b.id},99,${MsgType.SET},${MsgType.REMOTE},${currStatus},0,0,,,,`;
         sendCommand(b.id, remotePayload);
         
-        // 5. Open and reveal full-screen overlay with aggressive cached-asset protection
+        // 5. Open and reveal full-screen overlay with aggressive cached-asset protection and CSS active class
         const overlay = document.getElementById("mancal-fullscreen-overlay");
         if (!overlay) {
             alert("Cache Detected: Your browser is still using an older cached version of the index.html page!\n\nPlease perform a Force Refresh (press Ctrl + F5 or Ctrl + Shift + R) or open this dashboard in an Incognito / Private window to load the new interface.");
             return;
         }
         overlay.style.display = "flex";
+        // Force reflow before adding the class so the transition operates perfectly
+        overlay.offsetWidth; 
+        overlay.classList.add("active");
         
         logMessage(`Buoy ${b.id.toUpperCase()}: Dedicated Fullscreen Manual Compass Calibration started!`, "UDP OUT");
     });
