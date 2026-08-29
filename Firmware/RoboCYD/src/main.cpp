@@ -1212,9 +1212,9 @@ void update_setup_dynamic() {
     
     // Draw real-time traffic dots (UDP and LoRa) in the top-right corner of the setup page header (Y: 13)
     uint16_t udpDotColor = traffic_dot_color(last_udp_tx_ms, last_udp_sel_blink_ms, 100, TFT_GREEN);
-    tft.fillCircle(212, 13, 4, udpDotColor);
+    tft.fillCircle(218, 13, 4, udpDotColor);
     uint16_t loraDotColor = traffic_dot_color(last_lora_tx_ms, last_lora_blink_ms, 300, TFT_CYAN);
-    tft.fillCircle(230, 13, 4, loraDotColor);
+    tft.fillCircle(232, 13, 4, loraDotColor);
 }
 
 void update_nav_dynamic() {
@@ -3243,6 +3243,16 @@ void update_mancal_dynamic() {
         tft.fillRect(10, 48, w - 20, 130, TFT_BLACK); // Clear circle area
         tft.fillRect(0, 180, w, 140, TFT_BLACK); // Cleanly clear lower labels, buttons and footers to prevent overlaps!
         
+        // Draw static MAG and CORR labels in tiny text above the values
+        tft.setTextSize(1);
+        tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+        
+        tft.setTextDatum(TL_DATUM);
+        tft.drawString("MAG", 15, 48);
+        
+        tft.setTextDatum(TR_DATUM);
+        tft.drawString("CORR", w - 15, 48);
+        
         // Draw dots and directional labels
         for (int i = 0; i < 8; i++) {
             int angle_deg = i * 45;
@@ -3289,28 +3299,35 @@ void update_mancal_dynamic() {
         if (last_draw_mag_dir != -999.0f) {
             draw_compass_arrow(cx, cy, r_dots - 8, last_draw_mag_dir, TFT_BLACK);
         }
-        // Draw center dot
-        tft.fillCircle(cx, cy, 3, TFT_WHITE);
         // Draw new arrow in Green representing what the buoy's compass reports
         draw_compass_arrow(cx, cy, r_dots - 8, b.mag_dir, TFT_GREEN);
+        
+        // Draw center pivot dot ON TOP of the arrow so it is never obscured or overwritten!
+        tft.fillCircle(cx, cy, 3, TFT_WHITE);
+        
         last_draw_mag_dir = b.mag_dir;
     }
     
-    // Draw raw magnetic heading and correction factor in top-left and top-right of screen (Y: 52)
-    tft.setTextSize(1);
+    // Draw raw magnetic heading and correction factor in top-left and top-right of screen (Y: 60)
+    // Clear old values first to prevent character ghosting
+    tft.fillRect(10, 58, 48, 18, TFT_BLACK); 
+    tft.fillRect(w - 58, 58, 48, 18, TFT_BLACK);
+    
+    tft.setTextSize(2); // Large bold numbers!
+    
+    // Left-aligned Mag heading value
     tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-    
-    // Left-aligned Mag heading
     tft.setTextDatum(TL_DATUM);
-    char mag_buf[24];
-    sprintf(mag_buf, "Mag: %0.0f deg", b.mag_dir);
-    tft.drawString(mag_buf, 10, 52);
+    char mag_buf[16];
+    sprintf(mag_buf, "%0.0f", b.mag_dir);
+    tft.drawString(mag_buf, 15, 60);
     
-    // Right-aligned Correction factor
+    // Right-aligned Correction factor value
+    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
     tft.setTextDatum(TR_DATUM);
-    char corr_buf[24];
-    sprintf(corr_buf, "Corr: %+0.0f deg", mancal_offsets[mancal_selected_leg]);
-    tft.drawString(corr_buf, w - 10, 52);
+    char corr_buf[16];
+    sprintf(corr_buf, "%+0.0f", mancal_offsets[mancal_selected_leg]);
+    tft.drawString(corr_buf, w - 15, 60);
     
     // Draw the Port (BB) and Starboard (SB) motor power speedbars dynamically centered at Y: 110
     static float last_bb_mancal = -999.0f;
@@ -3414,7 +3431,7 @@ void update_mancal_dynamic() {
     
     // Draw real-time traffic dots (UDP and LoRa) in the top-right corner of the header (Y: 15)
     uint16_t udpDotColor = traffic_dot_color(last_udp_tx_ms, last_udp_sel_blink_ms, 100, TFT_GREEN);
-    tft.fillCircle(212, 15, 4, udpDotColor);
+    tft.fillCircle(218, 15, 4, udpDotColor); // Shifted right to 218!
     uint16_t loraDotColor = traffic_dot_color(last_lora_tx_ms, last_lora_blink_ms, 300, TFT_CYAN);
-    tft.fillCircle(230, 15, 4, loraDotColor);
+    tft.fillCircle(232, 15, 4, loraDotColor); // Shifted right to 232!
 }
