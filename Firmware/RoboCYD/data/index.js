@@ -1341,9 +1341,16 @@ function initUIEventListeners() {
         if (speedSl) speedSl.value = 0;
         if (speedVal) speedVal.textContent = "0%";
         
-        // 5. Open Manual Navigation Panel on the screen
-        const manBtn = document.getElementById(`mannav-btn-${index}`);
-        if (manBtn) manBtn.click();
+        // 5. Open and reveal the Manual Navigation and Fourier Compass Calibration panels explicitly
+        const manNavPanel = document.getElementById(`mannav-panel-${index}`);
+        if (manNavPanel) manNavPanel.style.display = "block";
+        
+        const manCalPanel = document.getElementById(`mancal-web-panel-${index}`);
+        if (manCalPanel) manCalPanel.style.display = "block";
+        
+        // Highlight active manual button color
+        const btn = document.getElementById(`mannav-btn-${index}`);
+        if (btn) btn.style.backgroundColor = "#0284c7";
         
         logMessage(`Buoy ${b.id.toUpperCase()}: Manual Compass Calibration started! Pivoted to North.`, "UDP OUT");
     });
