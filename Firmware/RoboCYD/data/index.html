@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Robobuoy Monitor & Control Panel</title>
-    <link rel="stylesheet" href="style.css?v=102">
+    <link rel="stylesheet" href="style.css?v=103">
 </head>
 <body>
     <header class="top-bar">
@@ -820,8 +820,11 @@
             <!-- Dashboard Row (Speedbars, Compass, and Telemetry) -->
             <div style="display: flex; align-items: center; justify-content: space-between; height: 210px; position: relative; margin-top: 10px;">
                 
-                <!-- Port Speedbar -->
-                <div style="display: flex; flex-direction: column; align-items: center; width: 50px;">
+                <!-- Port Column (with Mag Heading on top) -->
+                <div style="display: flex; flex-direction: column; align-items: center; width: 60px;">
+                    <span style="font-size: 0.65rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; line-height: 1;">Mag</span>
+                    <span id="mancal-web-mag-val" style="font-size: 1.3rem; font-weight: bold; color: #38bdf8; margin-bottom: 8px; line-height: 1;">0°</span>
+                    
                     <span style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px; font-weight: bold;">PORT</span>
                     <div style="width: 16px; height: 110px; background-color: #0f172a; border-radius: 3px; position: relative;">
                         <!-- Centerline -->
@@ -845,17 +848,22 @@
                     <button type="button" class="mancal-web-dot" data-leg="6" style="position: absolute; left: 8px; top: 82px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid #475569; background-color: #334155; color: #94a3b8; font-weight: bold; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; outline: none; transition: background-color 0.2s;">W</button>
                     <button type="button" class="mancal-web-dot" data-leg="7" style="position: absolute; left: 30px; top: 30px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid #475569; background-color: #334155; color: #94a3b8; font-weight: bold; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; outline: none; transition: background-color 0.2s;">NW</button>
                     
-                    <!-- Symmetrical Telemetry overlay in the middle of compass! -->
-                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; z-index: 10;">
-                        <span style="font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; font-weight: bold; line-height: 1; margin-bottom: 2px;">Mag</span>
-                        <span id="mancal-web-mag-val" style="font-size: 1.6rem; font-weight: bold; color: #38bdf8; line-height: 1.1; margin-bottom: 4px;">0°</span>
-                        <span style="font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; font-weight: bold; line-height: 1; margin-bottom: 2px;">Corr</span>
-                        <span id="mancal-web-offset-val" style="font-size: 1.6rem; font-weight: bold; color: #eab308; line-height: 1.1;">+0°</span>
+                    <!-- Symmetrical Rotating Heading Arrow in the middle of compass! -->
+                    <div style="position: absolute; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 10; width: 70px; height: 70px;">
+                        <svg id="mancal-web-arrow" viewBox="0 0 100 100" style="width: 100%; height: 100%; transform: rotate(0deg); transition: transform 0.15s ease-out;">
+                            <!-- Sharp green compass heading pointer -->
+                            <polygon points="50,12 36,86 50,68 64,86" fill="#22c55e" stroke="#111827" stroke-width="2" />
+                            <!-- Center pivot white dot drawn cleanly on top -->
+                            <circle cx="50" cy="46" r="6" fill="#ffffff" stroke="#111827" stroke-width="2" />
+                        </svg>
                     </div>
                 </div>
 
-                <!-- Starboard Speedbar -->
-                <div style="display: flex; flex-direction: column; align-items: center; width: 50px;">
+                <!-- Starboard Column (with Corr Offset on top) -->
+                <div style="display: flex; flex-direction: column; align-items: center; width: 60px;">
+                    <span style="font-size: 0.65rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; line-height: 1;">Corr</span>
+                    <span id="mancal-web-offset-val" style="font-size: 1.3rem; font-weight: bold; color: #eab308; margin-bottom: 8px; line-height: 1;">+0°</span>
+                    
                     <span style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px; font-weight: bold;">STBD</span>
                     <div style="width: 16px; height: 110px; background-color: #0f172a; border-radius: 3px; position: relative;">
                         <!-- Centerline -->
@@ -898,6 +906,6 @@
         </div>
     </div>
 
-    <script src="index.js?v=102"></script>
+    <script src="index.js?v=103"></script>
 </body>
 </html>

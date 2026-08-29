@@ -844,13 +844,23 @@ function updateGUI() {
         
         // 8.5 Full-screen Manual Calibration Real-time overlay updates!
         if (mancalWebActiveIndex === i) {
-            // Update raw heading
+            // Update raw heading text
             const magValEl = document.getElementById("mancal-web-mag-val");
             if (magValEl) {
                 if (mDir !== "N/A" && mDir !== undefined && !isNaN(parseFloat(mDir))) {
                     magValEl.textContent = `${parseFloat(mDir).toFixed(0)}°`;
                 } else {
                     magValEl.textContent = "0°";
+                }
+            }
+            
+            // Update rotating visual compass arrow dynamically in real-time
+            const arrowEl = document.getElementById("mancal-web-arrow");
+            if (arrowEl) {
+                if (mDir !== "N/A" && mDir !== undefined && !isNaN(parseFloat(mDir))) {
+                    arrowEl.style.transform = `rotate(${parseFloat(mDir).toFixed(1)}deg)`;
+                } else {
+                    arrowEl.style.transform = `rotate(0deg)`;
                 }
             }
             
