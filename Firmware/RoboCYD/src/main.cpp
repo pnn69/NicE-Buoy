@@ -3296,6 +3296,53 @@ void update_mancal_dynamic() {
         last_draw_mag_dir = b.mag_dir;
     }
     
+    // Draw raw magnetic heading and correction factor in top-left and top-right of screen (Y: 52)
+    tft.setTextSize(1);
+    tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+    
+    // Left-aligned Mag heading
+    tft.setTextDatum(TL_DATUM);
+    char mag_buf[24];
+    sprintf(mag_buf, "Mag: %0.0f deg", b.mag_dir);
+    tft.drawString(mag_buf, 10, 52);
+    
+    // Right-aligned Correction factor
+    tft.setTextDatum(TR_DATUM);
+    char corr_buf[24];
+    sprintf(corr_buf, "Corr: %+0.0f deg", mancal_offsets[mancal_selected_leg]);
+    tft.drawString(corr_buf, w - 10, 52);
+    
+    // Draw the Port (BB) and Starboard (SB) motor power speedbars dynamically centered at Y: 110
+    static float last_bb_mancal = -999.0f;
+    static float last_sb_mancal = -999.0f;
+    int mid_y = 110;
+    
+    if (mancal_is_dirty || b.bb_power != last_bb_mancal) {
+        last_bb_mancal = b.bb_power;
+        tft.fillRect(15, mid_y - 30, 12, 60, TFT_BLACK); // Clear BB speedbar area
+        tft.drawFastHLine(15, mid_y, 12, TFT_DARKGREY); // Reset centerline
+        if (b.bb_power > 0) {
+            int fill_h = (b.bb_power * 30) / 100;
+            tft.fillRect(16, mid_y - fill_h, 10, fill_h, TFT_GREEN);
+        } else if (b.bb_power < 0) {
+            int fill_h = (-b.bb_power * 30) / 100;
+            tft.fillRect(16, mid_y, 10, fill_h, TFT_RED);
+        }
+    }
+    
+    if (mancal_is_dirty || b.sb_power != last_sb_mancal) {
+        last_sb_mancal = b.sb_power;
+        tft.fillRect(213, mid_y - 30, 12, 60, TFT_BLACK); // Clear SB speedbar area
+        tft.drawFastHLine(213, mid_y, 12, TFT_DARKGREY); // Reset centerline
+        if (b.sb_power > 0) {
+            int fill_h = (b.sb_power * 30) / 100;
+            tft.fillRect(214, mid_y - fill_h, 10, fill_h, TFT_GREEN);
+        } else if (b.sb_power < 0) {
+            int fill_h = (-b.sb_power * 30) / 100;
+            tft.fillRect(214, mid_y, 10, fill_h, TFT_RED);
+        }
+    }
+    
     // Draw state texts, buttons if dirty
     if (mancal_is_dirty) {
         // TARGET text
