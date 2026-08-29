@@ -1130,7 +1130,55 @@ function initUIEventListeners() {
         sendSetupAction(89, stillWater ? "1" : "0"); // GPS_FOURIER_CALIBRATE
     };
     document.getElementById("setup-gpsStill-btn").addEventListener("click", () => startGpsFourier(true));
-    document.getElementById("setup-gpsCurrent-btn").addEventListener("click", () => startGpsFourier(false));
+    document.getElementById("setup-manCal-btn").addEventListener("click", () => {
+        // 1. Close Setup Modal
+        closeSetupModal();
+        
+        // 2. Open the Manual Drive Control panel for this buoy
+        const index = activeSetupBuoyIndex !== null ? activeSetupBuoyIndex : 0;
+        const b = buoys[index];
+        if (!b.id) return;
+        
+        // Disable harmonic interpolation on the buoy first
+        b.data["harmonic_enabled"] = "0";
+        // Construct and send setup save command (harmonic = 1)
+        const currStatus = b.data.Status || "7";
+        const trimEn = b.data["compass_trim_enabled"] === "1" ? "1" : "0";
+        const values = [
+            b.data["Kpr"] || "1.00", b.data["Kir"] || "0.01", b.data["Kdr"] || "0.05",
+            b.data["Kps"] || "1.50", b.data["Kis"] || "0.05", b.data["Kds"] || "0.10",
+            b.data["maxSpeed"] || "100", b.data["minSpeed"] || "10", b.data["pivotSpeed"] || "0.20",
+            b.data["compassOffset"] || "0", b.data["holdRad"] || "2.0",
+            b.data["revBB"] === "1" ? "1" : "0", b.data["revSB"] === "1" ? "1" : "0",
+            b.data["swap_BB_SB"] === "1" ? "1" : "0", trimEn,
+            b.data["dockAppDist"] || "20", b.data["dockAppDir"] || "180",
+            b.data["dockToWP"] === "1" ? "1" : "0",
+            "1" // harmonic_enabled = false (1)
+        ];
+        const commandPayload = `${b.id},99,${MsgType.SET},${MsgType.SETUPDATA},${currStatus},${values.join(",")}`;
+        sendCommand(b.id, commandPayload);
+        
+        // 3. Immediately send standard steer command to North (0) with zero speed
+        const remotePayload = `${b.id},99,${MsgType.SET},${MsgType.REMOTE},${currStatus},0,0,,,,`;
+        sendCommand(b.id, remotePayload);
+        
+        // 4. Set the dashboard sliders to North and 0 speed
+        const dirSl = document.getElementById(`mannav-dir-${index}`);
+        const dirVal = document.getElementById(`mannav-dir-val-${index}`);
+        const speedSl = document.getElementById(`mannav-speed-${index}`);
+        const speedVal = document.getElementById(`mannav-speed-val-${index}`);
+        
+        if (dirSl) dirSl.value = 0;
+        if (dirVal) dirVal.textContent = "0°";
+        if (speedSl) speedSl.value = 0;
+        if (speedVal) speedVal.textContent = "0%";
+        
+        // 5. Open Manual Navigation Panel on the screen
+        const manBtn = document.getElementById(`mannav-btn-${index}`);
+        if (manBtn) manBtn.click();
+        
+        logMessage(`Buoy ${b.id.toUpperCase()}: Manual Compass Calibration started! Pivoted to North.`, "UDP OUT");
+    });
 
     document.getElementById("setup-reboot-btn").addEventListener("click", () => {
         if (!confirm("Are you sure you want to reboot this buoy?")) return;
