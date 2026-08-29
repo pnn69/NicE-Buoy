@@ -807,6 +807,97 @@
         <canvas id="fieldCanvas" style="width: 100%; height: 100%; background-color: #0f172a; display: block;"></canvas>
     </div>
 
+    <!-- Dedicated Isolated Full-Screen Manual Compass Calibration Cockpit -->
+    <div class="modal-overlay" id="mancal-fullscreen-overlay" style="display: none; background-color: #0f172a; justify-content: center; align-items: center; z-index: 1500; width: 100vw; height: 100vh; position: fixed; top: 0; left: 0;">
+        <div style="width: 100%; max-width: 480px; background-color: #1e293b; padding: 25px; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 20px; position: relative;">
+            
+            <!-- Header -->
+            <div style="text-align: center; border-bottom: 1px solid #334155; padding-bottom: 12px;">
+                <h3 style="color: #38bdf8; margin: 0; font-size: 1.4rem; font-weight: bold; letter-spacing: 0.5px;">MAN COMPASS CAL</h3>
+                <span id="mancal-web-buoy-title" style="font-size: 0.9rem; color: #94a3b8; font-weight: bold;">Buoy 1</span>
+            </div>
+
+            <!-- Dashboard Row (Speedbars, Compass, and Telemetry) -->
+            <div style="display: flex; align-items: center; justify-content: space-between; height: 210px; position: relative; margin-top: 10px;">
+                
+                <!-- Port Speedbar -->
+                <div style="display: flex; flex-direction: column; align-items: center; width: 50px;">
+                    <span style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px; font-weight: bold;">PORT</span>
+                    <div style="width: 16px; height: 110px; background-color: #0f172a; border-radius: 3px; position: relative;">
+                        <!-- Centerline -->
+                        <div style="position: absolute; left: 0; top: 55px; width: 100%; height: 1px; background-color: #475569;"></div>
+                        <!-- Fill Bar -->
+                        <div id="mancal-bar-bb" style="position: absolute; left: 1px; width: 14px; bottom: 55px; height: 0%; background-color: #22c55e; border-radius: 2px;"></div>
+                    </div>
+                    <span id="mancal-val-bb" style="font-size: 0.8rem; font-weight: bold; color: #22c55e; margin-top: 4px;">0%</span>
+                </div>
+
+                <!-- Center Compass Rose Wheel / Circle -->
+                <div style="position: relative; width: 200px; height: 200px; display: flex; align-items: center; justify-content: center;">
+                    <!-- 8 direction dots dynamically arranged in a circle -->
+                    <!-- Center is 100, 100. Radius is 74px -->
+                    <button type="button" class="mancal-web-dot" data-leg="0" style="position: absolute; left: 82px; top: 8px; width: 36px; height: 36px; border-radius: 50%; border: 2px solid white; background-color: #3b82f6; color: white; font-weight: bold; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; outline: none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.35); transition: background-color 0.2s;">N</button>
+                    <button type="button" class="mancal-web-dot" data-leg="1" style="position: absolute; left: 134px; top: 30px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid #475569; background-color: #334155; color: #94a3b8; font-weight: bold; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; outline: none; transition: background-color 0.2s;">NE</button>
+                    <button type="button" class="mancal-web-dot" data-leg="2" style="position: absolute; left: 156px; top: 82px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid #475569; background-color: #334155; color: #94a3b8; font-weight: bold; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; outline: none; transition: background-color 0.2s;">E</button>
+                    <button type="button" class="mancal-web-dot" data-leg="3" style="position: absolute; left: 134px; top: 134px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid #475569; background-color: #334155; color: #94a3b8; font-weight: bold; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; outline: none; transition: background-color 0.2s;">SE</button>
+                    <button type="button" class="mancal-web-dot" data-leg="4" style="position: absolute; left: 82px; top: 156px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid #475569; background-color: #334155; color: #94a3b8; font-weight: bold; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; outline: none; transition: background-color 0.2s;">S</button>
+                    <button type="button" class="mancal-web-dot" data-leg="5" style="position: absolute; left: 30px; top: 134px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid #475569; background-color: #334155; color: #94a3b8; font-weight: bold; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; outline: none; transition: background-color 0.2s;">SW</button>
+                    <button type="button" class="mancal-web-dot" data-leg="6" style="position: absolute; left: 8px; top: 82px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid #475569; background-color: #334155; color: #94a3b8; font-weight: bold; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; outline: none; transition: background-color 0.2s;">W</button>
+                    <button type="button" class="mancal-web-dot" data-leg="7" style="position: absolute; left: 30px; top: 30px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid #475569; background-color: #334155; color: #94a3b8; font-weight: bold; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; outline: none; transition: background-color 0.2s;">NW</button>
+                    
+                    <!-- Symmetrical Telemetry overlay in the middle of compass! -->
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; z-index: 10;">
+                        <span style="font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; font-weight: bold; line-height: 1; margin-bottom: 2px;">Mag</span>
+                        <span id="mancal-web-mag-val" style="font-size: 1.6rem; font-weight: bold; color: #38bdf8; line-height: 1.1; margin-bottom: 4px;">0°</span>
+                        <span style="font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; font-weight: bold; line-height: 1; margin-bottom: 2px;">Corr</span>
+                        <span id="mancal-web-offset-val" style="font-size: 1.6rem; font-weight: bold; color: #eab308; line-height: 1.1;">+0°</span>
+                    </div>
+                </div>
+
+                <!-- Starboard Speedbar -->
+                <div style="display: flex; flex-direction: column; align-items: center; width: 50px;">
+                    <span style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px; font-weight: bold;">STBD</span>
+                    <div style="width: 16px; height: 110px; background-color: #0f172a; border-radius: 3px; position: relative;">
+                        <!-- Centerline -->
+                        <div style="position: absolute; left: 0; top: 55px; width: 100%; height: 1px; background-color: #475569;"></div>
+                        <!-- Fill Bar -->
+                        <div id="mancal-bar-sb" style="position: absolute; left: 1px; width: 14px; bottom: 55px; height: 0%; background-color: #22c55e; border-radius: 2px;"></div>
+                    </div>
+                    <span id="mancal-val-sb" style="font-size: 0.8rem; font-weight: bold; color: #22c55e; margin-top: 4px;">0%</span>
+                </div>
+            </div>
+
+            <!-- Fine-Tuning Symmetrical Buttons -->
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 15px;">
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn" id="mancal-web-sub10" style="background-color: #475569; color: white; padding: 8px 14px; font-size: 0.95rem; font-weight: bold; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.25); cursor: pointer; border: none; outline: none;">-10°</button>
+                    <button type="button" class="btn" id="mancal-web-sub1" style="background-color: #475569; color: white; padding: 8px 14px; font-size: 0.95rem; font-weight: bold; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.25); cursor: pointer; border: none; outline: none;">-1°</button>
+                </div>
+                
+                <div style="text-align: center;">
+                    <span style="font-size: 0.75rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Adjustment</span>
+                </div>
+                
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn" id="mancal-web-add1" style="background-color: #475569; color: white; padding: 8px 14px; font-size: 0.95rem; font-weight: bold; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.25); cursor: pointer; border: none; outline: none;">+1°</button>
+                    <button type="button" class="btn" id="mancal-web-add10" style="background-color: #475569; color: white; padding: 8px 14px; font-size: 0.95rem; font-weight: bold; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.25); cursor: pointer; border: none; outline: none;">+10°</button>
+                </div>
+            </div>
+
+            <!-- Large Action Buttons (Set as North / STORE / CANCEL / SAVE & EXIT) -->
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px; border-top: 1px solid #334155; padding-top: 15px;">
+                <button type="button" class="btn" id="mancal-web-setNorth" style="width: 100%; background-color: #f97316; color: black; font-weight: bold; font-size: 1rem; padding: 10px 0; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); cursor: pointer; border: none; outline: none;">Set as North</button>
+                
+                <div style="display: flex; gap: 10px; width: 100%;">
+                    <button type="button" class="btn" id="mancal-web-cancel" style="flex: 1; background-color: #ef4444; color: white; font-weight: bold; font-size: 0.95rem; padding: 10px 0; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); cursor: pointer; border: none; outline: none;">CANCEL</button>
+                    <button type="button" class="btn" id="mancal-web-store" style="flex: 1; background-color: #22c55e; color: black; font-weight: bold; font-size: 0.95rem; padding: 10px 0; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); cursor: pointer; border: none; outline: none;">STORE</button>
+                    <button type="button" class="btn" id="mancal-web-exit" style="flex: 1.2; background-color: #3b82f6; color: white; font-weight: bold; font-size: 0.95rem; padding: 10px 0; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); cursor: pointer; border: none; outline: none;">SAVE & EXIT</button>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
     <script src="index.js"></script>
 </body>
 </html>

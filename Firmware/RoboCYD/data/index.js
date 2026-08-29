@@ -48,9 +48,10 @@ const MsgType = {
     REBOOT: 85
 };
 
-// Global variables for Manual Fourier Calibration inside browser
-const mancalActiveLegs = [0, 0, 0];
-const mancalOffsets = Array.from({ length: 3 }, () => Array(8).fill(0));
+// Global variables for full-screen Manual Fourier Calibration inside browser
+let mancalWebActiveIndex = null;
+let mancalWebActiveLeg = 0;
+const mancalWebOffsets = Array(8).fill(0);
 
 // Buoy State Configuration (stores 3 buoys)
 const buoys = Array.from({ length: 3 }, (_, i) => ({
@@ -840,6 +841,56 @@ function updateGUI() {
                 }
             }
         });
+        
+        // 8.5 Full-screen Manual Calibration Real-time overlay updates!
+        if (mancalWebActiveIndex === i) {
+            // Update raw heading
+            const magValEl = document.getElementById("mancal-web-mag-val");
+            if (magValEl) {
+                if (mDir !== "N/A" && mDir !== undefined && !isNaN(parseFloat(mDir))) {
+                    magValEl.textContent = `${parseFloat(mDir).toFixed(0)}°`;
+                } else {
+                    magValEl.textContent = "0°";
+                }
+            }
+            
+            // Update Port and Starboard speedbars
+            const bbPowerVal = isIdle ? 0 : parseFloat(d["Bow Thruster (BB)"] || "0");
+            const sbPowerVal = isIdle ? 0 : parseFloat(d["Stern Thruster (SB)"] || "0");
+            
+            const bbBarEl = document.getElementById("mancal-bar-bb");
+            const sbBarEl = document.getElementById("mancal-bar-sb");
+            const bbValEl = document.getElementById("mancal-val-bb");
+            const sbValEl = document.getElementById("mancal-val-sb");
+            
+            if (bbBarEl) {
+                const bbPct = Math.max(-100, Math.min(100, bbPowerVal));
+                if (bbPct >= 0) {
+                    bbBarEl.style.bottom = "55px";
+                    bbBarEl.style.height = `${bbPct * 0.55}px`; // max 55px
+                    bbBarEl.style.backgroundColor = "#22c55e"; // green
+                } else {
+                    bbBarEl.style.bottom = `${55 + bbPct * 0.55}px`; // shift starting position down
+                    bbBarEl.style.height = `${Math.abs(bbPct) * 0.55}px`;
+                    bbBarEl.style.backgroundColor = "#ef4444"; // red
+                }
+            }
+            if (sbBarEl) {
+                const sbPct = Math.max(-100, Math.min(100, sbPowerVal));
+                if (sbPct >= 0) {
+                    sbBarEl.style.bottom = "55px";
+                    sbBarEl.style.height = `${sbPct * 0.55}px`; // max 55px
+                    sbBarEl.style.backgroundColor = "#22c55e"; // green
+                } else {
+                    sbBarEl.style.bottom = `${55 + sbPct * 0.55}px`;
+                    sbBarEl.style.height = `${Math.abs(sbPct) * 0.55}px`;
+                    sbBarEl.style.backgroundColor = "#ef4444"; // red
+                }
+            }
+            
+            if (bbValEl) bbValEl.textContent = `${Math.round(bbPowerVal)}%`;
+            if (sbValEl) sbValEl.textContent = `${Math.round(sbPowerVal)}%`;
+        }
     });
     
     // 9. Global controls states based on discovered active count
@@ -1023,170 +1074,185 @@ function initUIEventListeners() {
                 sendWebRemoteCommand(dirSlider.value, 0);
             }, 100);
         });
-        
-        // --- New Manual Fourier Calibration Event Listeners ---
-        const legBtns = document.querySelectorAll(`.mancal-dot-${i}`);
-        legBtns.forEach(btn => {
-            btn.addEventListener("click", () => {
-                const leg = parseInt(btn.getAttribute("data-leg"));
-                mancalActiveLegs[i] = leg;
-                
-                // Highlight active button and unhighlight others
-                legBtns.forEach(bL => {
-                    const bLeg = parseInt(bL.getAttribute("data-leg"));
-                    if (bLeg === leg) {
-                        bL.style.backgroundColor = "#3b82f6"; // Blue active
-                        bL.style.color = "white";
-                    } else {
-                        bL.style.backgroundColor = "#334155"; // Dark grey inactive
-                        bL.style.color = "#94a3b8";
-                    }
-                });
-                
-                // Update offset display
-                const offVal = document.getElementById(`mancal-offset-val-${i}`);
-                if (offVal) {
-                    const off = mancalOffsets[i][leg];
-                    offVal.textContent = (off >= 0 ? "+" : "") + off + "°";
-                }
-                
-                // Show/Hide "Set as North" button based on whether North (leg 0) is selected
-                const northBtn = document.getElementById(`mancal-web-setNorth-${i}`);
-                if (northBtn) {
-                    northBtn.style.display = (leg === 0) ? "block" : "none";
-                }
-                
-                // Immediately command the buoy to steer to this target angle with speed = 0
-                if (b.id) {
-                    const target_angle = leg * 45;
-                    sendWebRemoteCommand(target_angle, 0);
+    });
+    
+    // --- Global Isolated Full-Screen Manual Calibration Event Listeners ---
+    const webLegBtns = document.querySelectorAll(".mancal-web-dot");
+    webLegBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+            const leg = parseInt(btn.getAttribute("data-leg"));
+            mancalWebActiveLeg = leg;
+            
+            // Highlight active button and unhighlight others
+            webLegBtns.forEach(bL => {
+                const bLeg = parseInt(bL.getAttribute("data-leg"));
+                if (bLeg === leg) {
+                    bL.style.backgroundColor = "#3b82f6"; // Blue active
+                    bL.style.color = "white";
+                    bL.style.border = "2px solid white";
+                } else {
+                    bL.style.backgroundColor = "#334155"; // Dark grey inactive
+                    bL.style.color = "#94a3b8";
+                    bL.style.border = "1px solid #475569";
                 }
             });
-        });
-        
-        const adjustMancalOffset = (step) => {
-            const leg = mancalActiveLegs[i];
-            mancalOffsets[i][leg] += step;
-            if (mancalOffsets[i][leg] < -180) mancalOffsets[i][leg] = -180;
-            if (mancalOffsets[i][leg] > 180) mancalOffsets[i][leg] = 180;
             
-            // Update text
-            const off = mancalOffsets[i][leg];
-            const offVal = document.getElementById(`mancal-offset-val-${i}`);
-            if (offVal) offVal.textContent = (off >= 0 ? "+" : "") + off + "°";
+            // Update offset display
+            const off = mancalWebOffsets[leg];
+            document.getElementById("mancal-web-offset-val").textContent = (off >= 0 ? "+" : "") + off + "°";
             
-            // Send direct steering target shift to buoy in real-time
-            if (b.id) {
-                const target_angle = leg * 45;
-                let steer_dir = target_angle - off;
-                while (steer_dir < 0) steer_dir += 360;
-                while (steer_dir >= 360) steer_dir -= 360;
-                
-                // Send active steering command (REMOTE 25)
-                sendWebRemoteCommand(steer_dir, 0);
-                
-                // Send the fourier offset command (INFIELD_OFFSET_CALIBRATE 78)
-                const currStatus = b.data.Status || "7";
-                const calPayload = `${b.id},99,${MsgType.SET},78,${currStatus},${leg},${off},,,,`;
-                sendCommand(b.id, calPayload);
+            // Show/Hide "Set as North" button based on whether North (leg 0) is selected
+            document.getElementById("mancal-web-setNorth").style.display = (leg === 0) ? "block" : "none";
+            
+            // Send direct steer command to buoy (REMOTE 25)
+            if (mancalWebActiveIndex !== null) {
+                const b = buoys[mancalWebActiveIndex];
+                if (b.id) {
+                    const target_angle = leg * 45;
+                    // Format: Target_Buoy_ID,98,6,25,25,tgDir,tgSpeed,,,,
+                    const payload = `${b.id},98,6,25,25,${parseFloat(target_angle).toFixed(1)},0.0,,,,`;
+                    sendCommand(b.id, payload);
+                }
             }
-        };
-        
-        document.getElementById(`mancal-btn-sub10-${i}`).addEventListener("click", () => adjustMancalOffset(-10));
-        document.getElementById(`mancal-btn-sub1-${i}`).addEventListener("click", () => adjustMancalOffset(-1));
-        document.getElementById(`mancal-btn-add1-${i}`).addEventListener("click", () => adjustMancalOffset(1));
-        document.getElementById(`mancal-btn-add10-${i}`).addEventListener("click", () => adjustMancalOffset(10));
-        
-        // "Set as North" button handler
-        document.getElementById(`mancal-web-setNorth-${i}`).addEventListener("click", () => {
-            if (!b.id) return;
-            
-            const currentOffset = parseFloat(b.data["compassOffset"] || "0.0");
-            const dialedOffset = mancalOffsets[i][0]; // leg 0 North offset
-            let newOffset = currentOffset + dialedOffset;
-            while (newOffset < -180) newOffset += 360;
-            while (newOffset > 180) newOffset -= 360;
-            
-            b.data["compassOffset"] = newOffset;
-            mancalOffsets[i][0] = 0; // reset North fourier correction to 0
-            
-            const off = mancalOffsets[i][0];
-            const offVal = document.getElementById(`mancal-offset-val-${i}`);
-            if (offVal) offVal.textContent = (off >= 0 ? "+" : "") + off + "°";
-            
-            // Build and send setup save command (which includes the new compassOffset!)
-            const currStatus = b.data.Status || "7";
-            const trimEn = document.getElementById("setup-compassTrimEnabled")?.checked ? "1" : "0";
-            const values = [
-                b.data["Kpr"] || "1.00", b.data["Kir"] || "0.01", b.data["Kdr"] || "0.05",
-                b.data["Kps"] || "1.50", b.data["Kis"] || "0.05", b.data["Kds"] || "0.10",
-                b.data["maxSpeed"] || "100", b.data["minSpeed"] || "10", b.data["pivotSpeed"] || "0.20",
-                newOffset, b.data["holdRad"] || "2.0",
-                b.data["revBB"] === "1" ? "1" : "0", b.data["revSB"] === "1" ? "1" : "0",
-                b.data["swap_BB_SB"] === "1" ? "1" : "0", trimEn,
-                b.data["dockAppDist"] || "20", b.data["dockAppDir"] || "180",
-                b.data["dockToWP"] === "1" ? "1" : "0",
-                b.data["harmonic_enabled"] === "1" ? "2" : "1"
-            ];
-            const setupPayload = `${b.id},99,${MsgType.SET},${MsgType.SETUPDATA},${currStatus},${values.join(",")}`;
-            sendCommand(b.id, setupPayload);
-            
-            // Send target steering command again to refresh buoy control loop (steer to 0)
-            sendWebRemoteCommand(0, 0);
-            
-            alert("Global North Offset saved and applied successfully!");
         });
+    });
+    
+    const adjustWebMancalOffset = (step) => {
+        if (mancalWebActiveIndex === null) return;
+        const b = buoys[mancalWebActiveIndex];
+        if (!b.id) return;
         
-        // "STORE" button handler
-        document.getElementById(`mancal-web-store-${i}`).addEventListener("click", () => {
-            if (!b.id) return;
-            
-            const leg = mancalActiveLegs[i];
-            const off = mancalOffsets[i][leg];
-            
-            // Send the fourier offset command (INFIELD_OFFSET_CALIBRATE 78) to burn it
-            const currStatus = b.data.Status || "7";
-            const calPayload = `${b.id},99,${MsgType.SET},78,${currStatus},${leg},${off},,,,`;
-            sendCommand(b.id, calPayload);
-            
-            alert(`Fourier Correction Offset for sector ${leg * 45}° stored successfully!`);
-        });
+        mancalWebActiveLeg = mancalWebActiveLeg || 0;
+        mancalWebOffsets[mancalWebActiveLeg] += step;
+        if (mancalWebOffsets[mancalWebActiveLeg] < -180) mancalWebOffsets[mancalWebActiveLeg] = -180;
+        if (mancalWebOffsets[mancalWebActiveLeg] > 180) mancalWebOffsets[mancalWebActiveLeg] = 180;
         
-        // "SAVE & EXIT" button handler
-        document.getElementById(`mancal-web-exit-${i}`).addEventListener("click", () => {
-            if (!b.id) return;
-            
-            // Re-enable Fourier table interpolation (harmonic_enabled = true)
-            b.data["harmonic_enabled"] = "1";
-            const currStatus = b.data.Status || "7";
-            const trimEn = document.getElementById("setup-compassTrimEnabled")?.checked ? "1" : "0";
-            const values = [
-                b.data["Kpr"] || "1.00", b.data["Kir"] || "0.01", b.data["Kdr"] || "0.05",
-                b.data["Kps"] || "1.50", b.data["Kis"] || "0.05", b.data["Kds"] || "0.10",
-                b.data["maxSpeed"] || "100", b.data["minSpeed"] || "10", b.data["pivotSpeed"] || "0.20",
-                b.data["compassOffset"] || "0", b.data["holdRad"] || "2.0",
-                b.data["revBB"] === "1" ? "1" : "0", b.data["revSB"] === "1" ? "1" : "0",
-                b.data["swap_BB_SB"] === "1" ? "1" : "0", trimEn,
-                b.data["dockAppDist"] || "20", b.data["dockAppDir"] || "180",
-                b.data["dockToWP"] === "1" ? "1" : "0",
-                "2" // harmonic_enabled = true (2)
-            ];
-            const setupPayload = `${b.id},99,${MsgType.SET},${MsgType.SETUPDATA},${currStatus},${values.join(",")}`;
-            sendCommand(b.id, setupPayload);
-            
-            // Send IDLE command to immediately shut down motors/thrusters!
-            sendStatusCmd(b.id, MsgType.IDLING);
-            
-            // Hide the manual fourier panel and close manual controls completely
-            document.getElementById(`mancal-web-panel-${i}`).style.display = "none";
-            document.getElementById(`mannav-panel-${i}`).style.display = "none";
-            
-            // Reset button highlight color
-            const btn = document.getElementById(`mannav-btn-${i}`);
-            if (btn) btn.style.backgroundColor = "#334155";
-            
-            alert("Manual Calibration saved successfully! Buoy set to IDLE.");
-        });
+        const off = mancalWebOffsets[mancalWebActiveLeg];
+        document.getElementById("mancal-web-offset-val").textContent = (off >= 0 ? "+" : "") + off + "°";
+        
+        // Send direct steering target shift to buoy in real-time
+        const target_angle = mancalWebActiveLeg * 45;
+        let steer_dir = target_angle - off;
+        while (steer_dir < 0) steer_dir += 360;
+        while (steer_dir >= 360) steer_dir -= 360;
+        
+        const payload = `${b.id},98,6,25,25,${parseFloat(steer_dir).toFixed(1)},0.0,,,,`;
+        sendCommand(b.id, payload);
+        
+        // Send temporary offset to fourier table (Command 78)
+        const currStatus = b.data.Status || "7";
+        const calPayload = `${b.id},99,${MsgType.SET},78,${currStatus},${mancalWebActiveLeg},${off},,,,`;
+        sendCommand(b.id, calPayload);
+    };
+    
+    document.getElementById("mancal-web-sub10").addEventListener("click", () => adjustWebMancalOffset(-10));
+    document.getElementById("mancal-web-sub1").addEventListener("click", () => adjustWebMancalOffset(-1));
+    document.getElementById("mancal-web-add1").addEventListener("click", () => adjustWebMancalOffset(1));
+    document.getElementById("mancal-web-add10").addEventListener("click", () => adjustWebMancalOffset(10));
+    
+    // "Set as North" button handler
+    document.getElementById("mancal-web-setNorth").addEventListener("click", () => {
+        if (mancalWebActiveIndex === null) return;
+        const b = buoys[mancalWebActiveIndex];
+        if (!b.id) return;
+        
+        const currentOffset = parseFloat(b.data["compassOffset"] || "0.0");
+        const dialedOffset = mancalWebOffsets[0]; // North leg offset
+        let newOffset = currentOffset + dialedOffset;
+        while (newOffset < -180) newOffset += 360;
+        while (newOffset > 180) newOffset -= 360;
+        
+        b.data["compassOffset"] = newOffset;
+        mancalWebOffsets[0] = 0; // reset North fourier correction to 0
+        document.getElementById("mancal-web-offset-val").textContent = "+0°";
+        
+        // Save setup payload
+        const currStatus = b.data.Status || "7";
+        const trimEn = document.getElementById("setup-compassTrimEnabled")?.checked ? "1" : "0";
+        const values = [
+            b.data["Kpr"] || "1.00", b.data["Kir"] || "0.01", b.data["Kdr"] || "0.05",
+            b.data["Kps"] || "1.50", b.data["Kis"] || "0.05", b.data["Kds"] || "0.10",
+            b.data["maxSpeed"] || "100", b.data["minSpeed"] || "10", b.data["pivotSpeed"] || "0.20",
+            newOffset, b.data["holdRad"] || "2.0",
+            b.data["revBB"] === "1" ? "1" : "0", b.data["revSB"] === "1" ? "1" : "0",
+            b.data["swap_BB_SB"] === "1" ? "1" : "0", trimEn,
+            b.data["dockAppDist"] || "20", b.data["dockAppDir"] || "180",
+            b.data["dockToWP"] === "1" ? "1" : "0",
+            b.data["harmonic_enabled"] === "1" ? "2" : "1"
+        ];
+        const setupPayload = `${b.id},99,${MsgType.SET},${MsgType.SETUPDATA},${currStatus},${values.join(",")}`;
+        sendCommand(b.id, setupPayload);
+        
+        // Refresh steering target to North (0)
+        const payload = `${b.id},98,6,25,25,0.0,0.0,,,,`;
+        sendCommand(b.id, payload);
+        
+        alert("Global North Offset saved and applied successfully!");
+    });
+    
+    // "STORE" button handler
+    document.getElementById("mancal-web-store").addEventListener("click", () => {
+        if (mancalWebActiveIndex === null) return;
+        const b = buoys[mancalWebActiveIndex];
+        if (!b.id) return;
+        
+        const leg = mancalWebActiveLeg;
+        const off = mancalWebOffsets[leg];
+        
+        // Send command 78 to burn fourier offset
+        const currStatus = b.data.Status || "7";
+        const calPayload = `${b.id},99,${MsgType.SET},78,${currStatus},${leg},${off},,,,`;
+        sendCommand(b.id, calPayload);
+        
+        alert(`Fourier Correction Offset for sector ${leg * 45}° stored successfully!`);
+    });
+    
+    // "CANCEL" button handler
+    document.getElementById("mancal-web-cancel").addEventListener("click", () => {
+        if (mancalWebActiveIndex === null) return;
+        const b = buoys[mancalWebActiveIndex];
+        if (!b.id) return;
+        
+        // Send IDLE command to shut down thrusters/motors
+        sendStatusCmd(b.id, MsgType.IDLING);
+        
+        // Close overlay
+        document.getElementById("mancal-fullscreen-overlay").style.display = "none";
+        mancalWebActiveIndex = null;
+    });
+    
+    // "SAVE & EXIT" button handler
+    document.getElementById("mancal-web-exit").addEventListener("click", () => {
+        if (mancalWebActiveIndex === null) return;
+        const b = buoys[mancalWebActiveIndex];
+        if (!b.id) return;
+        
+        // Re-enable Fourier table interpolation (harmonic_enabled = true)
+        b.data["harmonic_enabled"] = "1";
+        const currStatus = b.data.Status || "7";
+        const trimEn = document.getElementById("setup-compassTrimEnabled")?.checked ? "1" : "0";
+        const values = [
+            b.data["Kpr"] || "1.00", b.data["Kir"] || "0.01", b.data["Kdr"] || "0.05",
+            b.data["Kps"] || "1.50", b.data["Kis"] || "0.05", b.data["Kds"] || "0.10",
+            b.data["maxSpeed"] || "100", b.data["minSpeed"] || "10", b.data["pivotSpeed"] || "0.20",
+            b.data["compassOffset"] || "0", b.data["holdRad"] || "2.0",
+            b.data["revBB"] === "1" ? "1" : "0", b.data["revSB"] === "1" ? "1" : "0",
+            b.data["swap_BB_SB"] === "1" ? "1" : "0", trimEn,
+            b.data["dockAppDist"] || "20", b.data["dockAppDir"] || "180",
+            b.data["dockToWP"] === "1" ? "1" : "0",
+            "2" // harmonic_enabled = true (2)
+        ];
+        const setupPayload = `${b.id},99,${MsgType.SET},${MsgType.SETUPDATA},${currStatus},${values.join(",")}`;
+        sendCommand(b.id, setupPayload);
+        
+        // Send IDLE command to shut down thrusters/motors
+        sendStatusCmd(b.id, MsgType.IDLING);
+        
+        // Close overlay
+        document.getElementById("mancal-fullscreen-overlay").style.display = "none";
+        mancalWebActiveIndex = null;
+        
+        alert("Manual Calibration saved successfully! Buoy set to IDLE.");
     });
     
     // Global Action Button listeners
@@ -1302,14 +1368,46 @@ function initUIEventListeners() {
         // 1. Close Setup Modal
         closeSetupModal();
         
-        // 2. Open the Manual Drive Control panel for this buoy
+        // 2. Initialize active full-screen mancal indexes
         const index = activeSetupBuoyIndex !== null ? activeSetupBuoyIndex : 0;
         const b = buoys[index];
         if (!b.id) return;
         
-        // Disable harmonic interpolation on the buoy first
+        mancalWebActiveIndex = index;
+        mancalWebActiveLeg = 0;
+        mancalWebOffsets.fill(0);
+        
+        // Update header texts
+        document.getElementById("mancal-web-buoy-title").textContent = `BUOY ${index + 1} (${b.id.toUpperCase()})`;
+        document.getElementById("mancal-web-offset-val").textContent = "+0°";
+        document.getElementById("mancal-web-mag-val").textContent = "0°";
+        
+        // Highlight N (0) as active, and others as inactive
+        const webLegBtns = document.querySelectorAll(".mancal-web-dot");
+        webLegBtns.forEach(btn => {
+            const leg = parseInt(btn.getAttribute("data-leg"));
+            if (leg === 0) {
+                btn.style.backgroundColor = "#3b82f6";
+                btn.style.color = "white";
+                btn.style.border = "2px solid white";
+            } else {
+                btn.style.backgroundColor = "#334155";
+                btn.style.color = "#94a3b8";
+                btn.style.border = "1px solid #475569";
+            }
+        });
+        
+        // Show "Set as North" button (leg 0 is active initially)
+        document.getElementById("mancal-web-setNorth").style.display = "block";
+        
+        // Reset speedbars
+        document.getElementById("mancal-bar-bb").style.height = "0%";
+        document.getElementById("mancal-bar-sb").style.height = "0%";
+        document.getElementById("mancal-val-bb").textContent = "0%";
+        document.getElementById("mancal-val-sb").textContent = "0%";
+        
+        // 3. Disable harmonic interpolation on the buoy
         b.data["harmonic_enabled"] = "0";
-        // Construct and send setup save command (harmonic = 1)
         const currStatus = b.data.Status || "7";
         const trimEn = b.data["compass_trim_enabled"] === "1" ? "1" : "0";
         const values = [
@@ -1326,33 +1424,14 @@ function initUIEventListeners() {
         const commandPayload = `${b.id},99,${MsgType.SET},${MsgType.SETUPDATA},${currStatus},${values.join(",")}`;
         sendCommand(b.id, commandPayload);
         
-        // 3. Immediately send standard steer command to North (0) with zero speed
+        // 4. Immediately send standard steer command to North (0) with zero speed
         const remotePayload = `${b.id},99,${MsgType.SET},${MsgType.REMOTE},${currStatus},0,0,,,,`;
         sendCommand(b.id, remotePayload);
         
-        // 4. Set the dashboard sliders to North and 0 speed
-        const dirSl = document.getElementById(`mannav-dir-${index}`);
-        const dirVal = document.getElementById(`mannav-dir-val-${index}`);
-        const speedSl = document.getElementById(`mannav-speed-${index}`);
-        const speedVal = document.getElementById(`mannav-speed-val-${index}`);
+        // 5. Open and reveal full-screen overlay
+        document.getElementById("mancal-fullscreen-overlay").style.display = "flex";
         
-        if (dirSl) dirSl.value = 0;
-        if (dirVal) dirVal.textContent = "0°";
-        if (speedSl) speedSl.value = 0;
-        if (speedVal) speedVal.textContent = "0%";
-        
-        // 5. Open and reveal the Manual Navigation and Fourier Compass Calibration panels explicitly
-        const manNavPanel = document.getElementById(`mannav-panel-${index}`);
-        if (manNavPanel) manNavPanel.style.display = "block";
-        
-        const manCalPanel = document.getElementById(`mancal-web-panel-${index}`);
-        if (manCalPanel) manCalPanel.style.display = "block";
-        
-        // Highlight active manual button color
-        const btn = document.getElementById(`mannav-btn-${index}`);
-        if (btn) btn.style.backgroundColor = "#0284c7";
-        
-        logMessage(`Buoy ${b.id.toUpperCase()}: Manual Compass Calibration started! Pivoted to North.`, "UDP OUT");
+        logMessage(`Buoy ${b.id.toUpperCase()}: Dedicated Fullscreen Manual Compass Calibration started!`, "UDP OUT");
     });
 
     document.getElementById("setup-reboot-btn").addEventListener("click", () => {
