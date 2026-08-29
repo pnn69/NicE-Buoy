@@ -1131,8 +1131,14 @@ void handleTimerRoutines(RoboStruct *timer)
     static unsigned long lastLoraTx = 0;
     static unsigned long lastUdpTx = 0;
 
-    // UDP/WiFi transmission (fast: every 250ms for extremely smooth/real-time web dashboard updates)
-    if (lastUdpTx + 250 < millis())
+    // UDP/WiFi transmission (fast: every 250ms, increased to 100ms during manual calibration for smooth real-time updates)
+    unsigned long udpInterval = 250;
+    if (timer->status == REMOTE)
+    {
+        udpInterval = 100; // Ultra-fast 10Hz UDP updates during calibration!
+    }
+
+    if (lastUdpTx + udpInterval < millis())
     {
         lastUdpTx = millis();
         if ((timer->status == LOCKED || timer->status == DOCKED))
@@ -1142,7 +1148,7 @@ void handleTimerRoutines(RoboStruct *timer)
         }
         else if (timer->status == REMOTE)
         {
-            timer->cmd = REMOTE;
+            timer->cmd = TOPDATA; // Send standard TOPDATA (51) so the CYD can parse it at 10Hz!
             xQueueSend(udpOut, (void *)timer, 10);  // send out through wifi
         }
         else
@@ -1154,9 +1160,13 @@ void handleTimerRoutines(RoboStruct *timer)
         }
     }
 
-    // LoRa transmission (Dynamic rate: 1000ms when active to provide real-time updates, 5000ms when idle to conserve battery)
+    // LoRa transmission (Dynamic rate: 250ms during manual calibration, 1000ms when active, 5000ms when idle to conserve battery)
     unsigned long loraInterval = 5000;
-    if (timer->status != IDLE && timer->status != IDLING)
+    if (timer->status == REMOTE)
+    {
+        loraInterval = 250; // Ultra-fast 4Hz LoRa updates during manual calibration!
+    }
+    else if (timer->status != IDLE && timer->status != IDLING)
     {
         loraInterval = 1000;
     }
@@ -1171,7 +1181,7 @@ void handleTimerRoutines(RoboStruct *timer)
         }
         else if (timer->status == REMOTE)
         {
-            timer->cmd = REMOTE;
+            timer->cmd = TOPDATA; // Send standard TOPDATA (51) so the CYD can parse it at 4Hz!
             xQueueSend(loraOut, (void *)timer, 10); // send out through Lora
         }
         else
