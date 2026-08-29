@@ -1428,8 +1428,13 @@ function initUIEventListeners() {
         const remotePayload = `${b.id},99,${MsgType.SET},${MsgType.REMOTE},${currStatus},0,0,,,,`;
         sendCommand(b.id, remotePayload);
         
-        // 5. Open and reveal full-screen overlay
-        document.getElementById("mancal-fullscreen-overlay").style.display = "flex";
+        // 5. Open and reveal full-screen overlay with aggressive cached-asset protection
+        const overlay = document.getElementById("mancal-fullscreen-overlay");
+        if (!overlay) {
+            alert("Cache Detected: Your browser is still using an older cached version of the index.html page!\n\nPlease perform a Force Refresh (press Ctrl + F5 or Ctrl + Shift + R) or open this dashboard in an Incognito / Private window to load the new interface.");
+            return;
+        }
+        overlay.style.display = "flex";
         
         logMessage(`Buoy ${b.id.toUpperCase()}: Dedicated Fullscreen Manual Compass Calibration started!`, "UDP OUT");
     });
