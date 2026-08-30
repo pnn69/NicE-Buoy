@@ -760,6 +760,8 @@ void handleSerandRfdata(RoboStruct *ser)
                         // indistinguishable from a genuinely uncalibrated buoy - exactly the
                         // ambiguity that made every UI display zero corrections.
                         response.interpEnabled = interp_enabled;
+                        // A calibration is starting. See mancalHoldService().
+                        mancalHoldArm();
                         xQueueSend(serOut, (void *)&response, 10);
                         printf("Sent interpolation table (harmonic correction %s)\r\n", interp_enabled ? "ON" : "OFF");
                     }
@@ -770,6 +772,7 @@ void handleSerandRfdata(RoboStruct *ser)
                         // that ever did get echoed back could not start a store/reply ping-pong
                         // across NVS.
                         global_params_rev++;
+                        mancalHoldDisarm(); // the session committed a table
                         for (int i = 0; i < 8; i++)
                             measured_angles[i] = dataIn.interpolationTable[i];
                         // Entry 8 is the 360 degree wrap of entry 0 and is not used by
@@ -838,6 +841,61 @@ void handleSerandRfdata(RoboStruct *ser)
         ser->lastSerIn = millis();
         PwrOff = millis();
     }
+}
+
+//***************************************************************************************************
+//  MAN CAL harmonic hold - the last line of defence for an abandoned calibration
+//
+//  Every front end that runs a manual calibration has to switch this buoy's harmonic correction
+//  off to dial against the raw compass, and switch it back on when it leaves. There are four of
+//  them (handheld screen, dashboard, this Sub's own page, the Top's page) and they cannot be
+//  collapsed into one - a submerged Sub has no WiFi, so the remote paths are not optional. Relying
+//  on all four to get the restore right in every exit path has already failed once, and a buoy left
+//  with the correction off reports the identity table to everything that asks, so its stored
+//  calibration goes invisible and it sails uncorrected.
+//
+//  So the buoy now guarantees it for itself, and all four inherit it for free.
+//
+//  Armed only by answering a table GET, which is the unambiguous "a calibration is starting"
+//  signal - deliberately NOT by the correction merely being off, because switching it off from the
+//  Setup page is a legitimate thing to do and must not be undone behind the operator's back.
+//  Disarmed by a table SET (the session saved) or by the correction coming back on by any route.
+//
+//  The timeout has to span a whole unattended session, because the remote front ends send this
+//  buoy no heartbeat - only the Top's page and this Sub's own page have their own, shorter ones.
+//***************************************************************************************************
+static bool mancalHoldArmed = false;
+static unsigned long mancalHoldArmedAt = 0;
+#define MANCAL_HOLD_TIMEOUT_MS (20 * 60 * 1000UL)
+
+void mancalHoldArm()
+{
+    mancalHoldArmed = true;
+    mancalHoldArmedAt = millis();
+}
+
+void mancalHoldDisarm()
+{
+    mancalHoldArmed = false;
+}
+
+void mancalHoldService()
+{
+    extern volatile bool interp_enabled;
+    if (!mancalHoldArmed) return;
+
+    // Back on by any route - the session finished, or someone re-enabled it. Nothing to guard.
+    if (interp_enabled) { mancalHoldArmed = false; return; }
+
+    if (millis() - mancalHoldArmedAt <= MANCAL_HOLD_TIMEOUT_MS) return;
+
+    mancalHoldArmed = false;
+    bool enable = true;
+    interp_enabled = true;
+    memInterpEnabled(&enable, MEM_PUT);
+    global_params_rev++;
+    printf("MANCAL: no calibration activity for %lu ms and the harmonic correction was still off - "
+           "switching it back on so this buoy does not sail uncorrected\r\n", MANCAL_HOLD_TIMEOUT_MS);
 }
 
 //***************************************************************************************************
@@ -1154,6 +1212,7 @@ void loop(void)
         //      Serial watchdog
         //***************************************************************************************************
         handleSerialTimeOut(&mainData);
+        mancalHoldService();
         vTaskDelay(pdMS_TO_TICKS(5));
     }
 }

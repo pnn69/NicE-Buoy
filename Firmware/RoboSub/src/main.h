@@ -30,4 +30,11 @@ void mancalSessionPing();
 void mancalSessionEnd();
 bool mancalSessionAlive();
 
+// Harmonic hold watchdog: the buoy guarantees for itself that its correction comes back on after
+// an abandoned calibration, so none of the four front ends has to be trusted to do it. Armed by
+// answering a table GET, disarmed by a table SET. See the block comment in main.cpp.
+void mancalHoldArm();
+void mancalHoldDisarm();
+void mancalHoldService();
+
 #endif /* MAIN_H_ */

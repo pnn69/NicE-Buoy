@@ -408,9 +408,14 @@ void send_buoy_setup(int buoy_idx) {
     
     // Construct standard SET command payload using SET (2) and unique Display Sender ID "98"
     char cmdPayload[256];
-    sprintf(cmdPayload, "%s,98,2,83,7,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.0f,%0.0f,%0.2f,%0.0f,%0.1f,%d,%d,%d,%d,%d,%d,%d,%d",
+    sprintf(cmdPayload, "%s,98,2,83,7,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.0f,%0.0f,%0.2f,%0.2f,%0.1f,%d,%d,%d,%d,%d,%d,%d,%d",
             b.id.c_str(),
             b.kpr, b.kir, b.kdr, b.kps, b.kis, b.kds,
+            // compassOffset goes out with 2 decimals, matching what the Sub already puts on the
+            // wire (formatFloat(compassOffset, 2) in RoboCode). It used to be %0.0f, so every
+            // SAVE from this screen silently rounded the buoy's offset to a whole degree - the
+            // Sub's own Set as North computes a fractional one, and pressing SAVE afterwards
+            // threw away up to half a degree of it.
             b.max_speed, b.min_speed, b.pivot_speed, b.compass_offset, b.hold_radius,
             b.rev_bb ? 1 : 0, b.rev_sb ? 1 : 0, b.swap_bb_sb ? 1 : 0, b.compass_trim_enabled ? 1 : 0,
             b.dock_app_dist, b.dock_app_dir, b.dock_to_wp ? 1 : 0,

@@ -71,6 +71,22 @@ static int mancal_visited_count() {
     return n;
 }
 
+// mancal_selected_leg doubles as "which of the eight directions" and "none picked yet" (-1), and
+// C++ will happily let that -1 index mancal_offsets: a silent write to the four bytes in front of
+// the array. That is what used to command a heading of -45 degrees with nothing selected and spin
+// the thrusters up. Every call site is guarded now, but the guards sit up to a hundred lines away
+// from the subscripts they protect, so the next branch added inside one of those blocks would
+// inherit the hazard with no compiler warning. Going through here instead makes a missed guard a
+// harmless no-op on a scratch value rather than memory corruption.
+static float mancal_offset_scratch = 0.0f;
+static float &mancal_active_offset() {
+    if (mancal_selected_leg < 0 || mancal_selected_leg > 7) {
+        mancal_offset_scratch = 0.0f;
+        return mancal_offset_scratch;
+    }
+    return mancal_active_offset();
+}
+
 static bool mancal_all_legs_visited() {
     return mancal_visited_count() == 8;
 }
@@ -1984,8 +2000,8 @@ void loop() {
 
                     if (touchX >= 10 && touchX <= 60) {
                         // MINUS 10 degrees
-                        mancal_offsets[mancal_selected_leg] -= 10.0f;
-                        if (mancal_offsets[mancal_selected_leg] < -180.0f) mancal_offsets[mancal_selected_leg] = -180.0f;
+                        mancal_active_offset() -= 10.0f;
+                        if (mancal_active_offset() < -180.0f) mancal_active_offset() = -180.0f;
                         
                         // Ultra-fast surgical text update (avoid full-screen redraw)
                         tft.fillRect(40, 192, tft.width() - 80, 22, TFT_BLACK);
@@ -1993,23 +2009,23 @@ void loop() {
                         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
                         tft.setTextDatum(MC_DATUM);
                         char off_buf[16];
-                        sprintf(off_buf, "%+0.0f deg", mancal_offsets[mancal_selected_leg]);
+                        sprintf(off_buf, "%+0.0f deg", mancal_active_offset());
                         tft.drawString(off_buf, tft.width() / 2, 198);
                         
                         // Calculate target angle and apply offset to shift the steering target in real-time
-                        b.tg_dir = target_angle - mancal_offsets[mancal_selected_leg];
+                        b.tg_dir = target_angle - mancal_active_offset();
                         while (b.tg_dir < 0.0f) b.tg_dir += 360.0f;
                         while (b.tg_dir >= 360.0f) b.tg_dir -= 360.0f;
                         b.tg_speed = 0.0f;
                         send_buoy_dirdist(selected_buoy_idx);
                         
                         // Send the updated offset in real-time to the buoy (using command 78)
-                        send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_offsets[mancal_selected_leg]);
+                        send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_active_offset());
                     }
                     else if (touchX >= 65 && touchX <= 110) {
                         // MINUS 1 degree
-                        mancal_offsets[mancal_selected_leg] -= 1.0f;
-                        if (mancal_offsets[mancal_selected_leg] < -180.0f) mancal_offsets[mancal_selected_leg] = -180.0f;
+                        mancal_active_offset() -= 1.0f;
+                        if (mancal_active_offset() < -180.0f) mancal_active_offset() = -180.0f;
                         
                         // Ultra-fast surgical text update (avoid full-screen redraw)
                         tft.fillRect(40, 192, tft.width() - 80, 22, TFT_BLACK);
@@ -2017,23 +2033,23 @@ void loop() {
                         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
                         tft.setTextDatum(MC_DATUM);
                         char off_buf[16];
-                        sprintf(off_buf, "%+0.0f deg", mancal_offsets[mancal_selected_leg]);
+                        sprintf(off_buf, "%+0.0f deg", mancal_active_offset());
                         tft.drawString(off_buf, tft.width() / 2, 198);
                         
                         // Calculate target angle and apply offset to shift the steering target in real-time
-                        b.tg_dir = target_angle - mancal_offsets[mancal_selected_leg];
+                        b.tg_dir = target_angle - mancal_active_offset();
                         while (b.tg_dir < 0.0f) b.tg_dir += 360.0f;
                         while (b.tg_dir >= 360.0f) b.tg_dir -= 360.0f;
                         b.tg_speed = 0.0f;
                         send_buoy_dirdist(selected_buoy_idx);
                         
                         // Send the updated offset in real-time to the buoy (using command 78)
-                        send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_offsets[mancal_selected_leg]);
+                        send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_active_offset());
                     }
                     else if (touchX >= 130 && touchX <= 175) {
                         // PLUS 1 degree
-                        mancal_offsets[mancal_selected_leg] += 1.0f;
-                        if (mancal_offsets[mancal_selected_leg] > 180.0f) mancal_offsets[mancal_selected_leg] = 180.0f;
+                        mancal_active_offset() += 1.0f;
+                        if (mancal_active_offset() > 180.0f) mancal_active_offset() = 180.0f;
                         
                         // Ultra-fast surgical text update (avoid full-screen redraw)
                         tft.fillRect(40, 192, tft.width() - 80, 22, TFT_BLACK);
@@ -2041,23 +2057,23 @@ void loop() {
                         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
                         tft.setTextDatum(MC_DATUM);
                         char off_buf[16];
-                        sprintf(off_buf, "%+0.0f deg", mancal_offsets[mancal_selected_leg]);
+                        sprintf(off_buf, "%+0.0f deg", mancal_active_offset());
                         tft.drawString(off_buf, tft.width() / 2, 198);
                         
                         // Calculate target angle and apply offset to shift the steering target in real-time
-                        b.tg_dir = target_angle - mancal_offsets[mancal_selected_leg];
+                        b.tg_dir = target_angle - mancal_active_offset();
                         while (b.tg_dir < 0.0f) b.tg_dir += 360.0f;
                         while (b.tg_dir >= 360.0f) b.tg_dir -= 360.0f;
                         b.tg_speed = 0.0f;
                         send_buoy_dirdist(selected_buoy_idx);
                         
                         // Send the updated offset in real-time to the buoy (using command 78)
-                        send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_offsets[mancal_selected_leg]);
+                        send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_active_offset());
                     }
                     else if (touchX >= 180 && touchX <= 230) {
                         // PLUS 10 degrees
-                        mancal_offsets[mancal_selected_leg] += 10.0f;
-                        if (mancal_offsets[mancal_selected_leg] > 180.0f) mancal_offsets[mancal_selected_leg] = 180.0f;
+                        mancal_active_offset() += 10.0f;
+                        if (mancal_active_offset() > 180.0f) mancal_active_offset() = 180.0f;
                         
                         // Ultra-fast surgical text update (avoid full-screen redraw)
                         tft.fillRect(40, 192, tft.width() - 80, 22, TFT_BLACK);
@@ -2065,18 +2081,18 @@ void loop() {
                         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
                         tft.setTextDatum(MC_DATUM);
                         char off_buf[16];
-                        sprintf(off_buf, "%+0.0f deg", mancal_offsets[mancal_selected_leg]);
+                        sprintf(off_buf, "%+0.0f deg", mancal_active_offset());
                         tft.drawString(off_buf, tft.width() / 2, 198);
                         
                         // Calculate target angle and apply offset to shift the steering target in real-time
-                        b.tg_dir = target_angle - mancal_offsets[mancal_selected_leg];
+                        b.tg_dir = target_angle - mancal_active_offset();
                         while (b.tg_dir < 0.0f) b.tg_dir += 360.0f;
                         while (b.tg_dir >= 360.0f) b.tg_dir -= 360.0f;
                         b.tg_speed = 0.0f;
                         send_buoy_dirdist(selected_buoy_idx);
                         
                         // Send the updated offset in real-time to the buoy (using command 78)
-                        send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_offsets[mancal_selected_leg]);
+                        send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_active_offset());
                     }
 
                     // The four branches above each patch the big CORR readout in place to stay
@@ -3583,7 +3599,7 @@ void update_mancal_dynamic() {
     } else if (mancal_selected_leg == -1) {
         sprintf(corr_buf, "-");
     } else {
-        sprintf(corr_buf, "%+0.0f", mancal_offsets[mancal_selected_leg]);
+        sprintf(corr_buf, "%+0.0f", mancal_active_offset());
     }
     tft.drawString(corr_buf, w - 15, 60);
     
@@ -3669,7 +3685,7 @@ void update_mancal_dynamic() {
             tft.setTextSize(2);
             tft.setTextColor(TFT_YELLOW, TFT_BLACK);
             char off_buf[32];
-            sprintf(off_buf, "CORR: %+0.0f deg", mancal_offsets[mancal_selected_leg]);
+            sprintf(off_buf, "CORR: %+0.0f deg", mancal_active_offset());
             tft.drawString(off_buf, w / 2, 203);
             
             // Large Adjustment Minus/Plus Buttons (4 buttons)
