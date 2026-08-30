@@ -70,13 +70,14 @@ void initescqueue(void)
 
 void startESC(void)
 {
+    // Write HIGH to the latches first to prevent any transition drop (glitch)
+    digitalWrite(ESC_SB_PWR_PIN, HIGH);
+    digitalWrite(ESC_BB_PWR_PIN, HIGH);
+
     // Configure Power Pins
     pinMode(ESC_SB_PWR_PIN, OUTPUT);
     pinMode(ESC_BB_PWR_PIN, OUTPUT);
     
-    // Explicitly drive power HIGH
-    digitalWrite(ESC_SB_PWR_PIN, HIGH);
-    digitalWrite(ESC_BB_PWR_PIN, HIGH);
     Serial.println("ESCs Power Pins Driven HIGH");
     vTaskDelay(pdMS_TO_TICKS(500)); // Wait half a second for ESCs to boot up
     

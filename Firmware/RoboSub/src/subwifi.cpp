@@ -600,6 +600,132 @@ void WiFiTask(void *arg) {
         computeFourierCoefficients();
         subServer.send(200, "text/plain", "OK");
     });
+    // ---------------------------------------------------------------------------------------
+    // MAN CAL - manual Fourier compass calibration, driven from this page.
+    //
+    // No GPS is involved anywhere in this. The buoy pivots on the spot under rudderPid() using
+    // nothing but its own compass, so it works indoors, on a trailer or alongside a jetty. What it
+    // DOES need is clear water or a stand, because the hull physically turns.
+    //
+    // The trick that keeps this simple: measured_angles[i] is by definition the heading the compass
+    // reports when the hull physically points at i*45. So the heading we steer to IS
+    // measured_angles[i] - dialing the correction and dialing the steer target are the same act,
+    // and there is no second set of numbers to keep in step.
+    //
+    // The harmonic correction has to be OFF while dialing, or the table would be applied on top of
+    // the very measurement being taken. /mancal_enter switches it off in RAM only and never writes
+    // that to NVS, so a reboot in the middle of a session comes back with the correction on rather
+    // than leaving the buoy silently uncalibrated.
+    // ---------------------------------------------------------------------------------------
+    subServer.on("/mancal_enter", HTTP_GET, [](){
+        extern volatile bool interp_enabled;
+        interp_enabled = false; // RAM only - deliberately not persisted, see above
+        // Hold PWRENABLE on and the serial watchdog off for the duration - without the Top feeding
+        // them, both would otherwise interrupt the calibration. See main.h.
+        mancalSessionBegin();
+        if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500))) {
+            mainData.tgSpeed = 0;
+            mainData.tgDist = 0;
+            mainData.status = IDLING;
+            xSemaphoreGive(mainDataMutex);
+        }
+        subServer.send(200, "text/plain", "OK");
+    });
+
+    subServer.on("/mancal_point", HTTP_GET, [](){
+        if (!subServer.hasArg("index") || !subServer.hasArg("corr")) {
+            subServer.send(400, "text/plain", "Missing args");
+            return;
+        }
+        mancalSessionPing();
+        int idx = subServer.arg("index").toInt();
+        float corr = subServer.arg("corr").toFloat();
+        if (idx < 0 || idx > 7) {
+            subServer.send(400, "text/plain", "Invalid index");
+            return;
+        }
+
+        extern float measured_angles[9];
+        extern void computeFourierCoefficients();
+
+        float target = (float)(idx * 45) - corr;
+        while (target < 0.0f) target += 360.0f;
+        while (target >= 360.0f) target -= 360.0f;
+        measured_angles[idx] = target;
+        // Entry 8 is the 360 degree wrap of entry 0, kept in step so the stored table stays valid.
+        if (idx == 0) measured_angles[8] = measured_angles[0] + 360.0f;
+        computeFourierCoefficients();
+
+        // Steer there at zero speed - a pure pivot, no forward thrust.
+        if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500))) {
+            mainData.tgDir = target;
+            mainData.tgSpeed = 0;
+            mainData.tgDist = 0;
+            mainData.status = REMOTE;
+            xSemaphoreGive(mainDataMutex);
+        }
+        subServer.send(200, "application/json",
+                       "{\"index\":" + String(idx) + ",\"corr\":" + String(corr, 1) +
+                       ",\"target\":" + String(target, 1) + "}");
+    });
+
+    subServer.on("/mancal_stop", HTTP_GET, [](){
+        mancalSessionPing();
+        if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500))) {
+            mainData.tgSpeed = 0;
+            mainData.tgDist = 0;
+            mainData.status = IDLING;
+            xSemaphoreGive(mainDataMutex);
+        }
+        subServer.send(200, "text/plain", "OK");
+    });
+
+    subServer.on("/mancal_exit", HTTP_GET, [](){
+        extern float measured_angles[9];
+        extern void computeFourierCoefficients();
+        extern volatile bool interp_enabled;
+        bool save = (subServer.arg("save") == "1");
+        mancalSessionEnd(); // release PWRENABLE and the watchdog back to the normal timers
+
+        if (save) {
+            measured_angles[8] = measured_angles[0] + 360.0f;
+            memInterpolationTable(measured_angles, MEM_PUT);
+        } else {
+            // Throw the session away and go back to what is actually stored.
+            memInterpolationTable(measured_angles, MEM_GET);
+        }
+        computeFourierCoefficients();
+
+        // Leave with the correction ON either way. A buoy left with it off reports the identity
+        // table to everything that asks (see STORE_INTERPOLATION_TABLE in main.cpp), so its stored
+        // calibration becomes invisible to the CYD and the dashboard even though it is still there.
+        bool enable = true;
+        interp_enabled = true;
+        memInterpEnabled(&enable, MEM_PUT);
+        global_params_rev++;
+
+        if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500))) {
+            mainData.tgSpeed = 0;
+            mainData.tgDist = 0;
+            mainData.status = IDLING;
+            xSemaphoreGive(mainDataMutex);
+        }
+        subServer.send(200, "text/plain", "OK");
+    });
+
+    subServer.on("/mancal", HTTP_GET, [](){
+        subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        subServer.sendHeader("Pragma", "no-cache");
+        subServer.sendHeader("Expires", "-1");
+        if (LittleFS.exists("/mancal.html")) {
+            File file = LittleFS.open("/mancal.html", "r");
+            subServer.streamFile(file, "text/html");
+            file.close();
+        } else {
+            subServer.send(404, "text/plain", "mancal page not found on LittleFS");
+        }
+    });
+
     subServer.on("/harmoniccorrection", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
@@ -821,6 +947,10 @@ void WiFiTask(void *arg) {
      * the buoy is idling, locking, locked, docking, docked, or in a calibration routine.
      */
     subServer.on("/data", HTTP_GET, [](){
+        // The MAN CAL page polls this several times a second, so it doubles as the session
+        // heartbeat: while someone is watching the readout the session stays alive, and when the
+        // page goes away it expires on its own rather than pinning the buoy powered-on.
+        mancalSessionPing();
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");

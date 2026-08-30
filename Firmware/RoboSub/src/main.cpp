@@ -73,6 +73,14 @@ int presses = 0;
 void setup()
 {
     Serial.begin(115200);
+    
+    // Drive ESC power pins LOW immediately to keep them completely powered off and silent
+    // during the zero-rate gyroscope calibration phase!
+    digitalWrite(ESC_SB_PWR_PIN, LOW);
+    digitalWrite(ESC_BB_PWR_PIN, LOW);
+    pinMode(ESC_SB_PWR_PIN, OUTPUT);
+    pinMode(ESC_BB_PWR_PIN, OUTPUT);
+
     pinMode(PWRENABLE, OUTPUT);
     digitalWrite(PWRENABLE, 1); // enable powersupply
     delay(1000); // Give ICM-20948 and other sensors time to power up completely!
@@ -748,6 +756,10 @@ void handleSerandRfdata(RoboStruct *ser)
                         // would make it subtract the same deviation twice.
                         for (int i = 0; i < 8; i++)
                             response.interpolationTable[i] = interp_enabled ? measured_angles[i] : (float)(i * 45);
+                        // Say so on the wire. Without this the identity table above is
+                        // indistinguishable from a genuinely uncalibrated buoy - exactly the
+                        // ambiguity that made every UI display zero corrections.
+                        response.interpEnabled = interp_enabled;
                         xQueueSend(serOut, (void *)&response, 10);
                         printf("Sent interpolation table (harmonic correction %s)\r\n", interp_enabled ? "ON" : "OFF");
                     }
@@ -786,6 +798,7 @@ void handleSerandRfdata(RoboStruct *ser)
                         response.ack = INF;
                         for (int i = 0; i < 8; i++)
                             response.interpolationTable[i] = measured_angles[i];
+                        response.interpEnabled = interp_enabled; // true here - a store switches it on
                         xQueueSend(serOut, (void *)&response, 10);
                     }
                 }
@@ -827,6 +840,52 @@ void handleSerandRfdata(RoboStruct *ser)
     }
 }
 
+//***************************************************************************************************
+//  MAN CAL session - see the block comment in main.h
+//***************************************************************************************************
+static volatile bool mancalActive = false;
+static volatile unsigned long mancalLastPing = 0;
+// Generous next to the page's 400 ms poll, so a slow buoy or a stuttering WiFi link never drops a
+// session out from under someone who is still standing there dialing it in.
+#define MANCAL_SESSION_TIMEOUT_MS (2 * 60 * 1000UL)
+
+void mancalSessionBegin()
+{
+    mancalActive = true;
+    mancalLastPing = millis();
+    printf("MANCAL: session started - holding PWRENABLE and the serial watchdog off\r\n");
+}
+
+void mancalSessionPing()
+{
+    if (mancalActive) mancalLastPing = millis();
+}
+
+void mancalSessionEnd()
+{
+    if (!mancalActive) return;
+    mancalActive = false;
+    printf("MANCAL: session ended - normal power and watchdog timers resume\r\n");
+}
+
+bool mancalSessionAlive()
+{
+    if (!mancalActive) return false;
+    if (millis() - mancalLastPing > MANCAL_SESSION_TIMEOUT_MS)
+    {
+        // The page stopped talking - browser closed, tab slept, WiFi dropped. Do not leave the
+        // buoy sitting in REMOTE with the supply pinned on: stop it and hand back to the timers.
+        mancalActive = false;
+        printf("MANCAL: no contact from the page for %lu ms - ending session and idling\r\n",
+               MANCAL_SESSION_TIMEOUT_MS);
+        mainData.tgSpeed = 0;
+        mainData.tgDist = 0;
+        mainData.status = IDLING;
+        return false;
+    }
+    return true;
+}
+
 /**
  * @brief Checks for serial communication timeouts and triggers safety shutdowns.
  * 
@@ -842,6 +901,18 @@ void handleSerandRfdata(RoboStruct *ser)
  */
 void handleSerialTimeOut(RoboStruct *ser)
 {
+    // A MAN CAL session is driven from the Sub's own web page, with no Top on the other end of the
+    // serial link. Both timers below are fed only by traffic FROM the Top, so left alone they would
+    // stop the pivot after 5 s and cut the supply after POWEROFFTIME - in the middle of the
+    // calibration the operator is standing there doing.
+    if (mancalSessionAlive())
+    {
+        digitalWrite(PWRENABLE, 1); // keep the supply latched on for the whole session
+        ser->lastSerIn = millis();
+        PwrOff = millis();
+        return;
+    }
+
     if (ser->lastSerIn + 1000 * 5 < millis())
     {
         if (mainLedStatus.color != CRGB::Red)

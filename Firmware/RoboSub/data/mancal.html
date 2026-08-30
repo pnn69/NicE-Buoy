@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAN COMPASS CAL</title>
+    <style>
+        /* Deliberately the same palette and proportions as the handheld's MAN CAL overlay
+           (RoboCYD/data/index.html) so the two screens read as one tool. Only the plumbing
+           underneath differs: this page talks straight to the Sub, with no Top and no LoRa. */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #0f172a; color: #e2e8f0;
+            min-height: 100vh; display: flex; align-items: flex-start; justify-content: center;
+            padding: 16px;
+        }
+        .card {
+            width: 100%; max-width: 480px; background-color: #1e293b; padding: 25px;
+            border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column; gap: 20px; position: relative;
+        }
+        .dot {
+            position: absolute; width: 36px; height: 36px; border-radius: 50%;
+            border: 1px solid #475569; background-color: #334155; color: #94a3b8;
+            font-weight: bold; font-size: 0.85rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; outline: none;
+            transition: background-color 0.2s; z-index: 20;
+        }
+        .dot.active {
+            border: 2px solid white; background-color: #3b82f6; color: white;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.35);
+        }
+        .adj {
+            background-color: #475569; color: white; padding: 8px 14px; font-size: 0.95rem;
+            font-weight: bold; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.25);
+            cursor: pointer; border: none; outline: none;
+        }
+        .adj:disabled, .dot:disabled { opacity: 0.35; cursor: not-allowed; }
+        .big { width: 100%; font-weight: bold; padding: 10px 0; border-radius: 6px;
+               box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); cursor: pointer; border: none; outline: none; }
+        .big:disabled { opacity: 0.45; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+<div class="card">
+
+    <!-- Header -->
+    <div style="text-align: center; border-bottom: 1px solid #334155; padding-bottom: 12px;">
+        <h3 style="color: #38bdf8; margin: 0; font-size: 1.4rem; font-weight: bold; letter-spacing: 0.5px;">MAN COMPASS CAL</h3>
+        <span id="buoyTitle" style="font-size: 0.9rem; color: #94a3b8; font-weight: bold;">SUB</span>
+        <div style="font-size: 0.7rem; color: #64748b; margin-top: 4px;">
+            compass only &mdash; <b>no GPS needed</b> &middot; the hull turns, keep it clear
+        </div>
+    </div>
+
+    <!-- Dashboard Row (Speedbars, Compass, and Telemetry) -->
+    <div style="display: flex; align-items: center; justify-content: space-between; height: 210px; position: relative; margin-top: 10px;">
+
+        <!-- Port Column (with Mag Heading on top) -->
+        <div style="display: flex; flex-direction: column; align-items: center; width: 60px;">
+            <span style="font-size: 0.65rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; line-height: 1;">Mag</span>
+            <span id="magVal" style="font-size: 1.3rem; font-weight: bold; color: #38bdf8; margin-bottom: 8px; line-height: 1;">0&deg;</span>
+
+            <span style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px; font-weight: bold;">PORT</span>
+            <div style="width: 16px; height: 110px; background-color: #0f172a; border-radius: 3px; position: relative;">
+                <div style="position: absolute; left: 0; top: 55px; width: 100%; height: 1px; background-color: #475569;"></div>
+                <div id="barBb" style="position: absolute; left: 1px; width: 14px; bottom: 55px; height: 0%; background-color: #22c55e; border-radius: 2px;"></div>
+            </div>
+            <span id="valBb" style="font-size: 0.8rem; font-weight: bold; color: #22c55e; margin-top: 4px;">0%</span>
+        </div>
+
+        <!-- Center Compass Rose Wheel / Circle. Centre is 100,100 with a radius of 74px. -->
+        <div style="position: relative; width: 200px; height: 200px; display: flex; align-items: center; justify-content: center;">
+            <button type="button" class="dot" data-leg="0" style="left: 82px;  top: 8px;">N</button>
+            <button type="button" class="dot" data-leg="1" style="left: 134px; top: 30px;">NE</button>
+            <button type="button" class="dot" data-leg="2" style="left: 156px; top: 82px;">E</button>
+            <button type="button" class="dot" data-leg="3" style="left: 134px; top: 134px;">SE</button>
+            <button type="button" class="dot" data-leg="4" style="left: 82px;  top: 156px;">S</button>
+            <button type="button" class="dot" data-leg="5" style="left: 30px;  top: 134px;">SW</button>
+            <button type="button" class="dot" data-leg="6" style="left: 8px;   top: 82px;">W</button>
+            <button type="button" class="dot" data-leg="7" style="left: 30px;  top: 30px;">NW</button>
+
+            <!-- Rotating heading arrow in the middle of the compass -->
+            <div style="position: absolute; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 10; width: 110px; height: 110px;">
+                <svg id="arrow" viewBox="0 0 100 100" style="width: 100%; height: 100%; transform: rotate(0deg);">
+                    <polygon points="50,4 38,96 50,75 62,96" fill="#22c55e" stroke="#111827" stroke-width="2.5" />
+                    <circle cx="50" cy="50" r="6" fill="#ffffff" stroke="#111827" stroke-width="2.5" />
+                </svg>
+            </div>
+        </div>
+
+        <!-- Starboard Column (with Corr Offset on top) -->
+        <div style="display: flex; flex-direction: column; align-items: center; width: 60px;">
+            <span style="font-size: 0.65rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; line-height: 1;">Corr</span>
+            <span id="corrVal" style="font-size: 1.3rem; font-weight: bold; color: #eab308; margin-bottom: 8px; line-height: 1;">-</span>
+
+            <span style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px; font-weight: bold;">STBD</span>
+            <div style="width: 16px; height: 110px; background-color: #0f172a; border-radius: 3px; position: relative;">
+                <div style="position: absolute; left: 0; top: 55px; width: 100%; height: 1px; background-color: #475569;"></div>
+                <div id="barSb" style="position: absolute; left: 1px; width: 14px; bottom: 55px; height: 0%; background-color: #22c55e; border-radius: 2px;"></div>
+            </div>
+            <span id="valSb" style="font-size: 0.8rem; font-weight: bold; color: #22c55e; margin-top: 4px;">0%</span>
+        </div>
+    </div>
+
+    <!-- The whole 8-point table -->
+    <div style="margin-top: 12px; border-top: 1px solid #334155; padding-top: 10px;">
+        <div id="tblStatus" style="font-size: 0.7rem; color: #94a3b8; text-align: center; margin-bottom: 6px;">Reading the stored table from the buoy...</div>
+        <div style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; text-align: center;">
+            <div><div style="font-size: 0.6rem; color: #94a3b8;">N</div><div id="tbl-0" style="font-size: 0.75rem; font-weight: bold; color: #e2e8f0;">?</div></div>
+            <div><div style="font-size: 0.6rem; color: #94a3b8;">NE</div><div id="tbl-1" style="font-size: 0.75rem; font-weight: bold; color: #e2e8f0;">?</div></div>
+            <div><div style="font-size: 0.6rem; color: #94a3b8;">E</div><div id="tbl-2" style="font-size: 0.75rem; font-weight: bold; color: #e2e8f0;">?</div></div>
+            <div><div style="font-size: 0.6rem; color: #94a3b8;">SE</div><div id="tbl-3" style="font-size: 0.75rem; font-weight: bold; color: #e2e8f0;">?</div></div>
+            <div><div style="font-size: 0.6rem; color: #94a3b8;">S</div><div id="tbl-4" style="font-size: 0.75rem; font-weight: bold; color: #e2e8f0;">?</div></div>
+            <div><div style="font-size: 0.6rem; color: #94a3b8;">SW</div><div id="tbl-5" style="font-size: 0.75rem; font-weight: bold; color: #e2e8f0;">?</div></div>
+            <div><div style="font-size: 0.6rem; color: #94a3b8;">W</div><div id="tbl-6" style="font-size: 0.75rem; font-weight: bold; color: #e2e8f0;">?</div></div>
+            <div><div style="font-size: 0.6rem; color: #94a3b8;">NW</div><div id="tbl-7" style="font-size: 0.75rem; font-weight: bold; color: #e2e8f0;">?</div></div>
+        </div>
+    </div>
+
+    <!-- Fine-Tuning Symmetrical Buttons -->
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 15px;">
+        <div style="display: flex; gap: 8px;">
+            <button type="button" class="adj" data-d="-10">-10&deg;</button>
+            <button type="button" class="adj" data-d="-1">-1&deg;</button>
+        </div>
+        <div style="text-align: center;">
+            <span style="font-size: 0.75rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Adjustment</span>
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <button type="button" class="adj" data-d="1">+1&deg;</button>
+            <button type="button" class="adj" data-d="10">+10&deg;</button>
+        </div>
+    </div>
+
+    <!-- Large Action Buttons -->
+    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px; border-top: 1px solid #334155; padding-top: 15px;">
+        <button type="button" class="big" id="btnNorth" style="background-color: #f97316; color: black; font-size: 1rem;" disabled>Set as North</button>
+        <div style="display: flex; gap: 10px; width: 100%;">
+            <button type="button" class="big" id="btnCancel" style="flex: 1; background-color: #ef4444; color: white; font-size: 0.95rem;">CANCEL</button>
+            <!-- Not on the handheld: that one is always within arm's reach of the buoy's own IDLE
+                 button, this one may not be. Driving a hull from its own page with no Top in the
+                 loop wants a stop that is one tap away. -->
+            <button type="button" class="big" id="btnStop" style="flex: 1; background-color: #7c2d12; color: #fed7aa; font-size: 0.95rem;">STOP</button>
+            <button type="button" class="big" id="btnSave" style="flex: 1.2; background-color: #3b82f6; color: white; font-size: 0.95rem;" disabled>SAVE (0/8)</button>
+        </div>
+        <div style="font-size: 0.7rem; color: #94a3b8; text-align: center;">
+            <b>Set as North</b> folds the North error into the global compass offset, shifting
+            <em>every</em> direction &mdash; which is why North is calibrated first.
+        </div>
+    </div>
+</div>
+
+<script>
+const DIRS = ["N","NE","E","SE","S","SW","W","NW"];
+// corr[i] is the correction for sector i. The heading the buoy is told to hold is
+// (i*45 - corr[i]), which is exactly measured_angles[i] on the Sub - dialing the correction and
+// dialing the steer target are the same act, so there is only one set of numbers to keep straight.
+let corr = new Array(8).fill(0);
+let visited = new Array(8).fill(false);
+let active = -1;
+let closed = false;
+let loaded = false;   // the stored table has been read back off the buoy
+
+const $ = id => document.getElementById(id);
+const dots = () => Array.from(document.querySelectorAll(".dot"));
+const fmt = v => (v >= 0 ? "+" : "") + Math.round(v) + "°";
+
+// North has to be done first. Everything downstream is measured against it: Set as North folds the
+// North error into compassOffset, and the Sub applies that offset BEFORE the table lookup, so it
+// shifts every other sector by the same amount. Doing North first means there is nothing else
+// dialled in yet for it to invalidate.
+const locked = i => i !== 0 && !visited[0];
+
+function paint() {
+    dots().forEach(b => {
+        const i = parseInt(b.dataset.leg);
+        b.disabled = locked(i) || closed;
+        b.classList.toggle("active", i === active);
+        // North, still waiting to be pressed - ring it so it reads as the way in.
+        if (i === 0 && !visited[0] && i !== active) b.style.border = "2px solid #eab308";
+        else if (i !== active) b.style.border = "1px solid #475569";
+    });
+
+    for (let i = 0; i < 8; i++) {
+        const cell = $("tbl-" + i);
+        cell.textContent = loaded ? fmt(corr[i]) : "?";
+        cell.style.color = (i === active) ? "#22c55e" : "#e2e8f0";
+        cell.style.opacity = visited[i] ? "1" : "0.4";
+    }
+
+    $("corrVal").textContent = !loaded ? "?" : active < 0 ? "-" : fmt(corr[active]);
+
+    const st = $("tblStatus");
+    st.textContent = !loaded ? "Reading the stored table from the buoy..."
+        : !visited[0] ? "Start with North (N) - it is the base every other direction is measured against"
+        : "Corrections now stored on the buoy - adjust from here";
+    st.style.color = (loaded && !visited[0]) ? "#eab308" : "#94a3b8";
+
+    document.querySelectorAll(".adj").forEach(b => b.disabled = active < 0 || closed);
+    $("btnNorth").disabled = active !== 0 || closed;
+
+    const done = visited.filter(Boolean).length;
+    const save = $("btnSave");
+    save.disabled = done !== 8 || closed;
+    save.textContent = done === 8 ? "SAVE & EXIT" : "SAVE (" + done + "/8)";
+    save.title = done === 8 ? "" : "Steer to all 8 directions first - SAVE writes the whole table at once";
+}
+
+// Push the correction and the steer target together; they are the same number.
+async function point() {
+    if (active < 0) return;
+    await fetch("/mancal_point?index=" + active + "&corr=" + Math.round(corr[active]));
+}
+
+async function select(i) {
+    if (locked(i) || closed) return;
+    active = i;
+    visited[i] = true;
+    paint();
+    await point();
+}
+
+dots().forEach(b => b.onclick = () => select(parseInt(b.dataset.leg)));
+
+document.querySelectorAll(".adj").forEach(b => {
+    b.onclick = async () => {
+        if (active < 0) return;
+        corr[active] += parseInt(b.dataset.d);
+        if (corr[active] > 180) corr[active] = 180;
+        if (corr[active] < -180) corr[active] = -180;
+        paint();
+        await point();
+    };
+});
+
+$("btnStop").onclick = () => fetch("/mancal_stop");
+
+$("btnNorth").onclick = async () => {
+    if (active !== 0) return;
+    if (!confirm("Fold the North error into the global compass offset?\n\n"
+               + "Only do this with the hull physically pointing North. It shifts every "
+               + "direction, which is why North is calibrated first.")) return;
+    // /set_north makes the CURRENT heading read zero, the same arithmetic the handheld uses. The
+    // North table entry is then redundant and goes back to zero.
+    await fetch("/set_north");
+    await fetch("/set_harmonic_point?index=0&measured=0");
+    corr[0] = 0;
+    paint();
+    await point();
+};
+
+$("btnSave").onclick = async () => {
+    if (visited.filter(Boolean).length !== 8) return;
+    await fetch("/mancal_exit?save=1");
+    closed = true;
+    paint();
+    $("tblStatus").textContent = "Saved to NVS and the harmonic correction is back on. Safe to leave.";
+    $("tblStatus").style.color = "#22c55e";
+};
+
+$("btnCancel").onclick = async () => {
+    if (!confirm("Discard this session and reload the table stored on the buoy?")) return;
+    await fetch("/mancal_exit?save=0");
+    closed = true;
+    location.href = "/";
+};
+
+// Live readout. icm is the corrected heading; with the harmonic correction off during a session
+// that is offset-corrected but untabled, which is the space the table is defined in.
+async function poll() {
+    try {
+        const d = await (await fetch("/data")).json();
+        $("magVal").textContent = Math.round(d.icm) + "°";
+        $("arrow").style.transform = "rotate(" + d.icm + "deg)";
+        $("buoyTitle").textContent = "SUB " + (d.mac || "").toString().toUpperCase() + " · " + d.status_str;
+        setBar("barBb", "valBb", d.speed_bb);
+        setBar("barSb", "valSb", d.speed_sb);
+    } catch (e) { /* buoy busy - next tick will do */ }
+}
+
+// Bars grow up from the centreline for ahead and down for astern, matching the handheld.
+function setBar(barId, valId, v) {
+    v = v || 0;
+    const bar = $(barId);
+    const h = Math.min(50, Math.abs(v) / 2) + "%";
+    if (v >= 0) { bar.style.bottom = "55px"; bar.style.top = ""; bar.style.backgroundColor = "#22c55e"; }
+    else        { bar.style.top = "55px"; bar.style.bottom = ""; bar.style.backgroundColor = "#ef4444"; }
+    bar.style.height = h;
+    $(valId).textContent = Math.round(v) + "%";
+    $(valId).style.color = v >= 0 ? "#22c55e" : "#ef4444";
+}
+
+// Entry: switch the harmonic correction off (RAM only) and read the stored table, so the session
+// starts from what the buoy is already running rather than from a blank slate.
+(async function init() {
+    await fetch("/mancal_enter");
+    try {
+        const d = await (await fetch("/data")).json();
+        if (Array.isArray(d.meas_ang)) {
+            for (let i = 0; i < 8; i++) {
+                let c = i * 45 - d.meas_ang[i];
+                while (c < -180) c += 360;
+                while (c > 180) c -= 360;
+                corr[i] = Math.round(c);
+            }
+            loaded = true;
+        }
+    } catch (e) { /* leave at zero */ }
+    paint();
+    setInterval(poll, 400);
+    poll();
+})();
+
+window.addEventListener("beforeunload", () => {
+    // Never walk away leaving the thrusters live or the correction switched off.
+    // fetch(keepalive) rather than navigator.sendBeacon: sendBeacon always issues a POST, and
+    // every route here is registered HTTP_GET, so the beacon 404s and this safety net silently
+    // does nothing. Verified against the live buoy - GET 200, POST 404.
+    if (!closed) fetch("/mancal_exit?save=0", { keepalive: true });
+});
+</script>
+</body>
+</html>
