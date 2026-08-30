@@ -274,12 +274,20 @@ void RoboDecode(String data, RoboStruct *dataStore)
             for (int i = 0; i < 8; i++)
                 dataStore->interpolationTable[i] = numbers[2 + i].toFloat();
         }
+        // Trailing flag: whether the correction this table describes is actually IN EFFECT.
+        // The Sub answers a GET with the table that is in effect, not the one in NVS, so with the
+        // correction switched off it reports the identity table 0,45,90,... - which a reader
+        // cannot otherwise tell apart from a genuinely uncalibrated buoy. Every UI got that wrong
+        // at least once. Count-guarded like the rest: a frame from a node that predates this
+        // leaves the receiver's own value alone rather than reading as "off".
+        if (count > 10) dataStore->interpEnabled = (bool)numbers[10].toInt();
         break;
     case GPS_FOURIER_CALIBRATE:
         // Count-based, like every other optional field here: a frame from a node that
         // predates the still-water mode carries no payload and must stay in the safe
         // pair-averaged mode.
         if (count > 2) dataStore->gpsCalStillWater = (bool)numbers[2].toInt();
+        if (count > 3) dataStore->gpsCalStartHeading = numbers[3].toFloat();
         break;
     case GPS_FOURIER_STATUS:
         dataStore->gpsCalStep = numbers[2].toInt();
@@ -500,9 +508,12 @@ String RoboCode(const RoboStruct *dataOut)
         // from a truncated one.
         for (int i = 0; i < 8; i++)
             out += "," + formatFloat(dataOut->interpolationTable[i], 2);
+        // ... followed by whether that table is in effect, see the decoder for why.
+        out += "," + String((int)dataOut->interpEnabled);
         break;
     case GPS_FOURIER_CALIBRATE:
         out += "," + String((int)dataOut->gpsCalStillWater);
+        out += "," + String((int)dataOut->gpsCalStartHeading);
         break;
     case GPS_FOURIER_STATUS:
         out += "," + String(dataOut->gpsCalStep);
@@ -1190,6 +1201,7 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
 
     case STORE_INTERPOLATION_TABLE:
         for (int i = 0; i < 8; i++) dst->interpolationTable[i] = src.interpolationTable[i];
+        dst->interpEnabled = src.interpEnabled;
         break;
 
     default:

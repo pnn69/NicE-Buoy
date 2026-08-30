@@ -282,6 +282,7 @@ struct RoboStruct
     //         really is no current and negligible windage - otherwise the current is permanently
     //         written into the compass table.
     bool gpsCalStillWater = false;
+    float gpsCalStartHeading = 0.0f;
 };
 
 struct RoboStructGps
