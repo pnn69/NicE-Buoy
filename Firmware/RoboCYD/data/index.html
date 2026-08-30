@@ -875,6 +875,23 @@
                 </div>
             </div>
 
+            <!-- The whole 8-point table. The big CORR readout only shows the direction being
+                 worked on, so without this the seven corrections the buoy is already running stay
+                 invisible and the screen reads as an uncalibrated buoy. -->
+            <div style="margin-top: 12px; border-top: 1px solid #334155; padding-top: 10px;">
+                <div id="mancal-web-table-status" style="font-size: 0.7rem; color: #94a3b8; text-align: center; margin-bottom: 6px;">Reading the stored table from the buoy...</div>
+                <div style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; text-align: center;">
+                    <div><div style="font-size: 0.6rem; color: #94a3b8;">N</div><div id="mancal-web-tbl-0" style="font-size: 0.75rem; font-weight: bold; color: #e2e8f0;">?</div></div>
+                    <div><div style="font-size: 0.6rem; color: #94a3b8;">NE</div><div id="mancal-web-tbl-1" style="font-size: 0.75rem; font-weight: bold; color: #e2e8f0;">?</div></div>
+                    <div><div style="font-size: 0.6rem; color: #94a3b8;">E</div><div id="mancal-web-tbl-2" style="font-size: 0.75rem; font-weight: bold; color: #e2e8f0;">?</div></div>
+                    <div><div style="font-size: 0.6rem; color: #94a3b8;">SE</div><div id="mancal-web-tbl-3" style="font-size: 0.75rem; font-weight: bold; color: #e2e8f0;">?</div></div>
+                    <div><div style="font-size: 0.6rem; color: #94a3b8;">S</div><div id="mancal-web-tbl-4" style="font-size: 0.75rem; font-weight: bold; color: #e2e8f0;">?</div></div>
+                    <div><div style="font-size: 0.6rem; color: #94a3b8;">SW</div><div id="mancal-web-tbl-5" style="font-size: 0.75rem; font-weight: bold; color: #e2e8f0;">?</div></div>
+                    <div><div style="font-size: 0.6rem; color: #94a3b8;">W</div><div id="mancal-web-tbl-6" style="font-size: 0.75rem; font-weight: bold; color: #e2e8f0;">?</div></div>
+                    <div><div style="font-size: 0.6rem; color: #94a3b8;">NW</div><div id="mancal-web-tbl-7" style="font-size: 0.75rem; font-weight: bold; color: #e2e8f0;">?</div></div>
+                </div>
+            </div>
+
             <!-- Fine-Tuning Symmetrical Buttons -->
             <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 15px;">
                 <div style="display: flex; gap: 8px;">
@@ -906,6 +923,6 @@
         </div>
     </div>
 
-    <script src="index.js?v=110"></script>
+    <script src="index.js?v=113"></script>
 </body>
 </html>

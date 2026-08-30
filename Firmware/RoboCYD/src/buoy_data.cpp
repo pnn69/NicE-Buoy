@@ -306,10 +306,18 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     // Parse STORE_INTERPOLATION_TABLE (CMD = 88) to pre-populate fourier offsets dynamically!
     else if (cmd == 88 && fields.size() >= 13) {
         Serial.printf("Parsing STORE_INTERPOLATION_TABLE (88) for Buoy: %s\n", sender_id.c_str());
-        if (selected_buoy_idx == buoy_idx) {
+        extern bool in_man_fourier_cal_mode;
+        extern bool mancal_offsets_loaded;
+        // Only the calibration screen, and only while it is still waiting for its first answer.
+        // These frames arrive in duplicate - the Top puts every reply on BOTH UDP and LoRa, and the
+        // LoRa copy can lag by seconds and carry an older table (an identity one, if the correction
+        // was off when it was generated). Taking every frame that comes past meant the correct
+        // values landed and were then overwritten with zeros a moment later. It also means the
+        // Sub's echo of a STORE can no longer wipe out what the operator has dialled in.
+        if (selected_buoy_idx == buoy_idx && in_man_fourier_cal_mode && !mancal_offsets_loaded) {
             extern float mancal_offsets[8];
             extern bool mancal_is_dirty;
-            
+
             for (int i = 0; i < 8; i++) {
                 float tableVal = atof(fields[5 + i].c_str());
                 float offset = (i * 45) - tableVal;
@@ -318,6 +326,7 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
                 
                 mancal_offsets[i] = offset;
             }
+            mancal_offsets_loaded = true;
             mancal_is_dirty = true;
             Serial.println("Loaded 8 Fourier calibration offsets from Buoy onto CYD successfully!");
         }
