@@ -379,6 +379,100 @@ bool udp_setup(int poort)
 /**
  * @brief Main Wi-Fi management task.
  */
+//***************************************************************************************************
+//  MAN CAL working copy - see topwifi.h
+//***************************************************************************************************
+static float mancalTable[8] = {0, 45, 90, 135, 180, 225, 270, 315};
+static volatile bool mancalTableValid = false;
+
+void mancalNoteTable(const float *table, bool inEffect)
+{
+    // The Sub answers with the table that is IN EFFECT, not the one in NVS. With its correction
+    // switched off that is the identity table, indistinguishable from a genuinely uncalibrated
+    // buoy unless it says so - which it now does. Latching it would report a calibrated buoy as
+    // having no corrections at all.
+    if (!inEffect)
+    {
+        printf("MANCAL: ignoring table - the Sub reports its correction is OFF, so this is the "
+               "identity table and not the stored one\r\n");
+        return;
+    }
+    for (int i = 0; i < 8; i++) mancalTable[i] = table[i];
+    mancalTableValid = true;
+    printf("MANCAL: table from Sub:");
+    for (int i = 0; i < 8; i++) printf(" %.1f", mancalTable[i]);
+    printf("\r\n");
+}
+
+// Sends the Sub a SETUPDATA carrying everything we already hold for it, with only the harmonic
+// flag changed. Dialing has to happen with the correction OFF or the table would be applied on top
+// of the very measurement being taken; leaving the screen puts it back ON, because a Sub left with
+// it off reports the identity table to everything that asks and its stored calibration goes
+// invisible.
+//***************************************************************************************************
+//  MAN CAL session watchdog - see topwifi.h
+//***************************************************************************************************
+static volatile bool mancalActive = false;
+static volatile unsigned long mancalLastPing = 0;
+// Generous next to the page's own polling, so a slow link never drops a session out from under
+// someone who is still standing there dialing it in.
+#define MANCAL_TOP_TIMEOUT_MS (2 * 60 * 1000UL)
+
+static void mancalSessionBegin()
+{
+    mancalActive = true;
+    mancalLastPing = millis();
+}
+
+static void mancalSessionPing()
+{
+    if (mancalActive) mancalLastPing = millis();
+}
+
+static void mancalSessionEnd()
+{
+    mancalActive = false;
+}
+
+static void mancalSetHarmonic(bool on)
+{
+    RoboStruct msg = mainData;
+    msg.IDs = 0x99;
+    msg.IDr = mainData.mac;
+    msg.cmd = SETUPDATA;
+    msg.ack = SET;
+    msg.interpEnabled = on;
+    mainData.interpEnabled = on;
+    xQueueSend(udpIn, (void *)&msg, 10);
+}
+
+// Asks the Sub for the table it is running. Must be sent while the correction is still ON: the Sub
+// answers with the table IN EFFECT, so with it off the reply is the identity table and every
+// stored correction reads as zero.
+void mancalSessionService()
+{
+    if (!mancalActive) return;
+    if (millis() - mancalLastPing <= MANCAL_TOP_TIMEOUT_MS) return;
+
+    mancalActive = false;
+    printf("MANCAL: no contact from the page for %lu ms - ending session, correction back on\r\n",
+           MANCAL_TOP_TIMEOUT_MS);
+    mancalSetHarmonic(true);
+    mainData.tgSpeed = 0;
+    mainData.tgDist = 0;
+    mainData.status = IDLING;
+}
+
+static void mancalRequestTable()
+{
+    RoboStruct msg = {};
+    msg.IDs = 0x99;
+    msg.IDr = mainData.mac;
+    msg.cmd = STORE_INTERPOLATION_TABLE;
+    msg.ack = GET;
+    xQueueSend(udpIn, (void *)&msg, 10);
+}
+
 void WiFiTask(void *arg)
 {
     int wifiConfig = *(int *)arg;
@@ -448,10 +542,14 @@ void WiFiTask(void *arg)
         f.close();
     });
 
+    // The MAN CAL page polls /data continuously, so it doubles as the session heartbeat:
+    // while someone is watching the readout the session stays alive, and when the page goes
+    // away it expires on its own instead of leaving the buoy in REMOTE.
     server.on("/data", HTTP_GET, []()
               {
         netHttpReqs++;
         netLastReqMs = millis();
+        mancalSessionPing(); // heartbeat, see mancalSessionService()
         String json = "{\"buoys\":[";
         // Buoy 1
         json += "{";
@@ -525,7 +623,14 @@ void WiFiTask(void *arg)
         json += "\"HeapFree\":" + String(ESP.getFreeHeap()) + ",";
         json += "\"HeapMin\":" + String(ESP.getMinFreeHeap()) + ",";
         json += "\"HeapMaxBlk\":" + String(ESP.getMaxAllocHeap()) + ",";
-        json += "\"ResetReason\":\"" + String(resetReasonText()) + "\"";
+        json += "\"ResetReason\":\"" + String(resetReasonText()) + "\",";
+        // MAN CAL working copy, so the page can show what the Sub is actually running rather than
+        // a blank table. mancalValid stays false until the Sub has answered, which lets the page
+        // tell "not reported yet" apart from "reported, and it is zero".
+        json += "\"mancalValid\":" + String(mancalTableValid ? 1 : 0) + ",";
+        json += "\"mancalTable\":[";
+        for (int i = 0; i < 8; i++) json += String(mancalTable[i], 1) + (i < 7 ? "," : "");
+        json += "]";
         json += "},";
 
         for (int i = 1; i < 3; i++) {
@@ -602,6 +707,117 @@ void WiFiTask(void *arg)
         // queues below. See gpssim.h.
         //   /command?cmd=GPSSIM&on=1&c0=0&a1=6&a2=4&mps=0.15
         //   /command?cmd=GPSSIM&on=0
+        // ---- MAN CAL -------------------------------------------------------------------------
+        // Answered here rather than falling through to the cmdEnum dispatch below: these drive the
+        // Sub through several different frames each, and two of them have to be ORDERED.
+        if (cmdStr.startsWith("MANCAL_"))
+        {
+            // Only this Top's own Sub. The frames below go straight down the serial link;
+            // steering another buoy through here would need the whole exchange relayed over
+            // LoRa, which is what the handheld is for.
+            if (bid != 1)
+            {
+                server.send(400, "text/plain", "MAN CAL only drives this Top's own buoy");
+                return;
+            }
+            if (cmdStr == "MANCAL_ENTER")
+            {
+                // Switch the correction ON first, then read. Unconditionally: the Sub answers
+                // with the table that is IN EFFECT, so on a buoy whose correction is already off
+                // the reply is the identity table and every stored correction reads as zero. The
+                // table itself is untouched in the Sub's NVS either way - only the reporting of
+                // it depends on the flag. Ordering holds because both frames take the same path
+                // to the Sub and its serial handler processes them in turn.
+                mancalSessionBegin();
+                mancalTableValid = false;
+                mancalSetHarmonic(true);
+                mancalRequestTable();
+                mainData.status = IDLING;
+                server.send(200, "text/plain", "OK");
+                return;
+            }
+            if (cmdStr == "MANCAL_HARMONIC_OFF")
+            {
+                mancalSessionPing();
+                // Second half of entry, sent by the page once the table has come back.
+                mancalSetHarmonic(false);
+                server.send(200, "text/plain", "OK");
+                return;
+            }
+            if (cmdStr == "MANCAL_POINT")
+            {
+                mancalSessionPing();
+                int idx = server.arg("index").toInt();
+                float corr = server.arg("corr").toFloat();
+                if (idx < 0 || idx > 7) { server.send(400, "text/plain", "Invalid index"); return; }
+
+                float target = (float)(idx * 45) - corr;
+                while (target < 0.0f) target += 360.0f;
+                while (target >= 360.0f) target -= 360.0f;
+                mancalTable[idx] = target;
+
+                // Pivot on the spot. handleTimerRoutines() repeats this to the Sub every 500 ms
+                // for as long as we stay in REMOTE, so the order does not have to be resent here.
+                mainData.tgDir = target;
+                mainData.tgSpeed = 0;
+                mainData.tgDist = 0;
+                mainData.status = REMOTE;
+                server.send(200, "application/json",
+                            "{\"index\":" + String(idx) + ",\"target\":" + String(target, 1) + "}");
+                return;
+            }
+            if (cmdStr == "MANCAL_NORTH")
+            {
+                mancalSessionPing();
+                // The Sub owns compassOffset, and it already knows how to fold its current heading
+                // into it (case SET_AS_NORTH). Doing it there rather than here means the arithmetic
+                // uses the heading the Sub actually has, not our copy of it.
+                RoboStruct msg = mainData;
+                msg.IDs = 0x99;
+                msg.IDr = mainData.mac;
+                msg.cmd = (msg_t)SET_AS_NORTH;
+                msg.ack = INF;
+                xQueueSend(udpIn, (void *)&msg, 10);
+                mancalTable[0] = 0.0f; // the North error now lives in the offset instead
+                server.send(200, "text/plain", "OK");
+                return;
+            }
+            if (cmdStr == "MANCAL_STOP")
+            {
+                mancalSessionPing();
+                mainData.tgSpeed = 0;
+                mainData.tgDist = 0;
+                mainData.status = IDLING;
+                server.send(200, "text/plain", "OK");
+                return;
+            }
+            if (cmdStr == "MANCAL_EXIT")
+            {
+                mancalSessionEnd();
+                bool save = (server.arg("save") == "1");
+                if (save)
+                {
+                    RoboStruct msg = {};
+                    msg.IDs = 0x99;
+                    msg.IDr = mainData.mac;
+                    msg.cmd = STORE_INTERPOLATION_TABLE;
+                    msg.ack = SET;
+                    for (int i = 0; i < 8; i++) msg.interpolationTable[i] = mancalTable[i];
+                    xQueueSend(udpIn, (void *)&msg, 10);
+                }
+                // ON either way, saved or not. The Sub turns it on itself when it stores a table,
+                // but not when we walk away without one.
+                mancalSetHarmonic(true);
+                mainData.tgSpeed = 0;
+                mainData.tgDist = 0;
+                mainData.status = IDLING;
+                server.send(200, "text/plain", "OK");
+                return;
+            }
+            server.send(400, "text/plain", "Unknown MANCAL command");
+            return;
+        }
+
         if (cmdStr == "GPSSIM")
         {
             bool on = (server.arg("on").toInt() != 0);

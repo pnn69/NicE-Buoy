@@ -1329,7 +1329,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
         // We explicitly skip telemetry packets (BUOYPOS, TOPDATA, SUBDATA, SUBACCU, SUBPWR). 
         // Telemetry must bypass deduplication so that they always update the live database 
         // with "last seen" timestamps and current metrics, even if the values have not changed.
-        if (RfIn.cmd != BUOYPOS && RfIn.cmd != TOPDATA && RfIn.cmd != SUBDATA && RfIn.cmd != SUBACCU && RfIn.cmd != SUBPWR)
+        if (RfIn.cmd != BUOYPOS && RfIn.cmd != TOPDATA && RfIn.cmd != SUBDATA && RfIn.cmd != SUBACCU && RfIn.cmd != SUBPWR && RfIn.ack != GET && RfIn.ack != GETACK)
         {
             uint32_t currentHash = calculateCommandHash(RfIn);
             bool isDuplicate = false;
@@ -1503,7 +1503,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 break;
             case INFIELD_CALIBRATE:
             case INFIELD_OFFSET_CALIBRATE:
-                if (RfIn.ack == GET || RfIn.ack == GETACK)
+                if (RfIn.ack == GET || RfIn.ack == GETACK || RfIn.ack == SET)
                 {
                     xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 }
@@ -2254,6 +2254,8 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             for (int i = 0; i < 8; i++) printf(" %.2f", serDataIn.interpolationTable[i]);
             printf("\r\n");
             gpsCalibTableReply(&serDataIn);
+            // Also feed the web page's MAN CAL working copy - see topwifi.h.
+            mancalNoteTable(serDataIn.interpolationTable, serDataIn.interpEnabled);
 
             // Broadcast the table over UDP and LoRa so clients can receive it!
             serDataIn.IDr = BUOYIDALL;
@@ -2457,6 +2459,7 @@ void loop(void)
         //***************************************************************************************************
         crumb(90);
         handleTimerRoutines(&mainData);
+        mancalSessionService();
         {
             static unsigned long lastHealth = 0;
             if (millis() - lastHealth > 2000)

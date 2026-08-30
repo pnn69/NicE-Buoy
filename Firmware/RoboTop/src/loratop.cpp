@@ -5,6 +5,9 @@
 #include "main.h"
 #include "topwifi.h"
 
+// Forward declaration to resolve scope order for repeater
+bool sendLora(String loraTransmitt);
+
 static const char *TAG = "lora.cpp";
 static bool loraOk = false;
 static unsigned long my_id = 0;
@@ -238,6 +241,50 @@ String removeWhitespace(String str)
 //***************************************************************************************************
 //  Receive and decode incoming lora message
 //***************************************************************************************************
+#define REPEATER_CACHE_SIZE 16
+#define REPEATER_TIMEOUT_MS 20000UL // 20-second timeout
+
+struct RepeaterCacheEntry {
+    String message = "";
+    unsigned long last_repeated_ms = 0;
+};
+
+static RepeaterCacheEntry repeaterCache[REPEATER_CACHE_SIZE];
+static int repeaterCacheIndex = 0;
+
+static bool checkAndRecordRepeaterMessage(const String &msg) {
+    unsigned long now = millis();
+    int foundIndex = -1;
+    
+    // Search the cache for an existing match
+    for (int i = 0; i < REPEATER_CACHE_SIZE; i++) {
+        if (repeaterCache[i].message == msg) {
+            foundIndex = i;
+            break;
+        }
+    }
+    
+    if (foundIndex != -1) {
+        // Match found! Check if the 20-second window has expired
+        if (now - repeaterCache[foundIndex].last_repeated_ms < REPEATER_TIMEOUT_MS) {
+            // Within 20 seconds: DO NOT repeat
+            return false;
+        } else {
+            // More than 20 seconds: allowed to repeat again. Update timestamp.
+            repeaterCache[foundIndex].last_repeated_ms = now;
+            return true;
+        }
+    } else {
+        // No match found in cache. Add to circular buffer.
+        repeaterCache[repeaterCacheIndex].message = msg;
+        repeaterCache[repeaterCacheIndex].last_repeated_ms = now;
+        
+        // Advance circular index
+        repeaterCacheIndex = (repeaterCacheIndex + 1) % REPEATER_CACHE_SIZE;
+        return true;
+    }
+}
+
 /**
  * @brief Parses an incoming LoRa packet and routes it to the correct queues.
  * 
@@ -260,7 +307,7 @@ void onReceive(int packetSize)
         Serial.println("#error: message length does not match length");
         return; // skip rest of function
     }
-    Serial.println("#Lora_i <" + incoming + ">");
+    
     RoboStruct in;
     rfDeCode(incoming,&in);
 
@@ -282,6 +329,18 @@ void onReceive(int packetSize)
         // Let the main loop handle the fetch from Sub and send the real data.
         Serial.println("#Lora_i <" + incoming + ">");
         xQueueSend(loraIn, (void *)&in, 10); // send to main
+    }
+
+    // Transparent Repeater: Repeat if the message was not sent by us,
+    // and is not addressed specifically to us (meaning it's either for someone else, or a broadcast!)
+    bool is_from_me = (in.IDs == buoyId || (pMainData && in.IDs == pMainData->IDs));
+    if (!is_from_me && !is_addressed_to_me)
+    {
+        if (checkAndRecordRepeaterMessage(incoming))
+        {
+            Serial.println("#LoRa Repeat: Forwarding <" + incoming + ">");
+            sendLora(incoming);
+        }
     }
 }
 

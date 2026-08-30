@@ -58,7 +58,7 @@
 // A 0,45,90,... sweep would instead walk the buoy around an arc, ending up far from the start and
 // needing several times the clear water. The still-water table mapping is
 // perHeading[GC_LEGS[i] / 45], which is order independent, so the ordering costs the maths nothing.
-static const int GC_LEGS[8] = {0, 180, 45, 225, 90, 270, 135, 315};
+static int GC_LEGS[8] = {0, 180, 45, 225, 90, 270, 135, 315};
 
 // Deliberately valued from gpscal_step_t in RoboCompute.h rather than numbered here: these go out
 // on the wire in every GPS_FOURIER_STATUS report, so the shared header is the single definition
@@ -503,6 +503,18 @@ void handleGpsFourierCalibration(RoboStruct *cal)
         homeLat = cal->lat;
         homeLon = cal->lng;
         stillWater = cal->gpsCalStillWater;
+        
+        // Initialize GC_LEGS dynamically based on starting heading
+        int start_heading = (int)cal->gpsCalStartHeading;
+        // Normalize starting heading to nearest 45 deg step
+        start_heading = (start_heading / 45) * 45;
+        for (int p = 0; p < 4; p++) {
+            int base = (start_heading + p * 45) % 360;
+            int opposite = (base + 180) % 360;
+            GC_LEGS[p * 2] = base;
+            GC_LEGS[p * 2 + 1] = opposite;
+        }
+        
         legIdx = 0;
         legRetries = 0;
         tableTries = 0;

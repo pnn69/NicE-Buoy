@@ -16,6 +16,23 @@ const char *resetReasonText();
 // disconnect count and reason, requests served, and heap. Printed by the main loop.
 String netHealthLine();
 
+// ---------------------------------------------------------------------------------------------
+// MAN CAL - manual Fourier compass calibration driven from this Top's web page.
+//
+// The Top owns no compass table of its own; the eight entries live in the Sub's NVS. This is the
+// Top's working copy for the duration of a session: seeded from the Sub's answer to a
+// STORE_INTERPOLATION_TABLE GET, edited by the page, and sent back as a SET when SAVE is pressed.
+//
+// mancalNoteTable() is called from handleSerialData() for every table frame the Sub sends up, so
+// the copy tracks whatever the Sub really has rather than what we last asked for.
+// ---------------------------------------------------------------------------------------------
+void mancalNoteTable(const float *table, bool inEffect);
+
+// Called from the main loop. A MAN CAL session driven from this Top's web page leaves the buoy in
+// REMOTE with its harmonic correction switched off; if the browser goes away - crash, sleeping tab,
+// WiFi drop - nothing else would ever put either back. This expires the session and does it.
+void mancalSessionService();
+
 unsigned long espMac(void);
 unsigned long initwifiqueue(void);
 void udpSend(String data);
