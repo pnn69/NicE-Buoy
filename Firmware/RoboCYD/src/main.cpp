@@ -84,7 +84,7 @@ static float &mancal_active_offset() {
         mancal_offset_scratch = 0.0f;
         return mancal_offset_scratch;
     }
-    return mancal_active_offset();
+    return mancal_offsets[mancal_selected_leg];
 }
 
 static bool mancal_all_legs_visited() {
