@@ -314,7 +314,16 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         // was off when it was generated). Taking every frame that comes past meant the correct
         // values landed and were then overwritten with zeros a moment later. It also means the
         // Sub's echo of a STORE can no longer wipe out what the operator has dialled in.
-        if (selected_buoy_idx == buoy_idx && in_man_fourier_cal_mode && !mancal_offsets_loaded) {
+        // Field 13 is the Sub saying whether this table is IN EFFECT. When it is not, the frame
+        // carries the identity table rather than the stored one, and latching it would show a
+        // calibrated buoy as having no corrections at all. Tri-stated on the field count so a
+        // node that predates the flag is not read as "off".
+        bool table_in_effect = (fields.size() < 14) || (atoi(fields[13].c_str()) != 0);
+        if (!table_in_effect) {
+            Serial.println("Ignoring interpolation table: the Sub reports its correction is OFF, "
+                           "so this is the identity table and not the stored one.");
+        }
+        else if (selected_buoy_idx == buoy_idx && in_man_fourier_cal_mode && !mancal_offsets_loaded) {
             extern float mancal_offsets[8];
             extern bool mancal_is_dirty;
 

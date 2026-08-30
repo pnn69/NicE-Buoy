@@ -61,6 +61,11 @@ let mancalWebOffsetsLoaded = false;
 // returns the identity table and every correction reads 0.
 let mancalWebHarmonicPending = false;
 let mancalWebQueryTries = 0;
+// Which of the eight directions have been steered to at least once this session. SAVE commits all
+// eight entries in one frame, not just the one on screen, so a session that only looked at two of
+// them would still overwrite the other six on the buoy with whatever is in the buffer. The button
+// stays locked until every direction has been visited.
+const mancalWebVisited = Array(8).fill(false);
 // This screen switches the harmonic correction off so the dialing works against the raw compass, and
 // it must be ON again by the time the screen is left - by EITHER exit. A buoy left with it off
 // answers every later table request with the identity table, so the corrections still in NVS become
@@ -124,8 +129,11 @@ let setupCheckRetries = 0;
 
 // Initialize on page load
 window.addEventListener("load", () => {
+    // The map page hides <main> and runs its own bootstrap - the cards are not in play there.
+    if (isMapView) return;
     initWebSockets();
     initUIEventListeners();
+    initBuoyDetailViews();
     
     // Autodiscover IP for WebSocket
     const wsUrlInput = document.getElementById("ws-url");
@@ -260,6 +268,69 @@ function renderMancalWebOffsets() {
         statusEl.textContent = mancalWebOffsetsLoaded
             ? "Corrections now stored on the buoy - adjust from here"
             : "Reading the stored table from the buoy...";
+    }
+
+    updateMancalWebSaveState();
+    updateMancalWebDotLocks();
+}
+
+/**
+ * North has to be done first. Everything downstream is measured against it: SET AS NORTH folds the
+ * North error into compassOffset, and because the Sub applies that offset BEFORE the table lookup
+ * (RoboSub/src/compass.cpp:936 then :944) it shifts every other sector by the same amount. Doing
+ * North first means there is nothing else dialled in yet for it to invalidate. Once North has been
+ * visited the operator is free - take SET AS NORTH, or just leave a Fourier offset on North.
+ */
+function mancalWebLegLocked(leg) {
+    return leg !== 0 && !mancalWebVisited[0];
+}
+
+/**
+ * Greys out the seven non-North dots until North has been visited, and rings North as the way in.
+ */
+function updateMancalWebDotLocks() {
+    document.querySelectorAll(".mancal-web-dot").forEach(btn => {
+        const leg = parseInt(btn.getAttribute("data-leg"));
+        const locked = mancalWebLegLocked(leg);
+        btn.disabled = locked;
+        btn.style.opacity = locked ? "0.3" : "1";
+        btn.style.cursor = locked ? "not-allowed" : "pointer";
+        btn.title = locked ? "Set North first - it is the base every other direction is measured against" : "";
+        // North, still waiting to be pressed - ring it so it reads as the way in.
+        if (leg === 0 && !mancalWebVisited[0] && leg !== mancalWebActiveLeg) {
+            btn.style.border = "2px solid #eab308";
+        }
+    });
+
+    const statusEl = document.getElementById("mancal-web-table-status");
+    if (statusEl && mancalWebOffsetsLoaded && !mancalWebVisited[0]) {
+        statusEl.textContent = "Start with North (N) - it is the base every other direction is measured against";
+    }
+}
+
+/**
+ * Locks SAVE & EXIT until every direction has been visited. SAVE writes all eight table entries at
+ * once, so committing after visiting only some of them overwrites the untouched sectors on the buoy
+ * with whatever the buffer happened to hold. The button counts down rather than just refusing the
+ * click, so it is obvious how many are left.
+ */
+function updateMancalWebSaveState() {
+    const done = mancalWebVisited.filter(Boolean).length;
+    const ready = done === 8;
+
+    const btn = document.getElementById("mancal-web-exit");
+    if (btn) {
+        btn.textContent = ready ? "SAVE & EXIT" : `SAVE (${done}/8)`;
+        btn.disabled = !ready;
+        btn.style.opacity = ready ? "1" : "0.45";
+        btn.style.cursor = ready ? "pointer" : "not-allowed";
+        btn.title = ready ? "" : "Steer to all 8 directions before saving - SAVE writes the whole table at once";
+    }
+
+    // Dim the directions that are still carrying the value that came off the buoy.
+    for (let i = 0; i < 8; i++) {
+        const cell = document.getElementById("mancal-web-tbl-" + i);
+        if (cell) cell.style.opacity = mancalWebVisited[i] ? "1" : "0.4";
     }
 }
 
@@ -1250,7 +1321,10 @@ function initUIEventListeners() {
                 if (mancalWebHarmonicPending) return;
 
                 const leg = parseInt(btn.getAttribute("data-leg"));
+                // The button is disabled in this state, but guard anyway.
+                if (mancalWebLegLocked(leg)) return;
                 mancalWebActiveLeg = leg;
+                mancalWebVisited[leg] = true;
 
                 // Highlight active button and unhighlight others
                 webLegBtns.forEach(bL => {
@@ -1392,37 +1466,6 @@ function initUIEventListeners() {
         });
     }
     
-    // "STORE" button handler
-    const btnStore = document.getElementById("mancal-web-store");
-    if (btnStore) {
-        btnStore.addEventListener("click", (e) => {
-            flashButtonFeedback(e.currentTarget, "#22c55e", "black", 150); // Flash Green!
-            if (mancalWebActiveIndex === null || mancalWebActiveLeg === -1) return; // Guard against unselected directions!
-            const b = buoys[mancalWebActiveIndex];
-            if (!b.id) return;
-            
-            const leg = mancalWebActiveLeg;
-            
-            // 1. Construct the entire 8-point fourier table from the current dialed offsets
-            const tableVals = [];
-            for (let j = 0; j < 8; j++) {
-                let expected = j * 45;
-                let off = mancalWebOffsets[j];
-                let val = expected - off;
-                while (val < 0) val += 360;
-                while (val >= 360) val -= 360;
-                tableVals.push(val.toFixed(2));
-            }
-            
-            // 2. Send the entire 8-point table as Command 88 SET to commit permanently to NVS!
-            const currStatus = b.data.Status || "7";
-            const calPayload = `${b.id},99,${MsgType.SET},88,${currStatus},${tableVals.join(",")}`;
-            sendCommand(b.id, calPayload);
-            
-            logMessage(`Buoy ${b.id.toUpperCase()}: Fourier Correction Offset for sector ${leg * 45}° stored and committed permanently to Sub NVS!`, "UDP OUT");
-        });
-    }
-    
     // "CANCEL" button handler
     const btnCancel = document.getElementById("mancal-web-cancel");
     if (btnCancel) {
@@ -1462,6 +1505,9 @@ function initUIEventListeners() {
         btnExit.addEventListener("click", (e) => {
             flashButtonFeedback(e.currentTarget, "#3b82f6", "white", 150); // Flash Blue!
             if (mancalWebActiveIndex === null) return;
+            // The button is disabled in this state, but guard anyway - a stray programmatic click
+            // must not commit a table with sectors that were never visited.
+            if (mancalWebVisited.filter(Boolean).length !== 8) return;
             const b = buoys[mancalWebActiveIndex];
             if (!b.id) return;
             
@@ -1642,6 +1688,7 @@ function initUIEventListeners() {
         mancalWebActiveIndex = index;
         mancalWebActiveLeg = -1; // -1 means NO active steering yet!
         mancalWebOffsets.fill(0);
+        mancalWebVisited.fill(false);
         mancalWebOffsetsLoaded = false;
 
         // Update header texts
@@ -1656,7 +1703,10 @@ function initUIEventListeners() {
             btn.style.color = "#94a3b8";
             btn.style.border = "1px solid #475569";
         });
-        
+        // After the reset above, not before it - that loop rewrites every border and would
+        // otherwise wipe the ring that marks North as the one direction available to press.
+        updateMancalWebDotLocks();
+
         // Hide "Set as North" button initially (leg 0 is NOT active yet)
         document.getElementById("mancal-web-setNorth").style.display = "none";
         
@@ -1961,6 +2011,11 @@ if (isMapView) {
         if (typeof connectWebSocket === "function") {
             setTimeout(connectWebSocket, 100);
         }
+        
+        // Start line length panel - measured once on open, see initStartLinePanel().
+        
+        initStartLinePanel();
+
         
         // Start independent high-performance map redraw loop
         setInterval(drawFieldMap, 500);
@@ -2296,4 +2351,265 @@ function drawFieldMap() {
             ctx.stroke();
         }
     });
+}
+
+// =================================================================================================
+// Simplified main page + per-buoy detail view
+//
+// The main page carries only what is worth reading at arm's length on the water: status banner,
+// windrose, speed bars, and LOCK / DOCK. Everything else - setup, manual steering, the dir/dist
+// entry, the parameter table, the network indicators and the voltage/current gauges - is moved
+// into a per-buoy overlay behind the three "Buoy n ..." buttons.
+//
+// The blocks are MOVED at runtime rather than duplicated or re-authored in index.html. The
+// dashboard addresses these elements by id in well over a hundred places, and appendChild() keeps
+// every one of those references alive: the node is the same node, it just hangs somewhere else in
+// the tree. Rewriting the markup would have meant re-pointing all of them.
+// =================================================================================================
+
+// Per-card selectors to relocate. Order here is the order they appear in the overlay.
+const BUOY_DETAIL_BLOCKS = [
+    ".network-indicators",
+    ".coordinate-control",
+    ".mannav-control",
+    ".parameters-panel",
+    ".udp-enable-wrapper",
+    ".color-legend",
+];
+
+function buildBuoyDetailViews() {
+    for (let i = 0; i < 3; i++) {
+        const card = document.getElementById("buoy-card-" + i);
+        const body = document.getElementById("buoy-detail-body-" + i);
+        if (!card || !body) continue;
+
+        // SETUP and MANUAL move; LOCK and DOCK stay on the card. Pull them out first so the row
+        // of buttons that lands in the overlay keeps them side by side.
+        const actionRow = card.querySelector(".action-buttons");
+        if (actionRow) {
+            const moved = document.createElement("div");
+            moved.className = "action-buttons";
+            ["setup-btn-", "mannav-btn-"].forEach(prefix => {
+                const b = document.getElementById(prefix + i);
+                if (b) moved.appendChild(b);
+            });
+            if (moved.childElementCount) body.appendChild(moved);
+        }
+
+        // The two gauge bars live inside .center-gauge next to the windrose, so they have to be
+        // picked out individually rather than by moving their parent. Voltage STAYS on the card -
+        // it is the one worth a glance from the water. Current moves into the detail view.
+        // Identified through its own bar element rather than by position, so re-ordering the two
+        // containers in index.html cannot silently swap which one goes.
+        const currBar = document.getElementById("curr-bar-" + i);
+        const currBox = currBar && currBar.closest(".gauge-bar-container");
+        if (currBox) body.appendChild(currBox);
+
+        BUOY_DETAIL_BLOCKS.forEach(sel => {
+            card.querySelectorAll(sel).forEach(el => {
+                el.style.marginTop = "10px";
+                body.appendChild(el);
+            });
+        });
+
+        // The legacy inline mancal panel, if this build still has it.
+        const legacyMancal = document.getElementById("mancal-web-panel-" + i);
+        if (legacyMancal) body.appendChild(legacyMancal);
+    }
+}
+
+let activeDetailBuoy = -1;
+
+function openBuoyDetail(i) {
+    activeDetailBuoy = i;
+    const b = buoys[i];
+    document.getElementById("buoy-detail-title").textContent =
+        (b && b.id) ? "Buoy " + (i + 1) + " (" + b.id.toUpperCase() + ")" : "Buoy " + (i + 1);
+    for (let n = 0; n < 3; n++) {
+        const body = document.getElementById("buoy-detail-body-" + n);
+        if (body) body.style.display = (n === i) ? "block" : "none";
+    }
+    document.getElementById("buoy-detail-overlay").style.display = "block";
+}
+
+function closeBuoyDetail() {
+    activeDetailBuoy = -1;
+    document.getElementById("buoy-detail-overlay").style.display = "none";
+}
+
+function initBuoyDetailViews() {
+    buildBuoyDetailViews();
+    for (let i = 0; i < 3; i++) {
+        const btn = document.getElementById("buoy-detail-btn-" + i);
+        if (btn) btn.addEventListener("click", () => openBuoyDetail(i));
+    }
+    const close = document.getElementById("buoy-detail-close");
+    if (close) close.addEventListener("click", closeBuoyDetail);
+}
+
+// =================================================================================================
+// Map page: start line length
+//
+// There is no stored "line length" anywhere in the system - recalcStartLine() on the Top keeps
+// whatever distance the two buoys already are apart and only swings the line square to the wind.
+// So the length shown here is measured from the two buoys' own target positions when the map is
+// opened, and changing it means physically repositioning both of them.
+//
+// Captured once on open and deliberately NOT live-updated: the buoys drift and creep toward their
+// targets constantly, and a figure that ticks while you are trying to set it is unusable.
+// =================================================================================================
+const START_LINE_STEP_M = 5;
+let startLineOriginalM = null;   // as measured when the map was opened
+let startLineTargetM = null;     // what the +/- buttons have dialled it to
+let startLinePair = null;        // the two buoys that form the line
+
+function metersBetween(lat1, lng1, lat2, lng2) {
+    const R = 6371000, rad = Math.PI / 180;
+    const dLat = (lat2 - lat1) * rad, dLng = (lng2 - lng1) * rad;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+            + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function bearingBetween(lat1, lng1, lat2, lng2) {
+    const rad = Math.PI / 180;
+    const y = Math.sin((lng2 - lng1) * rad) * Math.cos(lat2 * rad);
+    const x = Math.cos(lat1 * rad) * Math.sin(lat2 * rad)
+            - Math.sin(lat1 * rad) * Math.cos(lat2 * rad) * Math.cos((lng2 - lng1) * rad);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+// Where a buoy's end of the line actually is. The dashboard is never sent absolute target
+// coordinates - it derives them the same way drawFieldMap() does, by projecting the reported
+// Target Dist / Target Dir from the buoy's own fix. A buoy sitting on its waypoint reports a
+// distance of ~0, so this collapses to its current position, which is the same point.
+function buoyLinePoint(b) {
+    const lat = parseFloat(b.data["Latitude (Lat)"]);
+    const lng = parseFloat(b.data["Longitude (Lon)"]);
+    if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) return null;
+
+    const statusVal = parseInt(b.data.Status || "0");
+    const holdsTarget = (statusVal === MsgType.LOCKING || statusVal === MsgType.LOCKED
+                      || statusVal === MsgType.DOCKING || statusVal === MsgType.DOCKED);
+    const dist = parseFloat(b.data["Target Dist"]);
+    const dir = parseFloat(b.data["Target Dir"]);
+    if (holdsTarget && !isNaN(dist) && !isNaN(dir) && dist > 0) {
+        return projectCoords(lat, lng, dir, dist);
+    }
+    return { lat: lat, lng: lng };
+}
+
+// The two buoys forming the line. A third buoy, if there is one, is a mark and is left alone.
+function findStartLinePair() {
+    const held = buoys.filter(b => b.id && buoyLinePoint(b));
+    return held.length >= 2 ? [held[0], held[1]] : null;
+}
+
+function startLinePanelRefresh() {
+    const cur = document.getElementById("sl-current");
+    const tgt = document.getElementById("sl-target");
+    const btn = document.getElementById("sl-apply");
+    if (!cur) return;
+
+    if (startLineOriginalM === null) {
+        cur.textContent = "--";
+        tgt.textContent = "--";
+        btn.disabled = true;
+        btn.textContent = "RE-ALIGN";
+        return;
+    }
+    cur.textContent = Math.round(startLineOriginalM) + " m";
+    tgt.textContent = Math.round(startLineTargetM) + " m";
+    const changed = Math.round(startLineTargetM) !== Math.round(startLineOriginalM);
+    btn.disabled = !changed;
+    btn.style.opacity = changed ? "1" : "0.4";
+    btn.textContent = changed ? "RE-ALIGN TO " + Math.round(startLineTargetM) + " m" : "RE-ALIGN";
+}
+
+function startLineCapture() {
+    startLinePair = findStartLinePair();
+    if (!startLinePair) { startLineOriginalM = null; startLinePanelRefresh(); return; }
+    const pa = buoyLinePoint(startLinePair[0]);
+    const pb = buoyLinePoint(startLinePair[1]);
+    if (!pa || !pb) { startLineOriginalM = null; startLinePanelRefresh(); return; }
+    startLineOriginalM = metersBetween(pa.lat, pa.lng, pb.lat, pb.lng);
+    startLineTargetM = startLineOriginalM;
+    startLinePanelRefresh();
+}
+
+function startLineNudge(delta) {
+    if (startLineOriginalM === null) return;
+    startLineTargetM = Math.max(START_LINE_STEP_M, startLineTargetM + delta);
+    startLinePanelRefresh();
+}
+
+// Moves both ends symmetrically about the existing midpoint, keeping the line's current bearing -
+// this changes the length only. Squaring it to the wind is what Align Startline is for.
+function startLineApply() {
+    if (!startLinePair || startLineOriginalM === null) return;
+    const a = startLinePair[0], b = startLinePair[1];
+    const ea = buoyLinePoint(a), eb = buoyLinePoint(b);
+    if (!ea || !eb) return;
+    const aLat = ea.lat, aLng = ea.lng;
+    const bLat = eb.lat, bLng = eb.lng;
+
+    const midLat = (aLat + bLat) / 2, midLng = (aLng + bLng) / 2;
+    const brgA = bearingBetween(midLat, midLng, aLat, aLng);
+    const brgB = bearingBetween(midLat, midLng, bLat, bLng);
+    const half = startLineTargetM / 2;
+
+    if (!confirm("Re-align the start line to " + Math.round(startLineTargetM) + " m?\n\n"
+               + "Both buoys will motor to their new ends of the line.")) return;
+
+    const pa = projectCoords(midLat, midLng, brgA, half);
+    const pb = projectCoords(midLat, midLng, brgB, half);
+
+    [[a, pa], [b, pb]].forEach(function (pair) {
+        const buoy = pair[0], pos = pair[1];
+        const status = buoy.data.Status || "7";
+        // SETLOCKPOS: the Top stores the point, sails to it and locks - the same command it uses
+        // to push computed start line ends to the other buoy.
+        sendCommand(buoy.id, buoy.id + ",99," + MsgType.SET + "," + MsgType.SETLOCKPOS + ","
+                           + status + "," + pos.lat.toFixed(10) + "," + pos.lng.toFixed(10));
+        logMessage("Buoy " + buoy.id.toUpperCase() + ": start line end moved to "
+                 + pos.lat.toFixed(6) + ", " + pos.lng.toFixed(6), "UDP OUT");
+    });
+
+    // The dialled figure is the line now, so the panel settles on it rather than showing a
+    // permanent pending change.
+    startLineOriginalM = startLineTargetM;
+    startLinePanelRefresh();
+}
+
+function initStartLinePanel() {
+    const view = document.getElementById("full-map-view");
+    if (!view) return;
+    const panel = document.createElement("div");
+    panel.style.cssText = "position:absolute; top:15px; right:15px; z-index:10000; background:#1e293b;"
+        + "border:1px solid #334155; border-radius:8px; padding:12px; min-width:220px;"
+        + "box-shadow:0 10px 25px -5px rgba(0,0,0,0.5); font-family:inherit; color:#e2e8f0;";
+    panel.innerHTML =
+        '<div style="font-size:0.7rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Start line</div>'
+      + '<div style="display:flex; align-items:baseline; gap:8px; margin:4px 0 2px 0;">'
+      + '  <span id="sl-target" style="font-size:1.6rem; font-weight:bold; color:#eab308;">--</span>'
+      + '</div>'
+      + '<div style="font-size:0.7rem; color:#64748b; margin-bottom:8px;">on opening: <span id="sl-current">--</span></div>'
+      + '<div style="display:flex; gap:8px;">'
+      + '  <button id="sl-minus" style="flex:1; background:#475569; color:#fff; border:none; border-radius:6px; padding:8px 0; font-weight:bold; cursor:pointer;">&minus;5 m</button>'
+      + '  <button id="sl-plus"  style="flex:1; background:#475569; color:#fff; border:none; border-radius:6px; padding:8px 0; font-weight:bold; cursor:pointer;">+5 m</button>'
+      + '</div>'
+      + '<button id="sl-apply" style="width:100%; margin-top:8px; background:#3b82f6; color:#fff; border:none; border-radius:6px; padding:9px 0; font-weight:bold; cursor:pointer;" disabled>RE-ALIGN</button>';
+    view.appendChild(panel);
+
+    document.getElementById("sl-minus").addEventListener("click", function () { startLineNudge(-START_LINE_STEP_M); });
+    document.getElementById("sl-plus").addEventListener("click", function () { startLineNudge(START_LINE_STEP_M); });
+    document.getElementById("sl-apply").addEventListener("click", startLineApply);
+
+    // The buoys are not on the wire yet when the page loads, so take the measurement on the first
+    // tick that actually has two waypoints rather than on a fixed timer.
+    const grab = setInterval(function () {
+        if (startLineOriginalM !== null) { clearInterval(grab); return; }
+        startLineCapture();
+    }, 500);
+    setTimeout(function () { clearInterval(grab); }, 30000);
 }

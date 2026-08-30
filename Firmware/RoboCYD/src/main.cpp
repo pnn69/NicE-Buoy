@@ -59,6 +59,30 @@ bool mancal_harmonic_pending = false;
 // that same press is read as a direction tap and the buoy starts pivoting the moment the screen
 // opens - which is exactly what entering this screen must not do.
 bool mancal_await_release = false;
+// Which of the eight directions have been steered to at least once this session. SAVE commits all
+// eight entries in one frame, not just the one on screen, so a session that only looked at two of
+// them would still overwrite the other six on the buoy with whatever happened to be in the buffer.
+// The button stays locked until every direction has been visited.
+bool mancal_leg_visited[8] = {false};
+
+static int mancal_visited_count() {
+    int n = 0;
+    for (int i = 0; i < 8; i++) if (mancal_leg_visited[i]) n++;
+    return n;
+}
+
+static bool mancal_all_legs_visited() {
+    return mancal_visited_count() == 8;
+}
+
+// North has to be done first. Everything downstream is measured against it: SET AS NORTH folds the
+// North error into compassOffset, and because the Sub applies that offset BEFORE the table lookup
+// (RoboSub/src/compass.cpp:936 then :944) it shifts every other sector by the same amount. Doing
+// North first means there is nothing else dialled in yet for it to invalidate. Once North has been
+// visited the operator is free - take SET AS NORTH, or just leave a Fourier offset on North.
+static bool mancal_leg_locked(int leg) {
+    return leg != 0 && !mancal_leg_visited[0];
+}
 
 // Setup page index (0 for Page 1, 1 for Page 2)
 int setup_page = 0;
@@ -1905,7 +1929,19 @@ void loop() {
                         int dx = touchX - dot_x;
                         int dy = touchY - dot_y;
                         if (dx*dx + dy*dy <= 18*18) { // 18-pixel touch catchment radius
+                            if (mancal_leg_locked(i)) {
+                                tft.fillRect(0, 180, tft.width(), 26, TFT_BLACK);
+                                tft.setTextDatum(MC_DATUM);
+                                tft.setTextSize(2);
+                                tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+                                tft.drawString("SET NORTH FIRST", tft.width() / 2, 193);
+                                delay(900);
+                                mancal_is_dirty = true;
+                                delay(20);
+                                return;
+                            }
                             mancal_selected_leg = i;
+                            mancal_leg_visited[i] = true;
                             mancal_is_dirty = true;
                             
                             // Immediately command the buoy to steer to this target angle with
@@ -2047,95 +2083,51 @@ void loop() {
                     // snappy; the table row under the rose has to follow the same value.
                     draw_mancal_offset_strip();
                 }
-                // 3. North / Store Button Row (Generous Y: 256 to 299, no gaps!)
+                // 3. North Button Row (Generous Y: 256 to 299, no gaps!)
                 else if (touchY >= 256 && touchY <= 299) {
                     BuoyData &b = buoys[selected_buoy_idx];
-                    // With no direction picked this row carries the "SELECT A DIRECTION TO
-                    // COMMENCE" prompt, not a button. Falling through to the STORE branch below
-                    // would commit the table before anything had been dialled.
-                    if (mancal_selected_leg < 0) {
+                    // Only North has a button here now. For every other direction the row carries
+                    // a hint, and before anything is picked it carries the "start with North"
+                    // prompt - neither is pressable.
+                    if (mancal_selected_leg != 0) {
                         delay(20);
                         return;
                     }
-                    if (mancal_selected_leg == 0) {
-                        // Set as North: Generous X: 5 to 153
-                        if (touchX >= 5 && touchX <= 153) {
-                            Serial.println("MANCAL: Click registered on Set as North!");
-                            // Zero-latency visual feedback (highlight in white)
-                            tft.fillRoundRect(10, 260, 140, 35, 5, TFT_WHITE);
-                            tft.setTextColor(TFT_BLACK, TFT_WHITE);
-                            tft.setTextSize(1);
-                            tft.drawString("Set as North...", 80, 277);
-                            
-                            // Calculate global compass offset (mounting offset) by adding the manual dialed-in adjustment
-                            b.compass_offset = b.compass_offset + mancal_offsets[0];
-                            while (b.compass_offset < -180) b.compass_offset += 360;
-                            while (b.compass_offset > 180) b.compass_offset -= 360;
-                            
-                            // Reset the North fourier correction back to 0.0f (it is now absorbed globally!)
-                            mancal_offsets[0] = 0.0f;
-                            
-                            // Send SETUPDATA update right away
-                            send_buoy_setup(selected_buoy_idx);
-                            
-                            // Send steering command again to refresh/re-evaluate the buoy control loop
-                            b.tg_dir = 0.0f;
-                            b.tg_speed = 0.0f;
-                            send_buoy_dirdist(selected_buoy_idx);
-                            
-                            delay(100); // Super-snappy highlight feel
-                            
-                            tft.fillRect(0, 195, tft.width(), 100, TFT_BLACK);
-                            tft.setTextDatum(MC_DATUM);
-                            tft.setTextSize(2);
-                            tft.setTextColor(TFT_GREEN, TFT_BLACK);
-                            tft.drawString("GLOBAL NORTH SET", tft.width() / 2, 230);
-                            delay(400); // Snappy success banner display
-                            mancal_is_dirty = true;
-                        }
-                        // STORE button: Generous X: 154 to 235
-                        else if (touchX >= 154 && touchX <= 235) {
-                            Serial.println("MANCAL: Click registered on STORE (North)!");
-                            tft.fillRoundRect(155, 260, 75, 35, 5, TFT_WHITE);
-                            tft.setTextColor(TFT_BLACK, TFT_WHITE);
-                            tft.setTextSize(1);
-                            tft.drawString("STORING...", 192, 277);
-                            
-                            // Send the entire 8-point table as Command 88 SET to commit permanently to NVS!
-                            send_mancal_table_to_sub(selected_buoy_idx);
-                            
-                            delay(100); // Super-snappy highlight feel
-                            
-                            tft.fillRect(0, 195, tft.width(), 100, TFT_BLACK);
-                            tft.setTextDatum(MC_DATUM);
-                            tft.setTextSize(2);
-                            tft.setTextColor(TFT_GREEN, TFT_BLACK);
-                            tft.drawString("OFFSET STORED", tft.width() / 2, 230);
-                            delay(400); // Snappy success banner display
-                            mancal_is_dirty = true;
-                        }
-                    } else {
-                        // STORE OFFSET button: Generous X: 10 to 230
-                        if (touchX >= 10 && touchX <= 230) {
-                            Serial.println("MANCAL: Click registered on STORE OFFSET!");
-                            tft.fillRoundRect(30, 260, 180, 35, 5, TFT_WHITE);
-                            tft.setTextColor(TFT_BLACK, TFT_WHITE);
-                            tft.setTextSize(2);
-                            tft.drawString("STORING...", tft.width() / 2, 277);
-                            
-                            // Send the entire 8-point table as Command 88 SET to commit permanently to NVS!
-                            send_mancal_table_to_sub(selected_buoy_idx);
-                            
-                            delay(100); // Super-snappy highlight feel
-                            
-                            tft.fillRect(0, 195, tft.width(), 100, TFT_BLACK);
-                            tft.setTextDatum(MC_DATUM);
-                            tft.setTextSize(2);
-                            tft.setTextColor(TFT_GREEN, TFT_BLACK);
-                            tft.drawString("OFFSET STORED", tft.width() / 2, 230);
-                            delay(400); // Snappy success banner display
-                            mancal_is_dirty = true;
-                        }
+
+                    // SET AS NORTH now spans the row: X 10 to 230
+                    if (touchX >= 10 && touchX <= 230) {
+                        Serial.println("MANCAL: Click registered on Set as North!");
+                        // Zero-latency visual feedback (highlight in white)
+                        tft.fillRoundRect(10, 260, tft.width() - 20, 35, 5, TFT_WHITE);
+                        tft.setTextColor(TFT_BLACK, TFT_WHITE);
+                        tft.setTextSize(2);
+                        tft.drawString("Set as North...", tft.width() / 2, 277);
+
+                        // Calculate global compass offset (mounting offset) by adding the manual dialed-in adjustment
+                        b.compass_offset = b.compass_offset + mancal_offsets[0];
+                        while (b.compass_offset < -180) b.compass_offset += 360;
+                        while (b.compass_offset > 180) b.compass_offset -= 360;
+
+                        // Reset the North fourier correction back to 0.0f (it is now absorbed globally!)
+                        mancal_offsets[0] = 0.0f;
+
+                        // Send SETUPDATA update right away
+                        send_buoy_setup(selected_buoy_idx);
+
+                        // Send steering command again to refresh/re-evaluate the buoy control loop
+                        b.tg_dir = 0.0f;
+                        b.tg_speed = 0.0f;
+                        send_buoy_dirdist(selected_buoy_idx);
+
+                        delay(100); // Super-snappy highlight feel
+
+                        tft.fillRect(0, 195, tft.width(), 100, TFT_BLACK);
+                        tft.setTextDatum(MC_DATUM);
+                        tft.setTextSize(2);
+                        tft.setTextColor(TFT_GREEN, TFT_BLACK);
+                        tft.drawString("GLOBAL NORTH SET", tft.width() / 2, 230);
+                        delay(400); // Snappy success banner display
+                        mancal_is_dirty = true;
                     }
                 }
                 // 4. Footer Buttons (Y: 300 to 320)
@@ -2163,6 +2155,21 @@ void loop() {
                     }
                     // SAVE ALL & EXIT (X: 125 to 230)
                     else if (touchX >= 125 && touchX <= 230) {
+                        // Locked until every direction has been visited - see the button drawing.
+                        if (!mancal_all_legs_visited()) {
+                            tft.fillRect(0, 180, tft.width(), 26, TFT_BLACK);
+                            tft.setTextDatum(MC_DATUM);
+                            tft.setTextSize(2);
+                            tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+                            char warn_buf[32];
+                            sprintf(warn_buf, "%d OF 8 DONE", mancal_visited_count());
+                            tft.drawString(warn_buf, tft.width() / 2, 193);
+                            delay(900);
+                            mancal_is_dirty = true;
+                            delay(20);
+                            return;
+                        }
+
                         // First, permanently commit and store the 8 fourier table offsets to Sub NVS!
                         send_mancal_table_to_sub(selected_buoy_idx);
                         delay(200); // Give the queues a brief moment to dispatch before setup save
@@ -3308,6 +3315,7 @@ void enter_man_fourier_cal(int buoy_idx) {
     in_setup_mode = false;
     mancal_selected_leg = -1; // -1 means NO active steering yet!
     for (int i = 0; i < 8; i++) mancal_offsets[i] = 0.0f;
+    for (int i = 0; i < 8; i++) mancal_leg_visited[i] = false;
     mancal_offsets_loaded = false;
     mancal_is_dirty = true;
 
@@ -3403,7 +3411,11 @@ void draw_mancal_offset_strip() {
     for (int i = 0; i < 8; i++) {
         char buf[8];
         sprintf(buf, "%+0.0f", mancal_offsets[i]);
-        tft.setTextColor(i == mancal_selected_leg ? TFT_GREEN : TFT_LIGHTGREY, TFT_BLACK);
+        // Green = being worked on, light = confirmed this session, dim = still the value that came
+        // off the buoy and not yet visited. That last distinction is what SAVE is waiting for.
+        uint16_t col = (i == mancal_selected_leg) ? TFT_GREEN
+                     : (mancal_leg_visited[i] ? TFT_LIGHTGREY : TFT_DARKGREY);
+        tft.setTextColor(col, TFT_BLACK);
         tft.drawString(buf, 15 + i * 30, y);
     }
 }
@@ -3477,12 +3489,21 @@ void update_mancal_dynamic() {
             int y = cy - (int)(r_dots * cos(angle_rad));
             
             bool is_selected = (i == mancal_selected_leg);
+            bool is_locked = mancal_leg_locked(i);
+            uint16_t dimmed = tft.color565(55, 55, 55);
             if (is_selected) {
                 tft.fillCircle(x, y, 6, TFT_GREEN);
                 tft.drawCircle(x, y, 8, TFT_WHITE);
+            } else if (is_locked) {
+                // Barely there: these cannot be picked until North has been done.
+                tft.fillCircle(x, y, 3, dimmed);
             } else {
                 tft.fillCircle(x, y, 4, TFT_DARKGREY);
                 tft.drawCircle(x, y, 5, TFT_BLACK);
+                // North, still waiting to be pressed - ring it so it reads as the way in.
+                if (i == 0 && !mancal_leg_visited[0]) {
+                    tft.drawCircle(x, y, 8, TFT_YELLOW);
+                }
             }
             
             int r_label = r_dots + 13;
@@ -3490,7 +3511,10 @@ void update_mancal_dynamic() {
             int ly = cy - (int)(r_label * cos(angle_rad));
             
             tft.setTextSize(1);
-            tft.setTextColor(is_selected ? TFT_GREEN : TFT_LIGHTGREY, TFT_BLACK);
+            tft.setTextColor(is_selected ? TFT_GREEN
+                             : is_locked ? dimmed
+                             : (i == 0 && !mancal_leg_visited[0]) ? TFT_YELLOW
+                             : TFT_LIGHTGREY, TFT_BLACK);
             tft.setTextDatum(MC_DATUM);
             
             const char* label = "";
@@ -3601,7 +3625,7 @@ void update_mancal_dynamic() {
             tft.setTextColor(TFT_CYAN, TFT_BLACK);
             tft.setTextSize(2);
             tft.setTextDatum(MC_DATUM);
-            tft.drawString("TG: TAP DIRECTION", w / 2, 186);
+            tft.drawString("TG: TAP NORTH (N)", w / 2, 186);
             
             // Current Offset Text - "CORR: -" in size 2
             tft.setTextSize(2);
@@ -3630,7 +3654,7 @@ void update_mancal_dynamic() {
             tft.fillRoundRect(10, 260, w - 20, 35, 5, TFT_DARKGREY);
             tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
             tft.setTextSize(1);
-            tft.drawString("SELECT A DIRECTION TO COMMENCE", w / 2, 277);
+            tft.drawString("START WITH NORTH - IT SETS THE BASE", w / 2, 277);
         } else {
             // TARGET text (Setpoint) - Larger and Light Blue (TFT_CYAN)
             tft.setTextColor(TFT_CYAN, TFT_BLACK);
@@ -3666,24 +3690,21 @@ void update_mancal_dynamic() {
             tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
             tft.drawString("+10", 205, 232);
             
-            // North / Store Button Row (Y: 260 to 295)
+            // North Button Row (Y: 260 to 295). There is no STORE here: it wrote the same full
+            // 8-point table as SAVE ALL & EXIT, so it was a second commit path that bypassed the
+            // "all 8 visited" gate while its label implied it only stored the current direction.
             if (mancal_selected_leg == 0) {
-                // SET AS NORTH button
-                tft.fillRoundRect(10, 260, 140, 35, 5, TFT_ORANGE);
+                // SET AS NORTH button, now spanning the row on its own
+                tft.fillRoundRect(10, 260, w - 20, 35, 5, TFT_ORANGE);
                 tft.setTextColor(TFT_BLACK, TFT_ORANGE);
-                tft.setTextSize(1);
-                tft.drawString("Set as North", 80, 277);
-                
-                // STORE button
-                tft.fillRoundRect(155, 260, 75, 35, 5, TFT_GREEN);
-                tft.setTextColor(TFT_BLACK, TFT_GREEN);
-                tft.drawString("STORE", 192, 277);
-            } else {
-                // STORE OFFSET button (large)
-                tft.fillRoundRect(30, 260, 180, 35, 5, TFT_GREEN);
-                tft.setTextColor(TFT_BLACK, TFT_GREEN);
                 tft.setTextSize(2);
-                tft.drawString("STORE OFFSET", w / 2, 277);
+                tft.drawString("Set as North", w / 2, 277);
+            } else {
+                // Nothing to press for the other directions - say what happens instead, so the
+                // empty band does not read as a button that failed to draw.
+                tft.setTextSize(1);
+                tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+                tft.drawString("dial with -/+   SAVE writes all 8", w / 2, 277);
             }
         }
         
@@ -3693,9 +3714,22 @@ void update_mancal_dynamic() {
         tft.setTextColor(TFT_WHITE, TFT_BLUE);
         tft.drawString("BACK / CANCEL", 62, 310);
         
-        tft.fillRoundRect(125, 300, 105, 20, 4, TFT_DARKGREY);
-        tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
-        tft.drawString("SAVE ALL & EXIT", 177, 310);
+        // SAVE writes all eight entries at once, so it stays locked until every direction has
+        // been steered to at least once - committing a table with sectors that were never looked
+        // at would overwrite good ones on the buoy with untouched buffer values. The count tells
+        // the operator how many are still to do rather than just refusing the press.
+        if (mancal_all_legs_visited()) {
+            tft.fillRoundRect(125, 300, 105, 20, 4, TFT_DARKGREY);
+            tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
+            tft.drawString("SAVE ALL & EXIT", 177, 310);
+        } else {
+            tft.fillRoundRect(125, 300, 105, 20, 4, TFT_BLACK);
+            tft.drawRoundRect(125, 300, 105, 20, 4, TFT_DARKGREY);
+            tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+            char save_buf[24];
+            sprintf(save_buf, "SAVE %d/8", mancal_visited_count());
+            tft.drawString(save_buf, 177, 310);
+        }
     }
     
     mancal_is_dirty = false;
