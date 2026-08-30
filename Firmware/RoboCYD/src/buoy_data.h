@@ -128,4 +128,8 @@ void send_buoy_dirdist(int buoy_idx);
 // Send manual Fourier calibration offset adjustment
 void send_man_fourier_calibrate(const String &buoy_id, int leg_idx, float offset_val);
 
+// XOR checksum for the $...*CRC envelope every frame on this network has to carry - rfDeCode()
+// drops anything without it. Declared here because senders live outside buoy_data.cpp too.
+uint8_t calculate_crc(const String &content);
+
 #endif // BUOY_DATA_H

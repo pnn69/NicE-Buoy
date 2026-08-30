@@ -3658,8 +3658,16 @@ void send_mancal_table_to_sub(int buoy_idx) {
     sprintf(cmdPayload, "%s,98,2,88,7,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f",
             b.id.c_str(), table[0], table[1], table[2], table[3], table[4], table[5], table[6], table[7]);
             
-    send_lora_packet(cmdPayload);
-    udp_broadcast(cmdPayload);
+    // Wrapped like every other command this firmware sends. Without it the frame goes out bare,
+    // and rfDeCode() (RoboCompute.cpp:607) drops anything that does not start with $ and carry a
+    // valid *CRC before it looks at a single field - so on both the Top's UDP and LoRa paths this
+    // was discarded on arrival and SAVE ALL & EXIT never delivered the table at all.
+    uint8_t crc = calculate_crc(cmdPayload);
+    char finalPacket[320];
+    sprintf(finalPacket, "$%s*%02X", cmdPayload, crc);
+
+    send_lora_packet(finalPacket);
+    udp_broadcast(finalPacket);
     Serial.printf("Transmitted STORE_INTERPOLATION_TABLE (88) SET to Buoy: %s\n", b.id.c_str());
 }
 
