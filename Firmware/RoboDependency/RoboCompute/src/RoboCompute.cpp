@@ -806,6 +806,27 @@ double computeWindAngle(double windDegrees, double lat, double lon, double centr
 
 #define INVALID_POINT(p) ((p).tgLat == 0.0 || (p).tgLng == 0.0)
 
+// Which of a pair takes the STARBOARD end of the freshly squared start line.
+//
+// This used to be read off trackPos - but calcTrackPos() clears all three trackPos fields to -1
+// BEFORE it bails on a missing third buoy, so by the time recalcStartLine() runs on a two-buoy
+// fleet the test was always false. The first slot therefore went to the BB end and the second to
+// the SB end whatever the geometry was, and whenever that was the wrong way round the pair
+// swapped ends and motored straight through each other. Measured on a real 31 m line: 61.5 m of
+// travel as assigned against 9.3 m for the other pairing.
+//
+// Picking the pairing with the shorter TOTAL travel cannot cross: for two points and two targets
+// the crossing assignment is always the longer one, by the triangle inequality.
+static bool starboardGoesToFirst(double aLat, double aLng, double bLat, double bLng,
+                                 double sbLat, double sbLng, double bbLat, double bbLng)
+{
+    double aTakesSb = distanceBetween(aLat, aLng, sbLat, sbLng)
+                    + distanceBetween(bLat, bLng, bbLat, bbLng);
+    double aTakesBb = distanceBetween(aLat, aLng, bbLat, bbLng)
+                    + distanceBetween(bLat, bLng, sbLat, sbLng);
+    return aTakesSb <= aTakesBb;
+}
+
 void threePointAverage(struct RoboStruct p3[3], double *latgem, double *lnggem)
 {
     *latgem = (p3[0].tgLat + p3[1].tgLat + p3[2].tgLat) / 3;
@@ -845,13 +866,19 @@ bool recalcStartLine(struct RoboStruct rsl[3])
         angleSb = fmod(rsl[0].wDir + 90.0, 360.0);
         angleBb = fmod(angleSb + 180.0, 360.0);
 
-        // Keep the side assignment calcTrackPos() already derived from the wind bearing, so each
-        // buoy moves to the end of the line it is nearest to. Hardcoding rsl[0] to PORT sent the
-        // local buoy to the port end whatever the wind was doing, which made the pair swap sides
-        // and cross each other's path on the way there.
-        bool firstIsStarboard = (rsl[0].trackPos == STARBOARD);
-        adjustPositionDirDist(firstIsStarboard ? angleSb : angleBb, d0 / 2, midLat, midLng, &rsl[0].tgLat, &rsl[0].tgLng);
-        adjustPositionDirDist(firstIsStarboard ? angleBb : angleSb, d0 / 2, midLat, midLng, &rsl[1].tgLat, &rsl[1].tgLng);
+        // Both candidate ends first, then hand each buoy the one it is nearer to - see
+        // starboardGoesToFirst(). They have to be computed before anything is written back,
+        // because the answer depends on where the buoys are NOW.
+        double sbLat, sbLng, bbLat, bbLng;
+        adjustPositionDirDist(angleSb, d0 / 2, midLat, midLng, &sbLat, &sbLng);
+        adjustPositionDirDist(angleBb, d0 / 2, midLat, midLng, &bbLat, &bbLng);
+        bool firstIsStarboard = starboardGoesToFirst(rsl[0].tgLat, rsl[0].tgLng,
+                                                     rsl[1].tgLat, rsl[1].tgLng,
+                                                     sbLat, sbLng, bbLat, bbLng);
+        rsl[0].tgLat = firstIsStarboard ? sbLat : bbLat;
+        rsl[0].tgLng = firstIsStarboard ? sbLng : bbLng;
+        rsl[1].tgLat = firstIsStarboard ? bbLat : sbLat;
+        rsl[1].tgLng = firstIsStarboard ? bbLng : sbLng;
 
         rsl[0].trackPos = firstIsStarboard ? STARBOARD : PORT;
         rsl[1].trackPos = firstIsStarboard ? PORT : STARBOARD;
@@ -869,10 +896,17 @@ bool recalcStartLine(struct RoboStruct rsl[3])
         angleSb = fmod(rsl[0].wDir + 90.0, 360.0);
         angleBb = fmod(angleSb + 180.0, 360.0);
 
-        // Same as above: respect the side calcTrackPos() picked for this pair.
-        bool firstIsStarboard = (rsl[0].trackPos == STARBOARD);
-        adjustPositionDirDist(firstIsStarboard ? angleSb : angleBb, d1 / 2, midLat, midLng, &rsl[0].tgLat, &rsl[0].tgLng);
-        adjustPositionDirDist(firstIsStarboard ? angleBb : angleSb, d1 / 2, midLat, midLng, &rsl[2].tgLat, &rsl[2].tgLng);
+        // Nearest end wins, same as the branch above.
+        double sbLat, sbLng, bbLat, bbLng;
+        adjustPositionDirDist(angleSb, d1 / 2, midLat, midLng, &sbLat, &sbLng);
+        adjustPositionDirDist(angleBb, d1 / 2, midLat, midLng, &bbLat, &bbLng);
+        bool firstIsStarboard = starboardGoesToFirst(rsl[0].tgLat, rsl[0].tgLng,
+                                                     rsl[2].tgLat, rsl[2].tgLng,
+                                                     sbLat, sbLng, bbLat, bbLng);
+        rsl[0].tgLat = firstIsStarboard ? sbLat : bbLat;
+        rsl[0].tgLng = firstIsStarboard ? sbLng : bbLng;
+        rsl[2].tgLat = firstIsStarboard ? bbLat : sbLat;
+        rsl[2].tgLng = firstIsStarboard ? bbLng : sbLng;
 
         rsl[0].trackPos = firstIsStarboard ? STARBOARD : PORT;
         rsl[2].trackPos = firstIsStarboard ? PORT : STARBOARD;
@@ -894,10 +928,17 @@ bool recalcStartLine(struct RoboStruct rsl[3])
         angleSb = fmod(rsl[0].wDir + 90.0, 360.0);
         angleBb = fmod(angleSb + 180.0, 360.0);
 
-        // Same as above: respect the side calcTrackPos() picked for this pair.
-        bool firstIsStarboard = (rsl[1].trackPos == STARBOARD);
-        adjustPositionDirDist(firstIsStarboard ? angleSb : angleBb, d2 / 2, midLat, midLng, &rsl[1].tgLat, &rsl[1].tgLng);
-        adjustPositionDirDist(firstIsStarboard ? angleBb : angleSb, d2 / 2, midLat, midLng, &rsl[2].tgLat, &rsl[2].tgLng);
+        // Nearest end wins, same as the branches above.
+        double sbLat, sbLng, bbLat, bbLng;
+        adjustPositionDirDist(angleSb, d2 / 2, midLat, midLng, &sbLat, &sbLng);
+        adjustPositionDirDist(angleBb, d2 / 2, midLat, midLng, &bbLat, &bbLng);
+        bool firstIsStarboard = starboardGoesToFirst(rsl[1].tgLat, rsl[1].tgLng,
+                                                     rsl[2].tgLat, rsl[2].tgLng,
+                                                     sbLat, sbLng, bbLat, bbLng);
+        rsl[1].tgLat = firstIsStarboard ? sbLat : bbLat;
+        rsl[1].tgLng = firstIsStarboard ? sbLng : bbLng;
+        rsl[2].tgLat = firstIsStarboard ? bbLat : sbLat;
+        rsl[2].tgLng = firstIsStarboard ? bbLng : sbLng;
 
         rsl[1].trackPos = firstIsStarboard ? STARBOARD : PORT;
         rsl[2].trackPos = firstIsStarboard ? PORT : STARBOARD;
