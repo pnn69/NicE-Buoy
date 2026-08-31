@@ -21,9 +21,12 @@
 #define HOST_NAME "RoboBuoySub"
 TaskHandle_t compassTaskHandle = NULL; // Task handle for compass task
 
-#ifndef SET_AS_NORTH
-#define SET_AS_NORTH 125 // Custom command number for Set as North coming from Top
-#endif
+// SET_AS_NORTH is an ENUMERATOR in RoboCompute.h (msg_t, value 87), not a macro. #ifndef only
+// sees macros, so the guard that used to stand here was always true and its #define fired every
+// time - rewriting every SET_AS_NORTH below it, including "case SET_AS_NORTH:", to the literal
+// 125. The Top and the CYD send 87, so the case could never match and Set as North was dead on
+// every path except the Sub's own /set_north web endpoint, which bypasses this dispatcher.
+// Do not reintroduce a fallback #define for a name that RoboCompute.h already defines.
 
 #define POWEROFFTIME 60000 * 60 // 60 minutes
 
