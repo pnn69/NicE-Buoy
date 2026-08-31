@@ -838,10 +838,10 @@ void update_dynamic_ui() {
     int h = tft.height();
     unsigned long now = millis();
     
-    // Check if buoys went offline (> 10 seconds since last transmission)
+    // Check if buoys went offline (> 60 seconds since last transmission)
     for (int i = 0; i < 3; i++) {
         if (buoys[i].id != "") {
-            if (now - buoys[i].last_seen_ms > 10000) { // 10 seconds timeout
+            if (now - buoys[i].last_seen_ms > 60000) { // 60 seconds timeout
                 buoys[i].present = false;
             }
         }
