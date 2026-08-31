@@ -624,8 +624,26 @@ function parseMessage(message, source, senderIp = null, loraRssi = null, udpRssi
         }
         const buoyId = targetBuoy.id;
         
-        // Save the IP address of the buoy if it was received via UDP
-        if (source === "UDP" && senderIp) {
+        // Save the IP address of the buoy - but ONLY off a frame that cannot have been relayed.
+        //
+        // Any UDP packet used to set this, which is wrong for a buoy we only hear through another
+        // Top. A Top bridges frames it cannot handle itself between LoRa and UDP WITHOUT rewriting
+        // the sender ID, so a relayed frame still says "from buoy B" while the UDP packet carrying
+        // it came from the RELAY's address. Both buoys then showed the same IP - which is how
+        // b7a5b578 came to display 192.168.1.71, the address of the other buoy's Top, while it was
+        // sitting on a different subnet entirely.
+        //
+        // TOPDATA and BUOYPOS are the discriminator: both are broadcast by the buoy itself and
+        // are never forwarded on by another Top, so one arriving over UDP really did come straight
+        // from that buoy. A buoy we reach solely by relay now shows no IP at all, which is honest -
+        // we genuinely do not know its address. Same rule the CYD firmware already applies in
+        // parse_buoy_packet(); this page was the half that never got it.
+        //
+        // fields[3] is read directly rather than using the `cmd` further down: this has to stay
+        // ahead of the UDP/LoRa filtering returns that sit between here and there.
+        const ipCmd = parseInt(fields[3]);
+        if (source === "UDP" && senderIp &&
+            (ipCmd === MsgType.TOPDATA || ipCmd === MsgType.BUOYPOS)) {
             targetBuoy.ip = senderIp;
         }
         
@@ -1014,6 +1032,34 @@ function updateGUI() {
             magRowEl.textContent = `Mag:${parseFloat(mDir).toFixed(0)}°`;
         } else {
             magRowEl.textContent = "Mag:-";
+        }
+
+        // The buoy detail view carries its own copy of the windrose and the figures around it.
+        // Drawn from the same values as the card above rather than from a second reading of the
+        // telemetry, so the two can never disagree. Skipped entirely unless that view is open -
+        // it is one of three, and drawing a 200x200 canvas nobody is looking at, twice over, on
+        // every 500 ms tick is wasted work.
+        if (activeDetailBuoy === i) {
+            const dRose = document.getElementById(`detail-windrose-${i}`);
+            if (dRose) {
+                drawWindrose(dRose, tAngle, mDir, wAngle, gAngle,
+                             targetDistLabel, windDirLabel, d["Wind StdDev"], mDir, targetDirLabel);
+            }
+            const mirror = (id, text) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = text;
+            };
+            mirror(`detail-dist-${i}`, targetDistLabel);
+            mirror(`detail-wind-${i}`, windRowEl.textContent);
+            mirror(`detail-tg-${i}`, targetDirLabel);
+            mirror(`detail-mag-${i}`, magRowEl.textContent);
+
+            const srcStatus = document.getElementById(`status-label-${i}`);
+            const dstStatus = document.getElementById(`detail-status-${i}`);
+            if (srcStatus && dstStatus) {
+                dstStatus.textContent = srcStatus.textContent;
+                dstStatus.className = srcStatus.className;
+            }
         }
         
         // 6. Bow & Stern Thruster Canvas Bars
@@ -1765,9 +1811,12 @@ function openSetupModal(buoyIndex) {
     // Clear any active leftover polling timers to prevent modal-close conflicts
     clearTimeout(setupCheckTimer);
     
-    activeSetupBuoyIndex = buoyIndex;
+    // Order matters: bail out BEFORE claiming the slot. Setting activeSetupBuoyIndex first meant a
+    // click on a buoy that has not reported yet left the dialog closed but the index armed, so the
+    // next poll or a stray save would act on a buoy the operator never opened.
     const b = buoys[buoyIndex];
-    if (!b.id) return;
+    if (!b || !b.id) return;
+    activeSetupBuoyIndex = buoyIndex;
     
     // Reset any setup fields to force fetch reload
     const setupKeys = ["Kpr", "Kir", "Kdr", "Kps", "Kis", "Kds", "maxSpeed", "minSpeed", "pivotSpeed", "compassOffset", "holdRad", "revBB", "revSB", "swap_BB_SB", "compass_trim", "compass_trim_enabled"];
@@ -2007,6 +2056,14 @@ if (isMapView) {
             }
         }
         
+        // Point the gateway at the device this page was served from, exactly as the dashboard's
+        // load handler does. That handler returns early in map view, so without this the map tab
+        // connects to the placeholder baked into index.html and never receives any telemetry.
+        const wsUrlInput = document.getElementById("ws-url");
+        if (wsUrlInput && window.location.hostname) {
+            wsUrlInput.value = `ws://${window.location.hostname}:81`;
+        }
+
         // Auto connect WebSocket if not already connected
         if (typeof connectWebSocket === "function") {
             setTimeout(connectWebSocket, 100);
@@ -2041,316 +2098,496 @@ function projectCoords(lat, lng, bearing, distance) {
     };
 }
 
-// Draw the local radar map of the buoys and the computed regatta track on the canvas
+// =================================================================================================
+// Map page - the same page the CYD shows under TRACK SETTINGS, in the browser.
+//
+// North up, not wind up. The plot is centred on the fleet, the start line is drawn between the two
+// buoys that are CLOSEST together (the rule RoboCompute::recalcStartLine() itself applies - the
+// shortest leg is the line, the remaining buoy is the upwind HEAD mark), and the wind is an arrow
+// parked on the upwind rim blowing inwards.
+//
+// The previous version rotated the whole plot to put the wind at the top and assigned the PORT and
+// STBD roles by tab order, so the line was drawn between whichever two buoys happened to be first
+// in the list rather than between the two that actually form it.
+// =================================================================================================
+const MAP_LINE_STEP_M = 5;
+const MAP_WAYPOINT_MAX_M = 300;    // Past this a "target" is a fault, not a mark - see below
+// Sailing convention, matching the CYD touchscreen exactly: starboard hand GREEN, port hand RED,
+// the upwind HEAD mark BLUE, and plain green for any buoy that is present while the fleet is not
+// yet fully locked. Roles only exist once EVERY present buoy is locked - before that no course has
+// been laid out, so there are no sides to be on.
+const MAP_COLOR_DEFAULT   = "#22c55e";  // locked, but no course laid out to have sides of
+const MAP_COLOR_UNLOCKED  = "#eab308";  // present but not holding a station yet
+const MAP_COLOR_STARBOARD = "#22c55e";
+const MAP_COLOR_PORT      = "#ef4444";
+const MAP_COLOR_HEAD      = "#3b82f6";
+const MAP_COLOR_OFFLINE   = "#64748b";  // greyed, never red - red means port hand here
+
+let mapLineCurM = -1;     // Live measurement, < 0 when there is no line to measure
+let mapLineTgtM = -1;     // Dialled by - / +, < 0 when nothing is pending
+let mapLineEnds = null;   // [{index, id, lat, lng}, ...] for the two ends of the line
+let mapFleet = 0;         // Buoys with a usable fix
+let mapLocked = 0;        // ...of which are holding a lock position
+
+function mapMeters(lat1, lng1, lat2, lng2) {
+    const R = 6371000, rad = Math.PI / 180;
+    const dLat = (lat2 - lat1) * rad, dLng = (lng2 - lng1) * rad;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+            + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function mapBearing(lat1, lng1, lat2, lng2) {
+    const rad = Math.PI / 180;
+    const y = Math.sin((lng2 - lng1) * rad) * Math.cos(lat2 * rad);
+    const x = Math.cos(lat1 * rad) * Math.sin(lat2 * rad)
+            - Math.sin(lat1 * rad) * Math.cos(lat2 * rad) * Math.cos((lng2 - lng1) * rad);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+// Metres east / north of a reference point. Flat earth, exact enough over a course.
+function mapOffset(refLat, refLng, lat, lng) {
+    const rad = Math.PI / 180;
+    return {
+        dx: (lng - refLng) * Math.cos(refLat * rad) * 111320,
+        dy: (lat - refLat) * 111139
+    };
+}
+
+// The buoys with a usable fix, and the waypoint each is steering at.
+//
+// A buoy only has a set point while it is actually holding one. When it is idle the reported
+// Target Dir / Target Dist still describe the last leg it sailed, and projecting that is not
+// merely cosmetic - the waypoint is included in the auto-scale bounds, so one stale target
+// kilometres away shrinks the plot until the whole fleet collapses into a single dot.
+function mapValidBuoys() {
+    const out = [];
+    buoys.forEach((b, i) => {
+        if (!b.id) return;
+        const lat = parseFloat(b.data["Latitude (Lat)"]);
+        const lng = parseFloat(b.data["Longitude (Lon)"]);
+        if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) return;
+
+        const st = parseInt(b.data.Status || "0");
+        const holdsTarget = (st === MsgType.LOCKING || st === MsgType.LOCKED
+                          || st === MsgType.DOCKING || st === MsgType.DOCKED);
+        const dist = parseFloat(b.data["Target Dist"]);
+        const dir = parseFloat(b.data["Target Dir"]);
+
+        let wp = null;
+        if (holdsTarget && !isNaN(dist) && !isNaN(dir) && dist > 0) wp = projectCoords(lat, lng, dir, dist);
+
+        // LOCKING counts as locked: the buoy owns a real lock position and is on its way to
+        // it. DOCKING/DOCKED do not - a buoy going home is not part of a course.
+        const locked = (st === MsgType.LOCKING || st === MsgType.LOCKED);
+
+        out.push({
+            index: i,
+            id: b.id,
+            locked: locked,
+            lat: lat, lng: lng,
+            wp: wp,
+            wpDist: wp ? dist : 0,
+            wDir: parseFloat(b.data["Wind Dir"]) || 0,
+            wStd: parseFloat(b.data["Wind StdDev"]) || 0,
+            heading: parseFloat(b.data["Magnetic Dir"]) || 0
+        });
+    });
+    return out;
+}
+
+// Which buoy is HEAD / PORT / STARBOARD, or null for "no course laid out".
+//
+// Derived exactly the way RoboCompute::recalcStartLine() derives it, and the way the CYD firmware's
+// compute_buoy_roles() does, so all three agree: the two buoys closest together are the start line,
+// the odd one out is the upwind HEAD mark, and the starboard end is whichever end lies towards
+// wDir + 90 from the middle of the line.
+//
+// Anything missing - fewer than two buoys, one of them not locked, or no wind reading anywhere -
+// returns no roles at all. Green for "present, no course" is honest; guessing a side from
+// incomplete data and painting a buoy red would not be.
+function mapBuoyRoles(list) {
+    const roles = {};
+    if (list.length < 2 || list.filter(b => b.locked).length !== list.length) return roles;
+
+    const wind = list.find(b => b.wDir !== 0 || b.wStd !== 0);
+    if (!wind) return roles;
+
+    let a = list[0], b = list[1];
+    if (list.length === 3) {
+        let best = -1;
+        for (let i = 0; i < list.length; i++) {
+            for (let j = i + 1; j < list.length; j++) {
+                const pi = mapLinePoint(list[i]), pj = mapLinePoint(list[j]);
+                const d = mapMeters(pi.lat, pi.lng, pj.lat, pj.lng);
+                if (best < 0 || d < best) { best = d; a = list[i]; b = list[j]; }
+            }
+        }
+        const head = list.find(x => x !== a && x !== b);
+        if (head) roles[head.index] = MAP_COLOR_HEAD;
+    }
+
+    const pa = mapLinePoint(a), pb = mapLinePoint(b);
+    const midLat = (pa.lat + pb.lat) / 2, midLng = (pa.lng + pb.lng) / 2;
+    const sb = (wind.wDir + 90) % 360;
+    const off = p => Math.abs(((mapBearing(midLat, midLng, p.lat, p.lng) - sb + 540) % 360) - 180);
+    if (off(pa) <= off(pb)) {
+        roles[a.index] = MAP_COLOR_STARBOARD;
+        roles[b.index] = MAP_COLOR_PORT;
+    } else {
+        roles[a.index] = MAP_COLOR_PORT;
+        roles[b.index] = MAP_COLOR_STARBOARD;
+    }
+    return roles;
+}
+
+// Where a buoy's end of the line is: its commanded waypoint if it is holding one, otherwise its own
+// fix. Preferring the waypoint keeps the geometry clean - a buoy on station wanders inside its hold
+// radius, and measuring off that wobble makes both the length and the bearing EXECUTE re-uses
+// jitter between refreshes. The two coincide once the buoy has arrived.
+function mapLinePoint(b) {
+    return b.wp ? { lat: b.wp.lat, lng: b.wp.lng } : { lat: b.lat, lng: b.lng };
+}
+
+// The buoy whose wind reading should drive a course computation. COMPUTESTART/COMPUTETRACK are
+// carried out by whichever buoy receives them, against ITS OWN wind, and the Top refuses outright
+// when wDir and wStd are both 0 - a failed compass reports 0/0, which is indistinguishable from a
+// real due-north calm, and computing anyway squares the line to a fake northerly.
+function mapWindRefBuoy() {
+    return mapValidBuoys().find(b => b.wDir !== 0 || b.wStd !== 0) || null;
+}
+
+function mapMessage(text, color) {
+    const el = document.getElementById("map-msg");
+    if (!el) return;
+    el.textContent = text || "";
+    el.style.color = color || "#94a3b8";
+}
+
+function mapNudge(delta) {
+    if (mapFleet < 2 || mapLineCurM <= 0 || !mapLineEnds) return;
+    const base = (mapLineTgtM > 0) ? mapLineTgtM : mapLineCurM;
+    mapLineTgtM = Math.max(MAP_LINE_STEP_M, base + delta);
+    mapMessage("");
+    drawFieldMap();
+}
+
+// ALIGN STARTLINE squares the line to the wind, ALIGN TRACK lays out the whole course. Both need
+// every deployed buoy to be holding a lock position - the Top bails out and beeps otherwise.
+function mapAlign(cmdId) {
+    const need = (cmdId === MsgType.COMPUTETRACK) ? 3 : 2;
+    if (mapLocked < need) {
+        mapMessage("Need " + need + " buoys LOCKED before the line can be squared - "
+                 + mapLocked + " locked now.", "#f87171");
+        return;
+    }
+
+    const ref = mapWindRefBuoy();
+    if (!ref) {
+        mapMessage("No buoy is reporting wind - nothing to square the line against.", "#f87171");
+        return;
+    }
+
+    // The fleet is about to be given new targets, so nothing dialled before this still applies.
+    mapLineTgtM = -1;
+    sendStatusCmd(ref.id, cmdId);
+
+    const what = (cmdId === MsgType.COMPUTETRACK) ? "ALIGN TRACK" : "ALIGN STARTLINE";
+    logMessage(`Map: ${what} sent to ${ref.id.toUpperCase()}`, "UDP OUT");
+    mapMessage(what + " sent to " + ref.id.toUpperCase()
+             + ". It refuses unless every deployed buoy is locked.", "#94a3b8");
+    drawFieldMap();
+}
+
+// Move both ends of the line symmetrically about its current midpoint, keeping its present bearing.
+// Length only - squaring it to the wind is what ALIGN STARTLINE is for. SETLOCKPOS is the same
+// command the Top uses to push computed line ends to the other buoy: store the point, sail, lock.
+function mapExecute() {
+    if (!mapLineEnds || mapLineCurM <= 0 || mapLineTgtM <= 0) return;
+    if (Math.round(mapLineTgtM) === Math.round(mapLineCurM)) return;
+
+    const a = mapLineEnds[0], b = mapLineEnds[1];
+    const midLat = (a.lat + b.lat) / 2, midLng = (a.lng + b.lng) / 2;
+    const brgA = mapBearing(midLat, midLng, a.lat, a.lng);
+    const brgB = mapBearing(midLat, midLng, b.lat, b.lng);
+    const half = mapLineTgtM / 2;
+
+    if (!confirm("Re-align the start line to " + Math.round(mapLineTgtM) + " m?\n\n"
+               + "Both end buoys will motor to their new ends of the line.")) return;
+
+    [[a, projectCoords(midLat, midLng, brgA, half)],
+     [b, projectCoords(midLat, midLng, brgB, half)]].forEach(function (pair) {
+        const end = pair[0], pos = pair[1];
+        const status = (buoys[end.index] && buoys[end.index].data.Status) || String(MsgType.IDLE);
+        sendCommand(end.id, end.id + ",99," + MsgType.SET + "," + MsgType.SETLOCKPOS + ","
+                          + status + "," + pos.lat.toFixed(10) + "," + pos.lng.toFixed(10));
+        logMessage("Buoy " + end.id.toUpperCase() + ": start line end moved to "
+                 + pos.lat.toFixed(6) + ", " + pos.lng.toFixed(6), "UDP OUT");
+    });
+
+    mapMessage("Start line set to " + Math.round(mapLineTgtM) + " m.", "#22c55e");
+
+    // The dialled figure is the line now. Clearing the pending value hands the read-out back to the
+    // live measurement, which walks to the new length as the two buoys motor out to it.
+    mapLineTgtM = -1;
+}
+
+function mapSetControls(buoyList) {
+    const canLen = mapFleet >= 2 && mapLineCurM > 0 && mapLineEnds !== null;
+    const canExec = canLen && mapLineTgtM > 0
+                    && Math.round(mapLineTgtM) !== Math.round(mapLineCurM);
+    const set = (id, on, label) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.disabled = !on;
+        el.style.opacity = on ? "1" : "0.35";
+        el.style.cursor = on ? "pointer" : "not-allowed";
+        if (label !== undefined) el.textContent = label;
+    };
+    set("map-minus", canLen);
+    set("map-plus", canLen);
+    // ALIGN squares the line through the two ends' LOCK positions. With a buoy unlocked the
+    // Top would compute against whatever stale target it still carries - a dock position
+    // kilometres away - so the button stays dead until the fleet is actually locked. The Top
+    // refuses the same request independently; this is so the button says so first.
+    set("map-align-start", mapLocked >= 2);
+    set("map-align-track", mapLocked >= 3);
+
+    const warn = document.getElementById("map-lockwarn");
+    if (warn) warn.style.display = (mapLocked < 2) ? "block" : "none";
+    set("map-execute", canExec, canExec ? "EXECUTE " + Math.round(mapLineTgtM) + " m" : "EXECUTE");
+
+    const lenEl = document.getElementById("map-line-len");
+    if (lenEl) {
+        if (mapLineTgtM > 0) {
+            lenEl.textContent = Math.round(mapLineTgtM) + " m";
+            lenEl.style.color = "#fb923c";           // Amber: dialled, not committed
+        } else if (mapLineCurM > 0) {
+            lenEl.textContent = Math.round(mapLineCurM) + " m";
+            lenEl.style.color = "#e879f9";           // Magenta, same as the line on the plot
+        } else {
+            lenEl.textContent = "--";
+            lenEl.style.color = "#64748b";
+        }
+    }
+
+    const windEl = document.getElementById("map-wind");
+    if (windEl) {
+        const w = buoyList.find(b => b.wDir !== 0 || b.wStd !== 0);
+        if (!w) {
+            windEl.textContent = "--";
+            windEl.style.color = "#64748b";
+        } else {
+            windEl.textContent = w.wStd !== 0
+                ? Math.round(w.wDir) + "° ±" + Math.round(w.wStd)
+                : Math.round(w.wDir) + "°";
+            windEl.style.color = "#facc15";
+        }
+    }
+}
+
+// Draw the radar map of the buoys and the start line on the canvas
 function drawFieldMap() {
     const canvas = document.getElementById("fieldCanvas");
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    let validBuoys = [];
-    buoys.forEach((b, i) => {
-        const lat = parseFloat(b.data["Latitude (Lat)"]);
-        const lng = parseFloat(b.data["Longitude (Lon)"]);
-        if (b.id && !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-            const statusVal = parseInt(b.data.Status || "0");
-            const holdsTarget = (statusVal === MsgType.LOCKING || statusVal === MsgType.LOCKED || statusVal === MsgType.DOCKING || statusVal === MsgType.DOCKED);
-            const dist = parseFloat(b.data["Target Dist"]);
-            const dir = parseFloat(b.data["Target Dir"]);
-            
-            let tgLat = null, tgLng = null;
-            if (holdsTarget && !isNaN(dist) && !isNaN(dir) && dist > 0) {
-                const tg = projectCoords(lat, lng, dir, dist);
-                tgLat = tg.lat;
-                tgLng = tg.lng;
-            }
+    const list = mapValidBuoys();
+    mapFleet = list.length;
+    mapLocked = list.filter(b => b.locked).length;
 
-            validBuoys.push({
-                id: b.id,
-                index: i,
-                lat: lat,
-                lng: lng,
-                tgLat: tgLat,
-                tgLng: tgLng,
-                wDir: parseFloat(b.data["Wind Dir"]) || 0,
-                heading: parseFloat(b.data["Magnetic Dir"]) || 0,
-                holdsTarget: holdsTarget,
-                status: statusVal
-            });
-        }
-    });
+    const cx = canvas.width / 2, cy = canvas.height / 2;
+    const rMax = Math.min(canvas.width, canvas.height) / 2 - 60;
 
-    if (validBuoys.length === 0) {
+    // --- Grid, north up ---
+    ctx.strokeStyle = "rgba(71, 85, 105, 0.5)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx - rMax, cy); ctx.lineTo(cx + rMax, cy);
+    ctx.moveTo(cx, cy - rMax); ctx.lineTo(cx, cy + rMax);
+    ctx.stroke();
+
+    ctx.fillStyle = "#22c55e";
+    ctx.font = "bold 18px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("N", cx, cy - rMax - 10);
+    ctx.fillText("S", cx, cy + rMax + 24);
+    ctx.textAlign = "right";
+    ctx.fillText("W", cx - rMax - 10, cy + 6);
+    ctx.textAlign = "left";
+    ctx.fillText("E", cx + rMax + 10, cy + 6);
+    ctx.textAlign = "center";
+
+    if (list.length === 0) {
+        mapLineCurM = -1; mapLineTgtM = -1; mapLineEnds = null; mapLocked = 0;
         ctx.fillStyle = "#94a3b8";
-        ctx.font = "16px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("No Live GPS Data Available", canvas.width/2, canvas.height/2);
+        ctx.font = "18px Arial";
+        ctx.fillText("No live GPS data available", cx, cy);
+        mapSetControls(list);
         return;
     }
 
-    const latRef = validBuoys[0].lat;
-    const lngRef = validBuoys[0].lng;
-    const deg2rad = Math.PI / 180;
+    // --- Centre on the fleet: the middle of the line with two, the centroid with three ---
+    let refLat = 0, refLng = 0;
+    list.forEach(b => { refLat += b.lat; refLng += b.lng; });
+    refLat /= list.length; refLng /= list.length;
 
-    let refWDir = 0;
-    let refBuoy = validBuoys.find(b => b.wDir > 0);
-    if (refBuoy) refWDir = refBuoy.wDir;
+    const roles = mapBuoyRoles(list);
+    // Role colour where there is one; otherwise yellow until the buoy is actually holding a
+    // station. Matches the CYD touchscreen exactly - anything yellow is not on station yet.
+    const colorOf = b => roles[b.index] || (b.locked ? MAP_COLOR_DEFAULT : MAP_COLOR_UNLOCKED);
 
-    let points = [];
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    let sumX = 0, sumY = 0;
-
-    validBuoys.forEach(b => {
-        let cx = 0, cy = 0;
-        if (b.lat !== latRef || b.lng !== lngRef) {
-            let dy = (b.lat - latRef) * 111132.954;
-            let dx = (b.lng - lngRef) * 111132.954 * Math.cos(latRef * deg2rad);
-            let dist = Math.sqrt(dx*dx + dy*dy);
-            let bearing = Math.atan2(dx, dy);
-            let relBearing = bearing - (refWDir * deg2rad);
-            cx = dist * Math.sin(relBearing);
-            cy = -dist * Math.cos(relBearing);
+    // --- Range. Waypoints widen it too, so a buoy well off station still has its mark on screen -
+    //     but only out to MAP_WAYPOINT_MAX_M. A target further away than that is a fault rather
+    //     than a course, and zooming out to fit it squashes the whole fleet into one dot; those
+    //     are pegged to the rim by clampToPlot() below instead. ---
+    let maxDist = 10;
+    list.forEach(b => {
+        const o = mapOffset(refLat, refLng, b.lat, b.lng);
+        maxDist = Math.max(maxDist, Math.hypot(o.dx, o.dy));
+        if (b.wp) {
+            const w = mapOffset(refLat, refLng, b.wp.lat, b.wp.lng);
+            const d = Math.hypot(w.dx, w.dy);
+            if (d <= MAP_WAYPOINT_MAX_M) maxDist = Math.max(maxDist, d);
         }
-
-        if (cx < minX) minX = cx;
-        if (cx > maxX) maxX = cx;
-        if (cy < minY) minY = cy;
-        if (cy > maxY) maxY = cy;
-        sumX += cx;
-        sumY += cy;
-
-        let tgCx = null, tgCy = null;
-        if (b.tgLat !== null && b.tgLng !== null) {
-            let dy = (b.tgLat - latRef) * 111132.954;
-            let dx = (b.tgLng - lngRef) * 111132.954 * Math.cos(latRef * deg2rad);
-            let dist = Math.sqrt(dx*dx + dy*dy);
-            let bearing = Math.atan2(dx, dy);
-            let relBearing = bearing - (refWDir * deg2rad);
-            tgCx = dist * Math.sin(relBearing);
-            tgCy = -dist * Math.cos(relBearing);
-
-            if (tgCx < minX) minX = tgCx;
-            if (tgCx > maxX) maxX = tgCx;
-            if (tgCy < minY) minY = tgCy;
-            if (tgCy > maxY) maxY = tgCy;
-        }
-
-        let computedTrackPos = 0;
-        if (validBuoys.length === 2) {
-            // If only 2 buoys are deployed, they form the startline: Buoy 1 is STBD (3), Buoy 2 is PORT (2)
-            if (b.index === 0) computedTrackPos = 3;
-            else if (b.index === 1) computedTrackPos = 2;
-        } else {
-            // If 3 buoys are deployed, they form the full track: B1 is HEAD (1), B2 is PORT (2), B3 is STBD (3)
-            if (b.index === 0) computedTrackPos = 1;
-            else if (b.index === 1) computedTrackPos = 2;
-            else if (b.index === 2) computedTrackPos = 3;
-        }
-
-        points.push({
-            id: b.id,
-            cx: cx,
-            cy: cy,
-            tgCx: tgCx,
-            tgCy: tgCy,
-            heading: b.heading,
-            holdsTarget: b.holdsTarget,
-            status: b.status,
-            trackPos: computedTrackPos
-        });
     });
 
-    let centerX = (minX + maxX) / 2;
-    let centerY = (minY + maxY) / 2;
+    let range = 25;
+    for (const r of [25, 50, 100, 250, 500, 1000]) { range = r; if (maxDist <= r * 0.95) break; }
+    const S = rMax / range;
 
-    let maxDim = Math.max(maxX - minX, maxY - minY);
-    if (maxDim < 10) maxDim = 30; // default minimum span
-    let scale = Math.min(canvas.width, canvas.height) * 0.7 / maxDim;
+    ctx.fillStyle = "#64748b";
+    ctx.font = "14px Arial";
+    ctx.fillText("EDGE = " + range + " m", cx, cy - rMax - 34);
 
-    // Draw grid
-    ctx.strokeStyle = "rgba(71, 85, 105, 0.15)";
-    ctx.lineWidth = 1;
-    let step = 10;
-    if (maxDim > 100) step = 50;
-    if (maxDim > 500) step = 100;
-    
-    ctx.beginPath();
-    for (let x = -1000; x <= 1000; x += step) {
-        let sx = (x - centerX) * scale + canvas.width/2;
-        ctx.moveTo(sx, 0);
-        ctx.lineTo(sx, canvas.height);
+    const toScreen = (lat, lng) => {
+        const o = mapOffset(refLat, refLng, lat, lng);
+        return { x: cx + o.dx * S, y: cy - o.dy * S };
+    };
+    const clampToPlot = p => {
+        const x = Math.max(cx - rMax, Math.min(cx + rMax, p.x));
+        const y = Math.max(cy - rMax, Math.min(cy + rMax, p.y));
+        return { x: x, y: y, pegged: (x !== p.x || y !== p.y) };
+    };
+
+    // --- Wind arrow, first so the line and the dots end up on top of it. wDir follows the
+    //     RoboCompute convention: the bearing the wind blows FROM, i.e. the upwind side. ---
+    const wind = list.find(b => b.wDir !== 0 || b.wStd !== 0);
+    if (wind) {
+        const th = wind.wDir * Math.PI / 180;
+        const s = Math.sin(th), c = Math.cos(th);
+        const tail = { x: cx + (rMax - 4) * s, y: cy - (rMax - 4) * c };
+        const tip = { x: cx + (rMax - 70) * s, y: cy - (rMax - 70) * c };
+        ctx.strokeStyle = "rgba(250, 204, 21, 0.75)";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(tail.x, tail.y); ctx.lineTo(tip.x, tip.y);
+        ctx.stroke();
+        const base = { x: cx + (rMax - 52) * s, y: cy - (rMax - 52) * c };
+        ctx.fillStyle = "rgba(250, 204, 21, 0.75)";
+        ctx.beginPath();
+        ctx.moveTo(tip.x, tip.y);
+        ctx.lineTo(base.x + 9 * c, base.y + 9 * s);
+        ctx.lineTo(base.x - 9 * c, base.y - 9 * s);
+        ctx.fill();
     }
-    for (let y = -1000; y <= 1000; y += step) {
-        let sy = (y - centerY) * scale + canvas.height/2;
-        ctx.moveTo(0, sy);
-        ctx.lineTo(canvas.width, sy);
-    }
-    ctx.stroke();
 
-    // Wind Indicator
-    ctx.strokeStyle = "#38bdf8";
-    ctx.fillStyle = "#38bdf8";
-    ctx.font = "bold 12px Arial";
-    ctx.textAlign = "left";
-    ctx.fillText("Wind (" + refWDir.toFixed(0) + "°)", 15, 25);
-    drawArrow(ctx, 35, 65, 35, 35, "#38bdf8", 2.5);
-
-    // Distance lines
-    ctx.strokeStyle = "rgba(255,255,255,0.12)";
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
-    for(let i=0; i<points.length; i++) {
-        for(let j=i+1; j<points.length; j++) {
-            let p1 = points[i];
-            let p2 = points[j];
-            let sx1 = (p1.cx - centerX) * scale + canvas.width/2;
-            let sy1 = (p1.cy - centerY) * scale + canvas.height/2;
-            let sx2 = (p2.cx - centerX) * scale + canvas.width/2;
-            let sy2 = (p2.cy - centerY) * scale + canvas.height/2;
-
-            ctx.beginPath();
-            ctx.moveTo(sx1, sy1);
-            ctx.lineTo(sx2, sy2);
-            ctx.stroke();
-
-            let dist = Math.sqrt(Math.pow(p1.cx - p2.cx, 2) + Math.pow(p1.cy - p2.cy, 2));
-            let mx = (sx1 + sx2) / 2;
-            let my = (sy1 + sy2) / 2;
-            ctx.fillStyle = "#94a3b8";
-            ctx.font = "10px Arial";
-            ctx.textAlign = "center";
-            ctx.fillText(dist.toFixed(0) + "m", mx, my - 4);
+    // --- Start line: between the two buoys CLOSEST together, the same rule the firmware uses.
+    //     Measured off the two ends' line points rather than off the plotted dots, because that is
+    //     the figure - and the bearing - EXECUTE has to be able to reproduce. ---
+    let slA = null, slB = null, slDist = 0;
+    for (let i = 0; i < list.length; i++) {
+        for (let j = i + 1; j < list.length; j++) {
+            const pi = mapLinePoint(list[i]), pj = mapLinePoint(list[j]);
+            const d = mapMeters(pi.lat, pi.lng, pj.lat, pj.lng);
+            if (slA === null || d < slDist) { slDist = d; slA = list[i]; slB = list[j]; }
         }
     }
-    ctx.setLineDash([]);
 
-    // Draw Regatta Track Lines
-    let headBuoy = points.find(p => p.trackPos === 1);
-    let portBuoy = points.find(p => p.trackPos === 2);
-    let starboardBuoy = points.find(p => p.trackPos === 3);
+    if (slA) {
+        const pa = mapLinePoint(slA), pb = mapLinePoint(slB);
+        mapLineCurM = slDist;
+        mapLineEnds = [{ index: slA.index, id: slA.id, lat: pa.lat, lng: pa.lng },
+                       { index: slB.index, id: slB.id, lat: pb.lat, lng: pb.lng }];
 
-    function getCoords(p) {
-        if (!p) return null;
-        if (p.tgCx !== null && p.tgCy !== null) {
-            return { x: p.tgCx, y: p.tgCy };
-        }
-        return { x: p.cx, y: p.cy };
-    }
-
-    let headCoords = getCoords(headBuoy);
-    let portCoords = getCoords(portBuoy);
-    let starboardCoords = getCoords(starboardBuoy);
-
-    if (portCoords && starboardCoords) {
-        let psx = (portCoords.x - centerX) * scale + canvas.width/2;
-        let psy = (portCoords.y - centerY) * scale + canvas.height/2;
-        let ssx = (starboardCoords.x - centerX) * scale + canvas.width/2;
-        let ssy = (starboardCoords.y - centerY) * scale + canvas.height/2;
-
-        ctx.strokeStyle = "rgba(250, 204, 21, 0.85)"; // Amber Yellow
-        ctx.lineWidth = 3.5;
+        const sa = clampToPlot(toScreen(pa.lat, pa.lng));
+        const sb = clampToPlot(toScreen(pb.lat, pb.lng));
+        ctx.strokeStyle = "#e879f9";
+        ctx.lineWidth = 5;
         ctx.beginPath();
-        ctx.moveTo(psx, psy);
-        ctx.lineTo(ssx, ssy);
+        ctx.moveTo(sa.x, sa.y); ctx.lineTo(sb.x, sb.y);
         ctx.stroke();
 
-        let midSx = (psx + ssx) / 2;
-        let midSy = (psy + ssy) / 2;
-        ctx.fillStyle = "#facc15";
-        ctx.font = "italic bold 10px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("Start Line", midSx, midSy - 8);
+        ctx.fillStyle = "#e879f9";
+        ctx.font = "italic bold 14px Arial";
+        ctx.fillText(slDist.toFixed(1) + " m", (sa.x + sb.x) / 2, (sa.y + sb.y) / 2 - 10);
+    } else {
+        mapLineCurM = -1; mapLineEnds = null; mapLineTgtM = -1;
     }
 
-    if (headCoords && portCoords && starboardCoords) {
-        let hsx = (headCoords.x - centerX) * scale + canvas.width/2;
-        let hsy = (headCoords.y - centerY) * scale + canvas.height/2;
-        let psx = (portCoords.x - centerX) * scale + canvas.width/2;
-        let psy = (portCoords.y - centerY) * scale + canvas.height/2;
-        let ssx = (starboardCoords.x - centerX) * scale + canvas.width/2;
-        let ssy = (starboardCoords.y - centerY) * scale + canvas.height/2;
+    // --- Each buoy's waypoint and the gap to it: a hollow cross-ring against the filled dot, so
+    //     "where it should be" and "where it is" never need labels to tell apart. ---
+    list.forEach(b => {
+        if (!b.wp) return;
+        const col = colorOf(b);
+        const p = clampToPlot(toScreen(b.lat, b.lng));
+        const w = clampToPlot(toScreen(b.wp.lat, b.wp.lng));
 
-        ctx.strokeStyle = "rgba(56, 189, 248, 0.8)"; // Blue
-        ctx.lineWidth = 2.5;
-        ctx.setLineDash([5, 4]);
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 5]);
         ctx.beginPath();
-        ctx.moveTo(psx, psy);
-        ctx.lineTo(hsx, hsy);
-        ctx.stroke();
-
-        ctx.strokeStyle = "rgba(74, 222, 128, 0.8)"; // Green
-        ctx.beginPath();
-        ctx.moveTo(ssx, ssy);
-        ctx.lineTo(hsx, hsy);
+        ctx.moveTo(p.x, p.y); ctx.lineTo(w.x, w.y);
         ctx.stroke();
         ctx.setLineDash([]);
-    }
 
-    // Target Waypoint Lines and Waypoints
-    points.forEach(p => {
-        if (p.tgCx !== null && p.tgCy !== null) {
-            let sx = (p.cx - centerX) * scale + canvas.width/2;
-            let sy = (p.cy - centerY) * scale + canvas.height/2;
-            let tgSx = (p.tgCx - centerX) * scale + canvas.width/2;
-            let tgSy = (p.tgCy - centerY) * scale + canvas.height/2;
+        ctx.beginPath();
+        ctx.arc(w.x, w.y, 6, 0, Math.PI * 2);
+        ctx.stroke();
+        if (w.pegged) { ctx.beginPath(); ctx.arc(w.x, w.y, 10, 0, Math.PI * 2); ctx.stroke(); }
+        ctx.beginPath();
+        ctx.moveTo(w.x - 10, w.y); ctx.lineTo(w.x + 10, w.y);
+        ctx.moveTo(w.x, w.y - 10); ctx.lineTo(w.x, w.y + 10);
+        ctx.stroke();
 
-            ctx.strokeStyle = "rgba(250, 204, 21, 0.5)"; // Amber line from buoy to its target
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([3, 3]);
-            ctx.beginPath();
-            ctx.moveTo(sx, sy);
-            ctx.lineTo(tgSx, tgSy);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            ctx.fillStyle = "rgba(250, 204, 21, 0.85)";
-            ctx.strokeStyle = "#0f172a";
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(tgSx, tgSy, 4, 0, Math.PI*2);
-            ctx.fill();
-            ctx.stroke();
-        }
+        ctx.fillStyle = col;
+        ctx.font = "12px Arial";
+        ctx.textAlign = "left";
+        ctx.fillText(b.wpDist.toFixed(1) + " m", w.x + 13, w.y + 16);
+        ctx.textAlign = "center";
     });
 
-    // Buoys
-    points.forEach(p => {
-        let sx = (p.cx - centerX) * scale + canvas.width/2;
-        let sy = (p.cy - centerY) * scale + canvas.height/2;
+    // --- The buoys themselves, on top of everything ---
+    list.forEach(b => {
+        const col = colorOf(b);
+        const p = clampToPlot(toScreen(b.lat, b.lng));
 
-        ctx.fillStyle = "#ef4444"; // Red buoy
-        ctx.strokeStyle = "#0f172a";
-        ctx.lineWidth = 1.5;
+        // Heading whisker, north up
+        const hr = b.heading * Math.PI / 180;
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(sx, sy, 7, 0, Math.PI*2);
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x + 26 * Math.sin(hr), p.y - 26 * Math.cos(hr));
+        ctx.stroke();
+
+        ctx.fillStyle = col;
+        ctx.strokeStyle = "#0f172a";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
-        let roleLabel = "";
-        if (p.trackPos === 1) roleLabel = " (HEAD)";
-        else if (p.trackPos === 2) roleLabel = " (PORT)";
-        else if (p.trackPos === 3) roleLabel = " (STBD)";
-
         ctx.fillStyle = "#fff";
-        ctx.font = "bold 11px Arial";
+        ctx.font = "bold 14px Arial";
         ctx.textAlign = "left";
-        ctx.fillText("B" + p.id + roleLabel, sx + 12, sy + 4);
-
-        // Heading Arrow (Green)
-        if (p.heading !== null && !isNaN(p.heading)) {
-            let relHeading = p.heading - refWDir;
-            let hRad = relHeading * deg2rad;
-            let hx = sx + 15 * Math.sin(hRad);
-            let hy = sy - 15 * Math.cos(hRad);
-
-            ctx.strokeStyle = "#4ade80";
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(sx, sy);
-            ctx.lineTo(hx, hy);
-            ctx.stroke();
-        }
+        ctx.fillText("B" + (b.index + 1), p.x + 14, p.y - 12);
+        ctx.textAlign = "center";
     });
+
+    mapSetControls(list);
 }
 
 // =================================================================================================
@@ -2368,6 +2605,10 @@ function drawFieldMap() {
 // =================================================================================================
 
 // Per-card selectors to relocate. Order here is the order they appear in the overlay.
+// Which buoy's detail overlay is open, or -1. Declared here rather than next to
+// openBuoyDetail() below because updateGUI() tests it, and updateGUI() runs first.
+let activeDetailBuoy = -1;
+
 const BUOY_DETAIL_BLOCKS = [
     ".network-indicators",
     ".coordinate-control",
@@ -2382,6 +2623,25 @@ function buildBuoyDetailViews() {
         const card = document.getElementById("buoy-card-" + i);
         const body = document.getElementById("buoy-detail-body-" + i);
         if (!card || !body) continue;
+
+        // A windrose of its own, first in the view. Not the card's node moved across - that one is
+        // the whole point of the card - but a second canvas fed by the same drawWindrose() call.
+        // The status line and the six figures around it are the same ones the card shows, so the
+        // detail view is readable on its own instead of being a page of leftovers.
+        const rose = document.createElement("div");
+        rose.className = "detail-rose";
+        rose.innerHTML =
+            '<div class="status-banner" id="detail-status-' + i + '">UNKNOWN</div>'
+          + '<div class="windrose-top-row">'
+          + '  <span class="windrose-label label-red"  id="detail-dist-' + i + '">-</span>'
+          + '  <span class="windrose-label label-blue" id="detail-wind-' + i + '">-</span>'
+          + '</div>'
+          + '<canvas id="detail-windrose-' + i + '" width="200" height="200" class="windrose-canvas"></canvas>'
+          + '<div class="windrose-bottom-info">'
+          + '  <span class="windrose-sub-label text-red"   id="detail-tg-' + i + '">-</span>'
+          + '  <span class="windrose-sub-label text-green" id="detail-mag-' + i + '">Mag:-</span>'
+          + '</div>';
+        body.appendChild(rose);
 
         // SETUP and MANUAL move; LOCK and DOCK stay on the card. Pull them out first so the row
         // of buttons that lands in the overlay keeps them side by side.
@@ -2418,7 +2678,6 @@ function buildBuoyDetailViews() {
     }
 }
 
-let activeDetailBuoy = -1;
 
 function openBuoyDetail(i) {
     activeDetailBuoy = i;
@@ -2448,168 +2707,56 @@ function initBuoyDetailViews() {
 }
 
 // =================================================================================================
-// Map page: start line length
+// Map page control bar
 //
-// There is no stored "line length" anywhere in the system - recalcStartLine() on the Top keeps
-// whatever distance the two buoys already are apart and only swings the line square to the wind.
-// So the length shown here is measured from the two buoys' own target positions when the map is
-// opened, and changing it means physically repositioning both of them.
+// The same six controls the CYD carries under its plot, in the same order:
 //
-// Captured once on open and deliberately NOT live-updated: the buoys drift and creep toward their
-// targets constantly, and a figure that ticks while you are trying to set it is unusable.
+//     - 5 m   ALIGN STARTLINE   ALIGN TRACK   + 5 m        EXECUTE
+//
+// Nothing in the system stores a "line length": recalcStartLine() on the Top keeps whatever
+// distance the two buoys already are apart and only swings the line square to the wind. So the
+// length is MEASURED off the fleet by drawFieldMap(), and changing it means physically
+// repositioning both end buoys - which is what EXECUTE does, by pushing each a new SETLOCKPOS.
 // =================================================================================================
-const START_LINE_STEP_M = 5;
-let startLineOriginalM = null;   // as measured when the map was opened
-let startLineTargetM = null;     // what the +/- buttons have dialled it to
-let startLinePair = null;        // the two buoys that form the line
-
-function metersBetween(lat1, lng1, lat2, lng2) {
-    const R = 6371000, rad = Math.PI / 180;
-    const dLat = (lat2 - lat1) * rad, dLng = (lng2 - lng1) * rad;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-            + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function bearingBetween(lat1, lng1, lat2, lng2) {
-    const rad = Math.PI / 180;
-    const y = Math.sin((lng2 - lng1) * rad) * Math.cos(lat2 * rad);
-    const x = Math.cos(lat1 * rad) * Math.sin(lat2 * rad)
-            - Math.sin(lat1 * rad) * Math.cos(lat2 * rad) * Math.cos((lng2 - lng1) * rad);
-    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-}
-
-// Where a buoy's end of the line actually is. The dashboard is never sent absolute target
-// coordinates - it derives them the same way drawFieldMap() does, by projecting the reported
-// Target Dist / Target Dir from the buoy's own fix. A buoy sitting on its waypoint reports a
-// distance of ~0, so this collapses to its current position, which is the same point.
-function buoyLinePoint(b) {
-    const lat = parseFloat(b.data["Latitude (Lat)"]);
-    const lng = parseFloat(b.data["Longitude (Lon)"]);
-    if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) return null;
-
-    const statusVal = parseInt(b.data.Status || "0");
-    const holdsTarget = (statusVal === MsgType.LOCKING || statusVal === MsgType.LOCKED
-                      || statusVal === MsgType.DOCKING || statusVal === MsgType.DOCKED);
-    const dist = parseFloat(b.data["Target Dist"]);
-    const dir = parseFloat(b.data["Target Dir"]);
-    if (holdsTarget && !isNaN(dist) && !isNaN(dir) && dist > 0) {
-        return projectCoords(lat, lng, dir, dist);
-    }
-    return { lat: lat, lng: lng };
-}
-
-// The two buoys forming the line. A third buoy, if there is one, is a mark and is left alone.
-function findStartLinePair() {
-    const held = buoys.filter(b => b.id && buoyLinePoint(b));
-    return held.length >= 2 ? [held[0], held[1]] : null;
-}
-
-function startLinePanelRefresh() {
-    const cur = document.getElementById("sl-current");
-    const tgt = document.getElementById("sl-target");
-    const btn = document.getElementById("sl-apply");
-    if (!cur) return;
-
-    if (startLineOriginalM === null) {
-        cur.textContent = "--";
-        tgt.textContent = "--";
-        btn.disabled = true;
-        btn.textContent = "RE-ALIGN";
-        return;
-    }
-    cur.textContent = Math.round(startLineOriginalM) + " m";
-    tgt.textContent = Math.round(startLineTargetM) + " m";
-    const changed = Math.round(startLineTargetM) !== Math.round(startLineOriginalM);
-    btn.disabled = !changed;
-    btn.style.opacity = changed ? "1" : "0.4";
-    btn.textContent = changed ? "RE-ALIGN TO " + Math.round(startLineTargetM) + " m" : "RE-ALIGN";
-}
-
-function startLineCapture() {
-    startLinePair = findStartLinePair();
-    if (!startLinePair) { startLineOriginalM = null; startLinePanelRefresh(); return; }
-    const pa = buoyLinePoint(startLinePair[0]);
-    const pb = buoyLinePoint(startLinePair[1]);
-    if (!pa || !pb) { startLineOriginalM = null; startLinePanelRefresh(); return; }
-    startLineOriginalM = metersBetween(pa.lat, pa.lng, pb.lat, pb.lng);
-    startLineTargetM = startLineOriginalM;
-    startLinePanelRefresh();
-}
-
-function startLineNudge(delta) {
-    if (startLineOriginalM === null) return;
-    startLineTargetM = Math.max(START_LINE_STEP_M, startLineTargetM + delta);
-    startLinePanelRefresh();
-}
-
-// Moves both ends symmetrically about the existing midpoint, keeping the line's current bearing -
-// this changes the length only. Squaring it to the wind is what Align Startline is for.
-function startLineApply() {
-    if (!startLinePair || startLineOriginalM === null) return;
-    const a = startLinePair[0], b = startLinePair[1];
-    const ea = buoyLinePoint(a), eb = buoyLinePoint(b);
-    if (!ea || !eb) return;
-    const aLat = ea.lat, aLng = ea.lng;
-    const bLat = eb.lat, bLng = eb.lng;
-
-    const midLat = (aLat + bLat) / 2, midLng = (aLng + bLng) / 2;
-    const brgA = bearingBetween(midLat, midLng, aLat, aLng);
-    const brgB = bearingBetween(midLat, midLng, bLat, bLng);
-    const half = startLineTargetM / 2;
-
-    if (!confirm("Re-align the start line to " + Math.round(startLineTargetM) + " m?\n\n"
-               + "Both buoys will motor to their new ends of the line.")) return;
-
-    const pa = projectCoords(midLat, midLng, brgA, half);
-    const pb = projectCoords(midLat, midLng, brgB, half);
-
-    [[a, pa], [b, pb]].forEach(function (pair) {
-        const buoy = pair[0], pos = pair[1];
-        const status = buoy.data.Status || "7";
-        // SETLOCKPOS: the Top stores the point, sails to it and locks - the same command it uses
-        // to push computed start line ends to the other buoy.
-        sendCommand(buoy.id, buoy.id + ",99," + MsgType.SET + "," + MsgType.SETLOCKPOS + ","
-                           + status + "," + pos.lat.toFixed(10) + "," + pos.lng.toFixed(10));
-        logMessage("Buoy " + buoy.id.toUpperCase() + ": start line end moved to "
-                 + pos.lat.toFixed(6) + ", " + pos.lng.toFixed(6), "UDP OUT");
-    });
-
-    // The dialled figure is the line now, so the panel settles on it rather than showing a
-    // permanent pending change.
-    startLineOriginalM = startLineTargetM;
-    startLinePanelRefresh();
-}
-
 function initStartLinePanel() {
     const view = document.getElementById("full-map-view");
     if (!view) return;
-    const panel = document.createElement("div");
-    panel.style.cssText = "position:absolute; top:15px; right:15px; z-index:10000; background:#1e293b;"
-        + "border:1px solid #334155; border-radius:8px; padding:12px; min-width:220px;"
-        + "box-shadow:0 10px 25px -5px rgba(0,0,0,0.5); font-family:inherit; color:#e2e8f0;";
-    panel.innerHTML =
-        '<div style="font-size:0.7rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Start line</div>'
-      + '<div style="display:flex; align-items:baseline; gap:8px; margin:4px 0 2px 0;">'
-      + '  <span id="sl-target" style="font-size:1.6rem; font-weight:bold; color:#eab308;">--</span>'
-      + '</div>'
-      + '<div style="font-size:0.7rem; color:#64748b; margin-bottom:8px;">on opening: <span id="sl-current">--</span></div>'
-      + '<div style="display:flex; gap:8px;">'
-      + '  <button id="sl-minus" style="flex:1; background:#475569; color:#fff; border:none; border-radius:6px; padding:8px 0; font-weight:bold; cursor:pointer;">&minus;5 m</button>'
-      + '  <button id="sl-plus"  style="flex:1; background:#475569; color:#fff; border:none; border-radius:6px; padding:8px 0; font-weight:bold; cursor:pointer;">+5 m</button>'
-      + '</div>'
-      + '<button id="sl-apply" style="width:100%; margin-top:8px; background:#3b82f6; color:#fff; border:none; border-radius:6px; padding:9px 0; font-weight:bold; cursor:pointer;" disabled>RE-ALIGN</button>';
-    view.appendChild(panel);
 
-    document.getElementById("sl-minus").addEventListener("click", function () { startLineNudge(-START_LINE_STEP_M); });
-    document.getElementById("sl-plus").addEventListener("click", function () { startLineNudge(START_LINE_STEP_M); });
-    document.getElementById("sl-apply").addEventListener("click", startLineApply);
+    const readout = document.createElement("div");
+    readout.style.cssText = "position:absolute; top:15px; right:15px; z-index:10000;"
+        + "display:flex; gap:26px; align-items:baseline; background:#1e293b; border:1px solid #334155;"
+        + "border-radius:8px; padding:10px 16px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.5);"
+        + "font-family:inherit; color:#e2e8f0;";
+    readout.innerHTML =
+        '<div><div style="font-size:0.65rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Start line</div>'
+      + '<div id="map-line-len" style="font-size:1.7rem; font-weight:bold; color:#64748b;">--</div></div>'
+      + '<div style="text-align:right;"><div style="font-size:0.65rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Wind</div>'
+      + '<div id="map-wind" style="font-size:1.7rem; font-weight:bold; color:#64748b;">--</div></div>';
+    view.appendChild(readout);
 
-    // The buoys are not on the wire yet when the page loads, so take the measurement on the first
-    // tick that actually has two waypoints rather than on a fixed timer.
-    const grab = setInterval(function () {
-        if (startLineOriginalM !== null) { clearInterval(grab); return; }
-        startLineCapture();
-    }, 500);
-    setTimeout(function () { clearInterval(grab); }, 30000);
+    const bar = document.createElement("div");
+    bar.style.cssText = "position:absolute; bottom:18px; left:50%; transform:translateX(-50%);"
+        + "z-index:10000; display:flex; flex-direction:column; align-items:center; gap:8px;"
+        + "font-family:inherit;";
+
+    const btn = "border:none; border-radius:6px; padding:12px 0; font-weight:bold; cursor:pointer;"
+              + "font-size:0.95rem; letter-spacing:0.5px;";
+    bar.innerHTML =
+        '<div id="map-lockwarn" style="color:#facc15; font-weight:bold; font-size:1.15rem;'
+      + ' letter-spacing:1px; text-shadow:0 2px 6px rgba(0,0,0,0.8); display:none;">LOCK 2 BUOYS FIRST</div>'
+      + '<div style="display:flex; gap:10px;">'
+      + '  <button id="map-minus"       style="' + btn + ' width:80px;  background:#8a4b16; color:#fff;">&minus;5 m</button>'
+      + '  <button id="map-align-start" style="' + btn + ' width:190px; background:#7dd3fc; color:#0f172a;">ALIGN STARTLINE</button>'
+      + '  <button id="map-align-track" style="' + btn + ' width:190px; background:#2563eb; color:#fff;">ALIGN TRACK</button>'
+      + '  <button id="map-plus"        style="' + btn + ' width:80px;  background:#8a4b16; color:#fff;">+5 m</button>'
+      + '</div>'
+      + '<button id="map-execute" style="' + btn + ' width:100%; background:#16a34a; color:#fff;">EXECUTE</button>'
+      + '<div id="map-msg" style="color:#94a3b8; font-size:0.8rem; min-height:1.2em; text-align:center;"></div>';
+    view.appendChild(bar);
+
+    document.getElementById("map-minus").addEventListener("click", () => mapNudge(-MAP_LINE_STEP_M));
+    document.getElementById("map-plus").addEventListener("click", () => mapNudge(MAP_LINE_STEP_M));
+    document.getElementById("map-align-start").addEventListener("click", () => mapAlign(MsgType.COMPUTESTART));
+    document.getElementById("map-align-track").addEventListener("click", () => mapAlign(MsgType.COMPUTETRACK));
+    document.getElementById("map-execute").addEventListener("click", mapExecute);
 }

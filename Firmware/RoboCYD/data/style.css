@@ -614,7 +614,10 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 1000;
+    /* Above #buoy-detail-overlay (1400), which is where the SETUP button now lives - otherwise the
+       dialog opens behind it and looks like nothing happened. Below the MAN CAL overlay (1500),
+       which is opened from inside this dialog and must cover it. */
+    z-index: 1450;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s ease;
@@ -868,3 +871,18 @@ body {
     }
 }
 
+
+/* The buoy detail view's own windrose block.
+   The card's canvas is NOT moved here the way the other blocks are - the rest of the dashboard
+   addresses it by id in too many places, and it is the one thing the card exists to show. This is
+   a second canvas, drawn from the same values in the same updateGUI() pass, so the two cannot
+   disagree. The rows inside reuse the card's classes; they only need a width to lay out against,
+   since here they are not inside .center-gauge. */
+.detail-rose {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 220px;
+    max-width: 100%;
+    margin: 0 auto 14px auto;
+}
