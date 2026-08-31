@@ -12,6 +12,10 @@ struct BuoyData {
     
     // Telemetry fields
     String status = "UNKNOWN";
+    // The same thing as status, unmapped: the numeric MsgType straight off the wire. Kept next to
+    // the spelled out version because a frame we SEND has to carry a number, not a label - see
+    // send_buoy_setlockpos(). 7 is IDLE, the state a buoy that has said nothing yet is assumed in.
+    int status_code = 7;
     float mag_dir = 0;
     float gps_dir = 0;
     float tg_dir = 0;
@@ -109,6 +113,13 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi =
 // target cannot acknowledge - a REBOOT sent as GETACK is retried five times and reboots the
 // buoy five times.
 void send_buoy_command(const String &buoy_id, int cmd_code, int ack = 3);
+
+// Hands a buoy a new waypoint to sail to and lock onto (SETLOCKPOS, cmd 20) - the same command the
+// Top uses to push computed start line ends to the other buoy. Needs its own sender because the
+// coordinates live in the payload, which send_buoy_command() leaves empty. status_code is echoed
+// back in the status field the way the dashboard does it; the receiving Top overrides it with
+// LOCKED either way.
+void send_buoy_setlockpos(const String &buoy_id, int status_code, double lat, double lon);
 
 // Starts a GPS Fourier compass calibration run on the buoy's Top. Needs its own sender
 // because send_buoy_command() emits an empty payload, and the still-water flag lives in

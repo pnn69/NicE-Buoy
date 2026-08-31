@@ -168,6 +168,7 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     }
     
     int status_code = atoi(fields[4].c_str());
+    buoys[buoy_idx].status_code = status_code;
     
     // Status text mapping
     if (status_code == 7) {
@@ -356,6 +357,30 @@ void send_buoy_command(const String &buoy_id, int cmd_code, int ack) {
     Serial.printf("Broadcasting Command: %s\n", finalPacket.c_str());
     
     // Send over both LoRa and UDP!
+    send_lora_packet(finalPacket);
+    udp_broadcast(finalPacket);
+}
+
+void send_buoy_setlockpos(const String &buoy_id, int status_code, double lat, double lon) {
+    // $Target,Sender,ACK,CMD,Status,Lat,Lng*CRC - RoboCompute's RoboDecode() reads the two
+    // coordinates as numbers[2] and numbers[3], counting from the CMD field.
+    //
+    // ACK is SET (2), not GETACK (3): GETACK puts the frame in RoboTop's LoRa retransmit table and
+    // has it resent five times, and the Top already re-broadcasts the waypoint it adopted.
+    //
+    // 10 decimals is what the dashboard sends and what RoboCompute's formatFloat() emits for a
+    // position - roughly 0.01 mm, i.e. the coordinate survives the round trip unrounded.
+    String cmdStr = buoy_id + ",98,2,20," + String(status_code) + ","
+                  + String(lat, 10) + "," + String(lon, 10);
+
+    uint8_t crc = calculate_crc(cmdStr);
+    char crc_buf[8];
+    sprintf(crc_buf, "*%02X", crc);
+
+    String finalPacket = "$" + cmdStr + String(crc_buf);
+
+    Serial.printf("Broadcasting SETLOCKPOS: %s\n", finalPacket.c_str());
+
     send_lora_packet(finalPacket);
     udp_broadcast(finalPacket);
 }

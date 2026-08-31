@@ -356,7 +356,6 @@ float old_wind_dir = -999.0;
 #include <Preferences.h>
 bool in_calibration_mode = false;
 bool in_track_settings_mode = false;
-bool in_radar_map_mode = false;
 int cal_state = 0;
 int cal_rx1 = 0, cal_ry1 = 0;
 int cal_rx2 = 0, cal_ry2 = 0;
@@ -373,7 +372,11 @@ unsigned long last_touch_active_ms = 0;
 void draw_calibration_screen();
 void handle_touch_calibration();
 void start_touch_calibration();
+void draw_resting_ui();
 void update_radar_map_dynamic();
+void draw_track_buttons(bool force);
+void draw_track_lock_hint();
+void draw_line_len_label(const char *text, uint16_t color);
 void draw_mancal_static();
 void update_mancal_dynamic();
 void draw_mancal_offset_strip();
@@ -381,16 +384,45 @@ void send_mancal_table_to_sub(int buoy_idx);
 void enter_man_fourier_cal(int buoy_idx);
 void service_mancal_entry();
 
-// --- Buoy Map screen geometry (240x320 Portrait) ---
-// Everything on this page is size 2 text (12x16 px, max 20 characters per line),
-// so the plot is pulled in a little to leave room for the labels around it.
+// --- TRACK SETTINGS screen geometry (240x320 Portrait) ---
+// The plot that used to be its own BUOY MAP page now IS this page: the two align buttons and the
+// MAP button that led to it are gone, and the strip below the plot carries the six controls
+// instead. Everything around the plot is size 2 text (12x16 px, max 20 characters per line).
 #define MAP_CX          120  // Plot centre X
 #define MAP_CY          140  // Plot centre Y
 #define MAP_R            72  // Plot half-width: X 48..192, Y 68..212
 #define MAP_HEADER_Y     30  // Range / Demo Mode banner (top of size 2 text)
-#define MAP_LEGEND_Y1   244  // Start line legend (middle of size 2 text)
-#define MAP_LEGEND_Y2   264  // Wind legend (middle of size 2 text)
-#define MAP_BACK_Y      280  // BACK button top edge (height 35)
+
+// The start line length and the wind sit on the same row as the N cardinal, left and right of it,
+// rather than on two legend lines under the plot - that strip is the button area now. The row is
+// the band between the range banner and the top of the plot.
+#define MAP_NROW_Y       66  // Text baseline, same as the N cardinal (MAP_CY - MAP_R - 2)
+#define MAP_NROW_TOP     48  // Top of the band that is cleared on every refresh
+#define MAP_NROW_H       19  // Height of that band
+#define MAP_NROW_LEFT_R 100  // Right edge of the line length label (the N glyph starts at 114)
+#define MAP_NROW_RIGHT_L 140 // Left edge of the wind label
+
+// Two rows of buttons under the S cardinal, which ends at y=230.
+#define TS_ROW1_Y       234  // - / START / TRACK / +
+#define TS_ROW2_Y       273  // BACK / EXECUTE
+#define TS_BTN_H         35
+
+#define TS_MINUS_X        6
+#define TS_MINUS_W       40
+#define TS_START_X       51
+#define TS_START_W       66
+#define TS_TRACK_X      122
+#define TS_TRACK_W       66
+#define TS_PLUS_X       193
+#define TS_PLUS_W        41
+#define TS_BACK_X         6
+#define TS_BACK_W       110
+#define TS_EXEC_X       124
+#define TS_EXEC_W       110
+
+// One press of - or + moves the start line by this much, the same step the dashboard's start line
+// panel uses (START_LINE_STEP_M in data/index.js).
+#define TS_LINE_STEP_M  5.0f
 
 // Text inset for the menu buoy buttons, which span X 10..230. Size 2 text is 12 px per
 // character. The top row is spelled "Buoy1:b7a5b578" with no spaces around the colon: at
@@ -885,6 +917,348 @@ void update_mannav_dynamic() {
     tft.fillCircle(230, 8, 4, loraDotColor);
 }
 
+// =================================================================================================
+// Start line length, as dialled on this screen.
+//
+// Nothing in the system stores a "line length": recalcStartLine() on the Top keeps whatever
+// distance the two buoys already are apart and only swings the line square to the wind. So the
+// length here is MEASURED off the fleet, and changing it means physically repositioning both end
+// buoys - which is what EXECUTE does, by pushing each of them a new SETLOCKPOS.
+//
+// track_line_cur_m is re-measured on every 1 Hz plot refresh. track_line_tgt_m is what - and +
+// have dialled it to, and is < 0 while no change is pending. Keeping the pending figure separate
+// is the whole point: the buoys creep towards their targets constantly, so a number that ticks
+// while you are trying to set it is unusable.
+// =================================================================================================
+static float track_line_cur_m = -1.0f;  // Live measurement, < 0 when there is no line to measure
+static float track_line_tgt_m = -1.0f;  // Dialled by - / +, < 0 when nothing is pending
+static int track_line_a = -1;           // The two buoys forming the line, indices into buoys[]
+static int track_line_b = -1;
+
+// How many buoys the controller currently has on the air. Drives the greying out of the buttons:
+// a start line needs two ends, and a track needs the third buoy for the upwind mark.
+static int count_buoys_present() {
+    int n = 0;
+    for (int i = 0; i < 3; i++) {
+        if (buoys[i].id != "" && buoys[i].present) n++;
+    }
+    return n;
+}
+
+// How many buoys are actually holding a lock position.
+//
+// ALIGN squares the start line through the two ends' LOCK positions, so the Top refuses the whole
+// operation below two of them - and against an unlocked buoy it would be computing from whatever
+// stale target that buoy still carries. LOCKING counts: the buoy owns a real lock position and is
+// on its way to it. DOCKING/DOCKED do not - a buoy going home is not part of a course.
+// LOCKING (12) counts as locked as well as LOCKED (13): the buoy owns a real lock position and is
+// on its way to it. DOCKING/DOCKED deliberately do not - a buoy going home is not part of a course.
+static bool buoy_is_locked(int i) {
+    if (buoys[i].id == "" || !buoys[i].present) return false;
+    return (buoys[i].status_code == 12 || buoys[i].status_code == 13);
+}
+
+static int count_buoys_locked() {
+    int n = 0;
+    for (int i = 0; i < 3; i++) {
+        if (buoy_is_locked(i)) n++;
+    }
+    return n;
+}
+
+// Where a buoy's end of the line is. Its commanded waypoint if it still has a fresh one, otherwise
+// its own fix. Preferring the waypoint keeps the geometry clean: a buoy holding station wanders
+// inside its hold radius, and measuring off that wobble would make the length - and the bearing
+// EXECUTE re-uses - jitter by a couple of metres between refreshes.
+static bool buoy_line_point(const BuoyData &b, double &out_lat, double &out_lon) {
+    if (buoy_has_waypoint(b) && b.tg_lat != 0 && b.tg_lon != 0) {
+        out_lat = b.tg_lat;
+        out_lon = b.tg_lon;
+        return true;
+    }
+    if (b.lat == "N/A" || b.lat == "" || atof(b.lat.c_str()) == 0) return false;
+    out_lat = atof(b.lat.c_str());
+    out_lon = atof(b.lon.c_str());
+    return true;
+}
+
+// Great circle distance in metres. get_relative_meters() would do for the short legs involved, but
+// this pairs with track_bearing_to()/track_project() below and the three have to agree.
+static double track_distance_m(double lat1, double lon1, double lat2, double lon2) {
+    const double R = 6371000.0, rad = PI / 180.0;
+    double dLat = (lat2 - lat1) * rad, dLon = (lon2 - lon1) * rad;
+    double a = sin(dLat / 2) * sin(dLat / 2)
+             + cos(lat1 * rad) * cos(lat2 * rad) * sin(dLon / 2) * sin(dLon / 2);
+    return 2 * R * atan2(sqrt(a), sqrt(1 - a));
+}
+
+static double track_bearing_to(double lat1, double lon1, double lat2, double lon2) {
+    const double rad = PI / 180.0;
+    double y = sin((lon2 - lon1) * rad) * cos(lat2 * rad);
+    double x = cos(lat1 * rad) * sin(lat2 * rad)
+             - sin(lat1 * rad) * cos(lat2 * rad) * cos((lon2 - lon1) * rad);
+    return fmod(atan2(y, x) * 180.0 / PI + 360.0, 360.0);
+}
+
+static void track_project(double lat, double lon, double bearing_deg, double dist_m,
+                          double &out_lat, double &out_lon) {
+    const double R = 6371000.0, rad = PI / 180.0;
+    double d = dist_m / R;
+    double brg = bearing_deg * rad;
+    double la = lat * rad, lo = lon * rad;
+    double la2 = asin(sin(la) * cos(d) + cos(la) * sin(d) * cos(brg));
+    double lo2 = lo + atan2(sin(brg) * sin(d) * cos(la), cos(d) - sin(la) * sin(la2));
+    out_lat = la2 / rad;
+    out_lon = fmod(lo2 / rad + 540.0, 360.0) - 180.0;
+}
+
+// Sailing convention for the buoy colours: starboard hand GREEN, port hand RED, the upwind HEAD
+// mark BLUE. Roles only exist once the WHOLE fleet is locked - until then a course has not been
+// laid out, so there are no sides to be on and every buoy present is simply green.
+//
+// Derived exactly the way RoboCompute::recalcStartLine() derives them, so the colours agree with
+// what the buoys will actually be told to do: the two lying closest together are the start line,
+// the odd one out is the upwind HEAD mark, and the starboard end is whichever end lies towards
+// wDir + 90 from the middle of the line.
+//
+// Anything missing - a buoy without a fix, or no wind reading anywhere in the fleet - leaves every
+// role NONE. Green for "present, no course" is honest; guessing a side from incomplete data and
+// painting a buoy red would not be.
+#define ROLE_NONE       0
+#define ROLE_HEAD       1
+#define ROLE_PORT       2
+#define ROLE_STARBOARD  3
+
+static void compute_buoy_roles(int roles[3]) {
+    for (int i = 0; i < 3; i++) roles[i] = ROLE_NONE;
+
+    int present = count_buoys_present();
+    if (present < 2 || count_buoys_locked() != present) return;
+
+    double lat[3] = {0, 0, 0}, lon[3] = {0, 0, 0};
+    int idx[3], n = 0;
+    for (int i = 0; i < 3; i++) {
+        if (buoys[i].id == "" || !buoys[i].present) continue;
+        if (!buoy_line_point(buoys[i], lat[i], lon[i])) return; // no position, no geometry
+        idx[n++] = i;
+    }
+    if (n != present) return;
+
+    int wind_idx = pick_wind_reference_buoy();
+    if (wind_idx < 0) return; // Without wind there is no port or starboard side to speak of
+    double wdir = buoys[wind_idx].wind_dir;
+
+    int a = idx[0], b = idx[1];
+    if (n == 3) {
+        double best = -1;
+        for (int i = 0; i < n; i++) {
+            for (int j = i + 1; j < n; j++) {
+                double d = track_distance_m(lat[idx[i]], lon[idx[i]], lat[idx[j]], lon[idx[j]]);
+                if (best < 0 || d < best) { best = d; a = idx[i]; b = idx[j]; }
+            }
+        }
+        for (int i = 0; i < n; i++) {
+            if (idx[i] != a && idx[i] != b) roles[idx[i]] = ROLE_HEAD;
+        }
+    }
+
+    double mid_lat = (lat[a] + lat[b]) / 2.0;
+    double mid_lon = (lon[a] + lon[b]) / 2.0;
+    double sb_bearing = fmod(wdir + 90.0, 360.0);
+    // Smallest signed separation from the starboard bearing, folded to 0..180.
+    double da = fabs(fmod(track_bearing_to(mid_lat, mid_lon, lat[a], lon[a]) - sb_bearing + 540.0, 360.0) - 180.0);
+    double db = fabs(fmod(track_bearing_to(mid_lat, mid_lon, lat[b], lon[b]) - sb_bearing + 540.0, 360.0) - 180.0);
+    if (da <= db) { roles[a] = ROLE_STARBOARD; roles[b] = ROLE_PORT; }
+    else          { roles[a] = ROLE_PORT;      roles[b] = ROLE_STARBOARD; }
+}
+
+// Fill colour for a buoy, by role. An OFFLINE buoy is greyed out rather than reddened - red means
+// "port hand" here, and a dead buoy must not be mistaken for one that is holding a station.
+static uint16_t buoy_role_color(int idx, const int roles[3]) {
+    if (buoys[idx].id == "" || !buoys[idx].present) return TFT_DARKGREY;
+    switch (roles[idx]) {
+        case ROLE_HEAD:      return TFT_BLUE;
+        case ROLE_STARBOARD: return TFT_GREEN;
+        case ROLE_PORT:      return TFT_RED;
+        default:             break;
+    }
+    // No role to show - either the fleet is not fully locked, or there is no wind to take sides
+    // against. YELLOW for a buoy that is not holding a station, green once it is. That makes the
+    // one thing you want at a glance before a start readable without counting badges: anything
+    // yellow is still not on station.
+    return buoy_is_locked(idx) ? TFT_GREEN : TFT_YELLOW;
+}
+
+static uint16_t buoy_role_text_color(uint16_t bg) {
+    return (bg == TFT_GREEN || bg == TFT_YELLOW) ? TFT_BLACK : TFT_WHITE;
+}
+
+// True when both ends of the line are known, i.e. when - / + / EXECUTE have something to work on.
+// Filled in by update_radar_map_dynamic() as a side effect of plotting the line.
+static bool track_line_measured() {
+    return track_line_cur_m > 0 && track_line_a >= 0 && track_line_b >= 0;
+}
+
+// One button. Greyed out by filling it dark rather than by hiding it - the layout has to stay put
+// so the operator's finger lands in the same place whether or not the third buoy is on the air.
+static void draw_track_button(int x, int y, int w, const char *label, uint16_t fill,
+                              uint16_t text_col, bool enabled) {
+    uint16_t bg = enabled ? fill : TFT_DARKGREY;
+    uint16_t fg = enabled ? text_col : 0x4208; // Barely-there grey: reads as "not now", not as text
+    tft.fillRoundRect(x, y, w, TS_BTN_H, 5, bg);
+    tft.setFreeFont(&FreeSansBold9pt7b);
+    tft.setTextPadding(0);
+    tft.setTextSize(1);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(fg, bg);
+    tft.drawString(label, x + w / 2, y + TS_BTN_H / 2);
+    tft.setFreeFont(NULL);
+}
+
+// The six controls under the plot. Repainted only when something about them actually changed - at
+// the 1 Hz refresh an unconditional repaint of six rounded rects reads as a flicker.
+//
+//   -  START  TRACK  +      - and + dial the line 5 m shorter/longer, START squares it to the
+//   BACK      EXECUTE       wind (needs 2 buoys), TRACK lays out the full course (needs 3), and
+//                           EXECUTE commits whatever - and + have dialled.
+void draw_track_buttons(bool force) {
+    int fleet = count_buoys_present();
+    int locked = count_buoys_locked();
+    bool can_len   = (fleet >= 2) && track_line_measured();
+    // START and TRACK need LOCKED buoys, not merely present ones - see count_buoys_locked().
+    bool can_start = (locked >= 2);
+    bool can_track = (locked >= 3);
+    bool can_exec  = can_len && track_line_tgt_m > 0
+                     && lroundf(track_line_tgt_m) != lroundf(track_line_cur_m);
+
+    static int last_key = -1;
+    int key = (can_len ? 1 : 0) | (can_start ? 2 : 0) | (can_track ? 4 : 0) | (can_exec ? 8 : 0);
+    // The EXECUTE caption carries the dialled length, so that has to be in the cache key as well
+    key |= (can_exec ? ((int)lroundf(track_line_tgt_m) << 4) : 0);
+    if (!force && key == last_key) return;
+    last_key = key;
+
+    draw_track_button(TS_MINUS_X, TS_ROW1_Y, TS_MINUS_W, "-",     TFT_BROWN,   TFT_WHITE, can_len);
+    draw_track_button(TS_START_X, TS_ROW1_Y, TS_START_W, "START", TFT_SKYBLUE, TFT_BLACK, can_start);
+    draw_track_button(TS_TRACK_X, TS_ROW1_Y, TS_TRACK_W, "TRACK", TFT_BLUE,    TFT_WHITE, can_track);
+    draw_track_button(TS_PLUS_X,  TS_ROW1_Y, TS_PLUS_W,  "+",     TFT_BROWN,   TFT_WHITE, can_len);
+
+    draw_track_button(TS_BACK_X, TS_ROW2_Y, TS_BACK_W, "BACK", TFT_DARKGREY, TFT_WHITE, true);
+
+    char exec_label[16];
+    if (can_exec) snprintf(exec_label, sizeof(exec_label), "GO %dM", (int)lroundf(track_line_tgt_m));
+    else          snprintf(exec_label, sizeof(exec_label), "EXECUTE");
+    draw_track_button(TS_EXEC_X, TS_ROW2_Y, TS_EXEC_W, exec_label, TFT_GREEN, TFT_BLACK, can_exec);
+}
+
+// Move both ends of the line symmetrically about its current midpoint, keeping its present
+// bearing. Length only - squaring the line to the wind is what START does.
+//
+// SETLOCKPOS is the same command the Top uses to push computed start line ends to the other buoy
+// (RoboTop, case SENDTRACK): the receiver stores the point, sails to it and locks.
+static void track_line_execute() {
+    if (!track_line_measured() || track_line_tgt_m <= 0) return;
+
+    double alat, alon, blat, blon;
+    if (!buoy_line_point(buoys[track_line_a], alat, alon)) return;
+    if (!buoy_line_point(buoys[track_line_b], blat, blon)) return;
+
+    double mid_lat = (alat + blat) / 2.0;
+    double mid_lon = (alon + blon) / 2.0;
+    double brg_a = track_bearing_to(mid_lat, mid_lon, alat, alon);
+    double brg_b = track_bearing_to(mid_lat, mid_lon, blat, blon);
+    double half = track_line_tgt_m / 2.0;
+
+    double pa_lat, pa_lon, pb_lat, pb_lon;
+    track_project(mid_lat, mid_lon, brg_a, half, pa_lat, pa_lon);
+    track_project(mid_lat, mid_lon, brg_b, half, pb_lat, pb_lon);
+
+    send_buoy_setlockpos(buoys[track_line_a].id, buoys[track_line_a].status_code, pa_lat, pa_lon);
+    send_buoy_setlockpos(buoys[track_line_b].id, buoys[track_line_b].status_code, pb_lat, pb_lon);
+
+    // The dialled figure is the line now. Clearing the pending value hands the left hand label back
+    // to the live measurement, which walks to the new length as the two buoys motor out to it.
+    track_line_tgt_m = -1.0f;
+}
+
+// Show what - / + have dialled, in the buttons' own colour so it reads as "pending", not as the
+// measurement. Only the label is repainted: replotting the whole map on every press is both slower
+// and visibly flickery when a button is held down and repeats.
+static void track_settings_show_pending() {
+    char buf[12];
+    snprintf(buf, sizeof(buf), "%0.0fM", track_line_tgt_m);
+    draw_line_len_label(buf, TFT_ORANGE);
+    draw_track_buttons(false);
+}
+
+// The strip between the bottom of the plot and the first row of buttons carries EITHER the S
+// cardinal or, while fewer than two buoys are locked, the LOCK 2 BUOYS FIRST warning. There is no
+// room for both - the plot ends at 212, the S glyph runs to 230 and the buttons start at 234 - and
+// the warning is the more useful of the two while there is no course to look at.
+//
+// Out here it has the full 240 px to work with, so it fits on one line: 18 characters at 12 px per
+// character is 216 px, centred with 12 px to spare either side. Inside the plot it would not have,
+// which is why it used to be stacked over two lines in the middle of the map.
+//
+// Both branches repaint the whole strip, so this is also what puts the S back when the fleet
+// locks - the static screen draw is not re-run on a status change.
+void draw_track_lock_hint() {
+    bool warn = (count_buoys_locked() < 2);
+
+    tft.fillRect(0, MAP_CY + MAP_R, 240, TS_ROW1_Y - (MAP_CY + MAP_R) - 1, TFT_BLACK);
+    tft.setFreeFont(NULL);
+    tft.setTextPadding(0);
+    tft.setTextSize(2);
+    tft.setTextDatum(MC_DATUM);
+
+    if (warn) {
+        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+        tft.drawString("LOCK 2 BUOYS FIRST", MAP_CX, MAP_CY + MAP_R + 10);
+    } else {
+        tft.setTextColor(TFT_GREEN, TFT_BLACK);
+        tft.drawString("S", MAP_CX, MAP_CY + MAP_R + 10);
+    }
+}
+
+// A one line message across the middle of the plot, for the moment between pressing a button and
+// the fleet acting on it. It is painted straight over the plot rectangle, which the next refresh
+// wipes anyway, so nothing has to undo it.
+static void track_settings_banner(const char *text, uint16_t color) {
+    tft.fillRect(MAP_CX - MAP_R, MAP_CY - 12, MAP_R * 2 + 1, 24, TFT_BLACK);
+    tft.setFreeFont(NULL);
+    tft.setTextPadding(0);
+    tft.setTextColor(color, TFT_BLACK);
+    tft.setTextSize(2);
+    tft.setTextDatum(MC_DATUM);
+    tft.drawString(text, MAP_CX, MAP_CY);
+}
+
+// START and TRACK both come down to one command sent to one buoy: COMPUTESTART (62) squares the
+// start line to the wind, COMPUTETRACK (63) lays out the whole course.
+//
+// The command is executed by whichever buoy receives it, and that buoy squares the line against
+// ITS OWN wind. Sending it to "the first buoy in the list" is therefore not safe: a buoy with a
+// failed compass reports wDir/wStd as 0/0, which is indistinguishable from a real due-north calm,
+// and the line silently comes out squared to north. Hence pick_wind_reference_buoy().
+static void track_settings_compute(int cmd_code) {
+    track_settings_banner("COMPUTING...", TFT_YELLOW);
+
+    int wind_idx = pick_wind_reference_buoy();
+    if (wind_idx >= 0) {
+        send_buoy_command(buoys[wind_idx].id, cmd_code);
+    } else {
+        track_settings_banner("NO WIND DATA!", TFT_RED);
+    }
+
+    // The buoys are about to be given new targets, so nothing dialled before this still applies.
+    track_line_tgt_m = -1.0f;
+
+    delay(800);
+    last_transition_ms = millis();
+    reset_button_draw_cache();
+    draw_resting_ui();
+}
+
 void draw_resting_ui() {
     int w = tft.width();
     int h = tft.height();
@@ -892,13 +1266,13 @@ void draw_resting_ui() {
     tft.fillScreen(TFT_BLACK);
     
     if (selected_buoy_idx == -1) {
-        if (in_radar_map_mode) {
-            // --- Static Radar Map Screen (240x320 Portrait) ---
+        if (in_track_settings_mode) {
+            // --- Static Track Settings Screen: the buoy map, with the course controls under it ---
             tft.setTextPadding(0); // Stale padding from the nav screens would eat into the labels below
             tft.setTextColor(TFT_CYAN, TFT_BLACK);
             tft.setTextSize(2);
             tft.setTextDatum(TC_DATUM);
-            tft.drawString("BUOY MAP", w / 2, 4);
+            tft.drawString("TRACK SETTINGS", w / 2, 4);
 
             tft.drawFastHLine(15, 26, w - 30, TFT_WHITE);
 
@@ -920,54 +1294,13 @@ void draw_resting_ui() {
             tft.setTextDatum(ML_DATUM);
             tft.drawString("E", cx + r_max + 4, cy);
 
-            tft.setFreeFont(&FreeSansBold9pt7b);
-            tft.setTextSize(1);
-            tft.setTextDatum(MC_DATUM);
-
-            // Draw BACK button (height 35, width 180) centered!
-            tft.fillRoundRect(30, MAP_BACK_Y, 180, 35, 5, TFT_BLUE);
-            tft.setTextColor(TFT_WHITE, TFT_BLUE);
-            tft.drawString("BACK", w / 2, MAP_BACK_Y + 17);
-
-            tft.setFreeFont(NULL);
-
-            // Plot the buoys and the start line straight away instead of waiting for the next refresh tick
+            // Plot the buoys and the start line straight away instead of waiting for the next
+            // refresh tick. This also fills in the length and wind labels either side of the N.
             update_radar_map_dynamic();
-        }
-        else if (in_track_settings_mode) {
-            // --- Static Track Settings Screen (240x320 Portrait) ---
-            tft.setTextColor(TFT_CYAN, TFT_BLACK);
-            tft.setTextSize(2);
-            tft.setTextDatum(TC_DATUM);
-            tft.drawString("TRACK SETTINGS", w / 2, 15);
-            
-            tft.drawFastHLine(15, 45, w - 30, TFT_WHITE);
-            
-            tft.setFreeFont(&FreeSansBold9pt7b); // Use beautiful bold GFX font!
-            tft.setTextSize(1);
-            tft.setTextDatum(MC_DATUM);
-            
-            // Align Startline Button (Y: 70 to 105, height 35)
-            tft.fillRoundRect(30, 70, 180, 35, 5, TFT_ORANGE);
-            tft.setTextColor(TFT_BLACK, TFT_ORANGE);
-            tft.drawString("ALIGN STARTLINE", w / 2, 87);
-            
-            // Align Track Button (Y: 115 to 150, height 35)
-            tft.fillRoundRect(30, 115, 180, 35, 5, TFT_GREEN);
-            tft.setTextColor(TFT_BLACK, TFT_GREEN);
-            tft.drawString("ALIGN TRACK", w / 2, 132);
-            
-            // MAP Button (Y: 160 to 195, height 35) - Always active in Cyan!
-            tft.fillRoundRect(30, 160, 180, 35, 5, TFT_CYAN);
-            tft.setTextColor(TFT_BLACK, TFT_CYAN);
-            tft.drawString("MAP", w / 2, 177);
-            
-            // BACK Button (Y: 205 to 240, height 35)
-            tft.fillRoundRect(30, 205, 180, 35, 5, TFT_BLUE);
-            tft.setTextColor(TFT_WHITE, TFT_BLUE);
-            tft.drawString("BACK", w / 2, 222);
-            
-            tft.setFreeFont(NULL); // Restore default font
+            draw_track_lock_hint();
+
+            // Buttons last: they read the length the plot just measured to decide what is live.
+            draw_track_buttons(true);
         } else {
             // --- Static Menu Screen (240x320 Portrait) ---
             tft.setTextColor(TFT_YELLOW, TFT_BLACK);
@@ -1640,19 +1973,18 @@ void update_dynamic_ui() {
     }
     
     if (selected_buoy_idx == -1) {
-        if (in_radar_map_mode) {
-            // Radar Map Screen: replot the buoy markers and the start line.
+        if (in_track_settings_mode) {
+            // Track Settings Screen: replot the buoy markers and the start line, then let the
+            // buttons pick up any change in what is possible (a third buoy arriving enables
+            // TRACK, the fleet going quiet greys the lot out).
             // Refresh at 1 Hz (not the 250 ms UI tick) to keep the markers from flickering.
             static unsigned long last_radar_update_ms = 0;
             if (now - last_radar_update_ms > 1000) {
                 last_radar_update_ms = now;
                 update_radar_map_dynamic();
+                draw_track_lock_hint();
+                draw_track_buttons(false);
             }
-            return;
-        }
-
-        if (in_track_settings_mode) {
-            // Do NOT draw or update buoy buttons if we are on the Track Settings Screen!
             return;
         }
         
@@ -1660,9 +1992,18 @@ void update_dynamic_ui() {
         tft.setTextSize(2);
         tft.setTextDatum(MC_DATUM);
         
+        // Colours follow the course, not the slot: green until the fleet is locked, then starboard
+        // green / port red / head blue. Resolved once for all three buttons - the roles are decided
+        // by the fleet as a whole, so working them out per button would be three times the work for
+        // the same answer.
+        int roles[3];
+        compute_buoy_roles(roles);
+
         for (int i = 0; i < 3; i++) {
             int y = 75 + i * 45; // Compact spacing starting at Y: 75!
             int current_present = (buoys[i].id == "") ? -1 : (buoys[i].present ? 1 : 0);
+            uint16_t btn_col = buoy_role_color(i, roles);
+            uint16_t txt_col = buoy_role_text_color(btn_col);
             
             static String last_drawn_ips[3] = {"", "", ""};
             // The status badge changes on its own, with the ID, presence and IP all unchanged -
@@ -1673,10 +2014,16 @@ void update_dynamic_ui() {
             // putting it in the key would repaint the whole 40 px button at packet rate - which
             // is the flicker the caching exists to avoid. It gets its own small repaint below.
             static String last_drawn_rssi[3] = {"", "", ""};
+            // The colour changes when the fleet locks, or when the wind swings the line round, with
+            // the id, presence, IP and status all unchanged - so it has to be in the cache key too,
+            // or a buoy would keep whatever colour it was first painted.
+            static uint16_t last_drawn_col[3] = {0, 0, 0};
 
             // Only draw/redraw if the ID, online presence, IP address or status changed!
             if (buoys[i].id != last_drawn_ids[i] || current_present != last_drawn_present[i] ||
-                buoys[i].ip_addr != last_drawn_ips[i] || buoys[i].status != last_drawn_status[i]) {
+                buoys[i].ip_addr != last_drawn_ips[i] || buoys[i].status != last_drawn_status[i] ||
+                btn_col != last_drawn_col[i]) {
+                last_drawn_col[i] = btn_col;
                 last_drawn_ids[i] = buoys[i].id;
                 last_drawn_present[i] = current_present;
                 last_drawn_ips[i] = buoys[i].ip_addr;
@@ -1692,9 +2039,9 @@ void update_dynamic_ui() {
                     tft.setTextSize(2);
                     tft.drawString("Buoy" + String(i+1) + ": [Waiting]", w / 2, y + 20);
                 } else if (current_present == 1) {
-                    // Present: Green button
-                    tft.fillRoundRect(10, y, w - 20, 40, 5, TFT_GREEN);
-                    tft.setTextColor(TFT_BLACK, TFT_GREEN);
+                    // Present: green, or the role colour once the whole fleet is locked
+                    tft.fillRoundRect(10, y, w - 20, 40, 5, btn_col);
+                    tft.setTextColor(txt_col, btn_col);
                     
                     // Two rows of size 2 text in the 40 px button, each with a left and a right
                     // field. Everything is aligned to the button edges rather than centred, so
@@ -1708,12 +2055,16 @@ void update_dynamic_ui() {
 
                     bool settled = true;
                     char badge = status_badge(buoys[i].status, settled);
-                    // Black on green for a state the buoy has actually reached, red while it is
-                    // still on its way there.
-                    tft.setTextColor(settled ? TFT_BLACK : TFT_RED, TFT_GREEN);
+                    // Normal text colour for a state the buoy has actually reached, a contrasting
+                    // one while it is still on its way there. Red reads as "not yet" on a green
+                    // button but vanishes on a red one, so the port hand button uses yellow.
+                    uint16_t badge_col = settled ? txt_col
+                                                 : ((btn_col == TFT_GREEN || btn_col == TFT_YELLOW)
+                                                        ? TFT_RED : TFT_YELLOW);
+                    tft.setTextColor(badge_col, btn_col);
                     tft.setTextDatum(TR_DATUM);
                     tft.drawString(String(badge), w - BTN_PAD_R, y + 3);
-                    tft.setTextColor(TFT_BLACK, TFT_GREEN);
+                    tft.setTextColor(txt_col, btn_col);
 
                     String conn_str = (buoys[i].ip_addr == "") ? "LoRa only" : buoys[i].ip_addr;
                     tft.setTextDatum(TL_DATUM);
@@ -1728,9 +2079,10 @@ void update_dynamic_ui() {
                     // rows below still land where they did before.
                     tft.setTextDatum(TC_DATUM);
                 } else {
-                    // Offline: Red button
-                    tft.fillRoundRect(10, y, w - 20, 40, 5, TFT_RED);
-                    tft.setTextColor(TFT_WHITE, TFT_RED);
+                    // Offline: greyed out, NOT red. Red is the port hand mark on this screen now,
+                    // and a dead buoy must not read as one that is holding a station.
+                    tft.fillRoundRect(10, y, w - 20, 40, 5, TFT_DARKGREY);
+                    tft.setTextColor(TFT_LIGHTGREY, TFT_DARKGREY);
                     tft.setTextSize(2);
                     tft.drawString("Buoy" + String(i+1) + ": [Offline]", w / 2, y + 20);
                 }
@@ -1745,8 +2097,8 @@ void update_dynamic_ui() {
                 if (rssi_str != last_drawn_rssi[i]) {
                     last_drawn_rssi[i] = rssi_str;
                     // Expanded clearing rectangle (56px width) to guarantee full erasure of -111
-                    tft.fillRect(w - BTN_PAD_R - 56, y + 19, 56, 17, TFT_GREEN);
-                    tft.setTextColor(TFT_BLACK, TFT_GREEN);
+                    tft.fillRect(w - BTN_PAD_R - 56, y + 19, 56, 17, btn_col);
+                    tft.setTextColor(txt_col, btn_col);
                     tft.setTextSize(2);
                     tft.setTextDatum(TR_DATUM);
                     tft.drawString(rssi_str, w - BTN_PAD_R, y + 20);
@@ -1861,76 +2213,66 @@ void loop() {
         }
         
         if (selected_buoy_idx == -1) {
-            if (in_radar_map_mode) {
-                // --- RADAR MAP SCREEN TOUCH INTERACTION ---
-                // BACK Button: X: 30 to 210, Y: MAP_BACK_Y to MAP_BACK_Y + 35
-                if (touchY >= MAP_BACK_Y && touchY <= MAP_BACK_Y + 35 && touchX >= 30 && touchX <= 210) {
-                    in_radar_map_mode = false;
-                    last_transition_ms = millis();
-                    reset_button_draw_cache();
-                    draw_resting_ui();
-                }
-            }
-            else if (in_track_settings_mode) {
+            if (in_track_settings_mode) {
                 // --- TRACK SETTINGS SCREEN TOUCH INTERACTION ---
-                // ALIGN STARTLINE: Y: 70 to 105, X: 30 to 210
-                if (touchY >= 70 && touchY <= 105 && touchX >= 30 && touchX <= 210) {
-                    tft.fillRect(10, 150, 220, 60, TFT_BLACK);
-                    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-                    tft.setTextSize(2);
-                    tft.setTextDatum(MC_DATUM);
-                    tft.drawString("COMPUTING...", tft.width() / 2, 180);
-                    
-                    // Send COMPUTESTART (62) to a buoy that actually has a wind reading - the
-                    // receiving buoy squares the start line against its own wind, so picking one
-                    // reporting 0/0 would lay the line out against a fake northerly.
-                    int wind_idx = pick_wind_reference_buoy();
-                    if (wind_idx >= 0) {
-                        send_buoy_command(buoys[wind_idx].id, 62);
-                    } else {
-                        tft.fillRect(10, 150, 220, 60, TFT_BLACK);
-                        tft.setTextColor(TFT_RED, TFT_BLACK);
-                        tft.drawString("NO WIND DATA!", tft.width() / 2, 180);
+                // Row 1: -  START  TRACK  +      Row 2: BACK  EXECUTE
+                // Every branch re-tests the same condition draw_track_buttons() greys the button
+                // on, so a tap that lands on a dark button does nothing at all rather than firing
+                // a course computation the fleet is too small to carry out.
+                bool row1 = (touchY >= TS_ROW1_Y && touchY <= TS_ROW1_Y + TS_BTN_H);
+                bool row2 = (touchY >= TS_ROW2_Y && touchY <= TS_ROW2_Y + TS_BTN_H);
+                int fleet = count_buoys_present();
+                int locked = count_buoys_locked();
+
+                // MINUS: shorten the start line by 5 m
+                if (row1 && touchX >= TS_MINUS_X && touchX <= TS_MINUS_X + TS_MINUS_W) {
+                    if (fleet >= 2 && track_line_measured()) {
+                        float base = (track_line_tgt_m > 0) ? track_line_tgt_m : track_line_cur_m;
+                        track_line_tgt_m = max(TS_LINE_STEP_M, base - TS_LINE_STEP_M);
+                        track_settings_show_pending();
+                        delay(150); // One step per tap: the touch is polled far faster than this
                     }
-                    delay(800);
-                    reset_button_draw_cache();
-                    draw_resting_ui();
                 }
-                // ALIGN TRACK: Y: 115 to 150, X: 30 to 210
-                else if (touchY >= 115 && touchY <= 150 && touchX >= 30 && touchX <= 210) {
-                    tft.fillRect(10, 150, 220, 60, TFT_BLACK);
-                    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-                    tft.setTextSize(2);
-                    tft.setTextDatum(MC_DATUM);
-                    tft.drawString("COMPUTING...", tft.width() / 2, 180);
-                    
-                    // Send COMPUTETRACK (63) to a buoy that actually has a wind reading, for the
-                    // same reason as ALIGN STARTLINE above.
-                    int wind_idx = pick_wind_reference_buoy();
-                    if (wind_idx >= 0) {
-                        send_buoy_command(buoys[wind_idx].id, 63);
-                    } else {
-                        tft.fillRect(10, 150, 220, 60, TFT_BLACK);
-                        tft.setTextColor(TFT_RED, TFT_BLACK);
-                        tft.drawString("NO WIND DATA!", tft.width() / 2, 180);
+                // PLUS: lengthen the start line by 5 m
+                else if (row1 && touchX >= TS_PLUS_X && touchX <= TS_PLUS_X + TS_PLUS_W) {
+                    if (fleet >= 2 && track_line_measured()) {
+                        float base = (track_line_tgt_m > 0) ? track_line_tgt_m : track_line_cur_m;
+                        track_line_tgt_m = base + TS_LINE_STEP_M;
+                        track_settings_show_pending();
+                        delay(150);
                     }
-                    delay(800);
-                    reset_button_draw_cache();
-                    draw_resting_ui();
                 }
-                // MAP Button: Y: 160 to 195, X: 30 to 210 (permanently active offline!)
-                else if (touchY >= 160 && touchY <= 195 && touchX >= 30 && touchX <= 210) {
-                    in_radar_map_mode = true;
-                    last_transition_ms = millis();
-                    reset_button_draw_cache();
-                    draw_resting_ui();
+                // START: square the start line to the wind (COMPUTESTART, needs both end buoys)
+                else if (row1 && touchX >= TS_START_X && touchX <= TS_START_X + TS_START_W) {
+                    if (locked >= 2) {
+                        track_settings_compute(62);
+                    }
                 }
-                // BACK: Y: 205 to 240, X: 30 to 210
-                else if (touchY >= 205 && touchY <= 240 && touchX >= 30 && touchX <= 210) {
+                // TRACK: lay out the whole course (COMPUTETRACK, needs the third buoy as the mark)
+                else if (row1 && touchX >= TS_TRACK_X && touchX <= TS_TRACK_X + TS_TRACK_W) {
+                    if (locked >= 3) {
+                        track_settings_compute(63);
+                    }
+                }
+                // BACK: a pending +/- that was never executed is dropped, not remembered
+                else if (row2 && touchX >= TS_BACK_X && touchX <= TS_BACK_X + TS_BACK_W) {
+                    track_line_tgt_m = -1.0f;
                     in_track_settings_mode = false;
                     last_transition_ms = millis();
                     reset_button_draw_cache();
                     draw_resting_ui();
+                }
+                // EXECUTE: move both ends of the line out to the dialled length
+                else if (row2 && touchX >= TS_EXEC_X && touchX <= TS_EXEC_X + TS_EXEC_W) {
+                    if (track_line_measured() && track_line_tgt_m > 0
+                        && lroundf(track_line_tgt_m) != lroundf(track_line_cur_m)) {
+                        track_settings_banner("MOVING...", TFT_YELLOW);
+                        track_line_execute();
+                        delay(800);
+                        last_transition_ms = millis();
+                        reset_button_draw_cache();
+                        draw_resting_ui();
+                    }
                 }
             } else {
                 // --- MAIN MENU INTERACTION ---
@@ -3070,28 +3412,48 @@ static void draw_start_line_segment(int x1, int y1, int x2, int y2) {
     tft.drawLine(x1 + 1, y1, x2 + 1, y2, TFT_MAGENTA);
 }
 
-// The two legend lines live in the strip between the plot and the BACK button.
-// Size 2 text is 16 px tall, so each line owns a 20 px band and is cleared in full
-// (the text background alone cannot erase a previous, longer string).
-static void draw_map_legend_line(int y, const char *text, uint16_t color) {
-    tft.fillRect(0, y - 10, 240, 20, TFT_BLACK);
+// The start line length and the wind flank the N cardinal, on the row between the range banner and
+// the top of the plot. Each band is cleared in full before its label is drawn: the text background
+// alone cannot erase a previous, longer string, and neither label is inside the plot rectangle that
+// update_radar_map_dynamic() wipes. The datum is BR/BL so both sit on the N glyph's baseline.
+// Size 2 text is 12 px per character, so the left label has room for 8 and the right for 8.
+void draw_line_len_label(const char *text, uint16_t color) {
+    tft.fillRect(0, MAP_NROW_TOP, MAP_NROW_LEFT_R + 1, MAP_NROW_H, TFT_BLACK);
     tft.setFreeFont(NULL);
     tft.setTextPadding(0);
     tft.setTextColor(color, TFT_BLACK);
     tft.setTextSize(2);
-    tft.setTextDatum(MC_DATUM);
-    tft.drawString(text, 120, y);
+    tft.setTextDatum(BR_DATUM);
+    tft.drawString(text, MAP_NROW_LEFT_R, MAP_NROW_Y);
 }
 
-static void draw_start_line_legend(const char *text, uint16_t color) {
-    draw_map_legend_line(MAP_LEGEND_Y1, text, color);
+static void draw_wind_label(const char *text, uint16_t color) {
+    tft.fillRect(MAP_NROW_RIGHT_L, MAP_NROW_TOP, 240 - MAP_NROW_RIGHT_L, MAP_NROW_H, TFT_BLACK);
+    tft.setFreeFont(NULL);
+    tft.setTextPadding(0);
+    tft.setTextColor(color, TFT_BLACK);
+    tft.setTextSize(2);
+    tft.setTextDatum(BL_DATUM);
+    tft.drawString(text, MAP_NROW_RIGHT_L, MAP_NROW_Y);
 }
+
 
 // Draw one buoy marker. No B1/B2/B3 label: the dots are already colour coded
 // (B1 green, B2 orange, B3 cyan) and the label only added clutter to a small plot.
-static void draw_buoy_marker(int x, int y, uint16_t color) {
+static void draw_buoy_marker(int x, int y, uint16_t color, int slot) {
     tft.fillCircle(x, y, 5, color);
     tft.drawCircle(x, y, 5, TFT_WHITE);
+
+    // The dots used to be one fixed colour each (B1 green, B2 orange, B3 cyan) and needed no
+    // label. They now carry the COURSE colour instead, so three unlocked buoys are three identical
+    // green dots - the number is what tells them apart.
+    if (slot < 0) return;
+    tft.setFreeFont(NULL);
+    tft.setTextPadding(0);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setTextSize(1);
+    tft.setTextDatum(BL_DATUM);
+    tft.drawString(String(slot + 1), x + 7, y - 5);
 }
 
 // Draw the waypoint a buoy was told to hold: a hollow ring with a cross through it, in that
@@ -3166,7 +3528,7 @@ static void draw_wind_overlay(int cx, int cy) {
     }
 
     if (wind_idx == -1) {
-        draw_map_legend_line(MAP_LEGEND_Y2, "WIND: no data", TFT_DARKGREY);
+        draw_wind_label("---", TFT_DARKGREY);
         return;
     }
 
@@ -3197,14 +3559,15 @@ static void draw_wind_overlay(int cx, int cy) {
     int wing2_y = base_y - (int)(6 * s);
     tft.fillTriangle(tip_x, tip_y, wing1_x, wing1_y, wing2_x, wing2_y, TFT_YELLOW);
 
-    // Max 20 characters at size 2
-    char buf[24];
+    // Right of the N, so 8 characters at size 2. Direction, then the spread when there is one:
+    // "145 -3" is 145 degrees give or take 3, the same pair the compass screen shows as Wnd/Std.
+    char buf[16];
     if (buoys[wind_idx].wind_std != 0) {
-        sprintf(buf, "WIND %03.0f +/-%0.0f", wdir, buoys[wind_idx].wind_std);
+        sprintf(buf, "%03.0f -%0.0f", wdir, buoys[wind_idx].wind_std);
     } else {
-        sprintf(buf, "WIND %03.0f", wdir);
+        sprintf(buf, "%03.0f", wdir);
     }
-    draw_map_legend_line(MAP_LEGEND_Y2, buf, TFT_YELLOW);
+    draw_wind_label(buf, TFT_YELLOW);
 }
 
 // Dynamically draw buoy markers on the radar map screen in real-time
@@ -3212,6 +3575,9 @@ void update_radar_map_dynamic() {
     int w = tft.width();
     int h = tft.height();
     int cx = MAP_CX, cy = MAP_CY, r_max = MAP_R;
+
+    int plot_roles[3];
+    compute_buoy_roles(plot_roles);
 
     // The navigation screens leave a text padding width behind; clear it or every
     // label below paints a wide black bar over the radar grid.
@@ -3273,6 +3639,13 @@ void update_radar_map_dynamic() {
     draw_wind_overlay(cx, cy);
 
     if (valid_count == 0) {
+        // Nothing below this point produces a real length, and a stale one would leave - / + live
+        // over a plot that is either mocked up or empty.
+        track_line_cur_m = -1.0f;
+        track_line_a = -1;
+        track_line_b = -1;
+        track_line_tgt_m = -1.0f;
+
         // Check if any buoy is active/present
         bool any_present = false;
         for (int i = 0; i < 3; i++) {
@@ -3293,7 +3666,8 @@ void update_radar_map_dynamic() {
             // Mock positions: a typical course layout, B1/B2 on the start line, B3 as the upwind HEAD mark
             int mock_offsets_x[3] = {-36, 36, 0};
             int mock_offsets_y[3] = {32, 32, -45};
-            uint16_t buoy_colors[3] = {TFT_GREEN, TFT_ORANGE, TFT_CYAN};
+            uint16_t buoy_colors[3];
+            for (int i = 0; i < 3; i++) buoy_colors[i] = buoy_role_color(i, plot_roles);
 
             int mock_x[3], mock_y[3];
             bool mock_valid[3] = {false, false, false};
@@ -3330,16 +3704,14 @@ void update_radar_map_dynamic() {
             }
             if (ma != -1) {
                 draw_start_line_segment(mock_x[ma], mock_y[ma], mock_x[mb], mock_y[mb]);
-                char legend[24];
-                sprintf(legend, "LINE demo");
-                draw_start_line_legend(legend, TFT_MAGENTA);
+                draw_line_len_label("DEMO", TFT_MAGENTA);
             } else {
-                draw_start_line_legend("LINE: need 2", TFT_DARKGREY);
+                draw_line_len_label("--", TFT_DARKGREY);
             }
 
             for (int i = 0; i < 3; i++) {
                 if (mock_valid[i]) {
-                    draw_buoy_marker(mock_x[i], mock_y[i], buoy_colors[i]);
+                    draw_buoy_marker(mock_x[i], mock_y[i], buoy_colors[i], i);
                 }
             }
             return;
@@ -3351,7 +3723,7 @@ void update_radar_map_dynamic() {
             tft.setTextDatum(MC_DATUM);
             tft.drawString("AWAITING", cx, cy - 12);
             tft.drawString("TELEMETRY", cx, cy + 12);
-            draw_start_line_legend("", TFT_BLACK); // Clear any stale start line legend
+            draw_line_len_label("--", TFT_DARKGREY);
             return;
         }
     }
@@ -3402,8 +3774,12 @@ void update_radar_map_dynamic() {
     sprintf(scale_buf, "EDGE = %0.0fm", scale_range);
     tft.drawString(scale_buf, cx, MAP_HEADER_Y);
 
-    // 3. Convert every valid buoy position into screen pixels
-    uint16_t buoy_colors[3] = {TFT_GREEN, TFT_ORANGE, TFT_CYAN};
+    // 3. Convert every valid buoy position into screen pixels.
+    //    Same colours as the menu buttons: green until the fleet is locked, then starboard green,
+    //    port red, head blue. That costs the plot its old fixed green/orange/cyan per slot, which
+    //    was the only thing telling the dots apart - so draw_buoy_marker() labels them now.
+    uint16_t buoy_colors[3];
+    for (int i = 0; i < 3; i++) buoy_colors[i] = buoy_role_color(i, plot_roles);
 
     int plot_x[3], plot_y[3];
 
@@ -3468,12 +3844,41 @@ void update_radar_map_dynamic() {
         // Line first, so the buoy dots are drawn on top of it
         draw_start_line_segment(plot_x[sl_a], plot_y[sl_a], plot_x[sl_b], plot_y[sl_b]);
 
-        // Max 20 characters at size 2
-        char legend[24];
-        sprintf(legend, "LINE %0.0fm", sl_dist);
-        draw_start_line_legend(legend, TFT_MAGENTA);
+        // The figure left of the N is the length the - / + buttons work on, so it is measured off
+        // the two ends' WAYPOINTS where they have one rather than off the dots plotted above. The
+        // dots wander inside the hold radius; the waypoints do not, and EXECUTE has to be able to
+        // put the line back where it was but longer. The two coincide once the buoys arrive.
+        //
+        // Without both end points there is a line to look at but nothing to reposition, so the
+        // length is still shown and track_line_a/b are left clear - which is what greys out
+        // - / + / EXECUTE rather than letting them fire on a target that cannot be computed.
+        double alat, alon, blat, blon;
+        if (buoy_line_point(buoys[sl_a], alat, alon) && buoy_line_point(buoys[sl_b], blat, blon)) {
+            track_line_cur_m = (float)track_distance_m(alat, alon, blat, blon);
+            track_line_a = sl_a;
+            track_line_b = sl_b;
+        } else {
+            track_line_cur_m = sl_dist;
+            track_line_a = -1;
+            track_line_b = -1;
+            track_line_tgt_m = -1.0f;
+        }
+
+        // A pending change takes over the label until EXECUTE commits it or BACK drops it.
+        char legend[12];
+        if (track_line_tgt_m > 0) {
+            snprintf(legend, sizeof(legend), "%0.0fM", track_line_tgt_m);
+            draw_line_len_label(legend, TFT_ORANGE);
+        } else {
+            snprintf(legend, sizeof(legend), "%0.0fM", track_line_cur_m);
+            draw_line_len_label(legend, TFT_MAGENTA);
+        }
     } else {
-        draw_start_line_legend("LINE: need 2 fixes", TFT_DARKGREY);
+        track_line_cur_m = -1.0f;
+        track_line_a = -1;
+        track_line_b = -1;
+        track_line_tgt_m = -1.0f;
+        draw_line_len_label("--", TFT_DARKGREY);
     }
 
     // 4b. Each buoy's waypoint and the gap to it, under the buoy dots so the live position
@@ -3488,7 +3893,7 @@ void update_radar_map_dynamic() {
     // 5. Plot each valid active buoy on top of the start line
     for (int i = 0; i < 3; i++) {
         if (b_valid[i]) {
-            draw_buoy_marker(plot_x[i], plot_y[i], buoy_colors[i]);
+            draw_buoy_marker(plot_x[i], plot_y[i], buoy_colors[i], i);
         }
     }
 }
