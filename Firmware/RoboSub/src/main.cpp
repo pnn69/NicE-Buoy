@@ -546,9 +546,12 @@ void handleSerandRfdata(RoboStruct *ser)
                     double newOffset = 0;
                     bool success = false;
                     if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500))) {
-                        newOffset = mainData.compassOffset - mainData.dirMag;
-                        while (newOffset < -180.0) newOffset += 360.0;
-                        while (newOffset > 180.0) newOffset -= 360.0;
+                        // Solved through the correction curve rather than assuming the offset
+                        // moves the reported heading one for one - see computeSetAsNorthOffset().
+                        // The old "compassOffset - dirMag" needed three or four presses to creep
+                        // onto north; this lands on it first time.
+                        extern float computeSetAsNorthOffset(void);
+                        newOffset = computeSetAsNorthOffset();
                         mainData.compassOffset = newOffset;
                         ser->compassOffset = newOffset;
                         success = true;

@@ -29,6 +29,8 @@
 
 // Forward declaration of linear interpolation helper
 float getInterpolatedHeading(float h);
+float inverseInterpolatedHeading(float target);
+float computeSetAsNorthOffset(void);
 void computeFourierCoefficients();
 
 extern Preferences storage;
@@ -1026,6 +1028,72 @@ void computeFourierCoefficients() {
 /**
  * @brief Performs 360-degree Fourier 2-harmonic smooth curve correction.
  */
+// Inverse of getInterpolatedHeading(): the pre-correction heading that comes out as `target`.
+//
+// The correction is a fitted Fourier curve, corrected = h + err(h), with err running to tens of
+// degrees on a real hull - so it cannot be inverted in closed form and its slope is nowhere near 1.
+// A coarse 1 degree sweep for the nearest solution, then a 0.01 degree sweep around it: 560 cheap
+// evaluations, run once when a button is pressed. Plenty finer than the compass itself.
+//
+// Deliberately not a fixed-point iteration (h <- target - err(h)): that only converges while
+// |err'| < 1, and the whole reason this function exists is tables where it is not.
+float inverseInterpolatedHeading(float target) {
+    while (target < 0.0f) target += 360.0f;
+    while (target >= 360.0f) target -= 360.0f;
+
+    float best_h = target, best_d = 1e9f;
+    for (int i = 0; i < 360; i++) {
+        float h = (float)i;
+        float d = fabsf(fmodf(getInterpolatedHeading(h) - target + 540.0f, 360.0f) - 180.0f);
+        if (d < best_d) { best_d = d; best_h = h; }
+    }
+    float coarse = best_h;
+    for (int i = -100; i <= 100; i++) {
+        float h = coarse + (float)i * 0.01f;
+        float d = fabsf(fmodf(getInterpolatedHeading(h) - target + 540.0f, 360.0f) - 180.0f);
+        if (d < best_d) { best_d = d; best_h = h; }
+    }
+
+    while (best_h < 0.0f) best_h += 360.0f;
+    while (best_h >= 360.0f) best_h -= 360.0f;
+    return best_h;
+}
+
+// The compassOffset that makes the CURRENT heading read exactly north, in one go.
+//
+// The old sum was compassOffset - dirMag, which assumes the offset moves the reported heading one
+// for one. It does not: the offset is added BEFORE the correction curve (see the output block in
+// the compass task), so a change of x at the input comes out as x * (1 + err') at the output. With
+// a real table that factor is nowhere near 1, which is why Set as North used to need three or four
+// presses to creep onto north instead of landing on it.
+//
+// Solved the other way round instead. The pipeline is
+//     dirMag = interp(sensor + offset) + trim
+// so for dirMag == 0 we need the input to the curve to be interp^-1(-trim), and the offset that
+// puts it there is that value minus the bare sensor reading. Exact in a single press, and it stays
+// exact whether the correction and the trim are switched on or off.
+float computeSetAsNorthOffset(void)
+{
+    float trim = mainData.compass_trim_enabled ? (float)mainData.compass_trim : 0.0f;
+
+    // global_hdg_no_offset is the heading with the offset already added but before the curve, so
+    // backing the offset out again leaves the bare sensor heading.
+    float sensor = global_hdg_no_offset - (float)mainData.compassOffset;
+    while (sensor < 0.0f) sensor += 360.0f;
+    while (sensor >= 360.0f) sensor -= 360.0f;
+
+    float want = -trim;
+    while (want < 0.0f) want += 360.0f;
+    while (want >= 360.0f) want -= 360.0f;
+
+    float target_pre = interp_enabled ? inverseInterpolatedHeading(want) : want;
+
+    float offset = target_pre - sensor;
+    while (offset < -180.0f) offset += 360.0f;
+    while (offset > 180.0f) offset -= 360.0f;
+    return offset;
+}
+
 float getInterpolatedHeading(float h) {
     while (h < 0.0f) h += 360.0f;
     while (h >= 360.0f) h -= 360.0f;

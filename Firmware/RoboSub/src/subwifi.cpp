@@ -786,9 +786,10 @@ void WiFiTask(void *arg) {
         double newOffset = 0;
         bool success = false;
         if(mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500))){
-            newOffset = mainData.compassOffset - global_hdg;
-            while (newOffset < -180.0) newOffset += 360.0;
-            while (newOffset > 180.0) newOffset -= 360.0;
+            // Same exact solve the SET_AS_NORTH command uses, so this page and the handheld
+            // cannot disagree about where north is.
+            extern float computeSetAsNorthOffset(void);
+            newOffset = computeSetAsNorthOffset();
             mainData.compassOffset = newOffset;
             success = true;
             xSemaphoreGive(mainDataMutex);
