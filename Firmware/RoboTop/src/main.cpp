@@ -146,6 +146,23 @@ void setup()
     initloraqueue();
     printf("Initializing Serial communication queue...\r\n");
     initserqueue();
+
+    // Wake the Sub before anything else is asked of it. The Sub may well be asleep when we come
+    // up, and until now nothing here would ever have woken it: the only two WAKEUP triggers are
+    // a status change out of IDLE (handleStatus) and the serial watchdog, and the watchdog is
+    // gated on isSerConnected - which only becomes true once the Sub has actually spoken. A Sub
+    // that was already asleep at boot therefore stayed asleep until somebody pressed the button.
+    //
+    // Queued here rather than at the end of setup() because serOut exists from initserqueue()
+    // above and no task that could put anything else into it has been created yet, so this is
+    // genuinely the first thing SercomTask does once it has brought Serial1 up. It is a local
+    // instruction, not a frame: SercomTask turns it into the physical wake pulse on the shared
+    // TX line (sercom.cpp, case WAKEUP), so it costs nothing if the Sub was awake all along.
+    {
+        RoboStruct wakeupMsg;
+        wakeupMsg.cmd = WAKEUP;
+        xQueueSend(serOut, (void *)&wakeupMsg, 0);
+    }
     printf("Creating task buzzer...\r\n");
     xTaskCreatePinnedToCore(buzzerTask, "buzzTask", 2048, NULL, 1, NULL, 1);
     printf("Creating task led...\r\n");
@@ -528,6 +545,54 @@ static void adoptOwnTrackTarget(RoboStruct *stat, RoboStruct buoyPara[3])
  * @param stat Pointer to the current buoy's RoboStruct.
  * @param buoyPara Array of RoboStructs for all buoys in the system.
  */
+// How many buoys are holding a lock position right now.
+//
+// COMPUTESTART squares the start line through the two ends' LOCK positions, and COMPUTETRACK
+// needs a third for the upwind mark. Run against buoys that are not locked, the arithmetic uses
+// whatever stale tgLat/tgLng they happen to be carrying - a dock position kilometres away, or the
+// leftovers of an earlier course - and the "start line" that comes out has nothing to do with
+// where the fleet is. Slot 0 is us, so it is tested through stat rather than through buoyPara,
+// which is only refreshed when a report comes in.
+//
+// LOCKING counts as locked: the buoy owns a real lock position and is on its way to it. DOCKED
+// and DOCKING deliberately do not - a buoy going home is not part of a course.
+static int lockedBuoyCount(RoboStruct *stat, RoboStruct buoyPara[3])
+{
+    int n = 0;
+    if (stat->status == LOCKED || stat->status == LOCKING) n++;
+    for (int i = 1; i < 3; i++)
+    {
+        if (buoyPara[i].IDs == 0) continue;
+        if (buoyPara[i].status == LOCKED || buoyPara[i].status == LOCKING) n++;
+    }
+    return n;
+}
+
+// Ask our own Sub to report its stored settings. See the call site in the serial handler for
+// why this is on a timer and not only on connect. reason == NULL keeps the periodic tick quiet in
+// the log; a one-off request passes a string so it is traceable.
+#define SUB_SETUP_RESYNC_MS 20000
+static unsigned long lastSubSetupResyncMs = 0;
+
+static void requestSubSetup(const char *reason)
+{
+    lastSubSetupResyncMs = millis();
+
+    RoboStruct req = {};
+    req.cmd = SETUPDATA;
+    req.ack = GET;
+    req.IDr = BUOYIDALL;
+    req.IDs = espMac();
+    if (xQueueSend(serOut, (void *)&req, pdMS_TO_TICKS(100)) != pdTRUE)
+    {
+        printf("ERROR: Failed to queue SETUPDATA request to serOut!\r\n");
+    }
+    else if (reason != NULL)
+    {
+        printf("#Asked the Sub for its setup (%s)\r\n", reason);
+    }
+}
+
 void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
 {
     static int lastStatus = IDLE;
@@ -669,6 +734,18 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         break;
 
     case COMPUTESTART:
+        // Two buoys have to be locked before there is a line to square. Checked before the wind
+        // test because it is the commoner mistake, and because an unlocked buoy's stale target
+        // sends the whole fleet somewhere absurd. This one test covers the web page, the CYD and
+        // the physical button alike - all three arrive here as status = COMPUTESTART.
+        if (lockedBuoyCount(stat, buoyPara) < 2)
+        {
+            printf("#Start line NOT computed - need TWO locked buoys, have %d\r\n",
+                   lockedBuoyCount(stat, buoyPara));
+            beep(-1, buzzer);
+            stat->status = (stat->tgLat != 0.0 && stat->tgLng != 0.0) ? LOCKED : IDLE;
+            break;
+        }
         // The start line is squared against THIS buoy's wind reading, so refuse when we do not
         // have one. A buoy with a failed compass reports wDir/wStd as 0/0, which is
         // indistinguishable from a real due-north calm - computing anyway silently lays the line
@@ -712,6 +789,16 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         }
         break;
     case COMPUTETRACK:
+        // Same lock guard as COMPUTESTART, but a full course needs the third buoy for the upwind
+        // mark - calcTrackPos() bails without it anyway, just later and less clearly.
+        if (lockedBuoyCount(stat, buoyPara) < 3)
+        {
+            printf("#Track NOT computed - need THREE locked buoys, have %d\r\n",
+                   lockedBuoyCount(stat, buoyPara));
+            beep(-1, buzzer);
+            stat->status = (stat->tgLat != 0.0 && stat->tgLng != 0.0) ? LOCKED : IDLE;
+            break;
+        }
         // Same wind guard as COMPUTESTART: the whole track is laid out relative to wDir.
         if (stat->wDir == 0.0 && stat->wStd == 0.0)
         {
@@ -1585,6 +1672,23 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                             memDockApproach(RfOut, MEM_PUT);
                         }
                         
+                        // Never commit an all-zero PID block to the Sub.
+                        //
+                        // We hold these in RAM only, filled from the Sub's SETUPDATA reply. When
+                        // the Sub has not answered - a fresh reboot, or the one-wire serial dead
+                        // in the Top->Sub direction - every field here still reads 0, the web page
+                        // and the CYD show zeros, and pressing SAVE forwarded those zeros with
+                        // ack = SET for the Sub to write over a good calibration. No buoy can run
+                        // on an all-zero rudder AND speed PID, so this cannot reject a real save.
+                        if (RfIn.Kpr == 0.0 && RfIn.Kir == 0.0 && RfIn.Kdr == 0.0 &&
+                            RfIn.Kps == 0.0 && RfIn.Kis == 0.0 && RfIn.Kds == 0.0)
+                        {
+                            printf("#SETUPDATA REFUSED - all-zero PID block, the Sub has not "
+                                   "reported its setup yet. Nothing forwarded.\r\n");
+                            beep(-1, buzzer);
+                            break;
+                        }
+
                         // FORWARD TO SUB: Force the Sub to physically commit these parameters to its local persistent EEPROM/flash.
                         RfIn.ack = SET;
                         if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
@@ -1961,6 +2065,10 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             case SET_AS_NORTH:
                 RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
+                // This one changes compassOffset in the Sub's NVS, so re-read it rather than
+                // waiting up to a resync interval. Queued behind the command, so the Sub has
+                // already applied it by the time it answers.
+                requestSubSetup("after SET_AS_NORTH");
                 break;
             // The Sub has always handled this (its case CALIBRATE_MAGNETIC_COMPASS), and the web
             // page and the CYD both offer it, but nothing here forwarded it - so "Desk
@@ -2127,14 +2235,48 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
         {
             isSerConnected = true;
             printf("Serial connection made to the sub (Serial1). Requesting SETUPDATA...\r\n");
-            RoboStruct req = {};
-            req.cmd = SETUPDATA;
-            req.ack = GET;
-            req.IDr = BUOYIDALL;
-            req.IDs = espMac();
-            if (xQueueSend(serOut, (void *)&req, pdMS_TO_TICKS(100)) != pdTRUE) {
-                printf("ERROR: Failed to queue automated SETUPDATA request to serOut!\r\n");
-            }
+            requestSubSetup("serial link came up");
+        }
+
+        // Re-read the Sub's stored settings periodically, not just once when the link comes up.
+        //
+        // Everything in this struct - the PIDs, the compass offset, the speed limits, the thruster
+        // flags - is OWNED by the Sub. We keep a RAM mirror so /data has something to serve, and
+        // that mirror only ever refreshed when somebody opened a Setup dialog, which is what sends
+        // a SETUPDATA GET. Anything that changed a setting without going through that dialog left
+        // us serving a stale value indefinitely:
+        //
+        //   - SET_AS_NORTH: we forward it and the Sub commits a new compassOffset, but nothing
+        //     here consumes its reply. Measured on the bench: Sub on -43.30, this Top still
+        //     reporting -53.00 minutes later.
+        //   - The Sub's OWN web page. /set_north and /setparam write straight to its NVS and never
+        //     touch this Top at all, so no amount of handling commands on our side can catch them.
+        //   - In-field calibration, MAN CAL, anything else that lands on the Sub directly.
+        //
+        // Re-asking the owner is the only thing that covers all of them, and it is self-healing:
+        // however the value got out of step, the next tick puts it right. One small frame every
+        // SUB_SETUP_RESYNC_MS is nothing next to the telemetry already on this link.
+        //
+        // Safe against the Setup dialog, which waits for the revision counter to go UP before it
+        // populates: an extra bump can only make it open with data that is equally fresh, never
+        // stale, and the dialog fills its fields once rather than tracking /data live, so this
+        // cannot overwrite what an operator is typing.
+        // Only while the Sub is genuinely talking to us. This poll is a convenience - it keeps
+        // /data honest - and it is NOT worth keeping a buoy powered up for.
+        //
+        // The Sub refreshes its own POWEROFFTIME timer on every serial frame it RECEIVES
+        // (RoboSub/src/main.cpp, PwrOff = millis() in handleSerandRfdata), and after 60 minutes
+        // without one it pulls PWRENABLE low and switches itself off to save the battery. An
+        // unconditional poll every 20 s would refresh that timer forever and the buoy would never
+        // sleep again - so a quiet Sub is left strictly alone and allowed to power down.
+        //
+        // Gated on lastRealSerIn rather than isSerConnected: that flag is cleared by the watchdog
+        // and only set again when a frame arrives, so it can sit true for seconds after the Sub
+        // has actually gone.
+        if (isSerConnected && millis() - lastRealSerIn < 5000 &&
+            millis() - lastSubSetupResyncMs > SUB_SETUP_RESYNC_MS)
+        {
+            requestSubSetup(NULL);
         }
 
         // For serial data, we ALWAYS update the local 'ser' (mainData)

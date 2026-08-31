@@ -874,6 +874,19 @@ void WiFiTask(void *arg)
         else if (cmdStr == "ADAPTIVE_TRIM") cmdEnum = ADAPTIVE_TRIM;
         else if (cmdStr == "COMPUTESTART") cmdEnum = COMPUTESTART;
         else if (cmdStr == "COMPUTETRACK") cmdEnum = COMPUTETRACK;
+        else if (cmdStr == "SETLOCKPOS") cmdEnum = SETLOCKPOS;
+
+        // SETLOCKPOS carries a position, and a missing or malformed one parses to 0,0 - which is a
+        // real coordinate off the coast of Africa that the buoy would dutifully set off towards.
+        // Refuse it here rather than let it reach the queues.
+        if (cmdEnum == SETLOCKPOS)
+        {
+            if (server.arg("lat").toDouble() == 0.0 || server.arg("lng").toDouble() == 0.0)
+            {
+                server.send(400, "text/plain", "SETLOCKPOS needs a non-zero lat and lng");
+                return;
+            }
+        }
 
         // printf("Resolved cmdEnum: %d\r\n", cmdEnum);
 
@@ -932,6 +945,12 @@ void WiFiTask(void *arg)
                 } else if (cmdEnum == GPS_FOURIER_CALIBRATE) {
                     msg.gpsCalStillWater = gpsCalStill;
                     msg.ack = INF;
+                } else if (cmdEnum == SETLOCKPOS) {
+                    // handleRfData() case SETLOCKPOS reads exactly these two and then sets LOCKED
+                    // itself, so nothing else here has to be filled in.
+                    msg.tgLat = server.arg("lat").toDouble();
+                    msg.tgLng = server.arg("lng").toDouble();
+                    msg.ack = SET;
                 } else {
                     msg.ack = INF;
                 }
@@ -986,6 +1005,9 @@ void WiFiTask(void *arg)
                 if (server.hasArg("compass_trim")) msg.compass_trim = server.arg("compass_trim").toFloat();
                 if (server.hasArg("compass_trim_enabled")) msg.compass_trim_enabled = (server.arg("compass_trim_enabled").toInt() != 0);
                 msg.ack = SET;
+            } else if (cmdEnum == SETLOCKPOS) {
+                msg.tgLat = server.arg("lat").toDouble();
+                msg.tgLng = server.arg("lng").toDouble();
             }
 
             // A command for another buoy has to leave this buoy over BOTH transports: the target

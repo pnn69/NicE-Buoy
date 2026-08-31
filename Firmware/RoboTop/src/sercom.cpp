@@ -113,6 +113,43 @@ RoboStruct SerchkAckMsg(void)
  */
 #include "udplog.h"
 
+// Physical wakeup pulse for the Sub: drop the UART, hold the shared TX line HIGH for 500 ms, then
+// bring the UART back up. The Sub watches for that level and powers its rails back on. 500 ms is
+// the figure this has always used and it is known good on the hardware.
+//
+// Costs nothing if the Sub was awake all along - it just sees half a second of idle line.
+static void subWakePulse(void)
+{
+    Serial.println("Waking up Sub...");
+    Serial1.end();
+    pinMode(COM_PIN_TX, OUTPUT);
+    digitalWrite(COM_PIN_TX, HIGH);
+    vTaskDelay(pdMS_TO_TICKS(500));
+    digitalWrite(COM_PIN_TX, LOW);
+    Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL);
+}
+
+// --- Waking a sleeping Sub on demand -----------------------------------------------------------
+//
+// The Sub refreshes its own POWEROFFTIME timer on every serial frame it RECEIVES, and after 60
+// minutes without one it pulls PWRENABLE low and switches itself off. Nothing here used to bring it
+// back when we simply wanted to TALK to it: the only triggers were boot, a status change out of
+// IDLE, and the serial watchdog - and the watchdog is gated on isSerConnected AND clears that flag
+// after firing, so it goes off exactly once and then disarms until the Sub speaks. A Sub that is
+// asleep never speaks, so the only way back was the button on the Top.
+//
+// So: pulse it awake when there is actually something to send. On demand rather than on a timer,
+// which is what keeps this from defeating the power saving - no traffic, no wake, and the buoy is
+// left to sleep.
+//
+// Readiness is decided by the Sub's OWN data rather than a fixed settle delay: it streams compass
+// and voltage at a high rate, so the first frame after the pulse is proof it is up and listening.
+// No guessed constant, and it adapts to however long the boot actually takes.
+#define SUB_QUIET_MS          3000   // Silent this long => assume asleep. It normally streams.
+#define SUB_WAKE_SETTLE_MAX   4000   // Give up waiting for its first frame and send anyway
+#define SUB_WAKE_MIN_GAP     15000   // Never pulse more often than this - a Sub that is simply
+                                     // unplugged must not have every outgoing frame stall the task
+
 void SercomTask(void *arg)
 {
     unsigned long lastRx = millis();
@@ -191,21 +228,54 @@ void SercomTask(void *arg)
             }
         }
 
-        // Process any outgoing serial commands destined for the Sub unit
-        if (xQueueReceive(serOut, (void *)&serDataOut, 0) == pdTRUE)
+        // Process any outgoing serial commands destined for the Sub unit.
+        //
+        // A frame that arrives while the Sub looks asleep is HELD here, not sent: the Sub is
+        // pulsed awake and the frame goes out as soon as it starts talking (or after
+        // SUB_WAKE_SETTLE_MAX, best effort). Nothing new is dequeued while one is held, so
+        // outbound telemetry backs up in serOut and the oldest is dropped - which is the right
+        // thing while the Sub is off, because there is nobody to receive it anyway.
+        static RoboStruct subHeldFrame;
+        static bool subWakePending = false;
+        static unsigned long subWakeSentMs = 0;
+        static unsigned long lastWakePulseMs = 0;
+        bool haveFrame = false;
+
+        if (subWakePending)
+        {
+            // Signed subtraction, so this still works across the millis() rollover.
+            bool subSpoke = ((long)(lastRx - subWakeSentMs) > 0);
+            if (subSpoke || millis() - subWakeSentMs > SUB_WAKE_SETTLE_MAX)
+            {
+                if (!subSpoke) Serial.println("Sub did not answer the wakeup - sending anyway");
+                serDataOut = subHeldFrame;
+                subWakePending = false;
+                haveFrame = true;
+            }
+        }
+        else if (xQueueReceive(serOut, (void *)&serDataOut, 0) == pdTRUE)
+        {
+            haveFrame = true;
+        }
+
+        if (haveFrame)
         {
             if (serDataOut.cmd == WAKEUP)
             {
-                // Physical wakeup sequence for the Sub:
-                // Terminates serial UART peripheral, pulls the TX line physically HIGH for 500ms,
-                // and then re-establishes serial communication.
-                Serial.println("Waking up Sub...");
-                Serial1.end();
-                pinMode(COM_PIN_TX, OUTPUT);
-                digitalWrite(COM_PIN_TX, HIGH);
-                vTaskDelay(pdMS_TO_TICKS(500));
-                digitalWrite(COM_PIN_TX, LOW);
-                Serial1.begin(BAUDRATE, SERIAL_8N1, COM_PIN_RX, COM_PIN_TX, LEVEL);
+                // An explicitly queued wakeup - boot, a status change out of IDLE, the watchdog.
+                subWakePulse();
+                lastWakePulseMs = millis();
+            }
+            else if (millis() - lastRx > SUB_QUIET_MS &&
+                     millis() - lastWakePulseMs > SUB_WAKE_MIN_GAP)
+            {
+                // Something to say to a Sub that has gone quiet: wake it first, then hold this
+                // frame until it answers. This is the path that used to need the button.
+                subWakePulse();
+                lastWakePulseMs = millis();
+                subWakeSentMs = millis();
+                subHeldFrame = serDataOut;
+                subWakePending = true;
             }
             else
             {
