@@ -952,6 +952,7 @@ void WiFiTask(void *arg) {
         // heartbeat: while someone is watching the readout the session stays alive, and when the
         // page goes away it expires on its own rather than pinning the buoy powered-on.
         mancalSessionPing();
+        extern bool interp_table_usable;   // see computeFourierCoefficients() in compass.cpp
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");
@@ -1118,6 +1119,12 @@ void WiFiTask(void *arg) {
                       ",\"damp_mag\":" + String(damp_mag, 3) +
                       ",\"damp_att\":" + String(damp_att, 3) +
                       ",\"harmonic_enabled\":" + String(interp_enabled ? 1 : 0) +
+                      // Whether the 8 point table can actually be interpolated. Interpolation
+                      // needs the measured angles to increase all the way round, and one
+                      // mis-aimed direction breaks that. When this is 0 the compass is running
+                      // UNCORRECTED however harmonic_enabled reads, so the pages can say so
+                      // instead of leaving it to the serial log.
+                      ",\"table_ok\":" + String(interp_table_usable ? 1 : 0) +
                       ",\"points\":" + pointsJson + "}";
 
         subServer.send(200, "application/json", json);

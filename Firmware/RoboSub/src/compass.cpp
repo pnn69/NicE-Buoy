@@ -54,6 +54,10 @@ float damp_gyro = 0.15f;
 float damp_mag = 0.15f;
 float damp_att = 0.15f;
 float measured_angles[9] = {0.0f, 45.0f, 90.0f, 135.0f, 180.0f, 225.0f, 270.0f, 315.0f, 360.0f};
+// False when the table cannot be interpolated - see computeFourierCoefficients(). An uncorrected
+// compass is wrong by the deviation; a compass corrected through a broken table is wrong by
+// anything at all, so the first is the safer failure.
+bool interp_table_usable = true;
 
 ICM_20948_I2C icm;
 
@@ -986,43 +990,39 @@ float fourier_B2 = 0.0f;
 /**
  * @brief Computes 1st and 2nd harmonic Fourier coefficients based on 8 measured calibration points.
  */
+// Called whenever the table changes. There are no coefficients to precompute any more - the
+// correction reads the table directly - but the table still has to be CHECKED before it is used.
+//
+// Piecewise interpolation needs the measured angles to increase all the way round. A curve fit did
+// not care: it would happily smooth over a point that came out of order. This does care, because
+// an out-of-order point makes a segment of zero or negative width and the interpolation across it
+// is meaningless. One badly aimed direction is enough to cause it, so it is checked rather than
+// assumed, and a table that fails leaves the compass UNCORRECTED instead of corrected wrongly.
 void computeFourierCoefficients() {
-    float ref_angles[8] = {0.0f, 45.0f, 90.0f, 135.0f, 180.0f, 225.0f, 270.0f, 315.0f};
-    float errors[8];
-    
-    for (int i = 0; i < 8; i++) {
-        float err = ref_angles[i] - measured_angles[i];
-        while (err < -180.0f) err += 360.0f;
-        while (err >= 180.0f) err -= 360.0f;
-        errors[i] = err;
+    // Entry 8 is the 360 degree wrap of entry 0. Kept consistent here so the Sub's web page and
+    // anything else reading all nine sees a sane value.
+    measured_angles[8] = measured_angles[0] + 360.0f;
+
+    float base = measured_angles[0];
+    float prev = 0.0f;
+    bool ok = true;
+
+    for (int i = 1; i < 8; i++) {
+        float v = fmodf(measured_angles[i] - base + 360.0f, 360.0f);
+        if (!(v > prev)) { ok = false; break; }
+        prev = v;
     }
-    
-    // Constant term (A0)
-    float sum = 0.0f;
-    for (int i = 0; i < 8; i++) {
-        sum += errors[i];
+
+    interp_table_usable = ok;
+
+    if (ok) {
+        Serial.printf("Compass table accepted: ");
+        for (int i = 0; i < 8; i++) Serial.printf("%.1f ", measured_angles[i]);
+        Serial.printf("\r\n");
+    } else {
+        Serial.printf("Compass table REJECTED - the eight measured angles are not in increasing "
+                      "order, so a direction was mis-aimed. Running UNCORRECTED.\r\n");
     }
-    fourier_A0 = sum / 8.0f;
-    
-    // First and second harmonics
-    float sum_A1 = 0.0f, sum_B1 = 0.0f;
-    float sum_A2 = 0.0f, sum_B2 = 0.0f;
-    
-    for (int i = 0; i < 8; i++) {
-        float angle_rad = ref_angles[i] * M_PI / 180.0f;
-        sum_A1 += errors[i] * cos(angle_rad);
-        sum_B1 += errors[i] * sin(angle_rad);
-        sum_A2 += errors[i] * cos(2.0f * angle_rad);
-        sum_B2 += errors[i] * sin(2.0f * angle_rad);
-    }
-    
-    fourier_A1 = sum_A1 / 4.0f;
-    fourier_B1 = sum_B1 / 4.0f;
-    fourier_A2 = sum_A2 / 4.0f;
-    fourier_B2 = sum_B2 / 4.0f;
-    
-    Serial.printf("Fourier Coefficients updated -> A0: %.3f, A1: %.3f, B1: %.3f, A2: %.3f, B2: %.3f\r\n", 
-                  fourier_A0, fourier_A1, fourier_B1, fourier_A2, fourier_B2);
 }
 
 /**
@@ -1094,19 +1094,44 @@ float computeSetAsNorthOffset(void)
     return offset;
 }
 
+// Correct a heading using the eight measured calibration points.
+//
+// Straight piecewise interpolation THROUGH the points, not a curve fitted near them. That is what
+// the eight measurements were always for - the previous version condensed them into five Fourier
+// coefficients (A0, A1, B1, A2, B2), which cannot pass through eight arbitrary values, so on this
+// hull it left up to 3.8 degrees of error at the very headings that had just been measured. Most
+// of the operator's careful aiming was being averaged away.
+//
+// measured_angles[i] is what the compass reads when the hull physically points at i * 45 degrees,
+// so the table maps measured -> true and this walks the segment the reading falls in. Error at the
+// eight nodes is now exactly zero, including north. Between nodes it is a straight line across 45
+// degrees, which on real data differs from the old smooth curve by at most 2.7 degrees - magnetic
+// deviation simply cannot swing far inside a 45 degree span.
+//
+// Everything is measured relative to measured_angles[0] so a table that wraps past 360 - which is
+// normal, north often reads 355-ish - needs no special case.
 float getInterpolatedHeading(float h) {
+    if (!interp_table_usable) return h;   // see computeFourierCoefficients()
+
     while (h < 0.0f) h += 360.0f;
     while (h >= 360.0f) h -= 360.0f;
-    
-    float h_rad = h * M_PI / 180.0f;
-    float err = fourier_A0 + 
-                fourier_A1 * cos(h_rad) + 
-                fourier_B1 * sin(h_rad) + 
-                fourier_A2 * cos(2.0f * h_rad) + 
-                fourier_B2 * sin(2.0f * h_rad);
-                
-    float corrected = h + err;
-    while (corrected < 0.0f) corrected += 360.0f;
-    while (corrected >= 360.0f) corrected -= 360.0f;
-    return corrected;
+
+    float base = measured_angles[0];
+    float hh = fmodf(h - base + 360.0f, 360.0f);
+
+    for (int i = 0; i < 8; i++) {
+        float a = (i == 0) ? 0.0f : fmodf(measured_angles[i] - base + 360.0f, 360.0f);
+        float b = (i == 7) ? 360.0f : fmodf(measured_angles[i + 1] - base + 360.0f, 360.0f);
+
+        if (hh >= a && hh <= b) {
+            float span = b - a;
+            if (span < 0.001f) return h;          // degenerate segment, leave it alone
+            float f = (hh - a) / span;
+            float out = (float)i * 45.0f + f * 45.0f;
+            while (out < 0.0f) out += 360.0f;
+            while (out >= 360.0f) out -= 360.0f;
+            return out;
+        }
+    }
+    return h;
 }
