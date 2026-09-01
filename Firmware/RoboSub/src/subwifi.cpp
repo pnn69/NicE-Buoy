@@ -486,6 +486,15 @@ void WiFiTask(void *arg) {
     subServer.on("/set_icm_mode", HTTP_GET, [](){
         if (subServer.hasArg("mode")) {
             icm_mode = subServer.arg("mode").toInt();
+            // Not refused - being able to compare the modes is the whole point of this page. But
+            // say so loudly: the compass table was measured on one of these variants and is being
+            // applied to whichever one is selected now.
+            if (!interpTableModeMatches()) {
+                printf("WARNING: the compass table was measured in filtering mode %d and mode %d is "
+                       "now selected. The correction is being applied to a different heading source "
+                       "than it was measured on - recalibrate, or put the mode back." "\r\n",
+                       interp_table_mode, icm_mode);
+            }
             
             // Write to NVS
             float hi[3] = {hi_x, hi_y, hi_z};
@@ -1134,6 +1143,11 @@ void WiFiTask(void *arg) {
                       // UNCORRECTED however harmonic_enabled reads, so the pages can say so
                       // instead of leaving it to the serial log.
                       ",\"table_ok\":" + String(interp_table_usable ? 1 : 0) +
+                      // Which filtering mode the table was measured in, and whether that is the one
+                      // running. A mismatch means the correction is being applied to a different
+                      // heading source than it was measured on - the table looks perfectly valid.
+                      ",\"table_mode\":" + String(interp_table_mode) +
+                      ",\"mode_match\":" + String(interpTableModeMatches() ? 1 : 0) +
                       // Guided calibration session, so every interface can render the same state
                       // rather than keeping its own idea of how far along the operator is.
                       ",\"cal8_active\":" + String(cal8_active ? 1 : 0) +

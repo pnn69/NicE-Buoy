@@ -32,6 +32,10 @@ void memCompassTrim(float *trim, bool *enabled, bool get);
 void memPrDamping(float *damping, bool get);
 void memDampingFactors(float *acc, float *gyro, float *mag, float *att, bool get);
 void memInterpolationTable(float *angles, bool get);
+
+// The ICM filtering mode the stored table was measured in. See the comment in datastorage.cpp:
+// the mode is the table's input, so a table measured in one mode is meaningless in another.
+void memInterpTableMode(int *mode, bool get);
 void memInterpEnabled(bool *enabled, bool get);
 void memEscNeutral(int *bb, int *sb, bool get);
 

@@ -617,6 +617,32 @@ void memDampingFactors(float *acc, float *gyro, float *mag, float *att, bool get
 /**
  * @brief Reads or writes all 9 interpolation angles to Preferences NVM.
  */
+/**
+ * @brief Reads or writes the ICM filtering mode the interpolation table was measured in.
+ *
+ * The selected mode IS the table's input. measured_angles[i] is what (selected mode + compassOffset)
+ * reads when the hull points at i*45, so switching the mode afterwards feeds the table a different
+ * heading source and every entry lands in the wrong place. On a real hull the modes sit 7 to 26
+ * degrees apart, so this is not a subtlety.
+ *
+ * Nothing used to record it, which made the failure invisible: the table still looked valid, the
+ * usability check still passed, and the compass was simply wrong.
+ */
+void memInterpTableMode(int *mode, bool get)
+{
+    startMem();
+    if (get)
+    {
+        // -1 means "measured before this was recorded", which must not be read as a mismatch.
+        *mode = storage.getInt("meas_ang_mode", -1);
+    }
+    else
+    {
+        storage.putInt("meas_ang_mode", *mode);
+    }
+    stopMem();
+}
+
 void memInterpolationTable(float *angles, bool get)
 {
     startMem();

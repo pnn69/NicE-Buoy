@@ -236,6 +236,9 @@
                 <h1>Compass Correction Table</h1>
                 <div id="table-state" style="margin-top:8px; padding:6px 10px; border-radius:4px;
                      font-weight:bold; background:rgba(0,0,0,0.3); color:#8b949e;">checking...</div>
+                <div id="mode-warning" style="display:none; margin-top:8px; padding:8px 10px;
+                     border-radius:4px; background:rgba(248,81,73,0.15); border:1px solid #f85149;
+                     color:#f85149; font-size:0.85rem; max-width:640px;"></div>
                 <p style="color: var(--text-muted); font-size: 0.9rem;">360-Degree Non-Linear Compass Compensation Table</p>
             </div>
             <a href="/" class="btn btn-outline">&larr; Back to Dashboard</a>
@@ -445,6 +448,26 @@
                     paintLevel(data.pitch, data.roll);
                     paintSession();
                     paintTable();
+
+                    // The filtering mode is the table's INPUT: measured_angles[i] is what the
+                    // selected variant plus the offset reads at i*45. Calibrate in one mode, sail in
+                    // another, and the whole curve lands on the wrong heading source - while the
+                    // table still looks perfectly valid and the usability check still passes.
+                    const mm = document.getElementById('mode-warning');
+                    if (mm) {
+                        if (data.mode_match === 0) {
+                            const names = ['1. Raw Data', '2. Hard Iron', '3. Both Iron Comp', '4. Tilt Compensated', '5. Dynamic 3D Fusion'];
+                            mm.style.display = 'block';
+                            mm.innerHTML = 'This table was measured with filtering <b>'
+                                + (names[data.table_mode] || ('mode ' + data.table_mode))
+                                + '</b> but <b>' + (names[data.icm_mode] || ('mode ' + data.icm_mode))
+                                + '</b> is selected now. The correction is being applied to a '
+                                + 'different heading source than it was measured on - put the mode '
+                                + 'back, or calibrate again.';
+                        } else {
+                            mm.style.display = 'none';
+                        }
+                    }
 
                     const st = document.getElementById('table-state');
                     if (st && data.table_ok !== undefined) {

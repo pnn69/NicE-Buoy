@@ -50,4 +50,10 @@ extern float cal8_captured[8];
 // buoy uncorrected. See the block comment in compass.cpp.
 bool storeInterpolationTable(const float *eight);
 
+// Which filtering mode the stored table was measured in (-1 = not recorded, older calibration), and
+// whether that is the mode running now. A table measured in another mode is applied to a different
+// heading source entirely - see the comment on interp_table_mode in compass.cpp.
+extern int interp_table_mode;
+bool interpTableModeMatches(void);
+
 #endif /* COMPASS_H_ */

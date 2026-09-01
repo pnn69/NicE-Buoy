@@ -54,6 +54,13 @@ float damp_gyro = 0.15f;
 float damp_mag = 0.15f;
 float damp_att = 0.15f;
 float measured_angles[9] = {0.0f, 45.0f, 90.0f, 135.0f, 180.0f, 225.0f, 270.0f, 315.0f, 360.0f};
+// Which ICM filtering mode the stored table was measured in, or -1 if it predates the record.
+// The mode selects which heading variant feeds the pipeline, and the table is indexed by that
+// variant plus compassOffset - so calibrating in one mode and sailing in another silently applies
+// the whole deviation curve to the wrong input. Measured on a real hull, the modes are 1.4 to 26
+// degrees apart depending on tilt, and nothing used to notice.
+int interp_table_mode = -1;
+
 // False when the table cannot be interpolated - see computeFourierCoefficients(). An uncorrected
 // compass is wrong by the deviation; a compass corrected through a broken table is wrong by
 // anything at all, so the first is the safer failure.
@@ -387,6 +394,16 @@ bool InitCompass(void)
 
     // Initialize 8-point linear interpolation table from Preferences NVM
     memInterpolationTable(measured_angles, MEM_GET);
+    // And which filtering mode it was measured in. Without loading this the check would
+    // pass after every reboot on a -1 it never read, which is worse than not having it.
+    memInterpTableMode(&interp_table_mode, MEM_GET);
+    if (!interpTableModeMatches())
+    {
+        Serial.printf("WARNING: the compass table was measured in filtering mode %d but mode "
+                      "%d is selected. The correction is being applied to a different heading "
+                      "source than it was measured on.\r\n",
+                      interp_table_mode, icm_mode);
+    }
     computeFourierCoefficients();
     bool temp_enabled = false;
     memInterpEnabled(&temp_enabled, MEM_GET);
@@ -1089,6 +1106,15 @@ void cal8Lock(bool on)
     }
 }
 
+// Is the table being applied to the heading source it was measured on? -1 means the table predates
+// this record, and an unknown is deliberately NOT reported as a mismatch: condemning every older
+// calibration on no evidence would be worse than the fault this detects.
+bool interpTableModeMatches(void)
+{
+    if (interp_table_mode < 0) return true;
+    return interp_table_mode == icm_mode;
+}
+
 // True when something must not move compassOffset. Self-releasing, so a Top that died mid-run
 // cannot leave this buoy unable to set north ever again.
 bool cal8RefLocked(void)
@@ -1213,6 +1239,10 @@ bool storeInterpolationTable(const float *eight)
     for (int i = 0; i < 8; i++) measured_angles[i] = t[i];
     measured_angles[8] = measured_angles[0] + 360.0f;
     memInterpolationTable(measured_angles, MEM_PUT);
+    // Remember which filtering mode this was measured in. The mode is the table's input - see
+    // memInterpTableMode() - and a table measured in one mode is meaningless in another.
+    interp_table_mode = icm_mode;
+    memInterpTableMode(&interp_table_mode, MEM_PUT);
     computeFourierCoefficients();          // validates the ordering, see there
 
     bool enable = true;

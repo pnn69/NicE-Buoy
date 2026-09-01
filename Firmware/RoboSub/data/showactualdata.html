@@ -548,6 +548,9 @@
                 <svg width="20" height="20" fill="none" stroke="var(--primary)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
                 Active Navigation Filter Selector
             </h2>
+                    <div id="mode-cal-warning" style="display:none; margin-bottom:10px; padding:8px 10px;
+                         border-radius:4px; background:rgba(239,68,68,0.15); border:1px solid #ef4444;
+                         color:#fca5a5; font-size:0.8rem;"></div>
             <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
                 
                 <!-- Mode 0: Raw -->
@@ -917,6 +920,26 @@
                         if (grVal) grVal.innerText = currentRoll.toFixed(1) + '°';
 
                         // Synchronize Active Filter Radio Button with the active mode
+                        // Say it here too, on the page where the mode is actually chosen. The
+                        // compass table was measured on ONE of these variants; selecting another
+                        // applies the whole deviation curve to a different heading source, and
+                        // nothing else on this page would show it.
+                        const mw = document.getElementById('mode-cal-warning');
+                        if (mw) {
+                            if (data.mode_match === 0) {
+                                const names = ['1. Raw Data', '2. Hard Iron', '3. Both Iron Comp', '4. Tilt Compensated', '5. Dynamic 3D Fusion'];
+                                mw.style.display = 'block';
+                                mw.innerHTML = 'The compass correction table was measured with <b>'
+                                    + (names[data.table_mode] || ('mode ' + data.table_mode))
+                                    + '</b>. With <b>' + (names[data.icm_mode] || ('mode ' + data.icm_mode))
+                                    + '</b> selected the table is being applied to a different '
+                                    + 'heading source than it was measured on. Fine for comparing '
+                                    + 'the filters - not fine for sailing.';
+                            } else {
+                                mw.style.display = 'none';
+                            }
+                        }
+
                         if (data.icm_mode !== undefined && (Date.now() - lastModeChangeTime > 2000)) {
                             let radios = document.getElementsByName('icm-mode');
                             for (let r of radios) {
