@@ -317,6 +317,36 @@
                         <div style="background: rgba(0,0,0,0.25); padding: 0.5rem; border-radius: 0.25rem;" id="calc-sz">Sz: 1.000</div>
                     </div>
                 </div>
+
+                <!-- Sweep quality. Point count alone is misleading: 149 samples and 252 samples of
+                     this hull gave the same calibration because neither covered the sphere. These
+                     three say whether the sweep is actually good enough to save. -->
+                <div style="margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 0.75rem;">
+                    <div style="font-weight: bold; color: var(--green); margin-bottom: 0.5rem;">Sweep Quality</div>
+
+                    <div style="display:flex; justify-content:space-between; font-size:0.8rem;">
+                        <span>Points collected</span><span class="data-val" id="q-pts-txt">0</span>
+                    </div>
+                    <div style="background:rgba(0,0,0,0.35); border-radius:3px; height:10px; overflow:hidden; margin:3px 0 8px 0;">
+                        <div id="q-pts-bar" style="height:100%; width:0%; background:#f85149; transition:width .2s,background .2s;"></div>
+                    </div>
+
+                    <div style="display:flex; justify-content:space-between; font-size:0.8rem;">
+                        <span>Sphere coverage</span><span class="data-val" id="q-cov-txt">0 / 26</span>
+                    </div>
+                    <div style="background:rgba(0,0,0,0.35); border-radius:3px; height:10px; overflow:hidden; margin:3px 0 8px 0;">
+                        <div id="q-cov-bar" style="height:100%; width:0%; background:#f85149; transition:width .2s,background .2s;"></div>
+                    </div>
+
+                    <div style="display:flex; justify-content:space-between; font-size:0.8rem;">
+                        <span>Sphere fit error</span><span class="data-val" id="q-fit-txt">-</span>
+                    </div>
+                    <div style="background:rgba(0,0,0,0.35); border-radius:3px; height:10px; overflow:hidden; margin:3px 0 8px 0;">
+                        <div id="q-fit-bar" style="height:100%; width:0%; background:#f85149; transition:width .2s,background .2s;"></div>
+                    </div>
+
+                    <div id="q-verdict" style="font-size:0.85rem; font-weight:bold; text-align:center; padding:4px; border-radius:3px; background:rgba(0,0,0,0.25);">Collect more points</div>
+                </div>
             </div>
         </div>
     </div>
@@ -324,6 +354,77 @@
     <script>
         let isCalibrating = false;
         let points = []; // buffer to store collected {x, y, z}
+        // ---- Sweep quality -------------------------------------------------------------------
+        //
+        // Three things, because the obvious one is the least useful:
+        //   points   how much data there is
+        //   coverage which DIRECTIONS the points came from. Quantised to the 26 face, edge and
+        //            corner directions of a cube around the fitted centre; a sweep that only spins
+        //            the hull flat leaves the top and bottom ones empty and no amount of extra
+        //            samples will fill them.
+        //   fit      how spherical the points are once the correction is applied. This is the one
+        //            that predicts the compass error, and it is the one that does NOT improve by
+        //            collecting more of the same.
+        function updateSweepQuality() {
+            const PTS_TARGET = 150;
+            const pts = points.length;
+
+            const setBar = (bar, txt, pct, colour, label) => {
+                const b = document.getElementById(bar), t = document.getElementById(txt);
+                if (b) { b.style.width = Math.max(0, Math.min(100, pct)) + '%'; b.style.background = colour; }
+                if (t) t.innerText = label;
+            };
+            const RED = '#f85149', AMBER = '#d29922', GREEN = '#3fb950';
+
+            setBar('q-pts-bar', 'q-pts-txt', 100 * pts / PTS_TARGET,
+                   pts >= PTS_TARGET ? GREEN : (pts >= 60 ? AMBER : RED),
+                   pts + ' / ' + PTS_TARGET);
+
+            if (pts < 10) {
+                setBar('q-cov-bar', 'q-cov-txt', 0, RED, '0 / 26');
+                setBar('q-fit-bar', 'q-fit-txt', 0, RED, '-');
+                const v = document.getElementById('q-verdict');
+                if (v) { v.innerText = 'Collect more points'; v.style.color = RED; }
+                return;
+            }
+
+            const cx = (minMax.maxX + minMax.minX) / 2;
+            const cy = (minMax.maxY + minMax.minY) / 2;
+            const cz = (minMax.maxZ + minMax.minZ) / 2;
+            const rx = (minMax.maxX - minMax.minX) / 2;
+            const ry = (minMax.maxY - minMax.minY) / 2;
+            const rz = (minMax.maxZ - minMax.minZ) / 2;
+            const avg = (rx + ry + rz) / 3;
+            const sx = rx > 0 ? avg / rx : 1, sy = ry > 0 ? avg / ry : 1, sz = rz > 0 ? avg / rz : 1;
+
+            const cells = new Set();
+            let radii = [];
+            points.forEach(p => {
+                const dx = p.x - cx, dy = p.y - cy, dz = p.z - cz;
+                const n = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                if (n > 1e-6) cells.add([Math.round(dx / n), Math.round(dy / n), Math.round(dz / n)].join(','));
+                radii.push(Math.sqrt((dx * sx) ** 2 + (dy * sy) ** 2 + (dz * sz) ** 2));
+            });
+
+            const cov = cells.size;
+            setBar('q-cov-bar', 'q-cov-txt', 100 * cov / 26,
+                   cov >= 24 ? GREEN : (cov >= 22 ? AMBER : RED), cov + ' / 26');
+
+            const mean = radii.reduce((a, b) => a + b, 0) / radii.length;
+            const err = 100 * Math.max(...radii.map(r => Math.abs(r - mean))) / mean;
+            // 12% or worse is a bar full of red; 0% is a full green bar.
+            setBar('q-fit-bar', 'q-fit-txt', 100 * (1 - Math.min(err, 12) / 12),
+                   err < 4 ? GREEN : (err < 6 ? AMBER : RED), err.toFixed(1) + '%');
+
+            const v = document.getElementById('q-verdict');
+            if (v) {
+                if (pts >= 60 && cov >= 24 && err < 4) { v.innerText = 'Good - safe to save'; v.style.color = GREEN; }
+                else if (pts >= 60 && cov >= 22 && err < 6) { v.innerText = 'Usable - more tumbling would help'; v.style.color = AMBER; }
+                else if (cov < 22) { v.innerText = 'Tumble the hull - ' + (26 - cov) + ' directions still unvisited'; v.style.color = RED; }
+                else { v.innerText = 'Fit error too high - check for steel nearby'; v.style.color = RED; }
+            }
+        }
+
         let pollInterval = null;
 
         // Min/Max trackers
@@ -429,6 +530,8 @@
             labelMaxY.innerText = `${minMax.maxY.toFixed(1)} µT`;
             labelMinZ.innerText = `${minMax.minZ.toFixed(1)} µT`;
             labelMaxZ.innerText = `${minMax.maxZ.toFixed(1)} µT`;
+
+            updateSweepQuality();
 
             // Calculate estimated hard-iron on-the-fly
             const vx = (minMax.maxX + minMax.minX) / 2;

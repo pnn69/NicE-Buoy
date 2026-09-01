@@ -451,9 +451,22 @@ void WiFiTask(void *arg) {
             extern bool global_is_calibrating;
             global_is_calibrating = false;
 
-            // Success beep sequence!
+            // beep(-1) used to live here, which is the FAILURE tone - the same one played when a
+            // start line cannot be computed. The comment claimed success while the buzzer said the
+            // opposite. Ascending C major arpeggio instead, the same one a finished gyro
+            // calibration plays, so a good save actually sounds like one.
             if (buzzer != NULL) {
-                beep(-1, buzzer);
+                int notes[]     = {523, 659, 784, 1047};   // C5 E5 G5 C6
+                int durations[] = {120, 120, 120, 350};
+                int pauses[]    = {40,  40,  40,  200};
+                for (int i = 0; i < 4; i++) {
+                    Buzz note;
+                    note.hz = notes[i];
+                    note.duration = durations[i];
+                    note.pause = pauses[i];
+                    note.repeat = 0;
+                    xQueueSend(buzzer, (void *)&note, 0);
+                }
             }
 
             subServer.send(200, "text/plain", "OK");
