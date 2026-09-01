@@ -549,6 +549,34 @@ void WiFiTask(void *arg) {
     // time, straight into RAM, with no north rule and no ordering check, and a later save committed
     // whatever was left there. That is the free-order editing the guided run replaced - see
     // storeInterpolationTable() in compass.cpp, which is now the only way a table is written.
+    // ---- Guided eight point calibration -----------------------------------------------------
+    // Thin wrappers. Every rule lives in compass.cpp so the Sub's pages, the Top's page, the CYD
+    // dashboard and the CYD touchscreen cannot drift apart on them.
+    //
+    // These were deleted by accident when the per-entry editors above were removed - they sat in
+    // the same block - and the Sub answered 404 on every one of them until a live check caught it.
+    subServer.on("/cal8_begin", HTTP_GET, [](){
+        cal8Begin();
+        subServer.send(200, "text/plain", "OK");
+    });
+    subServer.on("/cal8_set", HTTP_GET, [](){
+        // No leg argument from this page: it talks straight to the buoy with no lossy hop, so there
+        // is no retry to guard against. See cal8Set().
+        int idx = cal8Set();
+        if (idx < 0) { subServer.send(409, "text/plain", "no session, or all eight already captured"); return; }
+        char buf[48];
+        snprintf(buf, sizeof(buf), "OK %d %.2f", idx, cal8_captured[idx]);
+        subServer.send(200, "text/plain", buf);
+    });
+    subServer.on("/cal8_save", HTTP_GET, [](){
+        if (!cal8Save()) { subServer.send(409, "text/plain", "not all eight directions captured"); return; }
+        subServer.send(200, "text/plain", "OK");
+    });
+    subServer.on("/cal8_cancel", HTTP_GET, [](){
+        cal8Cancel();
+        subServer.send(200, "text/plain", "OK");
+    });
+
     // Commit whatever table is in RAM, through the one door - which forces north to zero and
     // folds the rotation into compassOffset. It used to write NVS directly and skip both.
     subServer.on("/save_harmonic", HTTP_GET, [](){
@@ -750,6 +778,14 @@ void WiFiTask(void *arg) {
         }
     });
     subServer.on("/set_north", HTTP_GET, [](){
+        // Refused while a calibration run holds the heading reference - see cal8Lock(). This is the
+        // one path that does not go through the Top, so without the check here a press on this page
+        // could rotate the deviation curve under a GPS run halfway through its legs.
+        if (cal8RefLocked()) {
+            subServer.send(409, "text/plain",
+                           "a calibration is in progress - it sets north itself when it commits");
+            return;
+        }
         double newOffset = 0;
         bool success = false;
         if(mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500))){

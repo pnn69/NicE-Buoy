@@ -182,7 +182,14 @@ typedef enum
     CAL8_BEGIN = 0,
     CAL8_SET,
     CAL8_SAVE,
-    CAL8_CANCEL
+    CAL8_CANCEL,
+    // Claim and release the buoy's heading reference, for a calibration run that is NOT the guided
+    // one - specifically the GPS Fourier run, which lives on the Top and sails eight 100 m legs.
+    // While the claim is held the Sub refuses to move compassOffset, because the offset is the very
+    // domain the table is indexed by: shifting it mid-run silently puts the legs measured before
+    // the shift and the legs measured after it in different frames. See cal8Lock().
+    CAL8_LOCK,
+    CAL8_UNLOCK
 } cal8_action_t;
 
 // Smallest holding radius the buoy will accept, metres. Below this the station-keeping zones in

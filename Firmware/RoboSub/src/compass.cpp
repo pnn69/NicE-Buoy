@@ -1050,6 +1050,59 @@ void computeFourierCoefficients() {
 // but before the table and before the trim, which is the value the table is indexed by. Nothing on
 // the buoy has to be switched off to read it, so the correction and the trim can stay exactly as
 // they are for the whole procedure.
+// ---- the heading reference lock ---------------------------------------------------------------
+//
+// compassOffset is not just a display trim: it is the domain the correction table is indexed by.
+// measured_angles[i] is what (sensor + compassOffset) reads when the hull points at i*45, so moving
+// the offset by x rotates the whole deviation curve by x relative to the hull.
+//
+// Between calibrations that is exactly what Set as North should do - one measurement can only
+// support "my reference direction has moved", and rotating the curve with it is the right
+// inference. DURING a run it is silent corruption:
+//
+//   - the guided run stores each capture as (Imag_i - Imag_north). Move the offset after north has
+//     been captured and every later capture is out by the shift, because the two terms were read in
+//     different frames.
+//   - the GPS run reads the table in effect at the start and applies its measured residuals at the
+//     end. Move the offset in between and the legs sailed before and after disagree.
+//
+// So a run claims the reference for its duration. The guided run claims it itself; the GPS run,
+// which lives on the Top, claims it with CAL8_LOCK. The timeout is the backstop for a Top that
+// dies mid-run - a buoy left permanently unable to set its own north would be a worse fault than
+// the one this prevents.
+bool cal8_ref_locked = false;
+static unsigned long cal8_ref_locked_at = 0;
+#define CAL8_LOCK_TIMEOUT_MS (45UL * 60UL * 1000UL)   // a GPS run is around 30 minutes
+
+void cal8Lock(bool on)
+{
+    if (on)
+    {
+        cal8_ref_locked = true;
+        cal8_ref_locked_at = millis();
+        Serial.println("Calibration in progress: the heading reference is locked");
+    }
+    else if (cal8_ref_locked)
+    {
+        cal8_ref_locked = false;
+        Serial.println("Heading reference released");
+    }
+}
+
+// True when something must not move compassOffset. Self-releasing, so a Top that died mid-run
+// cannot leave this buoy unable to set north ever again.
+bool cal8RefLocked(void)
+{
+    if (!cal8_ref_locked) return false;
+    if (millis() - cal8_ref_locked_at > CAL8_LOCK_TIMEOUT_MS)
+    {
+        cal8_ref_locked = false;
+        Serial.println("Heading reference lock timed out - releasing it");
+        return false;
+    }
+    return true;
+}
+
 bool cal8_active = false;
 int cal8_next = 0;                 // which direction is being asked for, 0..7
 float cal8_imag_north = 0.0f;      // Imag when north was captured; the whole session hangs off this
@@ -1057,6 +1110,7 @@ float cal8_captured[8] = {0};
 
 void cal8Begin(void)
 {
+    cal8Lock(true);   // nothing may move the offset until this run commits or is thrown away
     cal8_active = true;
     cal8_next = 0;
     cal8_imag_north = 0.0f;
@@ -1066,6 +1120,7 @@ void cal8Begin(void)
 
 void cal8Cancel(void)
 {
+    cal8Lock(false);
     cal8_active = false;
     // Back to nothing, not "finished at step 8". A closed session that still reports a step makes
     // every screen watching it show a run that is not there.
@@ -1192,6 +1247,7 @@ bool cal8Save(void)
     // means the guided run and the GPS run cannot end up with different rules again.
     bool usable = storeInterpolationTable(cal8_captured);
 
+    cal8Lock(false);   // the run has committed; north may be set by hand again
     cal8_active = false;
 
     Serial.printf("8 point calibration SAVED: offset %.2f, usable=%d\r\n",

@@ -33,6 +33,13 @@ void cal8Cancel(void);
 int  cal8Set(int expect_leg = -1);
 bool cal8Save(void);         // commits offset and table together, or nothing
 extern bool cal8_active;
+
+// The heading reference lock. A calibration run in progress claims it, and while it is held nothing
+// may move compassOffset - that offset is the domain the correction table is indexed by, so moving
+// it mid-run puts the measurements taken before and after in different frames. See compass.cpp.
+void cal8Lock(bool on);
+bool cal8RefLocked(void);
+extern bool cal8_ref_locked;
 extern int cal8_next;        // 0..7 while running, 8 when every direction is captured
 extern float cal8_captured[8];
 

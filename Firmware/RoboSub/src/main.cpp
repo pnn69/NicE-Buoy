@@ -527,6 +527,12 @@ void handleSerandRfdata(RoboStruct *ser)
                 printf("STORE_DECLINATION ignored - declination is retired, use the compass offset\r\n");
                 break;
             case STORE_COMPASS_OFFSET:
+                // Same reason as SET_AS_NORTH: this is the table's own domain, not a display trim.
+                if (cal8RefLocked())
+                {
+                    printf("STORE_COMPASS_OFFSET refused: a calibration is in progress\r\n");
+                    break;
+                }
                 CompassOffsetCorrection(&dataIn.compassOffset, false);
                 ser->compassOffset = dataIn.compassOffset; // Update running config
                 mainData.compassOffset = dataIn.compassOffset; // Ensure compassTask uses the new offset immediately!
@@ -543,6 +549,20 @@ void handleSerandRfdata(RoboStruct *ser)
                 break;
             case SET_AS_NORTH:
                 {
+                    // Not while a calibration is running. Set as North moves compassOffset, which is
+                    // the domain the table is indexed by, so it rotates the whole deviation curve -
+                    // and a run measuring against that curve would end up combining readings from
+                    // before and after the rotation. Nor is it needed around a run: the guided run's
+                    // first step and the GPS run's north leg both set north themselves, at commit
+                    // time, from a measurement rather than from an eyeball.
+                    if (cal8RefLocked())
+                    {
+                        printf("SET_AS_NORTH refused: a calibration is in progress and it sets north "
+                               "itself when it commits\r\n");
+                        extern QueueHandle_t buzzer;
+                        if (buzzer != NULL) beep(-1, buzzer);
+                        break;
+                    }
                     double newOffset = 0;
                     bool success = false;
                     if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500))) {
@@ -694,7 +714,20 @@ void handleSerandRfdata(RoboStruct *ser)
                     thrusterSwap(ser, MEM_GET);
                     thrusterInversion(ser, MEM_GET);
                     computeParameters(ser, MEM_GET);
-                    mainData.compassOffset = ser->compassOffset; // Ensure compassTask uses the new offset immediately!
+                    // A setup save carries compassOffset with it, so an unrelated Save from any page
+                    // would move the table's domain mid-run just as surely as Set as North. Keep
+                    // what the run is working against; the rest of the frame still applies.
+                    if (cal8RefLocked())
+                    {
+                        printf("SETUPDATA: keeping the running compass offset %.2f, a calibration is "
+                               "in progress\r\n", mainData.compassOffset);
+                        ser->compassOffset = mainData.compassOffset;
+                        CompasOffset(&mainData, MEM_PUT);
+                    }
+                    else
+                    {
+                        mainData.compassOffset = ser->compassOffset; // compassTask uses it at once
+                    }
 
                     // The Setup page's "Active Trim Enabled" tick box travels in THIS frame
                     // (SETUPDATA field 16, see RoboCode()), not in ADAPTIVE_TRIM. Until now only
@@ -752,10 +785,23 @@ void handleSerandRfdata(RoboStruct *ser)
                         {
                         case CAL8_BEGIN:
                             cal8Begin();
-                            // A calibration is starting: hold PWRENABLE and park the serial
-                            // watchdog, exactly as the Sub's own page does. Without this the buoy
-                            // can shut down halfway through a run driven from the CYD.
-                            mancalHoldArm();
+                            // Hold PWRENABLE and park the serial watchdog, exactly as the Sub's own
+                            // page does, or the buoy can shut down halfway through a run driven from
+                            // the CYD. mancalSessionBegin() is the call that does that -
+                            // mancalHoldArm() was written here by mistake and only arms the "put the
+                            // correction back on" safety net, which does nothing now that nothing
+                            // switches the correction off.
+                            mancalSessionBegin();
+                            break;
+                        case CAL8_LOCK:
+                            // A calibration run elsewhere - the GPS Fourier run on the Top - taking
+                            // this buoy's heading reference for its duration.
+                            cal8Lock(true);
+                            mancalSessionBegin();
+                            break;
+                        case CAL8_UNLOCK:
+                            cal8Lock(false);
+                            mancalSessionEnd();
                             break;
                         case CAL8_SET:
                             // The leg the sender meant. A press that crossed with an earlier copy of
@@ -763,15 +809,15 @@ void handleSerandRfdata(RoboStruct *ser)
                             // the next one - see cal8Set().
                             if (cal8Set(dataIn.cal8Next) < 0)
                                 printf("CAL8: set ignored - wrong leg, no session, or all eight captured\r\n");
-                            mancalHoldArm();   // refresh the hold, the operator is still working
+                            mancalSessionPing();   // the operator is still working
                             break;
                         case CAL8_SAVE:
-                            if (cal8Save()) mancalHoldDisarm();
+                            if (cal8Save()) mancalSessionEnd();
                             else printf("CAL8: save refused - not all eight captured\r\n");
                             break;
                         case CAL8_CANCEL:
                             cal8Cancel();
-                            mancalHoldDisarm();
+                            mancalSessionEnd();
                             break;
                         default:
                             printf("CAL8: unknown action %d\r\n", dataIn.cal8Action);

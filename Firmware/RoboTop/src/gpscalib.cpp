@@ -253,9 +253,31 @@ static void sendLegCommand(RoboStruct *cal, int heading)
 /**
  * @brief Cuts the thrusters and drops out of the calibration.
  */
+// Claim or release the Sub's heading reference for the duration of a run.
+//
+// compassOffset is the domain the correction table is indexed by, so anything that moves it - Set
+// as North, a setup Save, a stored offset - rotates the deviation curve relative to the hull. Do
+// that between two of these legs and the ones sailed before disagree with the ones sailed after,
+// silently. While the claim is held the Sub refuses to move it. Nothing is lost by refusing: this
+// run works out north for itself from the north leg and applies it at the end, together with the
+// table - and it measures it over 100 m against GPS rather than by eye.
+static void gpsCalibRefLock(RoboStruct *cal, bool on)
+{
+    RoboStruct msg = {};
+    msg.IDs = cal->mac;
+    msg.IDr = BUOYIDALL;
+    msg.cmd = CAL8_SESSION;
+    msg.ack = SET;
+    msg.cal8Action = on ? CAL8_LOCK : CAL8_UNLOCK;
+    msg.cal8Next = 0;
+    xQueueSend(serOut, (void *)&msg, 10);
+    printf("#GPSFOURIER: heading reference %s\r\n", on ? "LOCKED" : "released");
+}
+
 static void abortRun(RoboStruct *cal, const char *reason, gpscal_abort_t why)
 {
     printf("#GPSFOURIER: ABORTED - %s\r\n", reason);
+    gpsCalibRefLock(cal, false);
     udpLog("GPSCAL ABORTED (%d) %s", (int)why, reason);
     // Put the reason on the wire, not just in progressMsg. progressMsg only ever reached the
     // Top's own web page; over LoRa the CYD could see THAT a run aborted but never why.
@@ -536,6 +558,8 @@ void handleGpsFourierCalibration(RoboStruct *cal)
                                                        : "PAIR AVERAGED (current tolerant)");
         beep(1, buzzer);
 
+        // Claimed before the first leg, released when the table is stored or the run aborts.
+        gpsCalibRefLock(cal, true);
         requestTable(cal);
         step = GC_FETCH_TABLE;
         stepStart = millis();
@@ -837,6 +861,9 @@ void handleGpsFourierCalibration(RoboStruct *cal)
     case GC_GO_HOME:
     {
         printf("#GPSFOURIER: ================ COMPLETE ================\r\n");
+        // The table is stored by now, and storing it is what set north - see the north leg note in
+        // computeCorrections(). So the reference goes back to the operator.
+        gpsCalibRefLock(cal, false);
         for (int i = 0; i < 8; i++)
         {
             printf("#GPSFOURIER: leg %d CMD=%3d\xC2\xB0 DIST=%5.1fm GPS=%5.1f\xC2\xB0 ERR=%+5.1f\xC2\xB0\r\n",
