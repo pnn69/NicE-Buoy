@@ -1683,10 +1683,33 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                         if (RfIn.Kpr == 0.0 && RfIn.Kir == 0.0 && RfIn.Kdr == 0.0 &&
                             RfIn.Kps == 0.0 && RfIn.Kis == 0.0 && RfIn.Kds == 0.0)
                         {
-                            printf("#SETUPDATA REFUSED - all-zero PID block, the Sub has not "
-                                   "reported its setup yet. Nothing forwarded.\r\n");
-                            beep(-1, buzzer);
-                            break;
+                            // Dropping the whole frame was too blunt. The harmonic correction
+                            // switch travels in THIS frame, so a sender with a stale cache could
+                            // not turn it off - and MAN CAL, which must have it off before it
+                            // captures anything, would calibrate against a corrected compass.
+                            //
+                            // Patch the PIDs from our own mirror instead and let the rest through:
+                            // the flags still take effect and nothing good is overwritten. Only
+                            // when we have no good values either is there nothing to do but refuse.
+                            if (RfOut->Kpr != 0.0 || RfOut->Kir != 0.0 || RfOut->Kdr != 0.0 ||
+                                RfOut->Kps != 0.0 || RfOut->Kis != 0.0 || RfOut->Kds != 0.0)
+                            {
+                                printf("#SETUPDATA: all-zero PID block from a stale sender - "
+                                       "substituting ours and forwarding the rest\r\n");
+                                RfIn.Kpr = RfOut->Kpr; RfIn.Kir = RfOut->Kir; RfIn.Kdr = RfOut->Kdr;
+                                RfIn.Kps = RfOut->Kps; RfIn.Kis = RfOut->Kis; RfIn.Kds = RfOut->Kds;
+                                if (RfIn.maxSpeed == 0 && RfIn.minSpeed == 0) {
+                                    RfIn.maxSpeed = RfOut->maxSpeed;
+                                    RfIn.minSpeed = RfOut->minSpeed;
+                                }
+                            }
+                            else
+                            {
+                                printf("#SETUPDATA REFUSED - all-zero PID block and no known good "
+                                       "values here either. Nothing forwarded.\r\n");
+                                beep(-1, buzzer);
+                                break;
+                            }
                         }
 
                         // FORWARD TO SUB: Force the Sub to physically commit these parameters to its local persistent EEPROM/flash.

@@ -48,6 +48,19 @@ int mancal_query_tries = 0;
 // to wait for the table to arrive: the Sub reports the table that is IN EFFECT, so once the
 // correction is off it answers with the identity table and every offset would read 0.
 bool mancal_harmonic_pending = false;
+// Stamped by parse_buoy_packet() whenever the buoy sends its interpolation table. SAVE sends the
+// table and then waits for this to move, which is the only honest way to tell the operator the
+// store actually reached the buoy rather than just leaving the CYD.
+volatile unsigned long mancal_table_echo_ms = 0;
+// True from asking the buoy to switch its harmonic correction off until the buoy's own telemetry
+// confirms it really is off. The 8 point table is defined against the RAW compass, so a capture
+// taken while the correction is still running is silently wrong - it produces a table that gets
+// applied on top of the one already in effect.
+bool mancal_await_harmonic_off = false;
+unsigned long mancal_harmonic_off_next_ms = 0;
+int mancal_harmonic_off_tries = 0;
+#define MANCAL_HARMONIC_RETRY_MS 1500
+#define MANCAL_HARMONIC_MAX_TRIES 6
 // This screen switches the harmonic correction off so the dialing works against the raw compass,
 // and it must be ON again by the time the screen is left - by EITHER exit. A buoy left with it off
 // answers every later table request with the identity table, so the corrections still in NVS become
@@ -1254,6 +1267,85 @@ static void track_settings_compute(int cmd_code) {
     track_line_tgt_m = -1.0f;
 
     delay(800);
+    last_transition_ms = millis();
+    reset_button_draw_cache();
+    draw_resting_ui();
+}
+
+// Commit the eight captured directions to the buoy and leave the screen.
+//
+// Reached from two places now - the small SAVE in the footer while the table is still being built,
+// and the big SAVE NEW FOURIER TABLE that takes over the bottom of the screen once all eight are
+// in. One body, so the two cannot drift apart.
+static void mancal_save_table_and_exit(int buoy_index) {
+    BuoyData &b = buoys[buoy_index];
+    const int selected_buoy_idx = buoy_index;   // the body below was written against this name
+    // Locked until every direction has been visited - see the button drawing.
+    if (!mancal_all_legs_visited()) {
+        tft.fillRect(0, 180, tft.width(), 26, TFT_BLACK);
+        tft.setTextDatum(MC_DATUM);
+        tft.setTextSize(2);
+        tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+        char warn_buf[32];
+        sprintf(warn_buf, "%d OF 8 DONE", mancal_visited_count());
+        tft.drawString(warn_buf, tft.width() / 2, 193);
+        delay(900);
+        mancal_is_dirty = true;
+        delay(20);
+        return;
+    }
+
+    // Commit the eight entries, then WAIT for the buoy to echo the table
+    // back. The Sub answers every store with the table it now holds, so that
+    // echo is proof it reached NVS - and it beeps at the same moment. This
+    // used to print CALIBRATION COMPLETE unconditionally, which said exactly
+    // as much whether the buoy had heard it or not.
+    tft.fillRect(0, 195, tft.width(), 100, TFT_BLACK);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextSize(2);
+    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+    tft.drawString("SAVING...", tft.width() / 2, 230);
+
+    mancal_table_echo_ms = 0;
+    send_mancal_table_to_sub(selected_buoy_idx);
+
+    unsigned long wait_until = millis() + 4000;
+    while (mancal_table_echo_ms == 0 && (long)(millis() - wait_until) < 0) {
+        handle_wifi_clients();
+        check_lora_packets();
+        delay(20);
+    }
+    bool stored = (mancal_table_echo_ms != 0);
+    
+    // Put the correction and the trim back, whichever way this went.
+    b.harmonic_enabled = true;
+    b.compass_trim_enabled = true;
+    send_buoy_setup(selected_buoy_idx);
+    mancal_await_harmonic_off = false;
+    
+    // Send IDLE command immediately to shut down thrusters/motors after calibration!
+    send_buoy_command(b.id, 8);
+    
+    tft.fillRect(0, 195, tft.width(), 100, TFT_BLACK);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextSize(2);
+    if (stored) {
+        tft.setTextColor(TFT_GREEN, TFT_BLACK);
+        tft.drawString("TABLE STORED", tft.width() / 2, 225);
+        tft.setTextSize(1);
+        tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+        tft.drawString("buoy confirmed and beeped", tft.width() / 2, 248);
+    } else {
+        tft.setTextColor(TFT_RED, TFT_BLACK);
+        tft.drawString("NO REPLY", tft.width() / 2, 225);
+        tft.setTextSize(1);
+        tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+        tft.drawString("NOT saved - try again", tft.width() / 2, 248);
+    }
+    delay(stored ? 1200 : 2500);
+    
+    in_man_fourier_cal_mode = false;
+    in_setup_mode = true;
     last_transition_ms = millis();
     reset_button_draw_cache();
     draw_resting_ui();
@@ -2480,6 +2572,15 @@ void loop() {
                             return;
                         }
 
+                        if (mancal_await_harmonic_off || b.harmonic_reported) {
+                            // mag_dir is still a CORRECTED heading. Capturing it writes a table on
+                            // top of the correction already running, and the buoy then applies
+                            // both - the exact fault that silently ruined a full calibration.
+                            mancal_warn("WAIT - CORRECTION ON");
+                            delay(20);
+                            return;
+                        }
+
                         // Press feedback: the value it changes is 30 pixels away and the confirm
                         // banner takes a moment.
                         tft.fillRoundRect(100, 215, 40, 35, 5, TFT_WHITE);
@@ -2567,6 +2668,11 @@ void loop() {
                     // snappy; the table row under the rose has to follow the same value.
                     draw_mancal_offset_strip();
                 }
+                // 3a. SAVE NEW FOURIER TABLE - drawn over the North/hint band once all eight
+                //     directions are in, so it has to be tested before that row.
+                else if (mancal_all_legs_visited() && touchY >= 256 && touchY <= 294) {
+                    mancal_save_table_and_exit(selected_buoy_idx);
+                }
                 // 3. Thruster switch / North Button Row (Generous Y: 256 to 299, no gaps!)
                 else if (touchY >= 256 && touchY <= 299) {
                     BuoyData &b = buoys[selected_buoy_idx];
@@ -2636,6 +2742,15 @@ void loop() {
                         // reached: RoboSub/src/main.cpp:25 defines SET_AS_NORTH as the macro 125
                         // AFTER including RoboCompute.h, where the enumerator is 87, so the Sub
                         // listens on a number no node on this network ever sends.
+                        if (mancal_await_harmonic_off || b.harmonic_reported) {
+                            // mag_dir is still a CORRECTED heading. Capturing it writes a table on
+                            // top of the correction already running, and the buoy then applies
+                            // both - the exact fault that silently ruined a full calibration.
+                            mancal_warn("WAIT - CORRECTION ON");
+                            delay(20);
+                            return;
+                        }
+
                         float captured_north = b.mag_dir;
                         float north_err = 0.0f - captured_north;
                         while (north_err < -180.0f) north_err += 360.0f;
@@ -2676,17 +2791,21 @@ void loop() {
                     }
                 }
                 // 4. Footer Buttons (Y: 300 to 320)
+                //    With all eight captured the footer is one full-width CANCEL, so the old
+                //    X 10..115 half-width test would leave the right half dead. Same handler.
                 else if (touchY >= 300 && touchY <= 320) {
                     BuoyData &b = buoys[selected_buoy_idx];
-                    // BACK / CANCEL (X: 10 to 115)
-                    if (touchX >= 10 && touchX <= 115) {
+                    // BACK / CANCEL (X: 10 to 115, or the whole row once SAVE has taken the band above)
+                    if (touchX >= 10 && (touchX <= 115 || mancal_all_legs_visited())) {
                         // Leave with the harmonic correction ON. Entering this screen switches
                         // it off so the dialing works on the raw compass; walking away and leaving
                         // it off makes every later visit read the identity table, so the
                         // corrections still in NVS become invisible.
                         b.harmonic_enabled = true;
+                        b.compass_trim_enabled = true;   // switched off on entry, see above
                         send_buoy_setup(selected_buoy_idx);
                         mancal_harmonic_pending = false;
+                        mancal_await_harmonic_off = false;
                         delay(150);
 
                         // Send IDLE command immediately to shut down thrusters/motors!
@@ -2700,45 +2819,8 @@ void loop() {
                     }
                     // SAVE ALL & EXIT (X: 125 to 230)
                     else if (touchX >= 125 && touchX <= 230) {
-                        // Locked until every direction has been visited - see the button drawing.
-                        if (!mancal_all_legs_visited()) {
-                            tft.fillRect(0, 180, tft.width(), 26, TFT_BLACK);
-                            tft.setTextDatum(MC_DATUM);
-                            tft.setTextSize(2);
-                            tft.setTextColor(TFT_ORANGE, TFT_BLACK);
-                            char warn_buf[32];
-                            sprintf(warn_buf, "%d OF 8 DONE", mancal_visited_count());
-                            tft.drawString(warn_buf, tft.width() / 2, 193);
-                            delay(900);
-                            mancal_is_dirty = true;
-                            delay(20);
-                            return;
-                        }
 
-                        // First, permanently commit and store the 8 fourier table offsets to Sub NVS!
-                        send_mancal_table_to_sub(selected_buoy_idx);
-                        delay(200); // Give the queues a brief moment to dispatch before setup save
-                        
-                        // Re-enable Fourier table interpolation (harmonic_enabled = true)
-                        b.harmonic_enabled = true;
-                        // Send setup save command (which includes the new harmonic_enabled state!)
-                        send_buoy_setup(selected_buoy_idx);
-                        
-                        // Send IDLE command immediately to shut down thrusters/motors after calibration!
-                        send_buoy_command(b.id, 8);
-                        
-                        tft.fillRect(0, 195, tft.width(), 100, TFT_BLACK);
-                        tft.setTextDatum(MC_DATUM);
-                        tft.setTextSize(2);
-                        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-                        tft.drawString("CALIBRATION COMPLETE", tft.width() / 2, 230);
-                        delay(1200);
-                        
-                        in_man_fourier_cal_mode = false;
-                        in_setup_mode = true;
-                        last_transition_ms = millis();
-                        reset_button_draw_cache();
-                        draw_resting_ui();
+                        mancal_save_table_and_exit(selected_buoy_idx);
                     }
                 }
             } else if (in_setup_mode) {
@@ -3964,6 +4046,32 @@ void enter_man_fourier_cal(int buoy_idx) {
  * that never answers still has to be dialable, it just starts from an unknown baseline.
  */
 void service_mancal_entry() {
+    // Chase the switch-off until the buoy's own telemetry confirms it. One lost frame used to be
+    // enough to ruin a whole calibration with no sign that anything was wrong.
+    if (in_man_fourier_cal_mode && mancal_await_harmonic_off &&
+        selected_buoy_idx >= 0 && selected_buoy_idx < 3) {
+        BuoyData &hb = buoys[selected_buoy_idx];
+        // hb.harmonic_reported, NOT hb.harmonic_enabled: the latter is our own intent, which
+        // this code sets to false itself when it sends the switch-off, so testing it confirmed
+        // nothing and let captures run against a still-corrected compass.
+        if (!hb.harmonic_reported && hb.harmonic_reported_ms != 0) {
+            mancal_await_harmonic_off = false;   // the BUOY says off - captures may proceed
+            mancal_is_dirty = true;
+        } else if ((long)(millis() - mancal_harmonic_off_next_ms) >= 0 &&
+                   mancal_harmonic_off_tries < MANCAL_HARMONIC_MAX_TRIES) {
+            mancal_harmonic_off_next_ms = millis() + MANCAL_HARMONIC_RETRY_MS;
+            mancal_harmonic_off_tries++;
+            Serial.printf("Harmonic correction still ON, re-sending switch-off %d of %d\n",
+                          mancal_harmonic_off_tries, MANCAL_HARMONIC_MAX_TRIES);
+            hb.harmonic_enabled = false;
+            hb.compass_trim_enabled = false;
+            send_buoy_setup(selected_buoy_idx);
+            // A GET, so the buoy answers with what it is ACTUALLY running. Without this nothing
+            // ever refreshes harmonic_reported and the wait could not end either way.
+            query_buoy_setup(hb.id);
+        }
+    }
+
     if (!in_man_fourier_cal_mode || !mancal_harmonic_pending) return;
     if (selected_buoy_idx < 0 || selected_buoy_idx >= 3) return;
     BuoyData &b = buoys[selected_buoy_idx];
@@ -3981,9 +4089,23 @@ void service_mancal_entry() {
         }
         // Only now: with the correction off the compass is raw, which is what the +/- dialing and
         // the table written on SAVE are both defined against.
+        // Ask for the correction to be switched off - but do NOT declare it done. The flag
+        // rides inside a full SETUPDATA SET, and if that frame is lost or refused anywhere along
+        // the way the buoy carries on correcting while this screen believes it is not. That is not
+        // a theoretical risk: it happened, all eight points were captured against a corrected
+        // compass, and nothing said a word because this used to clear the flag right here.
+        // Adaptive trim off as well as the harmonic correction. It is a bias added AFTER the
+        // correction curve and it drifts on its own - one of these buoys was carrying 4.1 degrees
+        // of it - so leaving it on puts a moving error into every one of the eight captures.
+        // Both go back on when the screen is left, by either exit.
         b.harmonic_enabled = false;
+        b.compass_trim_enabled = false;
         send_buoy_setup(selected_buoy_idx);
         mancal_harmonic_pending = false;
+        query_buoy_setup(b.id);
+        mancal_await_harmonic_off = true;
+        mancal_harmonic_off_next_ms = millis() + MANCAL_HARMONIC_RETRY_MS;
+        mancal_harmonic_off_tries = 0;
         mancal_is_dirty = true;
         return;
     }
@@ -4306,6 +4428,36 @@ void update_mancal_dynamic() {
             }
         }
         
+        // Once every direction has been captured there is nothing left to dial, so the whole
+        // bottom of the screen becomes the decision: commit the table, or throw it away. A 38 px
+        // green bar is hard to miss and hard to hit by accident, which is what you want for the
+        // one press that overwrites the buoy's calibration.
+        //
+        // "SAVE NEW FOURIER TABLE" is 22 characters - 264 px at size 2, wider than the screen - so
+        // it is stacked over two lines rather than shrunk to size 1 and lost.
+        if (mancal_all_legs_visited()) {
+            tft.fillRect(0, 254, w, 66, TFT_BLACK);
+
+            tft.fillRoundRect(10, 256, w - 20, 38, 5, TFT_GREEN);
+            tft.setTextColor(TFT_BLACK, TFT_GREEN);
+            tft.setTextSize(2);
+            tft.setTextDatum(MC_DATUM);
+            tft.drawString("SAVE NEW", w / 2, 267);
+            tft.drawString("FOURIER TABLE", w / 2, 285);
+
+            tft.fillRoundRect(10, 298, w - 20, 20, 4, TFT_BLUE);
+            tft.setTextColor(TFT_WHITE, TFT_BLUE);
+            tft.setTextSize(1);
+            tft.drawString("CANCEL - discard and leave", w / 2, 308);
+
+            mancal_is_dirty = false;
+            uint16_t udpDot = traffic_dot_color(last_udp_tx_ms, last_udp_sel_blink_ms, 100, TFT_GREEN);
+            tft.fillCircle(218, 15, 4, udpDot);
+            uint16_t loraDot = traffic_dot_color(last_lora_tx_ms, last_lora_blink_ms, 300, TFT_CYAN);
+            tft.fillCircle(232, 15, 4, loraDot);
+            return;
+        }
+
         // Footer Control Buttons (Y: 300 to 320)
         tft.setTextSize(1);
         tft.fillRoundRect(10, 300, 105, 20, 4, TFT_BLUE);

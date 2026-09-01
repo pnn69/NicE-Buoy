@@ -297,6 +297,8 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         // be told apart from the zero-compression RoboTop applies to the payload.
         if (fields.size() > 23 && fields[23] != "" && fields[23] != "0")
             buoys[buoy_idx].harmonic_enabled = (fields[23] == "2");
+            buoys[buoy_idx].harmonic_reported = (fields[23] == "2");
+            buoys[buoy_idx].harmonic_reported_ms = millis();
 
         // Mark setup parameters as successfully loaded if this is the buoy currently active!
         if (selected_buoy_idx == buoy_idx) {
@@ -319,6 +321,19 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         // carries the identity table rather than the stored one, and latching it would show a
         // calibrated buoy as having no corrections at all. Tri-stated on the field count so a
         // node that predates the flag is not read as "off".
+        // Any table frame from the buoy we are calibrating is proof it answered. SAVE waits on
+        // this: without it, "CALIBRATION COMPLETE" was printed whether or not anything landed.
+        if (selected_buoy_idx == buoy_idx) {
+            extern volatile unsigned long mancal_table_echo_ms;
+            mancal_table_echo_ms = millis();
+        }
+        // The table frame says whether the correction is in effect, so it is a second, more
+        // frequent source of truth than the SETUPDATA reply while MAN CAL is running.
+        if (fields.size() >= 14) {
+            buoys[buoy_idx].harmonic_reported = (atoi(fields[13].c_str()) != 0);
+            buoys[buoy_idx].harmonic_reported_ms = millis();
+        }
+
         bool table_in_effect = (fields.size() < 14) || (atoi(fields[13].c_str()) != 0);
         if (!table_in_effect) {
             Serial.println("Ignoring interpolation table: the Sub reports its correction is OFF, "
