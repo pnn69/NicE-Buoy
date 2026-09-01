@@ -60,7 +60,8 @@
         <!-- Port Column (with Mag Heading on top) -->
         <div style="display: flex; flex-direction: column; align-items: center; width: 60px;">
             <span style="font-size: 0.65rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; line-height: 1;">Mag</span>
-            <span id="magVal" style="font-size: 1.3rem; font-weight: bold; color: #38bdf8; margin-bottom: 8px; line-height: 1;">0&deg;</span>
+            <span id="magVal" style="font-size: 1.3rem; font-weight: bold; color: #38bdf8; line-height: 1;">0&deg;</span>
+            <span id="imagVal" style="font-size: 0.6rem; color: #64748b; margin-bottom: 8px; line-height: 1.4;">Imag -</span>
 
             <span style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px; font-weight: bold;">PORT</span>
             <div style="width: 16px; height: 110px; background-color: #0f172a; border-radius: 3px; position: relative;">
@@ -92,7 +93,7 @@
 
         <!-- Starboard Column (with Corr Offset on top) -->
         <div style="display: flex; flex-direction: column; align-items: center; width: 60px;">
-            <span style="font-size: 0.65rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; line-height: 1;">Corr</span>
+            <span style="font-size: 0.65rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; line-height: 1;">Step</span>
             <span id="corrVal" style="font-size: 1.3rem; font-weight: bold; color: #eab308; margin-bottom: 8px; line-height: 1;">-</span>
 
             <span style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px; font-weight: bold;">STBD</span>
@@ -119,14 +120,16 @@
         </div>
     </div>
 
-    <!-- Fine-Tuning Symmetrical Buttons -->
+    <!-- Nudge: shifts the heading the buoy is pivoting to, nothing else. It does not go into the
+         table - only SET captures, and it captures whatever the compass reads at that instant. -->
     <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 15px;">
         <div style="display: flex; gap: 8px;">
             <button type="button" class="adj" data-d="-10">-10&deg;</button>
             <button type="button" class="adj" data-d="-1">-1&deg;</button>
         </div>
         <div style="text-align: center;">
-            <span style="font-size: 0.75rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Adjustment</span>
+            <span style="font-size: 0.75rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Nudge</span>
+            <div id="nudgeVal" style="font-size: 1.1rem; font-weight: bold; color: #eab308;">0&deg;</div>
         </div>
         <div style="display: flex; gap: 8px;">
             <button type="button" class="adj" data-d="1">+1&deg;</button>
@@ -136,147 +139,209 @@
 
     <!-- Large Action Buttons -->
     <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px; border-top: 1px solid #334155; padding-top: 15px;">
-        <button type="button" class="big" id="btnNorth" style="background-color: #f97316; color: black; font-size: 1rem;" disabled>Set as North</button>
+        <div id="stepLabel" style="font-size: 0.7rem; color: #94a3b8; text-align: center;
+             text-transform: uppercase; letter-spacing: 0.08em;">not started</div>
+        <div id="stepAsk" style="font-size: 1.15rem; font-weight: bold; text-align: center; color: #e2e8f0;">Ready</div>
+
+        <button type="button" class="big" id="btnBegin" style="background-color: #3b82f6; color: white; font-size: 1rem;">START CALIBRATION</button>
+        <button type="button" class="big" id="btnTurn" style="background-color: #475569; color: white; font-size: 0.95rem; display: none;">TURN THERE</button>
+        <button type="button" class="big" id="btnSet" style="background-color: #22c55e; color: black; font-size: 1.1rem; display: none;">SET</button>
         <div style="display: flex; gap: 10px; width: 100%;">
             <button type="button" class="big" id="btnCancel" style="flex: 1; background-color: #ef4444; color: white; font-size: 0.95rem;">CANCEL</button>
             <!-- Not on the handheld: that one is always within arm's reach of the buoy's own IDLE
                  button, this one may not be. Driving a hull from its own page with no Top in the
                  loop wants a stop that is one tap away. -->
             <button type="button" class="big" id="btnStop" style="flex: 1; background-color: #7c2d12; color: #fed7aa; font-size: 0.95rem;">STOP</button>
-            <button type="button" class="big" id="btnSave" style="flex: 1.2; background-color: #3b82f6; color: white; font-size: 0.95rem;" disabled>SAVE (0/8)</button>
+            <button type="button" class="big" id="btnSave" style="flex: 1.2; background-color: #3b82f6; color: white; font-size: 0.95rem; display: none;">SAVE</button>
         </div>
         <div style="font-size: 0.7rem; color: #94a3b8; text-align: center;">
-            <b>Set as North</b> folds the North error into the global compass offset, shifting
-            <em>every</em> direction &mdash; which is why North is calibrated first.
+            North first, always. It defines the reference and lands in the global compass offset, so
+            the North table entry is 0 by construction and north stays true with the correction off.
+            Nothing on the buoy changes until <b>SAVE</b>.
         </div>
     </div>
 </div>
 
 <script>
-const DIRS = ["N","NE","E","SE","S","SW","W","NW"];
-// corr[i] is the correction for sector i. The heading the buoy is told to hold is
-// (i*45 - corr[i]), which is exactly measured_angles[i] on the Sub - dialing the correction and
-// dialing the steer target are the same act, so there is only one set of numbers to keep straight.
-let corr = new Array(8).fill(0);
-let visited = new Array(8).fill(false);
-let active = -1;
-let closed = false;
-let loaded = false;   // the stored table has been read back off the buoy
+const DIRS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+const LONG = ["NORTH", "NORTH EAST", "EAST", "SOUTH EAST", "SOUTH", "SOUTH WEST", "WEST", "NORTH WEST"];
+
+// This page owns none of the calibration rules. The buoy runs the session - see the block comment
+// in compass.cpp - and this is a mirror of it, refreshed every poll. That is deliberate: five
+// screens each doing their own version of this arithmetic is how a corrected heading ended up
+// written into the table as if it were a raw one.
+let session = { active: false, next: 0, captured: [0, 0, 0, 0, 0, 0, 0, 0] };
+let stored = null;      // the table the buoy is using now, shown when no session is running
+let nudge = 0;          // steering only, never captured
+let busy = false;
 
 const $ = id => document.getElementById(id);
 const dots = () => Array.from(document.querySelectorAll(".dot"));
-const fmt = v => (v >= 0 ? "+" : "") + Math.round(v) + "°";
+const fmt = v => (v >= 0 ? "+" : "") + Math.round(v) + "\u00b0";
 
-// North has to be done first. Everything downstream is measured against it: Set as North folds the
-// North error into compassOffset, and the Sub applies that offset BEFORE the table lookup, so it
-// shifts every other sector by the same amount. Doing North first means there is nothing else
-// dialled in yet for it to invalidate.
-const locked = i => i !== 0 && !visited[0];
+// One call per press, then repaint from whatever the buoy says. No local guessing about which step
+// we are on, so a dropped request cannot leave this page a direction ahead of the hardware.
+async function call(path) {
+    if (busy) return null;
+    busy = true;
+    let txt = null;
+    try {
+        const r = await fetch(path);
+        txt = (await r.text()).trim();
+        if (!r.ok) alert(path + " refused: " + txt);
+    } catch (e) {
+        alert("Network error: " + e.message);
+    } finally {
+        busy = false;
+    }
+    await poll();
+    return txt;
+}
 
 function paint() {
+    const running = session.active;
+    const done = running ? session.next : 0;
+    const finished = running && done >= 8;
+
     dots().forEach(b => {
         const i = parseInt(b.dataset.leg);
-        b.disabled = locked(i) || closed;
-        b.classList.toggle("active", i === active);
-        // North, still waiting to be pressed - ring it so it reads as the way in.
-        if (i === 0 && !visited[0] && i !== active) b.style.border = "2px solid #eab308";
-        else if (i !== active) b.style.border = "1px solid #475569";
+        b.disabled = true;                       // the sequence is fixed; these report, they do not select
+        b.classList.toggle("active", running && !finished && i === done);
+        if (running && i < done) {
+            b.style.border = "1px solid #22c55e";
+            b.style.backgroundColor = "#14532d";
+            b.style.color = "#86efac";
+            b.style.opacity = "1";
+        } else if (running && !finished && i === done) {
+            b.style.border = "2px solid white";
+            b.style.backgroundColor = "#3b82f6";
+            b.style.color = "white";
+            b.style.opacity = "1";
+        } else {
+            b.style.border = "1px solid #475569";
+            b.style.backgroundColor = "#334155";
+            b.style.color = "#94a3b8";
+            b.style.opacity = running ? "0.45" : "0.8";
+        }
     });
 
+    // The row of eight: the captures so far during a run, otherwise the table in use.
     for (let i = 0; i < 8; i++) {
         const cell = $("tbl-" + i);
-        cell.textContent = loaded ? fmt(corr[i]) : "?";
-        cell.style.color = (i === active) ? "#22c55e" : "#e2e8f0";
-        cell.style.opacity = visited[i] ? "1" : "0.4";
+        let v = null;
+        if (running) { if (i < done) v = session.captured[i]; }
+        else if (stored) v = stored[i];
+        cell.textContent = (v === null) ? "?" : v.toFixed(0) + "\u00b0";
+        cell.style.color = (running && i === done && !finished) ? "#22c55e" : "#e2e8f0";
+        cell.style.opacity = (v === null) ? "0.4" : "1";
     }
 
-    $("corrVal").textContent = !loaded ? "?" : active < 0 ? "-" : fmt(corr[active]);
+    $("corrVal").textContent = (running && !finished) ? DIRS[done] : "-";
+    $("nudgeVal").textContent = fmt(nudge);
 
     const st = $("tblStatus");
-    st.textContent = !loaded ? "Reading the stored table from the buoy..."
-        : !visited[0] ? "Start with North (N) - it is the base every other direction is measured against"
-        : "Corrections now stored on the buoy - adjust from here";
-    st.style.color = (loaded && !visited[0]) ? "#eab308" : "#94a3b8";
+    if (!running) {
+        st.textContent = stored ? "The table the buoy is using now" : "Reading the table from the buoy...";
+        st.style.color = "#94a3b8";
+    } else if (!finished) {
+        st.textContent = "Captured so far - " + done + " of 8";
+        st.style.color = "#94a3b8";
+    } else {
+        st.textContent = "All eight captured - nothing written yet";
+        st.style.color = "#22c55e";
+    }
 
-    document.querySelectorAll(".adj").forEach(b => b.disabled = active < 0 || closed);
-    $("btnNorth").disabled = active !== 0 || closed;
+    show("btnBegin", !running);
+    show("btnTurn", running && !finished);
+    show("btnSet", running && !finished);
+    show("btnSave", finished);
+    document.querySelectorAll(".adj").forEach(b => b.disabled = !running || finished);
 
-    const done = visited.filter(Boolean).length;
-    const save = $("btnSave");
-    save.disabled = done !== 8 || closed;
-    save.textContent = done === 8 ? "SAVE & EXIT" : "SAVE (" + done + "/8)";
-    save.title = done === 8 ? "" : "Steer to all 8 directions first - SAVE writes the whole table at once";
+    if (!running) {
+        $("stepLabel").textContent = "not started";
+        $("stepAsk").textContent = "Ready";
+        $("stepAsk").style.color = "#e2e8f0";
+    } else if (!finished) {
+        $("stepLabel").textContent = "step " + (done + 1) + " of 8";
+        $("stepAsk").textContent = "Point the bow " + LONG[done] + " (" + (done * 45) + "\u00b0)";
+        $("stepAsk").style.color = done === 0 ? "#f97316" : "#38bdf8";
+        $("btnTurn").textContent = "TURN TO " + DIRS[done];
+        $("btnSet").textContent = "SET " + DIRS[done];
+    } else {
+        $("stepLabel").textContent = "all eight captured";
+        $("stepAsk").textContent = "Ready to save";
+        $("stepAsk").style.color = "#22c55e";
+    }
 }
 
-// Push the correction and the steer target together; they are the same number.
-async function point() {
-    if (active < 0) return;
-    await fetch("/mancal_point?index=" + active + "&corr=" + Math.round(corr[active]));
-}
+function show(id, on) { $(id).style.display = on ? "block" : "none"; }
 
-async function select(i) {
-    if (locked(i) || closed) return;
-    active = i;
-    visited[i] = true;
-    paint();
-    await point();
-}
-
-dots().forEach(b => b.onclick = () => select(parseInt(b.dataset.leg)));
+// Let the thrusters put the hull roughly on the leg. The buoy steers to a CORRECTED heading, so how
+// close it gets depends on the calibration it already has - which is fine, it is only a starting
+// point. Check it against an external compass, nudge, and press SET.
+$("btnTurn").onclick = () => call("/cal8_steer?nudge=" + Math.round(nudge));
 
 document.querySelectorAll(".adj").forEach(b => {
     b.onclick = async () => {
-        if (active < 0) return;
-        corr[active] += parseInt(b.dataset.d);
-        if (corr[active] > 180) corr[active] = 180;
-        if (corr[active] < -180) corr[active] = -180;
+        nudge += parseInt(b.dataset.d);
+        if (nudge > 180) nudge = 180;
+        if (nudge < -180) nudge = -180;
         paint();
-        await point();
+        await call("/cal8_steer?nudge=" + Math.round(nudge));
     };
 });
 
 $("btnStop").onclick = () => fetch("/mancal_stop");
 
-$("btnNorth").onclick = async () => {
-    if (active !== 0) return;
-    if (!confirm("Fold the North error into the global compass offset?\n\n"
-               + "Only do this with the hull physically pointing North. It shifts every "
-               + "direction, which is why North is calibrated first.")) return;
-    // /set_north makes the CURRENT heading read zero, the same arithmetic the handheld uses. The
-    // North table entry is then redundant and goes back to zero.
-    await fetch("/set_north");
-    await fetch("/set_harmonic_point?index=0&measured=0");
-    corr[0] = 0;
-    paint();
-    await point();
+$("btnBegin").onclick = async () => {
+    nudge = 0;
+    await call("/cal8_begin");
+};
+
+$("btnSet").onclick = async () => {
+    const leg = session.next;
+    if (leg === 0 && !confirm("Is the hull physically pointing NORTH?\n\n"
+        + "This press defines the reference for the whole calibration.")) return;
+    nudge = 0;
+    await call("/cal8_set");
 };
 
 $("btnSave").onclick = async () => {
-    if (visited.filter(Boolean).length !== 8) return;
-    await fetch("/mancal_exit?save=1");
-    closed = true;
-    paint();
-    $("tblStatus").textContent = "Saved to NVS and the harmonic correction is back on. Safe to leave.";
-    $("tblStatus").style.color = "#22c55e";
+    const t = await call("/cal8_save");
+    if (t === "OK") {
+        $("tblStatus").textContent = "Saved to NVS - the buoy beeped. Safe to leave.";
+        $("tblStatus").style.color = "#22c55e";
+    }
 };
 
 $("btnCancel").onclick = async () => {
-    if (!confirm("Discard this session and reload the table stored on the buoy?")) return;
-    await fetch("/mancal_exit?save=0");
-    closed = true;
+    if (session.active) {
+        if (!confirm("Discard this calibration run? Nothing has been written yet.")) return;
+        await call("/cal8_cancel");
+    }
+    await fetch("/mancal_stop");
+    await fetch("/mancal_exit");
     location.href = "/";
 };
 
-// Live readout. icm is the corrected heading; with the harmonic correction off during a session
-// that is offset-corrected but untabled, which is the space the table is defined in.
+// Live readout, and the session mirror. icm is the corrected heading the buoy steers on; Imag is
+// what a capture would take - shown so the two can be compared at a glance.
 async function poll() {
     try {
         const d = await (await fetch("/data")).json();
-        $("magVal").textContent = Math.round(d.icm) + "°";
+        $("magVal").textContent = Math.round(d.icm) + "\u00b0";
         $("arrow").style.transform = "rotate(" + d.icm + "deg)";
-        $("buoyTitle").textContent = "SUB " + (d.mac || "").toString().toUpperCase() + " · " + d.status_str;
+        $("imagVal").textContent = "Imag " + Math.round(d.icm_no_offset) + "\u00b0";
+        $("buoyTitle").textContent = "SUB " + (d.mac || "").toString().toUpperCase() + " \u00b7 " + d.status_str;
         setBar("barBb", "valBb", d.speed_bb);
         setBar("barSb", "valSb", d.speed_sb);
+        if (Array.isArray(d.meas_ang)) stored = d.meas_ang;
+        if (d.cal8_active !== undefined) {
+            session.active = !!d.cal8_active;
+            session.next = d.cal8_next;
+            if (Array.isArray(d.cal8)) session.captured = d.cal8;
+        }
+        paint();
     } catch (e) { /* buoy busy - next tick will do */ }
 }
 
@@ -292,33 +357,23 @@ function setBar(barId, valId, v) {
     $(valId).style.color = v >= 0 ? "#22c55e" : "#ef4444";
 }
 
-// Entry: switch the harmonic correction off (RAM only) and read the stored table, so the session
-// starts from what the buoy is already running rather than from a blank slate.
+// Entry only holds PWRENABLE and parks the serial watchdog, so the hull can pivot without the Top
+// in the loop. It does not touch the correction and it does not start a calibration - a run already
+// in progress on the buoy is picked up exactly where it was left, even from another page.
 (async function init() {
     await fetch("/mancal_enter");
-    try {
-        const d = await (await fetch("/data")).json();
-        if (Array.isArray(d.meas_ang)) {
-            for (let i = 0; i < 8; i++) {
-                let c = i * 45 - d.meas_ang[i];
-                while (c < -180) c += 360;
-                while (c > 180) c -= 360;
-                corr[i] = Math.round(c);
-            }
-            loaded = true;
-        }
-    } catch (e) { /* leave at zero */ }
-    paint();
+    await poll();
     setInterval(poll, 400);
-    poll();
 })();
 
 window.addEventListener("beforeunload", () => {
-    // Never walk away leaving the thrusters live or the correction switched off.
+    // Never walk away leaving the thrusters live. The calibration session survives on purpose -
+    // nothing is written until SAVE, so there is nothing here to lose.
     // fetch(keepalive) rather than navigator.sendBeacon: sendBeacon always issues a POST, and
     // every route here is registered HTTP_GET, so the beacon 404s and this safety net silently
     // does nothing. Verified against the live buoy - GET 200, POST 404.
-    if (!closed) fetch("/mancal_exit?save=0", { keepalive: true });
+    fetch("/mancal_stop", { keepalive: true });
+    fetch("/mancal_exit", { keepalive: true });
 });
 </script>
 </body>

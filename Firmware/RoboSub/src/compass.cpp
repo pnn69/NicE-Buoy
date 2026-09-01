@@ -1028,6 +1028,111 @@ void computeFourierCoefficients() {
 /**
  * @brief Performs 360-degree Fourier 2-harmonic smooth curve correction.
  */
+
+// ---- Guided eight point calibration -------------------------------------------------------
+//
+// One session on the buoy, driven by whichever interface the operator happens to be using. The
+// rules live here and nowhere else: the Sub's two pages, the Top's page, the CYD dashboard and the
+// CYD touchscreen all just show the state and press the buttons. Five copies of this arithmetic is
+// how a corrected heading ended up in the table in the first place.
+//
+// The flow the operator sees:
+//   begin           arms the session, asks for north
+//   set             point the hull at the direction being asked for, press. Captures and advances.
+//   ...             eight times, 0 45 90 ... 315
+//   save or cancel  nothing on the buoy changes until save
+//
+// North first, and it is special: it defines the reference. The offset absorbs it, so table entry
+// 0 is 0 by construction and the compass reads exactly north there with the correction ON and with
+// it OFF. Everything after is measured relative to that same north.
+//
+// The captures are of Imag - the heading with the iron correction and the mounting offset applied
+// but before the table and before the trim, which is the value the table is indexed by. Nothing on
+// the buoy has to be switched off to read it, so the correction and the trim can stay exactly as
+// they are for the whole procedure.
+bool cal8_active = false;
+int cal8_next = 0;                 // which direction is being asked for, 0..7
+float cal8_imag_north = 0.0f;      // Imag when north was captured; the whole session hangs off this
+float cal8_captured[8] = {0};
+
+void cal8Begin(void)
+{
+    cal8_active = true;
+    cal8_next = 0;
+    cal8_imag_north = 0.0f;
+    for (int i = 0; i < 8; i++) cal8_captured[i] = 0.0f;
+    Serial.println("8 point calibration: started, point the hull NORTH and press set");
+}
+
+void cal8Cancel(void)
+{
+    cal8_active = false;
+    Serial.println("8 point calibration: cancelled, nothing written");
+}
+
+// Capture the direction currently being asked for. Returns the index just filled, or -1.
+int cal8Set(void)
+{
+    if (!cal8_active || cal8_next > 7) return -1;
+
+    float imag = GetHeadingNoOffset();
+    int idx = cal8_next;
+
+    if (idx == 0) {
+        // North defines the reference. Entry 0 is 0 by definition - the offset takes the whole of
+        // it at save time - so the table carries only the SHAPE of the deviation. That is what
+        // keeps north correct when the correction is switched off.
+        cal8_imag_north = imag;
+        cal8_captured[0] = 0.0f;
+    } else {
+        float v = imag - cal8_imag_north;
+        while (v < 0.0f) v += 360.0f;
+        while (v >= 360.0f) v -= 360.0f;
+        cal8_captured[idx] = v;
+    }
+
+    cal8_next++;
+    Serial.printf("8 point calibration: %d deg captured (Imag %.2f -> entry %.2f), %d of 8 done\r\n",
+                  idx * 45, imag, cal8_captured[idx], cal8_next);
+    return idx;
+}
+
+// Commit. Both halves land together or not at all - a table written against an offset that was
+// never applied would be wrong at every heading.
+bool cal8Save(void)
+{
+    if (!cal8_active || cal8_next < 8) return false;
+
+    // The offset absorbs north. Measured with the OLD offset in force, so it is a correction TO
+    // that offset, not a replacement: sensor + newOffset then equals the entry that was stored.
+    double newOffset = mainData.compassOffset - cal8_imag_north;
+    while (newOffset < -180.0) newOffset += 360.0;
+    while (newOffset > 180.0) newOffset -= 360.0;
+    mainData.compassOffset = newOffset;
+    CompasOffset(&mainData, MEM_PUT);
+
+    for (int i = 0; i < 8; i++) measured_angles[i] = cal8_captured[i];
+    measured_angles[8] = measured_angles[0] + 360.0f;
+    memInterpolationTable(measured_angles, MEM_PUT);
+    computeFourierCoefficients();          // validates the table, see there
+
+    bool enable = true;
+    interp_enabled = true;
+    memInterpEnabled(&enable, MEM_PUT);
+
+    cal8_active = false;
+    extern int global_params_rev;
+    global_params_rev++;
+
+    Serial.printf("8 point calibration SAVED: offset %.2f, table ", newOffset);
+    for (int i = 0; i < 8; i++) Serial.printf("%.1f ", measured_angles[i]);
+    Serial.printf("\r\n");
+
+    extern QueueHandle_t buzzer;
+    if (buzzer != NULL) beep(5, buzzer);   // the short happy tune
+    return true;
+}
+
 // Inverse of getInterpolatedHeading(): the pre-correction heading that comes out as `target`.
 //
 // The correction is a fitted Fourier curve, corrected = h + err(h), with err running to tens of

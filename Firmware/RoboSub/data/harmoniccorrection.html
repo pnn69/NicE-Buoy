@@ -244,11 +244,11 @@
         <div class="instructions">
             <div style="font-weight: bold; color: var(--primary);">How it works:</div>
             <div style="font-size: 0.9rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.25rem;">
-                <div>1. Align the buoy bow exactly towards a known reference direction (e.g. 90° East).</div>
-                <div>2. Locate the corresponding <strong>90°</strong> card below, and click its <strong>Record</strong> button.</div>
-                <div>3. The system will capture your current active heading and save it as the measured value for 90°.</div>
-                <div>4. Repeat this for all 8 reference directions. The system automatically fits a smooth Fourier harmonic curve!</div>
-                <div>5. Click <strong>Save to ESP32 NVS</strong> once finished to permanently write the table to memory.</div>
+                <div>1. Press <strong>START CALIBRATION</strong>. The buoy asks for north first.</div>
+                <div>2. Aim the bow at the direction being asked for, using an external compass, and press <strong>SET</strong>.</div>
+                <div>3. It advances 45&deg; on its own. Repeat until all eight are captured.</div>
+                <div>4. Press <strong>SAVE</strong>. Until then nothing on the buoy has changed, and <strong>CANCEL</strong> costs nothing.</div>
+                <div>North is the reference: it goes into the compass offset, so entry 0 is always 0 and north stays true even with the correction off.</div>
             </div>
         </div>
 
@@ -286,19 +286,33 @@
             </div>
         </div>
 
-        <!-- 8 Calibration Points -->
+        <!-- Guided eight point calibration -->
         <div class="card">
-            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
                 <h2 class="card-title" style="color: var(--cyan);">Compass Calibration Table (8 reference points)</h2>
-                <div style="font-size:0.8rem; color:#8b949e; margin-bottom:6px;">
-                    The correction interpolates straight through these eight points, so the compass
-                    reads exactly right at each of them. Aim the hull at the reference heading with
-                    an external compass, then record - the value captured is the heading before the
-                    table and before the trim, so nothing has to be switched off first.
-                </div>
-                <div style="display: flex; gap: 0.75rem;">
-                    <button id="btn-save" class="btn btn-green">Save to ESP32 NVS</button>
-                    <button id="btn-reset" class="btn btn-red">Reset Table</button>
+                <button id="btn-reset" class="btn btn-red" style="padding:0.4rem 0.9rem; font-size:0.8rem;">Reset Table</button>
+            </div>
+
+            <div style="font-size:0.85rem; color:#8b949e; margin-bottom:1rem; line-height:1.6;">
+                One guided run, north first. North sets the reference and lands in the compass offset,
+                so the first table entry is 0 by construction - that is what keeps north true when the
+                correction is switched off. Every following direction is measured against that same
+                north. The value captured is <strong>Imag</strong>, the heading after the iron
+                correction but before this table and before the trim, so nothing has to be switched
+                off first and the buoy keeps steering throughout. Nothing is written until SAVE.
+            </div>
+
+            <div id="step-panel" style="border:1px solid rgba(59,130,246,0.25); background:rgba(59,130,246,0.05);
+                 border-radius:0.75rem; padding:1.25rem; margin-bottom:1.25rem; text-align:center;">
+                <div id="step-label" style="font-size:0.8rem; color:var(--text-muted);
+                     text-transform:uppercase; letter-spacing:0.08em;">not started</div>
+                <div id="step-ask" style="font-size:1.6rem; font-weight:800; margin:0.4rem 0;">&nbsp;</div>
+                <div id="step-live" style="font-family:monospace; color:var(--text-muted); font-size:0.9rem;">&nbsp;</div>
+                <div id="step-buttons" style="display:flex; gap:0.75rem; justify-content:center; margin-top:1rem;">
+                    <button id="btn-begin" class="btn btn-blue">START CALIBRATION</button>
+                    <button id="btn-set" class="btn btn-green" style="display:none; min-width:180px; font-size:1.1rem;">SET</button>
+                    <button id="btn-save" class="btn btn-green" style="display:none; min-width:180px; font-size:1.1rem;">SAVE</button>
+                    <button id="btn-cancel" class="btn btn-red" style="display:none;">CANCEL</button>
                 </div>
             </div>
 
@@ -309,11 +323,22 @@
     </div>
 
     <script {nonce}>
-        // We only present 8 reference directions in the UI (0 to 315)
+        // The eight reference directions, and their names, in the order the guided run asks for them.
         const refAngles = [0, 45, 90, 135, 180, 225, 270, 315];
-        let measuredAngles = [0, 45, 90, 135, 180, 225, 270, 315, 360]; // 9-point array used internally to include 360 wrap
+        const refNames = ['NORTH', 'NORTH EAST', 'EAST', 'SOUTH EAST',
+                          'SOUTH', 'SOUTH WEST', 'WEST', 'NORTH WEST'];
+
+        // Imag - iron corrected, before the table and before the trim. This is what the table is
+        // indexed by, so it is the only heading a calibration point may be taken from.
         let currentHeading = 0.0;
         let rotAsIs = 0.0, rotHarmonic = 0.0;
+
+        // Mirror of the session the BUOY is running. The buoy owns the rules; this page only shows
+        // where the run has got to and presses the buttons, so the two Sub pages, the Top page and
+        // both CYD screens cannot disagree about the arithmetic.
+        let session = { active: false, next: 0, captured: [0, 0, 0, 0, 0, 0, 0, 0] };
+        let storedTable = [0, 45, 90, 135, 180, 225, 270, 315];
+        let busy = false;
 
         function getShortestRotation(current, target) {
             target = (target % 360 + 360) % 360;
@@ -324,34 +349,52 @@
             return current + diff;
         }
 
-        window.onload = function() {
+        window.onload = function () {
             renderCalibrationTable();
             pollData();
             setInterval(pollData, 150);
 
-            document.getElementById('btn-save').onclick = saveTable;
+            document.getElementById('btn-begin').onclick = () => call('/cal8_begin');
+            document.getElementById('btn-set').onclick = () => call('/cal8_set');
+            document.getElementById('btn-save').onclick = () => call('/cal8_save');
+            document.getElementById('btn-cancel').onclick = () => {
+                if (confirm('Discard this calibration run? Nothing has been written yet.')) call('/cal8_cancel');
+            };
             document.getElementById('btn-reset').onclick = resetTable;
         };
+
+        // Every button is one call to the buoy. No local bookkeeping: the next poll shows what the
+        // buoy decided, so a lost request can never leave the page a step ahead of the hardware.
+        async function call(path) {
+            if (busy) return;
+            busy = true;
+            try {
+                const r = await fetch(path + '?t=' + Date.now());
+                const t = (await r.text()).trim();
+                if (!r.ok) alert(path + ' refused: ' + t);
+            } catch (e) {
+                alert('Network error: ' + e.message);
+            } finally {
+                busy = false;
+            }
+            pollData();
+        }
 
         function renderCalibrationTable() {
             const container = document.getElementById('cal-table-grid');
             container.innerHTML = '';
-
             refAngles.forEach((ref, idx) => {
-                const meas = measuredAngles[idx];
-                let diff = ref - meas;
-                if (diff > 180) diff -= 360;
-                if (diff < -180) diff += 360;
-
                 const card = document.createElement('div');
                 card.className = 'cal-item';
+                card.id = 'cal-card-' + idx;
                 card.innerHTML = `
-                    <div style="width: 100%; display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; padding: 4px;">
-                        <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Reference:</span><span class="ref-heading" style="font-weight: bold; color: var(--cyan);">${ref}°</span></div>
-                        <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Measured:</span><span class="meas-heading" id="meas-val-${idx}" style="font-family: monospace; font-weight: bold;">${meas.toFixed(1)}°</span></div>
-                        <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Offset:</span><span class="diff-heading" id="diff-val-${idx}" style="font-family: monospace; font-weight: bold; color: ${diff >= 0 ? 'var(--green)' : 'var(--red)'}">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}°</span></div>
+                    <div style="width:100%; display:flex; flex-direction:column; gap:4px; font-size:0.85rem; padding:4px;">
+                        <div style="display:flex; justify-content:space-between;"><span style="color:var(--text-muted);">${refNames[idx]}</span><span class="ref-heading">${ref}&deg;</span></div>
+                        <div style="display:flex; justify-content:space-between;"><span style="color:var(--text-muted);">Measured:</span><span class="meas-heading" id="meas-val-${idx}">-</span></div>
+                        <div style="display:flex; justify-content:space-between;"><span style="color:var(--text-muted);">Offset:</span><span class="diff-heading" id="diff-val-${idx}">-</span></div>
                     </div>
-                    <button class="btn btn-blue" style="padding: 0.4rem 1rem; font-size: 0.8rem; width: 100%; margin-top: 4px;" onclick="recordPoint(${idx})">Record</button>
+                    <div id="state-val-${idx}" style="font-size:0.75rem; font-weight:bold; text-align:center;
+                         width:100%; padding:0.3rem 0; border-radius:0.35rem;">&nbsp;</div>
                 `;
                 container.appendChild(card);
             });
@@ -361,19 +404,18 @@
             fetch('/data?t=' + Date.now())
                 .then(r => r.json())
                 .then(data => {
-                    currentHeading = data.icm_no_offset; // Explicitly use Dynamic 3D Fusion as reference heading!
-                    let harmonicHeading = data.harmonic_hdg; // Smooth harmonic heading
-                    
-                    if (data.meas_ang !== undefined) {
-                        measuredAngles = data.meas_ang;
-                        updateTableValues();
-                    }
+                    currentHeading = data.icm_no_offset;   // Imag
+                    const harmonicHeading = data.harmonic_hdg;
 
-                    // The correction interpolates BETWEEN these eight points, so they have to run
-                    // in increasing order all the way round. Recording them one at a time leaves
-                    // the table briefly out of order, and while it is the buoy runs uncorrected -
-                    // correct behaviour, but it used to happen silently and the page just looked
-                    // dead. Finish all eight and it goes green again.
+                    if (Array.isArray(data.meas_ang)) storedTable = data.meas_ang;
+                    if (data.cal8_active !== undefined) {
+                        session.active = !!data.cal8_active;
+                        session.next = data.cal8_next;
+                        if (Array.isArray(data.cal8)) session.captured = data.cal8;
+                    }
+                    paintSession();
+                    paintTable();
+
                     const st = document.getElementById('table-state');
                     if (st && data.table_ok !== undefined) {
                         if (data.table_ok) {
@@ -386,74 +428,118 @@
                         }
                     }
 
-                    document.getElementById('val-as-is').innerText = Math.round(currentHeading).toString().padStart(3, '0') + '°';
-                    document.getElementById('val-harmonic').innerText = Math.round(harmonicHeading).toString().padStart(3, '0') + '°';
+                    document.getElementById('val-as-is').innerText = Math.round(currentHeading).toString().padStart(3, '0') + '\u00b0';
+                    document.getElementById('val-harmonic').innerText = Math.round(harmonicHeading).toString().padStart(3, '0') + '\u00b0';
 
                     rotAsIs = getShortestRotation(rotAsIs, currentHeading);
                     document.getElementById('needle-as-is').style.transform = `rotate(${rotAsIs}deg)`;
-
                     rotHarmonic = getShortestRotation(rotHarmonic, harmonicHeading);
                     document.getElementById('needle-harmonic').style.transform = `rotate(${rotHarmonic}deg)`;
                 })
-                .catch(err => console.error("Error polling data:", err));
+                .catch(err => console.error('Error polling data:', err));
         }
 
-        function updateTableValues() {
-            refAngles.forEach((ref, idx) => {
-                const meas = measuredAngles[idx];
-                let diff = ref - meas;
-                if (diff > 180) diff -= 360;
-                if (diff < -180) diff += 360;
+        function show(id, on) {
+            document.getElementById(id).style.display = on ? 'inline-flex' : 'none';
+        }
 
-                document.getElementById(`meas-val-${idx}`).innerText = meas.toFixed(1) + '°';
-                document.getElementById(`diff-val-${idx}`).innerText = `Offset: ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}°`;
+        function paintSession() {
+            const label = document.getElementById('step-label');
+            const ask = document.getElementById('step-ask');
+            const live = document.getElementById('step-live');
+            const done = session.active ? session.next : 0;
+
+            if (!session.active) {
+                label.innerText = 'not started';
+                ask.innerHTML = 'Ready';
+                ask.style.color = 'var(--text-color)';
+                live.innerText = 'The table below is the one the buoy is using now.';
+                show('btn-begin', true); show('btn-set', false);
+                show('btn-save', false); show('btn-cancel', false);
+                return;
+            }
+
+            show('btn-begin', false);
+            show('btn-cancel', true);
+
+            if (done < 8) {
+                label.innerText = 'step ' + (done + 1) + ' of 8';
+                ask.innerHTML = 'Point the bow ' + refNames[done] +
+                                ' <span style="color:var(--text-muted);">(' + refAngles[done] + '\u00b0)</span>';
+                ask.style.color = done === 0 ? 'var(--orange)' : 'var(--cyan)';
+                live.innerText = (done === 0
+                    ? 'North first: this press defines the reference and sets the compass offset. '
+                    : 'Use an external compass on the reference direction, then press SET. ')
+                    + 'Imag now ' + currentHeading.toFixed(1) + '\u00b0';
+                document.getElementById('btn-set').innerText = 'SET ' + refNames[done];
+                show('btn-set', true); show('btn-save', false);
+            } else {
+                label.innerText = 'all eight captured';
+                ask.innerHTML = 'Ready to save';
+                ask.style.color = 'var(--green)';
+                live.innerText = 'Nothing on the buoy has changed yet. SAVE writes the offset and the '
+                               + 'table together; CANCEL throws the run away.';
+                show('btn-set', false); show('btn-save', true);
+            }
+        }
+
+        function paintTable() {
+            refAngles.forEach((ref, idx) => {
+                const card = document.getElementById('cal-card-' + idx);
+                const mv = document.getElementById('meas-val-' + idx);
+                const dv = document.getElementById('diff-val-' + idx);
+                const sv = document.getElementById('state-val-' + idx);
+                const running = session.active;
+                const captured = running && idx < session.next;
+                const value = running ? (captured ? session.captured[idx] : null) : storedTable[idx];
+
+                if (value === null || value === undefined) {
+                    mv.innerText = '-';
+                    dv.innerText = '-';
+                } else {
+                    let diff = ref - value;
+                    if (diff > 180) diff -= 360;
+                    if (diff < -180) diff += 360;
+                    mv.innerText = value.toFixed(1) + '\u00b0';
+                    dv.innerText = (diff >= 0 ? '+' : '') + diff.toFixed(1) + '\u00b0';
+                    dv.style.color = diff >= 0 ? 'var(--green)' : 'var(--red)';
+                }
+
+                if (!running) {
+                    sv.innerText = 'in use';
+                    sv.style.background = 'rgba(255,255,255,0.04)';
+                    sv.style.color = '#8b949e';
+                    card.style.borderColor = 'var(--card-border)';
+                } else if (captured) {
+                    sv.innerText = 'captured';
+                    sv.style.background = 'rgba(16,185,129,0.15)';
+                    sv.style.color = 'var(--green)';
+                    card.style.borderColor = 'rgba(16,185,129,0.35)';
+                } else if (idx === session.next) {
+                    sv.innerText = 'PRESS SET HERE';
+                    sv.style.background = 'rgba(6,182,212,0.2)';
+                    sv.style.color = 'var(--cyan)';
+                    card.style.borderColor = 'var(--cyan)';
+                } else {
+                    sv.innerText = 'waiting';
+                    sv.style.background = 'rgba(255,255,255,0.03)';
+                    sv.style.color = '#6b7280';
+                    card.style.borderColor = 'var(--card-border)';
+                }
             });
         }
 
-        function recordPoint(idx) {
-            fetch(`/set_harmonic_point?index=${idx}&measured=${currentHeading.toFixed(1)}`)
-                .then(response => response.text())
-                .then(text => {
-                    if (text === "OK") {
-                        measuredAngles[idx] = currentHeading;
-                        // The 360 degree wrap entry used to be mirrored from here. The firmware
-                        // keeps it consistent itself on every table change now, and overwrote this
-                        // write immediately, so sending it again only risked the two disagreeing.
-                        renderCalibrationTable();
-                        console.log(`Recorded! reference: ${refAngles[idx]}° -> actual measured: ${currentHeading.toFixed(1)}°`);
-                    } else {
-                        alert(`Failed to record: ${text}`);
-                    }
-                })
-                .catch(err => alert(`Network error: ${err.message}`));
-        }
-
-        function saveTable() {
-            fetch('/save_harmonic')
-                .then(r => r.text())
-                .then(text => {
-                    if (text === "OK") {
-                        console.log("Calibration Table successfully saved to NVS!");
-                    } else {
-                        alert("Failed to save: " + text);
-                    }
-                })
-                .catch(err => alert("Error: " + err.message));
-        }
-
+        // Deliberately outside the guided run: this puts the identity table back, which means no
+        // compass correction at all. Useful to start from nothing, not part of a calibration.
         function resetTable() {
+            if (!confirm('Replace the table with 0,45,90...315? That leaves the compass with NO correction.')) return;
             fetch('/reset_harmonic')
                 .then(r => r.text())
                 .then(text => {
-                    if (text === "OK") {
-                        measuredAngles = [0, 45, 90, 135, 180, 225, 270, 315, 360];
-                        renderCalibrationTable();
-                        console.log("Table successfully reset to defaults!");
-                    } else {
-                        alert("Failed to reset: " + text);
-                    }
+                    if (text !== 'OK') alert('Failed to reset: ' + text);
+                    pollData();
                 })
-                .catch(err => alert("Error: " + err.message));
+                .catch(err => alert('Error: ' + err.message));
         }
     </script>
 </body>

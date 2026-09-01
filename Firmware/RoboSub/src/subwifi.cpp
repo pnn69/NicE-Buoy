@@ -581,6 +581,29 @@ void WiFiTask(void *arg) {
             subServer.send(400, "text/plain", "Missing args");
         }
     });
+    // ---- Guided eight point calibration -----------------------------------------------------
+    // Thin wrappers. Every rule lives in compass.cpp so the Sub's pages, the Top's page, the CYD
+    // dashboard and the CYD touchscreen cannot drift apart on them.
+    subServer.on("/cal8_begin", HTTP_GET, [](){
+        cal8Begin();
+        subServer.send(200, "text/plain", "OK");
+    });
+    subServer.on("/cal8_set", HTTP_GET, [](){
+        int idx = cal8Set();
+        if (idx < 0) { subServer.send(409, "text/plain", "no session, or all eight already captured"); return; }
+        char buf[48];
+        snprintf(buf, sizeof(buf), "OK %d %.2f", idx, cal8_captured[idx]);
+        subServer.send(200, "text/plain", buf);
+    });
+    subServer.on("/cal8_save", HTTP_GET, [](){
+        if (!cal8Save()) { subServer.send(409, "text/plain", "not all eight directions captured"); return; }
+        subServer.send(200, "text/plain", "OK");
+    });
+    subServer.on("/cal8_cancel", HTTP_GET, [](){
+        cal8Cancel();
+        subServer.send(200, "text/plain", "OK");
+    });
+
     subServer.on("/save_harmonic", HTTP_GET, [](){
         extern float measured_angles[9];
         memInterpolationTable(measured_angles, MEM_PUT);
@@ -625,14 +648,15 @@ void WiFiTask(void *arg) {
     // measured_angles[i] - dialing the correction and dialing the steer target are the same act,
     // and there is no second set of numbers to keep in step.
     //
-    // The harmonic correction has to be OFF while dialing, or the table would be applied on top of
-    // the very measurement being taken. /mancal_enter switches it off in RAM only and never writes
-    // that to NVS, so a reboot in the middle of a session comes back with the correction on rather
-    // than leaving the buoy silently uncalibrated.
+    // The correction stays ON throughout, and has to. Captures read Imag, which sits before the
+    // table, so the correction cannot contaminate them - and leaving it on is what lets the buoy
+    // steer to a CORRECTED heading, which is how it puts itself roughly on each leg for you. The
+    // page used to switch it off, and then every steer target was as wrong as the compass was.
+    //
+    // What the page does NOT do any more is keep its own copy of the table arithmetic. It presses
+    // the same /cal8_* buttons as everything else; see the block comment in compass.cpp.
     // ---------------------------------------------------------------------------------------
     subServer.on("/mancal_enter", HTTP_GET, [](){
-        extern volatile bool interp_enabled;
-        interp_enabled = false; // RAM only - deliberately not persisted, see above
         // Hold PWRENABLE on and the serial watchdog off for the duration - without the Top feeding
         // them, both would otherwise interrupt the calibration. See main.h.
         mancalSessionBegin();
@@ -645,31 +669,23 @@ void WiFiTask(void *arg) {
         subServer.send(200, "text/plain", "OK");
     });
 
-    subServer.on("/mancal_point", HTTP_GET, [](){
-        if (!subServer.hasArg("index") || !subServer.hasArg("corr")) {
-            subServer.send(400, "text/plain", "Missing args");
-            return;
-        }
+    // Pivot towards the leg the session is currently asking for, plus whatever the operator has
+    // nudged. Steering only - it writes nothing. The target is a CORRECTED heading, so the buoy
+    // lands as close to the real direction as its present calibration allows; the operator checks
+    // it against an external compass, nudges, and presses SET. Each run therefore starts you nearer
+    // the mark than the last one did.
+    subServer.on("/cal8_steer", HTTP_GET, [](){
         mancalSessionPing();
-        int idx = subServer.arg("index").toInt();
-        float corr = subServer.arg("corr").toFloat();
-        if (idx < 0 || idx > 7) {
-            subServer.send(400, "text/plain", "Invalid index");
-            return;
-        }
+        if (!cal8_active) { subServer.send(409, "text/plain", "no calibration session"); return; }
+        int leg = cal8_next;
+        if (leg > 7) { subServer.send(409, "text/plain", "all eight already captured"); return; }
+        float nudge = subServer.hasArg("nudge") ? subServer.arg("nudge").toFloat() : 0.0f;
 
-        extern float measured_angles[9];
-        extern void computeFourierCoefficients();
-
-        float target = (float)(idx * 45) - corr;
+        float target = (float)(leg * 45) + nudge;
         while (target < 0.0f) target += 360.0f;
         while (target >= 360.0f) target -= 360.0f;
-        measured_angles[idx] = target;
-        // Entry 8 is the 360 degree wrap of entry 0, kept in step so the stored table stays valid.
-        if (idx == 0) measured_angles[8] = measured_angles[0] + 360.0f;
-        computeFourierCoefficients();
 
-        // Steer there at zero speed - a pure pivot, no forward thrust.
+        // Zero speed and zero distance: a pure pivot on the spot, no forward thrust.
         if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500))) {
             mainData.tgDir = target;
             mainData.tgSpeed = 0;
@@ -678,7 +694,7 @@ void WiFiTask(void *arg) {
             xSemaphoreGive(mainDataMutex);
         }
         subServer.send(200, "application/json",
-                       "{\"index\":" + String(idx) + ",\"corr\":" + String(corr, 1) +
+                       "{\"leg\":" + String(leg) + ",\"nudge\":" + String(nudge, 1) +
                        ",\"target\":" + String(target, 1) + "}");
     });
 
@@ -693,29 +709,25 @@ void WiFiTask(void *arg) {
         subServer.send(200, "text/plain", "OK");
     });
 
+    // Release the motor hold and stop turning. Nothing about the table is decided here any more -
+    // /cal8_save and /cal8_cancel are the only two things that touch it.
+    //
+    // A running calibration session is deliberately left alone. It lives on the buoy, not in the
+    // page, so closing this tab or moving to the plain calibration page mid-run loses nothing: the
+    // captures are still there and the next page picks up at the same step.
     subServer.on("/mancal_exit", HTTP_GET, [](){
-        extern float measured_angles[9];
-        extern void computeFourierCoefficients();
         extern volatile bool interp_enabled;
-        bool save = (subServer.arg("save") == "1");
         mancalSessionEnd(); // release PWRENABLE and the watchdog back to the normal timers
 
-        if (save) {
-            measured_angles[8] = measured_angles[0] + 360.0f;
-            memInterpolationTable(measured_angles, MEM_PUT);
-        } else {
-            // Throw the session away and go back to what is actually stored.
-            memInterpolationTable(measured_angles, MEM_GET);
+        // The correction stays on. A buoy left with it off reports the identity table to everything
+        // that asks (see STORE_INTERPOLATION_TABLE in main.cpp), so its stored calibration becomes
+        // invisible to the CYD and the dashboard even though it is still there.
+        if (!interp_enabled) {
+            bool enable = true;
+            interp_enabled = true;
+            memInterpEnabled(&enable, MEM_PUT);
+            global_params_rev++;
         }
-        computeFourierCoefficients();
-
-        // Leave with the correction ON either way. A buoy left with it off reports the identity
-        // table to everything that asks (see STORE_INTERPOLATION_TABLE in main.cpp), so its stored
-        // calibration becomes invisible to the CYD and the dashboard even though it is still there.
-        bool enable = true;
-        interp_enabled = true;
-        memInterpEnabled(&enable, MEM_PUT);
-        global_params_rev++;
 
         if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500))) {
             mainData.tgSpeed = 0;
@@ -1138,6 +1150,14 @@ void WiFiTask(void *arg) {
                       // UNCORRECTED however harmonic_enabled reads, so the pages can say so
                       // instead of leaving it to the serial log.
                       ",\"table_ok\":" + String(interp_table_usable ? 1 : 0) +
+                      // Guided calibration session, so every interface can render the same state
+                      // rather than keeping its own idea of how far along the operator is.
+                      ",\"cal8_active\":" + String(cal8_active ? 1 : 0) +
+                      ",\"cal8_next\":" + String(cal8_next) +
+                      ",\"cal8\":[" + String(cal8_captured[0],1) + "," + String(cal8_captured[1],1) + "," +
+                        String(cal8_captured[2],1) + "," + String(cal8_captured[3],1) + "," +
+                        String(cal8_captured[4],1) + "," + String(cal8_captured[5],1) + "," +
+                        String(cal8_captured[6],1) + "," + String(cal8_captured[7],1) + "]" +
                       ",\"points\":" + pointsJson + "}";
 
         subServer.send(200, "application/json", json);
