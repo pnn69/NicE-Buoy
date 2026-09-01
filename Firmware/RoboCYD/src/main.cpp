@@ -52,15 +52,6 @@ bool mancal_harmonic_pending = false;
 // table and then waits for this to move, which is the only honest way to tell the operator the
 // store actually reached the buoy rather than just leaving the CYD.
 volatile unsigned long mancal_table_echo_ms = 0;
-// True from asking the buoy to switch its harmonic correction off until the buoy's own telemetry
-// confirms it really is off. The 8 point table is defined against the RAW compass, so a capture
-// taken while the correction is still running is silently wrong - it produces a table that gets
-// applied on top of the one already in effect.
-bool mancal_await_harmonic_off = false;
-unsigned long mancal_harmonic_off_next_ms = 0;
-int mancal_harmonic_off_tries = 0;
-#define MANCAL_HARMONIC_RETRY_MS 1500
-#define MANCAL_HARMONIC_MAX_TRIES 6
 // This screen switches the harmonic correction off so the dialing works against the raw compass,
 // and it must be ON again by the time the screen is left - by EITHER exit. A buoy left with it off
 // answers every later table request with the identity table, so the corrections still in NVS become
@@ -1317,11 +1308,8 @@ static void mancal_save_table_and_exit(int buoy_index) {
     }
     bool stored = (mancal_table_echo_ms != 0);
     
-    // Put the correction and the trim back, whichever way this went.
-    b.harmonic_enabled = true;
-    b.compass_trim_enabled = true;
-    send_buoy_setup(selected_buoy_idx);
-    mancal_await_harmonic_off = false;
+    // Nothing to put back - see the CANCEL path. The correction and the trim were never touched,
+    // so the buoy carries on exactly as it was, now with the new table.
     
     // Send IDLE command immediately to shut down thrusters/motors after calibration!
     send_buoy_command(b.id, 8);
@@ -2572,15 +2560,16 @@ void loop() {
                             return;
                         }
 
-                        if (mancal_await_harmonic_off || b.harmonic_reported) {
-                            // mag_dir is still a CORRECTED heading. Capturing it writes a table on
-                            // top of the correction already running, and the buoy then applies
-                            // both - the exact fault that silently ruined a full calibration.
-                            mancal_warn("WAIT - CORRECTION ON");
+                        if (b.mag_dir_iron_ms == 0 ||
+                            millis() - b.mag_dir_iron_ms > MANCAL_HEADING_STALE_MS) {
+                            // No Imag from this buoy - either its firmware predates the field or
+                            // its telemetry has stopped. Capturing mag_dir instead would build a
+                            // table on top of whatever correction is running, which is the fault
+                            // this whole approach exists to remove, so refuse instead.
+                            mancal_warn("NO IRON HEADING");
                             delay(20);
                             return;
                         }
-
                         // Press feedback: the value it changes is 30 pixels away and the confirm
                         // banner takes a moment.
                         tft.fillRoundRect(100, 215, 40, 35, 5, TFT_WHITE);
@@ -2589,7 +2578,10 @@ void loop() {
                         tft.setTextDatum(MC_DATUM);
                         tft.drawString("SET", 120, 232);
 
-                        float captured = b.mag_dir;
+                        // Imag, not mag_dir: the table is indexed by the pre-table heading, so
+                        // that is what a calibration point has to be. Reading it needs nothing
+                        // switched off on the buoy.
+                        float captured = b.mag_dir_iron;
                         float off = target_angle - captured;
                         while (off < -180.0f) off += 360.0f;
                         while (off > 180.0f) off -= 360.0f;
@@ -2742,16 +2734,17 @@ void loop() {
                         // reached: RoboSub/src/main.cpp:25 defines SET_AS_NORTH as the macro 125
                         // AFTER including RoboCompute.h, where the enumerator is 87, so the Sub
                         // listens on a number no node on this network ever sends.
-                        if (mancal_await_harmonic_off || b.harmonic_reported) {
-                            // mag_dir is still a CORRECTED heading. Capturing it writes a table on
-                            // top of the correction already running, and the buoy then applies
-                            // both - the exact fault that silently ruined a full calibration.
-                            mancal_warn("WAIT - CORRECTION ON");
+                        if (b.mag_dir_iron_ms == 0 ||
+                            millis() - b.mag_dir_iron_ms > MANCAL_HEADING_STALE_MS) {
+                            // No Imag from this buoy - either its firmware predates the field or
+                            // its telemetry has stopped. Capturing mag_dir instead would build a
+                            // table on top of whatever correction is running, which is the fault
+                            // this whole approach exists to remove, so refuse instead.
+                            mancal_warn("NO IRON HEADING");
                             delay(20);
                             return;
                         }
-
-                        float captured_north = b.mag_dir;
+                        float captured_north = b.mag_dir_iron;
                         float north_err = 0.0f - captured_north;
                         while (north_err < -180.0f) north_err += 360.0f;
                         while (north_err > 180.0f) north_err -= 360.0f;
@@ -2801,11 +2794,9 @@ void loop() {
                         // it off so the dialing works on the raw compass; walking away and leaving
                         // it off makes every later visit read the identity table, so the
                         // corrections still in NVS become invisible.
-                        b.harmonic_enabled = true;
-                        b.compass_trim_enabled = true;   // switched off on entry, see above
-                        send_buoy_setup(selected_buoy_idx);
+                        // Nothing to put back: this screen no longer changes the correction or
+                        // the trim, so leaving is just leaving.
                         mancal_harmonic_pending = false;
-                        mancal_await_harmonic_off = false;
                         delay(150);
 
                         // Send IDLE command immediately to shut down thrusters/motors!
@@ -4046,32 +4037,6 @@ void enter_man_fourier_cal(int buoy_idx) {
  * that never answers still has to be dialable, it just starts from an unknown baseline.
  */
 void service_mancal_entry() {
-    // Chase the switch-off until the buoy's own telemetry confirms it. One lost frame used to be
-    // enough to ruin a whole calibration with no sign that anything was wrong.
-    if (in_man_fourier_cal_mode && mancal_await_harmonic_off &&
-        selected_buoy_idx >= 0 && selected_buoy_idx < 3) {
-        BuoyData &hb = buoys[selected_buoy_idx];
-        // hb.harmonic_reported, NOT hb.harmonic_enabled: the latter is our own intent, which
-        // this code sets to false itself when it sends the switch-off, so testing it confirmed
-        // nothing and let captures run against a still-corrected compass.
-        if (!hb.harmonic_reported && hb.harmonic_reported_ms != 0) {
-            mancal_await_harmonic_off = false;   // the BUOY says off - captures may proceed
-            mancal_is_dirty = true;
-        } else if ((long)(millis() - mancal_harmonic_off_next_ms) >= 0 &&
-                   mancal_harmonic_off_tries < MANCAL_HARMONIC_MAX_TRIES) {
-            mancal_harmonic_off_next_ms = millis() + MANCAL_HARMONIC_RETRY_MS;
-            mancal_harmonic_off_tries++;
-            Serial.printf("Harmonic correction still ON, re-sending switch-off %d of %d\n",
-                          mancal_harmonic_off_tries, MANCAL_HARMONIC_MAX_TRIES);
-            hb.harmonic_enabled = false;
-            hb.compass_trim_enabled = false;
-            send_buoy_setup(selected_buoy_idx);
-            // A GET, so the buoy answers with what it is ACTUALLY running. Without this nothing
-            // ever refreshes harmonic_reported and the wait could not end either way.
-            query_buoy_setup(hb.id);
-        }
-    }
-
     if (!in_man_fourier_cal_mode || !mancal_harmonic_pending) return;
     if (selected_buoy_idx < 0 || selected_buoy_idx >= 3) return;
     BuoyData &b = buoys[selected_buoy_idx];
@@ -4094,18 +4059,14 @@ void service_mancal_entry() {
         // the way the buoy carries on correcting while this screen believes it is not. That is not
         // a theoretical risk: it happened, all eight points were captured against a corrected
         // compass, and nothing said a word because this used to clear the flag right here.
-        // Adaptive trim off as well as the harmonic correction. It is a bias added AFTER the
-        // correction curve and it drifts on its own - one of these buoys was carrying 4.1 degrees
-        // of it - so leaving it on puts a moving error into every one of the eight captures.
-        // Both go back on when the screen is left, by either exit.
-        b.harmonic_enabled = false;
-        b.compass_trim_enabled = false;
-        send_buoy_setup(selected_buoy_idx);
+        // Nothing is switched off on the buoy any more, and nothing needs to be. Captures read
+        // Imag, which sits before the compass table and before the trim, so both can stay exactly
+        // as the operator left them and have no bearing on the result.
+        //
+        // That removes the one step this screen depended on and could not verify: it asked for the
+        // correction to be switched off, assumed that had worked, and on a lost frame captured all
+        // eight points against a live correction without a word.
         mancal_harmonic_pending = false;
-        query_buoy_setup(b.id);
-        mancal_await_harmonic_off = true;
-        mancal_harmonic_off_next_ms = millis() + MANCAL_HARMONIC_RETRY_MS;
-        mancal_harmonic_off_tries = 0;
         mancal_is_dirty = true;
         return;
     }

@@ -2329,6 +2329,10 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             break;
         case SUBDATA:
             target->dirMag = serDataIn.dirMag;
+            // Imag - the heading before the Sub's compass table and trim. Relayed onward in
+            // TOPDATA so a calibration can read it without switching anything off on the buoy.
+            // Copied field by field here, so a new one has to be added explicitly or it is lost.
+            target->imag = serDataIn.imag;
             target->speedBb = serDataIn.speedBb;
             target->speedSb = serDataIn.speedSb;
             target->ip = serDataIn.ip;

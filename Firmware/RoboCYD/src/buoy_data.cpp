@@ -233,6 +233,13 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         if (fields.size() > 21) {
             buoys[buoy_idx].current = atof(fields[21].c_str());
         }
+        // Imag - see BuoyData::mag_dir_iron. numbers[19] in RoboCompute's TOPDATA, which is
+        // fields[22] here. Appended to the frame, so an older buoy simply does not send it and
+        // mag_dir_iron_ms stays 0.
+        if (fields.size() > 22 && fields[22].length() > 0) {
+            buoys[buoy_idx].mag_dir_iron = atof(fields[22].c_str());
+            buoys[buoy_idx].mag_dir_iron_ms = millis();
+        }
     }
     // Parse BUOYPOS (CMD = 19)
     else if (cmd == 19 && fields.size() >= 14) {

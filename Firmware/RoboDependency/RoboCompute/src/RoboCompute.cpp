@@ -212,6 +212,9 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->subAccuV = numbers[7].toDouble();
         dataStore->subAccuP = numbers[8].toInt();
         if (count > 9) dataStore->subAccuI = numbers[9].toFloat();
+        // Iron corrected heading, see RoboStruct::imag. Count guarded: an older Sub sends a
+        // shorter frame and the Top keeps whatever it already had.
+        if (count > 10) dataStore->imag = numbers[10].toDouble();
         break;
     case TOPDATA:
         dataStore->dirMag = numbers[2].toDouble();
@@ -231,6 +234,8 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->gpsFix = (bool)numbers[16].toInt();
         dataStore->gpsSat = numbers[17].toInt();
         if (count > 18) dataStore->subAccuI = numbers[18].toFloat();
+        // Iron corrected heading, see RoboStruct::imag.
+        if (count > 19) dataStore->imag = numbers[19].toDouble();
         break;
     case RAWCOMPASSDATA:
         dataStore->magHard[0] = numbers[2].toDouble();
@@ -414,6 +419,10 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + formatFloat(dataOut->subAccuV, 2);
         out += "," + String(dataOut->subAccuP);
         out += "," + formatFloat(dataOut->subAccuI, 2);
+        // Imag - the heading the compass table is indexed by. Two decimals: a calibration point is
+        // read straight off this, so rounding it to a whole degree would put that error in the
+        // table for good.
+        out += "," + formatFloat(dataOut->imag, 2);
         break;
     case TOPDATA:
         out += "," + formatFloat(dataOut->dirMag, 0);
@@ -433,6 +442,9 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->gpsFix);
         out += "," + String(dataOut->gpsSat);
         out += "," + formatFloat(dataOut->subAccuI, 2);
+        // Imag, see the SUBDATA case above. dirMag goes out of TOPDATA rounded to whole degrees,
+        // which is fine for a display but useless for a calibration - hence two decimals here.
+        out += "," + formatFloat(dataOut->imag, 2);
         break;
     case SPBBSPSB:
         out += "," + String(dataOut->speedBb);
@@ -1162,6 +1174,7 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
 
     case TOPDATA:
         dst->dirMag = src.dirMag;       dst->gpsDir = src.gpsDir;
+        dst->imag = src.imag;
         dst->tgDir = src.tgDir;         dst->tgDist = src.tgDist;
         dst->wDir = src.wDir;           dst->wStd = src.wStd;
         dst->speedBb = src.speedBb;     dst->speedSb = src.speedSb;
@@ -1174,6 +1187,7 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
 
     case SUBDATA:
         dst->dirMag = src.dirMag;
+        dst->imag = src.imag;
         dst->speedBb = src.speedBb;     dst->speedSb = src.speedSb;
         dst->ip = src.ip;               dst->ir = src.ir;
         dst->subAccuV = src.subAccuV;   dst->subAccuP = src.subAccuP;

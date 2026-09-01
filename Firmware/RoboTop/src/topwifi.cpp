@@ -559,6 +559,9 @@ void WiFiTask(void *arg)
         json += "\"BB\":\"" + String(mainData.speedBb) + "\",";
         json += "\"SB\":\"" + String(mainData.speedSb) + "\",";
         json += "\"MagDir\":\"" + String(mainData.dirMag, 2) + "\",";
+        // Imag - the heading before the eight point compass table and the trim. See
+        // RoboStruct::imag; a calibration reads this rather than switching the correction off.
+        json += "\"Imag\":\"" + String(mainData.imag, 2) + "\",";
         json += "\"TgDir\":\"" + String(mainData.tgDir, 2) + "\",";
         double local_tg_dist = mainData.tgDist;
         if (mainData.status == LOCKED || mainData.status == LOCKING || mainData.status == DOCKED || mainData.status == DOCKING) {
@@ -641,6 +644,7 @@ void WiFiTask(void *arg)
             json += "\"BB\":\"" + String(buoyPara[i].speedBb) + "\",";
             json += "\"SB\":\"" + String(buoyPara[i].speedSb) + "\",";
             json += "\"MagDir\":\"" + String(buoyPara[i].dirMag, 2) + "\",";
+            json += "\"Imag\":\"" + String(buoyPara[i].imag, 2) + "\",";
             json += "\"TgDir\":\"" + String(buoyPara[i].tgDir, 2) + "\",";
             double buoy_tg_dist = buoyPara[i].tgDist;
             if (buoyPara[i].status == LOCKED || buoyPara[i].status == LOCKING || buoyPara[i].status == DOCKED || buoyPara[i].status == DOCKING) {

@@ -216,6 +216,20 @@ struct RoboStruct
     double tgSpeed = 0;
     bool locked = false;
     int trackPos = 0;
+    // The heading with the hard and soft iron correction and the mounting offset applied, but
+    // BEFORE the eight point compass table and before the adaptive trim. Reported as "Imag" on the
+    // wire, alongside dirMag.
+    //
+    // This is the value the compass table is indexed by, which makes it the one thing a calibration
+    // actually needs. Publishing it means MAN CAL no longer has to switch the table off, wait for
+    // the buoy to confirm, and switch it back on afterwards - a sequence that failed silently and
+    // produced a table applied on top of the one already in effect. With Imag on the wire a
+    // calibration reads a value that is always correct, changes nothing on the buoy, and cannot be
+    // spoiled by the state of the correction or the trim.
+    //
+    // 0 means "not reported" - the field is count guarded, so a node that predates it simply sends
+    // a shorter frame and every reader keeps its own value.
+    double imag = 0;
     int speed = 0;
     int speedBb = 0;
     int speedSb = 0;

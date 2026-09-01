@@ -1218,6 +1218,10 @@ void loop(void)
         //      New compass data
         //***************************************************************************************************
         xQueueReceive(compass, (void *)&mainData.dirMag, 0);
+        // Imag - the same heading but before the eight point table and the adaptive trim, which is
+        // the value that table is indexed by. Published so a calibration can read it directly
+        // instead of having to switch the correction off first. See RoboStruct::imag.
+        mainData.imag = GetHeadingNoOffset();
         //***************************************************************************************************
         //      new serial message and udp
         //***************************************************************************************************

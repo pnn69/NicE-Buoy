@@ -17,6 +17,17 @@ struct BuoyData {
     // send_buoy_setlockpos(). 7 is IDLE, the state a buoy that has said nothing yet is assumed in.
     int status_code = 7;
     float mag_dir = 0;
+    // The buoy's heading with the iron correction and the mounting offset applied but BEFORE the
+    // eight point compass table and before the adaptive trim - the "Imag" field on the wire. This
+    // is the value the table is indexed by, so it is what a calibration must capture: reading it
+    // needs nothing switched off on the buoy, and it cannot be spoiled by the state of the
+    // correction or the trim.
+    //
+    // mag_dir_iron_ms stays 0 until the buoy actually sends it. A buoy running firmware that
+    // predates the field sends a shorter frame, and capturing 0 as a heading would quietly write a
+    // nonsense table - so MAN CAL checks this before it lets anything be captured.
+    float mag_dir_iron = 0;
+    unsigned long mag_dir_iron_ms = 0;
     float gps_dir = 0;
     float tg_dir = 0;
     float tg_dist = 0;
