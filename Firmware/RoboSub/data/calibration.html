@@ -413,15 +413,19 @@
 
             const mean = radii.reduce((a, b) => a + b, 0) / radii.length;
             const err = 100 * Math.max(...radii.map(r => Math.abs(r - mean))) / mean;
-            // 12% or worse is a bar full of red; 0% is a full green bar.
-            setBar('q-fit-bar', 'q-fit-txt', 100 * (1 - Math.min(err, 12) / 12),
-                   err < 4 ? GREEN : (err < 6 ? AMBER : RED), err.toFixed(1) + '%');
+            // Thresholds from what this hardware actually achieves, not from theory. Every sweep
+            // of both hulls on the day these were written landed between 8 and 9 per cent, with
+            // coverage as high as 25 of 26 - so the original 4 per cent target rejected good
+            // sweeps and sent the operator round again for nothing. 20 per cent or worse fills the
+            // bar red; a genuinely bad sweep on this fleet measured 30.
+            setBar('q-fit-bar', 'q-fit-txt', 100 * (1 - Math.min(err, 20) / 20),
+                   err < 10 ? GREEN : (err < 15 ? AMBER : RED), err.toFixed(1) + '%');
 
             const v = document.getElementById('q-verdict');
             const dropped = rejectedCount ? '  (' + rejectedCount + ' outlier' + (rejectedCount === 1 ? '' : 's') + ' ignored)' : '';
             if (v) {
-                if (pts >= 60 && cov >= 24 && err < 4) { v.innerText = 'Good - safe to save' + dropped; v.style.color = GREEN; }
-                else if (pts >= 60 && cov >= 22 && err < 6) { v.innerText = 'Usable - more tumbling would help' + dropped; v.style.color = AMBER; }
+                if (pts >= 60 && cov >= 24 && err < 10) { v.innerText = 'Good - safe to save' + dropped; v.style.color = GREEN; }
+                else if (pts >= 60 && cov >= 22 && err < 15) { v.innerText = 'Usable - more tumbling would help' + dropped; v.style.color = AMBER; }
                 else if (cov < 22) { v.innerText = 'Tumble the hull - ' + (26 - cov) + ' directions still unvisited'; v.style.color = RED; }
                 else { v.innerText = 'Fit error too high - check for steel nearby' + dropped; v.style.color = RED; }
             }
