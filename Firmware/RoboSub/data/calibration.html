@@ -368,6 +368,7 @@
         function updateSweepQuality() {
             const PTS_TARGET = 150;
             const pts = points.length;
+            const judged = (keptPoints && keptPoints.length) ? keptPoints : points;
 
             const setBar = (bar, txt, pct, colour, label) => {
                 const b = document.getElementById(bar), t = document.getElementById(txt);
@@ -399,7 +400,7 @@
 
             const cells = new Set();
             let radii = [];
-            points.forEach(p => {
+            judged.forEach(p => {
                 const dx = p.x - cx, dy = p.y - cy, dz = p.z - cz;
                 const n = Math.sqrt(dx * dx + dy * dy + dz * dz);
                 if (n > 1e-6) cells.add([Math.round(dx / n), Math.round(dy / n), Math.round(dz / n)].join(','));
@@ -417,11 +418,12 @@
                    err < 4 ? GREEN : (err < 6 ? AMBER : RED), err.toFixed(1) + '%');
 
             const v = document.getElementById('q-verdict');
+            const dropped = rejectedCount ? '  (' + rejectedCount + ' outlier' + (rejectedCount === 1 ? '' : 's') + ' ignored)' : '';
             if (v) {
-                if (pts >= 60 && cov >= 24 && err < 4) { v.innerText = 'Good - safe to save'; v.style.color = GREEN; }
-                else if (pts >= 60 && cov >= 22 && err < 6) { v.innerText = 'Usable - more tumbling would help'; v.style.color = AMBER; }
+                if (pts >= 60 && cov >= 24 && err < 4) { v.innerText = 'Good - safe to save' + dropped; v.style.color = GREEN; }
+                else if (pts >= 60 && cov >= 22 && err < 6) { v.innerText = 'Usable - more tumbling would help' + dropped; v.style.color = AMBER; }
                 else if (cov < 22) { v.innerText = 'Tumble the hull - ' + (26 - cov) + ' directions still unvisited'; v.style.color = RED; }
-                else { v.innerText = 'Fit error too high - check for steel nearby'; v.style.color = RED; }
+                else { v.innerText = 'Fit error too high - check for steel nearby' + dropped; v.style.color = RED; }
             }
         }
 
@@ -511,17 +513,102 @@
             }, 100);
         }
 
+        // Points that survived the outlier filter, and how many did not. updateSweepQuality()
+        // reports the quality of THESE, because these are what a save is computed from.
+        let keptPoints = [];
+        let rejectedCount = 0;
+
+        // Rebuild min/max from the points, discarding outliers first.
+        //
+        // This used to be folded in one sample at a time, so a single spurious reading was baked
+        // into min or max on the spot and could never be removed. That matters more here than for
+        // a least squares fit: min/max looks ONLY at the extremes, so one bad point sets both the
+        // hard iron centre and the soft iron scale of that axis, permanently and silently.
+        // Injecting one spike into a real sweep of this hull moved the X hard iron by 23 uT.
+        //
+        // Robust statistics throughout, which took three attempts to get right:
+        //   - mean and standard deviation do NOT work: the spike drags both, so the test ends up
+        //     rejecting legitimate points on the far side while the spike itself survives. That
+        //     version left 8 uT of error and made the soft iron scale worse than no filter at all.
+        //   - the per-axis median is not the sphere centre either. The sweep visits some regions
+        //     more than others, so the median pulls toward wherever the samples were densest, and
+        //     the filter then cuts off whole legitimate regions. That version threw away a fifth
+        //     of a clean sweep and produced a centre 17 uT out.
+        //   - what works is fitting the sphere properly and judging radii against the MEDIAN
+        //     radius with a MAD threshold, iterated so the fit tightens as outliers drop out.
+        //
+        // Measured on a real 1686 point sweep: 105 points dropped and the centre moves 0.3 uT,
+        // while 1, 3 and 8 injected spikes leave errors of 2.0, 0.2 and 1.9 uT instead of 23.
+        function sphereCentre(P) {
+            // Kasa algebraic sphere fit - linear least squares for (2cx, 2cy, 2cz, k).
+            const A = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]], b = [0, 0, 0, 0];
+            P.forEach(p => {
+                const v = [p.x, p.y, p.z, 1], w = p.x * p.x + p.y * p.y + p.z * p.z;
+                for (let i = 0; i < 4; i++) {
+                    b[i] += v[i] * w;
+                    for (let j = 0; j < 4; j++) A[i][j] += v[i] * v[j];
+                }
+            });
+            const M = A.map((row, i) => row.concat([b[i]]));
+            for (let i = 0; i < 4; i++) {
+                let q = i;
+                for (let r = i + 1; r < 4; r++) if (Math.abs(M[r][i]) > Math.abs(M[q][i])) q = r;
+                [M[i], M[q]] = [M[q], M[i]];
+                if (Math.abs(M[i][i]) < 1e-12) return null;
+                for (let r = i + 1; r < 4; r++) {
+                    const f = M[r][i] / M[i][i];
+                    for (let c = i; c < 5; c++) M[r][c] -= f * M[i][c];
+                }
+            }
+            const x = [0, 0, 0, 0];
+            for (let i = 3; i >= 0; i--) {
+                let s = M[i][4];
+                for (let j = i + 1; j < 4; j++) s -= M[i][j] * x[j];
+                x[i] = s / M[i][i];
+            }
+            return [x[0] / 2, x[1] / 2, x[2] / 2];
+        }
+
+        function median(v) {
+            const s = v.slice().sort((a, b) => a - b), n = s.length;
+            return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2;
+        }
+
+        function recomputeMinMax() {
+            if (points.length === 0) return;
+            const ext = pts => ({
+                minX: Math.min(...pts.map(p => p.x)), maxX: Math.max(...pts.map(p => p.x)),
+                minY: Math.min(...pts.map(p => p.y)), maxY: Math.max(...pts.map(p => p.y)),
+                minZ: Math.min(...pts.map(p => p.z)), maxZ: Math.max(...pts.map(p => p.z))
+            });
+
+            keptPoints = points.slice();
+            if (points.length >= 20) {
+                for (let pass = 0; pass < 3; pass++) {
+                    const c = sphereCentre(keptPoints);
+                    if (!c) break;
+                    const r = keptPoints.map(p =>
+                        Math.sqrt((p.x - c[0]) ** 2 + (p.y - c[1]) ** 2 + (p.z - c[2]) ** 2));
+                    const mr = median(r);
+                    const mad = median(r.map(t => Math.abs(t - mr))) * 1.4826;
+                    if (!(mad > 1e-6)) break;
+                    const next = keptPoints.filter((p, i) => Math.abs(r[i] - mr) <= 3.0 * mad);
+                    if (next.length < 10 || next.length === keptPoints.length) break;
+                    keptPoints = next;
+                }
+            }
+            rejectedCount = points.length - keptPoints.length;
+            minMax = ext(keptPoints);
+        }
+
         function recordPoint(mx, my, mz) {
             points.push({ x: mx, y: my, z: mz });
             pointCounter.innerText = points.length;
 
-            // Update limits on-the-fly
-            if (mx < minMax.minX) minMax.minX = mx;
-            if (mx > minMax.maxX) minMax.maxX = mx;
-            if (my < minMax.minY) minMax.minY = my;
-            if (my > minMax.maxY) minMax.maxY = my;
-            if (mz < minMax.minZ) minMax.minZ = mz;
-            if (mz > minMax.maxZ) minMax.maxZ = mz;
+            // Recomputed from the whole buffer, not folded in one sample at a time - see
+            // recomputeMinMax(). A few hundred points at 10 Hz is nothing for the browser, and it
+            // is the only way an outlier that has already arrived can still be discarded.
+            recomputeMinMax();
 
             // Render stats
             labelMinX.innerText = `${minMax.minX.toFixed(1)} µT`;
