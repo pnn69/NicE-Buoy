@@ -28,6 +28,17 @@ String netHealthLine();
 // ---------------------------------------------------------------------------------------------
 void mancalNoteTable(const float *table, bool inEffect);
 
+// ---------------------------------------------------------------------------------------------
+// Guided eight point calibration. The Top holds no state of its own here beyond a cache for its
+// web page: the session lives on the Sub - see the block comment in RoboSub/src/compass.cpp - and
+// the page presses its buttons over CAL8_SESSION frames. That is the whole point. The Top used to
+// keep its own eight-entry working copy and its own idea of the arithmetic, which is one of the
+// five copies that let a corrected heading end up stored as a raw one.
+//
+// Called from handleSerialData() for every CAL8_SESSION frame the Sub sends up.
+// ---------------------------------------------------------------------------------------------
+void cal8NoteState(bool active, int next, const float *captured);
+
 // Called from the main loop. A MAN CAL session driven from this Top's web page leaves the buoy in
 // REMOTE with its harmonic correction switched off; if the browser goes away - crash, sleeping tab,
 // WiFi drop - nothing else would ever put either back. This expires the session and does it.

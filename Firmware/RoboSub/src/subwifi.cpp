@@ -1121,7 +1121,13 @@ void WiFiTask(void *arg) {
                       ",\"rbb\":" + String(rampBb, 2) +
                       ",\"rsb\":" + String(rampSb, 2) +
                       ",\"framp\":" + String(forward_ramp, 2) +
-                      ",\"pivot\":" + String(was_pure_pivot ? 1 : 0) +
+                      // Was the LAST manoeuvre a pure pivot - a flag, not a speed. It sits in
+                      // this run of PID diagnostics (ri, ro, rbb, rsb, framp) and that is all it
+                      // has ever been, but calling it "pivot" made it read as the pivot SPEED
+                      // setting stuck at 0 on a buoy actually configured for 0.20. Same name as
+                      // the variable now, and the setting itself is right below.
+                      ",\"pure_pivot\":" + String(was_pure_pivot ? 1 : 0) +
+                      ",\"pvspd\":" + String(mainData.pivotSpeed, 2) +
                       ",\"mx_raw\":" + String(mx_raw_aligned, 2) +
                       ",\"my_raw\":" + String(my_raw_aligned, 2) +
                       ",\"mz_raw\":" + String(mz_raw_aligned, 2) +

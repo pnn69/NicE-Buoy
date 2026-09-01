@@ -740,6 +740,58 @@ void handleSerandRfdata(RoboStruct *ser)
                     printf("Sent updated SETUPDATA back\r\n");
                 }
                 break;
+            case CAL8_SESSION:
+                {
+                    // Remote end of the guided eight point calibration. Everything this does is a
+                    // call into compass.cpp, which owns the rules; there is deliberately no
+                    // arithmetic here. See the block comment there, and CAL8_SESSION in
+                    // RoboCompute.h for the frame layout.
+                    if (dataIn.ack == SET)
+                    {
+                        switch (dataIn.cal8Action)
+                        {
+                        case CAL8_BEGIN:
+                            cal8Begin();
+                            // A calibration is starting: hold PWRENABLE and park the serial
+                            // watchdog, exactly as the Sub's own page does. Without this the buoy
+                            // can shut down halfway through a run driven from the CYD.
+                            mancalHoldArm();
+                            break;
+                        case CAL8_SET:
+                            if (cal8Set() < 0)
+                                printf("CAL8: set ignored - no session, or all eight captured\r\n");
+                            mancalHoldArm();   // refresh the hold, the operator is still working
+                            break;
+                        case CAL8_SAVE:
+                            if (cal8Save()) mancalHoldDisarm();
+                            else printf("CAL8: save refused - not all eight captured\r\n");
+                            break;
+                        case CAL8_CANCEL:
+                            cal8Cancel();
+                            mancalHoldDisarm();
+                            break;
+                        default:
+                            printf("CAL8: unknown action %d\r\n", dataIn.cal8Action);
+                            break;
+                        }
+                    }
+
+                    // Answer every frame, GET or SET, with the state as it now stands. The sender
+                    // never has to work out what a press did - and two screens watching the same
+                    // run stay in step because neither is keeping its own count.
+                    RoboStruct response = mainData;
+                    response.IDs = mainData.mac;
+                    response.IDr = dataIn.IDs;
+                    response.cmd = CAL8_SESSION;
+                    response.ack = INF;
+                    response.cal8Action = dataIn.cal8Action;
+                    response.cal8Active = cal8_active;
+                    response.cal8Next = cal8_next;
+                    for (int i = 0; i < 8; i++) response.cal8Captured[i] = cal8_captured[i];
+                    xQueueSend(serOut, (void *)&response, 10);
+                }
+                break;
+
             case STORE_INTERPOLATION_TABLE:
                 {
                     // The Fourier correction table lives in compass.cpp; subwifi.cpp reaches it

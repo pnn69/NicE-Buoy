@@ -385,6 +385,38 @@ bool udp_setup(int poort)
 static float mancalTable[8] = {0, 45, 90, 135, 180, 225, 270, 315};
 static volatile bool mancalTableValid = false;
 
+// ---- guided eight point calibration, mirrored from the Sub ----------------------------------
+// Read-only as far as this Top is concerned. Every value here arrived in a CAL8_SESSION frame; the
+// page renders it and nothing more, so it cannot get a step out of step with the hardware.
+static volatile bool cal8Valid = false;   // the Sub has answered at least once
+static volatile bool cal8Active = false;
+static volatile int cal8Next = 0;
+static float cal8Captured[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+
+void cal8NoteState(bool active, int next, const float *captured)
+{
+    cal8Active = active;
+    cal8Next = next;
+    for (int i = 0; i < 8; i++) cal8Captured[i] = captured[i];
+    cal8Valid = true;
+    printf("CAL8: session %s, step %d of 8, captured:", active ? "running" : "idle", next);
+    for (int i = 0; i < 8; i++) printf(" %.1f", cal8Captured[i]);
+    printf("\r\n");
+}
+
+// One frame per press. ack SET carries an action; ack GET just asks. Either way the Sub answers
+// with the state, which comes back through cal8NoteState().
+static void cal8Send(int ackKind, int action)
+{
+    RoboStruct msg = {};
+    msg.IDs = 0x99;
+    msg.IDr = mainData.mac;
+    msg.cmd = CAL8_SESSION;
+    msg.ack = ackKind;
+    msg.cal8Action = action;
+    xQueueSend(udpIn, (void *)&msg, 10);
+}
+
 void mancalNoteTable(const float *table, bool inEffect)
 {
     // The Sub answers with the table that is IN EFFECT, not the one in NVS. With its correction
@@ -404,11 +436,6 @@ void mancalNoteTable(const float *table, bool inEffect)
     printf("\r\n");
 }
 
-// Sends the Sub a SETUPDATA carrying everything we already hold for it, with only the harmonic
-// flag changed. Dialing has to happen with the correction OFF or the table would be applied on top
-// of the very measurement being taken; leaving the screen puts it back ON, because a Sub left with
-// it off reports the identity table to everything that asks and its stored calibration goes
-// invisible.
 //***************************************************************************************************
 //  MAN CAL session watchdog - see topwifi.h
 //***************************************************************************************************
@@ -434,18 +461,6 @@ static void mancalSessionEnd()
     mancalActive = false;
 }
 
-static void mancalSetHarmonic(bool on)
-{
-    RoboStruct msg = mainData;
-    msg.IDs = 0x99;
-    msg.IDr = mainData.mac;
-    msg.cmd = SETUPDATA;
-    msg.ack = SET;
-    msg.interpEnabled = on;
-    mainData.interpEnabled = on;
-    xQueueSend(udpIn, (void *)&msg, 10);
-}
-
 // Asks the Sub for the table it is running. Must be sent while the correction is still ON: the Sub
 // answers with the table IN EFFECT, so with it off the reply is the identity table and every
 // stored correction reads as zero.
@@ -455,9 +470,11 @@ void mancalSessionService()
     if (millis() - mancalLastPing <= MANCAL_TOP_TIMEOUT_MS) return;
 
     mancalActive = false;
-    printf("MANCAL: no contact from the page for %lu ms - ending session, correction back on\r\n",
+    printf("MANCAL: no contact from the page for %lu ms - stopping the hull\r\n",
            MANCAL_TOP_TIMEOUT_MS);
-    mancalSetHarmonic(true);
+    // Stop turning, and nothing else. There is no correction to put back any more - the guided
+    // flow never switches one off - and any captures the operator has made stay on the Sub, where
+    // they cost nothing until SAVE. Walking away from a browser must not throw away work.
     mainData.tgSpeed = 0;
     mainData.tgDist = 0;
     mainData.status = IDLING;
@@ -633,6 +650,15 @@ void WiFiTask(void *arg)
         json += "\"mancalValid\":" + String(mancalTableValid ? 1 : 0) + ",";
         json += "\"mancalTable\":[";
         for (int i = 0; i < 8; i++) json += String(mancalTable[i], 1) + (i < 7 ? "," : "");
+        json += "],";
+        // Guided calibration session as the SUB reports it. cal8Valid distinguishes "the Sub has
+        // not answered yet" from "answered, and no session is running" - without it the page would
+        // show a run that is under way as not started for as long as the first frame took.
+        json += "\"cal8Valid\":" + String(cal8Valid ? 1 : 0) + ",";
+        json += "\"cal8Active\":" + String(cal8Active ? 1 : 0) + ",";
+        json += "\"cal8Next\":" + String(cal8Next) + ",";
+        json += "\"cal8\":[";
+        for (int i = 0; i < 8; i++) json += String(cal8Captured[i], 1) + (i < 7 ? "," : "");
         json += "]";
         json += "},";
 
@@ -726,64 +752,65 @@ void WiFiTask(void *arg)
             }
             if (cmdStr == "MANCAL_ENTER")
             {
-                // Switch the correction ON first, then read. Unconditionally: the Sub answers
-                // with the table that is IN EFFECT, so on a buoy whose correction is already off
-                // the reply is the identity table and every stored correction reads as zero. The
-                // table itself is untouched in the Sub's NVS either way - only the reporting of
-                // it depends on the flag. Ordering holds because both frames take the same path
-                // to the Sub and its serial handler processes them in turn.
+                // Entry is only a heartbeat and a stop. It deliberately does NOT start a
+                // calibration and does not touch the correction: a run already in progress on the
+                // Sub is picked up exactly where it was left, even if it was started from the
+                // buoy's own page or from the handheld.
                 mancalSessionBegin();
                 mancalTableValid = false;
-                mancalSetHarmonic(true);
                 mancalRequestTable();
+                cal8Send(GET, CAL8_BEGIN);   // action ignored on a GET, this only asks for state
                 mainData.status = IDLING;
                 server.send(200, "text/plain", "OK");
                 return;
             }
-            if (cmdStr == "MANCAL_HARMONIC_OFF")
+            if (cmdStr == "MANCAL_BEGIN" || cmdStr == "MANCAL_SET" ||
+                cmdStr == "MANCAL_SAVE" || cmdStr == "MANCAL_CANCEL")
             {
+                // The four buttons of the guided run. Each is one frame; the Sub decides what it
+                // means and answers with the resulting state. There is no arithmetic here on
+                // purpose - see CAL8_SESSION in RoboCompute.h.
                 mancalSessionPing();
-                // Second half of entry, sent by the page once the table has come back.
-                mancalSetHarmonic(false);
+                int action = cmdStr == "MANCAL_BEGIN" ? CAL8_BEGIN
+                           : cmdStr == "MANCAL_SET"   ? CAL8_SET
+                           : cmdStr == "MANCAL_SAVE"  ? CAL8_SAVE
+                                                      : CAL8_CANCEL;
+                cal8Send(SET, action);
+                if (action == CAL8_SAVE || action == CAL8_CANCEL)
+                {
+                    mainData.tgSpeed = 0;
+                    mainData.tgDist = 0;
+                    mainData.status = IDLING;
+                }
                 server.send(200, "text/plain", "OK");
                 return;
             }
-            if (cmdStr == "MANCAL_POINT")
+            if (cmdStr == "MANCAL_STEER")
             {
+                // Let the thrusters put the hull roughly on the leg being asked for. Steering
+                // only - it writes nothing, and the leg comes from the SUB's step counter rather
+                // than from the page, so the two cannot drift apart.
                 mancalSessionPing();
-                int idx = server.arg("index").toInt();
-                float corr = server.arg("corr").toFloat();
-                if (idx < 0 || idx > 7) { server.send(400, "text/plain", "Invalid index"); return; }
-
-                float target = (float)(idx * 45) - corr;
+                if (!cal8Active || cal8Next > 7)
+                {
+                    server.send(409, "text/plain", "no calibration session");
+                    return;
+                }
+                float nudge = server.hasArg("nudge") ? server.arg("nudge").toFloat() : 0.0f;
+                float target = (float)(cal8Next * 45) + nudge;
                 while (target < 0.0f) target += 360.0f;
                 while (target >= 360.0f) target -= 360.0f;
-                mancalTable[idx] = target;
 
-                // Pivot on the spot. handleTimerRoutines() repeats this to the Sub every 500 ms
-                // for as long as we stay in REMOTE, so the order does not have to be resent here.
+                // A CORRECTED heading, so the buoy lands as close to the real direction as its
+                // present calibration allows - closer on every run. Pivot on the spot:
+                // handleTimerRoutines() repeats this to the Sub every 500 ms while we stay in
+                // REMOTE, so the order does not have to be resent here.
                 mainData.tgDir = target;
                 mainData.tgSpeed = 0;
                 mainData.tgDist = 0;
                 mainData.status = REMOTE;
                 server.send(200, "application/json",
-                            "{\"index\":" + String(idx) + ",\"target\":" + String(target, 1) + "}");
-                return;
-            }
-            if (cmdStr == "MANCAL_NORTH")
-            {
-                mancalSessionPing();
-                // The Sub owns compassOffset, and it already knows how to fold its current heading
-                // into it (case SET_AS_NORTH). Doing it there rather than here means the arithmetic
-                // uses the heading the Sub actually has, not our copy of it.
-                RoboStruct msg = mainData;
-                msg.IDs = 0x99;
-                msg.IDr = mainData.mac;
-                msg.cmd = (msg_t)SET_AS_NORTH;
-                msg.ack = INF;
-                xQueueSend(udpIn, (void *)&msg, 10);
-                mancalTable[0] = 0.0f; // the North error now lives in the offset instead
-                server.send(200, "text/plain", "OK");
+                            "{\"leg\":" + String(cal8Next) + ",\"target\":" + String(target, 1) + "}");
                 return;
             }
             if (cmdStr == "MANCAL_STOP")
@@ -797,21 +824,9 @@ void WiFiTask(void *arg)
             }
             if (cmdStr == "MANCAL_EXIT")
             {
+                // Stop turning and drop the heartbeat. A running calibration is left alone: it
+                // lives on the Sub and has written nothing, so closing the tab loses no captures.
                 mancalSessionEnd();
-                bool save = (server.arg("save") == "1");
-                if (save)
-                {
-                    RoboStruct msg = {};
-                    msg.IDs = 0x99;
-                    msg.IDr = mainData.mac;
-                    msg.cmd = STORE_INTERPOLATION_TABLE;
-                    msg.ack = SET;
-                    for (int i = 0; i < 8; i++) msg.interpolationTable[i] = mancalTable[i];
-                    xQueueSend(udpIn, (void *)&msg, 10);
-                }
-                // ON either way, saved or not. The Sub turns it on itself when it stores a table,
-                // but not when we walk away without one.
-                mancalSetHarmonic(true);
                 mainData.tgSpeed = 0;
                 mainData.tgDist = 0;
                 mainData.status = IDLING;

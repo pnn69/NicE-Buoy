@@ -1801,6 +1801,28 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             }
+            case CAL8_SESSION:
+            {
+                // Guided calibration, driven from the handheld or another client. Straight down to
+                // the Sub, which owns the session; the Top has no opinion about any of it.
+                bool is_local = (RfIn.IDs == RfOut->mac || RfIn.IDs == 0x98 || RfIn.IDs == 0x99 || from_udp);
+                if (is_local && (RfIn.ack == GET || RfIn.ack == GETACK || RfIn.ack == SET))
+                {
+                    if (RfIn.IDr == RfOut->mac || RfIn.IDr == RfOut->IDs || RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) {
+                        RfIn.IDr = BUOYIDALL;
+                        RfIn.IDs = espMac();
+                        if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                            printf("ERROR: Failed to queue CAL8_SESSION forward to serOut!\r\n");
+                        }
+                    }
+                }
+                else
+                {
+                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                }
+                break;
+            }
             case STORE_INTERPOLATION_TABLE:
             {
                 printf("Received STORE_INTERPOLATION_TABLE command. ack=%d, IDs=0x%08lX\r\n", RfIn.ack, RfIn.IDs);
@@ -2415,6 +2437,16 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                 // printf("DEBUG: Received Kpr=%f, Kir=%f, Kdr=%f, Kps=%f, Kis=%f, Kds=%f\r\n", serDataIn.Kpr, serDataIn.Kir, serDataIn.Kdr, serDataIn.Kps, serDataIn.Kis, serDataIn.Kds);
                 // printf("Setup data PID and Compass received from Sub and updated (Rev: %d)\r\n", target->sub_status);
             }
+            break;
+        case CAL8_SESSION:
+            // The Sub's answer to a guided calibration press. Cache it for this Top's own page,
+            // then pass it on unchanged: the handheld and the dashboard are watching the same run
+            // and must see the same step, which only works if nobody re-derives it.
+            cal8NoteState(serDataIn.cal8Active, serDataIn.cal8Next, serDataIn.cal8Captured);
+            serDataIn.IDr = BUOYIDALL;
+            serDataIn.IDs = espMac();
+            xQueueSend(udpOut, (void *)&serDataIn, pdMS_TO_TICKS(100));
+            xQueueSend(loraOut, (void *)&serDataIn, pdMS_TO_TICKS(100));
             break;
         case STORE_INTERPOLATION_TABLE:
             // Answer to either half of the calibration handshake: the table the Sub is running, or

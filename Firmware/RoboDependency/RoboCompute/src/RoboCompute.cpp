@@ -270,6 +270,22 @@ void RoboDecode(String data, RoboStruct *dataStore)
         break;
     case SET_AS_NORTH:
         break;
+    case CAL8_SESSION:
+        // Count-guarded like everything else here. A short frame is a node that predates the
+        // field, not an empty session, and reading it as one would make a running calibration
+        // look cancelled on every screen watching it.
+        if (count > 4)
+        {
+            dataStore->cal8Action = numbers[2].toInt();
+            dataStore->cal8Active = (bool)numbers[3].toInt();
+            dataStore->cal8Next = numbers[4].toInt();
+        }
+        if (count > 12)
+        {
+            for (int i = 0; i < 8; i++)
+                dataStore->cal8Captured[i] = numbers[5 + i].toFloat();
+        }
+        break;
     case STORE_INTERPOLATION_TABLE:
         // Presence is decided by the field COUNT, exactly as in SETUPDATA: RoboCode() compresses
         // an all-zero token to "", so an empty field here means 0.0 and not "absent". A GET
@@ -513,6 +529,16 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String((int)dataOut->compass_trim_enabled);
         break;
     case SET_AS_NORTH:
+        break;
+    case CAL8_SESSION:
+        // The action first, so a SET and the answer to it have the same shape - the Sub echoes what
+        // it was asked to do, which is what lets a sender tell its own press apart from somebody
+        // else's on the same run.
+        out += "," + String(dataOut->cal8Action);
+        out += "," + String((int)dataOut->cal8Active);
+        out += "," + String(dataOut->cal8Next);
+        for (int i = 0; i < 8; i++)
+            out += "," + formatFloat(dataOut->cal8Captured[i], 2);
         break;
     case STORE_INTERPOLATION_TABLE:
         // A GET request still puts its (identity) table on the wire rather than sending a short
@@ -1257,6 +1283,13 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
     case STORE_INTERPOLATION_TABLE:
         for (int i = 0; i < 8; i++) dst->interpolationTable[i] = src.interpolationTable[i];
         dst->interpEnabled = src.interpEnabled;
+        break;
+
+    case CAL8_SESSION:
+        dst->cal8Action = src.cal8Action;
+        dst->cal8Active = src.cal8Active;
+        dst->cal8Next = src.cal8Next;
+        for (int i = 0; i < 8; i++) dst->cal8Captured[i] = src.cal8Captured[i];
         break;
 
     default:

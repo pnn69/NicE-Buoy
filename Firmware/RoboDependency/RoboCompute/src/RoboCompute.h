@@ -141,8 +141,40 @@ typedef enum
     //                              this field simply sends a shorter frame.
     // One extra frame is forced on completion (step DONE) and on abort (step ABORTED), so a
     // listener always sees how the run ended rather than just silence.
-    GPS_FOURIER_STATUS
+    GPS_FOURIER_STATUS,
+
+    // Guided eight point compass calibration, driven remotely. The session itself lives on the
+    // Sub - see the block comment in RoboSub/src/compass.cpp - and this is the only way for the
+    // Top's page, the CYD dashboard or the CYD touchscreen to press its buttons. They do not get
+    // their own copy of the arithmetic, which is exactly the point: five hand-written versions of
+    // it is how a corrected heading once ended up stored in the table as if it were a raw one.
+    //
+    // SET carries an action in RoboStruct::cal8Action, see cal8_action_t:
+    //   CAL8_BEGIN   arm a session, ask for north
+    //   CAL8_SET     capture the direction being asked for, then advance 45 degrees
+    //   CAL8_SAVE    write the offset and the table together, or nothing
+    //   CAL8_CANCEL  discard
+    // GET just asks for the state. Either way the Sub answers with the state:
+    //   fields[6]  cal8Action     echo of what was asked for
+    //   fields[7]  cal8Active     1 while a session is running
+    //   fields[8]  cal8Next       which direction is being asked for, 0..7, or 8 when all are in
+    //   fields[9]  .. fields[16]  the eight captured entries, degrees
+    // All count-guarded, so a node that predates this sends a short frame and leaves the reader's
+    // own copy alone rather than reading as an empty session.
+    //
+    // Nothing on the buoy changes until CAL8_SAVE, so a lost frame anywhere in a run costs at most
+    // one repeated press - and because the state is the Sub's, two screens can drive the same run.
+    CAL8_SESSION
 } msg_t;
+
+// What a CAL8_SESSION SET is asking the buoy to do. Carried in RoboStruct::cal8Action.
+typedef enum
+{
+    CAL8_BEGIN = 0,
+    CAL8_SET,
+    CAL8_SAVE,
+    CAL8_CANCEL
+} cal8_action_t;
 
 // Smallest holding radius the buoy will accept, metres. Below this the station-keeping zones in
 // pidrudspeed.cpp overlap: SUB_STATUS_PIVOT_PREP owns 1 m out to holdRad, so a radius near 1 m
@@ -278,6 +310,13 @@ struct RoboStruct
     // The table and the switch are separate: a stored table that is not applied leaves the
     // compass uncorrected. Carried by SETUPDATA field 20 - see the note in RoboCode().
     bool interpEnabled = false;
+    // Guided eight point calibration, carried by CAL8_SESSION. cal8Action is what a SET asks
+    // for; the rest is state the Sub reports and every other node only ever reads.
+    int cal8Action = 0;
+    bool cal8Active = false;
+    int cal8Next = 0;
+    float cal8Captured[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+
     // Progress of a GPS Fourier calibration run, carried by GPS_FOURIER_STATUS.
     int gpsCalStep = 0;      // gpscal_step_t
     int gpsCalLeg = 0;       // 0..7
