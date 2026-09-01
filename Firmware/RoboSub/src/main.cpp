@@ -794,6 +794,14 @@ void handleSerandRfdata(RoboStruct *ser)
                         interp_enabled = true;
                         memInterpEnabled(&enable, MEM_PUT);
 
+                        // Audible acknowledgement from the buoy itself. Deliberately here,
+                        // after the NVS write and the coefficient recompute, so a beep can only
+                        // ever mean the table really landed.
+                        {
+                            extern QueueHandle_t buzzer;
+                            if (buzzer != NULL) beep(1000, buzzer);
+                        }
+
                         printf("Stored new interpolation table: ");
                         for (int i = 0; i < 8; i++) printf("%.2f ", measured_angles[i]);
                         printf("\r\n");
