@@ -225,7 +225,9 @@ typedef enum
     GPSCAL_ABORT_LEG_UNSTABLE = 9,    // could not hold a leg straight enough to measure it
     GPSCAL_ABORT_LEG_TOO_SLOW = 10,   // leg did not cover the minimum distance in time
     GPSCAL_ABORT_TABLE_REFUSED = 11,  // Sub echoed back a different table than it was sent
-    GPSCAL_ABORT_NO_CONFIRM = 12      // Sub never confirmed the new table
+    GPSCAL_ABORT_NO_CONFIRM = 12,     // Sub never confirmed the new table
+    GPSCAL_ABORT_TABLE_UNUSABLE = 13  // table stored, but not in increasing order so the Sub
+                                      // ignores it - the buoy is sailing UNCORRECTED
 } gpscal_abort_t;
 
 struct RoboStruct
@@ -325,6 +327,11 @@ struct RoboStruct
     bool cal8Active = false;
     int cal8Next = 0;
     float cal8Captured[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+
+    // Whether the buoy can USE the interpolation table it holds, carried by
+    // STORE_INTERPOLATION_TABLE. An out-of-order table is stored and then ignored, so without this
+    // a sender could not tell "calibration stored" from "calibration stored and being ignored".
+    bool interpUsable = true;
 
     // Progress of a GPS Fourier calibration run, carried by GPS_FOURIER_STATUS.
     int gpsCalStep = 0;      // gpscal_step_t

@@ -100,6 +100,10 @@ static unsigned long tableSentAt = 0;
 static int tableTries = 0;
 static bool tableReplyValid = false;    // a STORE_INTERPOLATION_TABLE frame arrived from the Sub
 static float tableReply[8] = {0};
+// Whether the Sub can actually USE the table it just stored. An out-of-order table is written to
+// NVS and then ignored, and this run used to report success on exactly that - leaving a buoy that
+// had just spent half an hour sailing legs with no compass correction at all.
+static bool tableReplyUsable = true;
 
 static char progressMsg[64] = "";
 
@@ -452,6 +456,7 @@ void gpsCalibTableReply(const RoboStruct *in)
 {
     if (in == NULL) return;
     for (int i = 0; i < 8; i++) tableReply[i] = in->interpolationTable[i];
+    tableReplyUsable = in->interpUsable;
     tableReplyValid = true;
 }
 
@@ -776,14 +781,32 @@ void handleGpsFourierCalibration(RoboStruct *cal)
         if (tableReplyValid)
         {
             tableReplyValid = false;
+            // Compare RELATIVE to entry 0. The Sub rotates every table it stores so north sits at
+            // zero, folding the rotation into compassOffset - that is what keeps north true with
+            // the correction switched off, and this run computes newTable[i] = oldTable[i] -
+            // residual[i], which leaves north's own deviation in entry 0. So the echo is the same
+            // curve described from a different starting point, and an exact per-entry comparison
+            // would call a perfectly good store a refusal and abort the run five resends later.
             bool ok = true;
             for (int i = 0; i < 8; i++)
             {
-                if (fabs((double)tableReply[i] - (double)newTable[i]) > 0.05) ok = false;
+                double sent = (double)newTable[i] - (double)newTable[0];
+                double got = (double)tableReply[i] - (double)tableReply[0];
+                double d = fabs(normalizeErr(sent - got));
+                if (d > 0.05) ok = false;
             }
             if (ok)
             {
-                printf("#GPSFOURIER: Sub confirmed the new table\r\n");
+                // Stored is not the same as in use. An out-of-order table is kept and ignored, and
+                // saying nothing here is how a buoy ends up sailing uncorrected after a calibration
+                // that reported success.
+                if (!tableReplyUsable)
+                {
+                    abortRun(cal, "the new table is not in increasing order, so the Sub ignores it "
+                                  "- the compass is UNCORRECTED", GPSCAL_ABORT_TABLE_UNUSABLE);
+                    return;
+                }
+                printf("#GPSFOURIER: Sub confirmed the new table, north folded into the offset\r\n");
                 step = GC_GO_HOME;
                 break;
             }

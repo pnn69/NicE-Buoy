@@ -802,6 +802,7 @@ void handleSerandRfdata(RoboStruct *ser)
                     extern float measured_angles[9];
                     extern void computeFourierCoefficients();
                     extern volatile bool interp_enabled;
+                    extern bool interp_table_usable;
 
                     if (dataIn.ack == GET || dataIn.ack == GETACK)
                     {
@@ -821,6 +822,7 @@ void handleSerandRfdata(RoboStruct *ser)
                         // indistinguishable from a genuinely uncalibrated buoy - exactly the
                         // ambiguity that made every UI display zero corrections.
                         response.interpEnabled = interp_enabled;
+                        response.interpUsable = interp_table_usable;
                         // A calibration is starting. See mancalHoldService().
                         mancalHoldArm();
                         xQueueSend(serOut, (void *)&response, 10);
@@ -832,37 +834,27 @@ void handleSerandRfdata(RoboStruct *ser)
                         // IDs != mac echo filter in SercomTask, but keying on SET means a frame
                         // that ever did get echoed back could not start a store/reply ping-pong
                         // across NVS.
-                        global_params_rev++;
                         mancalHoldDisarm(); // the session committed a table
-                        for (int i = 0; i < 8; i++)
-                            measured_angles[i] = dataIn.interpolationTable[i];
-                        // Entry 8 is the 360 degree wrap of entry 0 and is not used by
-                        // computeFourierCoefficients(), but memInterpolationTable() stores all
-                        // nine and the Sub's harmonic web page displays them.
-                        measured_angles[8] = measured_angles[0] + 360.0f;
-                        memInterpolationTable(measured_angles, MEM_PUT);
-                        computeFourierCoefficients();
 
-                        // A table nobody applies is worthless, and the flag is off by default -
-                        // a buoy that has just been calibrated must sail on the result.
-                        bool enable = true;
-                        interp_enabled = true;
-                        memInterpEnabled(&enable, MEM_PUT);
+                        // The same door the guided run uses: it forces north to zero, folding the
+                        // rotation into compassOffset, writes both, and re-enables the correction.
+                        // The GPS Fourier run sends a table with north's own deviation still in
+                        // entry 0, so without this a GPS calibration silently gave up the property
+                        // that makes north true with the correction switched off.
+                        bool usable = storeInterpolationTable(dataIn.interpolationTable);
 
-                        // Audible acknowledgement from the buoy itself. Deliberately here,
-                        // after the NVS write and the coefficient recompute, so a beep can only
-                        // ever mean the table really landed.
+                        // Audible acknowledgement from the buoy itself. Deliberately after the NVS
+                        // write, so a beep can only ever mean the table really landed - and a
+                        // different tone when the result is unusable, because a cheerful beep on a
+                        // table the buoy is about to ignore is worse than no beep at all.
                         {
                             extern QueueHandle_t buzzer;
-                            if (buzzer != NULL) beep(1000, buzzer);
+                            if (buzzer != NULL) beep(usable ? 1000 : -1, buzzer);
                         }
 
-                        printf("Stored new interpolation table: ");
-                        for (int i = 0; i < 8; i++) printf("%.2f ", measured_angles[i]);
-                        printf("\r\n");
-
-                        // Echo it back so the Top can verify what actually landed in NVS, and so
-                        // its retransmit entry for this command is cleared.
+                        // Echo back what actually landed in NVS - which is the ROTATED table, not
+                        // the one that was sent. Senders compare the echo against what they sent,
+                        // so they have to compare it relative to entry 0; see gpscalib.cpp.
                         RoboStruct response = mainData;
                         response.IDs = mainData.mac;
                         response.IDr = dataIn.IDs;
@@ -871,6 +863,10 @@ void handleSerandRfdata(RoboStruct *ser)
                         for (int i = 0; i < 8; i++)
                             response.interpolationTable[i] = measured_angles[i];
                         response.interpEnabled = interp_enabled; // true here - a store switches it on
+                        // Whether the buoy can actually USE it. An out-of-order table is stored and
+                        // then ignored, and until now nothing said so: the sender was told the store
+                        // succeeded while the buoy sailed on with no compass correction at all.
+                        response.interpUsable = usable;
                         xQueueSend(serOut, (void *)&response, 10);
                     }
                 }

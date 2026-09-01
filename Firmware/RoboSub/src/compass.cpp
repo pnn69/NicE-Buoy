@@ -1112,6 +1112,67 @@ int cal8Set(int expect_leg)
     return idx;
 }
 
+// Commit an eight point table, with north forced to zero.
+//
+// This is the ONLY place a table is written, and it is what makes "entry 0 is 0" a property of the
+// buoy rather than of whichever screen happened to send the table. The guided run already produces
+// a table with entry 0 at zero, so for that path this is a no-op - but the GPS Fourier run does
+// not: it computes newTable[i] = oldTable[i] - residual[i], which leaves north's own deviation
+// sitting in entry 0. A table like that reads north correctly with the correction ON and wrongly
+// with it OFF, which is exactly the failure the offset is supposed to absorb.
+//
+// The rotation is exact, not an approximation. The table is indexed by d = sensor + compassOffset,
+// so shifting every entry down by t[0] and the offset down by the same amount leaves d - t[0]
+// against t[i] - t[0]: the same curve, described from north instead of from wherever the sensor
+// happens to read there.
+//
+// Returns false if the result is not usable - see computeFourierCoefficients(). It is still stored,
+// because refusing would leave the buoy on a table the operator thinks they replaced, but the
+// caller is told so it can say so instead of reporting success.
+bool storeInterpolationTable(const float *eight)
+{
+    float t[9];
+    for (int i = 0; i < 8; i++) t[i] = eight[i];
+
+    float shift = t[0];
+    if (fabsf(shift) > 0.001f)
+    {
+        for (int i = 0; i < 8; i++)
+        {
+            float v = t[i] - shift;
+            while (v < 0.0f) v += 360.0f;
+            while (v >= 360.0f) v -= 360.0f;
+            t[i] = v;
+        }
+        t[0] = 0.0f;   // exactly, not 359.9999
+
+        double newOffset = mainData.compassOffset - (double)shift;
+        while (newOffset < -180.0) newOffset += 360.0;
+        while (newOffset > 180.0) newOffset -= 360.0;
+        mainData.compassOffset = newOffset;
+        CompasOffset(&mainData, MEM_PUT);
+        Serial.printf("Table north was %.2f off zero: rotated to zero, compass offset now %.2f"
+                      "\r\n", shift, newOffset);
+    }
+
+    for (int i = 0; i < 8; i++) measured_angles[i] = t[i];
+    measured_angles[8] = measured_angles[0] + 360.0f;
+    memInterpolationTable(measured_angles, MEM_PUT);
+    computeFourierCoefficients();          // validates the ordering, see there
+
+    bool enable = true;
+    interp_enabled = true;
+    memInterpEnabled(&enable, MEM_PUT);
+
+    extern int global_params_rev;
+    global_params_rev++;
+
+    Serial.printf("Stored interpolation table:");
+    for (int i = 0; i < 8; i++) Serial.printf(" %.2f", measured_angles[i]);
+    Serial.printf("  usable=%d\r\n", interp_table_usable ? 1 : 0);
+    return interp_table_usable;
+}
+
 // Commit. Both halves land together or not at all - a table written against an offset that was
 // never applied would be wrong at every heading.
 bool cal8Save(void)
@@ -1126,22 +1187,15 @@ bool cal8Save(void)
     mainData.compassOffset = newOffset;
     CompasOffset(&mainData, MEM_PUT);
 
-    for (int i = 0; i < 8; i++) measured_angles[i] = cal8_captured[i];
-    measured_angles[8] = measured_angles[0] + 360.0f;
-    memInterpolationTable(measured_angles, MEM_PUT);
-    computeFourierCoefficients();          // validates the table, see there
-
-    bool enable = true;
-    interp_enabled = true;
-    memInterpEnabled(&enable, MEM_PUT);
+    // Through the common commit, which also holds the north-at-zero invariant. Entry 0 is
+    // already 0 here by construction, so its rotation is a no-op - but going through one door
+    // means the guided run and the GPS run cannot end up with different rules again.
+    bool usable = storeInterpolationTable(cal8_captured);
 
     cal8_active = false;
-    extern int global_params_rev;
-    global_params_rev++;
 
-    Serial.printf("8 point calibration SAVED: offset %.2f, table ", newOffset);
-    for (int i = 0; i < 8; i++) Serial.printf("%.1f ", measured_angles[i]);
-    Serial.printf("\r\n");
+    Serial.printf("8 point calibration SAVED: offset %.2f, usable=%d\r\n",
+                  newOffset, usable ? 1 : 0);
 
     extern QueueHandle_t buzzer;
     if (buzzer != NULL) beep(5, buzzer);   // the short happy tune

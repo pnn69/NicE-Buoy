@@ -1444,6 +1444,9 @@ static const char *gps_cal_abort_text(int code) {
         case 10: return "leg too slow";
         case 11: return "Sub refused table";
         case 12: return "Sub never confirmed";
+        // Stored, but out of order, so the Sub ignores it and the compass runs raw. Worth spelling
+        // out on the screen: the run otherwise looks like it finished.
+        case 13: return "table unusable - UNCORRECTED";
         default: return "reason not reported";
     }
 }

@@ -36,4 +36,11 @@ extern bool cal8_active;
 extern int cal8_next;        // 0..7 while running, 8 when every direction is captured
 extern float cal8_captured[8];
 
+// The one door every eight point table goes through. Forces entry 0 to zero, folding the rotation
+// into compassOffset so north stays true with the correction switched off, writes both to NVS, and
+// re-enables the correction. Returns false if the stored table is not usable (not in increasing
+// order) - it is stored anyway, so the caller can report the truth rather than silently leaving the
+// buoy uncorrected. See the block comment in compass.cpp.
+bool storeInterpolationTable(const float *eight);
+
 #endif /* COMPASS_H_ */

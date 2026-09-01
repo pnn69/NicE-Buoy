@@ -545,95 +545,37 @@ void WiFiTask(void *arg) {
             subServer.send(400, "text/plain", "Err");
         }
     });
-    subServer.on("/set_harmonic_point", HTTP_GET, [](){
-        if (subServer.hasArg("index") && subServer.hasArg("measured")) {
-            int idx = subServer.arg("index").toInt();
-            float val = subServer.arg("measured").toFloat();
-            
-            extern float measured_angles[9];
-            if (idx >= 0 && idx < 9) {
-                measured_angles[idx] = val;
-                extern void computeFourierCoefficients();
-                computeFourierCoefficients();
-                subServer.send(200, "text/plain", "OK");
-            } else {
-                subServer.send(400, "text/plain", "Invalid index");
-            }
-        } else {
-            subServer.send(400, "text/plain", "Missing args");
-        }
-    });
-    // Legacy alias
-    subServer.on("/set_interpolation_point", HTTP_GET, [](){
-        if (subServer.hasArg("index") && subServer.hasArg("measured")) {
-            int idx = subServer.arg("index").toInt();
-            float val = subServer.arg("measured").toFloat();
-            extern float measured_angles[9];
-            if (idx >= 0 && idx < 9) {
-                measured_angles[idx] = val;
-                extern void computeFourierCoefficients();
-                computeFourierCoefficients();
-                subServer.send(200, "text/plain", "OK");
-            } else {
-                subServer.send(400, "text/plain", "Invalid index");
-            }
-        } else {
-            subServer.send(400, "text/plain", "Missing args");
-        }
-    });
-    // ---- Guided eight point calibration -----------------------------------------------------
-    // Thin wrappers. Every rule lives in compass.cpp so the Sub's pages, the Top's page, the CYD
-    // dashboard and the CYD touchscreen cannot drift apart on them.
-    subServer.on("/cal8_begin", HTTP_GET, [](){
-        cal8Begin();
-        subServer.send(200, "text/plain", "OK");
-    });
-    subServer.on("/cal8_set", HTTP_GET, [](){
-        int idx = cal8Set();
-        if (idx < 0) { subServer.send(409, "text/plain", "no session, or all eight already captured"); return; }
-        char buf[48];
-        snprintf(buf, sizeof(buf), "OK %d %.2f", idx, cal8_captured[idx]);
-        subServer.send(200, "text/plain", buf);
-    });
-    subServer.on("/cal8_save", HTTP_GET, [](){
-        if (!cal8Save()) { subServer.send(409, "text/plain", "not all eight directions captured"); return; }
-        subServer.send(200, "text/plain", "OK");
-    });
-    subServer.on("/cal8_cancel", HTTP_GET, [](){
-        cal8Cancel();
-        subServer.send(200, "text/plain", "OK");
-    });
-
+    // /set_harmonic_point and /set_interpolation_point are gone. They wrote one table entry at a
+    // time, straight into RAM, with no north rule and no ordering check, and a later save committed
+    // whatever was left there. That is the free-order editing the guided run replaced - see
+    // storeInterpolationTable() in compass.cpp, which is now the only way a table is written.
+    // Commit whatever table is in RAM, through the one door - which forces north to zero and
+    // folds the rotation into compassOffset. It used to write NVS directly and skip both.
     subServer.on("/save_harmonic", HTTP_GET, [](){
         extern float measured_angles[9];
-        memInterpolationTable(measured_angles, MEM_PUT);
-        subServer.send(200, "text/plain", "OK");
+        bool usable = storeInterpolationTable(measured_angles);
+        subServer.send(200, "text/plain", usable ? "OK" : "STORED BUT NOT USABLE");
     });
     // Legacy alias
     subServer.on("/save_interpolation", HTTP_GET, [](){
         extern float measured_angles[9];
-        memInterpolationTable(measured_angles, MEM_PUT);
+        storeInterpolationTable(measured_angles);
         subServer.send(200, "text/plain", "OK");
     });
+    // Back to no correction at all. The identity table already has north at zero, so the rotation
+    // is a no-op here - it goes through the same door anyway, because a second way of writing the
+    // table is a second set of rules waiting to drift.
     subServer.on("/reset_harmonic", HTTP_GET, [](){
-        extern float measured_angles[9];
-        for (int i = 0; i < 9; i++) {
-            measured_angles[i] = i * 45.0f;
-        }
-        memInterpolationTable(measured_angles, MEM_PUT);
-        extern void computeFourierCoefficients();
-        computeFourierCoefficients();
+        float identity[8];
+        for (int i = 0; i < 8; i++) identity[i] = i * 45.0f;
+        storeInterpolationTable(identity);
         subServer.send(200, "text/plain", "OK");
     });
     // Legacy alias
     subServer.on("/reset_interpolation", HTTP_GET, [](){
-        extern float measured_angles[9];
-        for (int i = 0; i < 9; i++) {
-            measured_angles[i] = i * 45.0f;
-        }
-        memInterpolationTable(measured_angles, MEM_PUT);
-        extern void computeFourierCoefficients();
-        computeFourierCoefficients();
+        float identity[8];
+        for (int i = 0; i < 8; i++) identity[i] = i * 45.0f;
+        storeInterpolationTable(identity);
         subServer.send(200, "text/plain", "OK");
     });
     // ---------------------------------------------------------------------------------------

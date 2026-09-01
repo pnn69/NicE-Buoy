@@ -302,6 +302,9 @@ void RoboDecode(String data, RoboStruct *dataStore)
         // at least once. Count-guarded like the rest: a frame from a node that predates this
         // leaves the receiver's own value alone rather than reading as "off".
         if (count > 10) dataStore->interpEnabled = (bool)numbers[10].toInt();
+        // Count-guarded like the rest: a node that predates this field leaves the reader's own
+        // value alone rather than reading as "unusable", which would condemn a good calibration.
+        if (count > 11) dataStore->interpUsable = (bool)numbers[11].toInt();
         break;
     case GPS_FOURIER_CALIBRATE:
         // Count-based, like every other optional field here: a frame from a node that
@@ -548,6 +551,9 @@ String RoboCode(const RoboStruct *dataOut)
             out += "," + formatFloat(dataOut->interpolationTable[i], 2);
         // ... followed by whether that table is in effect, see the decoder for why.
         out += "," + String((int)dataOut->interpEnabled);
+        // ... and whether it is usable at all. In effect but not usable is a real state: the buoy
+        // ignores an out-of-order table and sails uncorrected.
+        out += "," + String((int)dataOut->interpUsable);
         break;
     case GPS_FOURIER_CALIBRATE:
         out += "," + String((int)dataOut->gpsCalStillWater);
@@ -1283,6 +1289,7 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
     case STORE_INTERPOLATION_TABLE:
         for (int i = 0; i < 8; i++) dst->interpolationTable[i] = src.interpolationTable[i];
         dst->interpEnabled = src.interpEnabled;
+        dst->interpUsable = src.interpUsable;
         break;
 
     case CAL8_SESSION:
