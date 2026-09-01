@@ -233,7 +233,9 @@
     <div class="container">
         <header>
             <div>
-                <h1>Compass Harmonic Correction Calibration</h1>
+                <h1>Compass Correction Table</h1>
+                <div id="table-state" style="margin-top:8px; padding:6px 10px; border-radius:4px;
+                     font-weight:bold; background:rgba(0,0,0,0.3); color:#8b949e;">checking...</div>
                 <p style="color: var(--text-muted); font-size: 0.9rem;">360-Degree Non-Linear Compass Compensation Table</p>
             </div>
             <a href="/" class="btn btn-outline">&larr; Back to Dashboard</a>
@@ -288,6 +290,12 @@
         <div class="card">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h2 class="card-title" style="color: var(--cyan);">Compass Calibration Table (8 reference points)</h2>
+                <div style="font-size:0.8rem; color:#8b949e; margin-bottom:6px;">
+                    The correction interpolates straight through these eight points, so the compass
+                    reads exactly right at each of them. Aim the hull at the reference heading with
+                    an external compass, then record - the value captured is the heading before the
+                    table and before the trim, so nothing has to be switched off first.
+                </div>
                 <div style="display: flex; gap: 0.75rem;">
                     <button id="btn-save" class="btn btn-green">Save to ESP32 NVS</button>
                     <button id="btn-reset" class="btn btn-red">Reset Table</button>
@@ -361,6 +369,23 @@
                         updateTableValues();
                     }
 
+                    // The correction interpolates BETWEEN these eight points, so they have to run
+                    // in increasing order all the way round. Recording them one at a time leaves
+                    // the table briefly out of order, and while it is the buoy runs uncorrected -
+                    // correct behaviour, but it used to happen silently and the page just looked
+                    // dead. Finish all eight and it goes green again.
+                    const st = document.getElementById('table-state');
+                    if (st && data.table_ok !== undefined) {
+                        if (data.table_ok) {
+                            st.innerText = 'Table valid - correction active';
+                            st.style.color = '#3fb950';
+                        } else {
+                            st.innerText = 'Table NOT usable - the eight angles are not in increasing '
+                                         + 'order, so the compass is running UNCORRECTED';
+                            st.style.color = '#f85149';
+                        }
+                    }
+
                     document.getElementById('val-as-is').innerText = Math.round(currentHeading).toString().padStart(3, '0') + '°';
                     document.getElementById('val-harmonic').innerText = Math.round(harmonicHeading).toString().padStart(3, '0') + '°';
 
@@ -391,11 +416,9 @@
                 .then(text => {
                     if (text === "OK") {
                         measuredAngles[idx] = currentHeading;
-                        // Circular wrap mirroring: if recording 0 (index 0), automatically mirror to index 8 (360 degrees) with safe wrapping
-                        if (idx === 0) {
-                            let wrap360 = currentHeading + 360.0;
-                            fetch(`/set_harmonic_point?index=8&measured=${wrap360.toFixed(1)}`);
-                        }
+                        // The 360 degree wrap entry used to be mirrored from here. The firmware
+                        // keeps it consistent itself on every table change now, and overwrote this
+                        // write immediately, so sending it again only risked the two disagreeing.
                         renderCalibrationTable();
                         console.log(`Recorded! reference: ${refAngles[idx]}° -> actual measured: ${currentHeading.toFixed(1)}°`);
                     } else {
