@@ -313,6 +313,27 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
             Serial.println("On-screen Setup Data loaded successfully from Buoy!");
         }
     }
+    // Parse CAL8_SESSION (CMD = 91) - the state of a guided eight point calibration.
+    //
+    // Taken from EVERY frame, unlike the table above: this is not a value the operator is editing
+    // that a stale duplicate could wipe out, it is the buoy's own step counter, and the buoy is the
+    // only thing that ever changes it. The Top puts each reply on both UDP and LoRa, so the worst a
+    // late duplicate can do is repaint the same step.
+    else if (cmd == 91 && fields.size() >= 8) {
+        buoys[buoy_idx].cal8_active = (atoi(fields[6].c_str()) != 0);
+        buoys[buoy_idx].cal8_next = atoi(fields[7].c_str());
+        // The eight captures are appended, so a buoy too old to send them leaves them alone rather
+        // than reading as a run with everything at zero.
+        if (fields.size() >= 16) {
+            for (int i = 0; i < 8; i++)
+                buoys[buoy_idx].cal8[i] = atof(fields[8 + i].c_str());
+        }
+        buoys[buoy_idx].cal8_ms = millis();
+        extern bool mancal_is_dirty;
+        mancal_is_dirty = true;
+        Serial.printf("CAL8 from %s: %s, step %d of 8\n", sender_id.c_str(),
+                      buoys[buoy_idx].cal8_active ? "running" : "idle", buoys[buoy_idx].cal8_next);
+    }
     // Parse STORE_INTERPOLATION_TABLE (CMD = 88) to pre-populate fourier offsets dynamically!
     else if (cmd == 88 && fields.size() >= 13) {
         Serial.printf("Parsing STORE_INTERPOLATION_TABLE (88) for Buoy: %s\n", sender_id.c_str());
@@ -379,6 +400,27 @@ void send_buoy_command(const String &buoy_id, int cmd_code, int ack) {
     Serial.printf("Broadcasting Command: %s\n", finalPacket.c_str());
     
     // Send over both LoRa and UDP!
+    send_lora_packet(finalPacket);
+    udp_broadcast(finalPacket);
+}
+
+void send_buoy_cal8(const String &buoy_id, int action, int leg, int ack) {
+    // $Target,Sender,ACK,CMD,Status,Action,Active,Next*CRC - RoboCompute's decoder reads the action
+    // as numbers[2], counting from the CMD field, and needs more than four numbers present before
+    // it reads any of them. The Active field is state the BUOY reports, so what we put there is
+    // ignored on arrival; Next carries the leg this press is for. The eight captures are
+    // deliberately not sent - this end has nothing to say about them.
+    // Status 7 (IDLE) rather than echoing the command, which is what send_buoy_command() does:
+    // this frame is not asking the buoy to change state, only to take a calibration step.
+    String cmdStr = buoy_id + ",98," + String(ack) + ",91,7," + String(action) + ",0," + String(leg);
+
+    uint8_t crc = calculate_crc(cmdStr);
+    char crc_buf[8];
+    sprintf(crc_buf, "*%02X", crc);
+    String finalPacket = "$" + cmdStr + String(crc_buf);
+
+    Serial.printf("CAL8 %s action %d leg %d: %s\n", ack == 1 ? "GET" : "SET", action, leg,
+                  finalPacket.c_str());
     send_lora_packet(finalPacket);
     udp_broadcast(finalPacket);
 }
@@ -496,26 +538,6 @@ void send_buoy_dirdist(int buoy_idx) {
     
     Serial.printf("Broadcasting REMOTE command: %s\n", finalPacket);
     
-    // Send over both LoRa and UDP channels
-    send_lora_packet(finalPacket);
-    udp_broadcast(finalPacket);
-}
-
-void send_man_fourier_calibrate(const String &buoy_id, int leg_idx, float offset_val) {
-    // Standard manual calibration NMEA command formatting
-    // CMD = 78 (INFIELD_OFFSET_CALIBRATE), ACK = 6 (INF), status = 78
-    // Data1 (leg_idx) = leg_idx
-    // Data2 (offset) = offset_val
-    char cmdPayload[256];
-    sprintf(cmdPayload, "%s,98,6,78,78,%d,%0.0f,,,,",
-            buoy_id.c_str(), leg_idx, offset_val);
-
-    uint8_t crc = calculate_crc(cmdPayload);
-    char finalPacket[320];
-    sprintf(finalPacket, "$%s*%02X", cmdPayload, crc);
-
-    Serial.printf("Broadcasting Manual Fourier Offset: %s\n", finalPacket);
-
     // Send over both LoRa and UDP channels
     send_lora_packet(finalPacket);
     udp_broadcast(finalPacket);

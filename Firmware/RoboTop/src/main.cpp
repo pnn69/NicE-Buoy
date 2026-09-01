@@ -1803,16 +1803,24 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             }
             case CAL8_SESSION:
             {
-                // Guided calibration, driven from the handheld or another client. Straight down to
-                // the Sub, which owns the session; the Top has no opinion about any of it.
+                // Guided calibration, driven from the handheld or another client. The Sub owns the
+                // session and the Top has no opinion about any of it - but the Top does own the
+                // serial hop, which drops most of what is sent, so a SET goes through the retry
+                // here instead of down the wire once and hopefully. That means the handheld, the
+                // dashboard and this Top's own page all get the same reliability without any of
+                // them implementing it. See cal8Service().
                 bool is_local = (RfIn.IDs == RfOut->mac || RfIn.IDs == 0x98 || RfIn.IDs == 0x99 || from_udp);
                 if (is_local && (RfIn.ack == GET || RfIn.ack == GETACK || RfIn.ack == SET))
                 {
                     if (RfIn.IDr == RfOut->mac || RfIn.IDr == RfOut->IDs || RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) {
-                        RfIn.IDr = BUOYIDALL;
-                        RfIn.IDs = espMac();
-                        if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
-                            printf("ERROR: Failed to queue CAL8_SESSION forward to serOut!\r\n");
+                        if (RfIn.ack == SET) {
+                            cal8NotePress(RfIn.cal8Action, RfIn.cal8Next);
+                        } else {
+                            RfIn.IDr = BUOYIDALL;
+                            RfIn.IDs = espMac();
+                            if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                                printf("ERROR: Failed to queue CAL8_SESSION forward to serOut!\r\n");
+                            }
                         }
                     }
                 }
@@ -2661,6 +2669,7 @@ void loop(void)
         crumb(90);
         handleTimerRoutines(&mainData);
         mancalSessionService();
+    cal8Service();   // resend a calibration press until the Sub shows it landed
         {
             static unsigned long lastHealth = 0;
             if (millis() - lastHealth > 2000)

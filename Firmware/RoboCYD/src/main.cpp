@@ -33,99 +33,99 @@ bool lastManFourierCalState = false; // Tracks manual Fourier calibration screen
 
 bool in_man_fourier_cal_mode = false;
 unsigned long mancal_started_ms = 0;
-int mancal_selected_leg = 0; // 0..7, or -1 while no direction has been picked yet
-float mancal_offsets[8] = {0.0f};
 bool mancal_is_dirty = true;
-// The 8 offsets on screen are the ones the buoy is already running, not a blank slate. Until its
-// answer to the STORE_INTERPOLATION_TABLE GET lands they are all zero, which is a real calibration
-// value - so it has to be possible to tell "not answered yet" from "answered, and it is 0".
+
+// ---------------------------------------------------------------------------------------------
+// MAN CAL - guided eight point compass calibration.
+//
+// This screen holds no calibration state. The session lives on the buoy (see the block comment in
+// RoboSub/src/compass.cpp) and arrives here in CAL8_SESSION frames as BuoyData::cal8_*; the screen
+// renders that and presses four buttons. It used to keep its own eight offsets, its own step
+// counter, its own idea of which directions were done and its own copy of the table arithmetic -
+// one of five such copies across the firmwares, which is how a corrected heading ended up stored as
+// if it were a raw one, and how this screen could ask for the correction to be switched off, miss
+// the confirmation, and capture all eight points against a live curve without saying a word.
+//
+// North is step one and defines the reference: it lands in the buoy's compass offset, so entry 0 is
+// 0 by construction and north reads true with the correction on and with it off. Captures take
+// Imag, which sits before the table and before the trim, so nothing has to be switched off and the
+// buoy keeps steering throughout. Nothing is written until SAVE.
+// ---------------------------------------------------------------------------------------------
+
+// The buoy's stored offsets, from its answer to a STORE_INTERPOLATION_TABLE GET on entry. Shown
+// while no run is going, so the screen opens on what the buoy is actually using rather than blank.
+// Written by parse_buoy_packet(); mancal_offsets_loaded tells "not answered yet" from "answered,
+// and it is zero", which are different things and used to look the same.
+float mancal_offsets[8] = {0.0f};
 bool mancal_offsets_loaded = false;
 unsigned long mancal_query_next_ms = 0;
 int mancal_query_tries = 0;
 #define MANCAL_QUERY_INTERVAL_MS 1200
 #define MANCAL_QUERY_MAX_TRIES 5
-// True between opening the screen and switching the buoy's harmonic correction off. The switch has
-// to wait for the table to arrive: the Sub reports the table that is IN EFFECT, so once the
-// correction is off it answers with the identity table and every offset would read 0.
+// True from opening the screen until the buoy has answered at all. Nothing is pressable before
+// then: a screen that does not yet know whether a run is in progress must not offer to start one.
 bool mancal_harmonic_pending = false;
-// Stamped by parse_buoy_packet() whenever the buoy sends its interpolation table. SAVE sends the
-// table and then waits for this to move, which is the only honest way to tell the operator the
-// store actually reached the buoy rather than just leaving the CYD.
+// Stamped by parse_buoy_packet() for every interpolation table frame. Kept because the 88 GET on
+// entry still uses it, and because it is a second witness that the buoy is talking to us.
 volatile unsigned long mancal_table_echo_ms = 0;
-// This screen switches the harmonic correction off so the dialing works against the raw compass,
-// and it must be ON again by the time the screen is left - by EITHER exit. A buoy left with it off
-// answers every later table request with the identity table, so the corrections still in NVS become
-// invisible and the screen reads as "this buoy has no calibration". Restoring "whatever it was on
-// entry" was tried and is worse: the off state is almost always the residue of an earlier
-// interrupted session, so restoring it makes the fault stick permanently.
 // A finger still resting on the Setup screen's MAN CAL box (or its + button) sits right on top of
-// the compass rose and the +/- row of the screen that replaces it. Without waiting for the release
-// that same press is read as a direction tap and the buoy starts pivoting the moment the screen
-// opens - which is exactly what entering this screen must not do.
+// this screen's compass rose and its +/- row. Without waiting for the release that same press is
+// read as a button here and the buoy starts pivoting the moment the screen opens - which is exactly
+// what entering this screen must not do.
 bool mancal_await_release = false;
-// Which of the eight directions have been steered to at least once this session. SAVE commits all
-// eight entries in one frame, not just the one on screen, so a session that only looked at two of
-// them would still overwrite the other six on the buoy with whatever happened to be in the buffer.
-// The button stays locked until every direction has been visited.
-bool mancal_leg_visited[8] = {false};
 
-static int mancal_visited_count() {
-    int n = 0;
-    for (int i = 0; i < 8; i++) if (mancal_leg_visited[i]) n++;
-    return n;
-}
+// Where the thrusters are being aimed, relative to the leg being asked for. Steering only: it is
+// never captured, and SET takes whatever the compass reads at that moment regardless of it.
+float mancal_nudge = 0.0f;
 
-// mancal_selected_leg doubles as "which of the eight directions" and "none picked yet" (-1), and
-// C++ will happily let that -1 index mancal_offsets: a silent write to the four bytes in front of
-// the array. That is what used to command a heading of -45 degrees with nothing selected and spin
-// the thrusters up. Every call site is guarded now, but the guards sit up to a hundred lines away
-// from the subscripts they protect, so the next branch added inside one of those blocks would
-// inherit the hazard with no compiler warning. Going through here instead makes a missed guard a
-// harmless no-op on a scratch value rather than memory corruption.
-static float mancal_offset_scratch = 0.0f;
-static float &mancal_active_offset() {
-    if (mancal_selected_leg < 0 || mancal_selected_leg > 7) {
-        mancal_offset_scratch = 0.0f;
-        return mancal_offset_scratch;
-    }
-    return mancal_offsets[mancal_selected_leg];
-}
-
-static bool mancal_all_legs_visited() {
-    return mancal_visited_count() == 8;
-}
-
-// North has to be done first. Everything downstream is measured against it: SET AS NORTH folds the
-// North error into compassOffset, and because the Sub applies that offset BEFORE the table lookup
-// (RoboSub/src/compass.cpp:936 then :944) it shifts every other sector by the same amount. Doing
-// North first means there is nothing else dialled in yet for it to invalidate. Once North has been
-// visited the operator is free - take SET AS NORTH, or just leave a Fourier offset on North.
-static bool mancal_leg_locked(int leg) {
-    return leg != 0 && !mancal_leg_visited[0];
-}
-
-// Thrusters during this calibration session. ON is the in-water flow this screen has always done:
-// picking a direction, and every -/+ press, commands the buoy to steer there and you dial until it
-// points true. OFF is the shore flow - the buoy is aimed by hand, so nothing here ever commands a
-// heading and SET captures the compass where it is pointed instead. Chosen on the row under the
-// rose before a direction is taken; from the first direction onwards that row is the Set as North
-// button and the mode is fixed, because half a table dialled and half captured is not one table.
+// Thrusters during this calibration. ON is the in-water flow: TURN pivots the hull towards the leg
+// and the -/+ buttons walk that aim around until it points true. OFF is the shore flow - the buoy
+// is aimed by hand and nothing here ever commands a heading. Switchable whenever no run is going.
 bool mancal_thrusters_on = true;
 
-// How stale the buoy's reported heading may be before SET refuses to capture it. RoboTop pushes
-// TOPDATA at 4-10 Hz over UDP but only every 1-5 s over LoRa (RoboTop/src/main.cpp), so this has to
-// clear a LoRa-only link while still being far short of the 60 s the dashboard calls "present" -
-// capturing a minute-old heading would calibrate this leg against wherever the buoy used to point.
+// How stale the buoy's reported heading may be before SET refuses. RoboTop pushes TOPDATA at 4-10
+// Hz over UDP but only every 1-5 s over LoRa (RoboTop/src/main.cpp), so this has to clear a
+// LoRa-only link while staying far short of the 60 s the dashboard calls "present" - capturing a
+// minute-old heading would calibrate the leg against wherever the buoy used to point.
 #define MANCAL_HEADING_STALE_MS 6000UL
 
-// Every heading this screen commands goes through here, so shore mode is one test instead of six
+static const char *MANCAL_DIRS[8] = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
+
+// The session, as the buoy last reported it. One place, so the drawing and the touch handler
+// cannot disagree about which step is current - they did, and the screen offered SAVE on a run the
+// buoy had already finished differently.
+static bool mancal_running(const BuoyData &b) { return b.cal8_ms != 0 && b.cal8_active; }
+static bool mancal_complete(const BuoyData &b) { return mancal_running(b) && b.cal8_next >= 8; }
+static int mancal_leg(const BuoyData &b) {
+    int leg = mancal_running(b) ? b.cal8_next : 0;
+    return (leg < 0) ? 0 : (leg > 7) ? 7 : leg;   // never index anything with 8
+}
+// Nothing may be pressed until the buoy has said whether a run is already going. Starting a second
+// one over the top of somebody else's would silently throw away their captures.
+static bool mancal_known(const BuoyData &b) { return b.cal8_ms != 0; }
+
+// Every heading this screen commands goes through here, so shore mode is one test rather than six
 // guards scattered across the touch handler.
 static void mancal_steer(int buoy_idx) {
     if (!mancal_thrusters_on) return;
     send_buoy_dirdist(buoy_idx);
 }
 
-// The one-line complaint band under the rose, in the gap above the TG line.
+// Aim the thrusters at the leg being asked for, plus the nudge. A CORRECTED heading, so the hull
+// lands as close to the real direction as the buoy's present calibration allows - closer on every
+// run. Writes nothing.
+static void mancal_turn_to_leg(int buoy_idx) {
+    BuoyData &b = buoys[buoy_idx];
+    if (!mancal_running(b) || mancal_complete(b)) return;
+    float target = mancal_leg(b) * 45.0f + mancal_nudge;
+    while (target < 0.0f) target += 360.0f;
+    while (target >= 360.0f) target -= 360.0f;
+    b.tg_dir = target;
+    b.tg_speed = 0.0f;
+    mancal_steer(buoy_idx);
+}
+
+// The one-line complaint band under the rose, in the gap above the step line.
 static void mancal_warn(const char *msg) {
     tft.fillRect(0, 180, tft.width(), 26, TFT_BLACK);
     tft.setTextDatum(MC_DATUM);
@@ -136,41 +136,36 @@ static void mancal_warn(const char *msg) {
     mancal_is_dirty = true;
 }
 
-// The five-across adjust row. Drawn from one place because it appears in both halves of the "has a
-// direction been picked yet" split in update_mancal_dynamic(), and a second copy is a second
-// geometry to keep in step with the single touch map in loop().
-static void draw_mancal_adjust_row(bool leg_picked) {
+// The five-across nudge row with SET in the middle. Drawn from one place because the touch map in
+// loop() is single, and a second copy of this geometry is a second thing to keep in step with it.
+static void draw_mancal_adjust_row(const char *set_label, bool armed) {
     static const struct { int x; const char *label; } btn[5] = {
-        { 10, "-10" }, { 55, "-1" }, { 100, "SET" }, { 145, "+1" }, { 190, "+10" }
+        { 10, "-10" }, { 55, "-1" }, { 100, "" }, { 145, "+1" }, { 190, "+10" }
     };
     tft.setTextSize(1);
     tft.setTextDatum(MC_DATUM);
     for (int i = 0; i < 5; i++) {
         // SET is not a third increment - it captures the compass where the buoy is aimed right
-        // now - so it is coloured apart rather than sitting in the middle of the nudge buttons
-        // looking like one of them. Dimmed until there is a direction for it to capture into.
+        // now - so it is coloured apart rather than sitting among the nudge buttons looking like
+        // one of them.
         bool is_set = (i == 2);
-        uint16_t bg = is_set ? (leg_picked ? TFT_BLUE : TFT_NAVY) : TFT_DARKGREY;
+        uint16_t bg = is_set ? (armed ? TFT_BLUE : TFT_NAVY) : (armed ? TFT_DARKGREY : TFT_BLACK);
         tft.fillRoundRect(btn[i].x, 215, 40, 35, 5, bg);
-        tft.setTextColor((is_set && !leg_picked) ? TFT_DARKGREY : TFT_WHITE, bg);
-        tft.drawString(btn[i].label, btn[i].x + 20, 232);
+        if (!armed && !is_set) tft.drawRoundRect(btn[i].x, 215, 40, 35, 5, TFT_DARKGREY);
+        tft.setTextColor(armed ? TFT_WHITE : TFT_DARKGREY, bg);
+        tft.drawString(is_set ? set_label : btn[i].label, btn[i].x + 20, 232);
     }
 }
 
-// The thruster switch, on the row that becomes Set as North once a direction has been taken.
-// Colour rather than wording alone carries it: which way round it is has to be readable at a
-// glance with the buoy in your hands.
-static void draw_mancal_thruster_toggle() {
-    int w = tft.width();
+// The thruster switch. Colour rather than wording alone carries it: which way round it is has to be
+// readable at a glance with the buoy in your hands.
+static void draw_mancal_thruster_toggle(int x, int wide) {
     uint16_t bg = mancal_thrusters_on ? TFT_RED : TFT_GREEN;
-    tft.fillRoundRect(10, 260, w - 20, 35, 5, bg);
+    tft.fillRoundRect(x, 298, wide, 20, 4, bg);
     tft.setTextDatum(MC_DATUM);
-    tft.setTextColor(mancal_thrusters_on ? TFT_WHITE : TFT_BLACK, bg);
-    tft.setTextSize(2);
-    tft.drawString(mancal_thrusters_on ? "THRUSTERS ON" : "THRUSTERS OFF", w / 2, 272);
     tft.setTextSize(1);
-    tft.drawString(mancal_thrusters_on ? "in the water - tap to switch"
-                                       : "on shore, by hand - tap to switch", w / 2, 288);
+    tft.setTextColor(mancal_thrusters_on ? TFT_WHITE : TFT_BLACK, bg);
+    tft.drawString(mancal_thrusters_on ? "THRUSTERS ON" : "BY HAND", x + wide / 2, 308);
 }
 
 // Setup page index (0 for Page 1, 1 for Page 2)
@@ -384,7 +379,6 @@ void draw_line_len_label(const char *text, uint16_t color);
 void draw_mancal_static();
 void update_mancal_dynamic();
 void draw_mancal_offset_strip();
-void send_mancal_table_to_sub(int buoy_idx);
 void enter_man_fourier_cal(int buoy_idx);
 void service_mancal_entry();
 
@@ -1270,50 +1264,39 @@ static void track_settings_compute(int cmd_code) {
 // in. One body, so the two cannot drift apart.
 static void mancal_save_table_and_exit(int buoy_index) {
     BuoyData &b = buoys[buoy_index];
-    const int selected_buoy_idx = buoy_index;   // the body below was written against this name
-    // Locked until every direction has been visited - see the button drawing.
-    if (!mancal_all_legs_visited()) {
-        tft.fillRect(0, 180, tft.width(), 26, TFT_BLACK);
-        tft.setTextDatum(MC_DATUM);
-        tft.setTextSize(2);
-        tft.setTextColor(TFT_ORANGE, TFT_BLACK);
-        char warn_buf[32];
-        sprintf(warn_buf, "%d OF 8 DONE", mancal_visited_count());
-        tft.drawString(warn_buf, tft.width() / 2, 193);
-        delay(900);
-        mancal_is_dirty = true;
+
+    if (!mancal_complete(b)) {
+        char warn_buf[24];
+        sprintf(warn_buf, "%d OF 8 DONE", mancal_running(b) ? b.cal8_next : 0);
+        mancal_warn(warn_buf);
         delay(20);
         return;
     }
 
-    // Commit the eight entries, then WAIT for the buoy to echo the table
-    // back. The Sub answers every store with the table it now holds, so that
-    // echo is proof it reached NVS - and it beeps at the same moment. This
-    // used to print CALIBRATION COMPLETE unconditionally, which said exactly
-    // as much whether the buoy had heard it or not.
     tft.fillRect(0, 195, tft.width(), 100, TFT_BLACK);
     tft.setTextDatum(MC_DATUM);
     tft.setTextSize(2);
     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
     tft.drawString("SAVING...", tft.width() / 2, 230);
 
-    mancal_table_echo_ms = 0;
-    send_mancal_table_to_sub(selected_buoy_idx);
+    // Wait for the buoy's own answer rather than assuming. It replies to every press with the
+    // resulting state, so a session that has gone back to idle is the buoy saying it committed -
+    // and it beeps at the same moment. This screen used to print CALIBRATION COMPLETE whether or
+    // not anything had landed.
+    unsigned long before = b.cal8_ms;
+    send_buoy_cal8(b.id, 2 /* CAL8_SAVE */, 8);
 
     unsigned long wait_until = millis() + 4000;
-    while (mancal_table_echo_ms == 0 && (long)(millis() - wait_until) < 0) {
+    while ((b.cal8_ms == before || b.cal8_active) && (long)(millis() - wait_until) < 0) {
         handle_wifi_clients();
         check_lora_packets();
         delay(20);
     }
-    bool stored = (mancal_table_echo_ms != 0);
-    
-    // Nothing to put back - see the CANCEL path. The correction and the trim were never touched,
-    // so the buoy carries on exactly as it was, now with the new table.
-    
-    // Send IDLE command immediately to shut down thrusters/motors after calibration!
+    bool stored = (b.cal8_ms != before && !b.cal8_active);
+
+    // Stop the thrusters. Nothing else to put back - this screen never switched anything off.
     send_buoy_command(b.id, 8);
-    
+
     tft.fillRect(0, 195, tft.width(), 100, TFT_BLACK);
     tft.setTextDatum(MC_DATUM);
     tft.setTextSize(2);
@@ -1328,10 +1311,10 @@ static void mancal_save_table_and_exit(int buoy_index) {
         tft.drawString("NO REPLY", tft.width() / 2, 225);
         tft.setTextSize(1);
         tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-        tft.drawString("NOT saved - try again", tft.width() / 2, 248);
+        tft.drawString("NOT saved - the run is still open", tft.width() / 2, 248);
     }
     delay(stored ? 1200 : 2500);
-    
+
     in_man_fourier_cal_mode = false;
     in_setup_mode = true;
     last_transition_ms = millis();
@@ -2414,404 +2397,169 @@ void loop() {
                     return;
                 }
 
-                // --- MANUAL FOURIER CALIBRATION SCREEN TOUCH INTERACTION ---
-                
-                // 1. Compass Rose Dot Tap (Y: 40 to 180, covers the circle)
+                // --- GUIDED EIGHT POINT CALIBRATION - TOUCH INTERACTION ---
+                //
+                // Four buttons, and each one is a single frame to the buoy. Nothing here decides
+                // which step comes next; the buoy answers with the state and the screen repaints.
+                // A lost frame therefore costs one repeated press and can never leave this screen
+                // a direction ahead of the hull.
+                BuoyData &b = buoys[selected_buoy_idx];
+
+                // Nothing is pressable until the buoy has said whether a run is already going.
+                // Offering START before that could throw away captures somebody else made from a
+                // web page - the session is shared on purpose.
+                if (!mancal_known(b) && touchY < 300) {
+                    mancal_warn("ASKING BUOY...");
+                    delay(20);
+                    return;
+                }
+
+                // 1. The rose reports progress; it is not a selector any more. The order is fixed
+                //    and the buoy owns it, so there is nothing to tap.
                 if (touchY >= 40 && touchY <= 180) {
-                    // Steering before the buoy has told us its table, and before its harmonic
-                    // correction is off, would be dialed against a compass that is about to shift.
-                    if (mancal_harmonic_pending) {
-                        delay(20);
-                        return;
-                    }
-                    int cx = 120;
-                    int cy = 110;
-                    int r_dots = 38;
-                    for (int i = 0; i < 8; i++) {
-                        int angle_deg = i * 45;
-                        float angle_rad = angle_deg * (float)M_PI / 180.0f;
-                        int dot_x = cx + (int)(r_dots * sin(angle_rad));
-                        int dot_y = cy - (int)(r_dots * cos(angle_rad));
-                        
-                        int dx = touchX - dot_x;
-                        int dy = touchY - dot_y;
-                        if (dx*dx + dy*dy <= 18*18) { // 18-pixel touch catchment radius
-                            if (mancal_leg_locked(i)) {
-                                tft.fillRect(0, 180, tft.width(), 26, TFT_BLACK);
-                                tft.setTextDatum(MC_DATUM);
-                                tft.setTextSize(2);
-                                tft.setTextColor(TFT_ORANGE, TFT_BLACK);
-                                tft.drawString("SET NORTH FIRST", tft.width() / 2, 193);
-                                delay(900);
-                                mancal_is_dirty = true;
-                                delay(20);
-                                return;
-                            }
-                            mancal_selected_leg = i;
-                            mancal_leg_visited[i] = true;
-                            mancal_is_dirty = true;
-                            
-                            // Immediately command the buoy to steer to this target angle with
-                            // speed = 0. The correction this direction already carries goes in
-                            // straight away, the same way the +/- buttons apply it - steering to
-                            // the bare angle would make the first 1-degree tap swing the buoy by
-                            // the whole stored offset.
-                            BuoyData &b = buoys[selected_buoy_idx];
-                            b.tg_dir = angle_deg - mancal_offsets[i];
-                            while (b.tg_dir < 0.0f) b.tg_dir += 360.0f;
-                            while (b.tg_dir >= 360.0f) b.tg_dir -= 360.0f;
-                            b.tg_speed = 0.0f;
-                            mancal_steer(selected_buoy_idx);
-
-                            Serial.printf("Mancal selected leg: %d (%d deg)\n", i, angle_deg);
-                            break;
-                        }
-                    }
+                    delay(20);
+                    return;
                 }
-                // 2. Large Minus / Plus Adjustment Buttons (Generous Y: 200 to 255, no gaps!)
+                // 2. Nudge and SET (Y: 200 to 255). Only while a direction is being asked for.
                 else if (touchY >= 200 && touchY <= 255) {
-                    // Nothing to adjust before a direction is chosen. Without this the branches
-                    // below index mancal_offsets[-1] and send a REMOTE heading of -45 degrees, so
-                    // a stray press on this row spun the thrusters up on a screen that is supposed
-                    // to be doing nothing yet.
-                    if (mancal_selected_leg < 0) {
-                        tft.fillRect(0, 180, tft.width(), 26, TFT_BLACK);
-                        tft.setTextDatum(MC_DATUM);
-                        tft.setTextSize(2);
-                        tft.setTextColor(TFT_ORANGE, TFT_BLACK);
-                        tft.drawString("PICK A DIRECTION", tft.width() / 2, 193);
-                        delay(500);
-                        mancal_is_dirty = true;
+                    if (!mancal_running(b) || mancal_complete(b)) {
+                        mancal_warn(mancal_complete(b) ? "ALL 8 DONE" : "PRESS START");
                         delay(20);
                         return;
                     }
 
-                    BuoyData &b = buoys[selected_buoy_idx];
-                    float target_angle = mancal_selected_leg * 45.0f;
-
-                    if (touchX >= 10 && touchX <= 52) {
-                        // MINUS 10 degrees
-                        mancal_active_offset() -= 10.0f;
-                        if (mancal_active_offset() < -180.0f) mancal_active_offset() = -180.0f;
-                        
-                        // Ultra-fast surgical text update (avoid full-screen redraw)
-                        tft.fillRect(40, 192, tft.width() - 80, 22, TFT_BLACK);
-                        tft.setTextSize(2);
-                        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-                        tft.setTextDatum(MC_DATUM);
-                        char off_buf[16];
-                        sprintf(off_buf, "%+0.0f deg", mancal_active_offset());
-                        tft.drawString(off_buf, tft.width() / 2, 198);
-                        
-                        // Calculate target angle and apply offset to shift the steering target in real-time
-                        b.tg_dir = target_angle - mancal_active_offset();
-                        while (b.tg_dir < 0.0f) b.tg_dir += 360.0f;
-                        while (b.tg_dir >= 360.0f) b.tg_dir -= 360.0f;
-                        b.tg_speed = 0.0f;
-                        mancal_steer(selected_buoy_idx);
-                        
-                        // Send the updated offset in real-time to the buoy (using command 78)
-                        send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_active_offset());
-                    }
-                    else if (touchX >= 53 && touchX <= 97) {
-                        // MINUS 1 degree
-                        mancal_active_offset() -= 1.0f;
-                        if (mancal_active_offset() < -180.0f) mancal_active_offset() = -180.0f;
-                        
-                        // Ultra-fast surgical text update (avoid full-screen redraw)
-                        tft.fillRect(40, 192, tft.width() - 80, 22, TFT_BLACK);
-                        tft.setTextSize(2);
-                        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-                        tft.setTextDatum(MC_DATUM);
-                        char off_buf[16];
-                        sprintf(off_buf, "%+0.0f deg", mancal_active_offset());
-                        tft.drawString(off_buf, tft.width() / 2, 198);
-                        
-                        // Calculate target angle and apply offset to shift the steering target in real-time
-                        b.tg_dir = target_angle - mancal_active_offset();
-                        while (b.tg_dir < 0.0f) b.tg_dir += 360.0f;
-                        while (b.tg_dir >= 360.0f) b.tg_dir -= 360.0f;
-                        b.tg_speed = 0.0f;
-                        mancal_steer(selected_buoy_idx);
-                        
-                        // Send the updated offset in real-time to the buoy (using command 78)
-                        send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_active_offset());
-                    }
-                    else if (touchX >= 98 && touchX <= 142) {
-                        // SET. The buoy is pointing at this direction right now - aimed by hand on
-                        // the shore, or steered there in the water - so whatever its compass reads
-                        // IS the reading for this leg. That is exactly the relation the table is
-                        // read back through in parse_buoy_packet() (offset = i*45 - tableVal), with
-                        // the live heading standing in for the stored one, and the relation
-                        // RoboSub/src/compass.cpp:1003 fits its Fourier curve to. Wrapped, not
-                        // clamped like the nudge buttons: those clamp to stop key-repeat running
-                        // away, but a captured heading is a real bearing and has to fold at 180.
-                        if (mancal_harmonic_pending) {
-                            // The correction is still ON until the buoy answers the table GET, so
-                            // mag_dir is a corrected heading, not the raw one the table is defined
-                            // against. Dialling through that window is harmless; capturing is not.
-                            mancal_warn("WAIT - READING TABLE");
-                            delay(20);
-                            return;
-                        }
+                    if (touchX >= 100 && touchX <= 140) {
+                        // SET - capture the direction being asked for.
                         if (millis() - b.last_seen_ms > MANCAL_HEADING_STALE_MS) {
                             mancal_warn("NO LIVE HEADING");
                             delay(20);
                             return;
                         }
-
+                        // Imag has to be arriving. The buoy captures its own Imag, not this value,
+                        // but if the field is not coming through then either its firmware predates
+                        // Imag or its telemetry has stopped - and in both cases there is no way to
+                        // see what is being captured. Refuse rather than calibrate blind.
                         if (b.mag_dir_iron_ms == 0 ||
                             millis() - b.mag_dir_iron_ms > MANCAL_HEADING_STALE_MS) {
-                            // No Imag from this buoy - either its firmware predates the field or
-                            // its telemetry has stopped. Capturing mag_dir instead would build a
-                            // table on top of whatever correction is running, which is the fault
-                            // this whole approach exists to remove, so refuse instead.
                             mancal_warn("NO IRON HEADING");
                             delay(20);
                             return;
                         }
-                        // Press feedback: the value it changes is 30 pixels away and the confirm
-                        // banner takes a moment.
-                        tft.fillRoundRect(100, 215, 40, 35, 5, TFT_WHITE);
-                        tft.setTextColor(TFT_BLACK, TFT_WHITE);
-                        tft.setTextSize(1);
-                        tft.setTextDatum(MC_DATUM);
-                        tft.drawString("SET", 120, 232);
 
-                        // Imag, not mag_dir: the table is indexed by the pre-table heading, so
-                        // that is what a calibration point has to be. Reading it needs nothing
-                        // switched off on the buoy.
-                        float captured = b.mag_dir_iron;
-                        float off = target_angle - captured;
-                        while (off < -180.0f) off += 360.0f;
-                        while (off > 180.0f) off -= 360.0f;
-                        mancal_active_offset() = off;
+                        int leg = mancal_leg(b);
+                        Serial.printf("MANCAL: SET leg %d (%d deg), Imag %.1f\n",
+                                      leg, leg * 45, b.mag_dir_iron);
+                        // The leg this press is for. The Top resends until the buoy confirms, and
+                        // this is what stops a duplicate capturing the next direction instead.
+                        send_buoy_cal8(b.id, 1 /* CAL8_SET */, leg);
+                        mancal_nudge = 0.0f;
 
-                        send_man_fourier_calibrate(b.id, mancal_selected_leg, off);
-                        // Nothing should carry on steering to the target this leg held before the
-                        // capture, and on shore the buoy is in the operator's hands.
-                        send_buoy_command(b.id, 8);
-
-                        Serial.printf("MANCAL: SET leg %d (%d deg) from live heading %.1f -> corr %+.0f\n",
-                                      mancal_selected_leg, (int)target_angle, captured, off);
-
-                        char set_buf[32];
-                        sprintf(set_buf, "SET FROM MAG %0.0f", captured);
+                        // Say so at once. The confirmation comes back from the buoy a moment later
+                        // and repaints the whole screen; without this the press feels dead over a
+                        // LoRa-only link.
                         tft.fillRect(0, 180, tft.width(), 26, TFT_BLACK);
                         tft.setTextDatum(MC_DATUM);
                         tft.setTextSize(2);
                         tft.setTextColor(TFT_GREEN, TFT_BLACK);
-                        tft.drawString(set_buf, tft.width() / 2, 193);
-                        delay(600);
+                        char cap_buf[24];
+                        sprintf(cap_buf, "%s CAPTURED", MANCAL_DIRS[leg]);
+                        tft.drawString(cap_buf, tft.width() / 2, 193);
+                        delay(400);
                         mancal_is_dirty = true;
                         delay(20);
                         return;
                     }
-                    else if (touchX >= 143 && touchX <= 187) {
-                        // PLUS 1 degree
-                        mancal_active_offset() += 1.0f;
-                        if (mancal_active_offset() > 180.0f) mancal_active_offset() = 180.0f;
-                        
-                        // Ultra-fast surgical text update (avoid full-screen redraw)
-                        tft.fillRect(40, 192, tft.width() - 80, 22, TFT_BLACK);
-                        tft.setTextSize(2);
-                        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-                        tft.setTextDatum(MC_DATUM);
-                        char off_buf[16];
-                        sprintf(off_buf, "%+0.0f deg", mancal_active_offset());
-                        tft.drawString(off_buf, tft.width() / 2, 198);
-                        
-                        // Calculate target angle and apply offset to shift the steering target in real-time
-                        b.tg_dir = target_angle - mancal_active_offset();
-                        while (b.tg_dir < 0.0f) b.tg_dir += 360.0f;
-                        while (b.tg_dir >= 360.0f) b.tg_dir -= 360.0f;
-                        b.tg_speed = 0.0f;
-                        mancal_steer(selected_buoy_idx);
-                        
-                        // Send the updated offset in real-time to the buoy (using command 78)
-                        send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_active_offset());
-                    }
-                    else if (touchX >= 188 && touchX <= 230) {
-                        // PLUS 10 degrees
-                        mancal_active_offset() += 10.0f;
-                        if (mancal_active_offset() > 180.0f) mancal_active_offset() = 180.0f;
-                        
-                        // Ultra-fast surgical text update (avoid full-screen redraw)
-                        tft.fillRect(40, 192, tft.width() - 80, 22, TFT_BLACK);
-                        tft.setTextSize(2);
-                        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-                        tft.setTextDatum(MC_DATUM);
-                        char off_buf[16];
-                        sprintf(off_buf, "%+0.0f deg", mancal_active_offset());
-                        tft.drawString(off_buf, tft.width() / 2, 198);
-                        
-                        // Calculate target angle and apply offset to shift the steering target in real-time
-                        b.tg_dir = target_angle - mancal_active_offset();
-                        while (b.tg_dir < 0.0f) b.tg_dir += 360.0f;
-                        while (b.tg_dir >= 360.0f) b.tg_dir -= 360.0f;
-                        b.tg_speed = 0.0f;
-                        mancal_steer(selected_buoy_idx);
-                        
-                        // Send the updated offset in real-time to the buoy (using command 78)
-                        send_man_fourier_calibrate(b.id, mancal_selected_leg, mancal_active_offset());
+
+                    // The four nudge buttons. They move where the thrusters are aiming and nothing
+                    // else - no part of this ends up in the table.
+                    float step = 0.0f;
+                    if (touchX >= 10 && touchX <= 52) step = -10.0f;
+                    else if (touchX >= 55 && touchX <= 97) step = -1.0f;
+                    else if (touchX >= 145 && touchX <= 187) step = 1.0f;
+                    else if (touchX >= 190 && touchX <= 232) step = 10.0f;
+                    else { delay(20); return; }
+
+                    if (!mancal_thrusters_on) {
+                        mancal_warn("BY HAND - AIM IT");
+                        delay(20);
+                        return;
                     }
 
-                    // The four branches above each patch the big CORR readout in place to stay
-                    // snappy; the table row under the rose has to follow the same value.
-                    draw_mancal_offset_strip();
+                    mancal_nudge += step;
+                    if (mancal_nudge > 180.0f) mancal_nudge = 180.0f;
+                    if (mancal_nudge < -180.0f) mancal_nudge = -180.0f;
+                    mancal_turn_to_leg(selected_buoy_idx);
+                    mancal_is_dirty = true;
+                    delay(120);
+                    return;
                 }
-                // 3a. SAVE NEW FOURIER TABLE - drawn over the North/hint band once all eight
-                //     directions are in, so it has to be tested before that row.
-                else if (mancal_all_legs_visited() && touchY >= 256 && touchY <= 294) {
-                    mancal_save_table_and_exit(selected_buoy_idx);
-                }
-                // 3. Thruster switch / North Button Row (Generous Y: 256 to 299, no gaps!)
+                // 3. The main action band (Y: 256 to 299): START, TURN, or SAVE depending on where
+                //    the run is. Same order as update_mancal_dynamic() draws them.
                 else if (touchY >= 256 && touchY <= 299) {
-                    BuoyData &b = buoys[selected_buoy_idx];
-                    // The row spans X 10 to 230 whatever it is carrying.
-                    if (touchX < 10 || touchX > 230) {
-                        delay(20);
+                    if (touchX < 10 || touchX > 230) { delay(20); return; }
+
+                    if (mancal_complete(b)) {
+                        mancal_save_table_and_exit(selected_buoy_idx);
                         return;
                     }
-
-                    // Before a direction is picked this row is the thruster switch, which is the
-                    // only point in the session it can be changed - see mancal_thrusters_on. After
-                    // that it is Set as North on the North leg, and an inert hint on the other
-                    // seven.
-                    if (mancal_selected_leg == -1) {
-                        mancal_thrusters_on = !mancal_thrusters_on;
-                        Serial.printf("MANCAL: thrusters %s\n",
-                                      mancal_thrusters_on ? "ON (in the water)" : "OFF (on shore, aim by hand)");
-                        // Stop it here rather than at the first SET: switching to shore mode is
-                        // the operator saying they are about to pick the buoy up.
-                        if (!mancal_thrusters_on) send_buoy_command(b.id, 8);
-                        mancal_is_dirty = true;
+                    if (!mancal_running(b)) {
+                        // START. The buoy asks for north first.
+                        Serial.println("MANCAL: START - beginning a guided eight point run");
+                        mancal_nudge = 0.0f;
+                        send_buoy_command(b.id, 8);   // stop first, nothing steers yet
                         delay(150);
-                        return;
-                    }
-                    if (mancal_selected_leg != 0) {
+                        send_buoy_cal8(b.id, 0 /* CAL8_BEGIN */, 0);
+                        mancal_warn("STARTING...");
                         delay(20);
                         return;
                     }
-
-                    // SET AS NORTH now spans the row: X 10 to 230
-                    {
-                        Serial.println("MANCAL: Click registered on Set as North!");
-
-                        // This reads the live heading now, so it needs the two preconditions SET
-                        // needs. Checked before the highlight so a refusal does not leave the row
-                        // painted white as though it had done something.
-                        if (mancal_harmonic_pending) {
-                            mancal_warn("WAIT - READING TABLE");
-                            delay(20);
-                            return;
-                        }
-                        if (millis() - b.last_seen_ms > MANCAL_HEADING_STALE_MS) {
-                            mancal_warn("NO LIVE HEADING");
-                            delay(20);
-                            return;
-                        }
-
-                        // Zero-latency visual feedback (highlight in white)
-                        tft.fillRoundRect(10, 260, tft.width() - 20, 35, 5, TFT_WHITE);
-                        tft.setTextColor(TFT_BLACK, TFT_WHITE);
-                        tft.setTextSize(2);
-                        tft.drawString("Set as North...", tft.width() / 2, 277);
-
-                        // The buoy is pointing north right now, so whatever its compass reads IS
-                        // the north error - fold that into the mounting offset. This used to add
-                        // mancal_offsets[0] instead, which meant the button did nothing at all
-                        // unless a correction had already been dialled or SET first: it banked an
-                        // error rather than measuring one, so "point it north and press" - the
-                        // thing its name promises - left the compass exactly where it was.
-                        //
-                        // It is the same arithmetic the Sub does in its own case SET_AS_NORTH
-                        // (compassOffset - dirMag, RoboSub/src/main.cpp:546), and in the in-water
-                        // flow it comes to the same number as the old line: with the buoy holding
-                        // the heading it was dialled to, -mag_dir IS mancal_offsets[0]. Measured
-                        // rather than assumed, so it is only as good as how settled the buoy is.
-                        // Sending that command instead would be the tidier fix, but it cannot be
-                        // reached: RoboSub/src/main.cpp:25 defines SET_AS_NORTH as the macro 125
-                        // AFTER including RoboCompute.h, where the enumerator is 87, so the Sub
-                        // listens on a number no node on this network ever sends.
-                        if (b.mag_dir_iron_ms == 0 ||
-                            millis() - b.mag_dir_iron_ms > MANCAL_HEADING_STALE_MS) {
-                            // No Imag from this buoy - either its firmware predates the field or
-                            // its telemetry has stopped. Capturing mag_dir instead would build a
-                            // table on top of whatever correction is running, which is the fault
-                            // this whole approach exists to remove, so refuse instead.
-                            mancal_warn("NO IRON HEADING");
-                            delay(20);
-                            return;
-                        }
-                        float captured_north = b.mag_dir_iron;
-                        float north_err = 0.0f - captured_north;
-                        while (north_err < -180.0f) north_err += 360.0f;
-                        while (north_err > 180.0f) north_err -= 360.0f;
-
-                        b.compass_offset = b.compass_offset + north_err;
-                        while (b.compass_offset < -180) b.compass_offset += 360;
-                        while (b.compass_offset > 180) b.compass_offset -= 360;
-
-                        Serial.printf("MANCAL: SET AS NORTH from live heading %.1f -> compass offset %+.2f\n",
-                                      captured_north, b.compass_offset);
-
-                        // Reset the North fourier correction back to 0.0f (it is now absorbed globally!)
-                        mancal_offsets[0] = 0.0f;
-
-                        // Send SETUPDATA update right away
-                        send_buoy_setup(selected_buoy_idx);
-
-                        // Send steering command again to refresh/re-evaluate the buoy control loop
-                        b.tg_dir = 0.0f;
-                        b.tg_speed = 0.0f;
-                        mancal_steer(selected_buoy_idx);
-
-                        delay(100); // Super-snappy highlight feel
-
-                        tft.fillRect(0, 195, tft.width(), 100, TFT_BLACK);
-                        tft.setTextDatum(MC_DATUM);
-                        tft.setTextSize(2);
-                        tft.setTextColor(TFT_GREEN, TFT_BLACK);
-                        tft.drawString("GLOBAL NORTH SET", tft.width() / 2, 230);
-                        tft.setTextSize(1);
-                        tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-                        char north_buf[32];
-                        sprintf(north_buf, "was MAG %0.0f", captured_north);
-                        tft.drawString(north_buf, tft.width() / 2, 252);
-                        delay(400); // Snappy success banner display
-                        mancal_is_dirty = true;
+                    // TURN - let the thrusters put the hull roughly on the leg.
+                    if (!mancal_thrusters_on) {
+                        mancal_warn("BY HAND - AIM IT");
+                        delay(20);
+                        return;
                     }
+                    mancal_turn_to_leg(selected_buoy_idx);
+                    mancal_is_dirty = true;
+                    delay(150);
+                    return;
                 }
-                // 4. Footer Buttons (Y: 300 to 320)
-                //    With all eight captured the footer is one full-width CANCEL, so the old
-                //    X 10..115 half-width test would leave the right half dead. Same handler.
+                // 4. Footer (Y: 300 to 320). Left half leaves; right half is the thruster switch
+                //    when nothing is running, and CANCEL RUN when something is.
                 else if (touchY >= 300 && touchY <= 320) {
-                    BuoyData &b = buoys[selected_buoy_idx];
-                    // BACK / CANCEL (X: 10 to 115, or the whole row once SAVE has taken the band above)
-                    if (touchX >= 10 && (touchX <= 115 || mancal_all_legs_visited())) {
-                        // Leave with the harmonic correction ON. Entering this screen switches
-                        // it off so the dialing works on the raw compass; walking away and leaving
-                        // it off makes every later visit read the identity table, so the
-                        // corrections still in NVS become invisible.
-                        // Nothing to put back: this screen no longer changes the correction or
-                        // the trim, so leaving is just leaving.
+                    if (touchX >= 10 && touchX <= 118) {
+                        // BACK. Stops the hull and leaves the run alone: it is on the buoy and has
+                        // written nothing, so it can be picked up again here, on the buoy's own web
+                        // page or on the handheld. Nothing to put back either - this screen never
+                        // switched the correction or the trim off.
                         mancal_harmonic_pending = false;
-                        delay(150);
-
-                        // Send IDLE command immediately to shut down thrusters/motors!
                         send_buoy_command(b.id, 8);
+                        delay(150);
 
                         in_man_fourier_cal_mode = false;
                         in_setup_mode = true;
                         last_transition_ms = millis();
                         reset_button_draw_cache();
                         draw_resting_ui();
+                        return;
                     }
-                    // SAVE ALL & EXIT (X: 125 to 230)
-                    else if (touchX >= 125 && touchX <= 230) {
-
-                        mancal_save_table_and_exit(selected_buoy_idx);
+                    if (touchX >= 122 && touchX <= 230) {
+                        if (mancal_running(b)) {
+                            Serial.println("MANCAL: CANCEL RUN - discarding, nothing was written");
+                            send_buoy_cal8(b.id, 3 /* CAL8_CANCEL */, 0);
+                            send_buoy_command(b.id, 8);
+                            mancal_nudge = 0.0f;
+                            mancal_warn("RUN DISCARDED");
+                            delay(20);
+                            return;
+                        }
+                        mancal_thrusters_on = !mancal_thrusters_on;
+                        Serial.printf("MANCAL: thrusters %s\n",
+                                      mancal_thrusters_on ? "ON (in the water)" : "OFF (on shore, aim by hand)");
+                        if (!mancal_thrusters_on) send_buoy_command(b.id, 8);
+                        mancal_is_dirty = true;
+                        delay(150);
+                        return;
                     }
                 }
             } else if (in_setup_mode) {
@@ -3972,52 +3720,41 @@ void update_radar_map_dynamic() {
 }
 
 /**
- * @brief Opens the Manual Fourier Calibration screen for a buoy.
+ * @brief Opens the guided eight point compass calibration screen for a buoy.
  *
- * Both ways into the screen - tapping the MAN CAL box and confirming it with + - run this, so the
- * two cannot drift apart again. The order of the three commands is what makes the screen open with
- * the buoy's own corrections on it instead of a row of zeros:
+ * Both ways in - tapping the MAN CAL box and confirming it with + - run this, so the two cannot
+ * drift apart again.
  *
- *   1. IDLE first. The screen steers nothing until a direction is picked, so whatever the buoy was
- *      doing has to stop here rather than at the first tap.
- *   2. Ask for the interpolation table WHILE the harmonic correction is on - switching it on
- *      first, unconditionally. The Sub answers with the table that is in effect, not the one in NVS (see
- *      STORE_INTERPOLATION_TABLE in RoboSub/src/main.cpp), so with the correction off it reports
- *      the identity table and every offset reads 0 - the reason the stored values never showed up.
- *   3. Switch the correction off only once that answer is in, so the dialing that follows works on
- *      the raw compass. That last step is finished by loop(), see mancal_harmonic_pending.
+ * Entry changes nothing on the buoy except stopping it, and deliberately does NOT start a run:
+ *   1. IDLE, because this screen steers nothing until TURN is pressed.
+ *   2. Ask what calibration state the buoy is in. A run started from the buoy's own web page or
+ *      from the Top's is picked up here at the same step - the session belongs to the buoy.
+ *   3. Ask for the table it is using, so the row under the rose shows real values while idle.
  *
- * Both ways out of the screen - BACK / CANCEL and SAVE ALL & EXIT - leave the correction ON.
+ * Nothing is switched off. Captures take Imag, which sits before the compass table and before the
+ * trim, so the correction and the trim stay exactly as the operator left them and have no bearing
+ * on the result. That removes the one step this screen used to depend on and could not verify.
  */
 void enter_man_fourier_cal(int buoy_idx) {
     BuoyData &b = buoys[buoy_idx];
 
     in_man_fourier_cal_mode = true;
     in_setup_mode = false;
-    mancal_selected_leg = -1; // -1 means NO active steering yet!
-    for (int i = 0; i < 8; i++) mancal_offsets[i] = 0.0f;
-    for (int i = 0; i < 8; i++) mancal_leg_visited[i] = false;
+    mancal_nudge = 0.0f;
     mancal_offsets_loaded = false;
     mancal_is_dirty = true;
-    // Default to the flow this screen has always had, so a session that never touches the switch
-    // behaves exactly as before.
     mancal_thrusters_on = true;
+    // Forget any earlier answer: this screen must not show a stale run as the current one.
+    b.cal8_ms = 0;
 
     // 1. Stop the thrusters. Entering this screen never commands a heading.
     send_buoy_command(b.id, 8);
-    delay(200); // Prevent serial queue collisions and allow IDLE to process!
+    delay(200); // let IDLE through before the queries follow
 
-    // 2. Switch the correction ON before reading. Unconditionally: a buoy whose correction is off
-    //    answers with the identity table, and b.harmonic_enabled is only a cached copy that can be
-    //    stale (anything that changes the flag by another route - the Sub's own web page, another
-    //    client - does not reach this screen). Its table is still in NVS either way, only the
-    //    reporting of it depends on the flag, so this makes the stored corrections readable again
-    //    even on a buoy an earlier session left switched off.
-    b.harmonic_enabled = true;
-    send_buoy_setup(buoy_idx);
-    delay(400); // let it take effect before the table is asked for
+    // 2. What is the buoy's calibration doing? ack GET (1) asks without changing anything.
+    send_buoy_cal8(b.id, 0, 0, 1);
 
-    // 3. Query the buoy for its currently in-use 8-point fourier table (Command 88)
+    // 3. And the table it is running, for the idle display.
     send_buoy_command(b.id, 88, 1); // 1 = GET
     mancal_query_tries = 1;
     mancal_query_next_ms = millis() + MANCAL_QUERY_INTERVAL_MS;
@@ -4030,11 +3767,10 @@ void enter_man_fourier_cal(int buoy_idx) {
 }
 
 /**
- * @brief Finishes the entry sequence once the buoy has reported its table.
+ * @brief Keeps asking until the buoy has answered, without blocking the UI.
  *
- * Kept out of enter_man_fourier_cal() so waiting for the answer does not block the UI. Retries the
- * query, and gives up after MANCAL_QUERY_MAX_TRIES rather than leaving the screen unusable - a buoy
- * that never answers still has to be dialable, it just starts from an unknown baseline.
+ * Two answers are wanted: the session state, which gates every button, and the stored table, which
+ * is only cosmetic. Gives up after MANCAL_QUERY_MAX_TRIES rather than leaving the screen unusable.
  */
 void service_mancal_entry() {
     if (!in_man_fourier_cal_mode || !mancal_harmonic_pending) return;
@@ -4045,27 +3781,17 @@ void service_mancal_entry() {
     bool give_up = (mancal_query_tries >= MANCAL_QUERY_MAX_TRIES &&
                     (long)(millis() - mancal_query_next_ms) >= 0);
 
-    if (mancal_offsets_loaded || give_up) {
+    if ((mancal_offsets_loaded && mancal_known(b)) || give_up) {
         if (give_up && !mancal_offsets_loaded) {
-            Serial.println("Fourier table never arrived - starting manual calibration from zero.");
-            // Zero is the baseline we are going to dial from, so stop calling it unknown - from
-            // here on the readouts are honest again.
+            Serial.println("Interpolation table never arrived - the idle row will read unknown.");
             mancal_offsets_loaded = true;
         }
-        // Only now: with the correction off the compass is raw, which is what the +/- dialing and
-        // the table written on SAVE are both defined against.
-        // Ask for the correction to be switched off - but do NOT declare it done. The flag
-        // rides inside a full SETUPDATA SET, and if that frame is lost or refused anywhere along
-        // the way the buoy carries on correcting while this screen believes it is not. That is not
-        // a theoretical risk: it happened, all eight points were captured against a corrected
-        // compass, and nothing said a word because this used to clear the flag right here.
-        // Nothing is switched off on the buoy any more, and nothing needs to be. Captures read
-        // Imag, which sits before the compass table and before the trim, so both can stay exactly
-        // as the operator left them and have no bearing on the result.
-        //
-        // That removes the one step this screen depended on and could not verify: it asked for the
-        // correction to be switched off, assumed that had worked, and on a lost frame captured all
-        // eight points against a live correction without a word.
+        if (give_up && !mancal_known(b)) {
+            // Left deliberately unknown rather than assumed idle. Every button stays locked and the
+            // screen says why: guessing "no run in progress" here is what would let a press wipe
+            // out captures made from another screen.
+            Serial.println("Buoy never reported its calibration state - buttons stay locked.");
+        }
         mancal_harmonic_pending = false;
         mancal_is_dirty = true;
         return;
@@ -4074,41 +3800,70 @@ void service_mancal_entry() {
     if ((long)(millis() - mancal_query_next_ms) >= 0) {
         mancal_query_tries++;
         mancal_query_next_ms = millis() + MANCAL_QUERY_INTERVAL_MS;
-        Serial.printf("Fourier table not received, retry %d of %d\n", mancal_query_tries, MANCAL_QUERY_MAX_TRIES);
-        send_buoy_command(b.id, 88, 1); // 1 = GET
+        Serial.printf("MAN CAL: no answer yet, retry %d of %d\n",
+                      mancal_query_tries, MANCAL_QUERY_MAX_TRIES);
+        if (!mancal_known(b)) send_buoy_cal8(b.id, 0, 0, 1);
+        if (!mancal_offsets_loaded) send_buoy_command(b.id, 88, 1);
     }
 }
 
 /**
- * @brief Draws the whole 8-point correction table as one row under the compass rose.
+ * @brief Draws the eight point row under the compass rose.
  *
- * The big CORR readout only ever shows the direction being worked on, so without this the other
- * seven corrections the buoy is already running are invisible - and a screen that shows nothing
- * reads as a buoy with no calibration. Cells are in rose order, N first and clockwise, so a cell
- * lines up with the dot above it.
+ * During a run these are the captures made so far; between runs they are the offsets the buoy is
+ * already applying. Cells are in rose order, N first and clockwise, so a cell lines up with the dot
+ * above it.
  */
 void draw_mancal_offset_strip() {
-    // Sits in the band between the rose's direction labels (which end at y 165) and the TG line
-    // that starts at y 178.
+    // Sits between the rose's direction labels (which end at y 165) and the step line at y 178.
     const int y = 173;
     tft.fillRect(0, 167, tft.width(), 12, TFT_BLACK);
 
     tft.setTextSize(1);
     tft.setTextDatum(MC_DATUM);
 
-    if (!mancal_offsets_loaded) {
+    BuoyData &b = buoys[selected_buoy_idx];
+
+    if (!mancal_known(b)) {
         tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        tft.drawString("reading table from buoy...", tft.width() / 2, y);
+        tft.drawString("asking the buoy...", tft.width() / 2, y);
         return;
     }
 
+    if (!mancal_running(b)) {
+        if (!mancal_offsets_loaded) {
+            tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+            tft.drawString("reading table from buoy...", tft.width() / 2, y);
+            return;
+        }
+        for (int i = 0; i < 8; i++) {
+            char buf[8];
+            sprintf(buf, "%+0.0f", mancal_offsets[i]);
+            tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+            tft.drawString(buf, 15 + i * 30, y);
+        }
+        return;
+    }
+
+    // A run is going: show what has been captured, as the deviation from the reference direction.
+    // That is the number that means something to the operator - "this hull reads 6 degrees high on
+    // east" - and it is what the eight cells used to show, so it stays.
     for (int i = 0; i < 8; i++) {
         char buf[8];
-        sprintf(buf, "%+0.0f", mancal_offsets[i]);
-        // Green = being worked on, light = confirmed this session, dim = still the value that came
-        // off the buoy and not yet visited. That last distinction is what SAVE is waiting for.
-        uint16_t col = (i == mancal_selected_leg) ? TFT_GREEN
-                     : (mancal_leg_visited[i] ? TFT_LIGHTGREY : TFT_DARKGREY);
+        uint16_t col;
+        if (i < b.cal8_next) {
+            float dev = b.cal8[i] - i * 45.0f;
+            while (dev > 180.0f) dev -= 360.0f;
+            while (dev < -180.0f) dev += 360.0f;
+            sprintf(buf, "%+0.0f", dev);
+            col = TFT_LIGHTGREY;
+        } else if (i == b.cal8_next) {
+            sprintf(buf, "<<");
+            col = TFT_GREEN;
+        } else {
+            sprintf(buf, "-");
+            col = TFT_DARKGREY;
+        }
         tft.setTextColor(col, TFT_BLACK);
         tft.drawString(buf, 15 + i * 30, y);
     }
@@ -4128,185 +3883,137 @@ void draw_mancal_static() {
     mancal_is_dirty = true;
 }
 
-void send_mancal_table_to_sub(int buoy_idx) {
-    BuoyData &b = buoys[buoy_idx];
-    // Target target, Sender 98, ACK SET (2), CMD 88 (STORE_INTERPOLATION_TABLE), status
-    // followed by the 8 computed table values
-    char cmdPayload[256];
-    float table[8];
-    for (int i = 0; i < 8; i++) {
-        float expected = i * 45.0f;
-        float off = mancal_offsets[i];
-        float val = expected - off;
-        while (val < 0.0f) val += 360.0f;
-        while (val >= 360.0f) val -= 360.0f;
-        table[i] = val;
-    }
-    
-    sprintf(cmdPayload, "%s,98,2,88,7,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f",
-            b.id.c_str(), table[0], table[1], table[2], table[3], table[4], table[5], table[6], table[7]);
-            
-    // Wrapped like every other command this firmware sends. Without it the frame goes out bare,
-    // and rfDeCode() (RoboCompute.cpp:607) drops anything that does not start with $ and carry a
-    // valid *CRC before it looks at a single field - so on both the Top's UDP and LoRa paths this
-    // was discarded on arrival and SAVE ALL & EXIT never delivered the table at all.
-    uint8_t crc = calculate_crc(cmdPayload);
-    char finalPacket[320];
-    sprintf(finalPacket, "$%s*%02X", cmdPayload, crc);
-
-    send_lora_packet(finalPacket);
-    udp_broadcast(finalPacket);
-    Serial.printf("Transmitted STORE_INTERPOLATION_TABLE (88) SET to Buoy: %s\n", b.id.c_str());
-}
-
 void update_mancal_dynamic() {
     int w = tft.width();
     BuoyData &b = buoys[selected_buoy_idx];
-    
-    // Draw the 8 dots in a circle (MOVED UP by shifting cy from 125 to 110!)
-    int cx = 120;
-    int cy = 110;
-    int r_dots = 38;
-    
-    // Static drawing elements that we only redraw if dirty
+
+    const int cx = 120;
+    const int cy = 110;
+    const int r_dots = 38;
+
+    const bool known = mancal_known(b);
+    const bool running = mancal_running(b);
+    const bool complete = mancal_complete(b);
+    const int leg = mancal_leg(b);
+
     if (mancal_is_dirty) {
-        tft.fillRect(10, 48, w - 20, 130, TFT_BLACK); // Clear circle area
-        tft.fillRect(0, 180, w, 140, TFT_BLACK); // Cleanly clear lower labels, buttons and footers to prevent overlaps!
-        
-        // Draw static MAG and CORR labels in tiny text above the values
+        tft.fillRect(10, 48, w - 20, 130, TFT_BLACK); // circle area
+        tft.fillRect(0, 180, w, 140, TFT_BLACK);      // labels, buttons and footer
+
         tft.setTextSize(1);
         tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        
         tft.setTextDatum(TL_DATUM);
         tft.drawString("MAG", 15, 48);
-        
         tft.setTextDatum(TR_DATUM);
-        tft.drawString("CORR", w - 15, 48);
+        tft.drawString("IMAG", w - 15, 48);
 
-        // The mode, kept visible for the whole session. Once a direction is picked the switch
-        // below is replaced by the Set as North button, and without this there would be nothing
-        // on screen saying whether a -/+ press moves the buoy or only edits a number.
-        // Left of centre, not on it: the rose's "N" label sits at (120, 59) and is drawn after
-        // this with an opaque background, so a centred tag would have its bottom rows eaten.
+        // The mode, kept visible for the whole session: without it there is nothing on screen
+        // saying whether TURN and the -/+ row move the hull or do nothing at all.
+        // Left of centre, not on it: the rose's "N" label sits at (120, 59) and is drawn after this
+        // with an opaque background, so a centred tag would have its bottom rows eaten.
         tft.setTextDatum(TL_DATUM);
         tft.setTextColor(mancal_thrusters_on ? TFT_RED : TFT_GREEN, TFT_BLACK);
-        tft.drawString(mancal_thrusters_on ? "THR ON" : "THR OFF", 62, 48);
-        
-        // Draw dots and directional labels
+        tft.drawString(mancal_thrusters_on ? "THR ON" : "BY HAND", 62, 48);
+
         for (int i = 0; i < 8; i++) {
             int angle_deg = i * 45;
             float angle_rad = angle_deg * (float)M_PI / 180.0f;
             int x = cx + (int)(r_dots * sin(angle_rad));
             int y = cy - (int)(r_dots * cos(angle_rad));
-            
-            bool is_selected = (i == mancal_selected_leg);
-            bool is_locked = mancal_leg_locked(i);
+
+            bool captured = running && i < b.cal8_next;
+            bool asking = running && !complete && i == leg;
             uint16_t dimmed = tft.color565(55, 55, 55);
-            if (is_selected) {
-                tft.fillCircle(x, y, 6, TFT_GREEN);
+
+            if (asking) {
+                tft.fillCircle(x, y, 6, TFT_BLUE);
                 tft.drawCircle(x, y, 8, TFT_WHITE);
-            } else if (is_locked) {
-                // Barely there: these cannot be picked until North has been done.
+            } else if (captured) {
+                tft.fillCircle(x, y, 5, TFT_GREEN);
+            } else if (running) {
+                // Not its turn yet. The order is the buoy's and cannot be jumped, so these are
+                // barely there rather than looking like something to press.
                 tft.fillCircle(x, y, 3, dimmed);
             } else {
                 tft.fillCircle(x, y, 4, TFT_DARKGREY);
                 tft.drawCircle(x, y, 5, TFT_BLACK);
-                // North, still waiting to be pressed - ring it so it reads as the way in.
-                if (i == 0 && !mancal_leg_visited[0]) {
-                    tft.drawCircle(x, y, 8, TFT_YELLOW);
-                }
+                // Nothing running: ring north, because that is where a run starts.
+                if (i == 0 && known) tft.drawCircle(x, y, 8, TFT_YELLOW);
             }
-            
+
             int r_label = r_dots + 13;
             int lx = cx + (int)(r_label * sin(angle_rad));
             int ly = cy - (int)(r_label * cos(angle_rad));
-            
+
             tft.setTextSize(1);
-            tft.setTextColor(is_selected ? TFT_GREEN
-                             : is_locked ? dimmed
-                             : (i == 0 && !mancal_leg_visited[0]) ? TFT_YELLOW
+            tft.setTextColor(asking ? TFT_CYAN
+                             : captured ? TFT_GREEN
+                             : running ? dimmed
+                             : (i == 0 && known) ? TFT_YELLOW
                              : TFT_LIGHTGREY, TFT_BLACK);
             tft.setTextDatum(MC_DATUM);
-            
-            const char* label = "";
-            switch (angle_deg) {
-                case 0:   label = "N"; break;
-                case 45:  label = "NE"; break;
-                case 90:  label = "E"; break;
-                case 135: label = "SE"; break;
-                case 180: label = "S"; break;
-                case 225: label = "SW"; break;
-                case 270: label = "W"; break;
-                case 315: label = "NW"; break;
-            }
-            tft.drawString(label, lx, ly);
+            tft.drawString(MANCAL_DIRS[i], lx, ly);
         }
     }
-    
-    // The whole table under the rose. Repainted on its own rather than every pass, or the row
-    // would flicker at the 4 Hz refresh rate.
+
+    // The eight point row. Repainted on its own rather than every pass, or it would flicker at the
+    // 4 Hz refresh rate.
     static bool last_strip_loaded = false;
-    static int last_strip_leg = -2;
-    if (mancal_is_dirty || last_strip_loaded != mancal_offsets_loaded || last_strip_leg != mancal_selected_leg) {
+    static int last_strip_next = -2;
+    static bool last_strip_running = false;
+    if (mancal_is_dirty || last_strip_loaded != mancal_offsets_loaded ||
+        last_strip_next != b.cal8_next || last_strip_running != running) {
         last_strip_loaded = mancal_offsets_loaded;
-        last_strip_leg = mancal_selected_leg;
+        last_strip_next = b.cal8_next;
+        last_strip_running = running;
         draw_mancal_offset_strip();
     }
 
-    // Dynamic compass arrow of buoy's actual mag heading
+    // The compass arrow: what the buoy's compass is reporting right now.
     static float last_draw_mag_dir = -999.0f;
     if (mancal_is_dirty || b.mag_dir != last_draw_mag_dir) {
-        // Erase old arrow
         if (last_draw_mag_dir != -999.0f) {
             draw_compass_arrow(cx, cy, r_dots - 8, last_draw_mag_dir, TFT_BLACK);
         }
-        // Draw new arrow in Green representing what the buoy's compass reports
         draw_compass_arrow(cx, cy, r_dots - 8, b.mag_dir, TFT_GREEN);
-        
-        // Draw center pivot dot ON TOP of the arrow so it is never obscured or overwritten!
+        // Centre pivot on top of the arrow so it is never obscured.
         tft.fillCircle(cx, cy, 3, TFT_WHITE);
-        
         last_draw_mag_dir = b.mag_dir;
     }
-    
-    // Draw raw magnetic heading and correction factor in top-left and top-right of screen (Y: 60)
-    // Clear old values first to prevent character ghosting
-    tft.fillRect(10, 58, 48, 18, TFT_BLACK); 
+
+    // MAG and IMAG. Both, side by side, because Imag is what a capture takes and MAG is what the
+    // buoy steers on - seeing them apart is how the correction's effect becomes visible at all.
+    tft.fillRect(10, 58, 48, 18, TFT_BLACK);
     tft.fillRect(w - 58, 58, 48, 18, TFT_BLACK);
-    
-    tft.setTextSize(2); // Large bold numbers!
-    
-    // Left-aligned Mag heading value
+    tft.setTextSize(2);
+
     tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
     tft.setTextDatum(TL_DATUM);
     char mag_buf[16];
     sprintf(mag_buf, "%0.0f", b.mag_dir);
     tft.drawString(mag_buf, 15, 60);
-    
-    // Right-aligned Correction factor value
+
     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
     tft.setTextDatum(TR_DATUM);
-    char corr_buf[16];
-    if (!mancal_offsets_loaded) {
-        // Not "0" - that is a calibration value in its own right, and printing it before the buoy
-        // has answered claims a correction we have not been told about yet.
-        sprintf(corr_buf, "?");
-    } else if (mancal_selected_leg == -1) {
-        sprintf(corr_buf, "-");
+    char imag_buf[16];
+    if (b.mag_dir_iron_ms == 0 || millis() - b.mag_dir_iron_ms > MANCAL_HEADING_STALE_MS) {
+        // Not "0" - that is a heading in its own right, and printing it would claim a reading the
+        // buoy has not given us.
+        sprintf(imag_buf, "?");
     } else {
-        sprintf(corr_buf, "%+0.0f", mancal_active_offset());
+        sprintf(imag_buf, "%0.0f", b.mag_dir_iron);
     }
-    tft.drawString(corr_buf, w - 15, 60);
-    
-    // Draw the Port (BB) and Starboard (SB) motor power speedbars dynamically centered at Y: 110
+    tft.drawString(imag_buf, w - 15, 60);
+
+    // Port and starboard thruster power.
     static float last_bb_mancal = -999.0f;
     static float last_sb_mancal = -999.0f;
     int mid_y = 110;
-    
+
     if (mancal_is_dirty || b.bb_power != last_bb_mancal) {
         last_bb_mancal = b.bb_power;
-        tft.fillRect(15, mid_y - 30, 12, 60, TFT_BLACK); // Clear BB speedbar area
-        tft.drawFastHLine(15, mid_y, 12, TFT_DARKGREY); // Reset centerline
+        tft.fillRect(15, mid_y - 30, 12, 60, TFT_BLACK);
+        tft.drawFastHLine(15, mid_y, 12, TFT_DARKGREY);
         if (b.bb_power > 0) {
             int fill_h = (b.bb_power * 30) / 100;
             tft.fillRect(16, mid_y - fill_h, 10, fill_h, TFT_GREEN);
@@ -4315,11 +4022,11 @@ void update_mancal_dynamic() {
             tft.fillRect(16, mid_y, 10, fill_h, TFT_RED);
         }
     }
-    
+
     if (mancal_is_dirty || b.sb_power != last_sb_mancal) {
         last_sb_mancal = b.sb_power;
-        tft.fillRect(213, mid_y - 30, 12, 60, TFT_BLACK); // Clear SB speedbar area
-        tft.drawFastHLine(213, mid_y, 12, TFT_DARKGREY); // Reset centerline
+        tft.fillRect(213, mid_y - 30, 12, 60, TFT_BLACK);
+        tft.drawFastHLine(213, mid_y, 12, TFT_DARKGREY);
         if (b.sb_power > 0) {
             int fill_h = (b.sb_power * 30) / 100;
             tft.fillRect(214, mid_y - fill_h, 10, fill_h, TFT_GREEN);
@@ -4328,126 +4035,116 @@ void update_mancal_dynamic() {
             tft.fillRect(214, mid_y, 10, fill_h, TFT_RED);
         }
     }
-    
-    // Draw state texts, buttons if dirty
+
     if (mancal_is_dirty) {
-        if (mancal_selected_leg == -1) {
-            // TARGET text (Setpoint) - "TG: TAP DIRECTION"
-            tft.setTextColor(TFT_CYAN, TFT_BLACK);
+        tft.setTextDatum(MC_DATUM);
+
+        // Two lines of words, then one action band, then the footer. The same three cases in the
+        // same order as the touch handler tests them.
+        if (!known) {
             tft.setTextSize(2);
-            tft.setTextDatum(MC_DATUM);
-            tft.drawString("TG: TAP NORTH (N)", w / 2, 186);
-            
-            // Current Offset Text - "CORR: -" in size 2
-            tft.setTextSize(2);
-            tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-            tft.drawString("CORR: -", w / 2, 203);
-            
-            // Nudge buttons plus SET; see draw_mancal_adjust_row().
-            draw_mancal_adjust_row(false);
-            
-            // Nothing is picked yet, so this row is the thruster switch. The prompt it used to
-            // carry is not lost: the TG line above already reads "TAP NORTH (N)" and North is the
-            // only dot on the rose that is ringed and pressable.
-            draw_mancal_thruster_toggle();
-        } else {
-            // TARGET text (Setpoint) - Larger and Light Blue (TFT_CYAN)
-            tft.setTextColor(TFT_CYAN, TFT_BLACK);
-            tft.setTextSize(2);
-            tft.setTextDatum(MC_DATUM);
-            char lbl_buf[32];
-            const char* dirs[] = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
-            sprintf(lbl_buf, "TG: %s (%d deg)", dirs[mancal_selected_leg], mancal_selected_leg * 45);
-            tft.drawString(lbl_buf, w / 2, 186);
-            
-            // Current Offset Text (In large size 2 text, colored Yellow)
-            tft.setTextSize(2);
-            tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-            char off_buf[32];
-            sprintf(off_buf, "CORR: %+0.0f deg", mancal_active_offset());
-            tft.drawString(off_buf, w / 2, 203);
-            
-            // Nudge buttons plus SET; see draw_mancal_adjust_row().
-            draw_mancal_adjust_row(true);
-            
-            // North Button Row (Y: 260 to 295). There is no STORE here: it wrote the same full
-            // 8-point table as SAVE ALL & EXIT, so it was a second commit path that bypassed the
-            // "all 8 visited" gate while its label implied it only stored the current direction.
-            if (mancal_selected_leg == 0) {
-                // SET AS NORTH button, now spanning the row on its own
-                tft.fillRoundRect(10, 260, w - 20, 35, 5, TFT_ORANGE);
-                tft.setTextColor(TFT_BLACK, TFT_ORANGE);
-                tft.setTextSize(2);
-                tft.drawString("Set as North", w / 2, 277);
-            } else {
-                // Nothing to press for the other directions - say what happens instead, so the
-                // empty band does not read as a button that failed to draw.
-                tft.setTextSize(1);
-                tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-                tft.drawString(mancal_thrusters_on ? "dial with -/+   SAVE writes all 8"
-                                                  : "aim it, then SET   SAVE writes all 8", w / 2, 277);
-            }
+            tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+            tft.drawString("ASKING BUOY", w / 2, 186);
+            tft.setTextSize(1);
+            tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+            tft.drawString("waiting for its calibration state", w / 2, 205);
+            draw_mancal_adjust_row("SET", false);
         }
-        
-        // Once every direction has been captured there is nothing left to dial, so the whole
-        // bottom of the screen becomes the decision: commit the table, or throw it away. A 38 px
-        // green bar is hard to miss and hard to hit by accident, which is what you want for the
-        // one press that overwrites the buoy's calibration.
-        //
-        // "SAVE NEW FOURIER TABLE" is 22 characters - 264 px at size 2, wider than the screen - so
-        // it is stacked over two lines rather than shrunk to size 1 and lost.
-        if (mancal_all_legs_visited()) {
-            tft.fillRect(0, 254, w, 66, TFT_BLACK);
+        else if (!running) {
+            tft.setTextSize(2);
+            tft.setTextColor(TFT_CYAN, TFT_BLACK);
+            tft.drawString("READY", w / 2, 186);
+            tft.setTextSize(1);
+            tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+            tft.drawString("row above = the table the buoy uses now", w / 2, 205);
+            draw_mancal_adjust_row("SET", false);
 
             tft.fillRoundRect(10, 256, w - 20, 38, 5, TFT_GREEN);
             tft.setTextColor(TFT_BLACK, TFT_GREEN);
             tft.setTextSize(2);
-            tft.setTextDatum(MC_DATUM);
+            tft.drawString("START", w / 2, 267);
+            tft.setTextSize(1);
+            tft.drawString("north first, then 8 x 45 deg", w / 2, 286);
+        }
+        else if (!complete) {
+            tft.setTextSize(2);
+            tft.setTextColor(leg == 0 ? TFT_ORANGE : TFT_CYAN, TFT_BLACK);
+            char lbl_buf[32];
+            sprintf(lbl_buf, "%d/8  POINT %s", leg + 1, MANCAL_DIRS[leg]);
+            tft.drawString(lbl_buf, w / 2, 186);
+
+            tft.setTextSize(1);
+            tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+            if (leg == 0) {
+                tft.drawString("north sets the reference - entry 0 becomes 0", w / 2, 205);
+            } else {
+                char nudge_buf[40];
+                sprintf(nudge_buf, "aim %d deg true, then SET   nudge %+0.0f",
+                        leg * 45, mancal_nudge);
+                tft.drawString(nudge_buf, w / 2, 205);
+            }
+
+            draw_mancal_adjust_row("SET", true);
+
+            if (mancal_thrusters_on) {
+                char turn_buf[24];
+                sprintf(turn_buf, "TURN TO %s", MANCAL_DIRS[leg]);
+                tft.fillRoundRect(10, 256, w - 20, 38, 5, TFT_BLUE);
+                tft.setTextColor(TFT_WHITE, TFT_BLUE);
+                tft.setTextSize(2);
+                tft.drawString(turn_buf, w / 2, 271);
+                tft.setTextSize(1);
+                tft.drawString("pivots on the spot - writes nothing", w / 2, 288);
+            } else {
+                // No button here in shore mode - say what to do instead, so the empty band does
+                // not read as a button that failed to draw.
+                tft.setTextSize(1);
+                tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+                tft.drawString("aim the hull by hand, then press SET", w / 2, 271);
+                tft.drawString("tap BY HAND below to use the thrusters", w / 2, 285);
+            }
+        }
+        else {
+            // Every direction captured, and still nothing written. The bottom of the screen becomes
+            // the decision: commit, or throw it away. A 38 px green bar is hard to miss and hard to
+            // hit by accident, which is what you want for the one press that replaces a
+            // calibration.
+            tft.setTextSize(2);
+            tft.setTextColor(TFT_GREEN, TFT_BLACK);
+            tft.drawString("8/8  READY", w / 2, 186);
+            tft.setTextSize(1);
+            tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+            tft.drawString("nothing written yet", w / 2, 205);
+            draw_mancal_adjust_row("SET", false);
+
+            tft.fillRoundRect(10, 256, w - 20, 38, 5, TFT_GREEN);
+            tft.setTextColor(TFT_BLACK, TFT_GREEN);
+            tft.setTextSize(2);
             tft.drawString("SAVE NEW", w / 2, 267);
             tft.drawString("FOURIER TABLE", w / 2, 285);
-
-            tft.fillRoundRect(10, 298, w - 20, 20, 4, TFT_BLUE);
-            tft.setTextColor(TFT_WHITE, TFT_BLUE);
-            tft.setTextSize(1);
-            tft.drawString("CANCEL - discard and leave", w / 2, 308);
-
-            mancal_is_dirty = false;
-            uint16_t udpDot = traffic_dot_color(last_udp_tx_ms, last_udp_sel_blink_ms, 100, TFT_GREEN);
-            tft.fillCircle(218, 15, 4, udpDot);
-            uint16_t loraDot = traffic_dot_color(last_lora_tx_ms, last_lora_blink_ms, 300, TFT_CYAN);
-            tft.fillCircle(232, 15, 4, loraDot);
-            return;
         }
 
-        // Footer Control Buttons (Y: 300 to 320)
+        // Footer. Left half always leaves; the right half is the thruster switch when nothing is
+        // running and CANCEL RUN when something is.
         tft.setTextSize(1);
-        tft.fillRoundRect(10, 300, 105, 20, 4, TFT_BLUE);
+        tft.fillRoundRect(10, 298, 108, 20, 4, TFT_BLUE);
         tft.setTextColor(TFT_WHITE, TFT_BLUE);
-        tft.drawString("BACK / CANCEL", 62, 310);
-        
-        // SAVE writes all eight entries at once, so it stays locked until every direction has
-        // been steered to at least once - committing a table with sectors that were never looked
-        // at would overwrite good ones on the buoy with untouched buffer values. The count tells
-        // the operator how many are still to do rather than just refusing the press.
-        if (mancal_all_legs_visited()) {
-            tft.fillRoundRect(125, 300, 105, 20, 4, TFT_DARKGREY);
-            tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
-            tft.drawString("SAVE ALL & EXIT", 177, 310);
+        tft.setTextDatum(MC_DATUM);
+        tft.drawString("BACK", 64, 308);
+
+        if (running) {
+            tft.fillRoundRect(122, 298, 108, 20, 4, TFT_RED);
+            tft.setTextColor(TFT_WHITE, TFT_RED);
+            tft.drawString("CANCEL RUN", 176, 308);
         } else {
-            tft.fillRoundRect(125, 300, 105, 20, 4, TFT_BLACK);
-            tft.drawRoundRect(125, 300, 105, 20, 4, TFT_DARKGREY);
-            tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-            char save_buf[24];
-            sprintf(save_buf, "SAVE %d/8", mancal_visited_count());
-            tft.drawString(save_buf, 177, 310);
+            draw_mancal_thruster_toggle(122, 108);
         }
     }
-    
+
     mancal_is_dirty = false;
-    
-    // Draw real-time traffic dots (UDP and LoRa) in the top-right corner of the header (Y: 15)
+
     uint16_t udpDotColor = traffic_dot_color(last_udp_tx_ms, last_udp_sel_blink_ms, 100, TFT_GREEN);
-    tft.fillCircle(218, 15, 4, udpDotColor); // Shifted right to 218!
+    tft.fillCircle(218, 15, 4, udpDotColor);
     uint16_t loraDotColor = traffic_dot_color(last_lora_tx_ms, last_lora_blink_ms, 300, TFT_CYAN);
-    tft.fillCircle(232, 15, 4, loraDotColor); // Shifted right to 232!
+    tft.fillCircle(232, 15, 4, loraDotColor);
 }

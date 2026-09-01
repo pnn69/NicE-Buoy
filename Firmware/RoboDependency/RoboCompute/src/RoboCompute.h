@@ -154,6 +154,15 @@ typedef enum
     //   CAL8_SET     capture the direction being asked for, then advance 45 degrees
     //   CAL8_SAVE    write the offset and the table together, or nothing
     //   CAL8_CANCEL  discard
+    //
+    // A CAL8_SET also puts the leg it MEANS in RoboStruct::cal8Next, and the Sub ignores it unless
+    // that matches the step it is actually on. Without that the one press in this protocol that is
+    // not idempotent could not be retried - and it has to be, because the Top-to-Sub link is a
+    // single half-duplex wire that the Sub is talking on continuously. Measured on the bench: eight
+    // presses sent one per second landed twice. Retrying blindly would have captured some legs
+    // twice and skipped others, which is worse than losing the press, so the leg number is what
+    // makes the retry safe. BEGIN, SAVE and CANCEL are idempotent already and ignore the field.
+    //
     // GET just asks for the state. Either way the Sub answers with the state:
     //   fields[6]  cal8Action     echo of what was asked for
     //   fields[7]  cal8Active     1 while a session is running

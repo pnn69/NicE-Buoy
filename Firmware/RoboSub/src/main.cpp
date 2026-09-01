@@ -758,8 +758,11 @@ void handleSerandRfdata(RoboStruct *ser)
                             mancalHoldArm();
                             break;
                         case CAL8_SET:
-                            if (cal8Set() < 0)
-                                printf("CAL8: set ignored - no session, or all eight captured\r\n");
+                            // The leg the sender meant. A press that crossed with an earlier copy of
+                            // itself names a leg already captured and is dropped rather than eating
+                            // the next one - see cal8Set().
+                            if (cal8Set(dataIn.cal8Next) < 0)
+                                printf("CAL8: set ignored - wrong leg, no session, or all eight captured\r\n");
                             mancalHoldArm();   // refresh the hold, the operator is still working
                             break;
                         case CAL8_SAVE:
@@ -932,6 +935,12 @@ void handleSerandRfdata(RoboStruct *ser)
 //***************************************************************************************************
 static bool mancalHoldArmed = false;
 static unsigned long mancalHoldArmedAt = 0;
+// How often the Sub reports to the Top over the shared serial wire. See the comment at the send
+// site: this is a collision domain, and every frame the Sub sends is a window in which the Top
+// cannot reach it. Raise it and remote commands start getting lost; there is no benefit in lowering
+// it, because the steering that needs fast compass data runs in the Sub.
+#define SUBDATA_SERIAL_INTERVAL_MS 250
+
 #define MANCAL_HOLD_TIMEOUT_MS (20 * 60 * 1000UL)
 
 void mancalHoldArm()
@@ -1157,9 +1166,15 @@ void handleTimerRoutines(RoboStruct *in)
         break;
     }
 
+    // Telemetry up to the Top. This used to go out every 100 ms, and the Top-to-Sub link is a
+    // single half-duplex wire, so at 10 frames a second the Sub was talking over most of what the
+    // Top tried to say to it: eight calibration presses sent one per second landed twice. Nothing
+    // needs the old rate - the heading loop that actually needs fast compass data is right here in
+    // the Sub, and the Top only relays this on for display and for the map. Four a second is still
+    // smoother than any screen refresh in this project.
     if (nextSamp < millis())
     {
-        nextSamp = 100 + millis();
+        nextSamp = SUBDATA_SERIAL_INTERVAL_MS + millis();
         RoboStruct telemetry = mainData;
         telemetry.cmd = SUBDATA;
         telemetry.ack = 6; // Full Status packet

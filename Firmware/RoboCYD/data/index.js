@@ -45,35 +45,54 @@ const MsgType = {
     ADAPTIVE_TRIM: 84,
     COMPUTESTART: 62,
     COMPUTETRACK: 63,
-    REBOOT: 85
+    REBOOT: 85,
+    // Guided eight point compass calibration. Payload: action, active, next, then the eight
+    // captures. See CAL8_SESSION in RoboCompute.h - the rules live on the buoy, not here.
+    CAL8_SESSION: 91
 };
 
-// Global variables for full-screen Manual Fourier Calibration inside browser
+// What a CAL8_SESSION SET is asking for.
+const Cal8 = { BEGIN: 0, SET: 1, SAVE: 2, CANCEL: 3 };
+
+// ---------------------------------------------------------------------------------------------
+// MAN CAL - guided eight point compass calibration, from the dashboard.
+//
+// This panel holds no calibration state. The session lives on the buoy (see the block comment in
+// RoboSub/src/compass.cpp), arrives here in CAL8_SESSION frames, and every button is one frame back.
+// It used to keep its own eight offsets, its own step counter and its own copy of the table
+// arithmetic - one of five such copies across the firmwares, which is how a corrected heading ended
+// up stored as if it were a raw one. It also switched the buoy's correction off on entry and
+// assumed that had worked; on a lost frame all eight points were captured against a live correction
+// and nothing said a word.
+//
+// North is step one and defines the reference: it lands in the buoy's compass offset, so entry 0 is
+// 0 by construction and north reads true with the correction on and with it off. Captures take
+// Imag, before the table and before the trim, so nothing has to be switched off. Nothing is written
+// until SAVE, which means a run started here can be finished on the touchscreen or on the buoy's own
+// page, and closing this panel costs nothing.
+// ---------------------------------------------------------------------------------------------
 let mancalWebActiveIndex = null;
-let mancalWebActiveLeg = 0;
+
+// known:false means the buoy has not answered yet - which is NOT the same as "no run in progress",
+// and every button stays locked until it is settled. Guessing idle here is what would let a press
+// wipe out captures somebody else made from another screen.
+let mancalWebSession = { known: false, active: false, next: 0, captured: Array(8).fill(0) };
+
+// The offsets the buoy is already applying, from its answer to a table GET. Shown while no run is
+// going, so the panel opens on what the buoy is really using rather than on eight zeros - and zero
+// is a real calibration value, so "not answered yet" has to look different from "answered, and it
+// is 0".
 const mancalWebOffsets = Array(8).fill(0);
-// The eight offsets are the ones the buoy is already running, not a blank slate. Until its answer
-// to the STORE_INTERPOLATION_TABLE GET arrives they are all zero, and zero is a real calibration
-// value - so "not answered yet" has to be distinguishable from "answered, and it is 0".
 let mancalWebOffsetsLoaded = false;
-// True between opening the screen and switching the buoy's harmonic correction off. The switch
-// waits for the table: the Sub reports the table that is IN EFFECT, so asking after the switch
-// returns the identity table and every correction reads 0.
-let mancalWebHarmonicPending = false;
-let mancalWebQueryTries = 0;
-// Which of the eight directions have been steered to at least once this session. SAVE commits all
-// eight entries in one frame, not just the one on screen, so a session that only looked at two of
-// them would still overwrite the other six on the buoy with whatever is in the buffer. The button
-// stays locked until every direction has been visited.
-const mancalWebVisited = Array(8).fill(false);
-// This screen switches the harmonic correction off so the dialing works against the raw compass, and
-// it must be ON again by the time the screen is left - by EITHER exit. A buoy left with it off
-// answers every later table request with the identity table, so the corrections still in NVS become
-// invisible and the screen reads as "this buoy has no calibration".
+
+// Where the thrusters are being aimed, relative to the leg being asked for. Steering only: no part
+// of this reaches the table, and SET captures whatever the compass reads at that moment.
+let mancalWebNudge = 0;
+
 let mancalWebQueryTimer = null;
+let mancalWebQueryTries = 0;
 const MANCAL_WEB_QUERY_INTERVAL_MS = 1200;
 const MANCAL_WEB_QUERY_MAX_TRIES = 5;
-
 // Helper function to provide beautiful active-state visual click feedback for webpage buttons
 function flashButtonFeedback(element, activeBgColor = "#22c55e", activeTextColor = "black", duration = 150) {
     if (!element) return;
@@ -234,161 +253,210 @@ function sendStatusCmd(targetId, cmdId) {
 
 // --- Manual Fourier Calibration: reading the buoy's existing table -------------------------------
 
-/**
- * Paints the correction readouts of the full-screen manual calibration overlay: the big CORR value
- * for the direction being worked on, and the whole eight-point table underneath the compass. Only
- * the active direction used to be shown, so the seven corrections the buoy was already running were
- * invisible and the screen read as an uncalibrated buoy.
- */
-function renderMancalWebOffsets() {
-    const offValEl = document.getElementById("mancal-web-offset-val");
-    if (offValEl) {
-        if (!mancalWebOffsetsLoaded) {
-            // Not "+0°" - zero is a calibration value in its own right, and showing it before the
-            // buoy has answered claims a correction we have not been told about.
-            offValEl.textContent = "?";
-        } else if (mancalWebActiveLeg === -1) {
-            offValEl.textContent = "-";
-        } else {
-            const off = mancalWebOffsets[mancalWebActiveLeg];
-            offValEl.textContent = (off >= 0 ? "+" : "") + off + "°";
-        }
-    }
+const MANCAL_WEB_DIRS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+const MANCAL_WEB_LONG = ["NORTH", "NORTH EAST", "EAST", "SOUTH EAST",
+                         "SOUTH", "SOUTH WEST", "WEST", "NORTH WEST"];
 
+const mancalWebRunning = () => mancalWebSession.known && mancalWebSession.active;
+const mancalWebComplete = () => mancalWebRunning() && mancalWebSession.next >= 8;
+const mancalWebLeg = () => Math.min(7, Math.max(0, mancalWebRunning() ? mancalWebSession.next : 0));
+
+function mancalWebShow(id, on) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = on ? "block" : "none";
+}
+
+/**
+ * Paints the whole panel from the buoy's reported session: the rose as a progress display, the
+ * eight-cell row, the step wording, and which of the four buttons is available. One function, so
+ * the display and the click handlers cannot end up disagreeing about which step is current.
+ */
+function renderMancalWeb() {
+    const known = mancalWebSession.known;
+    const running = mancalWebRunning();
+    const complete = mancalWebComplete();
+    const leg = mancalWebLeg();
+    const done = running ? mancalWebSession.next : 0;
+
+    // The rose reports progress; it is not a selector. The order is the buoy's and cannot be jumped.
+    document.querySelectorAll(".mancal-web-dot").forEach(btn => {
+        const i = parseInt(btn.getAttribute("data-leg"));
+        const captured = running && i < done;
+        const asking = running && !complete && i === leg;
+        btn.disabled = true;
+        btn.style.cursor = "default";
+        btn.title = asking ? "point the bow here, then press SET"
+                  : captured ? "captured" : "";
+        btn.style.backgroundColor = asking ? "#3b82f6" : captured ? "#14532d" : "#334155";
+        btn.style.color = asking ? "white" : captured ? "#86efac" : "#94a3b8";
+        btn.style.border = asking ? "2px solid white"
+                         : captured ? "1px solid #22c55e" : "1px solid #475569";
+        btn.style.opacity = (running && !captured && !asking) ? "0.45" : "1";
+    });
+
+    // The eight cells: the captures so far during a run, otherwise the offsets in use.
     for (let i = 0; i < 8; i++) {
         const cell = document.getElementById("mancal-web-tbl-" + i);
         if (!cell) continue;
-        const off = mancalWebOffsets[i];
-        cell.textContent = mancalWebOffsetsLoaded ? (off >= 0 ? "+" : "") + off + "°" : "?";
-        cell.style.color = (i === mancalWebActiveLeg) ? "#22c55e" : "#e2e8f0";
-    }
-
-    const statusEl = document.getElementById("mancal-web-table-status");
-    if (statusEl) {
-        statusEl.textContent = mancalWebOffsetsLoaded
-            ? "Corrections now stored on the buoy - adjust from here"
-            : "Reading the stored table from the buoy...";
-    }
-
-    updateMancalWebSaveState();
-    updateMancalWebDotLocks();
-}
-
-/**
- * North has to be done first. Everything downstream is measured against it: SET AS NORTH folds the
- * North error into compassOffset, and because the Sub applies that offset BEFORE the table lookup
- * (RoboSub/src/compass.cpp:936 then :944) it shifts every other sector by the same amount. Doing
- * North first means there is nothing else dialled in yet for it to invalidate. Once North has been
- * visited the operator is free - take SET AS NORTH, or just leave a Fourier offset on North.
- */
-function mancalWebLegLocked(leg) {
-    return leg !== 0 && !mancalWebVisited[0];
-}
-
-/**
- * Greys out the seven non-North dots until North has been visited, and rings North as the way in.
- */
-function updateMancalWebDotLocks() {
-    document.querySelectorAll(".mancal-web-dot").forEach(btn => {
-        const leg = parseInt(btn.getAttribute("data-leg"));
-        const locked = mancalWebLegLocked(leg);
-        btn.disabled = locked;
-        btn.style.opacity = locked ? "0.3" : "1";
-        btn.style.cursor = locked ? "not-allowed" : "pointer";
-        btn.title = locked ? "Set North first - it is the base every other direction is measured against" : "";
-        // North, still waiting to be pressed - ring it so it reads as the way in.
-        if (leg === 0 && !mancalWebVisited[0] && leg !== mancalWebActiveLeg) {
-            btn.style.border = "2px solid #eab308";
+        let text = "?", colour = "#e2e8f0", opacity = "1";
+        if (running) {
+            if (i < done) {
+                // The deviation from the reference direction - "this hull reads 6 degrees high on
+                // east" - which is the number that means something to the operator.
+                let dev = mancalWebSession.captured[i] - i * 45;
+                while (dev > 180) dev -= 360;
+                while (dev < -180) dev += 360;
+                text = (dev >= 0 ? "+" : "") + dev.toFixed(0) + "\u00b0";
+            } else if (i === leg && !complete) {
+                text = "<<";
+                colour = "#22c55e";
+            } else {
+                text = "-";
+                opacity = "0.4";
+            }
+        } else if (mancalWebOffsetsLoaded) {
+            const off = mancalWebOffsets[i];
+            text = (off >= 0 ? "+" : "") + off + "\u00b0";
+        } else {
+            opacity = "0.4";
         }
-    });
+        cell.textContent = text;
+        cell.style.color = colour;
+        cell.style.opacity = opacity;
+    }
 
+    const stepEl = document.getElementById("mancal-web-step");
+    const askEl = document.getElementById("mancal-web-ask");
+    const hintEl = document.getElementById("mancal-web-hint");
     const statusEl = document.getElementById("mancal-web-table-status");
-    if (statusEl && mancalWebOffsetsLoaded && !mancalWebVisited[0]) {
-        statusEl.textContent = "Start with North (N) - it is the base every other direction is measured against";
+    const legEl = document.getElementById("mancal-web-offset-val");
+    const nudgeEl = document.getElementById("mancal-web-nudge");
+
+    if (legEl) legEl.textContent = (running && !complete) ? MANCAL_WEB_DIRS[leg] : "-";
+    if (nudgeEl) nudgeEl.textContent = (mancalWebNudge >= 0 ? "+" : "") + mancalWebNudge + "\u00b0";
+
+    mancalWebShow("mancal-web-begin", known && !running);
+    mancalWebShow("mancal-web-turn", running && !complete);
+    mancalWebShow("mancal-web-set", running && !complete);
+    mancalWebShow("mancal-web-exit", complete);
+    mancalWebShow("mancal-web-cancel", running);
+    document.querySelectorAll("#mancal-web-sub10, #mancal-web-sub1, #mancal-web-add1, #mancal-web-add10")
+        .forEach(btn => {
+            const armed = running && !complete;
+            btn.disabled = !armed;
+            btn.style.opacity = armed ? "1" : "0.4";
+            btn.style.cursor = armed ? "pointer" : "not-allowed";
+        });
+
+    if (!known) {
+        if (stepEl) stepEl.textContent = "waiting for the buoy";
+        if (askEl) { askEl.textContent = "--"; askEl.style.color = "#94a3b8"; }
+        if (hintEl) hintEl.textContent = "asking what its calibration is doing...";
+        if (statusEl) statusEl.textContent = "Reading the table from the buoy...";
+    } else if (!running) {
+        if (stepEl) stepEl.textContent = "not started";
+        if (askEl) { askEl.textContent = "Ready"; askEl.style.color = "#e2e8f0"; }
+        if (hintEl) hintEl.textContent = "Press START - it asks for north first";
+        if (statusEl) statusEl.textContent = mancalWebOffsetsLoaded
+            ? "The corrections the buoy is applying now"
+            : "Reading the table from the buoy...";
+    } else if (!complete) {
+        if (stepEl) stepEl.textContent = `step ${done + 1} of 8`;
+        if (askEl) {
+            askEl.textContent = `Point the bow ${MANCAL_WEB_LONG[leg]} (${leg * 45}\u00b0)`;
+            askEl.style.color = leg === 0 ? "#f97316" : "#38bdf8";
+        }
+        if (hintEl) hintEl.textContent = leg === 0
+            ? "north defines the reference - this press sets the compass offset"
+            : "check it against an external compass, then press SET";
+        const setBtn = document.getElementById("mancal-web-set");
+        if (setBtn) setBtn.textContent = "SET " + MANCAL_WEB_DIRS[leg];
+        const turnBtn = document.getElementById("mancal-web-turn");
+        if (turnBtn) turnBtn.textContent = "TURN TO " + MANCAL_WEB_DIRS[leg];
+        if (statusEl) statusEl.textContent = `Captured so far - ${done} of 8`;
+    } else {
+        if (stepEl) stepEl.textContent = "all eight captured";
+        if (askEl) { askEl.textContent = "Ready to save"; askEl.style.color = "#22c55e"; }
+        if (hintEl) hintEl.textContent = "nothing on the buoy has changed yet";
+        if (statusEl) statusEl.textContent = "SAVE writes the offset and the table together";
     }
 }
 
 /**
- * Locks SAVE & EXIT until every direction has been visited. SAVE writes all eight table entries at
- * once, so committing after visiting only some of them overwrites the untouched sectors on the buoy
- * with whatever the buffer happened to hold. The button counts down rather than just refusing the
- * click, so it is obvious how many are left.
+ * One press, one frame. No local bookkeeping: the buoy answers with the resulting state and the
+ * panel repaints, so a lost frame costs one repeated press and can never leave this screen a
+ * direction ahead of the hull.
  */
-function updateMancalWebSaveState() {
-    const done = mancalWebVisited.filter(Boolean).length;
-    const ready = done === 8;
-
-    const btn = document.getElementById("mancal-web-exit");
-    if (btn) {
-        btn.textContent = ready ? "SAVE & EXIT" : `SAVE (${done}/8)`;
-        btn.disabled = !ready;
-        btn.style.opacity = ready ? "1" : "0.45";
-        btn.style.cursor = ready ? "pointer" : "not-allowed";
-        btn.title = ready ? "" : "Steer to all 8 directions before saving - SAVE writes the whole table at once";
-    }
-
-    // Dim the directions that are still carrying the value that came off the buoy.
-    for (let i = 0; i < 8; i++) {
-        const cell = document.getElementById("mancal-web-tbl-" + i);
-        if (cell) cell.style.opacity = mancalWebVisited[i] ? "1" : "0.4";
-    }
-}
-
-/**
- * Switches the buoy's harmonic (Fourier) correction on or off. Off is what makes the +/- dialing and
- * the table written on SAVE both work against the raw compass, but it is deliberately not sent on
- * entry: the Sub answers a table request with the table that is IN EFFECT, so asking after the
- * switch-off has landed returns the identity table and every stored correction comes back as 0.
- */
-function mancalWebSetHarmonic(b, on) {
-    b.data["harmonic_enabled"] = on ? "1" : "0";
+function mancalWebPress(action) {
+    if (mancalWebActiveIndex === null) return;
+    const b = buoys[mancalWebActiveIndex];
+    if (!b || !b.id) return;
     const currStatus = b.data.Status || "7";
-    const trimEn = b.data["compass_trim_enabled"] === "1" ? "1" : "0";
-    const values = [
-        b.data["Kpr"] || "1.00", b.data["Kir"] || "0.01", b.data["Kdr"] || "0.05",
-        b.data["Kps"] || "1.50", b.data["Kis"] || "0.05", b.data["Kds"] || "0.10",
-        b.data["maxSpeed"] || "100", b.data["minSpeed"] || "10", b.data["pivotSpeed"] || "0.20",
-        b.data["compassOffset"] || "0", b.data["holdRad"] || "2.0",
-        b.data["revBB"] === "1" ? "1" : "0", b.data["revSB"] === "1" ? "1" : "0",
-        b.data["swap_BB_SB"] === "1" ? "1" : "0", trimEn,
-        b.data["dockAppDist"] || "20", b.data["dockAppDir"] || "180",
-        b.data["dockToWP"] === "1" ? "1" : "0",
-        on ? "2" : "1" // wire encoding: 2 = on, 1 = off
-    ];
-    sendCommand(b.id, `${b.id},99,${MsgType.SET},${MsgType.SETUPDATA},${currStatus},${values.join(",")}`);
+    // Payload: action, the Active field (state the BUOY owns, ignored on arrival), then the leg this
+    // press is for. RoboCompute's decoder needs more than four numbers present before it reads the
+    // action at all, so all three go on the wire.
+    //
+    // The leg matters for SET. The Top resends presses until the buoy confirms them, because the
+    // serial hop down to the Sub drops most of what is sent, and the leg number is what stops a
+    // late duplicate from capturing the next direction instead. Taken from the buoy's own step
+    // counter, so a resend can only ever mean the leg it was issued for.
+    const leg = mancalWebSession.next;
+    sendCommand(b.id, `${b.id},99,${MsgType.SET},${MsgType.CAL8_SESSION},${currStatus},${action},0,${leg}`);
 }
 
 /**
- * Asks the buoy for its 8-point table until it answers, then finishes the entry sequence. The GET
- * is fire-and-forget, and a lost one would leave the screen showing eight zeros - which reads as
- * "this buoy has no corrections" rather than "the answer never came". Gives up after
- * MANCAL_WEB_QUERY_MAX_TRIES so an unreachable buoy still leaves a usable screen.
+ * Aims the thrusters at the leg being asked for, plus the nudge. A CORRECTED heading, so the hull
+ * lands as close to the real direction as the buoy's present calibration allows - closer on every
+ * run. Steering only; it writes nothing.
  */
-function mancalWebPollTable() {
+function mancalWebTurn() {
+    if (mancalWebActiveIndex === null || !mancalWebRunning() || mancalWebComplete()) return;
+    const b = buoys[mancalWebActiveIndex];
+    if (!b || !b.id) return;
+    let dir = mancalWebLeg() * 45 + mancalWebNudge;
+    while (dir < 0) dir += 360;
+    while (dir >= 360) dir -= 360;
+    sendCommand(b.id, `${b.id},98,6,25,25,${dir.toFixed(1)},0.0,,,,`);
+}
+
+/**
+ * Asks the buoy what its calibration is doing, and for the table it is running, until both answer.
+ * The state matters: every button is locked until it arrives, because starting a second run over
+ * somebody else's would throw their captures away. The table is only cosmetic. Gives up after
+ * MANCAL_WEB_QUERY_MAX_TRIES rather than retrying an unreachable buoy for ever.
+ */
+function mancalWebPollState() {
     if (mancalWebQueryTimer) {
         clearTimeout(mancalWebQueryTimer);
         mancalWebQueryTimer = null;
     }
-    if (!mancalWebHarmonicPending || mancalWebActiveIndex === null) return;
+    if (mancalWebActiveIndex === null) return;
 
     const b = buoys[mancalWebActiveIndex];
     if (!b || !b.id) return;
 
-    if (mancalWebOffsetsLoaded || mancalWebQueryTries >= MANCAL_WEB_QUERY_MAX_TRIES) {
-        if (!mancalWebOffsetsLoaded) {
-            logMessage(`Buoy ${b.id.toUpperCase()}: no answer to the Fourier table request - starting from zero.`, "UDP IN");
-            // Zero is the baseline we are going to dial from, so stop calling it unknown.
-            mancalWebOffsetsLoaded = true;
-            renderMancalWebOffsets();
+    if ((mancalWebSession.known && mancalWebOffsetsLoaded) ||
+        mancalWebQueryTries >= MANCAL_WEB_QUERY_MAX_TRIES) {
+        if (!mancalWebSession.known) {
+            logMessage(`Buoy ${b.id.toUpperCase()}: no answer about its calibration state - `
+                     + `the buttons stay locked rather than guessing no run is in progress.`, "UDP IN");
         }
-        mancalWebHarmonicPending = false;
-        mancalWebSetHarmonic(b, false);
+        if (!mancalWebOffsetsLoaded) {
+            logMessage(`Buoy ${b.id.toUpperCase()}: no answer to the table request - the idle row `
+                     + `reads unknown.`, "UDP IN");
+        }
+        renderMancalWeb();
         return;
     }
 
     mancalWebQueryTries++;
-    sendCommand(b.id, `${b.id},99,${MsgType.GET},88,,,,,,,`);
-    mancalWebQueryTimer = setTimeout(mancalWebPollTable, MANCAL_WEB_QUERY_INTERVAL_MS);
+    const currStatus = b.data.Status || "7";
+    if (!mancalWebSession.known) {
+        // ack GET asks without changing anything.
+        sendCommand(b.id, `${b.id},99,${MsgType.GET},${MsgType.CAL8_SESSION},${currStatus},0,0,0`);
+    }
+    if (!mancalWebOffsetsLoaded) sendCommand(b.id, `${b.id},99,${MsgType.GET},88,,,,,,,`);
+    mancalWebQueryTimer = setTimeout(mancalWebPollState, MANCAL_WEB_QUERY_INTERVAL_MS);
 }
 
 // WebSockets (Acts as a Bridge to UDP server or back to ESP32 Web Server)
@@ -692,7 +760,11 @@ function parseMessage(message, source, senderIp = null, loraRssi = null, udpRssi
                 "Wind Dir": fields[9], "Wind StdDev": fields[10], "Bow Thruster (BB)": fields[11], "Stern Thruster (SB)": fields[12],
                 "PID I-term": fields[13], "PID R-term": fields[14], "Sub Battery V": fields[15], "Sub Battery %": fields[16],
                 "Latitude (Lat)": fields[17], "Longitude (Lon)": fields[18], "GPS Fix": fields[19], "GPS Satellites": fields[20],
-                "Current": fields[21] || "0"
+                "Current": fields[21] || "0",
+                // Imag - the heading after the iron correction but before the compass table and
+                // before the trim, which is the value a calibration point is taken from. Appended
+                // to the frame, so an older buoy simply does not send it.
+                "Imag": (fields.length > 22 && fields[22] !== "") ? fields[22] : undefined
             });
         } else if (cmd === MsgType.DIRDIST && fields.length >= 7) {
             Object.assign(parsedData, {
@@ -738,6 +810,24 @@ function parseMessage(message, source, senderIp = null, loraRssi = null, udpRssi
                 "compass_trim": fields[5],
                 "compass_trim_enabled": fields[6]
             });
+        } else if (cmd === MsgType.CAL8_SESSION && fields.length >= 8) {
+            // The state of a guided calibration run. Taken from EVERY frame, unlike the table
+            // below: this is the buoy's own step counter and only the buoy ever changes it, so the
+            // worst a late duplicate off the other radio can do is repaint the same step.
+            if (mancalWebActiveIndex !== null && buoys[mancalWebActiveIndex].id === buoyId) {
+                mancalWebSession.known = true;
+                mancalWebSession.active = fields[6] !== "0" && fields[6] !== "";
+                mancalWebSession.next = parseInt(fields[7]) || 0;
+                if (fields.length >= 16) {
+                    for (let i = 0; i < 8; i++) {
+                        mancalWebSession.captured[i] = parseFloat(fields[8 + i]) || 0;
+                    }
+                }
+                renderMancalWeb();
+                logMessage(`Buoy ${buoyId.toUpperCase()}: calibration `
+                         + `${mancalWebSession.active ? "running" : "idle"}, `
+                         + `step ${mancalWebSession.next} of 8`, "UDP IN");
+            }
         } else if (cmd === 88 && fields.length >= 13) {
             // Received 8-point fourier interpolation table from Sub
             console.log(`WS RX Command 88 for buoy ${buoyId.toUpperCase()}:`, fields);
@@ -757,11 +847,11 @@ function parseMessage(message, source, senderIp = null, loraRssi = null, udpRssi
                 }
 
                 mancalWebOffsetsLoaded = true;
-                renderMancalWebOffsets();
+                renderMancalWeb();
 
-                // The answer we were waiting for: finish opening the screen now instead of sitting
-                // out the rest of the retry interval.
-                if (mancalWebHarmonicPending) mancalWebPollTable();
+                // One of the two answers we were waiting for: check whether the other is in too,
+                // instead of sitting out the rest of the retry interval.
+                mancalWebPollState();
 
                 logMessage(`Loaded 8 Fourier offsets from Buoy ${buoyId.toUpperCase()}: [${mancalWebOffsets.join(", ")}]`, "UDP IN");
             }
@@ -1124,6 +1214,15 @@ function updateGUI() {
                     magValEl.textContent = "0°";
                 }
             }
+
+            // Imag alongside it. MAG is what the buoy steers on, Imag is what a capture takes -
+            // seeing the two apart is the only way the correction's effect is visible at all.
+            const imagEl = document.getElementById("mancal-web-imag");
+            if (imagEl) {
+                const im = d["Imag"];
+                imagEl.textContent = (im !== undefined && im !== "" && !isNaN(parseFloat(im)))
+                    ? `Imag ${parseFloat(im).toFixed(0)}°` : "Imag -";
+            }
             
             // Update rotating visual compass arrow dynamically in real-time
             const arrowEl = document.getElementById("mancal-web-arrow");
@@ -1357,260 +1456,150 @@ function initUIEventListeners() {
         });
     });
     
-    // --- Global Isolated Full-Screen Manual Calibration Event Listeners with Safe Null Checks ---
-    const webLegBtns = document.querySelectorAll(".mancal-web-dot");
-    if (webLegBtns && webLegBtns.length > 0) {
-        webLegBtns.forEach(btn => {
-            btn.addEventListener("click", () => {
-                // Steering before the buoy has reported its table, and before its harmonic
-                // correction is off, would be dialed against a compass that is about to shift.
-                if (mancalWebHarmonicPending) return;
+    // --- Guided eight point calibration: four buttons, each one frame to the buoy -------------
+    // The rose is a progress display now, not a selector, so it has no click handlers at all: the
+    // order is the buoy's and cannot be jumped. renderMancalWeb() keeps every dot disabled.
 
-                const leg = parseInt(btn.getAttribute("data-leg"));
-                // The button is disabled in this state, but guard anyway.
-                if (mancalWebLegLocked(leg)) return;
-                mancalWebActiveLeg = leg;
-                mancalWebVisited[leg] = true;
-
-                // Highlight active button and unhighlight others
-                webLegBtns.forEach(bL => {
-                    const bLeg = parseInt(bL.getAttribute("data-leg"));
-                    if (bLeg === leg) {
-                        bL.style.backgroundColor = "#3b82f6"; // Blue active
-                        bL.style.color = "white";
-                        bL.style.border = "2px solid white";
-                    } else {
-                        bL.style.backgroundColor = "#334155"; // Dark grey inactive
-                        bL.style.color = "#94a3b8";
-                        bL.style.border = "1px solid #475569";
-                    }
-                });
-                
-                // Update offset display - the correction this direction is already carrying
-                renderMancalWebOffsets();
-
-                // Show/Hide "Set as North" button based on whether North (leg 0) is selected
-                const northBtn = document.getElementById("mancal-web-setNorth");
-                if (northBtn) northBtn.style.display = (leg === 0) ? "block" : "none";
-                
-                // Send direct steer command to buoy (REMOTE 25). The correction this direction
-                // already carries goes in straight away, the same way the +/- buttons apply it -
-                // steering to the bare angle would make the first 1° tap swing the buoy by the
-                // whole stored offset.
-                if (mancalWebActiveIndex !== null) {
-                    const b = buoys[mancalWebActiveIndex];
-                    if (b.id) {
-                        let steer_dir = leg * 45 - mancalWebOffsets[leg];
-                        while (steer_dir < 0) steer_dir += 360;
-                        while (steer_dir >= 360) steer_dir -= 360;
-                        const payload = `${b.id},98,6,25,25,${steer_dir.toFixed(1)},0.0,,,,`;
-                        sendCommand(b.id, payload);
-                    }
-                }
-            });
-        });
-    }
-    
-    const adjustWebMancalOffset = (step) => {
-        if (mancalWebActiveIndex === null || mancalWebActiveLeg === -1) return; // Guard against unselected directions!
-        if (mancalWebHarmonicPending) return; // entry sequence still in flight
-        const b = buoys[mancalWebActiveIndex];
-        if (!b.id) return;
-
-        mancalWebOffsets[mancalWebActiveLeg] += step;
-        if (mancalWebOffsets[mancalWebActiveLeg] < -180) mancalWebOffsets[mancalWebActiveLeg] = -180;
-        if (mancalWebOffsets[mancalWebActiveLeg] > 180) mancalWebOffsets[mancalWebActiveLeg] = 180;
-
-        const off = mancalWebOffsets[mancalWebActiveLeg];
-        renderMancalWebOffsets();
-
-        // Send direct steering target shift to buoy in real-time
-        const target_angle = mancalWebActiveLeg * 45;
-        let steer_dir = target_angle - off;
-        while (steer_dir < 0) steer_dir += 360;
-        while (steer_dir >= 360) steer_dir -= 360;
-        
-        const payload = `${b.id},98,6,25,25,${parseFloat(steer_dir).toFixed(1)},0.0,,,,`;
-        sendCommand(b.id, payload);
-        
-        // Send temporary offset to fourier table (Command 78)
-        const currStatus = b.data.Status || "7";
-        const calPayload = `${b.id},99,${MsgType.SET},78,${currStatus},${mancalWebActiveLeg},${off},,,,`;
-        sendCommand(b.id, calPayload);
+    // The nudge buttons move where the thrusters are aiming and nothing else. No part of this
+    // reaches the table - SET captures whatever the compass reads at that moment.
+    const mancalWebAdjust = (step) => {
+        if (!mancalWebRunning() || mancalWebComplete()) return;
+        mancalWebNudge += step;
+        if (mancalWebNudge > 180) mancalWebNudge = 180;
+        if (mancalWebNudge < -180) mancalWebNudge = -180;
+        renderMancalWeb();
+        mancalWebTurn();
     };
-    
-    const btnSub10 = document.getElementById("mancal-web-sub10");
-    if (btnSub10) {
-        btnSub10.addEventListener("click", (e) => {
-            flashButtonFeedback(e.currentTarget, "#ef4444", "white", 150); // Flash Red!
-            adjustWebMancalOffset(-10);
+
+    [["mancal-web-sub10", -10], ["mancal-web-sub1", -1],
+     ["mancal-web-add1", 1], ["mancal-web-add10", 10]].forEach(([id, step]) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.addEventListener("click", (e) => {
+            flashButtonFeedback(e.currentTarget, "#22c55e", "black", 150);
+            mancalWebAdjust(step);
+        });
+    });
+
+    const btnBegin = document.getElementById("mancal-web-begin");
+    if (btnBegin) {
+        btnBegin.addEventListener("click", (e) => {
+            flashButtonFeedback(e.currentTarget, "#3b82f6", "white", 150);
+            if (!mancalWebSession.known) {
+                alert("The buoy has not said what its calibration is doing yet.\n\n"
+                    + "Starting a run now could throw away captures made from another screen.");
+                return;
+            }
+            mancalWebNudge = 0;
+            mancalWebPress(Cal8.BEGIN);
         });
     }
-    const btnSub1 = document.getElementById("mancal-web-sub1");
-    if (btnSub1) {
-        btnSub1.addEventListener("click", (e) => {
-            flashButtonFeedback(e.currentTarget, "#ef4444", "white", 150); // Flash Red!
-            adjustWebMancalOffset(-1);
+
+    const btnTurn = document.getElementById("mancal-web-turn");
+    if (btnTurn) {
+        btnTurn.addEventListener("click", (e) => {
+            flashButtonFeedback(e.currentTarget, "#3b82f6", "white", 150);
+            mancalWebTurn();
         });
     }
-    const btnAdd1 = document.getElementById("mancal-web-add1");
-    if (btnAdd1) {
-        btnAdd1.addEventListener("click", (e) => {
-            flashButtonFeedback(e.currentTarget, "#22c55e", "black", 150); // Flash Green!
-            adjustWebMancalOffset(1);
+
+    const btnSet = document.getElementById("mancal-web-set");
+    if (btnSet) {
+        btnSet.addEventListener("click", (e) => {
+            flashButtonFeedback(e.currentTarget, "#22c55e", "black", 150);
+            if (!mancalWebRunning() || mancalWebComplete()) return;
+            if (mancalWebLeg() === 0 &&
+                !confirm("Is the hull physically pointing NORTH?\n\n"
+                       + "This press defines the reference for the whole calibration: it goes into "
+                       + "the compass offset, so every other direction is measured against it.")) return;
+            mancalWebNudge = 0;
+            mancalWebPress(Cal8.SET);
         });
     }
-    const btnAdd10 = document.getElementById("mancal-web-add10");
-    if (btnAdd10) {
-        btnAdd10.addEventListener("click", (e) => {
-            flashButtonFeedback(e.currentTarget, "#22c55e", "black", 150); // Flash Green!
-            adjustWebMancalOffset(10);
-        });
-    }
-    
-    // "Set as North" button handler
-    const btnSetNorth = document.getElementById("mancal-web-setNorth");
-    if (btnSetNorth) {
-        btnSetNorth.addEventListener("click", (e) => {
-            flashButtonFeedback(e.currentTarget, "#f59e0b", "black", 150); // Flash Orange!
+
+    const btnStop = document.getElementById("mancal-web-stop");
+    if (btnStop) {
+        btnStop.addEventListener("click", (e) => {
+            flashButtonFeedback(e.currentTarget, "#f97316", "black", 150);
             if (mancalWebActiveIndex === null) return;
             const b = buoys[mancalWebActiveIndex];
-            if (!b.id) return;
-            
-            const currentOffset = parseFloat(b.data["compassOffset"] || "0.0");
-            const dialedOffset = mancalWebOffsets[0]; // North leg offset
-            let newOffset = currentOffset + dialedOffset;
-            while (newOffset < -180) newOffset += 360;
-            while (newOffset > 180) newOffset -= 360;
-            
-            b.data["compassOffset"] = newOffset;
-            mancalWebOffsets[0] = 0; // reset North fourier correction to 0
-            renderMancalWebOffsets();
-            
-            // Save setup payload
-            const currStatus = b.data.Status || "7";
-            const trimEn = document.getElementById("setup-compassTrimEnabled")?.checked ? "1" : "0";
-            const values = [
-                b.data["Kpr"] || "1.00", b.data["Kir"] || "0.01", b.data["Kdr"] || "0.05",
-                b.data["Kps"] || "1.50", b.data["Kis"] || "0.05", b.data["Kds"] || "0.10",
-                b.data["maxSpeed"] || "100", b.data["minSpeed"] || "10", b.data["pivotSpeed"] || "0.20",
-                newOffset, b.data["holdRad"] || "2.0",
-                b.data["revBB"] === "1" ? "1" : "0", b.data["revSB"] === "1" ? "1" : "0",
-                b.data["swap_BB_SB"] === "1" ? "1" : "0", trimEn,
-                b.data["dockAppDist"] || "20", b.data["dockAppDir"] || "180",
-                b.data["dockToWP"] === "1" ? "1" : "0",
-                b.data["harmonic_enabled"] === "1" ? "2" : "1"
-            ];
-            const setupPayload = `${b.id},99,${MsgType.SET},${MsgType.SETUPDATA},${currStatus},${values.join(",")}`;
-            sendCommand(b.id, setupPayload);
-            
-            // Refresh steering target to North (0)
-            const payload = `${b.id},98,6,25,25,0.0,0.0,,,,`;
-            sendCommand(b.id, payload);
-            
-            logMessage(`Buoy ${b.id.toUpperCase()}: Global North Offset saved and applied successfully!`, "UDP OUT");
+            if (b && b.id) sendStatusCmd(b.id, MsgType.IDLING);
         });
     }
-    
-    // "CANCEL" button handler
+
+    // Closes the panel and stops the hull. The run is deliberately left alone: it lives on the buoy
+    // and has written nothing, so it can be picked up again here, on the touchscreen or on the
+    // buoy's own web page.
+    const mancalWebCloseOverlay = () => {
+        if (mancalWebActiveIndex !== null) {
+            const b = buoys[mancalWebActiveIndex];
+            if (b && b.id) sendStatusCmd(b.id, MsgType.IDLING);
+        }
+        const overlay = document.getElementById("mancal-fullscreen-overlay");
+        if (overlay) {
+            overlay.classList.remove("active");
+            setTimeout(() => { overlay.style.display = "none"; }, 200);
+        }
+        mancalWebActiveIndex = null;
+        if (mancalWebQueryTimer) { clearTimeout(mancalWebQueryTimer); mancalWebQueryTimer = null; }
+    };
+
+    const btnClose = document.getElementById("mancal-web-close");
+    if (btnClose) {
+        btnClose.addEventListener("click", (e) => {
+            flashButtonFeedback(e.currentTarget, "#475569", "white", 150);
+            mancalWebCloseOverlay();
+        });
+    }
+
+    // Discards the run. Only ever shown while one is going, and nothing has been written, so this
+    // costs exactly the captures made so far and nothing on the buoy.
     const btnCancel = document.getElementById("mancal-web-cancel");
     if (btnCancel) {
         btnCancel.addEventListener("click", (e) => {
-            flashButtonFeedback(e.currentTarget, "#ef4444", "white", 150); // Flash Red!
-            if (mancalWebActiveIndex === null) return;
-            const b = buoys[mancalWebActiveIndex];
-            if (!b.id) return;
-
-            // Leave with the harmonic correction ON. Entering this screen switches it off so the
-            // dialing works on the raw compass; walking away and leaving it off makes every later
-            // visit read the identity table, so the corrections still in NVS become invisible.
-            mancalWebSetHarmonic(b, true);
-
-            // Send IDLE command to shut down thrusters/motors
-            sendStatusCmd(b.id, MsgType.IDLING);
-
-            // Close overlay with smooth fade-out animation matching other modals
-            const overlay = document.getElementById("mancal-fullscreen-overlay");
-            if (overlay) {
-                overlay.classList.remove("active");
-                setTimeout(() => {
-                    overlay.style.display = "none";
-                }, 200); // 200ms matches style.css modal-overlay transition time
+            flashButtonFeedback(e.currentTarget, "#ef4444", "white", 150);
+            if (!mancalWebRunning()) return;
+            if (!confirm("Discard this calibration run?\n\nNothing has been written to the buoy yet.")) return;
+            mancalWebNudge = 0;
+            mancalWebPress(Cal8.CANCEL);
+            if (mancalWebActiveIndex !== null) {
+                const b = buoys[mancalWebActiveIndex];
+                if (b && b.id) sendStatusCmd(b.id, MsgType.IDLING);
             }
-            mancalWebActiveIndex = null;
-            // Cancel any table query still in flight, or its follow-up would switch the harmonic
-            // correction back off on a screen that has already been closed.
-            mancalWebHarmonicPending = false;
-            if (mancalWebQueryTimer) { clearTimeout(mancalWebQueryTimer); mancalWebQueryTimer = null; }
         });
     }
-    
-    // "SAVE & EXIT" button handler
+
+    // Commits. The buoy writes the compass offset and all eight entries together or neither, and
+    // beeps when it lands; the panel closes on the buoy's own answer rather than on hope.
     const btnExit = document.getElementById("mancal-web-exit");
     if (btnExit) {
         btnExit.addEventListener("click", (e) => {
-            flashButtonFeedback(e.currentTarget, "#3b82f6", "white", 150); // Flash Blue!
-            if (mancalWebActiveIndex === null) return;
-            // The button is disabled in this state, but guard anyway - a stray programmatic click
-            // must not commit a table with sectors that were never visited.
-            if (mancalWebVisited.filter(Boolean).length !== 8) return;
+            flashButtonFeedback(e.currentTarget, "#22c55e", "black", 150);
+            if (!mancalWebComplete()) return;
             const b = buoys[mancalWebActiveIndex];
-            if (!b.id) return;
-            
-            // 1. Construct the entire 8-point fourier table from the current dialed offsets
-            const tableVals = [];
-            for (let j = 0; j < 8; j++) {
-                let expected = j * 45;
-                let off = mancalWebOffsets[j];
-                let val = expected - off;
-                while (val < 0) val += 360;
-                while (val >= 360) val -= 360;
-                tableVals.push(val.toFixed(2));
-            }
-            
-            // 2. Send the entire 8-point table as Command 88 SET to commit permanently to NVS!
-            const currStatus = b.data.Status || "7";
-            const calPayload = `${b.id},99,${MsgType.SET},88,${currStatus},${tableVals.join(",")}`;
-            sendCommand(b.id, calPayload);
-            
-            // 3. Re-enable Fourier table interpolation (harmonic_enabled = true)
-            b.data["harmonic_enabled"] = "1";
-            const trimEn = document.getElementById("setup-compassTrimEnabled")?.checked ? "1" : "0";
-            const values = [
-                b.data["Kpr"] || "1.00", b.data["Kir"] || "0.01", b.data["Kdr"] || "0.05",
-                b.data["Kps"] || "1.50", b.data["Kis"] || "0.05", b.data["Kds"] || "0.10",
-                b.data["maxSpeed"] || "100", b.data["minSpeed"] || "10", b.data["pivotSpeed"] || "0.20",
-                b.data["compassOffset"] || "0", b.data["holdRad"] || "2.0",
-                b.data["revBB"] === "1" ? "1" : "0", b.data["revSB"] === "1" ? "1" : "0",
-                b.data["swap_BB_SB"] === "1" ? "1" : "0", trimEn,
-                b.data["dockAppDist"] || "20", b.data["dockAppDir"] || "180",
-                b.data["dockToWP"] === "1" ? "1" : "0",
-                "2" // harmonic_enabled = true (2)
-            ];
-            const setupPayload = `${b.id},99,${MsgType.SET},${MsgType.SETUPDATA},${currStatus},${values.join(",")}`;
-            sendCommand(b.id, setupPayload);
-            
-            // Send IDLE command to shut down thrusters/motors
-            sendStatusCmd(b.id, MsgType.IDLING);
-            
-            // Close overlay with smooth fade-out animation matching other modals
-            const overlay = document.getElementById("mancal-fullscreen-overlay");
-            if (overlay) {
-                overlay.classList.remove("active");
-                setTimeout(() => {
-                    overlay.style.display = "none";
-                }, 200);
-            }
-            mancalWebActiveIndex = null;
-            // Cancel any table query still in flight, or its follow-up would switch the harmonic
-            // correction back off on a screen that has already been closed.
-            mancalWebHarmonicPending = false;
-            if (mancalWebQueryTimer) { clearTimeout(mancalWebQueryTimer); mancalWebQueryTimer = null; }
-            
-            logMessage(`Buoy ${b.id.toUpperCase()}: Manual Calibration saved and committed permanently to Sub NVS! Buoy set to IDLE.`, "UDP OUT");
+            if (!b || !b.id) return;
+
+            mancalWebPress(Cal8.SAVE);
+            logMessage(`Buoy ${b.id.toUpperCase()}: saving the eight point calibration - `
+                     + `waiting for the buoy to confirm.`, "UDP OUT");
+
+            // Wait for the session to go back to idle, which is the buoy saying it committed.
+            const deadline = Date.now() + 5000;
+            const check = setInterval(() => {
+                if (!mancalWebRunning()) {
+                    clearInterval(check);
+                    logMessage(`Buoy ${b.id.toUpperCase()}: calibration stored - it should have `
+                             + `beeped.`, "UDP IN");
+                    mancalWebCloseOverlay();
+                } else if (Date.now() > deadline) {
+                    clearInterval(check);
+                    alert("No confirmation from the buoy.\n\nNothing was saved and the run is "
+                        + "still open - press SAVE again, or finish it from another screen.");
+                }
+            }, 200);
         });
     }
-    
+
     // Global Action Button listeners
     document.getElementById("align-startline-btn").addEventListener("click", () => {
         logMessage("Global: Align Startline Clicked", "UDP OUT");
@@ -1732,54 +1721,32 @@ function initUIEventListeners() {
         if (!b.id) return;
         
         mancalWebActiveIndex = index;
-        mancalWebActiveLeg = -1; // -1 means NO active steering yet!
+        mancalWebSession = { known: false, active: false, next: 0, captured: Array(8).fill(0) };
         mancalWebOffsets.fill(0);
-        mancalWebVisited.fill(false);
         mancalWebOffsetsLoaded = false;
+        mancalWebNudge = 0;
+        mancalWebQueryTries = 0;
 
         // Update header texts
         document.getElementById("mancal-web-buoy-title").textContent = `BUOY ${index + 1} (${b.id.toUpperCase()})`;
         document.getElementById("mancal-web-mag-val").textContent = "0°";
-        renderMancalWebOffsets();
-        
-        // Unhighlight ALL sector buttons initially (all inactive)
-        const webLegBtns = document.querySelectorAll(".mancal-web-dot");
-        webLegBtns.forEach(btn => {
-            btn.style.backgroundColor = "#334155";
-            btn.style.color = "#94a3b8";
-            btn.style.border = "1px solid #475569";
-        });
-        // After the reset above, not before it - that loop rewrites every border and would
-        // otherwise wipe the ring that marks North as the one direction available to press.
-        updateMancalWebDotLocks();
 
-        // Hide "Set as North" button initially (leg 0 is NOT active yet)
-        document.getElementById("mancal-web-setNorth").style.display = "none";
-        
         // Reset speedbars
         document.getElementById("mancal-bar-bb").style.height = "0%";
         document.getElementById("mancal-bar-sb").style.height = "0%";
         document.getElementById("mancal-val-bb").textContent = "0%";
         document.getElementById("mancal-val-sb").textContent = "0%";
-        
-        // 3. Stop the buoy. This screen commands no heading until a direction is picked, so
-        //    whatever it was doing has to end here rather than at the first tap.
+
+        renderMancalWeb();
+
+        // Stop the buoy. Opening this panel commands no heading.
         sendStatusCmd(b.id, MsgType.IDLING);
 
-        // 4. Ask for the 8-point table (Command 88) WHILE the harmonic correction is on, and only
-        //    switch it off once the answer is in - mancalWebPollTable() does that last step.
-        //    Sending the switch first, as this used to, made the Sub answer with the identity
-        //    table, which is why every stored correction showed up as 0.
-        mancalWebHarmonicPending = true;
-        mancalWebQueryTries = 0;
-
-        // Switch the correction ON before reading. Unconditionally: a buoy whose correction is off
-        // answers with the identity table, and b.data["harmonic_enabled"] is only a cached copy
-        // that can be stale (anything changing the flag by another route does not reach this page).
-        // Its table is still in NVS either way - only the reporting of it depends on the flag.
-        mancalWebSetHarmonic(b, true);
-        setTimeout(mancalWebPollTable, 400);
-
+        // Ask what the buoy's calibration is doing, and for the table it is running. Entry does NOT
+        // start a run and does NOT touch the correction - it never has to, because captures take
+        // Imag, which sits before the table. A run already going on the buoy, started here, on the
+        // touchscreen or on its own web page, is picked up at the same step.
+        setTimeout(mancalWebPollState, 400);
         // 5. Open and reveal full-screen overlay with aggressive cached-asset protection and CSS active class
         const overlay = document.getElementById("mancal-fullscreen-overlay");
         if (!overlay) {
@@ -2671,10 +2638,6 @@ function buildBuoyDetailViews() {
                 body.appendChild(el);
             });
         });
-
-        // The legacy inline mancal panel, if this build still has it.
-        const legacyMancal = document.getElementById("mancal-web-panel-" + i);
-        if (legacyMancal) body.appendChild(legacyMancal);
     }
 }
 

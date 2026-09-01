@@ -308,6 +308,35 @@
                      text-transform:uppercase; letter-spacing:0.08em;">not started</div>
                 <div id="step-ask" style="font-size:1.6rem; font-weight:800; margin:0.4rem 0;">&nbsp;</div>
                 <div id="step-live" style="font-family:monospace; color:var(--text-muted); font-size:0.9rem;">&nbsp;</div>
+                <!-- Attitude, so a capture is never taken on a listing hull. See below for why
+                     tilt matters as much as it does. -->
+                <div style="display:flex; align-items:center; justify-content:center; gap:1.25rem;
+                     margin-top:1rem; flex-wrap:wrap;">
+                    <svg width="120" height="120" viewBox="0 0 100 100" style="flex:none;">
+                        <circle cx="50" cy="50" r="46" fill="rgba(0,0,0,0.35)" stroke="#30363d" stroke-width="1.5"/>
+                        <!-- 5 and 2 degree rings, so the reading is quantitative at a glance -->
+                        <circle cx="50" cy="50" r="23" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+                        <circle cx="50" cy="50" r="9.2" fill="none" stroke="rgba(16,185,129,0.55)" stroke-width="1"/>
+                        <line x1="4" y1="50" x2="96" y2="50" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+                        <line x1="50" y1="4" x2="50" y2="96" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+                        <circle id="level-ball" cx="50" cy="50" r="7" fill="var(--green)"
+                                stroke="#0b0f19" stroke-width="1.5" style="transition:cx 0.12s linear, cy 0.12s linear;"/>
+                        <text x="50" y="99" text-anchor="middle" font-size="6" fill="#6b7280">outer ring 10&deg;</text>
+                    </svg>
+                    <div style="text-align:left; min-width:150px;">
+                        <div id="level-verdict" style="font-weight:800; font-size:1rem;">LEVEL</div>
+                        <div style="font-family:monospace; font-size:0.85rem; color:var(--text-muted);">
+                            pitch <span id="level-pitch">-</span><br>
+                            roll&nbsp; <span id="level-roll">-</span>
+                        </div>
+                        <div style="font-size:0.7rem; color:#6b7280; margin-top:0.35rem; max-width:190px;">
+                            The heading comes from the horizontal part of the field, so a tilted
+                            sensor mixes in the vertical part - which is the bigger one here. List
+                            becomes heading error, and a capture would store it as deviation.
+                        </div>
+                    </div>
+                </div>
+
                 <div id="step-buttons" style="display:flex; gap:0.75rem; justify-content:center; margin-top:1rem;">
                     <button id="btn-begin" class="btn btn-blue">START CALIBRATION</button>
                     <button id="btn-set" class="btn btn-green" style="display:none; min-width:180px; font-size:1.1rem;">SET</button>
@@ -413,6 +442,7 @@
                         session.next = data.cal8_next;
                         if (Array.isArray(data.cal8)) session.captured = data.cal8;
                     }
+                    paintLevel(data.pitch, data.roll);
                     paintSession();
                     paintTable();
 
@@ -441,6 +471,68 @@
 
         function show(id, on) {
             document.getElementById(id).style.display = on ? 'inline-flex' : 'none';
+        }
+
+        // Full-scale deflection at the outer ring. Beyond that the ball is pinned rather than
+        // sliding off the dial, so a badly listing hull still reads as "badly listing" instead of
+        // the ball vanishing and the widget looking broken.
+        const LEVEL_FULL_SCALE_DEG = 10;
+        const LEVEL_GOOD_DEG = 2;      // inner green ring
+        const LEVEL_POOR_DEG = 5;      // middle ring
+
+        function paintLevel(pitch, roll) {
+            const ball = document.getElementById('level-ball');
+            const verdict = document.getElementById('level-verdict');
+            if (!ball || !verdict) return;
+
+            if (pitch === undefined || roll === undefined) {
+                // Not reported: say so rather than drawing a centred ball, which would read as a
+                // perfectly level hull on a buoy that has told us nothing.
+                ball.setAttribute('fill', '#6b7280');
+                ball.setAttribute('cx', 50);
+                ball.setAttribute('cy', 50);
+                verdict.innerText = 'NO ATTITUDE';
+                verdict.style.color = '#6b7280';
+                document.getElementById('level-pitch').innerText = '-';
+                document.getElementById('level-roll').innerText = '-';
+                return;
+            }
+
+            const scale = 46 / LEVEL_FULL_SCALE_DEG;
+            // Roll moves the bubble across, pitch moves it along - the way a bubble level on the
+            // deck would behave, so bow-down puts the ball forward, i.e. up the dial.
+            let x = roll * scale;
+            let y = -pitch * scale;
+            const r = Math.hypot(x, y);
+            if (r > 46) { x *= 46 / r; y *= 46 / r; }
+            ball.setAttribute('cx', (50 + x).toFixed(1));
+            ball.setAttribute('cy', (50 + y).toFixed(1));
+
+            const tilt = Math.hypot(pitch, roll);
+            let colour, words;
+            if (tilt <= LEVEL_GOOD_DEG) { colour = '#3fb950'; words = 'LEVEL'; }
+            else if (tilt <= LEVEL_POOR_DEG) { colour = '#d29922'; words = 'SLIGHT LIST'; }
+            else { colour = '#f85149'; words = 'NOT LEVEL'; }
+            ball.setAttribute('fill', colour);
+            verdict.innerText = words + '  ' + tilt.toFixed(1) + '\u00b0';
+            verdict.style.color = colour;
+
+            document.getElementById('level-pitch').innerText = pitch.toFixed(1) + '\u00b0';
+            document.getElementById('level-roll').innerText = roll.toFixed(1) + '\u00b0';
+
+            // Tint SET when the hull is out. Deliberately not disabled: sometimes a buoy has to be
+            // calibrated on a permanent slight list, and that is the operator's call to make - but
+            // it should never be made without noticing.
+            const setBtn = document.getElementById('btn-set');
+            if (setBtn && setBtn.style.display !== 'none') {
+                setBtn.style.background = tilt > LEVEL_POOR_DEG
+                    ? 'linear-gradient(to right, #d29922, #b8860b)'
+                    : '';
+                setBtn.title = tilt > LEVEL_POOR_DEG
+                    ? `The hull is listing ${tilt.toFixed(1)} degrees - the tilt will go into this `
+                      + `table entry as if it were deviation.`
+                    : '';
+            }
         }
 
         function paintSession() {

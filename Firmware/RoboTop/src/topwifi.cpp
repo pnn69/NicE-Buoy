@@ -406,15 +406,90 @@ void cal8NoteState(bool active, int next, const float *captured)
 
 // One frame per press. ack SET carries an action; ack GET just asks. Either way the Sub answers
 // with the state, which comes back through cal8NoteState().
-static void cal8Send(int ackKind, int action)
+//
+// leg is only meaningful for CAL8_SET: it names the leg the press is for, so the Sub can drop a
+// duplicate instead of capturing the wrong direction with it. See cal8Service().
+static void cal8Send(int ackKind, int action, int leg)
 {
     RoboStruct msg = {};
-    msg.IDs = 0x99;
-    msg.IDr = mainData.mac;
+    // Straight onto the serial link, NOT via udpIn. Every other command here goes through udpIn and
+    // lets the RF handler relay it, but that handler now intercepts calibration SETs and routes them
+    // back through cal8NotePress() so they get retried - so a SET posted to udpIn came straight back
+    // to us, re-armed the pending press, and went round again without ever reaching the wire.
+    msg.IDs = espMac();
+    msg.IDr = BUOYIDALL;
     msg.cmd = CAL8_SESSION;
     msg.ack = ackKind;
     msg.cal8Action = action;
-    xQueueSend(udpIn, (void *)&msg, 10);
+    msg.cal8Next = leg;
+    if (xQueueSend(serOut, (void *)&msg, pdMS_TO_TICKS(250)) != pdTRUE)
+    {
+        printf("ERROR: Failed to queue CAL8_SESSION to serOut!\r\n");
+    }
+}
+
+// ---- press retry ----------------------------------------------------------------------------
+// One press in flight at a time. There is never more than one: the operator is pressing buttons on
+// a screen and the next press is only offered once this one has visibly landed.
+#define CAL8_RETRY_MS   400
+#define CAL8_MAX_TRIES  12
+static volatile int cal8PendAction = -1;
+static volatile int cal8PendLeg = 0;
+static volatile int cal8PendTries = 0;
+static volatile unsigned long cal8PendNextMs = 0;
+
+void cal8NotePress(int action, int leg)
+{
+    cal8PendAction = action;
+    cal8PendLeg = leg;
+    cal8PendTries = 1;
+    cal8PendNextMs = millis() + CAL8_RETRY_MS;
+    cal8Send(SET, action, leg);
+    printf("CAL8: press action %d leg %d sent, waiting for the Sub to confirm\r\n", action, leg);
+}
+
+// Has the Sub's reported state caught up with what we asked for? This is the only stopping
+// condition - a press is not "done" because it was transmitted, only because the buoy shows it.
+static bool cal8PressLanded(void)
+{
+    if (!cal8Valid) return false;
+    switch (cal8PendAction)
+    {
+    case CAL8_BEGIN:  return cal8Active && cal8Next == 0;
+    case CAL8_SET:    return cal8Active && cal8Next > cal8PendLeg;
+    case CAL8_SAVE:   return !cal8Active;   // the Sub closes the session when it commits
+    case CAL8_CANCEL: return !cal8Active;
+    default:          return true;
+    }
+}
+
+void cal8Service(void)
+{
+    if (cal8PendAction < 0) return;
+
+    if (cal8PressLanded())
+    {
+        printf("CAL8: press action %d leg %d confirmed after %d attempt%s\r\n",
+               cal8PendAction, cal8PendLeg, cal8PendTries, cal8PendTries == 1 ? "" : "s");
+        cal8PendAction = -1;
+        return;
+    }
+
+    if ((long)(millis() - cal8PendNextMs) < 0) return;
+
+    if (cal8PendTries >= CAL8_MAX_TRIES)
+    {
+        // Give up loudly and leave the session exactly as the Sub has it. Silently dropping the
+        // press would leave the screen waiting on a step that is never coming.
+        printf("CAL8: press action %d leg %d NEVER confirmed after %d attempts - giving up\r\n",
+               cal8PendAction, cal8PendLeg, cal8PendTries);
+        cal8PendAction = -1;
+        return;
+    }
+
+    cal8PendTries++;
+    cal8PendNextMs = millis() + CAL8_RETRY_MS;
+    cal8Send(SET, cal8PendAction, cal8PendLeg);
 }
 
 void mancalNoteTable(const float *table, bool inEffect)
@@ -759,7 +834,9 @@ void WiFiTask(void *arg)
                 mancalSessionBegin();
                 mancalTableValid = false;
                 mancalRequestTable();
-                cal8Send(GET, CAL8_BEGIN);   // action ignored on a GET, this only asks for state
+                // A plain GET, not through the retry: the page polls anyway, so a lost one costs
+                // nothing, and it changes nothing on the buoy if it arrives twice.
+                cal8Send(GET, CAL8_BEGIN, 0);
                 mainData.status = IDLING;
                 server.send(200, "text/plain", "OK");
                 return;
@@ -775,7 +852,10 @@ void WiFiTask(void *arg)
                            : cmdStr == "MANCAL_SET"   ? CAL8_SET
                            : cmdStr == "MANCAL_SAVE"  ? CAL8_SAVE
                                                       : CAL8_CANCEL;
-                cal8Send(SET, action);
+                // Through the retry, not straight down the wire. A press sent once mostly does not
+                // arrive - see cal8Service(). The leg comes from the SUB's step counter, so a
+                // resend can only ever mean the leg it was issued for.
+                cal8NotePress(action, cal8Next);
                 if (action == CAL8_SAVE || action == CAL8_CANCEL)
                 {
                     mainData.tgSpeed = 0;

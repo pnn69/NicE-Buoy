@@ -1067,13 +1067,28 @@ void cal8Begin(void)
 void cal8Cancel(void)
 {
     cal8_active = false;
+    // Back to nothing, not "finished at step 8". A closed session that still reports a step makes
+    // every screen watching it show a run that is not there.
+    cal8_next = 0;
     Serial.println("8 point calibration: cancelled, nothing written");
 }
 
 // Capture the direction currently being asked for. Returns the index just filled, or -1.
-int cal8Set(void)
+//
+// expect_leg is the leg the CALLER believes is next, or -1 for "whatever is next". Remote callers
+// pass it and it is what makes a press safe to retry: the Top-to-Sub link is one half-duplex wire
+// and drops most of what is sent while the Sub is talking, so presses have to be repeated - and a
+// repeat that arrived after the original had already landed would capture the next leg against the
+// hull's old heading. With the leg named, a late duplicate is simply ignored.
+int cal8Set(int expect_leg)
 {
     if (!cal8_active || cal8_next > 7) return -1;
+    if (expect_leg >= 0 && expect_leg != cal8_next)
+    {
+        Serial.printf("8 point calibration: ignoring a capture meant for leg %d, we are on %d\r\n",
+                      expect_leg, cal8_next);
+        return -1;
+    }
 
     float imag = GetHeadingNoOffset();
     int idx = cal8_next;

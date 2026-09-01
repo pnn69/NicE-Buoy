@@ -78,6 +78,19 @@ struct BuoyData {
     bool dock_to_wp = false;
     // Whether the buoy applies its 8-point Fourier compass table (the Sub's interp_enabled).
     // SETUPDATA fields[23], tri-state on the wire: 1 = off, 2 = on, empty = not reported.
+    // ---- guided eight point calibration, mirrored from the buoy ----------------------------
+    // Every value here arrived in a CAL8_SESSION frame the buoy sent. The CYD never writes them
+    // itself and never derives them, because the session belongs to the buoy: see the block
+    // comment in RoboSub/src/compass.cpp. The MAN CAL screen renders these and presses buttons,
+    // and that is all it does - which is the fix for a screen that used to keep its own eight
+    // offsets, its own step counter and its own copy of the table maths.
+    // cal8_ms stays 0 until the buoy has answered once, so "no session running" can be told apart
+    // from "we have not heard yet" - the difference between a blank screen and a wrong one.
+    bool cal8_active = false;
+    int cal8_next = 0;
+    float cal8[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    unsigned long cal8_ms = 0;
+
     bool harmonic_enabled = false;
     // What the BUOY last said about its harmonic correction, as opposed to what we last asked for.
     // harmonic_enabled above is our intent: the CYD writes it itself the moment it sends a change,
@@ -152,11 +165,19 @@ void query_buoy_setup(const String &buoy_id);
 // Save tactile setup values dynamically over UDP & LoRa channels
 void send_buoy_setup(int buoy_idx);
 
+// One press of the guided eight point calibration. action is a cal8_action_t: 0 begin, 1 set,
+// 2 save, 3 cancel. ack SET (2) performs it; ack GET (1) only asks for the state, which is how the
+// screen finds out about a run someone started from a web page. Either way the buoy answers with
+// the state and it lands in BuoyData::cal8_*.
+//
+// leg names the direction a SET is for. The Top resends presses until the buoy confirms them, and
+// the leg number is what stops a late duplicate from capturing the next direction instead - see
+// CAL8_SESSION in RoboCompute.h. Ignored for the other three actions.
+void send_buoy_cal8(const String &buoy_id, int action, int leg = 0, int ack = 2);
+
 // Send dynamic DIRDIST (Manual Navigation target direction and speed)
 void send_buoy_dirdist(int buoy_idx);
 
-// Send manual Fourier calibration offset adjustment
-void send_man_fourier_calibrate(const String &buoy_id, int leg_idx, float offset_val);
 
 // XOR checksum for the $...*CRC envelope every frame on this network has to carry - rfDeCode()
 // drops anything without it. Declared here because senders live outside buoy_data.cpp too.

@@ -29,7 +29,8 @@ int linMagCalib(int *corr);
 // there once, and every interface drives the same session rather than repeating the arithmetic.
 void cal8Begin(void);
 void cal8Cancel(void);
-int  cal8Set(void);          // captures the direction being asked for, returns its index or -1
+// expect_leg guards against a retried press capturing the wrong leg; -1 means "whatever is next".
+int  cal8Set(int expect_leg = -1);
 bool cal8Save(void);         // commits offset and table together, or nothing
 extern bool cal8_active;
 extern int cal8_next;        // 0..7 while running, 8 when every direction is captured
