@@ -119,6 +119,20 @@ void beep(int sound, QueueHandle_t buzzer)
         Data.hz = 1046; // C6
         xQueueSend(buzzer, (void *)&Data, 10);
         break;
+    // One short chirp: "that landed in NVS".
+    //
+    // Its own tone rather than a reuse, because every neighbouring sound already means something
+    // else and a save has to be told apart from all of them: case 10 is the button-press tick, 1
+    // is the rising tune for a computation that produced something, 5 is the compass-table tune,
+    // and -1 is failure. Long enough to hear over an outboard at arm's length, short enough not to
+    // be a tune - the operator is stood over the hull pressing SAVE, not listening to music.
+    case 6:
+        Data.hz = 2000;
+        Data.repeat = 0;
+        Data.pause = 0;
+        Data.duration = 80;
+        xQueueSend(buzzer, (void *)&Data, 10);
+        break;
     case 10:
         xQueueSend(buzzer, (void *)&tones[10], 5);
         break;

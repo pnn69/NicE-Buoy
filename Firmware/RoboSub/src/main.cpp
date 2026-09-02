@@ -599,9 +599,14 @@ void handleSerandRfdata(RoboStruct *ser)
                         CompasOffset(&mainData, MEM_PUT);
                         global_params_rev++;
                         printf("SET_AS_NORTH command received via serial! Offset adjusted to %0.2f and saved to NVS.\r\n", newOffset);
+                        // The same chirp a settings save plays, because that is what this is -
+                        // the compass offset going into NVS. It used to be beep(-1), which is the
+                        // FAILURE tone, the one played when a start line cannot be computed. Same
+                        // mix-up already found and fixed in subwifi.cpp: a good save has to sound
+                        // like one, or the operator learns to ignore the buzzer entirely.
                         extern QueueHandle_t buzzer;
                         if (buzzer != NULL) {
-                            beep(-1, buzzer);
+                            beep(6, buzzer);
                         }
                         RoboStruct response = mainData;
                         response.IDr = dataIn.IDs;
@@ -753,6 +758,23 @@ void handleSerandRfdata(RoboStruct *ser)
 
                     initRudPid(ser);
                     initSpeedPid(ser);
+
+                    // Say so out loud. A save made during a calibration happens with somebody
+                    // stood over the hull and nowhere near a screen, and "did that take?" is
+                    // exactly the question a beep answers. Fired here, after the MEM_PUTs and the
+                    // reload, so it means the values are in NVS - not merely that a frame arrived.
+                    //
+                    // Debounced, because a SAVE goes out on LoRa AND UDP and the Top forwards both
+                    // copies a few hundred ms apart. Two chirps for one press reads as two saves.
+                    {
+                        static unsigned long lastSaveBeepMs = 0;
+                        extern QueueHandle_t buzzer;
+                        if (buzzer != NULL && millis() - lastSaveBeepMs > 1000)
+                        {
+                            lastSaveBeepMs = millis();
+                            beep(6, buzzer);
+                        }
+                    }
 
                     // Send confirmation back so Top and UI get the updated values
                     RoboStruct response = *ser;

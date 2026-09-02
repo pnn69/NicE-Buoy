@@ -460,9 +460,9 @@ function mancalWebCapture(leg) {
             + "compass's own zero and it is what anchors the whole run.");
         return;
     }
-    if (mancalWebCaptured(leg) &&
-        !confirm(`Re-capture ${MANCAL_WEB_LONG[leg]}?\n\nThe reading stored for it is replaced `
-               + `by whatever the compass says now.`)) return;
+    // No confirmation on a re-capture. Nothing is written to the buoy until CLOSE, a leg may be
+    // taken again as often as you like, and re-taking one is the normal way to fix a bad reading -
+    // so the dialog stood in the way of the recovery rather than of the mistake.
 
     let seq = mancalWebSession.seq + 1;
     // 0 means "unnumbered press" to the buoy and is always applied, so the counter steps over it
@@ -1634,7 +1634,8 @@ function initUIEventListeners() {
         btnCancel.addEventListener("click", (e) => {
             flashButtonFeedback(e.currentTarget, "#ef4444", "white", 150);
             if (!mancalWebRunning()) return;
-            if (!confirm("Discard this calibration run?\n\nNothing has been written to the buoy yet.")) return;
+            // Nothing has been written to the buoy at this point, so there is nothing to lose
+            // by leaving - which is what the dialog itself said.
             mancalWebPendLeg = -1;
             mancalWebPress(Cal8.CANCEL);
             if (mancalWebActiveIndex !== null) {
@@ -1762,8 +1763,9 @@ function initUIEventListeners() {
     };
 
     document.getElementById("setup-deskCal-btn").addEventListener("click", () => {
-        if (!confirm("Start the 60 second desk calibration?\n\nTurn the buoy in figures of eight "
-                   + "for the whole minute. This replaces the stored hard/soft iron calibration.")) return;
+        // Straight to it. What the operator has to DO - figures of eight for the whole minute -
+        // is on the page next to the button, which is where instructions belong; a modal that has
+        // to be dismissed before the minute can start is the wrong place to put them.
         sendSetupAction(27); // CALIBRATE_MAGNETIC_COMPASS
     });
 
@@ -1822,7 +1824,8 @@ function initUIEventListeners() {
     });
 
     document.getElementById("setup-reboot-btn").addEventListener("click", () => {
-        if (!confirm("Are you sure you want to reboot this buoy?")) return;
+        // A reboot loses nothing: every setting is in NVS and the buoy is back inside a few
+        // seconds. Not worth a dialog.
         sendSetupAction(85); // REBOOT
     });
 
