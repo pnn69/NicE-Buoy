@@ -154,8 +154,8 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     }
     
     // TELEMETRY: Ignore any auxiliary command echoes, except standard status updates, SETUPDATA (83),
-    // CAL8_SESSION (91), the interpolation table (88) and the waypoint beacons LOCKPOS (21) /
-    // DOCKPOS (23).
+    // CAL8_SESSION (91), ATTITUDE (92), the interpolation table (88) and the waypoint beacons
+    // LOCKPOS (21) / DOCKPOS (23).
     //
     // 91 was missing from this list from the day the guided calibration was added, so every reply
     // the buoy sent about a run was dropped here - 200 lines above the parser that wanted it. The
@@ -168,7 +168,7 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     // recipient re-broadcasts it as LOCKPOS under its own ID anyway
     // (RoboTop/src/main.cpp, case SETLOCKPOS), which is the copy we want.
     if (cmd != 51 && cmd != 19 && cmd != 83 && cmd != 21 && cmd != 23 && cmd != 88 &&
-        cmd != 91) return;
+        cmd != 91 && cmd != 92) return;
 
     String sender_id = fields[1];
     sender_id.trim();
@@ -294,6 +294,7 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
             buoys[buoy_idx].mag_dir_iron = atof(fields[22].c_str());
             buoys[buoy_idx].mag_dir_iron_ms = millis();
         }
+
     }
     // Parse BUOYPOS (CMD = 19)
     else if (cmd == 19 && fields.size() >= 14) {
@@ -366,6 +367,14 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
             setup_data_loaded = true;
             Serial.println("On-screen Setup Data loaded successfully from Buoy!");
         }
+    }
+    // Parse ATTITUDE (CMD = 92) - pitch and roll, for MAN CAL's level. UDP only, so it simply
+    // never arrives over a LoRa-only link and pitch_ms stays 0 - which the screen shows as an
+    // unknown level rather than a level one.
+    else if (cmd == 92 && fields.size() >= 7) {
+        buoys[buoy_idx].pitch = atof(fields[5].c_str());
+        buoys[buoy_idx].roll = atof(fields[6].c_str());
+        buoys[buoy_idx].pitch_ms = millis();
     }
     // Parse CAL8_SESSION (CMD = 91) - the state of a guided eight point calibration.
     //

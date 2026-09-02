@@ -215,6 +215,13 @@ void RoboDecode(String data, RoboStruct *dataStore)
         // Iron corrected heading, see RoboStruct::imag. Count guarded: an older Sub sends a
         // shorter frame and the Top keeps whatever it already had.
         if (count > 10) dataStore->imag = numbers[10].toDouble();
+        // Attitude. Count guarded like imag above: an older Sub sends a shorter frame and the Top
+        // keeps whatever it had rather than reading a missing field as dead level.
+        if (count > 12)
+        {
+            dataStore->pitch = numbers[11].toDouble();
+            dataStore->roll = numbers[12].toDouble();
+        }
         break;
     case TOPDATA:
         dataStore->dirMag = numbers[2].toDouble();
@@ -269,6 +276,13 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->compass_trim_enabled = (bool)numbers[3].toInt();
         break;
     case SET_AS_NORTH:
+        break;
+    case ATTITUDE:
+        if (count > 3)
+        {
+            dataStore->pitch = numbers[2].toDouble();
+            dataStore->roll = numbers[3].toDouble();
+        }
         break;
     case CAL8_SESSION:
         // Count-guarded like everything else here. A short frame is a node that predates the
@@ -428,6 +442,12 @@ String RoboCode(const RoboStruct *dataOut)
         // read straight off this, so rounding it to a whole degree would put that error in the
         // table for good.
         out += "," + formatFloat(dataOut->imag, 2);
+        // Attitude, so the handheld can show a level while the hull is being turned. Tilt is not a
+        // cosmetic reading here: heading comes from the horizontal field component, so a listing
+        // hull mixes in the vertical one and the error is stored as if it were deviation. One
+        // decimal is ample for a bubble.
+        out += "," + formatFloat(dataOut->pitch, 1);
+        out += "," + formatFloat(dataOut->roll, 1);
         break;
     case TOPDATA:
         out += "," + formatFloat(dataOut->dirMag, 0);
@@ -518,6 +538,10 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String((int)dataOut->compass_trim_enabled);
         break;
     case SET_AS_NORTH:
+        break;
+    case ATTITUDE:
+        out += "," + formatFloat(dataOut->pitch, 1);
+        out += "," + formatFloat(dataOut->roll, 1);
         break;
     case CAL8_SESSION:
         // The action first, so a SET and the answer to it have the same shape - the Sub echoes what
@@ -1198,6 +1222,7 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
         dst->ip = src.ip;               dst->ir = src.ir;
         dst->subAccuV = src.subAccuV;   dst->subAccuP = src.subAccuP;
         dst->subAccuI = src.subAccuI;
+        dst->pitch = src.pitch;         dst->roll = src.roll;
         break;
 
     case SUBACCU:
@@ -1254,6 +1279,10 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
         for (int i = 0; i < 8; i++) dst->interpolationTable[i] = src.interpolationTable[i];
         dst->interpEnabled = src.interpEnabled;
         dst->interpUsable = src.interpUsable;
+        break;
+
+    case ATTITUDE:
+        dst->pitch = src.pitch;         dst->roll = src.roll;
         break;
 
     case CAL8_SESSION:

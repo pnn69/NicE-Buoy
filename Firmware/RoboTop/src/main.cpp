@@ -1238,6 +1238,14 @@ void handleTimerRoutines(RoboStruct *timer)
             timer->cmd = TOPDATA;
             xQueueSend(udpOut, (void *)timer, 10);  // send out through wifi
         }
+
+        // Attitude, and only ever down this queue - there is no loraOut counterpart on purpose.
+        // See ATTITUDE in RoboCompute.h: it feeds the handheld's bubble level during a
+        // calibration, which is a WiFi-range activity by definition, and putting it on the air
+        // would cost LoRa channel time on every frame to deliver a level that updated once every
+        // few seconds.
+        timer->cmd = ATTITUDE;
+        xQueueSend(udpOut, (void *)timer, 10);
     }
 
     // LoRa transmission.
@@ -1594,6 +1602,8 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     RfOut->subAccuV = RfIn.subAccuV;
                     RfOut->subAccuP = RfIn.subAccuP;
                     RfOut->subAccuI = RfIn.subAccuI;
+                    RfOut->pitch = RfIn.pitch;
+                    RfOut->roll = RfIn.roll;
 
                     mainPwrData.ledBb = RfOut->speedBb;
                     mainPwrData.ledSb = RfOut->speedSb;
@@ -2457,7 +2467,10 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             target->subAccuV = serDataIn.subAccuV;
             target->subAccuP = serDataIn.subAccuP;
             target->subAccuI = serDataIn.subAccuI;
-            
+            // Attitude, relayed onward in ATTITUDE over UDP for the handheld's level.
+            target->pitch = serDataIn.pitch;
+            target->roll = serDataIn.roll;
+
             mainPwrData.ledBb = target->speedBb;
             mainPwrData.ledSb = target->speedSb;
             xQueueSend(ledPwr, (void *)&mainPwrData, 0);

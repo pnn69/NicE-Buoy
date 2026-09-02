@@ -174,7 +174,20 @@ typedef enum
     //
     // Nothing on the buoy changes until CAL8_SAVE, so a lost frame anywhere in a run costs at most
     // one repeated press - and because the state is the Sub's, two screens can drive the same run.
-    CAL8_SESSION
+    CAL8_SESSION,
+    // Hull attitude - pitch and roll, degrees. Sent by the Top over UDP ONLY, never over LoRa.
+    //
+    // Deliberately its own frame rather than two more fields on TOPDATA. TOPDATA is the frame LoRa
+    // carries, and at SF7/125 kHz it already occupies the channel for 195 ms - one a second is
+    // about 20% of the air per buoy, which is why the Top throttles it while station keeping. Two
+    // extra fields would be paid for on every frame for ever, to feed a bubble level that only
+    // matters while somebody is stood over the hull calibrating it, with WiFi in range by
+    // definition. At the LoRa rate a level would be updating once every few seconds anyway, which
+    // is worse than not showing one.
+    //
+    //   fields[5]  pitch
+    //   fields[6]  roll
+    ATTITUDE
 } msg_t;
 
 // What a CAL8_SESSION SET is asking the buoy to do. Carried in RoboStruct::cal8Action.

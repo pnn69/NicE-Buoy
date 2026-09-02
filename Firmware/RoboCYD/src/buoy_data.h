@@ -31,6 +31,13 @@ struct BuoyData {
     // nonsense table - so MAN CAL checks this before it lets anything be captured.
     float mag_dir_iron = 0;
     unsigned long mag_dir_iron_ms = 0;
+    // Attitude of the hull, from TOPDATA. Wanted by MAN CAL, which draws a level in the middle of
+    // the rose: heading comes from the horizontal field component, so a listing hull mixes in the
+    // vertical one and that error is stored as if it were deviation. pitch_ms stays 0 until the
+    // buoy actually sends it, so "not reported" can be told from "level".
+    float pitch = 0;
+    float roll = 0;
+    unsigned long pitch_ms = 0;
     float gps_dir = 0;
     float tg_dir = 0;
     float tg_dist = 0;

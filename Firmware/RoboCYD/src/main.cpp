@@ -162,6 +162,64 @@ static bool mancal_press_pending(const BuoyData &b) {
     return true;
 }
 
+// The rose geometry, in one place because the drawing and the hit test have to agree about it.
+#define MANCAL_CX 120
+#define MANCAL_CY 178
+#define MANCAL_R_DOTS 44
+#define MANCAL_R_LABEL 58
+
+// How stale the attitude may be before the level is drawn as unknown rather than as level. It
+// arrives only over UDP (see ATTITUDE in RoboCompute.h), so on a LoRa-only link it never arrives at
+// all - and a bubble sitting confidently in the middle would then be a lie, not a missing feature.
+#define MANCAL_TILT_STALE_MS 4000UL
+
+// Tilt that spoils a capture, degrees. Heading comes from the horizontal component of the field, so
+// a listing hull mixes in the vertical one and the error is stored as if it were deviation. The
+// local inclination is about 65 degrees, which is why this matters so much more than it looks: the
+// horizontal signal is only ~22 of a ~52 field, and in filtering mode 2 - which both hulls run,
+// with no tilt compensation - five degrees of list is worth up to eleven degrees of heading.
+#define MANCAL_TILT_GOOD_DEG 2.0f
+#define MANCAL_TILT_POOR_DEG 5.0f
+
+// The bubble, in the middle of the rose. Full scale at the outer ring is 10 degrees.
+static void draw_mancal_level(const BuoyData &b, bool known) {
+    const int r_out = 22;                       // 10 deg
+    const float px_per_deg = r_out / 10.0f;
+
+    tft.fillCircle(MANCAL_CX, MANCAL_CY, r_out + 2, TFT_BLACK);
+    tft.drawCircle(MANCAL_CX, MANCAL_CY, r_out, tft.color565(70, 70, 70));
+    tft.drawCircle(MANCAL_CX, MANCAL_CY, (int)(MANCAL_TILT_POOR_DEG * px_per_deg), tft.color565(70, 70, 70));
+    tft.drawCircle(MANCAL_CX, MANCAL_CY, (int)(MANCAL_TILT_GOOD_DEG * px_per_deg), TFT_DARKGREEN);
+    tft.drawFastHLine(MANCAL_CX - r_out, MANCAL_CY, r_out * 2, tft.color565(45, 45, 45));
+    tft.drawFastVLine(MANCAL_CX, MANCAL_CY - r_out, r_out * 2, tft.color565(45, 45, 45));
+
+    if (!known) {
+        // Hollow, and centred on nothing in particular - an empty ring reads as "no reading",
+        // where a grey ball in the middle would read as "perfectly level".
+        tft.setTextDatum(MC_DATUM);
+        tft.setTextSize(1);
+        tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+        tft.drawString("--", MANCAL_CX, MANCAL_CY);
+        return;
+    }
+
+    float tilt = sqrtf(b.pitch * b.pitch + b.roll * b.roll);
+    uint16_t col = (tilt <= MANCAL_TILT_GOOD_DEG) ? TFT_GREEN
+                 : (tilt <= MANCAL_TILT_POOR_DEG) ? TFT_ORANGE
+                                                  : TFT_RED;
+
+    // Roll moves the bubble across, pitch moves it up the screen when the bow is up - the way a
+    // real bubble sits. Clamped to the rim so a big list parks it at the edge instead of drawing
+    // off into the direction labels.
+    float dx = b.roll * px_per_deg;
+    float dy = -b.pitch * px_per_deg;
+    float mag = sqrtf(dx * dx + dy * dy);
+    float lim = (float)(r_out - 4);
+    if (mag > lim && mag > 0.001f) { dx = dx * lim / mag; dy = dy * lim / mag; }
+
+    tft.fillCircle(MANCAL_CX + (int)dx, MANCAL_CY + (int)dy, 4, col);
+}
+
 // The one-line complaint band under the rose.
 static void mancal_warn(const char *msg) {
     // Borrows the eight point strip's row. Transient: mancal_is_dirty below forces a full repaint,
@@ -174,12 +232,6 @@ static void mancal_warn(const char *msg) {
     delay(900);
     mancal_is_dirty = true;
 }
-
-// The rose geometry, in one place because the drawing and the hit test have to agree about it.
-#define MANCAL_CX 120
-#define MANCAL_CY 178
-#define MANCAL_R_DOTS 44
-#define MANCAL_R_LABEL 58
 
 // Which direction a touch landed on, or -1. A ring rather than eight little boxes: the dots are
 // only 12 px across and a resistive panel poked with a wet finger does not do 12 px.
@@ -3828,15 +3880,29 @@ void update_mancal_dynamic() {
             tft.drawString(MANCAL_DIRS[i], lx, ly);
         }
 
-        // How far along, in the middle of the rose where the arrow used to be. The arrow went with
-        // the thrusters: nothing on this screen steers any more, so a live heading needle in the
-        // centre of a set of marks you tap by hand was just something else moving.
-        tft.setTextDatum(MC_DATUM);
+        // How far along, tucked into the top left corner of the rose box. It used to sit in the
+        // middle, which is the one piece of screen worth giving to something that moves - see
+        // draw_mancal_level().
+        tft.setTextDatum(TL_DATUM);
         tft.setTextSize(2);
         tft.setTextColor(complete ? TFT_GREEN : TFT_LIGHTGREY, TFT_BLACK);
         char cnt_buf[12];
         sprintf(cnt_buf, "%d/8", running ? done : 0);
-        tft.drawString(cnt_buf, MANCAL_CX, MANCAL_CY);
+        tft.drawString(cnt_buf, 48, 112);
+    }
+
+    // ---- the bubble level, in the middle of the rose ------------------------------------
+    // Redrawn on every change of attitude, not only when the session state moves: this is the one
+    // thing on the screen the operator is watching WHILE turning the hull, so it has to be live.
+    static float last_pitch_drawn = -999.0f, last_roll_drawn = -999.0f;
+    static bool last_tilt_known = false;
+    const bool tilt_known = (b.pitch_ms != 0) && (millis() - b.pitch_ms <= MANCAL_TILT_STALE_MS);
+    if (mancal_is_dirty || tilt_known != last_tilt_known ||
+        b.pitch != last_pitch_drawn || b.roll != last_roll_drawn) {
+        last_pitch_drawn = b.pitch;
+        last_roll_drawn = b.roll;
+        last_tilt_known = tilt_known;
+        draw_mancal_level(b, tilt_known);
     }
 
     // ---- the eight point row ------------------------------------------------------------
