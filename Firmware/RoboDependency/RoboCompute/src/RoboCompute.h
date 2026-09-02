@@ -187,7 +187,18 @@ typedef enum
     //
     //   fields[5]  pitch
     //   fields[6]  roll
-    ATTITUDE
+    ATTITUDE,
+    // Declare the hull level where it sits right now: the Sub records its current attitude as the
+    // datum and reports departure from it thereafter. No payload - like SET_AS_NORTH, the buoy
+    // reads its own sensor and the command only says when.
+    //
+    // Press it with the boat floating the way it floats, NOT tilted to centre the bubble. A fixed
+    // mounting tilt is absorbed by the compass table, which maps whatever the compass reads at each
+    // direction back to the truth and does not care why it reads it. What the table cannot absorb
+    // is the hull sitting at a different attitude at each stop, or at a different attitude while
+    // sailing than while being calibrated - so the datum exists to make CHANGE visible, and
+    // chasing the bubble by tilting the boat defeats the whole point of it.
+    SET_AS_LEVEL
 } msg_t;
 
 // What a CAL8_SESSION SET is asking the buoy to do. Carried in RoboStruct::cal8Action.

@@ -269,6 +269,7 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->compass_trim_enabled = (bool)numbers[3].toInt();
         break;
     case SET_AS_NORTH:
+    case SET_AS_LEVEL:
         break;
     case ATTITUDE:
         if (count > 3)
@@ -521,6 +522,7 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String((int)dataOut->compass_trim_enabled);
         break;
     case SET_AS_NORTH:
+    case SET_AS_LEVEL:
         break;
     case ATTITUDE:
         out += "," + formatFloat(dataOut->pitch, 1);

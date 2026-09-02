@@ -355,7 +355,7 @@ enum SetupSlot {
     S_REVBB  = 20, S_REVSB = 21, S_SWAP = 22,
     S_APPDIST = 24, S_APPDIR = 25, S_DOCKWP = 26,
     S_DESKCAL = 32, S_SETNORTH = 33, S_REBOOT = 34,
-    S_MANCAL = 36
+    S_MANCAL = 36, S_SETLEVEL = 37
 };
 
 static const char *SETUP_NAMES[SETUP_SLOTS] = {
@@ -363,7 +363,7 @@ static const char *SETUP_NAMES[SETUP_SLOTS] = {
     /* 2 SPEED & COMPASS  */ "MaxSpd:", "MinSpd:", "PvtSpd:", "",   "CompOff:", "HoldRad:", "", "",
     /* 3 TRIM & THRUSTERS */ "TrimEn:", "", "", "",                  "BB Inv:", "SB Inv:", "Swap:", "",
     /* 4 DOCKING          */ "Appr Dist", "Appr Dir", "DockToWP", "", "", "", "", "",
-    /* 5 CALIBRATION      */ "Desk Cal", "Set North", "Reboot", "",   "MAN CAL", "", "", ""
+    /* 5 CALIBRATION      */ "Desk Cal", "Set North", "Reboot", "",   "MAN CAL", "Set Level", "", ""
 };
 
 // Shown where the screen used to just say "SETUP" - these are the <h4> headings of the web form.
@@ -382,7 +382,7 @@ static inline bool setup_slot_used(int slot) {
 // Slots that DO something when "+" is pressed rather than holding a number.
 static inline bool setup_slot_is_action(int slot) {
     return slot == S_DESKCAL || slot == S_SETNORTH || slot == S_REBOOT ||
-           slot == S_MANCAL;
+           slot == S_MANCAL || slot == S_SETLEVEL;
 }
 
 static inline bool setup_slot_is_bool(int slot) {
@@ -1672,7 +1672,7 @@ void update_setup_dynamic() {
             tft.setTextColor(on ? TFT_GREEN : textColor, TFT_BLACK);
             sprintf(buf, "%s %s", SETUP_NAMES[global_idx], on ? "YES" : "NO");
             tft.drawString(buf, x + 54, y + 16);
-        } else if (global_idx == S_MANCAL || global_idx == S_REBOOT) {
+        } else if (global_idx == S_MANCAL || global_idx == S_REBOOT || global_idx == S_SETLEVEL) {
             tft.setTextColor(TFT_ORANGE, TFT_BLACK);
             tft.drawString(SETUP_NAMES[global_idx], x + 54, y + 16);
         } else if (setup_slot_is_action(global_idx)) {
@@ -1696,6 +1696,7 @@ void update_setup_dynamic() {
         uint16_t col = TFT_DARKGREY;
         if (armed) {
             col = (selected_param_idx == S_MANCAL || selected_param_idx == S_REBOOT) ? TFT_ORANGE
+                : (selected_param_idx == S_SETLEVEL) ? TFT_CYAN
                 : TFT_YELLOW;
         }
         tft.setTextColor(col, TFT_BLACK);
@@ -2651,6 +2652,28 @@ void loop() {
                             tft.setTextColor(TFT_ORANGE, TFT_BLACK);
                             tft.drawString("REBOOTING BUOY", tft.width() / 2, 110);
                             delay(1500);
+                        } else if (selected_param_idx == S_SETLEVEL) {
+                            // Declare the hull level where it sits. The buoy reads its own sensor
+                            // and stores the datum - see SET_AS_LEVEL in RoboCompute.h.
+                            //
+                            // The wording matters more than it looks. The bubble shows the SENSOR's
+                            // angle until a datum is set, and on a hull where the sensor is not
+                            // bolted in flat it will never centre - which invites tilting the boat
+                            // to satisfy it. That is the one thing that genuinely ruins a run: a
+                            // fixed mounting tilt is absorbed by the compass table, but the hull
+                            // being at a different attitude at each stop is not.
+                            send_buoy_command(b.id, 93 /* SET_AS_LEVEL */, 6 /* INF */);
+                            tft.fillRect(0, 60, tft.width(), 120, TFT_BLACK);
+                            tft.setTextDatum(MC_DATUM);
+                            tft.setTextSize(2);
+                            tft.setTextColor(TFT_CYAN, TFT_BLACK);
+                            tft.drawString("LEVEL SET", tft.width() / 2, 100);
+                            tft.setTextSize(1);
+                            tft.setTextColor(TFT_WHITE, TFT_BLACK);
+                            tft.drawString("the bubble now reads departure", tft.width() / 2, 130);
+                            tft.drawString("from THIS attitude - do not tilt", tft.width() / 2, 146);
+                            tft.drawString("the hull to centre it", tft.width() / 2, 162);
+                            delay(1800);
                         } else if (selected_param_idx == S_SETNORTH) {
                             if (setup_data_loaded) {
                                 b.compass_offset = b.compass_offset - b.mag_dir;

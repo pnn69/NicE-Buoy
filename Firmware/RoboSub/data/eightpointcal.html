@@ -672,6 +672,16 @@
                 return;
             }
 
+            // Every direction captured: the cursor parks at 8, which is not a ninth direction.
+            // Reading it as one gave 'undefined ~ 360 deg' and a gap measured against a heading
+            // that does not exist.
+            if (asked >= 8) {
+                big.style.color = 'var(--green)';
+                exp.innerHTML = 'all eight captured &mdash; SAVE, or tap a card to redo one';
+                exp.style.color = 'var(--green)';
+                return;
+            }
+
             if (asked < 0) {
                 big.style.color = '#8b949e';
                 exp.innerHTML = 'no run armed';

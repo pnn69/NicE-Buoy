@@ -2236,6 +2236,13 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
                 break;
+            case SET_AS_LEVEL:
+                // Forwarded like SET_AS_NORTH, but with no setup re-read behind it: the level
+                // datum lives in the Sub's NVS and is not carried in SETUPDATA, so there is
+                // nothing here to refresh.
+                RfIn.IDr = BUOYIDALL;
+                xQueueSend(serOut, (void *)&RfIn, 0);
+                break;
             case SET_AS_NORTH:
                 RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
