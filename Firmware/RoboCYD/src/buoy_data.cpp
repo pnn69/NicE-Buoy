@@ -313,6 +313,44 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         }
     }
     
+    // LORA_LINK (94) is answered here and goes no further. It is not telemetry: it says what a
+    // node HEARS, and the node need not be a buoy. RoboLora reports its links like everybody else,
+    // and letting the report fall through to the slot search below handed the gateway one of the
+    // three buoy slots - a row in the menu for something with no heading, no position and nothing
+    // to steer, and one fewer slot for a buoy that has all three. The Tops are registered by their
+    // own telemetry anyway, so nothing is lost by refusing to register anyone from this frame.
+    //
+    // Stored whole rather than merged into one table, because the reporter's identity IS the
+    // measurement: "b578 heard the CYD at -103" and "the CYD heard b578 at -108" are two different
+    // links, not two samples of one.
+    if (cmd == 94) {
+        if (fields.size() >= 6) {
+            int slot = -1, oldest = 0;
+            for (int i = 0; i < LINK_MAX_REPORTS; i++) {
+                if (link_reports[i].reporter == sender_id) { slot = i; break; }
+                if (link_reports[i].reporter.length() == 0) { slot = i; break; }
+                if (link_reports[i].ms < link_reports[oldest].ms) oldest = i;
+            }
+            if (slot < 0) slot = oldest;
+            LinkReport &r = link_reports[slot];
+            r.reporter = sender_id;
+            r.ms = millis();
+            r.peers = 0;
+            for (int i = 6; i + 2 < (int)fields.size() && r.peers < LINK_MAX_PEERS_RX; i += 3) {
+                String pid = fields[i];
+                pid.trim();
+                if (pid.length() == 0) break;
+                r.peer[r.peers] = pid;
+                r.rssi[r.peers] = (int16_t)atoi(fields[i + 1].c_str());
+                r.count[r.peers] = (uint16_t)atoi(fields[i + 2].c_str());
+                r.peers++;
+            }
+            extern bool link_screen_dirty;
+            link_screen_dirty = true;
+        }
+        return;
+    }
+
     // Search for an existing registered buoy
     int buoy_idx = -1;
     for (int i = 0; i < 3; i++) {
@@ -487,39 +525,11 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
             Serial.println("On-screen Setup Data loaded successfully from Buoy!");
         }
     }
-    // Parse LORA_LINK (CMD = 94) - what some other node hears. Stored whole rather than merged
-    // into one table, because the reporter's identity IS the measurement: "b578 heard the CYD at
-    // -103" and "the CYD heard b578 at -108" are two different links, not two samples of one.
-    if (cmd == 94 && fields.size() >= 6) {
-        int slot = -1, oldest = 0;
-        for (int i = 0; i < LINK_MAX_REPORTS; i++) {
-            if (link_reports[i].reporter == sender_id) { slot = i; break; }
-            if (link_reports[i].reporter.length() == 0) { slot = i; break; }
-            if (link_reports[i].ms < link_reports[oldest].ms) oldest = i;
-        }
-        if (slot < 0) slot = oldest;
-        LinkReport &r = link_reports[slot];
-        r.reporter = sender_id;
-        r.ms = millis();
-        r.peers = 0;
-        for (int i = 6; i + 2 < (int)fields.size() && r.peers < LINK_MAX_PEERS_RX; i += 3) {
-            String pid = fields[i];
-            pid.trim();
-            if (pid.length() == 0) break;
-            r.peer[r.peers] = pid;
-            r.rssi[r.peers] = (int16_t)atoi(fields[i + 1].c_str());
-            r.count[r.peers] = (uint16_t)atoi(fields[i + 2].c_str());
-            r.peers++;
-        }
-        extern bool link_screen_dirty;
-        link_screen_dirty = true;
-        return;   // carries no telemetry - nothing below applies
-    }
 
     // Parse ATTITUDE (CMD = 92) - pitch and roll, for MAN CAL's level. UDP only, so it simply
     // never arrives over a LoRa-only link and pitch_ms stays 0 - which the screen shows as an
     // unknown level rather than a level one.
-    else if (cmd == 92 && fields.size() >= 7) {
+    if (cmd == 92 && fields.size() >= 7) {
         buoys[buoy_idx].pitch = atof(fields[5].c_str());
         buoys[buoy_idx].roll = atof(fields[6].c_str());
         buoys[buoy_idx].pitch_ms = millis();
