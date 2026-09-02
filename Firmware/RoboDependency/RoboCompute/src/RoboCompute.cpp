@@ -1066,34 +1066,45 @@ bool reCalcTrack(struct RoboStruct rsl[3])
     d2 = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng);
 
     // Determine start line and midpoint of that line
+    // windDir is the mean of what the two START LINE buoys report - see meanWindDir(). The whole
+    // course hangs off this one figure: the head mark's bearing from the centre, the offset back
+    // down to the line, and which end of the line is starboard. It used to be rsl[0].wDir alone,
+    // which is whichever buoy the command happened to reach, and the upwind mark's own reading
+    // carried the same weight as the line's when it is the furthest from where the start happens.
+    // Slot 0 stays the fallback: handleStatus() puts the computing buoy's filtered wind there.
+    double windDir;
     if (d0 < d1 && d0 < d2)
     {
         startLineL = d0;
         twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng, &lat2gem, &lng2gem);
+        windDir = meanWindDir(rsl[0].wDir, rsl[0].wStd, rsl[1].wDir, rsl[1].wStd, rsl[0].wDir);
     }
     else if (d1 < d2 && d1 < d0)
     {
         startLineL = d1;
         twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &lat2gem, &lng2gem);
+        windDir = meanWindDir(rsl[0].wDir, rsl[0].wStd, rsl[2].wDir, rsl[2].wStd, rsl[0].wDir);
     }
     else
     {
         startLineL = d2;
         twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &lat2gem, &lng2gem);
+        windDir = meanWindDir(rsl[1].wDir, rsl[1].wStd, rsl[2].wDir, rsl[2].wStd, rsl[0].wDir);
     }
 
     // Compute wind angles to midpoint
-    double b0 = computeWindAngle(rsl[0].wDir, rsl[0].tgLat, rsl[0].tgLng, lat3gem, lng3gem);
-    double b1 = computeWindAngle(rsl[0].wDir, rsl[1].tgLat, rsl[1].tgLng, lat3gem, lng3gem);
-    double b2 = computeWindAngle(rsl[0].wDir, rsl[2].tgLat, rsl[2].tgLng, lat3gem, lng3gem);
+    double b0 = computeWindAngle(windDir, rsl[0].tgLat, rsl[0].tgLng, lat3gem, lng3gem);
+    double b1 = computeWindAngle(windDir, rsl[1].tgLat, rsl[1].tgLng, lat3gem, lng3gem);
+    double b2 = computeWindAngle(windDir, rsl[2].tgLat, rsl[2].tgLng, lat3gem, lng3gem);
 
-    printf("winddir =(%.1f)\r\n", rsl[0].wDir);
+    printf("winddir =(%.1f) mean of the two line buoys, ends reported %.1f / %.1f / %.1f\r\n",
+           windDir, rsl[0].wDir, rsl[1].wDir, rsl[2].wDir);
 
-    angle180 = rsl[0].wDir + 180;
+    angle180 = windDir + 180;
     if (angle180 > 360)
         angle180 -= 360;
 
-    angleSb = rsl[0].wDir + 90;
+    angleSb = windDir + 90;
     if (angleSb > 360)
         angleSb -= 360;
 
@@ -1106,7 +1117,7 @@ bool reCalcTrack(struct RoboStruct rsl[3])
     {
         centerPoint2Head = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, lat3gem, lng3gem);
         centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);
-        adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[0].tgLat, &rsl[0].tgLng); // HEAD
+        adjustPositionDirDist(windDir, centerPoint2Head, lat3gem, lng3gem, &rsl[0].tgLat, &rsl[0].tgLng); // HEAD
         adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);
         adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng); // PORT
         adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng); // STARBOARD
@@ -1118,7 +1129,7 @@ bool reCalcTrack(struct RoboStruct rsl[3])
     {
         centerPoint2Head = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, lat3gem, lng3gem);
         centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);
-        adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[1].tgLat, &rsl[1].tgLng); // HEAD
+        adjustPositionDirDist(windDir, centerPoint2Head, lat3gem, lng3gem, &rsl[1].tgLat, &rsl[1].tgLng); // HEAD
         adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);
         adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[0].tgLat, &rsl[0].tgLng); // PORT
         adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[2].tgLat, &rsl[2].tgLng); // STARBOARD
@@ -1130,7 +1141,7 @@ bool reCalcTrack(struct RoboStruct rsl[3])
     {
         centerPoint2Head = distanceBetween(rsl[2].tgLat, rsl[2].tgLng, lat3gem, lng3gem);
         centerPont2Startline = distanceBetween(lat2gem, lng2gem, lat3gem, lng3gem);
-        adjustPositionDirDist(rsl[0].wDir, centerPoint2Head, lat3gem, lng3gem, &rsl[2].tgLat, &rsl[2].tgLng); // HEAD
+        adjustPositionDirDist(windDir, centerPoint2Head, lat3gem, lng3gem, &rsl[2].tgLat, &rsl[2].tgLng); // HEAD
         adjustPositionDirDist(angle180, centerPont2Startline, lat3gem, lng3gem, &lat2gem, &lng2gem);
         adjustPositionDirDist(angleBb, startLineL / 2, lat2gem, lng2gem, &rsl[0].tgLat, &rsl[0].tgLng); // PORT
         adjustPositionDirDist(angleSb, startLineL / 2, lat2gem, lng2gem, &rsl[1].tgLat, &rsl[1].tgLng); // STARBOARD
@@ -1158,7 +1169,9 @@ RoboStruct calcTrackPos(RoboStruct rsl[3])
     if (d0 < d1 && d0 < d2)
     {
         dir = calculateBearing(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng);
-        if (smallestAngle(rsl[0].wDir, dir) >= 0)
+        // Mean of the two buoys the line runs between, not slot 0 alone - see meanWindDir().
+        if (smallestAngle(meanWindDir(rsl[0].wDir, rsl[0].wStd, rsl[1].wDir, rsl[1].wStd,
+                                      rsl[0].wDir), dir) >= 0)
         {
             rsl[0].trackPos = PORT;
             rsl[1].trackPos = STARBOARD;
@@ -1174,7 +1187,8 @@ RoboStruct calcTrackPos(RoboStruct rsl[3])
     if (d1 < d0 && d1 < d2)
     {
         dir = calculateBearing(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng);
-        if (smallestAngle(rsl[0].wDir, dir) >= 0)
+        if (smallestAngle(meanWindDir(rsl[0].wDir, rsl[0].wStd, rsl[2].wDir, rsl[2].wStd,
+                                      rsl[0].wDir), dir) >= 0)
         {
             rsl[0].trackPos = PORT;
             rsl[1].trackPos = HEAD;
@@ -1190,7 +1204,9 @@ RoboStruct calcTrackPos(RoboStruct rsl[3])
     if (d2 < d0 && d2 < d1)
     {
         dir = calculateBearing(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng);
-        if (smallestAngle(rsl[0].wDir, dir) >= 0)
+        // The two ends are slots 1 and 2 here; slot 0 is the upwind mark and stays the fallback.
+        if (smallestAngle(meanWindDir(rsl[1].wDir, rsl[1].wStd, rsl[2].wDir, rsl[2].wStd,
+                                      rsl[0].wDir), dir) >= 0)
         {
             rsl[0].trackPos = HEAD;
             rsl[1].trackPos = PORT;
