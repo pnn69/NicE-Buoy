@@ -22,7 +22,23 @@ RoboLora manages the relay of long-range telemetry frames with low latency, brid
 
 ### 1. LoRa Physical Transceiver Layer (`LiLlora.cpp` / `LiLlora.h`)
 *   **Hardware Interface**: Controls an SPI-connected LoRa transceiver (e.g., RFM95/SX1278) to broadcast and receive long-range RF packets.
-*   **Parameter Optimization**: Implements full runtime setting configurations for carrier frequency, signal bandwidth, spreading factors, and coding rates to maintain reliable link budgets in harsh weather conditions.
+*   **433 MHz, and nothing else is configured.** `LoRa_frequency` is `433E6` (`io.h`). Bandwidth,
+    spreading factor, coding rate and TX power are **not** set anywhere, so the radio runs the
+    Sandeep Mistry library defaults: **SF7, 125 kHz, CR 4/5, 17 dBm, sync word `0x12`**. This entry
+    used to claim full runtime configuration of all of those, which was never true of any node — a
+    reader sizing an airtime budget or chasing a range problem would have gone looking for tuning
+    that does not exist. SF7/125 kHz is where the ~195 ms of channel occupancy per `TOPDATA` frame
+    comes from, which is why the Top throttles telemetry while station keeping.
+*   **The band is a compile-time `#define`, repeated in three files that must agree**:
+    `RoboLora/src/io.h`, `RoboTop/src/loratop.h` (both `LoRa_frequency`) and
+    `RoboCYD/src/cyd_lora.cpp` (`LORA_BAND`). There is no shared header and no runtime setting, so
+    changing band means editing three places and reflashing everything; miss one and that node goes
+    silent without an error — it will transmit and receive perfectly happily, just nowhere anyone
+    is listening. The CYD prints `LoRa: 433M` on its boot screen, which is the quickest confirmation
+    of what a handheld is actually running.
+*   **Hardware CRC is enabled on all three** (`LoRa.enableCrc()`). It has to be enabled or disabled
+    fleet-wide: a receiver expecting a CRC will drop every frame from a transmitter that does not
+    append one.
 *   **Asynchronous Polling**: Runs an optimized FreeRTOS background task to monitor the LoRa FIFO buffer, raising real-time interrupts upon packet arrivals to prevent buffer overflows.
 
 ### 1b. The gateway is a first-class node on the air

@@ -45,6 +45,13 @@ case. With a Top attached it stays put.
 ## ⚡ Core modules
 
 ### `cyd_lora.cpp` — radio on its own task
+
+**433 MHz** (`LORA_BAND`), library defaults otherwise — SF7, 125 kHz, CR 4/5, hardware CRC enabled
+to match the rest of the fleet. The band is `#define`d here rather than shared, and the same figure
+is repeated in `RoboTop/src/loratop.h` and `RoboLora/src/io.h`; all three must agree or the odd one
+out goes quietly deaf. The boot screen prints `LoRa: 433M`, which is the fastest way to check what a
+handheld is actually running.
+
 The radio is drained by a **dedicated FreeRTOS task**, not from `loop()`.
 
 `loop()` also runs OTA, the web server and every screen repaint, and a full redraw pushes enough

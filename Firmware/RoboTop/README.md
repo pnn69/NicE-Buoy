@@ -32,7 +32,7 @@ The numbers are stack sizes in bytes, and they matter. `LoraTask` was once given
 *   **Fix validity**: a fix requires `isValid()` **and** an age under 2000 ms **and** a position that is not `0,0`. `isValid()` alone only means "a position field was parsed" — it stays true across a sentence carrying zeros, and passing that on sends the rest of the firmware chasing a point off the coast of Africa.
 
 ### 2. Long-Range LoRa Telemetry (`loratop.cpp`)
-*   **Hardware Interface**: SPI LoRa transceiver for bidirectional telemetry with the shore station and the other buoys.
+*   **Hardware Interface**: SPI LoRa transceiver for bidirectional telemetry with the shore station and the other buoys. **433 MHz** (`LoRa_frequency` in `loratop.h`), library defaults otherwise — SF7, 125 kHz, CR 4/5, hardware CRC on. The band is `#define`d separately here, in RoboLora and in RoboCYD, and all three must match; see the RoboLora README.
 *   **Retry & ACK Protocol**: `pendingMsg[10]` holds frames sent with `ack = GETACK` or `SET`, retransmitting each up to 5 times until acknowledged.
     > **A broadcast must never ask for an ACK.** An ACK for `IDr = BUOYIDALL` can never match in `removeAckMsg()`, so the frame occupies its slot for all five retransmits and re-broadcasts each time. Beacons use `INF`.
 *   **Self-Healing SPI Watchdog**: if transmission fails over a 500 ms window the radio is assumed locked and `InitLora()` forces a full re-init.
