@@ -884,6 +884,26 @@ static bool starboardGoesToFirst(double aLat, double aLng, double bLat, double b
     return aTakesSb <= aTakesBb;
 }
 
+// See the header for why this is a vector mean and why 0/0 is "no reading".
+double meanWindDir(double dirA, double stdA, double dirB, double stdB, double fallback)
+{
+    bool okA = (dirA != 0.0 || stdA != 0.0);
+    bool okB = (dirB != 0.0 || stdB != 0.0);
+    if (!okA && !okB) return fallback;
+    if (!okB) return dirA;
+    if (!okA) return dirB;
+
+    double ra = dirA * M_PI / 180.0, rb = dirB * M_PI / 180.0;
+    double x = cos(ra) + cos(rb), y = sin(ra) + sin(rb);
+    // Exactly opposite readings have no mean direction, and the perpendicular atan2 would hand
+    // back is not one either. That is a fault rather than a wind, so keep the reading the
+    // computing buoy was going to use anyway.
+    if (fabs(x) < 1e-9 && fabs(y) < 1e-9) return fallback;
+
+    double m = atan2(y, x) * 180.0 / M_PI;
+    return fmod(m + 360.0, 360.0);
+}
+
 void threePointAverage(struct RoboStruct p3[3], double *latgem, double *lnggem)
 {
     *latgem = (p3[0].tgLat + p3[1].tgLat + p3[2].tgLat) / 3;
@@ -920,7 +940,11 @@ bool recalcStartLine(struct RoboStruct rsl[3])
         }
 
         twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng, &midLat, &midLng);
-        angleSb = fmod(rsl[0].wDir + 90.0, 360.0);
+        // The mean of what BOTH ends report, not slot 0 alone - see meanWindDir(). Slot 0 stays
+        // the fallback: handleStatus() puts the computing buoy's filtered wind there, and it has
+        // already refused to compute at all if that reading is missing.
+        angleSb = fmod(meanWindDir(rsl[0].wDir, rsl[0].wStd, rsl[1].wDir, rsl[1].wStd,
+                                   rsl[0].wDir) + 90.0, 360.0);
         angleBb = fmod(angleSb + 180.0, 360.0);
 
         // Both candidate ends first, then hand each buoy the one it is nearer to - see
@@ -950,7 +974,9 @@ bool recalcStartLine(struct RoboStruct rsl[3])
         }
 
         twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &midLat, &midLng);
-        angleSb = fmod(rsl[0].wDir + 90.0, 360.0);
+        // Mean of both ends, same as the branch above.
+        angleSb = fmod(meanWindDir(rsl[0].wDir, rsl[0].wStd, rsl[2].wDir, rsl[2].wStd,
+                                   rsl[0].wDir) + 90.0, 360.0);
         angleBb = fmod(angleSb + 180.0, 360.0);
 
         // Nearest end wins, same as the branch above.
@@ -978,11 +1004,12 @@ bool recalcStartLine(struct RoboStruct rsl[3])
         }
 
         twoPointAverage(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng, &midLat, &midLng);
-        // rsl[0].wDir, not rsl[1].wDir: handleStatus() copies the master's filtered wind into
-        // slot 0 immediately before calling this, so slot 0 is the authoritative wind source.
-        // The other two branches already used it; this one differed, which would have squared
-        // the line against a different buoy's wind reading.
-        angleSb = fmod(rsl[0].wDir + 90.0, 360.0);
+        // The two ENDS here are slots 1 and 2 - slot 0 is the upwind mark, and its reading is no
+        // part of the line. It stays the fallback for the same reason as the other branches:
+        // handleStatus() copies the computing buoy's filtered wind into slot 0, and that is the
+        // reading the compute guards have already tested.
+        angleSb = fmod(meanWindDir(rsl[1].wDir, rsl[1].wStd, rsl[2].wDir, rsl[2].wStd,
+                                   rsl[0].wDir) + 90.0, 360.0);
         angleBb = fmod(angleSb + 180.0, 360.0);
 
         // Nearest end wins, same as the branches above.

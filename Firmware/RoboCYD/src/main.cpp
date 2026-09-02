@@ -15,6 +15,78 @@
 // list" is therefore not safe: a buoy with a failed compass reports wDir/wStd as 0/0, which is
 // indistinguishable from a real due-north calm, and the line silently comes out squared to north.
 // Same test the wind overlay already uses to decide it has no data to draw.
+// Defined further down, next to the rest of the map geometry and the wind picker.
+static double track_distance_m(double lat1, double lon1, double lat2, double lon2);
+static int pick_wind_reference_buoy();
+
+// Circular mean of two wind readings. Same rule and same reasoning as meanWindDir() in
+// RoboCompute.h - kept as a local copy because this screen works from BuoyData, not RoboStructs.
+// Vector mean, not arithmetic: 350 and 10 average to 0, not to 180. A buoy reading 0/0 has no wind
+// reading at all rather than a northerly, so it is left out.
+static float mean_wind_dir(float dirA, float stdA, float dirB, float stdB, float fallback) {
+    bool okA = (dirA != 0 || stdA != 0);
+    bool okB = (dirB != 0 || stdB != 0);
+    if (!okA && !okB) return fallback;
+    if (!okB) return dirA;
+    if (!okA) return dirB;
+    float ra = dirA * PI / 180.0f, rb = dirB * PI / 180.0f;
+    float x = cos(ra) + cos(rb), y = sin(ra) + sin(rb);
+    // Exactly opposite readings have no mean direction, and the perpendicular atan2 would return
+    // is not one either. A fault, not a wind.
+    if (fabs(x) < 1e-6 && fabs(y) < 1e-6) return fallback;
+    float m = atan2(y, x) * 180.0f / PI;
+    return fmod(m + 360.0f, 360.0f);
+}
+
+// The two buoys the start line runs between: the closest pair, measured where they ACTUALLY are.
+// Not where they are supposed to be - the line drawn on this screen is the one the crew can see
+// from the water, and that is the one the wind has to be squared against. Returns false when
+// there are not two buoys with a fix.
+static bool find_start_line_pair(int &a, int &b) {
+    a = -1; b = -1;
+    double best = -1;
+    for (int i = 0; i < 3; i++) {
+        if (buoys[i].id == "" || !buoys[i].present) continue;
+        if (buoys[i].lat == "N/A" || buoys[i].lat == "" || atof(buoys[i].lat.c_str()) == 0) continue;
+        for (int j = i + 1; j < 3; j++) {
+            if (buoys[j].id == "" || !buoys[j].present) continue;
+            if (buoys[j].lat == "N/A" || buoys[j].lat == "" || atof(buoys[j].lat.c_str()) == 0) continue;
+            double d = track_distance_m(atof(buoys[i].lat.c_str()), atof(buoys[i].lon.c_str()),
+                                        atof(buoys[j].lat.c_str()), atof(buoys[j].lon.c_str()));
+            if (best < 0 || d < best) { best = d; a = i; b = j; }
+        }
+    }
+    return (a >= 0 && b >= 0);
+}
+
+// The wind to square the line against: the mean of what the two LINE-END buoys report, which is
+// the wind across the line rather than one anemometer's opinion of it. The third buoy is the
+// upwind mark and is no part of the line, so its reading is left out. Falls back to the single
+// reference buoy when there is no pair yet. Returns false when nothing reports wind at all.
+static bool start_line_wind(float &wdir, float &wstd) {
+    int a, b;
+    if (find_start_line_pair(a, b)) {
+        int ref = pick_wind_reference_buoy();
+        float fb = (ref >= 0) ? buoys[ref].wind_dir : 0;
+        bool okA = (buoys[a].wind_dir != 0 || buoys[a].wind_std != 0);
+        bool okB = (buoys[b].wind_dir != 0 || buoys[b].wind_std != 0);
+        if (okA || okB) {
+            wdir = mean_wind_dir(buoys[a].wind_dir, buoys[a].wind_std,
+                                 buoys[b].wind_dir, buoys[b].wind_std, fb);
+            // The spread that goes with an averaged direction is the worse of the two, not their
+            // mean: it is a confidence figure, and two readings do not make a shifty wind steady.
+            wstd = (okA && okB) ? max(buoys[a].wind_std, buoys[b].wind_std)
+                                : (okA ? buoys[a].wind_std : buoys[b].wind_std);
+            return true;
+        }
+    }
+    int ref = pick_wind_reference_buoy();
+    if (ref < 0) return false;
+    wdir = buoys[ref].wind_dir;
+    wstd = buoys[ref].wind_std;
+    return true;
+}
+
 static int pick_wind_reference_buoy() {
     for (int i = 0; i < 3; i++) {
         if (buoys[i].id != "" && (buoys[i].wind_dir != 0 || buoys[i].wind_std != 0)) {
@@ -1317,9 +1389,12 @@ static void compute_buoy_roles(int roles[3]) {
     }
     if (n != present) return;
 
-    int wind_idx = pick_wind_reference_buoy();
-    if (wind_idx < 0) return; // Without wind there is no port or starboard side to speak of
-    double wdir = buoys[wind_idx].wind_dir;
+    // The mean of what the two line-end buoys report - see start_line_wind(). One anemometer's
+    // opinion used to decide which end was starboard for the whole fleet; two of them, a line's
+    // length apart, disagree by a few degrees in steady air and by more in a shifty one.
+    float wdir_f = 0, wstd_f = 0;
+    if (!start_line_wind(wdir_f, wstd_f)) return; // Without wind there is no port or starboard side
+    double wdir = wdir_f;
 
     int a = idx[0], b = idx[1];
     if (n == 3) {
@@ -3485,22 +3560,17 @@ static void draw_offset_label(int x, int y, float metres, uint16_t color) {
 // wind_dir follows the RoboCompute convention - the compass bearing the wind blows FROM
 // (recalcStartLine() places the HEAD mark in the wDir direction, i.e. upwind).
 static void draw_wind_overlay(int cx, int cy) {
-    // Use the first buoy that actually reports wind. A buoy that has never sent a wind
-    // field reads 0/0, which is indistinguishable from a real due-north calm, so treat that as no data.
-    int wind_idx = -1;
-    for (int i = 0; i < 3; i++) {
-        if (buoys[i].id != "" && (buoys[i].wind_dir != 0 || buoys[i].wind_std != 0)) {
-            wind_idx = i;
-            break;
-        }
-    }
-
-    if (wind_idx == -1) {
+    // The same wind the roles and the squaring use - the mean of the two line-end buoys, see
+    // start_line_wind(). Showing one buoy's reading beside a line laid out against a different
+    // figure is how an operator ends up not trusting either. A buoy that has never sent a wind
+    // field reads 0/0, which is indistinguishable from a real due-north calm, so it counts as no
+    // data rather than as a northerly.
+    float wdir = 0, wstd = 0;
+    if (!start_line_wind(wdir, wstd)) {
         draw_wind_label("---", TFT_DARKGREY);
         return;
     }
 
-    float wdir = buoys[wind_idx].wind_dir;
     float theta = wdir * PI / 180.0;
     float s = sin(theta), c = cos(theta);
 
@@ -3530,8 +3600,8 @@ static void draw_wind_overlay(int cx, int cy) {
     // Right of the N, so 8 characters at size 2. Direction, then the spread when there is one:
     // "145 -3" is 145 degrees give or take 3, the same pair the compass screen shows as Wnd/Std.
     char buf[16];
-    if (buoys[wind_idx].wind_std != 0) {
-        sprintf(buf, "%03.0f -%0.0f", wdir, buoys[wind_idx].wind_std);
+    if (wstd != 0) {
+        sprintf(buf, "%03.0f -%0.0f", wdir, wstd);
     } else {
         sprintf(buf, "%03.0f", wdir);
     }

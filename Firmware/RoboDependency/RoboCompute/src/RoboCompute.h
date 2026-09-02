@@ -432,6 +432,18 @@ void twoPointAverage(double lat1, double lon1, double lat2, double lon2, double 
 void windDirectionToVector(double windDegrees, double *windX, double *windY);
 double calculateAngle(double x1, double y1, double x2, double y2);
 // Both return true only when they actually computed new positions.
+// The wind direction to square a start line against: the mean of what the two END buoys report.
+//
+// It used to be one buoy's reading - whichever the command happened to reach. Two anemometers a
+// line's length apart disagree by a few degrees in steady air and by rather more in a shifty one,
+// and there is no reason to prefer either; the mean squares the line to the wind ACROSS the line,
+// which is the wind the fleet actually starts in.
+//
+// Vector mean, not arithmetic: 350 and 10 average to 0, not to 180. A buoy reporting 0/0 has no
+// reading at all rather than a northerly - the same rule the compute guards use - so it is left
+// out, and `fallback` is returned when neither end has one.
+double meanWindDir(double dirA, double stdA, double dirB, double stdB, double fallback);
+
 bool recalcStartLine(struct RoboStruct rsl[3]);
 bool reCalcTrack(struct RoboStruct rsl[3]);
 void trackPosPrint(int c);

@@ -2237,6 +2237,59 @@ function mapValidBuoys() {
     return out;
 }
 
+// Circular mean of two wind readings. Same rule as meanWindDir() in RoboCompute.h and
+// mean_wind_dir() in the CYD firmware - all three have to agree, or the three views disagree about
+// which end is starboard. Vector mean, not arithmetic: 350 and 10 average to 0, not to 180. A buoy
+// reading 0/0 has no wind reading rather than a northerly, so it is left out.
+function mapMeanWindDir(dirA, stdA, dirB, stdB, fallback) {
+    const okA = (dirA !== 0 || stdA !== 0), okB = (dirB !== 0 || stdB !== 0);
+    if (!okA && !okB) return fallback;
+    if (!okB) return dirA;
+    if (!okA) return dirB;
+    const ra = dirA * Math.PI / 180, rb = dirB * Math.PI / 180;
+    const x = Math.cos(ra) + Math.cos(rb), y = Math.sin(ra) + Math.sin(rb);
+    // Exactly opposite readings have no mean direction. That is a fault, not a wind.
+    if (Math.abs(x) < 1e-9 && Math.abs(y) < 1e-9) return fallback;
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+// The two buoys the start line runs between: the closest pair, measured where they ACTUALLY are.
+// Not where they are supposed to be - the line on the screen is the one the crew sees from the
+// water, and the CYD has always drawn it that way.
+function mapStartLinePair(list) {
+    let a = null, b = null, best = -1;
+    for (let i = 0; i < list.length; i++) {
+        for (let j = i + 1; j < list.length; j++) {
+            const d = mapMeters(list[i].lat, list[i].lng, list[j].lat, list[j].lng);
+            if (best < 0 || d < best) { best = d; a = list[i]; b = list[j]; }
+        }
+    }
+    return a ? { a: a, b: b, dist: best } : null;
+}
+
+// The wind the line is squared against: the mean of what the two LINE-END buoys report, which is
+// the wind across the line rather than one anemometer's opinion of it. The third buoy is the
+// upwind mark and is no part of the line, so it is left out. null when nothing reports wind.
+function mapStartLineWind(list) {
+    const ref = list.find(x => x.wDir !== 0 || x.wStd !== 0) || null;
+    const pair = mapStartLinePair(list);
+    if (pair) {
+        const okA = (pair.a.wDir !== 0 || pair.a.wStd !== 0);
+        const okB = (pair.b.wDir !== 0 || pair.b.wStd !== 0);
+        if (okA || okB) {
+            return {
+                dir: mapMeanWindDir(pair.a.wDir, pair.a.wStd, pair.b.wDir, pair.b.wStd,
+                                    ref ? ref.wDir : 0),
+                // The spread beside an averaged direction is the WORSE of the two, not their mean:
+                // it is a confidence figure, and two readings do not make a shifty wind steady.
+                std: (okA && okB) ? Math.max(pair.a.wStd, pair.b.wStd)
+                                  : (okA ? pair.a.wStd : pair.b.wStd)
+            };
+        }
+    }
+    return ref ? { dir: ref.wDir, std: ref.wStd } : null;
+}
+
 // Which buoy is HEAD / PORT / STARBOARD, or null for "no course laid out".
 //
 // Derived exactly the way RoboCompute::recalcStartLine() derives it, and the way the CYD firmware's
@@ -2251,26 +2304,23 @@ function mapBuoyRoles(list) {
     const roles = {};
     if (list.length < 2 || list.filter(b => b.locked).length !== list.length) return roles;
 
-    const wind = list.find(b => b.wDir !== 0 || b.wStd !== 0);
-    if (!wind) return roles;
-
-    let a = list[0], b = list[1];
+    const pair = mapStartLinePair(list);
+    if (!pair) return roles;
+    const a = pair.a, b = pair.b;
     if (list.length === 3) {
-        let best = -1;
-        for (let i = 0; i < list.length; i++) {
-            for (let j = i + 1; j < list.length; j++) {
-                const pi = mapLinePoint(list[i]), pj = mapLinePoint(list[j]);
-                const d = mapMeters(pi.lat, pi.lng, pj.lat, pj.lng);
-                if (best < 0 || d < best) { best = d; a = list[i]; b = list[j]; }
-            }
-        }
         const head = list.find(x => x !== a && x !== b);
         if (head) roles[head.index] = MAP_COLOR_HEAD;
     }
 
-    const pa = mapLinePoint(a), pb = mapLinePoint(b);
+    // The mean of what the two ENDS report, not the first buoy that happens to have a reading -
+    // see mapStartLineWind().
+    const wind = mapStartLineWind(list);
+    if (!wind) return roles;
+
+    // Which side is which is decided where the buoys ARE, matching the line that is drawn.
+    const pa = { lat: a.lat, lng: a.lng }, pb = { lat: b.lat, lng: b.lng };
     const midLat = (pa.lat + pb.lat) / 2, midLng = (pa.lng + pb.lng) / 2;
-    const sb = (wind.wDir + 90) % 360;
+    const sb = (wind.dir + 90) % 360;
     const off = p => Math.abs(((mapBearing(midLat, midLng, p.lat, p.lng) - sb + 540) % 360) - 180);
     if (off(pa) <= off(pb)) {
         roles[a.index] = MAP_COLOR_STARBOARD;
@@ -2414,14 +2464,14 @@ function mapSetControls(buoyList) {
 
     const windEl = document.getElementById("map-wind");
     if (windEl) {
-        const w = buoyList.find(b => b.wDir !== 0 || b.wStd !== 0);
+        const w = mapStartLineWind(buoyList);
         if (!w) {
             windEl.textContent = "--";
             windEl.style.color = "#64748b";
         } else {
             windEl.textContent = w.wStd !== 0
-                ? Math.round(w.wDir) + "° ±" + Math.round(w.wStd)
-                : Math.round(w.wDir) + "°";
+                ? Math.round(w.dir) + "° ±" + Math.round(w.std)
+                : Math.round(w.dir) + "°";
             windEl.style.color = "#facc15";
         }
     }
@@ -2514,9 +2564,9 @@ function drawFieldMap() {
 
     // --- Wind arrow, first so the line and the dots end up on top of it. wDir follows the
     //     RoboCompute convention: the bearing the wind blows FROM, i.e. the upwind side. ---
-    const wind = list.find(b => b.wDir !== 0 || b.wStd !== 0);
+    const wind = mapStartLineWind(list);
     if (wind) {
-        const th = wind.wDir * Math.PI / 180;
+        const th = wind.dir * Math.PI / 180;
         const s = Math.sin(th), c = Math.cos(th);
         const tail = { x: cx + (rMax - 4) * s, y: cy - (rMax - 4) * c };
         const tip = { x: cx + (rMax - 70) * s, y: cy - (rMax - 70) * c };
@@ -2537,23 +2587,31 @@ function drawFieldMap() {
     // --- Start line: between the two buoys CLOSEST together, the same rule the firmware uses.
     //     Measured off the two ends' line points rather than off the plotted dots, because that is
     //     the figure - and the bearing - EXECUTE has to be able to reproduce. ---
-    let slA = null, slB = null, slDist = 0;
-    for (let i = 0; i < list.length; i++) {
-        for (let j = i + 1; j < list.length; j++) {
-            const pi = mapLinePoint(list[i]), pj = mapLinePoint(list[j]);
-            const d = mapMeters(pi.lat, pi.lng, pj.lat, pj.lng);
-            if (slA === null || d < slDist) { slDist = d; slA = list[i]; slB = list[j]; }
-        }
-    }
+    const slPair = mapStartLinePair(list);
+    const slA = slPair ? slPair.a : null, slB = slPair ? slPair.b : null;
 
     if (slA) {
-        const pa = mapLinePoint(slA), pb = mapLinePoint(slB);
-        mapLineCurM = slDist;
-        mapLineEnds = [{ index: slA.index, id: slA.id, lat: pa.lat, lng: pa.lng },
-                       { index: slB.index, id: slB.id, lat: pb.lat, lng: pb.lng }];
+        // Drawn between the hulls, which is the line the crew can see from the water. The FIGURE
+        // is measured off the two waypoints instead, where both ends have one: the dots wander
+        // inside the hold radius and the waypoints do not, and EXECUTE has to be able to put the
+        // line back where it was but longer. The two coincide once the buoys have arrived. Same
+        // split the CYD's own screen has always used.
+        const wa = slA.wp, wb = slB.wp;
+        if (wa && wb) {
+            mapLineCurM = mapMeters(wa.lat, wa.lng, wb.lat, wb.lng);
+            mapLineEnds = [{ index: slA.index, id: slA.id, lat: wa.lat, lng: wa.lng },
+                           { index: slB.index, id: slB.id, lat: wb.lat, lng: wb.lng }];
+        } else {
+            // Nothing to reposition without both ends, so the length is still shown but the
+            // - / + / EXECUTE controls stay greyed out rather than firing on a target that
+            // cannot be computed.
+            mapLineCurM = slPair.dist;
+            mapLineEnds = null;
+            mapLineTgtM = -1;
+        }
 
-        const sa = clampToPlot(toScreen(pa.lat, pa.lng));
-        const sb = clampToPlot(toScreen(pb.lat, pb.lng));
+        const sa = clampToPlot(toScreen(slA.lat, slA.lng));
+        const sb = clampToPlot(toScreen(slB.lat, slB.lng));
         ctx.strokeStyle = "#e879f9";
         ctx.lineWidth = 5;
         ctx.beginPath();
@@ -2562,7 +2620,7 @@ function drawFieldMap() {
 
         ctx.fillStyle = "#e879f9";
         ctx.font = "italic bold 14px Arial";
-        ctx.fillText(slDist.toFixed(1) + " m", (sa.x + sb.x) / 2, (sa.y + sb.y) / 2 - 10);
+        ctx.fillText(mapLineCurM.toFixed(1) + " m", (sa.x + sb.x) / 2, (sa.y + sb.y) / 2 - 10);
     } else {
         mapLineCurM = -1; mapLineEnds = null; mapLineTgtM = -1;
     }
