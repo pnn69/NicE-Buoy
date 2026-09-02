@@ -221,7 +221,13 @@ typedef enum
     // report and linkOmitted says how many, so a partial picture is never mistaken for a whole one.
     // The cap is not arbitrary: RoboDecode() splits into 25 fields and stops, silently, so a longer
     // frame would lose its tail with nothing to show for it.
-    LORA_LINK
+    LORA_LINK,
+    // Grow the start line by a fixed step, keeping its midpoint and its BEARING. Deliberately not
+    // a re-square: COMPUTESTART lays the line out perpendicular to the wind, which is the right
+    // thing when the wind has shifted and the wrong thing when all that is wanted is a longer line
+    // in the same place. Appended at the end of the enum so every existing command keeps its
+    // number and an un-reflashed node still decodes everything it did before.
+    EXTENDSTART
 } msg_t;
 
 // What a CAL8_SESSION SET is asking the buoy to do. Carried in RoboStruct::cal8Action.
@@ -445,6 +451,13 @@ double calculateAngle(double x1, double y1, double x2, double y2);
 double meanWindDir(double dirA, double stdA, double dirB, double stdB, double fallback);
 
 bool recalcStartLine(struct RoboStruct rsl[3]);
+
+// Move the two start line ends apart by `metres` in total, half each, keeping the midpoint and the
+// bearing exactly as they are. Needs no wind reading, because nothing rotates. Returns false when
+// there is no usable pair, when either end has no lock position, or when the result would be
+// shorter than MIN_START_LINE_M.
+#define MIN_START_LINE_M 5.0
+bool extendStartLine(struct RoboStruct rsl[3], double metres);
 bool reCalcTrack(struct RoboStruct rsl[3]);
 void trackPosPrint(int c);
 RoboStruct calcTrackPos(RoboStruct rsl[3]);

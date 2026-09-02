@@ -53,6 +53,16 @@ The **`RoboDependency`** workspace houses core statically-linked C++ library eng
     reporting `0/0` has *no* reading rather than a northerly, so it is left out, and two exactly
     opposite readings are a fault rather than a wind and return the fallback. Used by
     `recalcStartLine()`, `reCalcTrack()` and `calcTrackPos()`.
+*   **`extendStartLine(rsl, metres)`** — grows the start line by `metres`, half to each end,
+    keeping the midpoint **and the bearing**. Deliberately not `recalcStartLine()` with a different
+    length: that one squares to the wind, and rotating the line is not part of "make it longer". It
+    therefore reads no wind at all. Both bearings are taken before either end is written back — move
+    one end first and recompute the second bearing from the new midpoint, and the pair can swap ends
+    and motor through each other, which is the failure `starboardGoesToFirst()` exists to prevent.
+    `trackPos` is left alone, and `MIN_START_LINE_M` stops a line being shrunk to a point, which
+    would leave no bearing to grow it back along. New `EXTENDSTART` command, appended at the END of
+    `msg_t` so every existing number is unchanged and an un-reflashed node still decodes what it did
+    before.
 *   **One earth radius (`EARTH_MEAN_RADIUS`)** — `distanceBetween()` measured with 6372795 m while
     `adjustPositionDirDist()` placed with 6371000 m, so placing a point at distance $d$ and
     measuring back returned $1.000282\,d$. `recalcStartLine()` does exactly that round trip, so

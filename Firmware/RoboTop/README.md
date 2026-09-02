@@ -105,6 +105,59 @@ fire-and-forget call lost the relay on every guarded return. After `REPEAT_EXPIR
 stale enough to be useless and the slot is freed, which is also what stops one stuck transceiver
 silently holding every slot.
 
+### 2c. The button
+
+**Every action ends in a long press.** Nothing is bound to a short-press-only sequence, and that is
+the design rather than an accident of it. This button is on a buoy that gets knocked, carried and
+stowed, and the previous map had *lock/unlock on a single short press* and *sail to the dock on
+five*. Both were one accidental knock away from a boat leaving on its own. A long press cannot be
+produced by a bump, so the short presses became a selector and the long press became the trigger.
+
+`countKeyPressesWithTimeoutAndFinalLongPress()` returns `100 + (presses in the sequence)`, and the
+closing long press is one of them — so "three short then long" arrives as `104`.
+
+| Sequence | Code | Action | On success | On failure |
+|---|---|---|---|---|
+| long | `101` | lock / unlock | rising arpeggio (lock) or descending (unlock) | error tone — no GPS fix |
+| short, long | `102` | align start line (`COMPUTESTART`) | rising | error tone |
+| short ×2, long | `103` | align track (`COMPUTETRACK`) | rising | error tone |
+| short ×3, long | `104` | extend the start line by `START_LINE_STEP_M` (`EXTENDSTART`) | rising | error tone |
+| short ×4, long | `105` | sail to the dock position (`DOCKING`) | rising | — |
+| short ×9, long | `110` | store here as the dock position (`STOREASDOC`) | rising | error tone |
+
+Anything else beeps the error tone and does nothing — deliberately including every plain short
+press. Silence would be indistinguishable from a flat battery or a jammed switch.
+
+> **Two codes have MOVED.** `105` used to be store-as-dock and is now *dock*; `110` used to be the
+> desk magnetic calibration and is now *store-as-dock*. Muscle memory from the old scheme will do
+> the wrong thing.
+
+**Extend is not a re-align.** `EXTENDSTART` keeps the line's midpoint *and its bearing* and only
+moves the ends apart, half the step each. It is the answer to "same line, a bit longer", which is
+not what `COMPUTESTART` does — that squares the line to the wind, and a race officer asking for ten
+more metres is not asking to have the line rotated as well. Consequently it needs **no wind reading
+at all**, so unlike the two align actions it still works on a buoy whose compass has failed. It
+takes the same two-locked-buoys guard, because an unlocked buoy carries a stale target and the line
+would be extended through wherever it last was. Roles are left untouched: pushing a buoy further out
+along the bearing it is already on cannot change which side of the line it is.
+
+The step is fixed at 10 m (`START_LINE_STEP_M`) rather than settable. This is the button on the
+buoy: it has no way to show a number and no way to take one back. Press it twice for twenty metres.
+
+#### Two beeps that were missing
+
+*   **Storing the dock position** played `beep(1000)` — a single flat 1000 Hz tone, which is
+    *exactly* the tone the button plays on every physical press. "The dock position is stored" was
+    indistinguishable from "I felt you press the button". It plays the rising arpeggio now, like
+    every other successful action.
+*   **Locking without a GPS fix** was completely silent — the long press did nothing and said
+    nothing, which reads the same as a flat battery, a jammed switch or a missed press. It is also
+    the moment the operator most needs telling, because the boat is already in the water. It beeps
+    the error tone now.
+
+Everything else already gave the right feedback: `LOCKING` the rising arpeggio, `IDLING` the
+descending unlock pattern, and every compute a rising tone on success and the error tone on refusal.
+
 ### 3. WiFi, Web Dashboard and OTA (`topwifi.cpp`)
 *   **Priority list**: `NicE_WiFi` → `Robo_WiFi` → its own `TOP_<id>` AP. No scanning — the SSIDs are tried in order with a blind `WiFi.begin()`, because `WiFi.scanNetworks()` blocks for seconds and drags the single radio off the AP channel.
 *   **Passwords**: `NicE_WiFi` is `!Ni1001100110`; `Robo_WiFi` and the fallback AP are **`geenanker`**.

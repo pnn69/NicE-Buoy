@@ -255,6 +255,11 @@ void setup()
 //***************************************************************************************************
 //      keypress detection (Background Task Driven Polling)
 //***************************************************************************************************
+// How much one press of "extend start line" adds, in metres, split half to each end. A fixed step
+// rather than a settable one: this is the button on the buoy, which has no way to show a number and
+// no way to take one back - press it twice for twenty metres.
+#define START_LINE_STEP_M 10.0
+
 #define LONG_PRESS_DURATION 5000 // ms
 #define PRESS_TIMEOUT 500       // ms
 
@@ -366,19 +371,36 @@ void buttonTask(void *arg)
 }
 
 //***************************************************************************************************
-//      Short, Short, Short	3
-//      Short, Short, Long	103
-//      Short, Long, Short	1 (resets after invalid long in middle, or could be ignored)
-//      Long only	0
-//      Short, Short, Short, Long	104
-//      key press stuff
-//      One press: lock/unlock
-//      Two press: start line computation
-//      Three press: compute track
-//      Five press: sail to dock position
-//      Four short presses and one long: store as docposition
-//      nine short presses and onle long: start calibration of magnetic compass
-//      Seven short presses and one long: start the GPS Fourier compass calibration (8 legs, ~30 min)
+//  The button
+//***************************************************************************************************
+//  EVERY action ends in a long press. Nothing at all is bound to a short-press-only sequence any
+//  more, and that is the point of the scheme rather than a side effect of it: this button lives on
+//  a buoy that gets knocked, carried and stowed, and the old map had lock/unlock on a single short
+//  press and "sail to the dock" on five. Both were one accidental knock away from a boat leaving.
+//  A long press cannot be produced by a bump, so the short presses became a selector and the long
+//  press became the trigger.
+//
+//  countKeyPressesWithTimeoutAndFinalLongPress() returns 100 + (number of presses in the sequence),
+//  and the closing long press is one of them - so "three short then long" arrives here as 104.
+//
+//      101   long                       lock / unlock
+//      102   short, long                align start line   (COMPUTESTART)
+//      103   short x2, long             align track        (COMPUTETRACK)
+//      104   short x3, long             extend start line by START_LINE_STEP_M  (EXTENDSTART)
+//      105   short x4, long             sail to dock       (DOCKING)
+//      110   short x9, long             store here as the dock position (STOREASDOC)
+//
+//  Anything else beeps the failure tone and does nothing, deliberately including every plain short
+//  press: silence would be indistinguishable from a flat battery or a jammed switch.
+//
+//  Removed with the rest: the desk magnetic calibration (was short x9 + long) and
+//  CALC_COMPASS_OFFSET (was ten short). Neither is lost - both are on the Top's web page and on the
+//  CYD's Setup / CALIBRATION screen, which is the better place for them anyway, because a
+//  calibration needs to tell the operator what it wants and a button cannot.
+//
+//  Note that two of these numbers have MOVED: 105 was store-as-dock and is now dock, 110 was the
+//  magnetic calibration and is now store-as-dock. Muscle memory from the old scheme will do the
+//  wrong thing, which is worth saying out loud to anyone who used it.
 //***************************************************************************************************
 /**
  * @brief Processes button press results and updates the buoy status.
@@ -394,7 +416,7 @@ void handleKeyPress(RoboStruct *key)
         {
             switch (presses)
             {
-            case 1: // lock / unlock
+            case 101: // long: lock / unlock
                 if ((key->status != LOCKED) && (key->status != DOCKED))
                 {
                     key->status = LOCKING;
@@ -405,27 +427,21 @@ void handleKeyPress(RoboStruct *key)
                 }
                 key->loralstmsg = 0;
                 break;
-            case 102:
+            case 102: // short, long: align start line
                 key->status = COMPUTESTART;
                 break;
-            case 103:
+            case 103: // short x2, long: align track
                 key->status = COMPUTETRACK;
                 break;
-            case 5:
+            case 104: // short x3, long: extend the start line
+                key->status = EXTENDSTART;
+                break;
+            case 105: // short x4, long: sail to the dock position
                 key->status = DOCKING;
                 break;
-            case 105:
+            case 110: // short x9, long: store here as the dock position
                 key->status = STOREASDOC;
                 break;
-            case 10:
-                key->status = CALC_COMPASS_OFFSET;
-                break;
-            case 110:
-                key->status = START_CALIBRATE_MAGNETIC_COMPASS;
-                break;
-            // Button position 108 used to arm the GPS Fourier calibration. Nothing is bound to it
-            // now: that run was removed, and the guided eight point calibration cannot be driven
-            // from a single button - it needs a screen to say which direction is being asked for.
             default:
                 beep(-1, buzzer);
                 break;
@@ -619,6 +635,15 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         xQueueSend(serOut, (void *)stat, 20); // update sub
         break;
     case LOCKING:
+        // The no-fix path below is silent no longer. A long press with no GPS fix used to do
+        // nothing and say nothing, which is indistinguishable from a flat battery, a jammed switch
+        // or a missed press - and it is the one time the operator most needs telling, because the
+        // boat is in the water and they are waiting for it to hold station.
+        if (stat->gpsFix != true)
+        {
+            printf("#LOCK refused - no GPS fix\r\n");
+            beep(-1, buzzer);
+        }
         if (stat->gpsFix == true)
         {
             beep(1, buzzer); // Play the beautiful 3-tone arpeggio sequence upon successfully entering LOCK mode
@@ -782,6 +807,33 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
             stat->status = (stat->tgLat != 0.0 && stat->tgLng != 0.0) ? LOCKED : IDLE;
         }
         break;
+    case EXTENDSTART:
+        // Same lock guard as COMPUTESTART, and for the same reason: an unlocked buoy carries a
+        // stale target, and this would faithfully extend a line drawn through wherever it last was.
+        if (lockedBuoyCount(stat, buoyPara) < 2)
+        {
+            printf("#Start line NOT extended - need TWO locked buoys, have %d\r\n",
+                   lockedBuoyCount(stat, buoyPara));
+            beep(-1, buzzer);
+            stat->status = (stat->tgLat != 0.0 && stat->tgLng != 0.0) ? LOCKED : IDLE;
+            break;
+        }
+        // No wind guard here, unlike COMPUTESTART. Nothing rotates - the line keeps its bearing and
+        // only its ends move apart - so there is no wind reading to be wrong about, and this stays
+        // usable on a buoy whose compass has failed.
+        if (extendStartLine(buoyPara, START_LINE_STEP_M))
+        {
+            beep(1, buzzer);
+            adoptOwnTrackTarget(stat, buoyPara);
+            stat->status = SENDTRACK;
+            printf("#Send track info\r\n");
+        }
+        else
+        {
+            beep(-1, buzzer);
+            stat->status = (stat->tgLat != 0.0 && stat->tgLng != 0.0) ? LOCKED : IDLE;
+        }
+        break;
     case COMPUTETRACK:
         // Same lock guard as COMPUTESTART, but a full course needs the third buoy for the upwind
         // mark - calcTrackPos() bails without it anyway, just later and less clearly.
@@ -872,7 +924,12 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
             stat->tgLat = stat->lat;
             stat->tgLng = stat->lng;
             memDockPos(stat, MEM_PUT);
-            beep(1000, buzzer);
+            // beep(1) - the rising arpeggio every other successful action plays. It used to be
+            // beep(1000), a single flat 1000 Hz tone, which is EXACTLY the tone the button plays on
+            // every physical press: "the dock position is stored" was indistinguishable from "I
+            // felt you press the button". Nine short presses and a long one deserve a definite
+            // answer.
+            beep(1, buzzer);
         }
         else
         {

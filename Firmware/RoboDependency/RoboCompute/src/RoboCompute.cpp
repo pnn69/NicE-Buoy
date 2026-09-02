@@ -1035,6 +1035,65 @@ bool recalcStartLine(struct RoboStruct rsl[3])
     return false;
 }
 
+// Same line, further apart. See the header for why this is not recalcStartLine() with a different
+// length: that one squares to the wind, and a race officer asking for ten more metres is not asking
+// to have the line rotated as well. Nothing here reads a wind direction.
+bool extendStartLine(struct RoboStruct rsl[3], double metres)
+{
+    double d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng);
+    double d1 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+    double d2 = distanceBetween(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng);
+
+    // The shortest leg is the start line, exactly as recalcStartLine() decides it - the two have to
+    // agree about which pair they are talking about or a press of one undoes a press of the other.
+    int a, b;
+    double len;
+    if (d0 < d1 && d0 < d2)      { a = 0; b = 1; len = d0; }
+    else if (d1 < d0 && d1 < d2) { a = 0; b = 2; len = d1; }
+    else if (d2 < d0 && d2 < d1) { a = 1; b = 2; len = d2; }
+    else
+    {
+        printf("# No usable buoy pair to extend\r\n");
+        return false;
+    }
+
+    if (INVALID_POINT(rsl[a]) || INVALID_POINT(rsl[b]))
+    {
+        printf("# No data to extend with (%d-%d)\r\n", a, b);
+        return false;
+    }
+
+    double newLen = len + metres;
+    if (newLen < MIN_START_LINE_M)
+    {
+        // Two ends on the same spot have no bearing between them to preserve, so a line shrunk to
+        // nothing cannot be grown again - it would come back on whatever bearing the rounding
+        // happened to produce.
+        printf("# Start line not extended: %.1f m + %.1f m is below the %.1f m floor\r\n",
+               len, metres, (double)MIN_START_LINE_M);
+        return false;
+    }
+
+    double midLat, midLng;
+    twoPointAverage(rsl[a].tgLat, rsl[a].tgLng, rsl[b].tgLat, rsl[b].tgLng, &midLat, &midLng);
+
+    // Both bearings are read BEFORE either end is written back. Each buoy is pushed straight out
+    // along the bearing it is already on, which is what keeps it on its own side - recompute the
+    // second bearing after moving the first end and the pair can swap ends and motor through each
+    // other, which is the failure starboardGoesToFirst() exists to prevent in recalcStartLine().
+    double brgA = calculateBearing(midLat, midLng, rsl[a].tgLat, rsl[a].tgLng);
+    double brgB = calculateBearing(midLat, midLng, rsl[b].tgLat, rsl[b].tgLng);
+
+    adjustPositionDirDist(brgA, newLen / 2.0, midLat, midLng, &rsl[a].tgLat, &rsl[a].tgLng);
+    adjustPositionDirDist(brgB, newLen / 2.0, midLat, midLng, &rsl[b].tgLat, &rsl[b].tgLng);
+
+    // trackPos is deliberately left alone. The ends keep the roles they were given when the line
+    // was squared; moving a buoy further out along its own bearing cannot change which side it is.
+    printf("# Start line extended %.1f m -> %.1f m, bearing and midpoint unchanged\r\n",
+           len, newLen);
+    return true;
+}
+
 bool reCalcTrack(struct RoboStruct rsl[3])
 {
     double d0, d1, d2;
