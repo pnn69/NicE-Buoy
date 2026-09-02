@@ -2596,6 +2596,14 @@ void loop() {
                     bool adjArmed = !setup_is_action_page(setup_page) ||
                                     setup_slot_is_action(selected_param_idx);
 
+                    // Set by any branch below that paints a full-width overlay over the Setup grid.
+                    // Those messages cover rows of boxes, and repainting the boxes does not clear
+                    // the text between them - so the wording stayed on the glass after the screen
+                    // came back. Repainting the whole page is the only honest way to undo an
+                    // arbitrary overlay, and it costs nothing at the end of a 1.5 s message. Only
+                    // those branches set it: a repaint on every "+" would flicker ordinary edits.
+                    bool setup_overlay_drawn = false;
+
                     if (adjArmed && touchX >= 10 && touchX <= 75) {
                         // MINUS - no meaning on an action page
                         if (!setup_slot_is_action(selected_param_idx)) {
@@ -2641,6 +2649,7 @@ void loop() {
                             tft.drawString("turn the buoy in figures of 8", tft.width() / 2, 130);
                             tft.drawString("for 60 seconds", tft.width() / 2, 148);
                             delay(1500);
+                            setup_overlay_drawn = true;
                         } else if (selected_param_idx == S_REBOOT) {
                             // INF, not GETACK: a rebooting buoy never answers, so GETACK
                             // leaves the packet in the LoRa retry table and reboots it five
@@ -2652,6 +2661,7 @@ void loop() {
                             tft.setTextColor(TFT_ORANGE, TFT_BLACK);
                             tft.drawString("REBOOTING BUOY", tft.width() / 2, 110);
                             delay(1500);
+                            setup_overlay_drawn = true;
                         } else if (selected_param_idx == S_SETLEVEL) {
                             // Declare the hull level where it sits. The buoy reads its own sensor
                             // and stores the datum - see SET_AS_LEVEL in RoboCompute.h.
@@ -2674,6 +2684,7 @@ void loop() {
                             tft.drawString("from THIS attitude - do not tilt", tft.width() / 2, 146);
                             tft.drawString("the hull to centre it", tft.width() / 2, 162);
                             delay(1800);
+                            setup_overlay_drawn = true;
                         } else if (selected_param_idx == S_SETNORTH) {
                             if (setup_data_loaded) {
                                 b.compass_offset = b.compass_offset - b.mag_dir;
@@ -2687,6 +2698,10 @@ void loop() {
                         }
                     }
                     reset_button_draw_cache(); // Force complete update redraw
+                    // Wipe whatever the overlay left behind. update_setup_dynamic() repaints the
+                    // boxes and their values, but nothing else on the page, so the message text
+                    // survived between them until the next screen change.
+                    if (setup_overlay_drawn) draw_setup_static();
                 }
                 
                 // 3. Bottom Control Buttons (Y: 232 to 275) - BACK (left), PAGE (center), SAVE (right)
