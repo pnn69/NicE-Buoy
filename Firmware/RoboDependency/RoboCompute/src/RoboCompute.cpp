@@ -278,6 +278,22 @@ void RoboDecode(String data, RoboStruct *dataStore)
             dataStore->roll = numbers[3].toDouble();
         }
         break;
+    case LORA_LINK:
+        if (count > 2) dataStore->linkOmitted = (uint8_t)numbers[2].toInt();
+        dataStore->linkPeers = 0;
+        // Walk the triples until they run out or the cap is reached. An empty id ends the list:
+        // RoboCode() compresses an all-zero token to "", so a trailing empty field is padding
+        // rather than a peer whose id happens to be zero.
+        for (int i = 3; i + 2 < count && dataStore->linkPeers < LORA_LINK_MAX_PEERS; i += 3)
+        {
+            if (numbers[i].length() == 0) break;
+            int p = dataStore->linkPeers;
+            dataStore->linkPeerId[p] = (uint32_t)strtoul(numbers[i].c_str(), NULL, 16);
+            dataStore->linkRssi[p] = (int16_t)numbers[i + 1].toInt();
+            dataStore->linkCount[p] = (uint16_t)numbers[i + 2].toInt();
+            dataStore->linkPeers++;
+        }
+        break;
     case CAL8_SESSION:
         // Count-guarded like everything else here. A short frame is a node that predates the
         // field, not an empty session, and reading it as one would make a running calibration
@@ -527,6 +543,15 @@ String RoboCode(const RoboStruct *dataOut)
     case ATTITUDE:
         out += "," + formatFloat(dataOut->pitch, 1);
         out += "," + formatFloat(dataOut->roll, 1);
+        break;
+    case LORA_LINK:
+        out += "," + String((int)dataOut->linkOmitted);
+        for (int i = 0; i < dataOut->linkPeers && i < LORA_LINK_MAX_PEERS; i++)
+        {
+            out += "," + String(dataOut->linkPeerId[i], HEX);
+            out += "," + String((int)dataOut->linkRssi[i]);
+            out += "," + String((int)dataOut->linkCount[i]);
+        }
         break;
     case CAL8_SESSION:
         // The action first, so a SET and the answer to it have the same shape - the Sub echoes what
@@ -1265,6 +1290,17 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
 
     case ATTITUDE:
         dst->pitch = src.pitch;         dst->roll = src.roll;
+        break;
+
+    case LORA_LINK:
+        dst->linkPeers = src.linkPeers;
+        dst->linkOmitted = src.linkOmitted;
+        for (int i = 0; i < LORA_LINK_MAX_PEERS; i++)
+        {
+            dst->linkPeerId[i] = src.linkPeerId[i];
+            dst->linkRssi[i] = src.linkRssi[i];
+            dst->linkCount[i] = src.linkCount[i];
+        }
         break;
 
     case CAL8_SESSION:

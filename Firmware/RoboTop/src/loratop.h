@@ -9,4 +9,8 @@ extern QueueHandle_t loraIn;
 void initloraqueue(void);
 void LoraTask(void *arg);
 
+// LoRa link quality - what this node hears and how well, see loratop.cpp.
+void linkReportService(void);
+String linkReportJson(void);
+
 #endif /* LORATOP_H_ */

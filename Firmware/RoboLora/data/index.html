@@ -22,6 +22,40 @@
         </div>
     </header>
 
+    <nav class="view-tabs" style="display:flex; gap:6px; padding:6px 12px; background:#0d1117;
+         border-bottom:1px solid #30363d;">
+        <button class="view-tab" data-view="dashboard" onclick="showLoraView('dashboard')"
+                style="background:#1f6feb; color:#fff; border:none; border-radius:5px;
+                       padding:6px 14px; font-weight:bold; cursor:pointer;">Dashboard</button>
+        <button class="view-tab" data-view="loralinks" onclick="showLoraView('loralinks')"
+                style="background:#21262d; color:#8b949e; border:none; border-radius:5px;
+                       padding:6px 14px; font-weight:bold; cursor:pointer;">LoRa Links</button>
+    </nav>
+
+    <!-- The link matrix. Hidden until its tab is chosen; the dashboard is hidden in turn. -->
+    <section id="view-loralinks" style="display:none; padding:14px;">
+        <h2 style="margin:0 0 4px 0; font-size:1.1rem;">LoRa link quality</h2>
+        <div style="font-size:0.8rem; color:#8b949e; margin-bottom:10px; max-width:70ch;">
+            Each direction is measured by the node that <b>receives</b> it: this one measures what it
+            hears directly, and each Top reports what it hears once a minute over LoRa. A link weak in
+            both directions is distance or an obstruction; one weak in a single direction points at
+            that end&rsquo;s antenna or receiver. Frame counts matter as much as dBm &mdash; a link can
+            sit at a comfortable &minus;70 and still drop most of what is sent to it.
+        </div>
+        <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+            <thead>
+                <tr style="text-align:left; color:#8b949e; font-size:0.8rem;">
+                    <th style="padding:6px 10px;">Link</th>
+                    <th style="padding:6px 10px;">one way</th>
+                    <th style="padding:6px 10px;">the other</th>
+                    <th style="padding:6px 10px;">reading</th>
+                </tr>
+            </thead>
+            <tbody id="loralinks-body"></tbody>
+        </table>
+        <div id="loralinks-note" style="font-size:0.78rem; color:#8b949e; margin-top:8px;"></div>
+    </section>
+
     <main class="dashboard">
         <!-- Other Discovered Devices Bar -->
         <div id="other-devices-container" class="other-devices-container hidden">

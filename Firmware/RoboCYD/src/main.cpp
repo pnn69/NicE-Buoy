@@ -2219,6 +2219,7 @@ void loop() {
     // Resend any command still waiting for its ACK, and show the verdict while the track screen
     // is up. Both are cheap no-ops when nothing is outstanding.
     service_pending_cmd();
+    service_lora_link_report();
     if (selected_buoy_idx == -1 && in_track_settings_mode) {
         track_settings_ack_poll();
     }

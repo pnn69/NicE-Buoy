@@ -14,4 +14,7 @@ void broadcast_websocket_lora(const String &payload, int rssi);
 // Client handlers to process incoming web requests and WebSockets loops
 void handle_wifi_clients();
 
+// Diagnostic log line, broadcast on UDP 1002 alongside the Subs' and Tops' logs. See cyd_wifi.cpp.
+void cyd_log(const char *fmt, ...);
+
 #endif // CYD_WIFI_H

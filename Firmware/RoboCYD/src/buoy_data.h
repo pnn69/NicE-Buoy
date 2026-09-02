@@ -212,6 +212,12 @@ void await_ack(const String &target_id, int cmd, const String &frame, int attemp
 // pending_cmd_failed) once the attempts are spent.
 void service_pending_cmd();
 
+// LoRa link quality. link_note() records one received frame's signal strength against its sender;
+// service_lora_link_report() puts a minute's worth on the air, LoRa only. See buoy_data.cpp - the
+// report doubles as the beacon that lets the Tops measure THIS end.
+void link_note(const String &id, int rssi);
+void service_lora_link_report();
+
 
 uint8_t calculate_crc(const String &content);
 

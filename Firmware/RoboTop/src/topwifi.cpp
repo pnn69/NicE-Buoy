@@ -778,6 +778,9 @@ void WiFiTask(void *arg)
         // an older page still parses, and it is now always empty.
         json += "\"CalibMsg\":\"\",";
         json += "\"SimMsg\":\"" + String(gpsSimReport()) + "\",";
+        // What this Top hears over LoRa and how well - see linkReportService(). Served on request,
+        // which puts nothing on the air; the report itself goes out over LoRa only.
+        json += "\"LoraLinks\":" + linkReportJson() + ",";
         // Diagnostics: seconds since boot, and what ended the previous run.
         json += "\"Uptime\":" + String(millis() / 1000) + ",";
         json += "\"Crumb\":" + String(crumbSlotAtLastReset(CRUMB_LOOP)) + ",";

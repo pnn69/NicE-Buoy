@@ -198,7 +198,30 @@ typedef enum
     // is the hull sitting at a different attitude at each stop, or at a different attitude while
     // sailing than while being calibrated - so the datum exists to make CHANGE visible, and
     // chasing the bubble by tilting the boat defeats the whole point of it.
-    SET_AS_LEVEL
+    SET_AS_LEVEL,
+    // What each node hears, and how well. Sent by a Top once a minute over LoRa ONLY - it is the
+    // link being measured, so arriving at all is part of the reading, and a UDP copy would be
+    // received over a path that says nothing about the one in question.
+    //
+    // Payload is one triple per peer heard since the last report:
+    //   fields[5]   linkOmitted   peers heard but left out of this frame, see below
+    //   fields[6..] <id>,<rssi>,<count>  repeated, id in hex, rssi in dBm, count of frames heard
+    //
+    // Keyed on the SENDER's id on purpose. An unattributed pile of signal strengths says nothing;
+    // one reading per ordered pair builds a matrix, and it is the asymmetry in that matrix that
+    // tells a weak antenna from a long path. The CYD already measures the other direction of every
+    // hop it takes part in, so between the two every link is covered both ways.
+    //
+    // count is there because rssi only ever describes the frames that ARRIVED. A link can sit at a
+    // comfortable -70 dBm and still drop most of what is sent to it, and nothing in the signal
+    // strength would show that.
+    //
+    // Capped at LORA_LINK_MAX_PEERS per frame, worst signal first - if something has to be left out
+    // it should be the healthy links, not the marginal one being hunted. The rest go in the next
+    // report and linkOmitted says how many, so a partial picture is never mistaken for a whole one.
+    // The cap is not arbitrary: RoboDecode() splits into 25 fields and stops, silently, so a longer
+    // frame would lose its tail with nothing to show for it.
+    LORA_LINK
 } msg_t;
 
 // What a CAL8_SESSION SET is asking the buoy to do. Carried in RoboStruct::cal8Action.
@@ -214,6 +237,13 @@ typedef enum
     // applied AFTER the table, so it is no longer part of the table's domain, nothing a
     // calibration measures depends on it, and there is nothing left to lock.
 } cal8_action_t;
+
+// How many peers fit in one LORA_LINK frame. Bounded by RoboDecode()'s 25-field splitter: two
+// fields for cmd and status, one for linkOmitted, leaves 22 for triples - seven of them, with a
+// field to spare. Raising the splitter is deliberately not the answer: it is the decoder every
+// message on this network goes through, and it would grow the stack of a path that runs on every
+// frame to solve a problem this cap already solves.
+#define LORA_LINK_MAX_PEERS 7
 
 // Smallest holding radius the buoy will accept, metres. Below this the station-keeping zones in
 // pidrudspeed.cpp overlap: SUB_STATUS_PIVOT_PREP owns 1 m out to holdRad, so a radius near 1 m
@@ -326,6 +356,13 @@ struct RoboStruct
     // Serial of the press. Outbound on a CAL8_SET: the one this press means to be. Inbound: the
     // last one the Sub actually applied. This is what makes a retried press safe.
     uint16_t cal8Seq = 0;
+
+    // What this node hears, carried by LORA_LINK. linkPeers is how many entries are filled.
+    uint32_t linkPeerId[LORA_LINK_MAX_PEERS] = {0};
+    int16_t linkRssi[LORA_LINK_MAX_PEERS] = {0};
+    uint16_t linkCount[LORA_LINK_MAX_PEERS] = {0};
+    uint8_t linkPeers = 0;
+    uint8_t linkOmitted = 0;
 
     // Whether the buoy can USE the interpolation table it holds, carried by
     // STORE_INTERPOLATION_TABLE. An out-of-order table is stored and then ignored, so without this

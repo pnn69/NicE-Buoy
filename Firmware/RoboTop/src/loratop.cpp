@@ -475,6 +475,211 @@ static void drainRepeats(void)
  * 
  * @param packetSize The size of the received LoRa packet.
  */
+//***************************************************************************************************
+//  LoRa link quality
+//***************************************************************************************************
+// What we hear, and how well, keyed on WHO SENT IT. One reading per ordered pair builds a matrix,
+// and it is the asymmetry in that matrix that separates a deaf antenna from a long path: a link
+// that is weak in both directions is distance or an obstruction, one that is weak in a single
+// direction points at one end. An unattributed pile of signal strengths cannot show either.
+//
+// RSSI is only half of it. It describes the frames that ARRIVED - a link can sit at a comfortable
+// -70 dBm and drop most of what is sent to it, and nothing in the signal strength would say so. So
+// the count of frames heard per minute goes out beside it.
+#define LINK_PEERS_TRACKED 12
+#define LINK_REPORT_MS 60000UL
+
+// A relayed frame carries the ORIGINAL sender's id but arrives at the RELAY's signal strength.
+// Counting one would invent a link that does not physically exist, at a strength belonging to a
+// different pair - worse than no reading, because it looks plausible. So only the FIRST copy of a
+// given frame is measured.
+//
+// The window is derived from the repeater's own timing rather than picked: a relay cannot be
+// earlier than REPEAT_BASE_MS nor later than the last slot plus jitter. A sender's own retransmit
+// is ~1500 ms behind, outside this window, so it still counts - and it should, being a genuine
+// second transmission over the air. Frames inside the window that are NOT relays are rare enough,
+// and undercounting is the safe direction: it can only make a link look worse than it is.
+#define LINK_DEDUP_MS (REPEAT_BASE_MS + REPEAT_SLOTS * REPEAT_SLOT_MS + REPEAT_JITTER_MS + 100)
+#define LINK_DEDUP_SLOTS 8
+
+// A peer that transmits once a minute lands in a one-minute window perhaps half the time, so a
+// table that only ever showed the current window made such a peer blink in and out of existence.
+// The window stats are what the report carries; lastRssi and lastHeard are kept alongside so a
+// slow peer still reads as "heard, 90 s ago at -95" instead of vanishing. Genuinely gone is a
+// different statement, and LINK_FORGET_MS is when we make it.
+#define LINK_FORGET_MS 300000UL
+
+struct LinkPeer
+{
+    uint32_t id = 0;
+    long rssiSum = 0;
+    int16_t rssiWorst = 0;
+    uint16_t count = 0;
+    int16_t lastRssi = 0;
+    unsigned long lastHeard = 0;
+    bool used = false;
+};
+
+static LinkPeer linkPeer[LINK_PEERS_TRACKED];
+static String linkSeen[LINK_DEDUP_SLOTS];
+static unsigned long linkSeenAt[LINK_DEDUP_SLOTS] = {0};
+static int linkSeenIdx = 0;
+static unsigned long linkReportDue = 0;
+static uint8_t linkRotate = 0;
+
+// Has this exact frame already been measured recently? See LINK_DEDUP_MS.
+static bool linkFirstCopy(const String &msg)
+{
+    unsigned long now = millis();
+    for (int i = 0; i < LINK_DEDUP_SLOTS; i++)
+    {
+        if (linkSeen[i] == msg && (now - linkSeenAt[i]) < LINK_DEDUP_MS) return false;
+    }
+    linkSeen[linkSeenIdx] = msg;
+    linkSeenAt[linkSeenIdx] = now;
+    linkSeenIdx = (linkSeenIdx + 1) % LINK_DEDUP_SLOTS;
+    return true;
+}
+
+static void linkNote(uint32_t id, int rssi)
+{
+    if (id == 0) return;
+    int free_slot = -1;
+    for (int i = 0; i < LINK_PEERS_TRACKED; i++)
+    {
+        if (linkPeer[i].used && linkPeer[i].id == id)
+        {
+            linkPeer[i].rssiSum += rssi;
+            if (rssi < linkPeer[i].rssiWorst) linkPeer[i].rssiWorst = (int16_t)rssi;
+            if (linkPeer[i].count < 65535) linkPeer[i].count++;
+            linkPeer[i].lastRssi = (int16_t)rssi;
+            linkPeer[i].lastHeard = millis();
+            return;
+        }
+        if (!linkPeer[i].used && free_slot < 0) free_slot = i;
+    }
+    if (free_slot < 0) return;   // more peers than slots: the table is already the interesting ones
+    linkPeer[free_slot].used = true;
+    linkPeer[free_slot].id = id;
+    linkPeer[free_slot].rssiSum = rssi;
+    linkPeer[free_slot].rssiWorst = (int16_t)rssi;
+    linkPeer[free_slot].count = 1;
+    linkPeer[free_slot].lastRssi = (int16_t)rssi;
+    linkPeer[free_slot].lastHeard = millis();
+}
+
+// Still worth reporting? Heard at all, and not so long ago that it has plainly gone.
+static bool linkAlive(const LinkPeer &p)
+{
+    return p.used && p.lastHeard && (millis() - p.lastHeard) < LINK_FORGET_MS;
+}
+
+// The mean, rounded, for a peer with at least one sample.
+static int linkMean(const LinkPeer &p)
+{
+    return p.count ? (int)(p.rssiSum / (long)p.count) : (int)p.lastRssi;
+}
+
+// One report a minute, LoRa only. Never queued to udpOut: this is a measurement of the LoRa path,
+// and a copy arriving over WiFi would say nothing about it. It IS broadcast, so that every listener
+// gets the same picture - see the LORA_LINK exception in the repeater below for how it reaches a
+// node that cannot hear us directly.
+void linkReportService(void)
+{
+    if (linkReportDue == 0) linkReportDue = millis() + LINK_REPORT_MS;
+    if ((long)(millis() - linkReportDue) < 0) return;
+    linkReportDue = millis() + LINK_REPORT_MS;
+
+    // Collect and sort worst mean first: if anything has to be left out of the frame it should be
+    // the healthy links, not the marginal one being hunted.
+    int order[LINK_PEERS_TRACKED];
+    int n = 0;
+    for (int i = 0; i < LINK_PEERS_TRACKED; i++)
+        if (linkAlive(linkPeer[i])) order[n++] = i;
+    if (n == 0) return;
+
+    for (int a = 0; a < n - 1; a++)
+        for (int b = a + 1; b < n; b++)
+            if (linkMean(linkPeer[order[b]]) < linkMean(linkPeer[order[a]]))
+            {
+                int t = order[a]; order[a] = order[b]; order[b] = t;
+            }
+
+    RoboStruct msg = {};
+    msg.cmd = LORA_LINK;
+    msg.ack = INF;
+    msg.IDr = BUOYIDALL;
+    msg.IDs = (pMainData && pMainData->IDs != 0) ? pMainData->IDs : buoyId;
+    msg.status = pMainData ? pMainData->status : 0;
+
+    int put = 0;
+    if (n <= LORA_LINK_MAX_PEERS)
+    {
+        for (; put < n; put++)
+        {
+            const LinkPeer &p = linkPeer[order[put]];
+            msg.linkPeerId[put] = p.id;
+            msg.linkRssi[put] = (int16_t)linkMean(p);
+            msg.linkCount[put] = p.count;
+        }
+        msg.linkOmitted = 0;
+    }
+    else
+    {
+        // The worst few always, then one rotating slot through the rest - so a peer that is
+        // permanently eighth-best still gets reported, just less often, instead of never.
+        int fixed = LORA_LINK_MAX_PEERS - 1;
+        for (; put < fixed; put++)
+        {
+            const LinkPeer &p = linkPeer[order[put]];
+            msg.linkPeerId[put] = p.id;
+            msg.linkRssi[put] = (int16_t)linkMean(p);
+            msg.linkCount[put] = p.count;
+        }
+        int spare = fixed + (linkRotate % (n - fixed));
+        const LinkPeer &p = linkPeer[order[spare]];
+        msg.linkPeerId[put] = p.id;
+        msg.linkRssi[put] = (int16_t)linkMean(p);
+        msg.linkCount[put] = p.count;
+        put++;
+        linkRotate++;
+        msg.linkOmitted = (uint8_t)(n - put);
+    }
+    msg.linkPeers = (uint8_t)put;
+
+    xQueueSend(loraOut, (void *)&msg, 0);
+
+    // Fresh window. The counts mean "per minute" or they mean nothing - but lastRssi and lastHeard
+    // survive, so a peer that simply had a quiet minute still reads as heard rather than gone.
+    for (int i = 0; i < LINK_PEERS_TRACKED; i++)
+    {
+        linkPeer[i].rssiSum = 0;
+        linkPeer[i].rssiWorst = 0;
+        linkPeer[i].count = 0;
+    }
+}
+
+// The same table as JSON, for this Top's own web page. Not a second transport for the report - it
+// is served on request over HTTP and puts nothing on the air.
+String linkReportJson(void)
+{
+    String out = "[";
+    bool first = true;
+    for (int i = 0; i < LINK_PEERS_TRACKED; i++)
+    {
+        if (!linkAlive(linkPeer[i])) continue;
+        if (!first) out += ",";
+        first = false;
+        out += "{\"id\":\"" + String(linkPeer[i].id, HEX) + "\"";
+        out += ",\"rssi\":" + String(linkMean(linkPeer[i]));
+        out += ",\"worst\":" + String(linkPeer[i].count ? linkPeer[i].rssiWorst : linkPeer[i].lastRssi);
+        out += ",\"count\":" + String(linkPeer[i].count);
+        out += ",\"age\":" + String((millis() - linkPeer[i].lastHeard) / 1000) + "}";
+    }
+    out += "]";
+    return out;
+}
+
 void onReceive(int packetSize)
 {
     if (packetSize == 0)
@@ -493,8 +698,18 @@ void onReceive(int packetSize)
         return; // skip rest of function
     }
     
+    int packetRssi = LoRa.packetRssi();
+
     RoboStruct in;
     rfDeCode(incoming,&in);
+
+    // Measure the link, whoever the frame was addressed to - hearing somebody else's traffic says
+    // just as much about the path as hearing our own. Our own echo is skipped, and only the first
+    // copy of a frame counts: see linkFirstCopy().
+    {
+        bool from_self = (in.IDs == buoyId || (pMainData && in.IDs == pMainData->IDs));
+        if (!from_self && linkFirstCopy(incoming)) linkNote((uint32_t)in.IDs, packetRssi);
+    }
 
     // Before anything else: if we were about to relay this exact frame, we no longer need to -
     // somebody beat us to it, or the original sender resent it. Ahead of the early returns below
@@ -540,7 +755,14 @@ void onReceive(int packetSize)
     // telemetry regardless. So the rule is unicast only.
     bool is_from_me = (in.IDs == buoyId || (pMainData && in.IDs == pMainData->IDs));
     bool is_broadcast = (in.IDr == BUOYIDALL || in.IDr == 0);
-    if (!is_from_me && !is_addressed_to_me && !is_broadcast)
+    // LORA_LINK is the one broadcast that IS relayed. The rule above exists because relaying
+    // telemetry buys nothing - a node close enough to hear the relay had almost certainly heard the
+    // original, and every buoy broadcasts its own anyway. Neither holds here: the whole point of a
+    // link report is to arrive from a node you CANNOT hear directly, and nobody else can produce it
+    // on that node's behalf. One frame a minute per Top is ~0.2% of the channel, and the existing
+    // dedup cache stops it going round in circles.
+    bool relay_worthy = !is_broadcast || in.cmd == LORA_LINK;
+    if (!is_from_me && !is_addressed_to_me && relay_worthy)
     {
         if (checkAndRecordRepeaterMessage(incoming))
         {
@@ -600,6 +822,8 @@ void LoraTask(void *arg)
         crumbAt(CRUMB_LORA, 201);
         // Put out any relay whose backoff has expired - see queueRepeat().
         drainRepeats();
+        // One link report a minute - see linkReportService().
+        linkReportService();
         
         // Process any telemetry messages queued for LoRa transmission
         if (xQueueReceive(loraOut, (void *)&loraMsgout, 1) == pdTRUE)

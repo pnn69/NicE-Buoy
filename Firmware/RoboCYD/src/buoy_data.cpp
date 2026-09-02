@@ -44,6 +44,90 @@ uint8_t calculate_crc(const String &content) {
     return crc;
 }
 
+// ---------------------------------------------------------------------------------------------
+//  What this handheld hears over LoRa
+// ---------------------------------------------------------------------------------------------
+// The Tops report what THEY hear once a minute; this is the other half, and the report below is
+// also the only thing that lets them measure US. The handheld is otherwise silent on LoRa - it
+// transmits when a button is pressed and not otherwise - so without a beacon there is nothing for a
+// Top to take an RSSI from, and the direction that matters most when judging this antenna would be
+// the one direction nobody can see.
+#define LINK_PEERS_TRACKED 8
+#define LINK_REPORT_MS 60000UL
+
+struct CydLinkPeer {
+    String id = "";
+    long sum = 0;
+    int worst = 0;
+    int count = 0;
+};
+static CydLinkPeer link_peer[LINK_PEERS_TRACKED];
+static unsigned long link_report_due = 0;
+
+void link_note(const String &id_in, int rssi) {
+    String id = id_in;
+    id.trim();
+    if (id.length() == 0) return;
+    // Not ourselves. Our own beacon comes back to us relayed by a Top - LORA_LINK is the one
+    // broadcast the repeater carries - and counting it would put this handheld in its own link
+    // matrix at the strength of whichever Top echoed it. The Tops guard the same way.
+    if (id == "98") return;
+    int free_slot = -1;
+    for (int i = 0; i < LINK_PEERS_TRACKED; i++) {
+        if (link_peer[i].count > 0 && link_peer[i].id == id) {
+            link_peer[i].sum += rssi;
+            if (rssi < link_peer[i].worst) link_peer[i].worst = rssi;
+            link_peer[i].count++;
+            return;
+        }
+        if (link_peer[i].count == 0 && free_slot < 0) free_slot = i;
+    }
+    if (free_slot < 0) return;
+    link_peer[free_slot].id = id;
+    link_peer[free_slot].sum = rssi;
+    link_peer[free_slot].worst = rssi;
+    link_peer[free_slot].count = 1;
+}
+
+// One report a minute, LoRa ONLY - it is the LoRa path being measured, and a UDP copy would be
+// carried by a path that says nothing about it.
+void service_lora_link_report() {
+    if (link_report_due == 0) link_report_due = millis() + LINK_REPORT_MS;
+    if ((long)(millis() - link_report_due) < 0) return;
+    link_report_due = millis() + LINK_REPORT_MS;
+
+    // Target 1 is BUOYIDALL - the broadcast address this network actually uses. Not FFFFFFFF:
+    // that is nobody, so every Top would treat the frame as a unicast to an unknown node, decline
+    // to consume it, AND hand it to the repeater as worth relaying. A beacon nobody reads, put on
+    // the air twice.
+    //
+    // Status 7 (IDLE), sender 98. ack 6 = INF: nothing is being asked for.
+    String payload = "1,98,6,94,7,0";   // 1 = BUOYIDALL, see RoboCompute.h
+    int put = 0;
+    for (int i = 0; i < LINK_PEERS_TRACKED && put < 7; i++) {
+        if (link_peer[i].count == 0) continue;
+        payload += "," + link_peer[i].id;
+        payload += "," + String((int)(link_peer[i].sum / link_peer[i].count));
+        payload += "," + String(link_peer[i].count);
+        put++;
+    }
+
+    // Nothing heard means nothing to say about what we hear - but the beacon still goes out, or the
+    // Tops have no way to measure this end at all, which is exactly the case worth reporting.
+    uint8_t crc = calculate_crc(payload);
+    char crc_buf[8];
+    sprintf(crc_buf, "*%02X", crc);
+    String frame = "$" + payload + String(crc_buf);
+    cyd_log("LORA_LINK out (%d peer(s)) %s", put, frame.c_str());
+    send_lora_packet(frame);
+
+    for (int i = 0; i < LINK_PEERS_TRACKED; i++) {
+        link_peer[i].sum = 0;
+        link_peer[i].worst = 0;
+        link_peer[i].count = 0;   // counts mean "per minute" or they mean nothing
+    }
+}
+
 PendingCmd pending_cmd;
 bool pending_cmd_acked = false;
 bool pending_cmd_failed = false;
@@ -140,6 +224,11 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     if (fields.size() < 5) return;
     
     // Extract command code first to verify if this is an actual telemetry or setup packet
+    // Link accounting, ahead of every filter below. Hearing a frame measures one direction of
+    // that link whoever it was addressed to and whatever it says, so this must not sit behind a
+    // test that drops frames this screen has no other use for.
+    if (!is_udp && rssi != -999) link_note(fields[1], rssi);
+
     int cmd = atoi(fields[3].c_str());
 
     // ACK (ack field == 4) is handled here and nowhere else, ahead of the telemetry filter below.

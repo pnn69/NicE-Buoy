@@ -664,6 +664,18 @@ function handleJsonFallback(stuff) {
 
 // Parse NMEA message strings
 function parseMessage(message, source, senderIp = null, loraRssi = null, udpRssi = null) {
+    // Link accounting, before any of the filtering below can drop the frame. Every LoRa frame
+    // carries its RSSI, so simply hearing traffic measures one direction of that link - it does not
+    // matter who the frame was addressed to or whether this page cares about its contents.
+    try {
+        const lf = message.replace(/^\$/, "").split(",");
+        if (lf.length > 3) {
+            const from = (lf[1] || "").trim();
+            if (source === "LoRa" && loraRssi !== null) linkNoteHeard(from, loraRssi);
+            if (parseInt(lf[3]) === 94) linkNoteReport(from, lf);
+        }
+    } catch (e) { /* a malformed frame must not take the dashboard down with it */ }
+
     if (!message.startsWith('$') || !message.includes('*')) return;
     
     try {
@@ -2738,3 +2750,169 @@ function initStartLinePanel() {
     document.getElementById("map-align-track").addEventListener("click", () => mapAlign(MsgType.COMPUTETRACK));
     document.getElementById("map-execute").addEventListener("click", mapExecute);
 }
+
+// ---------------------------------------------------------------------------------------------
+//  LoRa link view
+// ---------------------------------------------------------------------------------------------
+// Two sources feed this, and they are different in kind:
+//
+//   what WE hear   - every LoRa frame arrives with its RSSI, so this node measures one direction of
+//                    every link it takes part in, continuously and for free.
+//   what THEY hear - a LORA_LINK (94) report from each Top, once a minute, saying what IT heard and
+//                    how well. That is the only way to see the direction pointing away from us.
+//
+// The pairing is the whole point. A link weak in BOTH directions is distance or an obstruction; one
+// weak in a SINGLE direction points at one end's antenna or receiver. A single number cannot tell
+// those apart, which is why this is a matrix and not a signal-strength readout.
+const LINK_STALE_MS = 180000;   // three report periods: silence is reported as silence, not as loss
+
+// dBm bands, set as MARGIN against where this radio actually gives out rather than as round
+// numbers. Both ends run the arduino-LoRa defaults - SF7, 125 kHz - and the SX1276 datasheet puts
+// sensitivity there at -123 dBm. That is also about the thermal noise floor in 125 kHz, so it is a
+// real cliff: -150 or -160 is not a weak link, it is not a link.
+//
+//   green  better than -105   at least 18 dB in hand
+//   amber  -105 to -115       8 to 18 dB - still working, worth knowing about
+//   red    below -115         under 8 dB from the cliff
+//
+// So -100 is comfortable and reads green. Raising the spreading factor would move the floor down
+// (about -136 at SF12) and these three numbers with it.
+const LINK_GOOD = -105;
+const LINK_WEAK = -115;
+
+const linkHeard = {};    // id -> {sum, n, worst, last} : what THIS node hears, per sender
+const linkReports = {};  // reporterId -> {peers:{id->{rssi,count}}, omitted, last}
+
+function linkNoteHeard(id, rssi) {
+    if (!id || rssi === null || isNaN(rssi)) return;
+    id = id.toLowerCase();
+    const e = linkHeard[id] || (linkHeard[id] = { sum: 0, n: 0, worst: 0, last: 0 });
+    e.sum += rssi; e.n++; e.last = Date.now();
+    if (e.worst === 0 || rssi < e.worst) e.worst = rssi;
+}
+
+function linkNoteReport(reporterId, fields) {
+    // fields[5] = omitted, then repeating <id>,<rssi>,<count>
+    const rep = { peers: {}, omitted: parseInt(fields[5]) || 0, last: Date.now() };
+    for (let i = 6; i + 2 < fields.length; i += 3) {
+        const id = (fields[i] || "").trim().toLowerCase();
+        if (!id) break;
+        rep.peers[id] = { rssi: parseInt(fields[i + 1]) || 0, count: parseInt(fields[i + 2]) || 0 };
+    }
+    linkReports[reporterId.toLowerCase()] = rep;
+    if (typeof renderLoraLinks === "function") renderLoraLinks();
+}
+
+const linkFresh = t => t && (Date.now() - t) < LINK_STALE_MS;
+const linkColour = r => (r === null ? "#6b7280" : r >= LINK_GOOD ? "#22c55e" : r >= LINK_WEAK ? "#eab308" : "#ef4444");
+const linkName = id => (id === "98" ? "CYD" : id === "99" ? "PC" : id);
+
+// One direction: what did `to` hear from `from`?
+function linkDir(from, to, selfId) {
+    from = from.toLowerCase(); to = to.toLowerCase();
+    if (to === selfId) {
+        const e = linkHeard[from];
+        if (!e || !e.n || !linkFresh(e.last)) return null;
+        return { rssi: Math.round(e.sum / e.n), count: e.n, worst: e.worst };
+    }
+    const rep = linkReports[to];
+    if (!rep || !linkFresh(rep.last)) return null;
+    const p = rep.peers[from];
+    return p ? { rssi: p.rssi, count: p.count, worst: null } : null;
+}
+
+function renderLoraLinks() {
+    const body = document.getElementById("loralinks-body");
+    if (!body) return;
+    const selfId = "self";
+
+    // Everyone we have any evidence about, in either role.
+    const nodes = new Set([selfId]);
+    Object.keys(linkHeard).forEach(k => nodes.add(k));
+    Object.keys(linkReports).forEach(k => {
+        nodes.add(k);
+        Object.keys(linkReports[k].peers).forEach(p => nodes.add(p));
+    });
+    nodes.delete("");
+
+    const list = [...nodes];
+    const rows = [];
+    for (let i = 0; i < list.length; i++) {
+        for (let j = i + 1; j < list.length; j++) {
+            const a = list[i], b = list[j];
+            const ab = linkDir(a, b, selfId);   // a transmits, b receives
+            const ba = linkDir(b, a, selfId);
+            if (!ab && !ba) continue;
+            rows.push({ a, b, ab, ba });
+        }
+    }
+
+    // Worst first: the marginal link is the one being looked for.
+    const score = r => Math.min(r.ab ? r.ab.rssi : 0, r.ba ? r.ba.rssi : 0);
+    rows.sort((x, y) => score(x) - score(y));
+
+    if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="4" style="padding:14px; color:#8b949e; text-align:center;">'
+            + 'Nothing heard over LoRa yet. Each Top reports once a minute.</td></tr>';
+        return;
+    }
+
+    const cell = d => d === null
+        ? '<span style="color:#6b7280;">not heard</span>'
+        : '<span style="color:' + linkColour(d.rssi) + '; font-weight:bold;">' + d.rssi + ' dBm</span>'
+          + '<span style="color:#8b949e; font-size:0.85em;"> &middot; ' + d.count + ' frames'
+          + (d.worst !== null && d.worst !== d.rssi ? ', worst ' + d.worst : '') + '</span>';
+
+    body.innerHTML = rows.map(r => {
+        const A = linkName(r.a === selfId ? "this node" : r.a);
+        const B = linkName(r.b === selfId ? "this node" : r.b);
+        // Asymmetry is the diagnosis, so say it rather than leaving it to be spotted.
+        let verdict = "", vcol = "#8b949e";
+        if (r.ab && r.ba) {
+            const gap = Math.abs(r.ab.rssi - r.ba.rssi);
+            if (gap >= 12) {
+                verdict = "one-sided by " + gap + " dB - suspect the weaker end";
+                vcol = "#eab308";
+            } else if (Math.max(r.ab.rssi, r.ba.rssi) < LINK_WEAK) {
+                verdict = "weak both ways - distance or obstruction";
+                vcol = "#ef4444";
+            } else {
+                verdict = "symmetric";
+                vcol = "#22c55e";
+            }
+        } else {
+            verdict = "only one direction measured";
+        }
+        return '<tr style="border-top:1px solid #30363d;">'
+            + '<td style="padding:8px 10px; font-weight:bold;">' + A + ' &harr; ' + B + '</td>'
+            + '<td style="padding:8px 10px;">' + A + ' &rarr; ' + B + '<br>' + cell(r.ab) + '</td>'
+            + '<td style="padding:8px 10px;">' + B + ' &rarr; ' + A + '<br>' + cell(r.ba) + '</td>'
+            + '<td style="padding:8px 10px; color:' + vcol + ';">' + verdict + '</td>'
+            + '</tr>';
+    }).join("");
+
+    const omitted = Object.values(linkReports).reduce((n, r) => n + (r.omitted || 0), 0);
+    const note = document.getElementById("loralinks-note");
+    if (note) {
+        note.textContent = omitted
+            ? omitted + " peer(s) left out of this round of reports - they appear in a later one."
+            : "";
+    }
+}
+
+function showLoraView(which) {
+    const dash = document.querySelector("main.dashboard");
+    const links = document.getElementById("view-loralinks");
+    if (!dash || !links) return;
+    const onLinks = (which === "loralinks");
+    dash.style.display = onLinks ? "none" : "";
+    links.style.display = onLinks ? "block" : "none";
+    document.querySelectorAll(".view-tab").forEach(t => {
+        const on = (t.dataset.view === which);
+        t.style.background = on ? "#1f6feb" : "#21262d";
+        t.style.color = on ? "#fff" : "#8b949e";
+    });
+    if (onLinks) renderLoraLinks();
+}
+
+setInterval(renderLoraLinks, 5000);

@@ -414,6 +414,23 @@ void udp_broadcast(const String &message)
     udp.broadcastTo(message.c_str(), 1001);
 }
 
+// A log line on the same UDP port the Subs and Tops use (1002). The handheld had no logging of any
+// kind - no serial cable in the field, no diagnostic endpoint - so when something it does silently
+// stops happening there is nothing to look at but the screen. Everything else on this network can
+// be watched from the PC; this makes the CYD the same.
+void cyd_log(const char *fmt, ...)
+{
+    char body[180];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(body, sizeof(body), fmt, ap);
+    va_end(ap);
+    char line[220];
+    snprintf(line, sizeof(line), "CYD %lu %s\n", (unsigned long)millis(), body);
+    Serial.print(line);
+    udp.broadcastTo(line, 1002);
+}
+
 void broadcast_websocket_udp(const String &payload, int rssi, const String &ip)
 {
     // RoboLora protocol: UDP:RSSI:IP:$Payload
