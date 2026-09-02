@@ -438,8 +438,17 @@ static void cal8Send(int ackKind, int action, int leg, uint16_t seq)
 // ---- press retry ----------------------------------------------------------------------------
 // One press in flight at a time. There is never more than one: the operator is pressing buttons on
 // a screen and the next press is only offered once this one has visibly landed.
-#define CAL8_RETRY_MS   400
-#define CAL8_MAX_TRIES  12
+// Sized against what the Top-to-Sub wire actually does during a calibration, measured on the
+// bench with both ends logging: the Top saw one press arrive 35 times and got it across to the Sub
+// 4 times, with 13.5 s, 11.6 s and 5.6 s between successes. The old budget was 12 x 400 ms = 4.8 s,
+// which is shorter than the gap between deliveries - so a press could burn every retry and be
+// abandoned while the wire was simply busy, and the screen said NO REPLY on a run that was fine.
+//
+// Slower as well as longer. The wire is a collision domain and the Sub reports on it every 250 ms,
+// so hammering it at 400 ms mostly manufactures collisions; 600 ms x 25 gives a 15 s budget for
+// fewer writes than the old 4.8 s one made.
+#define CAL8_RETRY_MS   600
+#define CAL8_MAX_TRIES  25
 static volatile int cal8PendAction = -1;
 static volatile int cal8PendLeg = 0;
 static volatile uint16_t cal8PendSeq = 0;
@@ -448,6 +457,20 @@ static volatile unsigned long cal8PendNextMs = 0;
 
 void cal8NotePress(int action, int leg, uint16_t seq)
 {
+    // Already working on this one? Then this is an echo, not a new press, and re-arming on it is
+    // actively harmful: it resets the retry counter and fires another frame down the wire.
+    //
+    // The same press arrives many times over. The CYD transmits once, but it goes out on LoRa and
+    // UDP both, the other Top relays what it hears across interfaces, and the LoRa retransmit table
+    // has its own opinion - measured: 35 arrivals for one press. Every one of those used to mean
+    // another serial write into a half-duplex wire that was already dropping most of what it was
+    // given. BEGIN, SAVE and CANCEL are idempotent and carry no serial, so before this there was
+    // nothing to tell an echo from a press.
+    if (cal8PendAction == action && (action != CAL8_SET || seq == cal8PendSeq))
+    {
+        return;
+    }
+
     if (action == CAL8_SET)
     {
         if (seq == 0)
