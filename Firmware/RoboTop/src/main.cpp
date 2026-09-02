@@ -566,10 +566,32 @@ static void adoptOwnTrackTarget(RoboStruct *stat, RoboStruct buoyPara[3])
 //
 // LOCKING counts as locked: the buoy owns a real lock position and is on its way to it. DOCKED
 // and DOCKING deliberately do not - a buoy going home is not part of a course.
+//
+// THE COMMAND IS ITSELF A STATUS, which is what made this guard reject everything. handleKeyPress()
+// and handleRfData() both trigger the work by writing stat->status = COMPUTESTART, and stat is
+// &mainData - so by the time the test below runs, this buoy's own LOCKED has been overwritten by
+// the very command being guarded. It could never count itself. With two buoys deployed the count
+// therefore capped at 1 and ALIGN STARTLINE was refused every time, from the button, the web page
+// and the CYD alike; COMPUTETRACK wants three and capped at 2, so it could never have run at all.
+// The symptom is a single unhappy beep and nothing else, which reads exactly like "the button did
+// not understand me".
+//
+// lastHoldingStatus is the last status this buoy was actually IN, as opposed to one it was told to
+// carry out. Recorded in loop() and used here whenever stat->status is a command.
+static int lastHoldingStatus = IDLE;
+
+// A status that is really an instruction: something the buoy is being asked to DO, which it passes
+// through for one iteration and then leaves. Never a description of where the buoy is.
+static inline bool isCommandStatus(int s)
+{
+    return s == COMPUTESTART || s == COMPUTETRACK || s == EXTENDSTART || s == SENDTRACK;
+}
+
 static int lockedBuoyCount(RoboStruct *stat, RoboStruct buoyPara[3])
 {
     int n = 0;
-    if (stat->status == LOCKED || stat->status == LOCKING) n++;
+    int own = isCommandStatus(stat->status) ? lastHoldingStatus : stat->status;
+    if (own == LOCKED || own == LOCKING) n++;
     for (int i = 1; i < 3; i++)
     {
         if (buoyPara[i].IDs == 0) continue;
@@ -760,7 +782,8 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         if (lockedBuoyCount(stat, buoyPara) < 2)
         {
             printf("#Start line NOT computed - need TWO locked buoys, have %d\r\n",
-                   lockedBuoyCount(stat, buoyPara));
+                   lockedBuoyCount(stat, buoyPara));
+            udpLog("GUARD refused: %d locked buoy(s), need 2", lockedBuoyCount(stat, buoyPara));
             beep(-1, buzzer);
             stat->status = (stat->tgLat != 0.0 && stat->tgLng != 0.0) ? LOCKED : IDLE;
             break;
@@ -813,7 +836,8 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         if (lockedBuoyCount(stat, buoyPara) < 2)
         {
             printf("#Start line NOT extended - need TWO locked buoys, have %d\r\n",
-                   lockedBuoyCount(stat, buoyPara));
+                   lockedBuoyCount(stat, buoyPara));
+            udpLog("GUARD refused: %d locked buoy(s), need 2", lockedBuoyCount(stat, buoyPara));
             beep(-1, buzzer);
             stat->status = (stat->tgLat != 0.0 && stat->tgLng != 0.0) ? LOCKED : IDLE;
             break;
@@ -2809,6 +2833,9 @@ void loop(void)
         mainData.mac = espMac();
 
         // Keep placeholder in sync for dashboard
+        // What we are, before any command handler this iteration can overwrite it with what we
+        // have been told to do. See lockedBuoyCount() for why the difference matters.
+        if (!isCommandStatus(mainData.status)) lastHoldingStatus = mainData.status;
         buoyPara[0] = mainData;
 
         // Slot 0 is us, and only us. We answer to two identities: the physical MAC and the
