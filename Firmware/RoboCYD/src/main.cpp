@@ -91,6 +91,15 @@ bool mancal_begin_sent = false;
 // coloured before the press rather than the press being refused after it.
 #define MANCAL_ANCHOR_TOL 2.0f
 
+// How far the reading may sit from the direction being asked for before it stops looking right.
+// These apply to the seven marks AFTER the anchor, and they are deliberately loose: at those stops
+// the reading is SUPPOSED to differ from the nominal by the hull's own deviation, which runs to a
+// dozen degrees on these hulls. A tight window there would show red on a perfectly good capture and
+// teach the operator to ignore the colour. What is worth catching is the gross error - the fixture
+// indexed to the wrong mark, which is out by tens of degrees.
+#define MANCAL_DEV_GOOD_DEG 12.0f    // green: an ordinary amount of deviation
+#define MANCAL_DEV_WARN_DEG 25.0f    // yellow: large, but a real hull can do this
+
 // A capture that has gone out and not yet been confirmed. Presses are numbered, and the number is
 // one past the last the buoy reported applying - so a second tap sent before the first has landed
 // would carry the SAME number and be thrown away as a duplicate. Rather than let that look like a
@@ -149,6 +158,30 @@ static bool mancal_on_anchor(const BuoyData &b) {
     while (off > 180.0f) off -= 360.0f;
     while (off < -180.0f) off += 360.0f;
     return fabsf(off) <= MANCAL_ANCHOR_TOL;
+}
+
+// Signed gap between the live reading and the direction currently being asked for.
+static float mancal_gap_to_leg(const BuoyData &b, int leg) {
+    float gap = b.mag_dir_iron - leg * 45.0f;
+    while (gap > 180.0f) gap -= 360.0f;
+    while (gap < -180.0f) gap += 360.0f;
+    return gap;
+}
+
+// What colour the big reading should be.
+//
+// N is a hard gate - the run is anchored on the compass's own zero, so it is pass or fail and red
+// means "do not press yet". The other seven are not a gate at all: they are judged against the
+// direction being asked for, with room for the deviation that is the whole point of measuring.
+static uint16_t mancal_imag_colour(const BuoyData &b, bool running, int leg) {
+    if (!mancal_imag_live(b)) return TFT_DARKGREY;
+    if (!running || leg < 0) return TFT_LIGHTGREY;
+    if (leg == 0) return mancal_on_anchor(b) ? TFT_GREEN : TFT_RED;
+
+    float gap = fabsf(mancal_gap_to_leg(b, leg));
+    if (gap <= MANCAL_DEV_GOOD_DEG) return TFT_GREEN;
+    if (gap <= MANCAL_DEV_WARN_DEG) return TFT_YELLOW;
+    return TFT_RED;
 }
 
 // True while a capture is out and unconfirmed - see mancal_press_seq.
@@ -218,6 +251,54 @@ static void draw_mancal_level(const BuoyData &b, bool known) {
     if (mag > lim && mag > 0.001f) { dx = dx * lim / mag; dy = dy * lim / mag; }
 
     tft.fillCircle(MANCAL_CX + (int)dx, MANCAL_CY + (int)dy, 4, col);
+}
+
+// The action band, bottom of the screen. Pulled out of update_mancal_dynamic() so a press can put
+// WAIT up the moment it goes out, rather than on whatever repaint happens to come next.
+static void draw_mancal_action_band(bool known, bool running, bool complete, bool pending, int done) {
+    int w = tft.width();
+    tft.setTextDatum(MC_DATUM);
+
+    if (pending) {
+        // A capture is out and the buoy has not confirmed it yet. That round trip is the CYD to the
+        // Top over the air, the Top to the Sub down a half-duplex wire that drops much of what is
+        // sent, and the reply all the way back - so it is normally a moment and occasionally a
+        // second or two. Saying nothing for that long reads as a dead button and invites a second
+        // press, which carries the same serial and is thrown away as a duplicate.
+        tft.fillRoundRect(10, 266, w - 20, 26, 5, TFT_ORANGE);
+        tft.setTextColor(TFT_BLACK, TFT_ORANGE);
+        tft.setTextSize(2);
+        tft.drawString("WAIT...", w / 2, 279);
+        return;
+    }
+
+    // START when nothing is armed, SAVE once every direction is in, and a dead grey bar in between
+    // saying how many are still missing. A 26 px bar is hard to miss and hard to hit by accident,
+    // which is what you want for the one press that replaces a calibration.
+    if (!known) {
+        tft.fillRoundRect(10, 266, w - 20, 26, 5, tft.color565(40, 40, 40));
+        tft.setTextColor(TFT_DARKGREY, tft.color565(40, 40, 40));
+        tft.setTextSize(1);
+        tft.drawString("WAITING FOR THE BUOY", w / 2, 279);
+    } else if (!running) {
+        tft.fillRoundRect(10, 266, w - 20, 26, 5, TFT_GREEN);
+        tft.setTextColor(TFT_BLACK, TFT_GREEN);
+        tft.setTextSize(2);
+        tft.drawString("START", w / 2, 279);
+    } else if (complete) {
+        tft.fillRoundRect(10, 266, w - 20, 26, 5, TFT_GREEN);
+        tft.setTextColor(TFT_BLACK, TFT_GREEN);
+        tft.setTextSize(2);
+        tft.drawString("SAVE TABLE", w / 2, 279);
+    } else {
+        uint16_t bg = tft.color565(40, 40, 40);
+        tft.fillRoundRect(10, 266, w - 20, 26, 5, bg);
+        tft.setTextColor(TFT_DARKGREY, bg);
+        tft.setTextSize(1);
+        char save_buf[32];
+        sprintf(save_buf, "SAVE - %d STILL TO CAPTURE", 8 - done);
+        tft.drawString(save_buf, w / 2, 279);
+    }
 }
 
 // The one-line complaint band under the rose.
@@ -2431,9 +2512,11 @@ void loop() {
                                   MANCAL_DIRS[dir], dir * 45, b.mag_dir_iron, mancal_press_seq);
                     send_buoy_cal8(b.id, 1 /* CAL8_SET */, dir, 2, mancal_press_seq);
 
-                    // Say so at once. The confirmation comes back from the buoy a moment later and
-                    // repaints the whole screen; without this the press feels dead over a
-                    // LoRa-only link.
+                    // Say so at once, and keep saying it until the buoy confirms. WAIT goes up
+                    // here rather than on the next repaint, because the repaint is what we are
+                    // waiting for. No delay() with it: the screen has to keep running so the
+                    // reply can land and clear it - see draw_mancal_action_band().
+                    draw_mancal_action_band(true, true, false, true, mancal_count(b));
                     tft.fillRect(0, 242, tft.width(), 13, TFT_BLACK);
                     tft.setTextDatum(MC_DATUM);
                     tft.setTextSize(1);
@@ -2441,8 +2524,6 @@ void loop() {
                     char cap_buf[28];
                     sprintf(cap_buf, "%s SENT - %0.1f", MANCAL_DIRS[dir], b.mag_dir_iron);
                     tft.drawString(cap_buf, tft.width() / 2, 249);
-                    delay(300);
-                    mancal_is_dirty = true;
                     delay(20);
                     return;
                 }
@@ -3742,6 +3823,9 @@ void update_mancal_dynamic() {
     const int leg = mancal_leg(b);
     const bool on_anchor = mancal_on_anchor(b);
     const int done = mancal_count(b);
+    // Once per pass: this clears its own latch the moment the buoy's reply lands, so a second
+    // call in the same pass would answer differently from the first.
+    const bool press_pending = mancal_press_pending(b);
 
     if (mancal_is_dirty) {
         tft.fillRect(0, 48, w, 272, TFT_BLACK);
@@ -3757,29 +3841,29 @@ void update_mancal_dynamic() {
     }
 
     // ---- the big Imag reading -----------------------------------------------------------
-    // Red until the hull is on the compass's own zero, green once it is. This is the whole of the
-    // anchoring procedure: turn the buoy until the number goes green, then tap N.
+    // Coloured against the direction being asked for, not against zero - see
+    // mancal_imag_colour(). Zero is only the right target for N.
     static float last_imag_drawn = -999.0f;
-    static bool last_anchor_drawn = false;
+    static uint16_t last_imag_col = 0;
     static bool last_live_drawn = false;
     const bool imag_live = mancal_imag_live(b);
+    const uint16_t imag_col = mancal_imag_colour(b, running, leg);
     if (mancal_is_dirty || b.mag_dir_iron != last_imag_drawn ||
-        on_anchor != last_anchor_drawn || imag_live != last_live_drawn) {
+        imag_col != last_imag_col || imag_live != last_live_drawn) {
         last_imag_drawn = b.mag_dir_iron;
-        last_anchor_drawn = on_anchor;
+        last_imag_col = imag_col;
         last_live_drawn = imag_live;
 
         tft.fillRect(0, 62, w, 34, TFT_BLACK);
         tft.setTextDatum(MC_DATUM);
         tft.setTextSize(4);
         char imag_buf[16];
+        tft.setTextColor(imag_col, TFT_BLACK);
         if (!imag_live) {
             // Not "0" - that is a heading in its own right, and printing it would claim a reading
             // the buoy has not given us.
-            tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
             sprintf(imag_buf, "--");
         } else {
-            tft.setTextColor(on_anchor ? TFT_GREEN : TFT_RED, TFT_BLACK);
             sprintf(imag_buf, "%0.0f", b.mag_dir_iron);
         }
         tft.drawString(imag_buf, w / 2, 79);
@@ -3800,16 +3884,19 @@ void update_mancal_dynamic() {
 
     // ---- the hint line ------------------------------------------------------------------
     static int last_hint = -1;
+    static float last_hint_gap = -999.0f;
+    const float hint_gap = (running && leg >= 0) ? mancal_gap_to_leg(b, leg) : 0.0f;
     int hint = !known                    ? 0
              : !imag_live                ? 1
              : !running                  ? 2
-             : mancal_press_pending(b)   ? 3
+             : press_pending            ? 3
              : complete                  ? 4
              : (leg == 0 && !on_anchor)  ? 5
              : (leg == 0)                ? 6
                                          : 7;
-    if (mancal_is_dirty || hint != last_hint) {
+    if (mancal_is_dirty || hint != last_hint || hint_gap != last_hint_gap) {
         last_hint = hint;
+        last_hint_gap = hint_gap;
         tft.fillRect(0, 98, w, 12, TFT_BLACK);
         tft.setTextDatum(MC_DATUM);
         tft.setTextSize(1);
@@ -3823,10 +3910,20 @@ void update_mancal_dynamic() {
         case 4: txt = "all eight in - SAVE or re-tap to redo"; col = TFT_GREEN; break;
         case 5: txt = "turn the hull until IMAG is green"; col = TFT_RED; break;
         case 6: txt = "on zero - tap N to anchor the run"; col = TFT_GREEN; break;
-        default: txt = "index the jig 45 deg, tap each mark"; break;
+        default: txt = NULL; break;
         }
-        tft.setTextColor(col, TFT_BLACK);
-        tft.drawString(txt, w / 2, 104);
+        if (txt) {
+            tft.setTextColor(col, TFT_BLACK);
+            tft.drawString(txt, w / 2, 104);
+        } else {
+            // At the other seven the useful line is the target and the gap to it, because the
+            // colour above is judged against that and not against zero.
+            char tgt_buf[44];
+            sprintf(tgt_buf, "%s  expect ~%d  now %+0.0f", MANCAL_DIRS[leg], leg * 45,
+                    mancal_gap_to_leg(b, leg));
+            tft.setTextColor(imag_col == TFT_RED ? TFT_RED : TFT_LIGHTGREY, TFT_BLACK);
+            tft.drawString(tgt_buf, w / 2, 104);
+        }
     }
 
     // ---- the rose -----------------------------------------------------------------------
@@ -3915,37 +4012,20 @@ void update_mancal_dynamic() {
         draw_mancal_offset_strip();
     }
 
-    if (mancal_is_dirty) {
-        // ---- the action band ------------------------------------------------------------
-        // START when nothing is armed, SAVE once every direction is in, and a dead grey bar in
-        // between saying how many are still missing. A 26 px bar is hard to miss and hard to hit by
-        // accident, which is what you want for the one press that replaces a calibration.
-        tft.setTextDatum(MC_DATUM);
-        if (!known) {
-            tft.fillRoundRect(10, 266, w - 20, 26, 5, tft.color565(40, 40, 40));
-            tft.setTextColor(TFT_DARKGREY, tft.color565(40, 40, 40));
-            tft.setTextSize(1);
-            tft.drawString("WAITING FOR THE BUOY", w / 2, 279);
-        } else if (!running) {
-            tft.fillRoundRect(10, 266, w - 20, 26, 5, TFT_GREEN);
-            tft.setTextColor(TFT_BLACK, TFT_GREEN);
-            tft.setTextSize(2);
-            tft.drawString("START", w / 2, 279);
-        } else if (complete) {
-            tft.fillRoundRect(10, 266, w - 20, 26, 5, TFT_GREEN);
-            tft.setTextColor(TFT_BLACK, TFT_GREEN);
-            tft.setTextSize(2);
-            tft.drawString("SAVE TABLE", w / 2, 279);
-        } else {
-            uint16_t bg = tft.color565(40, 40, 40);
-            tft.fillRoundRect(10, 266, w - 20, 26, 5, bg);
-            tft.setTextColor(TFT_DARKGREY, bg);
-            tft.setTextSize(1);
-            char save_buf[32];
-            sprintf(save_buf, "SAVE - %d STILL TO CAPTURE", 8 - done);
-            tft.drawString(save_buf, w / 2, 279);
-        }
+    // ---- the action band ----------------------------------------------------------------
+    // Outside the dirty check: WAIT has to appear and clear on its own, independently of whatever
+    // else happens to have changed.
+    static bool last_band_pending = false;
+    static int last_band_state = -1;
+    const bool band_pending = press_pending;
+    const int band_state = (!known ? 0 : !running ? 1 : complete ? 2 : 3) * 16 + done;
+    if (mancal_is_dirty || band_pending != last_band_pending || band_state != last_band_state) {
+        last_band_pending = band_pending;
+        last_band_state = band_state;
+        draw_mancal_action_band(known, running, complete, band_pending, done);
+    }
 
+    if (mancal_is_dirty) {
         // ---- the footer -----------------------------------------------------------------
         // Left half always leaves. CANCEL stays live for the whole run and not only at the end:
         // needing to finish a calibration you have already decided to throw away would be a trap.
