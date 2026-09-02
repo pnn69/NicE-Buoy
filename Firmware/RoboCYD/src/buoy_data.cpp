@@ -494,6 +494,28 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     }
     // Parse SETUPDATA (CMD = 83) dynamically with robust length checking!
     else if (cmd == 83 && fields.size() >= 6) {
+        // Every field below is one the Setup screen lets the operator edit, and buoys[] IS that
+        // screen's edit buffer - there is no separate copy. So an unsolicited SETUPDATA lands
+        // straight on top of unsaved work.
+        //
+        // It is unsolicited constantly: RoboTop re-reads the Sub's settings every
+        // SUB_SETUP_RESYNC_MS (20 s) and broadcasts the reply to BUOYIDALL on both transports, so
+        // it arrives whether anyone asked or not. That poll is right - the Sub owns these values
+        // and the Top's mirror has to be kept honest - and it was written against the WEB dialog,
+        // which fills its fields once on open and is genuinely safe from it. This screen reads
+        // buoys[] live, so it was not.
+        //
+        // Set as North is where it showed: it computes a new compass offset into this struct and
+        // asks the operator to press SAVE, and the next resync put the buoy's old offset back
+        // underneath them. SAVE then wrote the old value out again and nothing appeared to happen.
+        // Any "+"/"-" edit reverted the same way, just visibly enough to be re-done.
+        //
+        // So once the screen has its initial load the operator owns these fields until they leave:
+        // entering Setup clears setup_data_loaded and re-asks, and that is what repopulates them.
+        // The telemetry above is untouched - it is not edited and the screen needs it live.
+        if (in_setup_mode && setup_data_loaded && buoy_idx == selected_buoy_idx) {
+            return;
+        }
         Serial.printf("Parsing SETUPDATA for Buoy: %s (fields: %d)\n", sender_id.c_str(), fields.size());
         if (fields.size() > 5) buoys[buoy_idx].kpr = atof(fields[5].c_str());
         if (fields.size() > 6) buoys[buoy_idx].kir = atof(fields[6].c_str());
