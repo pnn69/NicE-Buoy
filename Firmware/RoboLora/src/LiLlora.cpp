@@ -146,6 +146,134 @@ RoboStruct chkAckMsg(void)
 //***************************************************************************************************
 //  Receive and decode incoming lora message
 //***************************************************************************************************
+//***************************************************************************************************
+//  LoRa link quality
+//***************************************************************************************************
+// Same measurement the Tops and the handheld make - see LORA_LINK in RoboCompute.h. Having the
+// gateway report too is what makes a transmitter comparison possible: put this and the handheld in
+// the same place and the Tops' readings of the two say which radio is the weaker, which no single
+// node can tell you about itself.
+#define LINK_PEERS_TRACKED 12
+#define LINK_REPORT_MS 60000UL
+#define LINK_FORGET_MS 300000UL
+#define LINK_DEDUP_MS 1200UL
+#define LINK_DEDUP_SLOTS 8
+
+struct LinkPeer
+{
+    uint32_t id = 0;
+    long rssiSum = 0;
+    int16_t rssiWorst = 0;
+    uint16_t count = 0;
+    int16_t lastRssi = 0;
+    unsigned long lastHeard = 0;
+    bool used = false;
+};
+
+static LinkPeer linkPeer[LINK_PEERS_TRACKED];
+static String linkSeen[LINK_DEDUP_SLOTS];
+static unsigned long linkSeenAt[LINK_DEDUP_SLOTS] = {0};
+static int linkSeenIdx = 0;
+static unsigned long linkReportDue = 0;
+
+// A relayed frame carries the original sender's id but arrives at the relay's signal strength, so
+// only the first copy of a frame is measured. See the same guard on the Top.
+static bool linkFirstCopy(const String &msg)
+{
+    unsigned long now = millis();
+    for (int i = 0; i < LINK_DEDUP_SLOTS; i++)
+        if (linkSeen[i] == msg && (now - linkSeenAt[i]) < LINK_DEDUP_MS) return false;
+    linkSeen[linkSeenIdx] = msg;
+    linkSeenAt[linkSeenIdx] = now;
+    linkSeenIdx = (linkSeenIdx + 1) % LINK_DEDUP_SLOTS;
+    return true;
+}
+
+static void linkNote(uint32_t id, int rssi)
+{
+    if (id == 0) return;
+    int free_slot = -1;
+    for (int i = 0; i < LINK_PEERS_TRACKED; i++)
+    {
+        if (linkPeer[i].used && linkPeer[i].id == id)
+        {
+            linkPeer[i].rssiSum += rssi;
+            if (rssi < linkPeer[i].rssiWorst) linkPeer[i].rssiWorst = (int16_t)rssi;
+            if (linkPeer[i].count < 65535) linkPeer[i].count++;
+            linkPeer[i].lastRssi = (int16_t)rssi;
+            linkPeer[i].lastHeard = millis();
+            return;
+        }
+        if (!linkPeer[i].used && free_slot < 0) free_slot = i;
+    }
+    if (free_slot < 0) return;
+    linkPeer[free_slot].used = true;
+    linkPeer[free_slot].id = id;
+    linkPeer[free_slot].rssiSum = rssi;
+    linkPeer[free_slot].rssiWorst = (int16_t)rssi;
+    linkPeer[free_slot].count = 1;
+    linkPeer[free_slot].lastRssi = (int16_t)rssi;
+    linkPeer[free_slot].lastHeard = millis();
+}
+
+static bool linkAlive(const LinkPeer &p)
+{
+    return p.used && p.lastHeard && (millis() - p.lastHeard) < LINK_FORGET_MS;
+}
+
+static int linkMean(const LinkPeer &p)
+{
+    return p.count ? (int)(p.rssiSum / (long)p.count) : (int)p.lastRssi;
+}
+
+void linkReportService(void)
+{
+    if (linkReportDue == 0) linkReportDue = millis() + LINK_REPORT_MS;
+    if ((long)(millis() - linkReportDue) < 0) return;
+    linkReportDue = millis() + LINK_REPORT_MS;
+
+    int order[LINK_PEERS_TRACKED];
+    int n = 0;
+    for (int i = 0; i < LINK_PEERS_TRACKED; i++)
+        if (linkAlive(linkPeer[i])) order[n++] = i;
+
+    RoboStruct msg = {};
+    msg.cmd = LORA_LINK;
+    msg.ack = INF;
+    msg.IDr = BUOYIDALL;
+    msg.IDs = espMac();
+
+    // Worst first: if anything has to be left out it should be the healthy links.
+    for (int a = 0; a < n - 1; a++)
+        for (int b = a + 1; b < n; b++)
+            if (linkMean(linkPeer[order[b]]) < linkMean(linkPeer[order[a]]))
+            {
+                int t = order[a]; order[a] = order[b]; order[b] = t;
+            }
+
+    int put = 0;
+    for (; put < n && put < LORA_LINK_MAX_PEERS; put++)
+    {
+        const LinkPeer &p = linkPeer[order[put]];
+        msg.linkPeerId[put] = p.id;
+        msg.linkRssi[put] = (int16_t)linkMean(p);
+        msg.linkCount[put] = p.count;
+    }
+    msg.linkPeers = (uint8_t)put;
+    msg.linkOmitted = (uint8_t)(n > put ? n - put : 0);
+
+    // Goes out even with nothing to report: the frame is also the only thing that lets the Tops
+    // measure THIS node, and "heard nobody" is itself worth transmitting.
+    xQueueSend(loraOut, (void *)&msg, 0);
+
+    for (int i = 0; i < LINK_PEERS_TRACKED; i++)
+    {
+        linkPeer[i].rssiSum = 0;
+        linkPeer[i].rssiWorst = 0;
+        linkPeer[i].count = 0;
+    }
+}
+
 void onReceive(int packetSize)
 {
     if (packetSize == 0)
@@ -187,6 +315,11 @@ void onReceive(int packetSize)
     RoboStruct in = {};
     rfDeCode(incoming, &in);
     in.loralstmsg = LoRa.packetRssi();
+
+    // Link accounting, before any of the addressing tests below can drop the frame - hearing
+    // somebody else's traffic measures the path just as well as hearing our own.
+    if (in.IDs != espMac() && linkFirstCopy(incoming))
+        linkNote((uint32_t)in.IDs, in.loralstmsg);
     if ((in.IDr == buoyId || in.IDr == 0x99) && in.ack == ACK) // A message form me so check if its a ACK message
     {
         removeAckMsg(in);
@@ -257,7 +390,10 @@ void LoraTask(void *arg)
     while (1)
     {
         // Continuously poll the LoRa FIFO buffer to process incoming packets
-        onReceive(LoRa.parsePacket()); 
+        onReceive(LoRa.parsePacket());
+
+        // One link report a minute - see linkReportService().
+        linkReportService();
 
         // Process any outgoing telemetry messages queued by the main firmware loop
         static RoboStruct txMsg;
