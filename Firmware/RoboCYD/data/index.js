@@ -701,6 +701,16 @@ function parseMessage(message, source, senderIp = null, loraRssi = null, udpRssi
         // Echo prevention: if sender is 99 (us), ignore
         if (senderId === "99") return;
         
+        const cmd = parseInt(fields[3]);
+
+        // Only the two frames a buoy broadcasts about ITSELF prove the sender is a buoy at all:
+        // TOPDATA and BUOYPOS. Everything else - a setup reply, a calibration step, a link report -
+        // can come from something that is not one, and the slot search below used to take any
+        // sender with four or more hex digits. RoboLora started reporting its links, so the gateway
+        // walked straight into a buoy slot and sat there with no position, no heading and nothing
+        // to steer. Same rule the CYD firmware now applies in parse_buoy_packet().
+        const isBuoyTelemetry = (cmd === MsgType.TOPDATA || cmd === MsgType.BUOYPOS);
+
         let targetBuoy = null;
         
         // Find existing match by either target or sender ID (ignoring broadcast target IDs like 0 or 1)
@@ -714,7 +724,7 @@ function parseMessage(message, source, senderIp = null, loraRssi = null, udpRssi
         }
         
         // If no match, assign to the first empty buoy slot
-        if (!targetBuoy && /^[0-9a-fA-F]+$/.test(senderId) && senderId.length >= 4) {
+        if (!targetBuoy && isBuoyTelemetry && /^[0-9a-fA-F]+$/.test(senderId) && senderId.length >= 4) {
             for (let b of buoys) {
                 if (b.id === null) {
                     b.id = senderId;
@@ -807,7 +817,6 @@ function parseMessage(message, source, senderIp = null, loraRssi = null, udpRssi
             return;
         }
         
-        const cmd = parseInt(fields[3]);
         const ack = fields[2];
         const status = fields[4];
         
@@ -842,6 +851,27 @@ function parseMessage(message, source, senderIp = null, loraRssi = null, udpRssi
                 "Latitude (Lat)": fields[5], "Longitude (Lon)": fields[6], "Magnetic Dir": fields[7], "Wind Dir": fields[8],
                 "Bow Thruster (BB)": fields[10], "Stern Thruster (SB)": fields[11]
             });
+        } else if ((cmd === MsgType.LOCKPOS || cmd === MsgType.DOCKPOS) && fields.length >= 7) {
+            // The commanded waypoint, as coordinates. These two frames are the ONLY ones that
+            // carry it - TOPDATA says where the buoy IS, never where it is supposed to be - and
+            // this page had no handler for them at all. So the map reconstructed each waypoint by
+            // projecting Target Dir / Target Dist off the buoy's own fix, and that reconstruction
+            // fails exactly when it matters: a buoy that has ARRIVED reports Target Dist 0, the
+            // projection below is refused for dist > 0, and the map quietly falls back to
+            // measuring the start line between two hulls wandering inside their hold radius.
+            // Hence a line length that changes every refresh, and a map that disagrees with the
+            // CYD's own screen - which has read these frames all along.
+            const tLat = parseFloat(fields[5]), tLng = parseFloat(fields[6]);
+            // 0/0 is what an unset target decodes to. Plotting it drops a mark in the Gulf of
+            // Guinea and blows the plot scale out to thousands of kilometres.
+            if (!isNaN(tLat) && !isNaN(tLng) && (tLat !== 0 || tLng !== 0)) {
+                targetBuoy.wpLat = tLat;
+                targetBuoy.wpLng = tLng;
+                targetBuoy.wpMs = Date.now();
+            }
+            if (fields.length >= 9) {
+                Object.assign(parsedData, { "Wind Dir": fields[7], "Wind StdDev": fields[8] });
+            }
         } else if ((cmd === MsgType.PIDRUDDER || cmd === MsgType.PIDRUDDERSET) && isInfoPacket && fields.length >= 8) {
             Object.assign(parsedData, {
                 "Kpr": fields[5], "Kir": fields[6], "Kdr": fields[7]
@@ -2106,6 +2136,10 @@ function projectCoords(lat, lng, bearing, distance) {
 // =================================================================================================
 const MAP_LINE_STEP_M = 5;
 const MAP_WAYPOINT_MAX_M = 300;    // Past this a "target" is a fault, not a mark - see below
+// How long a waypoint stays on the map after the last LOCKPOS/DOCKPOS that carried it. RoboTop
+// beacons one every 5 s while it holds station, so this is four missed beacons. Same figure as
+// WAYPOINT_STALE_MS in the CYD firmware, deliberately - the two views must age a mark out together.
+const MAP_WAYPOINT_STALE_MS = 20000;
 // Sailing convention, matching the CYD touchscreen exactly: starboard hand GREEN, port hand RED,
 // the upwind HEAD mark BLUE, and plain green for any buoy that is present while the fleet is not
 // yet fully locked. Roles only exist once EVERY present buoy is locked - before that no course has
@@ -2168,8 +2202,17 @@ function mapValidBuoys() {
         const dist = parseFloat(b.data["Target Dist"]);
         const dir = parseFloat(b.data["Target Dir"]);
 
+        // The recorded waypoint wins over the reconstructed one. Aged out on the same 20 s window
+        // the CYD firmware uses (WAYPOINT_STALE_MS): four missed beacons, long enough to ride out
+        // LoRa losses and short enough that a buoy which has been switched off stops claiming a
+        // target. Projection stays only as a fallback for a buoy we have not yet heard a LOCKPOS
+        // from - it is the reconstruction, not the record.
         let wp = null;
-        if (holdsTarget && !isNaN(dist) && !isNaN(dir) && dist > 0) wp = projectCoords(lat, lng, dir, dist);
+        if (holdsTarget && b.wpMs && (Date.now() - b.wpMs) < MAP_WAYPOINT_STALE_MS) {
+            wp = { lat: b.wpLat, lng: b.wpLng };
+        } else if (holdsTarget && !isNaN(dist) && !isNaN(dir) && dist > 0) {
+            wp = projectCoords(lat, lng, dir, dist);
+        }
 
         // LOCKING counts as locked: the buoy owns a real lock position and is on its way to
         // it. DOCKING/DOCKED do not - a buoy going home is not part of a course.
@@ -2181,7 +2224,11 @@ function mapValidBuoys() {
             locked: locked,
             lat: lat, lng: lng,
             wp: wp,
-            wpDist: wp ? dist : 0,
+            // Measured to the waypoint actually plotted, not taken from the buoy's own Target
+            // Dist - the two are the same figure when the waypoint was projected FROM it, but
+            // when the waypoint is the recorded one they can differ, and the range bounds and the
+            // gap label both have to describe the mark on the screen.
+            wpDist: wp ? mapMeters(lat, lng, wp.lat, wp.lng) : 0,
             wDir: parseFloat(b.data["Wind Dir"]) || 0,
             wStd: parseFloat(b.data["Wind StdDev"]) || 0,
             heading: parseFloat(b.data["Magnetic Dir"]) || 0
