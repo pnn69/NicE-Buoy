@@ -2403,8 +2403,12 @@ function mapExecute() {
     const brgB = mapBearing(midLat, midLng, b.lat, b.lng);
     const half = mapLineTgtM / 2;
 
-    if (!confirm("Re-align the start line to " + Math.round(mapLineTgtM) + " m?\n\n"
-               + "Both end buoys will motor to their new ends of the line.")) return;
+    // No confirmation dialog. EXECUTE is already the deliberate second step - the length has
+    // to be dialled in on - / + first, and the button stays greyed out until the dialled
+    // figure differs from the live one - so the popup only ever asked whether you meant the
+    // thing you had just done twice. It also lands as a modal in the middle of a field job,
+    // which is the worst place for one. What happened is reported after the fact, in the map
+    // message and in the log.
 
     [[a, projectCoords(midLat, midLng, brgA, half)],
      [b, projectCoords(midLat, midLng, brgB, half)]].forEach(function (pair) {
