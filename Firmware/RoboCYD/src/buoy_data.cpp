@@ -154,14 +154,21 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     }
     
     // TELEMETRY: Ignore any auxiliary command echoes, except standard status updates, SETUPDATA (83),
-    // and the waypoint beacons LOCKPOS (21) / DOCKPOS (23).
+    // CAL8_SESSION (91), the interpolation table (88) and the waypoint beacons LOCKPOS (21) /
+    // DOCKPOS (23).
+    //
+    // 91 was missing from this list from the day the guided calibration was added, so every reply
+    // the buoy sent about a run was dropped here - 200 lines above the parser that wanted it. The
+    // touchscreen therefore never learned that a session existed and sat on "waiting for the buoy"
+    // for ever, with no way to tell that apart from a buoy that was not answering at all.
     //
     // SETLOCKPOS (20) is deliberately NOT accepted here even though it carries the same two
     // fields: it is sent BY the Top that computed a start line TO another buoy, so its sender ID
     // is the wrong buoy and the waypoint would be filed against the computer instead of the
     // recipient re-broadcasts it as LOCKPOS under its own ID anyway
     // (RoboTop/src/main.cpp, case SETLOCKPOS), which is the copy we want.
-    if (cmd != 51 && cmd != 19 && cmd != 83 && cmd != 21 && cmd != 23 && cmd != 88) return;
+    if (cmd != 51 && cmd != 19 && cmd != 83 && cmd != 21 && cmd != 23 && cmd != 88 &&
+        cmd != 91) return;
 
     String sender_id = fields[1];
     sender_id.trim();

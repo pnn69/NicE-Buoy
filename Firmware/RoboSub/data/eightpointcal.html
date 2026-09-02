@@ -330,6 +330,18 @@
                                 stroke="#0b0f19" stroke-width="1.5" style="transition:cx 0.12s linear, cy 0.12s linear;"/>
                         <text x="50" y="99" text-anchor="middle" font-size="6" fill="#6b7280">outer ring 10&deg;</text>
                     </svg>
+                    <!-- Imag, always on and always big. This is the number the whole run is aimed
+                         at: the anchor is "turn until it reads zero", and at every later stop it is
+                         the check that the hull is where the operator thinks it is. It sits next to
+                         the bubble because those are the two things to look at while turning. -->
+                    <div style="text-align:center; min-width:150px;">
+                        <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;
+                             letter-spacing:0.08em;">Imag &middot; iron only</div>
+                        <div id="imag-big" style="font-size:2.8rem; font-weight:800; line-height:1.05;
+                             font-variant-numeric:tabular-nums; color:#8b949e;">--</div>
+                        <div id="imag-expect" style="font-size:0.78rem; color:var(--text-muted);
+                             min-height:1.1em;">&nbsp;</div>
+                    </div>
                     <div style="text-align:left; min-width:150px;">
                         <div id="level-verdict" style="font-weight:800; font-size:1rem;">LEVEL</div>
                         <div style="font-family:monospace; font-size:0.85rem; color:var(--text-muted);">
@@ -469,6 +481,7 @@
                 .then(r => r.json())
                 .then(data => {
                     currentHeading = data.imag;   // Imag - iron corrected and nothing else
+                    paintImag();
                     const harmonicHeading = data.corrected_hdg;
 
                     if (Array.isArray(data.meas_ang)) storedTable = data.meas_ang;
@@ -479,6 +492,7 @@
                         if (Array.isArray(data.cal8)) session.captured = data.cal8;
                     }
                     paintLevel(data.pitch, data.roll);
+                    paintImag();
                     paintSession();
                     paintTable();
 
@@ -589,6 +603,61 @@
                       + `table entry as if it were deviation.`
                     : '';
             }
+        }
+
+        // The big Imag readout and the line under it.
+        //
+        // Colour means different things at the anchor and at the other seven, and saying so matters.
+        // N is a hard gate: the run is anchored on the compass's own zero, so green/red there is
+        // pass/fail. At the other stops the reading is SUPPOSED to differ from the nominal by the
+        // hull's deviation - a dozen degrees is normal - so colouring those against a tight window
+        // would show red almost always and teach the operator to ignore it. What is worth catching
+        // there is the gross error: turning to the wrong mark, which is out by tens of degrees, not
+        // by two. So those show the gap to nominal and only complain when it is implausibly large.
+        const MAX_PLAUSIBLE_DEV = 25;
+
+        function paintImag() {
+            const big = document.getElementById('imag-big');
+            const exp = document.getElementById('imag-expect');
+            if (!big || !exp) return;
+
+            const live = (typeof currentHeading === 'number') && !isNaN(currentHeading);
+            if (!live) {
+                big.innerText = '--';
+                big.style.color = '#8b949e';
+                exp.innerHTML = '&nbsp;';
+                return;
+            }
+
+            big.innerText = currentHeading.toFixed(1) + '\u00b0';
+
+            const asked = session.active ? session.next : -1;
+
+            if (asked === 0) {
+                const ok = onAnchor();
+                big.style.color = ok ? 'var(--green)' : 'var(--red)';
+                exp.innerHTML = ok
+                    ? 'on zero &mdash; capture <b>N</b>'
+                    : 'turn until this reads <b>0</b> (&plusmn;' + ANCHOR_TOL + '&deg;)';
+                exp.style.color = ok ? 'var(--green)' : 'var(--red)';
+                return;
+            }
+
+            if (asked < 0) {
+                big.style.color = '#8b949e';
+                exp.innerHTML = 'no run armed';
+                exp.style.color = 'var(--text-muted)';
+                return;
+            }
+
+            let gap = currentHeading - asked * 45;
+            gap = (gap + 180) % 360 - 180;
+            const plausible = Math.abs(gap) <= MAX_PLAUSIBLE_DEV;
+            big.style.color = plausible ? 'var(--cyan)' : 'var(--red)';
+            exp.innerHTML = refNames[asked] + ' &asymp; ' + (asked * 45) + '&deg; &middot; '
+                          + (gap >= 0 ? '+' : '') + gap.toFixed(1) + '&deg;'
+                          + (plausible ? '' : ' &mdash; <b>wrong mark?</b>');
+            exp.style.color = plausible ? 'var(--text-muted)' : 'var(--red)';
         }
 
         function paintSession() {

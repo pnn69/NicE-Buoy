@@ -164,11 +164,13 @@ static bool mancal_press_pending(const BuoyData &b) {
 
 // The one-line complaint band under the rose.
 static void mancal_warn(const char *msg) {
-    tft.fillRect(0, 248, tft.width(), 16, TFT_BLACK);
+    // Borrows the eight point strip's row. Transient: mancal_is_dirty below forces a full repaint,
+    // which puts the strip back.
+    tft.fillRect(0, 242, tft.width(), 13, TFT_BLACK);
     tft.setTextDatum(MC_DATUM);
     tft.setTextSize(1);
     tft.setTextColor(TFT_ORANGE, TFT_BLACK);
-    tft.drawString(msg, tft.width() / 2, 256);
+    tft.drawString(msg, tft.width() / 2, 249);
     delay(900);
     mancal_is_dirty = true;
 }
@@ -2375,13 +2377,13 @@ void loop() {
                     // Say so at once. The confirmation comes back from the buoy a moment later and
                     // repaints the whole screen; without this the press feels dead over a
                     // LoRa-only link.
-                    tft.fillRect(0, 248, tft.width(), 16, TFT_BLACK);
+                    tft.fillRect(0, 242, tft.width(), 13, TFT_BLACK);
                     tft.setTextDatum(MC_DATUM);
                     tft.setTextSize(1);
                     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
                     char cap_buf[28];
                     sprintf(cap_buf, "%s SENT - %0.1f", MANCAL_DIRS[dir], b.mag_dir_iron);
-                    tft.drawString(cap_buf, tft.width() / 2, 256);
+                    tft.drawString(cap_buf, tft.width() / 2, 249);
                     delay(300);
                     mancal_is_dirty = true;
                     delay(20);
@@ -3610,8 +3612,10 @@ void service_mancal_entry() {
  * clockwise, so a cell lines up with the dot above it.
  */
 void draw_mancal_offset_strip() {
-    const int y = 240;
-    tft.fillRect(0, 234, tft.width(), 12, TFT_BLACK);
+    // Below the rose, not across it: the S label sits at MANCAL_CY + MANCAL_R_LABEL = 236, and a
+    // strip that started at 234 erased it on every repaint and was erased back a moment later.
+    const int y = 249;
+    tft.fillRect(0, 242, tft.width(), 13, TFT_BLACK);
 
     tft.setTextSize(1);
     tft.setTextDatum(MC_DATUM);
@@ -3777,7 +3781,8 @@ void update_mancal_dynamic() {
         last_leg = leg;
         last_running = running;
 
-        tft.fillRect(MANCAL_CX - 76, MANCAL_CY - 68, 152, 136, TFT_BLACK);
+        // Stops at 240, just under the S label, so the strip below is never clipped.
+        tft.fillRect(MANCAL_CX - 76, 108, 152, 132, TFT_BLACK);
         uint16_t dimmed = tft.color565(55, 55, 55);
 
         for (int i = 0; i < 8; i++) {
