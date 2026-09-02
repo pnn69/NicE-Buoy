@@ -355,9 +355,11 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         if (fields.size() > 20) buoys[buoy_idx].dock_app_dist = atoi(fields[20].c_str());
         if (fields.size() > 21) buoys[buoy_idx].dock_app_dir = atoi(fields[21].c_str());
         if (fields.size() > 22) buoys[buoy_idx].dock_to_wp = (fields[22] == "1");
-        // Tri-state so that "0"/empty means the buoy never reported it - a plain 0 could not
-        // be told apart from the zero-compression RoboTop applies to the payload.
-        if (fields.size() > 23 && fields[23] != "" && fields[23] != "0")
+        // Field 23 used to carry the "apply the compass table" switch. The switch is gone and the
+        // Sub no longer sends the field, so there is nothing to read here - and nothing to guard
+        // the block below with either. Removing the assignments alone left the if() standing with
+        // the next statement as its body, which quietly made setup_data_loaded conditional on a
+        // field that is never sent: the Setup pages then never loaded at all.
 
         // Mark setup parameters as successfully loaded if this is the buoy currently active!
         if (selected_buoy_idx == buoy_idx) {
