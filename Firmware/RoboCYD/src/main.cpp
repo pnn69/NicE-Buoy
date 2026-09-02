@@ -2422,8 +2422,14 @@ void loop() {
                 }
 
                 // 2. The action band: START when nothing is armed, SAVE when everything is in.
-                else if (touchY >= 266 && touchY <= 292) {
-                    if (touchX < 10 || touchX > 230) { delay(20); return; }
+                // The bar is DRAWN at y 266..292, x 10..230. The hit box is deliberately larger.
+                // It used to match the drawing exactly, with the rose branch below claiming
+                // everything down to 265 - so a tap a few pixels high of the bar, which is well
+                // within what a resistive panel poked with a finger does, fell into the rose
+                // branch, matched no direction, and returned in silence. The one press that
+                // commits a calibration must not be able to do nothing without saying so.
+                else if (touchY >= 256 && touchY <= 294) {
+                    if (touchX < 0 || touchX > 240) { delay(20); return; }
 
                     if (!mancal_running(b)) {
                         Serial.println("MANCAL: START - arming a guided eight point run");
@@ -2446,9 +2452,15 @@ void loop() {
                 }
 
                 // 3. The rose. Tapping a mark captures that direction.
-                else if (touchY >= 100 && touchY < 266) {
+                else if (touchY >= 100 && touchY < 256) {
                     int dir = mancal_hit_dir(touchX, touchY);
-                    if (dir < 0) { delay(20); return; }
+                    if (dir < 0) {
+                        // Below the rose but above the action band - the likeliest near miss is
+                        // someone aiming at a mark near the rim, or at the bar just below.
+                        if (touchY > 230) mancal_warn("TAP A MARK, OR THE BAR");
+                        delay(20);
+                        return;
+                    }
 
                     if (!mancal_running(b)) {
                         mancal_warn("PRESS START FIRST");
