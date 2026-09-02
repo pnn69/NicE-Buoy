@@ -285,6 +285,11 @@ void RoboDecode(String data, RoboStruct *dataStore)
             for (int i = 0; i < 8; i++)
                 dataStore->cal8Captured[i] = numbers[5 + i].toFloat();
         }
+        // The captured mask and the press serial, both count-guarded. A node that predates them
+        // sends a shorter frame; the mask then stays 0 and a reader falls back to treating
+        // cal8Next as the progress, which is what the guided cursor alone used to mean.
+        if (count > 13) dataStore->cal8Mask = (uint8_t)numbers[13].toInt();
+        if (count > 14) dataStore->cal8Seq = (uint16_t)numbers[14].toInt();
         break;
     case STORE_INTERPOLATION_TABLE:
         // Presence is decided by the field COUNT, exactly as in SETUPDATA: RoboCode() compresses
@@ -305,25 +310,6 @@ void RoboDecode(String data, RoboStruct *dataStore)
         // Count-guarded like the rest: a node that predates this field leaves the reader's own
         // value alone rather than reading as "unusable", which would condemn a good calibration.
         if (count > 11) dataStore->interpUsable = (bool)numbers[11].toInt();
-        break;
-    case GPS_FOURIER_CALIBRATE:
-        // Count-based, like every other optional field here: a frame from a node that
-        // predates the still-water mode carries no payload and must stay in the safe
-        // pair-averaged mode.
-        if (count > 2) dataStore->gpsCalStillWater = (bool)numbers[2].toInt();
-        if (count > 3) dataStore->gpsCalStartHeading = numbers[3].toFloat();
-        break;
-    case GPS_FOURIER_STATUS:
-        dataStore->gpsCalStep = numbers[2].toInt();
-        dataStore->gpsCalLeg = numbers[3].toInt();
-        dataStore->tgDir = numbers[4].toDouble();
-        dataStore->dirMag = numbers[5].toDouble();
-        dataStore->gpsCalDist = numbers[6].toDouble();
-        dataStore->gpsCalErr = numbers[7].toDouble();
-        if (count > 8) dataStore->gpsCalLastErr = numbers[8].toDouble();
-        // Count-based like every other optional field here: a Top that predates the abort codes
-        // sends a shorter frame, and its runs simply report no reason rather than a wrong one.
-        if (count > 9) dataStore->gpsCalAbort = numbers[9].toInt();
         break;
     default:
         printf("RoboDecode: Unknown CMD %d\r\n", dataStore->cmd);
@@ -542,6 +528,8 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->cal8Next);
         for (int i = 0; i < 8; i++)
             out += "," + formatFloat(dataOut->cal8Captured[i], 2);
+        out += "," + String((int)dataOut->cal8Mask);
+        out += "," + String((int)dataOut->cal8Seq);
         break;
     case STORE_INTERPOLATION_TABLE:
         // A GET request still puts its (identity) table on the wire rather than sending a short
@@ -554,20 +542,6 @@ String RoboCode(const RoboStruct *dataOut)
         // ... and whether it is usable at all. In effect but not usable is a real state: the buoy
         // ignores an out-of-order table and sails uncorrected.
         out += "," + String((int)dataOut->interpUsable);
-        break;
-    case GPS_FOURIER_CALIBRATE:
-        out += "," + String((int)dataOut->gpsCalStillWater);
-        out += "," + String((int)dataOut->gpsCalStartHeading);
-        break;
-    case GPS_FOURIER_STATUS:
-        out += "," + String(dataOut->gpsCalStep);
-        out += "," + String(dataOut->gpsCalLeg);
-        out += "," + formatFloat(dataOut->tgDir, 0);
-        out += "," + formatFloat(dataOut->dirMag, 1);
-        out += "," + formatFloat(dataOut->gpsCalDist, 0);
-        out += "," + formatFloat(dataOut->gpsCalErr, 2);
-        out += "," + formatFloat(dataOut->gpsCalLastErr, 2);
-        out += "," + String(dataOut->gpsCalAbort);
         break;
     case DOCKED:
     case LOCKED:
@@ -1276,16 +1250,6 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
     // blank the buoy's position, battery and set point - the exact defect this function exists
     // to prevent. Neither is fed into the buoy base today; that is a property of the callers,
     // not something worth relying on here.
-    case GPS_FOURIER_STATUS:
-        dst->gpsCalAbort = src.gpsCalAbort;
-        dst->gpsCalStep = src.gpsCalStep;
-        dst->gpsCalLeg = src.gpsCalLeg;
-        dst->tgDir = src.tgDir;         dst->dirMag = src.dirMag;
-        dst->gpsCalDist = src.gpsCalDist;
-        dst->gpsCalErr = src.gpsCalErr;
-        dst->gpsCalLastErr = src.gpsCalLastErr;
-        break;
-
     case STORE_INTERPOLATION_TABLE:
         for (int i = 0; i < 8; i++) dst->interpolationTable[i] = src.interpolationTable[i];
         dst->interpEnabled = src.interpEnabled;
@@ -1297,6 +1261,8 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
         dst->cal8Active = src.cal8Active;
         dst->cal8Next = src.cal8Next;
         for (int i = 0; i < 8; i++) dst->cal8Captured[i] = src.cal8Captured[i];
+        dst->cal8Mask = src.cal8Mask;
+        dst->cal8Seq = src.cal8Seq;
         break;
 
     default:

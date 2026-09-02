@@ -7,7 +7,6 @@
 #include <ESPmDNS.h>
 #include "main.h"
 #include "topwifi.h"
-#include "gpscalib.h"
 #include "gpssim.h"
 #include "leds.h"
 #include "datastorage.h"
@@ -391,25 +390,32 @@ static volatile bool mancalTableValid = false;
 static volatile bool cal8Valid = false;   // the Sub has answered at least once
 static volatile bool cal8Active = false;
 static volatile int cal8Next = 0;
+static volatile uint8_t cal8Mask = 0;     // bit i set once direction i has been captured
+static volatile uint16_t cal8Seq = 0;     // serial of the last press the SUB applied
 static float cal8Captured[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
-void cal8NoteState(bool active, int next, const float *captured)
+void cal8NoteState(bool active, int next, const float *captured, uint8_t mask, uint16_t seq)
 {
     cal8Active = active;
     cal8Next = next;
+    cal8Mask = mask;
+    cal8Seq = seq;
     for (int i = 0; i < 8; i++) cal8Captured[i] = captured[i];
     cal8Valid = true;
-    printf("CAL8: session %s, step %d of 8, captured:", active ? "running" : "idle", next);
+    printf("CAL8: session %s, asking for %d, mask %02X, seq %u, captured:",
+           active ? "running" : "idle", next, mask, seq);
     for (int i = 0; i < 8; i++) printf(" %.1f", cal8Captured[i]);
     printf("\r\n");
 }
 
+int cal8NextLeg(void) { return cal8Next; }
+
 // One frame per press. ack SET carries an action; ack GET just asks. Either way the Sub answers
 // with the state, which comes back through cal8NoteState().
 //
-// leg is only meaningful for CAL8_SET: it names the leg the press is for, so the Sub can drop a
-// duplicate instead of capturing the wrong direction with it. See cal8Service().
-static void cal8Send(int ackKind, int action, int leg)
+// leg and seq are only meaningful for CAL8_SET. leg names the direction the press is for; seq
+// numbers the press so the Sub can tell a resend from a new one. See cal8Service().
+static void cal8Send(int ackKind, int action, int leg, uint16_t seq)
 {
     RoboStruct msg = {};
     // Straight onto the serial link, NOT via udpIn. Every other command here goes through udpIn and
@@ -422,6 +428,7 @@ static void cal8Send(int ackKind, int action, int leg)
     msg.ack = ackKind;
     msg.cal8Action = action;
     msg.cal8Next = leg;
+    msg.cal8Seq = seq;
     if (xQueueSend(serOut, (void *)&msg, pdMS_TO_TICKS(250)) != pdTRUE)
     {
         printf("ERROR: Failed to queue CAL8_SESSION to serOut!\r\n");
@@ -435,17 +442,53 @@ static void cal8Send(int ackKind, int action, int leg)
 #define CAL8_MAX_TRIES  12
 static volatile int cal8PendAction = -1;
 static volatile int cal8PendLeg = 0;
+static volatile uint16_t cal8PendSeq = 0;
 static volatile int cal8PendTries = 0;
 static volatile unsigned long cal8PendNextMs = 0;
 
-void cal8NotePress(int action, int leg)
+void cal8NotePress(int action, int leg, uint16_t seq)
 {
+    if (action == CAL8_SET)
+    {
+        if (seq == 0)
+        {
+            // Ours to number: one past the last serial the Sub reported applying. Every resend
+            // below carries this same number, so the Sub applies the first copy to arrive and
+            // drops the rest - which is the whole point, now that a press can name a direction
+            // that is already captured and so cannot be spotted as a duplicate by its leg alone.
+            seq = (uint16_t)(cal8Seq + 1);
+            if (seq == 0) seq = 1;   // 0 means "unnumbered", see cal8NextSeq() on the Sub
+        }
+        else
+        {
+            // Somebody else's press, already numbered. Two retry loops are now stacked - the
+            // sender resending to us, us resending to the Sub - and the serial is what stops them
+            // multiplying. Drop a repeat here rather than re-arm on it.
+            if (seq == cal8Seq)
+            {
+                printf("CAL8: press seq %u already applied by the Sub, ignoring the repeat\r\n", seq);
+                return;
+            }
+            if (cal8PendAction == CAL8_SET && seq == cal8PendSeq)
+            {
+                printf("CAL8: press seq %u is already in flight, ignoring the repeat\r\n", seq);
+                return;
+            }
+        }
+    }
+    else
+    {
+        seq = 0;   // BEGIN, SAVE and CANCEL are idempotent and carry no serial
+    }
+
     cal8PendAction = action;
     cal8PendLeg = leg;
+    cal8PendSeq = seq;
     cal8PendTries = 1;
     cal8PendNextMs = millis() + CAL8_RETRY_MS;
-    cal8Send(SET, action, leg);
-    printf("CAL8: press action %d leg %d sent, waiting for the Sub to confirm\r\n", action, leg);
+    cal8Send(SET, action, leg, cal8PendSeq);
+    printf("CAL8: press action %d leg %d seq %u sent, waiting for the Sub to confirm\r\n",
+           action, leg, cal8PendSeq);
 }
 
 // Has the Sub's reported state caught up with what we asked for? This is the only stopping
@@ -455,8 +498,12 @@ static bool cal8PressLanded(void)
     if (!cal8Valid) return false;
     switch (cal8PendAction)
     {
-    case CAL8_BEGIN:  return cal8Active && cal8Next == 0;
-    case CAL8_SET:    return cal8Active && cal8Next > cal8PendLeg;
+    case CAL8_BEGIN:  return cal8Active && cal8Next == 0 && cal8Mask == 0;
+    // The serial, not the cursor. A capture that redid an earlier direction leaves the cursor
+    // exactly where it was, so "the cursor has moved past the leg we sent" would never come true
+    // and the press would be resent until the retries ran out - twelve more captures of a hull
+    // that is by then pointing somewhere else.
+    case CAL8_SET:    return cal8Active && cal8Seq == cal8PendSeq;
     case CAL8_SAVE:   return !cal8Active;   // the Sub closes the session when it commits
     case CAL8_CANCEL: return !cal8Active;
     default:          return true;
@@ -469,8 +516,9 @@ void cal8Service(void)
 
     if (cal8PressLanded())
     {
-        printf("CAL8: press action %d leg %d confirmed after %d attempt%s\r\n",
-               cal8PendAction, cal8PendLeg, cal8PendTries, cal8PendTries == 1 ? "" : "s");
+        printf("CAL8: press action %d leg %d seq %u confirmed after %d attempt%s\r\n",
+               cal8PendAction, cal8PendLeg, cal8PendSeq, cal8PendTries,
+               cal8PendTries == 1 ? "" : "s");
         cal8PendAction = -1;
         return;
     }
@@ -481,15 +529,15 @@ void cal8Service(void)
     {
         // Give up loudly and leave the session exactly as the Sub has it. Silently dropping the
         // press would leave the screen waiting on a step that is never coming.
-        printf("CAL8: press action %d leg %d NEVER confirmed after %d attempts - giving up\r\n",
-               cal8PendAction, cal8PendLeg, cal8PendTries);
+        printf("CAL8: press action %d leg %d seq %u NEVER confirmed after %d attempts - giving up\r\n",
+               cal8PendAction, cal8PendLeg, cal8PendSeq, cal8PendTries);
         cal8PendAction = -1;
         return;
     }
 
     cal8PendTries++;
     cal8PendNextMs = millis() + CAL8_RETRY_MS;
-    cal8Send(SET, cal8PendAction, cal8PendLeg);
+    cal8Send(SET, cal8PendAction, cal8PendLeg, cal8PendSeq);
 }
 
 void mancalNoteTable(const float *table, bool inEffect)
@@ -702,8 +750,9 @@ void WiFiTask(void *arg)
         json += "\"GpsFix\":\"" + String(mainData.gpsFix ? "true" : "false") + "\",";
         json += "\"trackPos\":" + String(mainData.trackPos) + ",";
         json += "\"SubOk\":\"" + String(subSerialAlive() ? "true" : "false") + "\",";
-        // Progress line for the GPS Fourier calibration; empty string whenever no run is active.
-        json += "\"CalibMsg\":\"" + String(gpsCalibProgress()) + "\",";
+        // Was the GPS Fourier calibration's progress line. That run is gone; the field stays so
+        // an older page still parses, and it is now always empty.
+        json += "\"CalibMsg\":\"\",";
         json += "\"SimMsg\":\"" + String(gpsSimReport()) + "\",";
         // Diagnostics: seconds since boot, and what ended the previous run.
         json += "\"Uptime\":" + String(millis() / 1000) + ",";
@@ -732,6 +781,8 @@ void WiFiTask(void *arg)
         json += "\"cal8Valid\":" + String(cal8Valid ? 1 : 0) + ",";
         json += "\"cal8Active\":" + String(cal8Active ? 1 : 0) + ",";
         json += "\"cal8Next\":" + String(cal8Next) + ",";
+        // Which directions are in. The cursor cannot say, because redoing one does not move it.
+        json += "\"cal8Mask\":" + String((int)cal8Mask) + ",";
         json += "\"cal8\":[";
         for (int i = 0; i < 8; i++) json += String(cal8Captured[i], 1) + (i < 7 ? "," : "");
         json += "]";
@@ -803,10 +854,6 @@ void WiFiTask(void *arg)
         int bid = server.arg("bid").toInt();
         String cmdStr = server.arg("cmd");
         int cmdEnum = -1;
-        // Set by the still-water variant of the GPS Fourier command below. Kept out of
-        // the query string so the mode can never be half-specified.
-        bool gpsCalStill = false;
-
         // Bench simulation of position and heading. Answered here and now: it changes nothing on
         // the buoy and sends nothing to the Sub, so it has no business going through the command
         // queues below. See gpssim.h.
@@ -836,7 +883,7 @@ void WiFiTask(void *arg)
                 mancalRequestTable();
                 // A plain GET, not through the retry: the page polls anyway, so a lost one costs
                 // nothing, and it changes nothing on the buoy if it arrives twice.
-                cal8Send(GET, CAL8_BEGIN, 0);
+                cal8Send(GET, CAL8_BEGIN, 0, 0);
                 mainData.status = IDLING;
                 server.send(200, "text/plain", "OK");
                 return;
@@ -853,9 +900,14 @@ void WiFiTask(void *arg)
                            : cmdStr == "MANCAL_SAVE"  ? CAL8_SAVE
                                                       : CAL8_CANCEL;
                 // Through the retry, not straight down the wire. A press sent once mostly does not
-                // arrive - see cal8Service(). The leg comes from the SUB's step counter, so a
-                // resend can only ever mean the leg it was issued for.
-                cal8NotePress(action, cal8Next);
+                // arrive - see cal8Service().
+                //
+                // The leg defaults to the SUB's own cursor, so a page walking forwards need not
+                // pass one; an explicit leg is how a direction that is already captured gets
+                // redone. Either way the resend carries the same leg and the same serial as the
+                // first attempt.
+                int leg = server.hasArg("leg") ? server.arg("leg").toInt() : cal8Next;
+                cal8NotePress(action, leg);
                 if (action == CAL8_SAVE || action == CAL8_CANCEL)
                 {
                     mainData.tgSpeed = 0;
@@ -865,34 +917,11 @@ void WiFiTask(void *arg)
                 server.send(200, "text/plain", "OK");
                 return;
             }
-            if (cmdStr == "MANCAL_STEER")
-            {
-                // Let the thrusters put the hull roughly on the leg being asked for. Steering
-                // only - it writes nothing, and the leg comes from the SUB's step counter rather
-                // than from the page, so the two cannot drift apart.
-                mancalSessionPing();
-                if (!cal8Active || cal8Next > 7)
-                {
-                    server.send(409, "text/plain", "no calibration session");
-                    return;
-                }
-                float nudge = server.hasArg("nudge") ? server.arg("nudge").toFloat() : 0.0f;
-                float target = (float)(cal8Next * 45) + nudge;
-                while (target < 0.0f) target += 360.0f;
-                while (target >= 360.0f) target -= 360.0f;
-
-                // A CORRECTED heading, so the buoy lands as close to the real direction as its
-                // present calibration allows - closer on every run. Pivot on the spot:
-                // handleTimerRoutines() repeats this to the Sub every 500 ms while we stay in
-                // REMOTE, so the order does not have to be resent here.
-                mainData.tgDir = target;
-                mainData.tgSpeed = 0;
-                mainData.tgDist = 0;
-                mainData.status = REMOTE;
-                server.send(200, "application/json",
-                            "{\"leg\":" + String(cal8Next) + ",\"target\":" + String(target, 1) + "}");
-                return;
-            }
+            // MANCAL_STEER used to live here: it pivoted the hull towards cal8Next * 45 as a
+            // corrected heading so the buoy could aim itself at each direction. The directions are
+            // stops on a mechanical fixture now, 45 degrees apart by construction and indexed round
+            // from wherever it was aligned with Imag = 0, so a true heading of leg * 45 points
+            // nowhere in particular. Turning the buoy is the fixture's job.
             if (cmdStr == "MANCAL_STOP")
             {
                 mancalSessionPing();
@@ -966,8 +995,6 @@ void WiFiTask(void *arg)
         else if (cmdStr == "CALIB_COMPASS") cmdEnum = INFIELD_CALIBRATE;
         else if (cmdStr == "MANUAL_CALIB") cmdEnum = CALIBRATE_MAGNETIC_COMPASS;
         else if (cmdStr == "CALIB_OFFSET") cmdEnum = INFIELD_OFFSET_CALIBRATE;
-        else if (cmdStr == "CALIB_GPS_FOURIER") cmdEnum = GPS_FOURIER_CALIBRATE;
-        else if (cmdStr == "CALIB_GPS_FOURIER_STILL") { cmdEnum = GPS_FOURIER_CALIBRATE; gpsCalStill = true; }
         else if (cmdStr == "SET_AS_NORTH") cmdEnum = SET_AS_NORTH;
         else if (cmdStr == "REBOOT") cmdEnum = REBOOT;
         else if (cmdStr == "ADAPTIVE_TRIM") cmdEnum = ADAPTIVE_TRIM;
@@ -1041,9 +1068,6 @@ void WiFiTask(void *arg)
                     if (server.hasArg("compass_trim")) msg.compass_trim = server.arg("compass_trim").toFloat();
                     if (server.hasArg("compass_trim_enabled")) msg.compass_trim_enabled = (server.arg("compass_trim_enabled").toInt() != 0);
                     msg.ack = SET;
-                } else if (cmdEnum == GPS_FOURIER_CALIBRATE) {
-                    msg.gpsCalStillWater = gpsCalStill;
-                    msg.ack = INF;
                 } else if (cmdEnum == SETLOCKPOS) {
                     // handleRfData() case SETLOCKPOS reads exactly these two and then sets LOCKED
                     // itself, so nothing else here has to be filled in.

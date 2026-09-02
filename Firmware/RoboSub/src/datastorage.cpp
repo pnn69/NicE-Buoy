@@ -618,10 +618,33 @@ void memDampingFactors(float *acc, float *gyro, float *mag, float *att, bool get
  * @brief Reads or writes all 9 interpolation angles to Preferences NVM.
  */
 /**
+ * @brief Reads or writes which convention the stored interpolation table was measured under.
+ *
+ * A number, not a flag, because this has already changed once and will change again if the chain
+ * is ever reordered. See INTERP_TABLE_REV in compass.h.
+ */
+void memInterpTableRev(int *rev, bool get)
+{
+    startMem();
+    if (get)
+    {
+        // 1 = "written before this was recorded", i.e. the pre-reorder convention. Deliberately not
+        // defaulted to the current revision: a table of unknown provenance is exactly the one that
+        // must not be trusted, and every table already in the field predates this key.
+        *rev = storage.getInt("meas_ang_rev", 1);
+    }
+    else
+    {
+        storage.putInt("meas_ang_rev", *rev);
+    }
+    stopMem();
+}
+
+/**
  * @brief Reads or writes the ICM filtering mode the interpolation table was measured in.
  *
- * The selected mode IS the table's input. measured_angles[i] is what (selected mode + compassOffset)
- * reads when the hull points at i*45, so switching the mode afterwards feeds the table a different
+ * The selected mode IS the table's input. measured_angles[i] is what the selected mode reads when
+ * the hull points at direction i, so switching the mode afterwards feeds the table a different
  * heading source and every entry lands in the wrong place. On a real hull the modes sit 7 to 26
  * degrees apart, so this is not a subtlety.
  *

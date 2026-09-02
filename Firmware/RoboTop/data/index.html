@@ -404,8 +404,8 @@ input[type=checkbox] {
             <label for="harmonic" style="font-size:14px; font-weight:bold;">Apply Fourier compass table</label>
         </div>
         <div style="font-size:11px; color:#888; margin-bottom:10px;">
-            Switches the 8-point table from the GPS Fourier calibration on or off. Off means the
-            compass runs uncorrected, even when a table is stored.
+            Switches the 8-point compass table on or off. Off means the compass runs
+            uncorrected, even when a table is stored.
         </div>
         
         <h4 style="margin: 8px 0 5px 0;">Thruster Settings</h4>
@@ -448,10 +448,7 @@ input[type=checkbox] {
         <div style="display:flex; flex-direction:column; gap:8px;">
             <button onclick="sendSetupCommand('MANUAL_CALIB')" style="width:100%; background:#f85149; color:white; font-weight:bold; height: 45px; font-size: 16px; margin:0;">Desk Calibration (60s Figure-8)</button>
             <button onclick="sendSetupCommand('SET_AS_NORTH')" style="width:100%; background:#58a6ff; color:#0d1117; font-weight:bold; height: 45px; font-size: 16px; margin:0;">Set as North</button>
-            <button onclick="mancalOpen()" style="width:100%; background:#f97316; color:#0d1117; font-weight:bold; height: 45px; font-size: 16px; margin:0;">MAN CAL - manual compass cal (no GPS)</button>
-            <button onclick="startGpsFourier(true)" style="width:100%; background:#a371f7; color:white; font-weight:bold; height: 45px; font-size: 16px; margin:0;">GPS Fourier Cal - still water</button>
-            <button onclick="startGpsFourier(false)" style="width:100%; background:#6e40c9; color:white; font-weight:bold; height: 45px; font-size: 16px; margin:0;">GPS Fourier Cal - current running</button>
-            <div id="calibMsg" style="display:none; font-size:13px; color:#a371f7; text-align:center; padding:4px 0;"></div>
+            <button onclick="mancalOpen()" style="width:100%; background:#f97316; color:#0d1117; font-weight:bold; height: 45px; font-size: 16px; margin:0;">MAN CAL - eight point compass cal</button>
             <button onclick="if(confirm('Are you sure you want to reboot this buoy?')) sendSetupCommand('REBOOT')" style="width:100%; background:#ffcc00; color:#1a1a1a; font-weight:bold; height: 45px; font-size: 16px; margin:0;">Reboot Buoy</button>
         </div>
     </div>
@@ -745,26 +742,6 @@ function updateSetupModal() {
             setChecked("dockToWP", b.dockToWP);
         }
     }
-}
-
-// The run takes roughly half an hour and drives the buoy over eight 100 m legs, so make sure
-// that is what the operator meant before the thrusters spin up.
-function startGpsFourier(stillWater) {
-    // The two modes differ only in how the difference between opposite legs is read. In still
-    // water that difference is residual hard iron and must be corrected; with a current running it
-    // is the current and must be thrown away. Picking the wrong one is not cosmetic - still-water
-    // mode on a tidal day writes the current straight into the compass table.
-    const detail = stillWater
-        ? "STILL WATER mode: corrects each heading on its own measurement, including the one-cycle "
-          + "hard-iron error.\n\nOnly choose this if there is genuinely no current and little "
-          + "windage - otherwise the current gets written into the compass table."
-        : "CURRENT RUNNING mode: opposite legs are averaged so a steady current cancels.\n\n"
-          + "Safe in moving water, but it cannot correct one-cycle (hard-iron) error.";
-    if (!confirm("Start the GPS Fourier compass calibration?\n\n" + detail
-               + "\n\nThe buoy will sail 8 legs of at least 100 m (about 30 minutes) and then "
-               + "return to where it is now. Make sure it has open water all around and a GPS fix."
-               + "\n\nPress IDLE at any time to stop.")) return;
-    sendSetupCommand(stillWater ? 'CALIB_GPS_FOURIER_STILL' : 'CALIB_GPS_FOURIER');
 }
 
 function sendSetupCommand(cmd) {
@@ -1349,15 +1326,6 @@ function updateUI() {
     mainWrapper.style.display = 'flex';
     controls.style.display = 'block';
 
-    // Only this buoy's Top runs the GPS Fourier state machine, so the progress line only exists
-    // for buoy 1 - hide it for the others rather than showing a stale message under their setup.
-    const calibEl = document.getElementById("calibMsg");
-    if (calibEl) {
-        const msg = (currentBuoy === 1 && b.CalibMsg) ? b.CalibMsg : "";
-        calibEl.innerText = msg;
-        calibEl.style.display = msg ? "block" : "none";
-    }
-
     // GPS fix is needed before the status text, because without a fix the mode the buoy reports
     // is meaningless for the operator - what matters is that it cannot be positioned at all.
     const gpsFix = String(b.GpsFix || "0").trim();
@@ -1611,14 +1579,16 @@ if (document.readyState === "loading") {
   <div style="max-width:560px; margin:0 auto;">
     <h3 style="margin:0 0 2px 0;">MAN CAL &mdash; <span id="mancalBuoy">Buoy 1</span></h3>
     <div style="font-size:13px; color:#8b949e; margin-bottom:12px;">
-      Pivots on the spot using the compass only. <b>No GPS needed.</b> The hull turns &mdash; keep it clear.
+      Turn the hull until <b>IMAG</b> reads zero and tap <b>N</b>, then index the fixture round
+      45&deg; at a time, tapping each mark. Nothing steers &mdash; you turn the buoy.
     </div>
 
     <div style="background:#161b22; border:1px solid #30363d; border-radius:8px; padding:12px; margin-bottom:12px;">
       <div id="mancalRose" style="position:relative; width:240px; height:240px; margin:0 auto;">
         <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none;">
-          <b id="mancalHdg" style="font-size:30px; color:#3fb950; line-height:1;">--</b>
-          <span style="font-size:10px; color:#8b949e; text-transform:uppercase;">compass now</span>
+          <b id="mancalHdg" style="font-size:34px; color:#8b949e; line-height:1;">--</b>
+          <span style="font-size:10px; color:#8b949e; text-transform:uppercase;">imag &mdash; iron only</span>
+          <span id="mancalCount" style="font-size:12px; color:#8b949e; margin-top:4px;">0 / 8</span>
         </div>
       </div>
       <div style="text-align:center; margin:10px 0;">
@@ -1626,26 +1596,13 @@ if (document.readyState === "loading") {
         <b id="mancalAsk" style="font-size:22px; color:#e3b341;">Ready</b>
         <div id="mancalHint" style="font-size:11px; color:#8b949e; margin-top:4px;">Press START to begin</div>
       </div>
-      <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
-        <button class="mancalAdj" data-d="-10" style="background:#30363d; color:#fff; border:none; border-radius:6px; padding:10px 16px; font-weight:bold; cursor:pointer;">-10&deg;</button>
-        <button class="mancalAdj" data-d="-1"  style="background:#30363d; color:#fff; border:none; border-radius:6px; padding:10px 16px; font-weight:bold; cursor:pointer;">-1&deg;</button>
-        <span id="mancalNudge" style="min-width:56px; text-align:center; align-self:center; font-weight:bold; color:#e3b341;">+0&deg;</span>
-        <button class="mancalAdj" data-d="1"   style="background:#30363d; color:#fff; border:none; border-radius:6px; padding:10px 16px; font-weight:bold; cursor:pointer;">+1&deg;</button>
-        <button class="mancalAdj" data-d="10"  style="background:#30363d; color:#fff; border:none; border-radius:6px; padding:10px 16px; font-weight:bold; cursor:pointer;">+10&deg;</button>
-      </div>
-      <div style="font-size:11px; color:#8b949e; text-align:center; margin-top:6px;">
-        Nudge only moves where the thrusters are aiming. It is not part of the capture &mdash;
-        <b>SET</b> takes whatever the compass reads at that moment.
-      </div>
     </div>
 
     <div style="background:#161b22; border:1px solid #30363d; border-radius:8px; padding:12px; margin-bottom:12px;">
-      <div style="display:flex; gap:8px;">
-        <button id="mancalTurn" onclick="mancalCmd('MANCAL_STEER', '&nudge=' + mcNudge)" style="flex:2; background:#30363d; color:#fff; border:none; border-radius:6px; padding:12px 0; font-weight:bold; cursor:pointer; display:none;">TURN THERE</button>
-        <button onclick="mancalCmd('MANCAL_STOP')" style="flex:1; background:#f85149; color:#fff; border:none; border-radius:6px; padding:12px 0; font-weight:bold; cursor:pointer;">STOP</button>
+      <button id="mancalBegin" onclick="mancalPress('MANCAL_BEGIN')" style="width:100%; background:#1f6feb; color:#fff; border:none; border-radius:6px; padding:14px 0; font-weight:bold; font-size:16px; cursor:pointer;">START CALIBRATION</button>
+      <div id="mancalTapHint" style="font-size:12px; color:#8b949e; text-align:center; padding:6px 0 0 0; display:none;">
+        Tap a mark on the rose to capture it. A mark already captured can be tapped again to replace it.
       </div>
-      <button id="mancalBegin" onclick="mancalPress('MANCAL_BEGIN')" style="width:100%; margin-top:8px; background:#1f6feb; color:#fff; border:none; border-radius:6px; padding:14px 0; font-weight:bold; font-size:16px; cursor:pointer;">START CALIBRATION</button>
-      <button id="mancalSet" onclick="mancalSet()" style="width:100%; margin-top:8px; background:#3fb950; color:#0d1117; border:none; border-radius:6px; padding:16px 0; font-weight:bold; font-size:18px; cursor:pointer; display:none;">SET</button>
     </div>
 
     <div style="background:#161b22; border:1px solid #30363d; border-radius:8px; padding:12px;">
@@ -1660,10 +1617,10 @@ if (document.readyState === "loading") {
         <button id="mancalSave" onclick="mancalPress('MANCAL_SAVE')" style="flex:2; background:#3fb950; color:#0d1117; border:none; border-radius:6px; padding:12px 0; font-weight:bold; cursor:pointer; display:none;">SAVE</button>
       </div>
       <div style="font-size:12px; color:#8b949e; margin-top:8px;">
-        SAVE writes the compass offset and all eight entries together, so it only appears once every
-        direction has been captured. CLOSE stops the hull and leaves the run untouched &mdash; the
-        captures are on the buoy, so you can pick the same run up here, on the buoy's own page or on
-        the handheld.
+        SAVE writes the eight entries and appears once every direction has been captured. It does
+        <b>not</b> touch the compass offset &mdash; set which way the sensor is mounted afterwards
+        with <b>Set as North</b>. CLOSE leaves the run untouched: the captures are on the buoy, so
+        you can pick the same run up here, on the buoy's own page or on the handheld.
       </div>
     </div>
   </div>
@@ -1674,13 +1631,25 @@ const MC_DIRS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
 const MC_LONG = ["NORTH", "NORTH EAST", "EAST", "SOUTH EAST", "SOUTH", "SOUTH WEST", "WEST", "NORTH WEST"];
 
 // A mirror of the SUB's session, refreshed every poll. Nothing here is authoritative: the page
-// never decides which step it is on, so a dropped frame cannot leave it a direction ahead of the
-// hull. mcNudge is the one local value, and it steers only - it is never captured.
-let mcSession = { valid: false, active: false, next: 0, captured: new Array(8).fill(0) };
+// never decides which directions are in, so a dropped frame cannot leave it out of step with the
+// hull. mask is the set of directions captured; next is the one the cursor is asking for.
+let mcSession = { valid: false, active: false, next: 0, mask: 0, captured: new Array(8).fill(0) };
 let mcTable = null;                       // the table the buoy is using now, shown between runs
-let mcNudge = 0, mcOpen = false, mcPoll = null, mcBusy = false;
+let mcImag = null;                        // the buoy's iron-only heading, what N is aimed at
+let mcOpen = false, mcPoll = null, mcBusy = false;
 
-const mcFmt = v => (v >= 0 ? "+" : "") + Math.round(v) + "\u00b0";
+// How far Imag may be from zero when N is tapped. The same number the buoy enforces
+// (CAL8_ANCHOR_TOL_DEG in RoboSub/src/compass.cpp).
+const MC_ANCHOR_TOL = 2;
+const mcCaptured = i => (mcSession.mask & (1 << i)) !== 0;
+const mcCount = () => { let n = 0; for (let i = 0; i < 8; i++) if (mcCaptured(i)) n++; return n; };
+function mcOnAnchor() {
+    if (mcImag === null) return false;
+    let off = mcImag;
+    while (off > 180) off -= 360;
+    while (off < -180) off += 360;
+    return Math.abs(off) <= MC_ANCHOR_TOL;
+}
 
 function mancalCmd(cmd, extra) {
     return fetch("/command?bid=" + currentBuoy + "&cmd=" + cmd + (extra || ""));
@@ -1703,13 +1672,21 @@ async function mancalPress(cmd, extra) {
     await mancalRefresh();
 }
 
-async function mancalSet() {
-    if (mcSession.next === 0 &&
-        !confirm("Is the hull physically pointing NORTH?\n\n"
-               + "This press defines the reference for the whole calibration: it goes into the "
-               + "global compass offset, so every other direction is measured against it.")) return;
-    mcNudge = 0;
-    await mancalPress("MANCAL_SET");
+// Capture one direction. The leg goes with the press because any captured direction may be
+// re-captured, so the buoy cannot work out which slot is meant from its own cursor.
+async function mancalSet(leg) {
+    if (!mcSession.active) return;
+    if (leg !== mcSession.next && !mcCaptured(leg)) return;
+    if (leg === 0 && !mcOnAnchor()) {
+        alert("IMAG is not on zero.\n\nTurn the hull until the reading in the middle of the rose "
+            + "is green - within " + MC_ANCHOR_TOL + " degrees of zero - then tap N. That reading "
+            + "is the compass's own zero and it is what anchors the whole run.");
+        return;
+    }
+    if (mcCaptured(leg) &&
+        !confirm("Re-capture " + MC_LONG[leg] + "?\n\nThe reading stored for it is replaced by "
+               + "whatever the compass says now.")) return;
+    await mancalPress("MANCAL_SET", "&leg=" + leg);
 }
 
 async function mancalCancelRun() {
@@ -1725,7 +1702,7 @@ function mancalBuildRose() {
         const b = document.createElement("button");
         b.dataset.leg = i;
         b.className = "mancalDot";
-        b.disabled = true;                // the order is fixed; these report progress, they do not select
+        b.onclick = () => mancalSet(i);   // the marks ARE the buttons now
         b.style.cssText = "position:absolute;width:46px;height:46px;border-radius:50%;"
             + "display:flex;flex-direction:column;align-items:center;justify-content:center;"
             + "font-weight:bold;font-size:13px;line-height:1.1;"
@@ -1739,13 +1716,17 @@ function mancalBuildRose() {
 
 function mancalPaint() {
     const running = mcSession.active;
-    const done = running ? mcSession.next : 0;
+    const done = mcCount();
+    const asked = mcSession.next;
     const finished = running && done >= 8;
 
     document.querySelectorAll(".mancalDot").forEach(b => {
         const i = parseInt(b.dataset.leg);
-        const captured = running && i < done;
-        const asking = running && !finished && i === done;
+        const captured = running && mcCaptured(i);
+        const asking = running && i === asked;
+        // Live when it is the one being asked for, or when it is already in - a re-tap replaces it.
+        b.disabled = !running || (!asking && !captured);
+        b.style.cursor = b.disabled ? "default" : "pointer";
         b.style.background = asking ? "#1f6feb" : captured ? "#0f3d21" : "#21262d";
         b.style.color = asking ? "#fff" : captured ? "#3fb950" : "#8b949e";
         b.style.border = asking ? "2px solid #fff" : captured ? "1px solid #3fb950" : "1px solid #30363d";
@@ -1753,24 +1734,32 @@ function mancalPaint() {
         b.querySelector("small").textContent = captured ? Math.round(mcSession.captured[i]) + "\u00b0" : "";
     });
 
+    // The anchor gate, in the middle of the rose. Red until the hull is on the compass's own zero.
+    const hdg = document.getElementById("mancalHdg");
+    if (mcImag === null) {
+        hdg.textContent = "--";
+        hdg.style.color = "#8b949e";
+    } else {
+        hdg.textContent = Math.round(mcImag) + "\u00b0";
+        hdg.style.color = mcOnAnchor() ? "#3fb950" : "#f85149";
+    }
+    document.getElementById("mancalCount").textContent = (running ? done : 0) + " / 8";
+
     // The row of eight: captures so far during a run, otherwise the table in use.
     document.getElementById("mancalRow").innerHTML = MC_DIRS.map((d, i) => {
         let v = null;
-        if (running) { if (i < done) v = mcSession.captured[i]; }
+        if (running) { if (mcCaptured(i)) v = mcSession.captured[i]; }
         else if (mcTable) v = mcTable[i];
-        const asking = running && !finished && i === done;
+        const asking = running && i === asked;
         return "<td style='padding:4px;text-align:center;font-weight:bold;color:"
             + (asking ? "#3fb950" : "#c9d1d9") + ";opacity:" + (v === null ? 0.35 : 1) + ";'>"
             + (v === null ? "&ndash;" : Math.round(v) + "\u00b0") + "</td>";
     }).join("");
 
-    document.getElementById("mancalNudge").textContent = mcFmt(mcNudge);
     mcShow("mancalBegin", !running);
-    mcShow("mancalSet", running && !finished);
-    mcShow("mancalTurn", running && !finished);
+    mcShow("mancalTapHint", running);
     mcShow("mancalSave", finished);
     mcShow("mancalCancel", running);
-    document.querySelectorAll(".mancalAdj").forEach(b => b.disabled = !running || finished);
 
     const step = document.getElementById("mancalStep");
     const ask = document.getElementById("mancalAsk");
@@ -1791,18 +1780,22 @@ function mancalPaint() {
         step.textContent = "not started";
         ask.textContent = "Ready";
         ask.style.color = "#e3b341";
-        hint.textContent = "Press START CALIBRATION - it asks for north first";
+        hint.textContent = "Press START CALIBRATION, then turn the hull to IMAG 0 and tap N";
         st.textContent = mcTable ? "The table the buoy is using now" : "No table reported yet";
         st.style.color = "#8b949e";
     } else if (!finished) {
-        step.textContent = "step " + (done + 1) + " of 8";
-        ask.textContent = "Point the bow " + MC_LONG[done];
-        ask.style.color = done === 0 ? "#f97316" : "#58a6ff";
-        hint.textContent = done === 0
-            ? "North defines the reference - this press sets the compass offset"
-            : "Check it against an external compass, then press SET";
-        document.getElementById("mancalSet").textContent = "SET " + MC_DIRS[done];
-        document.getElementById("mancalTurn").textContent = "TURN TO " + MC_DIRS[done];
+        step.textContent = done + " of 8 captured";
+        if (asked === 0) {
+            const ok = mcOnAnchor();
+            ask.textContent = ok ? "On zero - tap N" : "Turn to IMAG 0";
+            ask.style.color = ok ? "#3fb950" : "#f85149";
+            hint.textContent = "N anchors the run and is only accepted within "
+                             + MC_ANCHOR_TOL + " degrees of zero";
+        } else {
+            ask.textContent = "Index to " + MC_LONG[asked];
+            ask.style.color = "#58a6ff";
+            hint.textContent = "Turn the fixture to its next mark, then tap " + MC_DIRS[asked];
+        }
         st.textContent = "Captured so far - " + done + " of 8";
         st.style.color = "#8b949e";
     } else {
@@ -1810,7 +1803,7 @@ function mancalPaint() {
         ask.textContent = "Ready to save";
         ask.style.color = "#3fb950";
         hint.textContent = "Nothing on the buoy has changed yet";
-        st.textContent = "SAVE writes the offset and the table together";
+        st.textContent = "SAVE writes the table - the offset is Set as North's job";
         st.style.color = "#3fb950";
     }
 }
@@ -1828,8 +1821,10 @@ async function mancalRefresh() {
                 mcSession.valid = true;
                 mcSession.active = !!b0.cal8Active;
                 mcSession.next = b0.cal8Next;
+                mcSession.mask = b0.cal8Mask || 0;
                 if (Array.isArray(b0.cal8)) mcSession.captured = b0.cal8;
             }
+            if (b0.Imag !== undefined) mcImag = parseFloat(b0.Imag);
             if (b0.mancalValid && Array.isArray(b0.mancalTable)) mcTable = b0.mancalTable;
         }
     } catch (e) { /* next tick */ }
@@ -1844,9 +1839,9 @@ async function mancalOpen() {
             + "For another buoy, use that buoy's own Top page, its Sub page, or the handheld.");
         return;
     }
-    mcNudge = 0;
-    mcSession = { valid: false, active: false, next: 0, captured: new Array(8).fill(0) };
+    mcSession = { valid: false, active: false, next: 0, mask: 0, captured: new Array(8).fill(0) };
     mcTable = null;
+    mcImag = null;
     mcOpen = true;
     document.getElementById("mancalBuoy").textContent = "Buoy " + currentBuoy;
     mancalBuildRose();
@@ -1865,37 +1860,26 @@ async function mancalOpen() {
 }
 
 function mancalTick() {
-    const b = buoyData[currentBuoy];
-    if (b && b.MagDir !== undefined) {
-        document.getElementById("mancalHdg").textContent = Math.round(b.MagDir) + "\u00b0";
-    }
+    // The reading in the middle of the rose is Imag, not MagDir - it is the value the table is
+    // indexed by and the one N is aligned against. mancalRefresh() reads it off /data and
+    // mancalPaint() colours it, so there is nothing to write here.
     mancalRefresh();
 }
 
 async function mancalClose() {
-    // Stops the hull and drops the heartbeat. A run in progress is deliberately left alone: it is
-    // on the buoy and has written nothing, so there is no work here to lose.
+    // Drops the heartbeat. A run in progress is deliberately left alone: it is on the buoy and has
+    // written nothing, so there is no work here to lose.
     await mancalCmd("MANCAL_EXIT");
     if (mcPoll) { clearInterval(mcPoll); mcPoll = null; }
     mcOpen = false;
     document.getElementById("mancalOverlay").style.display = "none";
 }
 
-document.addEventListener("click", e => {
-    const b = e.target.closest ? e.target.closest(".mancalAdj") : null;
-    if (!b || !mcSession.active || mcSession.next > 7) return;
-    mcNudge += parseInt(b.dataset.d);
-    if (mcNudge > 180) mcNudge = 180;
-    if (mcNudge < -180) mcNudge = -180;
-    mancalPaint();
-    mancalCmd("MANCAL_STEER", "&nudge=" + mcNudge);
-});
-
 window.addEventListener("beforeunload", () => {
-    // Never walk away leaving the hull pivoting. The calibration session survives on purpose.
-    // fetch(keepalive) rather than navigator.sendBeacon: sendBeacon always issues a POST and
-    // /command is registered HTTP_GET, so the beacon 404s and this safety net silently does
-    // nothing. Verified against a live buoy - GET 200, POST 404.
+    // Release the power hold rather than leave the buoy sitting on it. The calibration session
+    // survives on purpose. fetch(keepalive) rather than navigator.sendBeacon: sendBeacon always
+    // issues a POST and /command is registered HTTP_GET, so the beacon 404s and this safety net
+    // silently does nothing. Verified against a live buoy - GET 200, POST 404.
     if (mcOpen) {
         fetch("/command?bid=" + currentBuoy + "&cmd=MANCAL_STOP", { keepalive: true });
         fetch("/command?bid=" + currentBuoy + "&cmd=MANCAL_EXIT", { keepalive: true });

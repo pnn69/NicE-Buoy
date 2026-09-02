@@ -193,11 +193,20 @@ RoboStruct chkAckMsg()
     RoboStruct in;
     in.ack = 0;
     in.cmd = 0;
-    int i = 0;
-    while (i < 10)
+    // Round-robin, not "lowest occupied slot".
+    //
+    // This returns ONE entry per call and the caller only calls it every ~1.5 s, so always
+    // starting the scan at 0 meant slot 0 consumed all five of its retransmits before slot 1 was
+    // ever looked at - 7.5 s of the channel to itself. A COMPUTE STARTLINE files one SETLOCKPOS
+    // per buoy, so the SECOND buoy's waypoint got a single attempt and then nothing for seven
+    // seconds. Whichever buoy happened to land in the higher slot was the one that never sailed.
+    static int scanStart = 0;
+    for (int n = 0; n < 10; n++)
     {
+        int i = (scanStart + n) % 10;
         if (pendingMsg[i].cmd != 0)
         {
+            scanStart = (i + 1) % 10;
             memcpy(&in, &pendingMsg[i], sizeof(RoboStruct));
             pendingMsg[i].retry--;
             if (pendingMsg[i].retry == 0)
@@ -211,7 +220,6 @@ RoboStruct chkAckMsg()
             // Serial.println("message ack on pos:" + String(i) + " rettrys left:" + pendingMsg[i].retry + " for:" + String(pendingMsg[i].IDr, HEX) + " msg:" + pendingMsg[i].cmd);
             return in;
         }
-        i++;
     }
     return in;
 }
@@ -285,6 +293,183 @@ static bool checkAndRecordRepeaterMessage(const String &msg) {
     }
 }
 
+//***************************************************************************************************
+//  Deferred repeat slots
+//***************************************************************************************************
+// A relay is queued here rather than transmitted from inside onReceive().
+//
+// It used to be sent synchronously, the instant the frame came off the radio. Every Top that heard
+// the same frame therefore relayed it in the same millisecond, so the relays collided with each
+// other - and a node is deaf while it transmits, so each one also missed whatever else was on the
+// air. Nothing about the old design could have worked with more than one relay in the field.
+//
+// Each queued relay carries a due time, and the delay is derived from OUR OWN MAC so that two
+// Tops holding the same frame are never due at the same moment. Pure randomness would still
+// collide now and then; a MAC-derived slot cannot, as long as the two boards fold to different
+// slots. A small random jitter is added on top purely to break the tie if they do collide.
+//
+// The slot is wider than the longest frame we relay, so the node in slot 0 is finished before the
+// node in slot 1 begins - and because a relay that has already been heard is cancelled (see
+// cancelRepeat), in practice only the lowest-slot node in range actually transmits. The others
+// hear it, drop their copy, and the frame reaches the far node exactly once.
+//
+// Slot count and width are bounded by the retry interval, not chosen freely: 4 * 250 + 40 + 60 =
+// 1100 ms, comfortably inside the ~1500 ms the sender's retry table waits. See cancelRepeat().
+//
+// Two boards CAN fold to the same slot - with three Tops and five slots it is not unlikely. That
+// is not fatal: both relay at once, the relay is lost to the collision, and the sender's next
+// retransmit produces a fresh attempt with newly drawn jitter. The stagger removes the guaranteed
+// collision the old synchronous relay had; it does not have to remove every possible one.
+#define REPEAT_SLOTS 4          // how many relays may be waiting at once
+#define REPEAT_NODE_SLOTS 5     // how many distinct per-MAC time slots
+#define REPEAT_SLOT_MS 250      // width of one slot: > airtime of any frame we relay
+#define REPEAT_BASE_MS 40       // dead time before slot 0, lets the original sender's tail clear
+#define REPEAT_JITTER_MS 60     // tie-break when two MACs fold to the same slot
+#define REPEAT_EXPIRY_MS 3000   // give up on a relay the radio will not accept
+
+struct RepeatSlot {
+    String message = "";
+    unsigned long due_ms = 0;
+    bool busy = false;
+    unsigned long target_id = 0;  // who the frame was addressed to
+    int cmd = 0;                  // what it was asking for
+};
+
+static RepeatSlot repeatSlots[REPEAT_SLOTS];
+
+/**
+ * @brief Schedules a frame for relay after a randomised backoff.
+ *
+ * @param msg The verbatim frame to put back on the air.
+ */
+/**
+ * @brief How long THIS board waits before relaying, from its own MAC.
+ *
+ * buoyId is espMac(); its low bytes differ between any two boards, so folding it down gives a
+ * stable per-node slot with nothing to configure and no coordination between nodes.
+ *
+ * @return Delay in milliseconds.
+ */
+static unsigned long repeatDelayMs(void)
+{
+    uint32_t id = (uint32_t)buoyId;
+    id ^= id >> 16;
+    id ^= id >> 8;
+    int slot = (int)(id % REPEAT_NODE_SLOTS);
+    return REPEAT_BASE_MS + (unsigned long)slot * REPEAT_SLOT_MS + random(0, REPEAT_JITTER_MS);
+}
+
+static void queueRepeat(const String &msg, unsigned long target_id, int cmd)
+{
+    for (int i = 0; i < REPEAT_SLOTS; i++)
+    {
+        if (!repeatSlots[i].busy)
+        {
+            repeatSlots[i].message = msg;
+            repeatSlots[i].due_ms = millis() + repeatDelayMs();
+            repeatSlots[i].target_id = target_id;
+            repeatSlots[i].cmd = cmd;
+            repeatSlots[i].busy = true;
+            return;
+        }
+    }
+    // Dropped rather than queued unbounded: if four relays are already waiting, the channel is
+    // busier than the relay is worth and the original sender still has its own retry table.
+    Serial.println("#LoRa Repeat: slots full, frame not relayed");
+}
+
+/**
+ * @brief Drops a pending relay because that exact frame has just been heard on the air again.
+ *
+ * This is what makes the per-MAC stagger worth having. Every Top in range of the sender queues the
+ * same relay; the one in the lowest slot transmits first, and the rest hear their own pending frame
+ * come back and discard it. So a unicast that needs relaying is relayed ONCE, by whichever node
+ * happens to be earliest, instead of once per node.
+ *
+ * A transparent repeater cannot tell another node's relay from the original sender's own
+ * retransmit - the frame is byte-identical either way - so this cancels on both. That is safe
+ * only because of the timing: the longest relay delay is REPEAT_BASE_MS + 3 slots + jitter, about
+ * 1100 ms, while the sender's retry table waits ~1500 ms. Our relay has therefore always gone out
+ * (and freed its slot) before a retransmit could arrive, so a retransmit never cancels a relay
+ * that was still needed. Widening the slots past ~450 ms would break that and starve a genuinely
+ * out-of-range node - see the bound noted at REPEAT_SLOT_MS.
+ *
+ * @param msg The frame just received, verbatim.
+ */
+static void cancelRepeat(const String &msg)
+{
+    for (int i = 0; i < REPEAT_SLOTS; i++)
+    {
+        if (repeatSlots[i].busy && repeatSlots[i].message == msg)
+        {
+            repeatSlots[i].message = "";
+            repeatSlots[i].busy = false;
+            return;
+        }
+    }
+}
+
+/**
+ * @brief Drops a pending relay because the node it was meant for has just answered.
+ *
+ * If we can hear the addressee acknowledging the very command we were about to relay for it, then
+ * it heard the original perfectly well and the relay is pure channel load. This is the normal case
+ * in a compact field where every node is in range of every other: a COMPUTE STARTLINE sends one
+ * unicast SETLOCKPOS per buoy, and without this the buoys NOT addressed would each relay both of
+ * them after they had already been delivered.
+ *
+ * @param in A decoded ACK frame just received.
+ */
+static void cancelRepeatOnAck(const RoboStruct *in)
+{
+    for (int i = 0; i < REPEAT_SLOTS; i++)
+    {
+        if (repeatSlots[i].busy && repeatSlots[i].cmd == in->cmd &&
+            repeatSlots[i].target_id == in->IDs)
+        {
+            repeatSlots[i].message = "";
+            repeatSlots[i].busy = false;
+            return;
+        }
+    }
+}
+
+/**
+ * @brief Transmits any relay whose backoff has expired. Called from LoraTask.
+ *
+ * One per pass, so a burst of relays is spread over successive loops instead of being pushed out
+ * back to back.
+ */
+static void drainRepeats(void)
+{
+    unsigned long now = millis();
+    for (int i = 0; i < REPEAT_SLOTS; i++)
+    {
+        if (repeatSlots[i].busy && (long)(now - repeatSlots[i].due_ms) >= 0)
+        {
+            if (sendLora(repeatSlots[i].message))
+            {
+                Serial.println("#LoRa Repeat: Forwarding <" + repeatSlots[i].message + ">");
+                repeatSlots[i].message = "";
+                repeatSlots[i].busy = false;
+            }
+            else if ((long)(now - repeatSlots[i].due_ms) > REPEAT_EXPIRY_MS)
+            {
+                // The radio has refused this for three seconds - by now the relay is stale enough
+                // to be useless, and holding the slot would block every later one. Freeing it is
+                // also what stops a wedged transceiver from silently disabling the repeater.
+                Serial.println("#LoRa Repeat: expired, dropping relay");
+                repeatSlots[i].message = "";
+                repeatSlots[i].busy = false;
+            }
+            // Otherwise sendLora()'s inter-packet guard is still holding. Leave the slot busy and
+            // try again next pass rather than losing the relay, which is what the old
+            // fire-and-forget call did on every guarded return.
+            return;
+        }
+    }
+}
+
 /**
  * @brief Parses an incoming LoRa packet and routes it to the correct queues.
  * 
@@ -311,6 +496,12 @@ void onReceive(int packetSize)
     RoboStruct in;
     rfDeCode(incoming,&in);
 
+    // Before anything else: if we were about to relay this exact frame, we no longer need to -
+    // somebody beat us to it, or the original sender resent it. Ahead of the early returns below
+    // so it still applies to frames addressed to us.
+    cancelRepeat(incoming);
+    if (in.ack == ACK) cancelRepeatOnAck(&in);
+
     // Recognise either our physical MAC or our logical Sub-synced ID
     bool is_addressed_to_me = (in.IDr == buoyId || (pMainData && in.IDr == pMainData->IDs));
 
@@ -331,15 +522,29 @@ void onReceive(int packetSize)
         xQueueSend(loraIn, (void *)&in, 10); // send to main
     }
 
-    // Transparent Repeater: Repeat if the message was not sent by us,
-    // and is not addressed specifically to us (meaning it's either for someone else, or a broadcast!)
+    // Transparent Repeater: relay a frame that is addressed to SOMEONE ELSE, in case that
+    // someone is out of the sender's range but in ours.
+    //
+    // Broadcasts are deliberately NOT relayed. They used to be, because a broadcast is not
+    // "addressed specifically to us" and so fell through into this branch - and all periodic
+    // telemetry is broadcast (handleTimerRoutines sets IDr = BUOYIDALL). Every Top therefore
+    // rebroadcast every other Top's telemetry, putting each frame on the air once per Top in
+    // the field. Measured at the library default SF7/125 kHz, where TOPDATA is 116 bytes and
+    // 195 ms of airtime: three locked buoys sending one frame a second came to ~1950 ms of
+    // airtime per second, i.e. about 195% channel occupancy. The channel could not carry it,
+    // and what got lost was the traffic that mattered - a COMPUTE STARTLINE would compute and
+    // its SETLOCKPOS frames would never arrive.
+    //
+    // Relaying a broadcast buys nothing anyway: a node close enough to hear our relay is
+    // almost always close enough to have heard the original, and every buoy broadcasts its own
+    // telemetry regardless. So the rule is unicast only.
     bool is_from_me = (in.IDs == buoyId || (pMainData && in.IDs == pMainData->IDs));
-    if (!is_from_me && !is_addressed_to_me)
+    bool is_broadcast = (in.IDr == BUOYIDALL || in.IDr == 0);
+    if (!is_from_me && !is_addressed_to_me && !is_broadcast)
     {
         if (checkAndRecordRepeaterMessage(incoming))
         {
-            Serial.println("#LoRa Repeat: Forwarding <" + incoming + ">");
-            sendLora(incoming);
+            queueRepeat(incoming, in.IDr, in.cmd);
         }
     }
 }
@@ -393,6 +598,8 @@ void LoraTask(void *arg)
         // Continuously poll for any incoming LoRa packets to prevent RX FIFO buffer overflow
         onReceive(LoRa.parsePacket()); 
         crumbAt(CRUMB_LORA, 201);
+        // Put out any relay whose backoff has expired - see queueRepeat().
+        drainRepeats();
         
         // Process any telemetry messages queued for LoRa transmission
         if (xQueueReceive(loraOut, (void *)&loraMsgout, 1) == pdTRUE)

@@ -50,7 +50,7 @@
         <h3 style="color: #38bdf8; margin: 0; font-size: 1.4rem; font-weight: bold; letter-spacing: 0.5px;">MAN COMPASS CAL</h3>
         <span id="buoyTitle" style="font-size: 0.9rem; color: #94a3b8; font-weight: bold;">SUB</span>
         <div style="font-size: 0.7rem; color: #64748b; margin-top: 4px;">
-            compass only &mdash; <b>no GPS needed</b> &middot; the hull turns, keep it clear
+turn the hull to <b>Imag 0</b>, tap <b>N</b>, then index the jig 45&deg; at a time
         </div>
     </div>
 
@@ -59,9 +59,9 @@
 
         <!-- Port Column (with Mag Heading on top) -->
         <div style="display: flex; flex-direction: column; align-items: center; width: 60px;">
-            <span style="font-size: 0.65rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; line-height: 1;">Mag</span>
-            <span id="magVal" style="font-size: 1.3rem; font-weight: bold; color: #38bdf8; line-height: 1;">0&deg;</span>
-            <span id="imagVal" style="font-size: 0.6rem; color: #64748b; margin-bottom: 8px; line-height: 1.4;">Imag -</span>
+            <span style="font-size: 0.65rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; line-height: 1;">Imag</span>
+            <span id="imagVal" style="font-size: 1.3rem; font-weight: bold; color: #64748b; line-height: 1;">--</span>
+            <span id="magVal" style="font-size: 0.6rem; color: #64748b; margin-bottom: 8px; line-height: 1.4;">Mag -</span>
 
             <span style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px; font-weight: bold;">PORT</span>
             <div style="width: 16px; height: 110px; background-color: #0f172a; border-radius: 3px; position: relative;">
@@ -120,23 +120,6 @@
         </div>
     </div>
 
-    <!-- Nudge: shifts the heading the buoy is pivoting to, nothing else. It does not go into the
-         table - only SET captures, and it captures whatever the compass reads at that instant. -->
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 15px;">
-        <div style="display: flex; gap: 8px;">
-            <button type="button" class="adj" data-d="-10">-10&deg;</button>
-            <button type="button" class="adj" data-d="-1">-1&deg;</button>
-        </div>
-        <div style="text-align: center;">
-            <span style="font-size: 0.75rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Nudge</span>
-            <div id="nudgeVal" style="font-size: 1.1rem; font-weight: bold; color: #eab308;">0&deg;</div>
-        </div>
-        <div style="display: flex; gap: 8px;">
-            <button type="button" class="adj" data-d="1">+1&deg;</button>
-            <button type="button" class="adj" data-d="10">+10&deg;</button>
-        </div>
-    </div>
-
     <!-- Large Action Buttons -->
     <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px; border-top: 1px solid #334155; padding-top: 15px;">
         <div id="stepLabel" style="font-size: 0.7rem; color: #94a3b8; text-align: center;
@@ -144,8 +127,9 @@
         <div id="stepAsk" style="font-size: 1.15rem; font-weight: bold; text-align: center; color: #e2e8f0;">Ready</div>
 
         <button type="button" class="big" id="btnBegin" style="background-color: #3b82f6; color: white; font-size: 1rem;">START CALIBRATION</button>
-        <button type="button" class="big" id="btnTurn" style="background-color: #475569; color: white; font-size: 0.95rem; display: none;">TURN THERE</button>
-        <button type="button" class="big" id="btnSet" style="background-color: #22c55e; color: black; font-size: 1.1rem; display: none;">SET</button>
+        <div id="tapHint" style="font-size: 0.75rem; color: #94a3b8; text-align: center; display: none;">
+            Tap a mark on the rose to capture it. A mark already captured can be tapped again to replace it.
+        </div>
         <div style="display: flex; gap: 10px; width: 100%;">
             <button type="button" class="big" id="btnCancel" style="flex: 1; background-color: #ef4444; color: white; font-size: 0.95rem;">CANCEL</button>
             <!-- Not on the handheld: that one is always within arm's reach of the buoy's own IDLE
@@ -155,9 +139,10 @@
             <button type="button" class="big" id="btnSave" style="flex: 1.2; background-color: #3b82f6; color: white; font-size: 0.95rem; display: none;">SAVE</button>
         </div>
         <div style="font-size: 0.7rem; color: #94a3b8; text-align: center;">
-            North first, always. It defines the reference and lands in the global compass offset, so
-            the North table entry is 0 by construction and north stays true with the correction off.
-            Nothing on the buoy changes until <b>SAVE</b>.
+            N first, and only on the compass's own zero &mdash; that is what anchors the run. The
+            other seven are stops on the fixture, 45&deg; apart by construction. <b>SAVE</b> writes
+            the table and nothing else; set which way the sensor is mounted afterwards with
+            <b>Set as North</b>. Nothing on the buoy changes until <b>SAVE</b>.
         </div>
     </div>
 </div>
@@ -170,14 +155,26 @@ const LONG = ["NORTH", "NORTH EAST", "EAST", "SOUTH EAST", "SOUTH", "SOUTH WEST"
 // in compass.cpp - and this is a mirror of it, refreshed every poll. That is deliberate: five
 // screens each doing their own version of this arithmetic is how a corrected heading ended up
 // written into the table as if it were a raw one.
-let session = { active: false, next: 0, captured: [0, 0, 0, 0, 0, 0, 0, 0] };
+let session = { active: false, next: 0, mask: 0, captured: [0, 0, 0, 0, 0, 0, 0, 0] };
 let stored = null;      // the table the buoy is using now, shown when no session is running
-let nudge = 0;          // steering only, never captured
 let busy = false;
+let imag = null;        // the buoy's iron-only heading - what N is aligned against
+
+// How far Imag may be from zero when N is tapped. The same number the buoy enforces
+// (CAL8_ANCHOR_TOL_DEG in RoboSub/src/compass.cpp).
+const ANCHOR_TOL = 2;
+const captured = i => (session.mask & (1 << i)) !== 0;
+const capCount = () => { let n = 0; for (let i = 0; i < 8; i++) if (captured(i)) n++; return n; };
+function onAnchor() {
+    if (imag === null) return false;
+    let off = imag;
+    while (off > 180) off -= 360;
+    while (off < -180) off += 360;
+    return Math.abs(off) <= ANCHOR_TOL;
+}
 
 const $ = id => document.getElementById(id);
 const dots = () => Array.from(document.querySelectorAll(".dot"));
-const fmt = v => (v >= 0 ? "+" : "") + Math.round(v) + "\u00b0";
 
 // One call per press, then repaint from whatever the buoy says. No local guessing about which step
 // we are on, so a dropped request cannot leave this page a direction ahead of the hardware.
@@ -200,19 +197,21 @@ async function call(path) {
 
 function paint() {
     const running = session.active;
-    const done = running ? session.next : 0;
+    const done = capCount();
+    const asked = session.next;
     const finished = running && done >= 8;
 
     dots().forEach(b => {
         const i = parseInt(b.dataset.leg);
-        b.disabled = true;                       // the sequence is fixed; these report, they do not select
-        b.classList.toggle("active", running && !finished && i === done);
-        if (running && i < done) {
+        // Live when it is the one being asked for, or when it is already in - a re-tap replaces it.
+        b.disabled = !running || (i !== asked && !captured(i));
+        b.classList.toggle("active", running && i === asked);
+        if (running && captured(i)) {
             b.style.border = "1px solid #22c55e";
             b.style.backgroundColor = "#14532d";
             b.style.color = "#86efac";
             b.style.opacity = "1";
-        } else if (running && !finished && i === done) {
+        } else if (running && i === asked) {
             b.style.border = "2px solid white";
             b.style.backgroundColor = "#3b82f6";
             b.style.color = "white";
@@ -229,15 +228,14 @@ function paint() {
     for (let i = 0; i < 8; i++) {
         const cell = $("tbl-" + i);
         let v = null;
-        if (running) { if (i < done) v = session.captured[i]; }
+        if (running) { if (captured(i)) v = session.captured[i]; }
         else if (stored) v = stored[i];
         cell.textContent = (v === null) ? "?" : v.toFixed(0) + "\u00b0";
-        cell.style.color = (running && i === done && !finished) ? "#22c55e" : "#e2e8f0";
+        cell.style.color = (running && i === asked) ? "#22c55e" : "#e2e8f0";
         cell.style.opacity = (v === null) ? "0.4" : "1";
     }
 
-    $("corrVal").textContent = (running && !finished) ? DIRS[done] : "-";
-    $("nudgeVal").textContent = fmt(nudge);
+    $("corrVal").textContent = (running && !finished) ? DIRS[asked] : "-";
 
     const st = $("tblStatus");
     if (!running) {
@@ -252,21 +250,27 @@ function paint() {
     }
 
     show("btnBegin", !running);
-    show("btnTurn", running && !finished);
-    show("btnSet", running && !finished);
+    show("tapHint", running);
     show("btnSave", finished);
-    document.querySelectorAll(".adj").forEach(b => b.disabled = !running || finished);
+
+    // The anchor gate. Red until the hull is on the compass's own zero, green once it is.
+    $("imagVal").textContent = (imag === null) ? "--" : Math.round(imag) + "\u00b0";
+    $("imagVal").style.color = (imag === null) ? "#64748b" : (onAnchor() ? "#22c55e" : "#ef4444");
 
     if (!running) {
         $("stepLabel").textContent = "not started";
         $("stepAsk").textContent = "Ready";
         $("stepAsk").style.color = "#e2e8f0";
     } else if (!finished) {
-        $("stepLabel").textContent = "step " + (done + 1) + " of 8";
-        $("stepAsk").textContent = "Point the bow " + LONG[done] + " (" + (done * 45) + "\u00b0)";
-        $("stepAsk").style.color = done === 0 ? "#f97316" : "#38bdf8";
-        $("btnTurn").textContent = "TURN TO " + DIRS[done];
-        $("btnSet").textContent = "SET " + DIRS[done];
+        $("stepLabel").textContent = done + " of 8 captured";
+        if (asked === 0) {
+            const ok = onAnchor();
+            $("stepAsk").textContent = ok ? "On zero - tap N" : "Turn to Imag 0";
+            $("stepAsk").style.color = ok ? "#22c55e" : "#ef4444";
+        } else {
+            $("stepAsk").textContent = "Index to " + LONG[asked] + ", then tap " + DIRS[asked];
+            $("stepAsk").style.color = "#38bdf8";
+        }
     } else {
         $("stepLabel").textContent = "all eight captured";
         $("stepAsk").textContent = "Ready to save";
@@ -276,35 +280,28 @@ function paint() {
 
 function show(id, on) { $(id).style.display = on ? "block" : "none"; }
 
-// Let the thrusters put the hull roughly on the leg. The buoy steers to a CORRECTED heading, so how
-// close it gets depends on the calibration it already has - which is fine, it is only a starting
-// point. Check it against an external compass, nudge, and press SET.
-$("btnTurn").onclick = () => call("/cal8_steer?nudge=" + Math.round(nudge));
-
-document.querySelectorAll(".adj").forEach(b => {
-    b.onclick = async () => {
-        nudge += parseInt(b.dataset.d);
-        if (nudge > 180) nudge = 180;
-        if (nudge < -180) nudge = -180;
-        paint();
-        await call("/cal8_steer?nudge=" + Math.round(nudge));
-    };
-});
-
 $("btnStop").onclick = () => fetch("/mancal_stop");
 
-$("btnBegin").onclick = async () => {
-    nudge = 0;
-    await call("/cal8_begin");
-};
+$("btnBegin").onclick = () => call("/cal8_begin");
 
-$("btnSet").onclick = async () => {
-    const leg = session.next;
-    if (leg === 0 && !confirm("Is the hull physically pointing NORTH?\n\n"
-        + "This press defines the reference for the whole calibration.")) return;
-    nudge = 0;
-    await call("/cal8_set");
-};
+// The marks ARE the buttons. The leg goes with the press because any captured direction may be
+// re-captured, so the buoy cannot work out which slot is meant from its own cursor.
+dots().forEach(b => {
+    b.onclick = async () => {
+        const leg = parseInt(b.dataset.leg);
+        if (!session.active) return;
+        if (leg !== session.next && !captured(leg)) return;
+        if (leg === 0 && !onAnchor()) {
+            alert("Imag is not on zero.\n\nTurn the hull until the Imag reading goes green - "
+                + "within " + ANCHOR_TOL + " degrees of zero - then tap N. That reading is the "
+                + "compass's own zero and it is what anchors the whole run.");
+            return;
+        }
+        if (captured(leg) && !confirm("Re-capture " + LONG[leg] + "?\n\nThe reading stored for it "
+            + "is replaced by whatever the compass says now.")) return;
+        await call("/cal8_set?leg=" + leg);
+    };
+});
 
 $("btnSave").onclick = async () => {
     const t = await call("/cal8_save");
@@ -329,9 +326,9 @@ $("btnCancel").onclick = async () => {
 async function poll() {
     try {
         const d = await (await fetch("/data")).json();
-        $("magVal").textContent = Math.round(d.icm) + "\u00b0";
+        $("magVal").textContent = "Mag " + Math.round(d.icm) + "\u00b0";
         $("arrow").style.transform = "rotate(" + d.icm + "deg)";
-        $("imagVal").textContent = "Imag " + Math.round(d.icm_no_offset) + "\u00b0";
+        if (d.imag !== undefined) imag = d.imag;
         $("buoyTitle").textContent = "SUB " + (d.mac || "").toString().toUpperCase() + " \u00b7 " + d.status_str;
         setBar("barBb", "valBb", d.speed_bb);
         setBar("barSb", "valSb", d.speed_sb);
@@ -339,6 +336,7 @@ async function poll() {
         if (d.cal8_active !== undefined) {
             session.active = !!d.cal8_active;
             session.next = d.cal8_next;
+            session.mask = d.cal8_mask || 0;
             if (Array.isArray(d.cal8)) session.captured = d.cal8;
         }
         paint();

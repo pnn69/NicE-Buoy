@@ -29,7 +29,6 @@
 
 // Forward declaration of linear interpolation helper
 float getInterpolatedHeading(float h);
-float inverseInterpolatedHeading(float target);
 float computeSetAsNorthOffset(void);
 void computeFourierCoefficients();
 
@@ -55,11 +54,13 @@ float damp_mag = 0.15f;
 float damp_att = 0.15f;
 float measured_angles[9] = {0.0f, 45.0f, 90.0f, 135.0f, 180.0f, 225.0f, 270.0f, 315.0f, 360.0f};
 // Which ICM filtering mode the stored table was measured in, or -1 if it predates the record.
-// The mode selects which heading variant feeds the pipeline, and the table is indexed by that
-// variant plus compassOffset - so calibrating in one mode and sailing in another silently applies
-// the whole deviation curve to the wrong input. Measured on a real hull, the modes are 1.4 to 26
+// The mode selects which heading variant feeds the pipeline, and that variant IS the table's
+// input - so calibrating in one mode and sailing in another silently applies the whole deviation
+// curve to the wrong input. Measured on a real hull, the modes are 1.4 to 26
 // degrees apart depending on tilt, and nothing used to notice.
 int interp_table_mode = -1;
+// Which convention the stored table was measured under - see INTERP_TABLE_REV in compass.h.
+int interp_table_rev = INTERP_TABLE_REV;
 
 // False when the table cannot be interpolated - see computeFourierCoefficients(). An uncorrected
 // compass is wrong by the deviation; a compass corrected through a broken table is wrong by
@@ -90,7 +91,7 @@ extern SemaphoreHandle_t mainDataMutex;
 
 // Global state for web dashboard telemetry
 volatile float global_hdg = 0;
-volatile float global_hdg_no_offset = 0;
+volatile float global_hdg_iron = 0;
 volatile float global_fusion_hdg = 0;
 float fusion_offset = 0.0f; // Startup offset to align 3D Gyro Fusion with 2D compass exactly
 float last_raw_x = 0, last_raw_y = 0, last_raw_z = 0;
@@ -397,7 +398,17 @@ bool InitCompass(void)
     // And which filtering mode it was measured in. Without loading this the check would
     // pass after every reboot on a -1 it never read, which is worse than not having it.
     memInterpTableMode(&interp_table_mode, MEM_GET);
-    if (!interpTableModeMatches())
+    memInterpTableRev(&interp_table_rev, MEM_GET);
+    if (!interpTableRevOk())
+    {
+        Serial.printf("WARNING: the stored compass table is revision %d and this firmware runs "
+                      "revision %d. It was measured with the mounting offset inside the table's "
+                      "input; the offset is applied after the table now, so applying it would be "
+                      "wrong at every heading by roughly that offset. Running UNCORRECTED - "
+                      "recalibrate to get the correction back.\r\n",
+                      interp_table_rev, INTERP_TABLE_REV);
+    }
+    else if (!interpTableModeMatches())
     {
         Serial.printf("WARNING: the compass table was measured in filtering mode %d but mode "
                       "%d is selected. The correction is being applied to a different heading "
@@ -955,14 +966,33 @@ void CompassTask(void *arg) {
 
             // -------------------- OUTPUT TO QUEUE & GLOBALS --------------------
             if (mainDataMutex && xSemaphoreTake(mainDataMutex, portMAX_DELAY)) {
-                // Add the manual compass offset first
-                heading += mainData.compassOffset;
+                // ---- the heading pipeline --------------------------------------------------
+                //
+                //     dirMag = table(iron) + trim + compassOffset
+                //
+                // Order matters, and this is not the order it used to be in. compassOffset was
+                // applied BEFORE the table, which made it part of the domain the table is indexed
+                // by: measured_angles[i] was what (sensor + offset) read at direction i, so moving
+                // the offset rotated the entire deviation curve relative to the hull. That single
+                // fact is what forced a heading reference lock around every calibration run, made
+                // Set as North need a numeric inverse of the correction curve to land in one
+                // press, and meant a table and the offset it was measured against had to be
+                // written together or not at all.
+                //
+                // With the offset applied after the table it is what it always claimed to be: a
+                // pure rotation of the output. The table describes the hull's magnetic deviation
+                // in the sensor's own frame - a property of the hull and its wiring - while the
+                // offset describes which way the sensor happens to be bolted in. Independent, so
+                // either can be set without disturbing the other, and Set as North can be pressed
+                // as often as you like without invalidating a calibration.
                 while (heading < 0.0f) heading += 360.0f;
                 while (heading >= 360.0f) heading -= 360.0f;
 
-                global_hdg_no_offset = heading; // Value after manual offset is added and before harmonic correction
+                // Imag: iron corrected and nothing else. This is the value the table is indexed
+                // by, and the value the guided calibration turns the hull against.
+                global_hdg_iron = heading;
 
-                // Apply 8-point smooth harmonic curve correction directly as a production add-on if enabled by the user!
+                // Apply the 8-point piecewise correction as a production add-on if enabled by the user!
                 if (interp_enabled) {
                     heading = getInterpolatedHeading(heading);
                 }
@@ -971,6 +1001,15 @@ void CompassTask(void *arg) {
                 if (mainData.compass_trim_enabled) {
                     heading += mainData.compass_trim;
                 }
+
+                // How the sensor is mounted in the hull, and the LAST thing to touch the heading.
+                // Both of these are plain additions and the wrap below is the only normalisation,
+                // so swapping them changes no output - this is ordered for reading, not for
+                // arithmetic. It is worth ordering anyway: the offset is the one adjustment an
+                // operator sets by hand, and having it sit at the end of the chain is what makes
+                // "Set as North rotates the finished heading and nothing else" true on the face of
+                // the code rather than only after checking that everything below it commutes.
+                heading += mainData.compassOffset;
 
                 while (heading < 0) heading += 360.0f;
                 while (heading >= 360.0f) heading -= 360.0f;
@@ -991,18 +1030,17 @@ void CompassTask(void *arg) {
 }
 
 float GetHeading(void) { return global_hdg; }
-float GetHeadingNoOffset(void) { return global_hdg_no_offset; }
+float GetHeadingIron(void) { return global_hdg_iron; }
 float GetHeadingRaw(void) { return global_hdg; }
 int linMagCalib(int *corr) { return 0; }
 bool CalibrateCompass(void) { return true; }
 int get_cal_point_count() { return 3; }
 bool global_is_calibrating = false;
 
-float fourier_A0 = 0.0f;
-float fourier_A1 = 0.0f;
-float fourier_B1 = 0.0f;
-float fourier_A2 = 0.0f;
-float fourier_B2 = 0.0f;
+// fourier_A0..B2 used to live here. The correction was a five-term Fourier fit, which cannot pass
+// through eight arbitrary values - on this hull it left up to 3.8 degrees of error at the very
+// headings that had just been measured. Piecewise interpolation replaced it and read the table
+// directly; the coefficients were still being computed and written and never read again.
 
 /**
  * @brief Computes 1st and 2nd harmonic Fourier coefficients based on 8 measured calibration points.
@@ -1030,15 +1068,22 @@ void computeFourierCoefficients() {
         prev = v;
     }
 
-    interp_table_usable = ok;
+    // Both gates, in one place: the table has to be interpolatable AND measured under the
+    // convention this chain runs. getInterpolatedHeading() reads only this flag, so anything that
+    // makes a table unfit to apply has to end up here or it will be applied anyway.
+    interp_table_usable = ok && interpTableRevOk();
 
-    if (ok) {
+    if (!ok) {
+        Serial.printf("Compass table REJECTED - the eight measured angles are not in increasing "
+                      "order, so a direction was mis-aimed. Running UNCORRECTED.\r\n");
+    } else if (!interpTableRevOk()) {
+        Serial.printf("Compass table REJECTED - it is revision %d, this firmware runs revision %d. "
+                      "Running UNCORRECTED until it is measured again.\r\n",
+                      interp_table_rev, INTERP_TABLE_REV);
+    } else {
         Serial.printf("Compass table accepted: ");
         for (int i = 0; i < 8; i++) Serial.printf("%.1f ", measured_angles[i]);
         Serial.printf("\r\n");
-    } else {
-        Serial.printf("Compass table REJECTED - the eight measured angles are not in increasing "
-                      "order, so a direction was mis-aimed. Running UNCORRECTED.\r\n");
     }
 }
 
@@ -1054,57 +1099,36 @@ void computeFourierCoefficients() {
 // how a corrected heading ended up in the table in the first place.
 //
 // The flow the operator sees:
-//   begin           arms the session, asks for north
-//   set             point the hull at the direction being asked for, press. Captures and advances.
-//   ...             eight times, 0 45 90 ... 315
-//   save or cancel  nothing on the buoy changes until save
+//   begin              arms the session
+//   turn the hull      until Imag reads zero, and press N
+//   45 degrees at a time on the mechanical jig, pressing each mark as it is reached
+//   save or cancel     nothing on the buoy changes until save
 //
-// North first, and it is special: it defines the reference. The offset absorbs it, so table entry
-// 0 is 0 by construction and the compass reads exactly north there with the correction ON and with
-// it OFF. Everything after is measured relative to that same north.
+// What each press records is Imag - the heading with the iron correction and nothing else. That is
+// exactly the value the table is indexed by, so nothing has to be switched off to read it: the
+// correction, the mounting offset and the trim can all stay as they are for the whole procedure.
 //
-// The captures are of Imag - the heading with the iron correction and the mounting offset applied
-// but before the table and before the trim, which is the value the table is indexed by. Nothing on
-// the buoy has to be switched off to read it, so the correction and the trim can stay exactly as
-// they are for the whole procedure.
-// ---- the heading reference lock ---------------------------------------------------------------
+// The jig is what makes this work. The eight stops are 45 degrees apart BY CONSTRUCTION, machined
+// into the fixture, rather than aimed at by eye against a distant landmark. Aligning the fixture's
+// zero with Imag = 0 and then indexing round it gives eight readings whose true separation is known
+// to the accuracy of the metal, and an error at one stop does not accumulate into the next.
 //
-// compassOffset is not just a display trim: it is the domain the correction table is indexed by.
-// measured_angles[i] is what (sensor + compassOffset) reads when the hull points at i*45, so moving
-// the offset by x rotates the whole deviation curve by x relative to the hull.
+// Anchoring at Imag = 0 is a convention, not an arithmetic necessity - getInterpolatedHeading()
+// works relative to measured_angles[0] and would cope with a run that started anywhere. It is worth
+// holding to anyway: it keeps the stored table near the identity, so a human reading
+// "0 44 91 134 ..." can see at a glance that the calibration is sane, and it leaves the mounting
+// offset as the only thing that rotates the output.
 //
-// Between calibrations that is exactly what Set as North should do - one measurement can only
-// support "my reference direction has moved", and rotating the curve with it is the right
-// inference. DURING a run it is silent corruption:
-//
-//   - the guided run stores each capture as (Imag_i - Imag_north). Move the offset after north has
-//     been captured and every later capture is out by the shift, because the two terms were read in
-//     different frames.
-//   - the GPS run reads the table in effect at the start and applies its measured residuals at the
-//     end. Move the offset in between and the legs sailed before and after disagree.
-//
-// So a run claims the reference for its duration. The guided run claims it itself; the GPS run,
-// which lives on the Top, claims it with CAL8_LOCK. The timeout is the backstop for a Top that
-// dies mid-run - a buoy left permanently unable to set its own north would be a worse fault than
-// the one this prevents.
-bool cal8_ref_locked = false;
-static unsigned long cal8_ref_locked_at = 0;
-#define CAL8_LOCK_TIMEOUT_MS (45UL * 60UL * 1000UL)   // a GPS run is around 30 minutes
+// Note what is NOT here any more. There is no north to capture, no offset written at save time, and
+// no heading reference lock. compassOffset is applied after the table now (see the pipeline in
+// CompassTask), so it is not part of the table's domain, nothing measured here depends on its
+// value, and Set as North is free to be pressed before, during or after a run without corrupting
+// anything. Setting which way the sensor is bolted in and measuring the hull's deviation are two
+// independent jobs, and this one does only the second.
 
-void cal8Lock(bool on)
-{
-    if (on)
-    {
-        cal8_ref_locked = true;
-        cal8_ref_locked_at = millis();
-        Serial.println("Calibration in progress: the heading reference is locked");
-    }
-    else if (cal8_ref_locked)
-    {
-        cal8_ref_locked = false;
-        Serial.println("Heading reference released");
-    }
-}
+// How close to zero Imag has to be before the N mark will be accepted, degrees. Only the anchor is
+// gated - the other seven are wherever the jig puts them, which is the whole point of the jig.
+#define CAL8_ANCHOR_TOL_DEG 2.0f
 
 // Is the table being applied to the heading source it was measured on? -1 means the table predates
 // this record, and an unknown is deliberately NOT reported as a mismatch: condemning every older
@@ -1115,134 +1139,155 @@ bool interpTableModeMatches(void)
     return interp_table_mode == icm_mode;
 }
 
-// True when something must not move compassOffset. Self-releasing, so a Top that died mid-run
-// cannot leave this buoy unable to set north ever again.
-bool cal8RefLocked(void)
+// Was the stored table measured under the convention the chain runs now? Unlike the filtering mode
+// above, an unknown here is NOT given the benefit of the doubt: every table that predates the key
+// was measured the old way, so "unrecorded" and "wrong" are the same answer.
+bool interpTableRevOk(void)
 {
-    if (!cal8_ref_locked) return false;
-    if (millis() - cal8_ref_locked_at > CAL8_LOCK_TIMEOUT_MS)
-    {
-        cal8_ref_locked = false;
-        Serial.println("Heading reference lock timed out - releasing it");
-        return false;
-    }
-    return true;
+    return interp_table_rev == INTERP_TABLE_REV;
 }
 
 bool cal8_active = false;
-int cal8_next = 0;                 // which direction is being asked for, 0..7
-float cal8_imag_north = 0.0f;      // Imag when north was captured; the whole session hangs off this
+int cal8_next = 0;              // the direction being asked for, 0..7, or 8 when every one is in
+uint8_t cal8_mask = 0;          // bit i set once direction i has been captured
+uint16_t cal8_seq = 0;          // serial of the last press applied, see CAL8_SESSION in RoboCompute.h
 float cal8_captured[8] = {0};
+
+// Walk the cursor past everything already captured, so it always names the first direction still
+// missing - or 8 when the run is complete.
+static void cal8AdvanceCursor(void)
+{
+    while (cal8_next < 8 && (cal8_mask & (1 << cal8_next))) cal8_next++;
+}
+
+// The serial after s. Never 0: that value means "unnumbered press" and is always applied, so
+// letting the counter wrap onto it would quietly switch the de-duplication off.
+uint16_t cal8NextSeq(uint16_t s)
+{
+    uint16_t n = (uint16_t)(s + 1);
+    return n == 0 ? 1 : n;
+}
 
 void cal8Begin(void)
 {
-    cal8Lock(true);   // nothing may move the offset until this run commits or is thrown away
     cal8_active = true;
     cal8_next = 0;
-    cal8_imag_north = 0.0f;
+    cal8_mask = 0;
+    cal8_seq = 0;
     for (int i = 0; i < 8; i++) cal8_captured[i] = 0.0f;
-    Serial.println("8 point calibration: started, point the hull NORTH and press set");
+    Serial.println("8 point calibration: started. Turn the hull until Imag reads 0, then press N");
 }
 
 void cal8Cancel(void)
 {
-    cal8Lock(false);
     cal8_active = false;
     // Back to nothing, not "finished at step 8". A closed session that still reports a step makes
     // every screen watching it show a run that is not there.
     cal8_next = 0;
+    cal8_mask = 0;
+    cal8_seq = 0;
     Serial.println("8 point calibration: cancelled, nothing written");
 }
 
-// Capture the direction currently being asked for. Returns the index just filled, or -1.
+// Capture one direction. Returns the index just filled, or a negative cal8_set_result_t saying why
+// not - the caller reports the reason, because "nothing happened" is the one answer an operator
+// cannot act on.
 //
-// expect_leg is the leg the CALLER believes is next, or -1 for "whatever is next". Remote callers
-// pass it and it is what makes a press safe to retry: the Top-to-Sub link is one half-duplex wire
-// and drops most of what is sent while the Sub is talking, so presses have to be repeated - and a
-// repeat that arrived after the original had already landed would capture the next leg against the
-// hull's old heading. With the leg named, a late duplicate is simply ignored.
-int cal8Set(int expect_leg)
+// leg names the direction the press is FOR. The cursor is not enough on its own: once a direction
+// has been captured it may be captured again, so a press has to say which slot it means.
+//
+// seq is the press serial and is what makes a press safe to retry. The Top-to-Sub link is one
+// half-duplex wire that drops most of what is sent while the Sub is talking, so presses get
+// repeated - and a repeat that lands after the hull has moved on to the next mark would overwrite
+// a good capture with a reading taken from the wrong place. A presser numbers its press one past
+// the seq the Sub last reported; a duplicate carries a number already used and is dropped. Pass 0
+// for a press with no retry behind it, such as the Sub's own web page.
+int cal8Set(int leg, unsigned int seq)
 {
-    if (!cal8_active || cal8_next > 7) return -1;
-    if (expect_leg >= 0 && expect_leg != cal8_next)
+    if (!cal8_active) return CAL8_SET_NO_SESSION;
+    if (leg < 0 || leg > 7) return CAL8_SET_BAD_LEG;
+
+    // Only the direction being asked for, or one already in - a capture may not run ahead of the
+    // cursor, because a gap in the table is not something the operator can see on the screen.
+    bool is_cursor = (leg == cal8_next);
+    bool is_redo = (cal8_mask & (1 << leg)) != 0;
+    if (!is_cursor && !is_redo)
     {
-        Serial.printf("8 point calibration: ignoring a capture meant for leg %d, we are on %d\r\n",
-                      expect_leg, cal8_next);
-        return -1;
+        Serial.printf("8 point calibration: %d deg is not being asked for and is not captured yet\r\n",
+                      leg * 45);
+        return CAL8_SET_BAD_LEG;
     }
 
-    float imag = GetHeadingNoOffset();
-    int idx = cal8_next;
-
-    if (idx == 0) {
-        // North defines the reference. Entry 0 is 0 by definition - the offset takes the whole of
-        // it at save time - so the table carries only the SHAPE of the deviation. That is what
-        // keeps north correct when the correction is switched off.
-        cal8_imag_north = imag;
-        cal8_captured[0] = 0.0f;
-    } else {
-        float v = imag - cal8_imag_north;
-        while (v < 0.0f) v += 360.0f;
-        while (v >= 360.0f) v -= 360.0f;
-        cal8_captured[idx] = v;
+    if (seq != 0)
+    {
+        if (seq == cal8_seq)
+        {
+            Serial.printf("8 point calibration: press %u already applied, ignoring the repeat\r\n", seq);
+            return CAL8_SET_DUPLICATE;
+        }
+        if (seq != (unsigned int)cal8NextSeq(cal8_seq))
+        {
+            Serial.printf("8 point calibration: press %u is out of step, expected %u\r\n",
+                          seq, (unsigned int)cal8NextSeq(cal8_seq));
+            return CAL8_SET_DUPLICATE;
+        }
     }
 
-    cal8_next++;
-    Serial.printf("8 point calibration: %d deg captured (Imag %.2f -> entry %.2f), %d of 8 done\r\n",
-                  idx * 45, imag, cal8_captured[idx], cal8_next);
-    return idx;
+    float imag = GetHeadingIron();
+
+    // The anchor, and only the anchor, has to be on zero. See CAL8_ANCHOR_TOL_DEG.
+    if (leg == 0)
+    {
+        float off = imag;
+        while (off > 180.0f) off -= 360.0f;
+        while (off < -180.0f) off += 360.0f;
+        if (fabsf(off) > CAL8_ANCHOR_TOL_DEG)
+        {
+            Serial.printf("8 point calibration: N refused, Imag reads %.2f and the anchor has to be "
+                          "within %.1f deg of zero\r\n", imag, CAL8_ANCHOR_TOL_DEG);
+            return CAL8_SET_OFF_ANCHOR;
+        }
+    }
+
+    cal8_captured[leg] = imag;
+    cal8_mask |= (1 << leg);
+    if (seq != 0) cal8_seq = (uint16_t)seq;
+    cal8AdvanceCursor();
+
+    Serial.printf("8 point calibration: %d deg captured (Imag %.2f)%s, %d of 8 in\r\n",
+                  leg * 45, imag, is_redo ? " again" : "", __builtin_popcount(cal8_mask));
+    return leg;
 }
 
-// Commit an eight point table, with north forced to zero.
+// Commit an eight point table.
 //
-// This is the ONLY place a table is written, and it is what makes "entry 0 is 0" a property of the
-// buoy rather than of whichever screen happened to send the table. The guided run already produces
-// a table with entry 0 at zero, so for that path this is a no-op - but the GPS Fourier run does
-// not: it computes newTable[i] = oldTable[i] - residual[i], which leaves north's own deviation
-// sitting in entry 0. A table like that reads north correctly with the correction ON and wrongly
-// with it OFF, which is exactly the failure the offset is supposed to absorb.
+// This is the ONLY place a table is written. It no longer touches compassOffset, and no longer
+// rotates the table so that entry 0 comes out at exactly zero.
 //
-// The rotation is exact, not an approximation. The table is indexed by d = sensor + compassOffset,
-// so shifting every entry down by t[0] and the offset down by the same amount leaves d - t[0]
-// against t[i] - t[0]: the same curve, described from north instead of from wherever the sensor
-// happens to read there.
+// Both of those used to be necessary and are now actively wrong. The offset sat before the table,
+// so north's own deviation had to be moved out of entry 0 and into the offset or the compass read
+// north correctly with the correction on and wrongly with it off. With the offset applied after the
+// table there is nothing to fold: the table is a pure description of the hull's deviation, and
+// rotating it would put an error into every heading in exchange for a rounder-looking entry 0. The
+// anchor lands within CAL8_ANCHOR_TOL_DEG of zero on its own, and whatever it actually read there
+// is the truth - so that is what gets stored.
 //
 // Returns false if the result is not usable - see computeFourierCoefficients(). It is still stored,
 // because refusing would leave the buoy on a table the operator thinks they replaced, but the
 // caller is told so it can say so instead of reporting success.
 bool storeInterpolationTable(const float *eight)
 {
-    float t[9];
-    for (int i = 0; i < 8; i++) t[i] = eight[i];
-
-    float shift = t[0];
-    if (fabsf(shift) > 0.001f)
-    {
-        for (int i = 0; i < 8; i++)
-        {
-            float v = t[i] - shift;
-            while (v < 0.0f) v += 360.0f;
-            while (v >= 360.0f) v -= 360.0f;
-            t[i] = v;
-        }
-        t[0] = 0.0f;   // exactly, not 359.9999
-
-        double newOffset = mainData.compassOffset - (double)shift;
-        while (newOffset < -180.0) newOffset += 360.0;
-        while (newOffset > 180.0) newOffset -= 360.0;
-        mainData.compassOffset = newOffset;
-        CompasOffset(&mainData, MEM_PUT);
-        Serial.printf("Table north was %.2f off zero: rotated to zero, compass offset now %.2f"
-                      "\r\n", shift, newOffset);
-    }
-
-    for (int i = 0; i < 8; i++) measured_angles[i] = t[i];
+    for (int i = 0; i < 8; i++) measured_angles[i] = eight[i];
     measured_angles[8] = measured_angles[0] + 360.0f;
     memInterpolationTable(measured_angles, MEM_PUT);
     // Remember which filtering mode this was measured in. The mode is the table's input - see
     // memInterpTableMode() - and a table measured in one mode is meaningless in another.
     interp_table_mode = icm_mode;
     memInterpTableMode(&interp_table_mode, MEM_PUT);
+    // And under which convention. Written here and nowhere else, so a table can only be stamped
+    // current by actually having been measured that way.
+    interp_table_rev = INTERP_TABLE_REV;
+    memInterpTableRev(&interp_table_rev, MEM_PUT);
     computeFourierCoefficients();          // validates the ordering, see there
 
     bool enable = true;
@@ -1258,97 +1303,44 @@ bool storeInterpolationTable(const float *eight)
     return interp_table_usable;
 }
 
-// Commit. Both halves land together or not at all - a table written against an offset that was
-// never applied would be wrong at every heading.
+// Commit. Refuses until every direction has been captured at least once - the mask, not the cursor,
+// because a redo leaves the cursor where it was.
 bool cal8Save(void)
 {
-    if (!cal8_active || cal8_next < 8) return false;
+    if (!cal8_active || cal8_mask != 0xFF) return false;
 
-    // The offset absorbs north. Measured with the OLD offset in force, so it is a correction TO
-    // that offset, not a replacement: sensor + newOffset then equals the entry that was stored.
-    double newOffset = mainData.compassOffset - cal8_imag_north;
-    while (newOffset < -180.0) newOffset += 360.0;
-    while (newOffset > 180.0) newOffset -= 360.0;
-    mainData.compassOffset = newOffset;
-    CompasOffset(&mainData, MEM_PUT);
-
-    // Through the common commit, which also holds the north-at-zero invariant. Entry 0 is
-    // already 0 here by construction, so its rotation is a no-op - but going through one door
-    // means the guided run and the GPS run cannot end up with different rules again.
     bool usable = storeInterpolationTable(cal8_captured);
 
-    cal8Lock(false);   // the run has committed; north may be set by hand again
     cal8_active = false;
 
-    Serial.printf("8 point calibration SAVED: offset %.2f, usable=%d\r\n",
-                  newOffset, usable ? 1 : 0);
+    Serial.printf("8 point calibration SAVED, usable=%d. Compass offset untouched - set which way "
+                  "the sensor is mounted with Set as North.\r\n", usable ? 1 : 0);
 
     extern QueueHandle_t buzzer;
     if (buzzer != NULL) beep(5, buzzer);   // the short happy tune
     return true;
 }
 
-// Inverse of getInterpolatedHeading(): the pre-correction heading that comes out as `target`.
-//
-// The correction is a fitted Fourier curve, corrected = h + err(h), with err running to tens of
-// degrees on a real hull - so it cannot be inverted in closed form and its slope is nowhere near 1.
-// A coarse 1 degree sweep for the nearest solution, then a 0.01 degree sweep around it: 560 cheap
-// evaluations, run once when a button is pressed. Plenty finer than the compass itself.
-//
-// Deliberately not a fixed-point iteration (h <- target - err(h)): that only converges while
-// |err'| < 1, and the whole reason this function exists is tables where it is not.
-float inverseInterpolatedHeading(float target) {
-    while (target < 0.0f) target += 360.0f;
-    while (target >= 360.0f) target -= 360.0f;
-
-    float best_h = target, best_d = 1e9f;
-    for (int i = 0; i < 360; i++) {
-        float h = (float)i;
-        float d = fabsf(fmodf(getInterpolatedHeading(h) - target + 540.0f, 360.0f) - 180.0f);
-        if (d < best_d) { best_d = d; best_h = h; }
-    }
-    float coarse = best_h;
-    for (int i = -100; i <= 100; i++) {
-        float h = coarse + (float)i * 0.01f;
-        float d = fabsf(fmodf(getInterpolatedHeading(h) - target + 540.0f, 360.0f) - 180.0f);
-        if (d < best_d) { best_d = d; best_h = h; }
-    }
-
-    while (best_h < 0.0f) best_h += 360.0f;
-    while (best_h >= 360.0f) best_h -= 360.0f;
-    return best_h;
-}
-
 // The compassOffset that makes the CURRENT heading read exactly north, in one go.
 //
-// The old sum was compassOffset - dirMag, which assumes the offset moves the reported heading one
-// for one. It does not: the offset is added BEFORE the correction curve (see the output block in
-// the compass task), so a change of x at the input comes out as x * (1 + err') at the output. With
-// a real table that factor is nowhere near 1, which is why Set as North used to need three or four
-// presses to creep onto north instead of landing on it.
+// The pipeline is
+//     dirMag = table(iron) + offset + trim
+// so for dirMag == 0 the offset simply has to cancel whatever the rest of it produces. One
+// subtraction, exact in a single press, whether the correction and the trim are on or off.
 //
-// Solved the other way round instead. The pipeline is
-//     dirMag = interp(sensor + offset) + trim
-// so for dirMag == 0 we need the input to the curve to be interp^-1(-trim), and the offset that
-// puts it there is that value minus the bare sensor reading. Exact in a single press, and it stays
-// exact whether the correction and the trim are switched on or off.
+// This used to need a numeric inverse of the correction curve. The offset was applied BEFORE the
+// table, so a change of x at the input came out as x * (1 + err') at the output - with a real table
+// that factor is nowhere near 1, which is why Set as North once needed three or four presses to
+// creep onto north instead of landing on it, and why the fix for that was a 560 step search for the
+// input that produced the wanted output. Moving the offset after the table removed the problem
+// rather than solving it, and inverseInterpolatedHeading() went with it.
 float computeSetAsNorthOffset(void)
 {
     float trim = mainData.compass_trim_enabled ? (float)mainData.compass_trim : 0.0f;
 
-    // global_hdg_no_offset is the heading with the offset already added but before the curve, so
-    // backing the offset out again leaves the bare sensor heading.
-    float sensor = global_hdg_no_offset - (float)mainData.compassOffset;
-    while (sensor < 0.0f) sensor += 360.0f;
-    while (sensor >= 360.0f) sensor -= 360.0f;
+    float corrected = interp_enabled ? getInterpolatedHeading(global_hdg_iron) : global_hdg_iron;
 
-    float want = -trim;
-    while (want < 0.0f) want += 360.0f;
-    while (want >= 360.0f) want -= 360.0f;
-
-    float target_pre = interp_enabled ? inverseInterpolatedHeading(want) : want;
-
-    float offset = target_pre - sensor;
+    float offset = -(corrected + trim);
     while (offset < -180.0f) offset += 360.0f;
     while (offset > 180.0f) offset -= 360.0f;
     return offset;

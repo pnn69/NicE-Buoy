@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Compass Harmonic Correction Calibration</title>
+    <title>8-Point Compass Calibration</title>
     <style>
         :root {
             --bg-color: #0b0f19;
@@ -233,7 +233,7 @@
     <div class="container">
         <header>
             <div>
-                <h1>Compass Correction Table</h1>
+                <h1>8-Point Compass Calibration</h1>
                 <div id="table-state" style="margin-top:8px; padding:6px 10px; border-radius:4px;
                      font-weight:bold; background:rgba(0,0,0,0.3); color:#8b949e;">checking...</div>
                 <div id="mode-warning" style="display:none; margin-top:8px; padding:8px 10px;
@@ -247,11 +247,15 @@
         <div class="instructions">
             <div style="font-weight: bold; color: var(--primary);">How it works:</div>
             <div style="font-size: 0.9rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.25rem;">
-                <div>1. Press <strong>START CALIBRATION</strong>. The buoy asks for north first.</div>
-                <div>2. Aim the bow at the direction being asked for, using an external compass, and press <strong>SET</strong>.</div>
-                <div>3. It advances 45&deg; on its own. Repeat until all eight are captured.</div>
-                <div>4. Press <strong>SAVE</strong>. Until then nothing on the buoy has changed, and <strong>CANCEL</strong> costs nothing.</div>
-                <div>North is the reference: it goes into the compass offset, so entry 0 is always 0 and north stays true even with the correction off.</div>
+                <div>1. Press <strong>START CALIBRATION</strong>.</div>
+                <div>2. Turn the hull until <strong>Imag</strong> reads <strong>0</strong> &mdash; the reading goes green within
+                     2&deg; &mdash; then capture <strong>N</strong>. That anchors the run.</div>
+                <div>3. Index the fixture round 45&deg; at a time and capture each mark. A card already
+                     captured stays clickable, and clicking it again replaces the reading.</div>
+                <div>4. Press <strong>SAVE</strong> once all eight are in. Until then nothing on the buoy has changed, and <strong>CANCEL</strong> costs nothing.</div>
+                <div>This measures the hull&rsquo;s magnetic deviation and <strong>nothing else</strong>. Which way the sensor is
+                     bolted in is separate &mdash; set it afterwards with <strong>Set as North</strong>, which is applied after this
+                     table and can be pressed any time without disturbing it.</div>
             </div>
         </div>
 
@@ -274,9 +278,9 @@
                     <div id="val-as-is" class="heading-val" style="color: var(--purple);">-°</div>
                 </div>
 
-                <!-- Windrose 2: Harmonic Corrected -->
+                <!-- Windrose 2: table + offset corrected -->
                 <div class="windrose-card" style="border-top: 3px solid var(--green);">
-                    <div class="windrose-title" style="color: var(--green);">2. Harmonic Corrected Output</div>
+                    <div class="windrose-title" style="color: var(--green);">2. Corrected Output (table + offset)</div>
                     <svg width="160" height="150" id="rose-harmonic-canvas">
                         <circle cx="80" cy="75" r="70" fill="none" stroke="rgba(16, 185, 129, 0.15)" stroke-width="4"/>
                         <g id="needle-harmonic" style="transform-origin: 80px 75px; transition: transform 0.1s ease;">
@@ -297,12 +301,12 @@
             </div>
 
             <div style="font-size:0.85rem; color:#8b949e; margin-bottom:1rem; line-height:1.6;">
-                One guided run, north first. North sets the reference and lands in the compass offset,
-                so the first table entry is 0 by construction - that is what keeps north true when the
-                correction is switched off. Every following direction is measured against that same
-                north. The value captured is <strong>Imag</strong>, the heading after the iron
-                correction but before this table and before the trim, so nothing has to be switched
-                off first and the buoy keeps steering throughout. Nothing is written until SAVE.
+                One guided run, anchored on the compass&rsquo;s own zero. The value captured is
+                <strong>Imag</strong> &mdash; the heading with the iron correction applied and nothing else,
+                before this table, before the mounting offset and before the trim. That is exactly what the
+                table is indexed by, so nothing has to be switched off first and the buoy keeps steering
+                throughout. The eight stops are 45&deg; apart <em>by construction</em> on the fixture, not aimed
+                at by eye, so an error at one stop does not carry into the next. Nothing is written until SAVE.
             </div>
 
             <div id="step-panel" style="border:1px solid rgba(59,130,246,0.25); background:rgba(59,130,246,0.05);
@@ -368,7 +372,35 @@
         // Mirror of the session the BUOY is running. The buoy owns the rules; this page only shows
         // where the run has got to and presses the buttons, so the two Sub pages, the Top page and
         // both CYD screens cannot disagree about the arithmetic.
-        let session = { active: false, next: 0, captured: [0, 0, 0, 0, 0, 0, 0, 0] };
+        let session = { active: false, next: 0, mask: 0, captured: [0, 0, 0, 0, 0, 0, 0, 0] };
+
+        // How far Imag may be from zero when N is captured. The same number the buoy enforces
+        // (CAL8_ANCHOR_TOL_DEG in RoboSub/src/compass.cpp).
+        const ANCHOR_TOL = 2;
+        const isCaptured = i => (session.mask & (1 << i)) !== 0;
+        const capCount = () => { let n = 0; for (let i = 0; i < 8; i++) if (isCaptured(i)) n++; return n; };
+        function onAnchor() {
+            let off = currentHeading;
+            while (off > 180) off -= 360;
+            while (off < -180) off += 360;
+            return Math.abs(off) <= ANCHOR_TOL;
+        }
+
+        // Capture one direction. The leg goes with the press because any captured direction may be
+        // re-captured, so the buoy cannot work out which slot is meant from its own cursor.
+        function captureLeg(leg) {
+            if (!session.active) return;
+            if (leg !== session.next && !isCaptured(leg)) return;
+            if (leg === 0 && !onAnchor()) {
+                alert('Imag is not on zero.\n\nTurn the hull until the Imag reading goes green - '
+                    + 'within ' + ANCHOR_TOL + ' degrees of zero - then capture N. That reading is '
+                    + "the compass's own zero and it is what anchors the whole run.");
+                return;
+            }
+            if (isCaptured(leg) && !confirm('Re-capture ' + refNames[leg] + '?\n\nThe reading '
+                + 'stored for it is replaced by whatever the compass says now.')) return;
+            call('/cal8_set?leg=' + leg);
+        }
         let storedTable = [0, 45, 90, 135, 180, 225, 270, 315];
         let busy = false;
 
@@ -387,7 +419,7 @@
             setInterval(pollData, 150);
 
             document.getElementById('btn-begin').onclick = () => call('/cal8_begin');
-            document.getElementById('btn-set').onclick = () => call('/cal8_set');
+            document.getElementById('btn-set').onclick = () => captureLeg(session.next);
             document.getElementById('btn-save').onclick = () => call('/cal8_save');
             document.getElementById('btn-cancel').onclick = () => {
                 if (confirm('Discard this calibration run? Nothing has been written yet.')) call('/cal8_cancel');
@@ -436,13 +468,14 @@
             fetch('/data?t=' + Date.now())
                 .then(r => r.json())
                 .then(data => {
-                    currentHeading = data.icm_no_offset;   // Imag
-                    const harmonicHeading = data.harmonic_hdg;
+                    currentHeading = data.imag;   // Imag - iron corrected and nothing else
+                    const harmonicHeading = data.corrected_hdg;
 
                     if (Array.isArray(data.meas_ang)) storedTable = data.meas_ang;
                     if (data.cal8_active !== undefined) {
                         session.active = !!data.cal8_active;
                         session.next = data.cal8_next;
+                        session.mask = data.cal8_mask || 0;
                         if (Array.isArray(data.cal8)) session.captured = data.cal8;
                     }
                     paintLevel(data.pitch, data.roll);
@@ -450,7 +483,7 @@
                     paintTable();
 
                     // The filtering mode is the table's INPUT: measured_angles[i] is what the
-                    // selected variant plus the offset reads at i*45. Calibrate in one mode, sail in
+                    // selected variant reads at direction i. Calibrate in one mode, sail in
                     // another, and the whole curve lands on the wrong heading source - while the
                     // table still looks perfectly valid and the usability check still passes.
                     const mm = document.getElementById('mode-warning');
@@ -562,7 +595,9 @@
             const label = document.getElementById('step-label');
             const ask = document.getElementById('step-ask');
             const live = document.getElementById('step-live');
-            const done = session.active ? session.next : 0;
+            const done = capCount();
+            const asked = session.next;
+            const anchored = onAnchor();
 
             if (!session.active) {
                 label.innerText = 'not started';
@@ -578,22 +613,32 @@
             show('btn-cancel', true);
 
             if (done < 8) {
-                label.innerText = 'step ' + (done + 1) + ' of 8';
-                ask.innerHTML = 'Point the bow ' + refNames[done] +
-                                ' <span style="color:var(--text-muted);">(' + refAngles[done] + '\u00b0)</span>';
-                ask.style.color = done === 0 ? 'var(--orange)' : 'var(--cyan)';
-                live.innerText = (done === 0
-                    ? 'North first: this press defines the reference and sets the compass offset. '
-                    : 'Use an external compass on the reference direction, then press SET. ')
+                label.innerText = done + ' of 8 captured';
+                if (asked === 0) {
+                    // The anchor gate. Everything else is a stop on the fixture; this one has to be
+                    // on the compass's own zero, because it is what the whole run is indexed from.
+                    ask.innerHTML = anchored
+                        ? 'On zero &mdash; capture N'
+                        : 'Turn the hull until Imag reads 0';
+                    ask.style.color = anchored ? 'var(--green)' : 'var(--red)';
+                } else {
+                    ask.innerHTML = 'Index the jig to ' + refNames[asked] +
+                                    ' <span style="color:var(--text-muted);">(' + refAngles[asked] + '\u00b0)</span>';
+                    ask.style.color = 'var(--cyan)';
+                }
+                live.innerText = (asked === 0
+                    ? 'N anchors the run and is only accepted within ' + ANCHOR_TOL + ' degrees of zero. '
+                    : 'Turn the fixture to its next mark, then capture. Any card already captured can be tapped to redo it. ')
                     + 'Imag now ' + currentHeading.toFixed(1) + '\u00b0';
-                document.getElementById('btn-set').innerText = 'SET ' + refNames[done];
+                document.getElementById('btn-set').innerText = 'CAPTURE ' + refNames[asked];
                 show('btn-set', true); show('btn-save', false);
             } else {
                 label.innerText = 'all eight captured';
                 ask.innerHTML = 'Ready to save';
                 ask.style.color = 'var(--green)';
-                live.innerText = 'Nothing on the buoy has changed yet. SAVE writes the offset and the '
-                               + 'table together; CANCEL throws the run away.';
+                live.innerText = 'Nothing on the buoy has changed yet. SAVE writes the table - the '
+                               + 'mounting angle is Set as North\u2019s job, not this run\u2019s. '
+                               + 'CANCEL throws the run away.';
                 show('btn-set', false); show('btn-save', true);
             }
         }
@@ -605,8 +650,14 @@
                 const dv = document.getElementById('diff-val-' + idx);
                 const sv = document.getElementById('state-val-' + idx);
                 const running = session.active;
-                const captured = running && idx < session.next;
+                const captured = running && isCaptured(idx);
                 const value = running ? (captured ? session.captured[idx] : null) : storedTable[idx];
+
+                // The cards are buttons during a run: the one being asked for, and any already in,
+                // which a tap re-captures.
+                const live = running && (idx === session.next || captured);
+                card.style.cursor = live ? 'pointer' : 'default';
+                card.onclick = live ? () => captureLeg(idx) : null;
 
                 if (value === null || value === undefined) {
                     mv.innerText = '-';
@@ -626,12 +677,12 @@
                     sv.style.color = '#8b949e';
                     card.style.borderColor = 'var(--card-border)';
                 } else if (captured) {
-                    sv.innerText = 'captured';
+                    sv.innerText = 'captured - tap to redo';
                     sv.style.background = 'rgba(16,185,129,0.15)';
                     sv.style.color = 'var(--green)';
                     card.style.borderColor = 'rgba(16,185,129,0.35)';
                 } else if (idx === session.next) {
-                    sv.innerText = 'PRESS SET HERE';
+                    sv.innerText = 'CAPTURE HERE';
                     sv.style.background = 'rgba(6,182,212,0.2)';
                     sv.style.color = 'var(--cyan)';
                     card.style.borderColor = 'var(--cyan)';
@@ -648,7 +699,7 @@
         // compass correction at all. Useful to start from nothing, not part of a calibration.
         function resetTable() {
             if (!confirm('Replace the table with 0,45,90...315? That leaves the compass with NO correction.')) return;
-            fetch('/reset_harmonic')
+            fetch('/reset_table')
                 .then(r => r.text())
                 .then(text => {
                     if (text !== 'OK') alert('Failed to reset: ' + text);

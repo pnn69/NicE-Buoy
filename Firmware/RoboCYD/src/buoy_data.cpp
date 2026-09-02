@@ -44,6 +44,61 @@ uint8_t calculate_crc(const String &content) {
     return crc;
 }
 
+PendingCmd pending_cmd;
+bool pending_cmd_acked = false;
+bool pending_cmd_failed = false;
+
+// How long to wait for an ACK before resending. RoboTop answers from its loop task, typically well
+// inside 300 ms, so a second is generous - and it deliberately stays clear of the Top's OWN 1500 ms
+// retry cadence, so the two ends are not transmitting on top of each other.
+#define ACK_RETRY_MS 1000UL
+
+void await_ack(const String &target_id, int cmd, const String &frame, int attempts) {
+    pending_cmd.active = true;
+    pending_cmd.target_id = target_id;
+    pending_cmd.cmd = cmd;
+    pending_cmd.frame = frame;
+    pending_cmd.attempts_left = attempts - 1;   // the first attempt has already gone out
+    pending_cmd.next_due_ms = millis() + ACK_RETRY_MS;
+    pending_cmd_acked = false;
+    pending_cmd_failed = false;
+}
+
+// An ACK has arrived. Matched on sender AND command: the Top puts its own MAC in the sender field
+// of the reply - which is the id we addressed the command to - and names the command it is
+// answering for. Anything else is somebody else's traffic.
+static void note_ack(const String &sender_id, int cmd) {
+    if (!pending_cmd.active) return;
+    if (pending_cmd.cmd != cmd) return;
+    if (pending_cmd.target_id != sender_id) return;
+
+    Serial.printf("ACK from %s for cmd %d - delivery confirmed\n", sender_id.c_str(), cmd);
+    pending_cmd.active = false;
+    pending_cmd.frame = "";
+    pending_cmd_acked = true;
+}
+
+void service_pending_cmd() {
+    if (!pending_cmd.active) return;
+    if ((long)(millis() - pending_cmd.next_due_ms) < 0) return;
+
+    if (pending_cmd.attempts_left <= 0) {
+        Serial.printf("No ACK from %s for cmd %d after all attempts - giving up\n",
+                      pending_cmd.target_id.c_str(), pending_cmd.cmd);
+        pending_cmd.active = false;
+        pending_cmd.frame = "";
+        pending_cmd_failed = true;
+        return;
+    }
+
+    pending_cmd.attempts_left--;
+    pending_cmd.next_due_ms = millis() + ACK_RETRY_MS;
+    Serial.printf("No ACK yet for cmd %d, resending (%d attempt(s) left)\n",
+                  pending_cmd.cmd, pending_cmd.attempts_left);
+    send_lora_packet(pending_cmd.frame);
+    udp_broadcast(pending_cmd.frame);
+}
+
 void parse_buoy_packet(const String &packetStr, const String &source, int rssi) {
     // If the corresponding communication channel is disabled, silently discard the message
     bool is_udp = source.startsWith("UDP");
@@ -86,17 +141,27 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     
     // Extract command code first to verify if this is an actual telemetry or setup packet
     int cmd = atoi(fields[3].c_str());
+
+    // ACK (ack field == 4) is handled here and nowhere else, ahead of the telemetry filter below.
+    // An ACK names the command it answers FOR, so its cmd reads 62, 20, ... and that filter would
+    // drop every one of them. RoboCode() emits only "cmd,status" for an ACK, so there is no
+    // telemetry in it to fall through to anyway.
+    if (atoi(fields[2].c_str()) == 4) {
+        String ack_sender = fields[1];
+        ack_sender.trim();
+        note_ack(ack_sender, cmd);
+        return;
+    }
     
     // TELEMETRY: Ignore any auxiliary command echoes, except standard status updates, SETUPDATA (83),
-    // the GPS Fourier calibration progress report (90) and the waypoint beacons LOCKPOS (21) /
-    // DOCKPOS (23).
+    // and the waypoint beacons LOCKPOS (21) / DOCKPOS (23).
     //
     // SETLOCKPOS (20) is deliberately NOT accepted here even though it carries the same two
     // fields: it is sent BY the Top that computed a start line TO another buoy, so its sender ID
     // is the wrong buoy and the waypoint would be filed against the computer instead of the
     // recipient re-broadcasts it as LOCKPOS under its own ID anyway
     // (RoboTop/src/main.cpp, case SETLOCKPOS), which is the copy we want.
-    if (cmd != 51 && cmd != 19 && cmd != 83 && cmd != 90 && cmd != 21 && cmd != 23 && cmd != 88) return;
+    if (cmd != 51 && cmd != 19 && cmd != 83 && cmd != 21 && cmd != 23 && cmd != 88) return;
 
     String sender_id = fields[1];
     sender_id.trim();
@@ -192,26 +257,8 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         buoys[buoy_idx].status = "REMOTE";
         buoys[buoy_idx].tg_pos_seen_ms = 0; // Hand steering - no waypoint to hold. Same reason as IDLE.
     }
-    // GPS_FOURIER_CALIBRATE: the Top is sailing its eight compass calibration legs.
-    else if (status_code == 89) buoys[buoy_idx].status = "GPS CALIB";
     else buoys[buoy_idx].status = "MODE " + String(status_code);
     
-    // Parse GPS_FOURIER_STATUS (CMD = 90).
-    // fields[0..4] are IDr, IDs, ack, cmd, status - the payload starts at 5.
-    if (cmd == 90 && fields.size() >= 11) {
-        buoys[buoy_idx].cal_seen_ms = millis();
-        buoys[buoy_idx].cal_step    = atoi(fields[5].c_str());
-        buoys[buoy_idx].cal_leg     = atoi(fields[6].c_str());
-        buoys[buoy_idx].cal_cmd_dir = atof(fields[7].c_str());
-        buoys[buoy_idx].cal_dist    = atof(fields[9].c_str());
-        buoys[buoy_idx].cal_err     = atof(fields[10].c_str());
-        // fields[11] only exists on a Top new enough to send it.
-        if (fields.size() >= 12) buoys[buoy_idx].cal_last_err = atof(fields[11].c_str());
-        // fields[12] only exists on a Top new enough to send the abort reason.
-        if (fields.size() >= 13) buoys[buoy_idx].cal_abort = atoi(fields[12].c_str());
-        return; // carries no position or battery data - nothing else here applies
-    }
-
     // Parse TOPDATA (CMD = 51)
     if (cmd == 51 && fields.size() >= 21) {
         buoys[buoy_idx].mag_dir = atof(fields[5].c_str());
@@ -328,11 +375,17 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
             for (int i = 0; i < 8; i++)
                 buoys[buoy_idx].cal8[i] = atof(fields[8 + i].c_str());
         }
+        // The captured mask and the press serial are appended after the eight values, so a buoy
+        // too old to send them leaves this end's copy alone rather than reading as an empty run.
+        if (fields.size() >= 17) buoys[buoy_idx].cal8_mask = atoi(fields[16].c_str());
+        if (fields.size() >= 18) buoys[buoy_idx].cal8_seq  = atoi(fields[17].c_str());
         buoys[buoy_idx].cal8_ms = millis();
         extern bool mancal_is_dirty;
         mancal_is_dirty = true;
-        Serial.printf("CAL8 from %s: %s, step %d of 8\n", sender_id.c_str(),
-                      buoys[buoy_idx].cal8_active ? "running" : "idle", buoys[buoy_idx].cal8_next);
+        Serial.printf("CAL8 from %s: %s, asking for %d, mask %02X, seq %d\n", sender_id.c_str(),
+                      buoys[buoy_idx].cal8_active ? "running" : "idle",
+                      buoys[buoy_idx].cal8_next, buoys[buoy_idx].cal8_mask,
+                      buoys[buoy_idx].cal8_seq);
     }
     // Parse STORE_INTERPOLATION_TABLE (CMD = 88) to pre-populate fourier offsets dynamically!
     else if (cmd == 88 && fields.size() >= 13) {
@@ -402,25 +455,44 @@ void send_buoy_command(const String &buoy_id, int cmd_code, int ack) {
     // Send over both LoRa and UDP!
     send_lora_packet(finalPacket);
     udp_broadcast(finalPacket);
+
+    // Confirm delivery for the two commands whose loss is invisible to the operator.
+    //
+    // COMPUTESTART (62) and COMPUTETRACK (63) are carried out by the buoy that receives them, and
+    // the result reaches the rest of the fleet as SETLOCKPOS BETWEEN buoys - so when the press is
+    // lost, this screen sees precisely what it sees when the press arrives: nothing.
+    //
+    // Everything else is left alone on purpose. IDLE/LOCK/DOCK are single visible state changes an
+    // operator can watch fail and simply press again, and a retry of a REMOTE or DIRDIST frame
+    // would put a stale steering command on the air behind the operator's next one.
+    if (cmd_code == 62 || cmd_code == 63) {
+        await_ack(buoy_id, cmd_code, finalPacket);
+    }
 }
 
-void send_buoy_cal8(const String &buoy_id, int action, int leg, int ack) {
-    // $Target,Sender,ACK,CMD,Status,Action,Active,Next*CRC - RoboCompute's decoder reads the action
-    // as numbers[2], counting from the CMD field, and needs more than four numbers present before
-    // it reads any of them. The Active field is state the BUOY reports, so what we put there is
-    // ignored on arrival; Next carries the leg this press is for. The eight captures are
-    // deliberately not sent - this end has nothing to say about them.
+void send_buoy_cal8(const String &buoy_id, int action, int leg, int ack, int seq) {
+    // $Target,Sender,ACK,CMD,Status,Action,Active,Next,c0..c7,Mask,Seq*CRC - RoboCompute's decoder
+    // reads the action as numbers[2], counting from the CMD field, and needs more than four numbers
+    // present before it reads any of them. Active, the eight captures and Mask are state the BUOY
+    // reports, so what we put there is ignored on arrival; Next carries the leg this press is for
+    // and Seq numbers the press.
+    //
+    // The eight zeroes and the mask are placeholders rather than omissions: the decoder keys on the
+    // field COUNT, so a short frame would leave cal8Seq unread and every press would arrive
+    // unnumbered - which reads as "no retry behind this one" and defeats the de-duplication.
+    //
     // Status 7 (IDLE) rather than echoing the command, which is what send_buoy_command() does:
     // this frame is not asking the buoy to change state, only to take a calibration step.
-    String cmdStr = buoy_id + ",98," + String(ack) + ",91,7," + String(action) + ",0," + String(leg);
+    String cmdStr = buoy_id + ",98," + String(ack) + ",91,7," + String(action) + ",0," + String(leg)
+                  + ",0,0,0,0,0,0,0,0,0," + String(seq);
 
     uint8_t crc = calculate_crc(cmdStr);
     char crc_buf[8];
     sprintf(crc_buf, "*%02X", crc);
     String finalPacket = "$" + cmdStr + String(crc_buf);
 
-    Serial.printf("CAL8 %s action %d leg %d: %s\n", ack == 1 ? "GET" : "SET", action, leg,
-                  finalPacket.c_str());
+    Serial.printf("CAL8 %s action %d leg %d seq %d: %s\n", ack == 1 ? "GET" : "SET", action, leg,
+                  seq, finalPacket.c_str());
     send_lora_packet(finalPacket);
     udp_broadcast(finalPacket);
 }
@@ -444,33 +516,6 @@ void send_buoy_setlockpos(const String &buoy_id, int status_code, double lat, do
     String finalPacket = "$" + cmdStr + String(crc_buf);
 
     Serial.printf("Broadcasting SETLOCKPOS: %s\n", finalPacket.c_str());
-
-    send_lora_packet(finalPacket);
-    udp_broadcast(finalPacket);
-}
-
-void send_gps_fourier_calibrate(const String &buoy_id, bool still_water, float start_heading) {
-    // Same envelope as send_buoy_command(), but with the still-water flag in the first payload
-    // field. RoboTop reads it as fields[5]; an empty payload there decodes as 0, which is the
-    // current-tolerant pair-averaged mode.
-    //
-    // The starting heading of the first leg in degrees (0..315) is passed in fields[6].
-    //
-    // ack 6 = INF, matching what RoboTop's own web page sends for this command. NOT 3 (GETACK):
-    // that enrols the packet in RoboTop's LoRa retransmit table (retry = 5, loratop.cpp) and no
-    // immediate ACK is ever sent for a GETACK, so the start command was re-sent about once a
-    // second for five seconds. RoboTop ignores a repeat once the run is under way, so this never
-    // broke anything - it just filled the air at the worst possible moment.
-    String cmdStr = buoy_id + ",98,6,89,89," + String(still_water ? 1 : 0) + "," + String((int)start_heading);
-
-    uint8_t crc = calculate_crc(cmdStr);
-    char crc_buf[8];
-    sprintf(crc_buf, "*%02X", crc);
-
-    String finalPacket = "$" + cmdStr + String(crc_buf);
-
-    Serial.printf("Broadcasting GPS Fourier calibrate (%s): %s\n",
-                  still_water ? "still water" : "pair averaged", finalPacket.c_str());
 
     send_lora_packet(finalPacket);
     udp_broadcast(finalPacket);

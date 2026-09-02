@@ -427,9 +427,9 @@
                     <div id="val-rose-tilt" class="heading-val">000°</div>
                 </div>
 
-                <!-- HARMONIC CORRECTION -->
+                <!-- TABLE + OFFSET CORRECTED -->
                 <div class="windrose-card" style="border-top: 3px solid var(--cyan);">
-                    <h3>Harmonic+Offset Corr</h3>
+                    <h3>Table+Offset Corrected</h3>
                     <div class="compass-wrapper">
                         <svg class="compass" viewBox="0 0 200 200">
                             <circle cx="100" cy="100" r="95" fill="#161616" stroke="#2c2c2c" stroke-width="5"/>
@@ -831,7 +831,7 @@
                         headingSoft = dampAngle(headingSoft, data.hardSoft, k_mag);
                         headingOpt3 = dampAngle(headingOpt3, data.opt3, k_mag);
                         headingTilt = dampAngle(headingTilt, data.fusion_no_offset, k_mag);
-                        headingHarmonic = dampAngle(headingHarmonic, data.harmonic_hdg, k_mag);
+                        headingHarmonic = dampAngle(headingHarmonic, data.corrected_hdg, k_mag);
                         headingFinal = dampAngle(headingFinal, data.icm, k_mag);
 
                         let rollVal = Number(data.roll !== undefined ? data.roll : (data.ir || 0));

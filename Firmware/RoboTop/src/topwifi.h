@@ -37,7 +37,7 @@ void mancalNoteTable(const float *table, bool inEffect);
 //
 // Called from handleSerialData() for every CAL8_SESSION frame the Sub sends up.
 // ---------------------------------------------------------------------------------------------
-void cal8NoteState(bool active, int next, const float *captured);
+void cal8NoteState(bool active, int next, const float *captured, uint8_t mask, uint16_t seq);
 
 // A calibration press, from this Top's page or from any client over LoRa or UDP, held until the Sub
 // confirms it took. The serial link down to the Sub is a single half-duplex wire the Sub talks on
@@ -45,7 +45,17 @@ void cal8NoteState(bool active, int next, const float *captured);
 // the bench. Every interface would otherwise need its own retry loop, so the retry lives here,
 // where the lossy hop is - and CAL8_SET names the leg it means, which is what makes repeating it
 // safe. See CAL8_SESSION in RoboCompute.h.
-void cal8NotePress(int action, int leg);
+// One press of the guided run, sent to the Sub and resent until the Sub shows it landed.
+//
+// seq is the press serial. Pass 0 for a press that originated HERE - this Top's own page - and one
+// will be allocated. Pass the sender's own serial for a press that arrived over the air, so that
+// the sender's retries and this Top's retries do not multiply: a remote press already carries a
+// number, and renumbering each repeat would turn every one of them into a fresh capture.
+void cal8NotePress(int action, int leg, uint16_t seq = 0);
+
+// The direction the guided run is asking for next, as the SUB reports it. The page passes an
+// explicit leg for a redo of an already captured direction, and this for a plain forward step.
+int  cal8NextLeg(void);
 
 // Called from the main loop. Resends the pending press until the Sub's reported state shows it
 // landed, then stops. Gives up after CAL8_MAX_TRIES rather than hammering an unreachable buoy.

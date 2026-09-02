@@ -11,7 +11,6 @@
 #include "adc.h"
 #include "loratop.h"
 #include "sercom.h"
-#include "gpscalib.h"
 #include "gpssim.h"
 #include "udplog.h"
 
@@ -424,14 +423,9 @@ void handleKeyPress(RoboStruct *key)
             case 110:
                 key->status = START_CALIBRATE_MAGNETIC_COMPASS;
                 break;
-            case 108:
-                // The button cannot ask which mode you want, so it picks the conservative one:
-                // pair averaging can only ever leave a residual error, while still-water mode on
-                // a day with a current writes that current into the compass table. Use the web
-                // Setup dialog to choose still water deliberately.
-                key->gpsCalStillWater = false;
-                key->status = GPS_FOURIER_CALIBRATE;
-                break;
+            // Button position 108 used to arm the GPS Fourier calibration. Nothing is bound to it
+            // now: that run was removed, and the guided eight point calibration cannot be driven
+            // from a single button - it needs a screen to say which direction is being asked for.
             default:
                 beep(-1, buzzer);
                 break;
@@ -451,8 +445,8 @@ void handleKeyPress(RoboStruct *key)
 void buttonLight(RoboStruct *sta)
 {
     static int lastCalibState = 0;
-    int currentCalibState = (sta->status == CALIBRATE_MAGNETIC_COMPASS || sta->status == INFIELD_CALIBRATE ||
-                             sta->status == GPS_FOURIER_CALIBRATE) ? 1 : 0;
+    int currentCalibState = (sta->status == CALIBRATE_MAGNETIC_COMPASS ||
+                             sta->status == INFIELD_CALIBRATE) ? 1 : 0;
     
     if (currentCalibState != lastCalibState) {
         if (currentCalibState == 1) {
@@ -1117,7 +1111,6 @@ void handleTimerRoutines(RoboStruct *timer)
 {
     handleInfieldCompassCalibration(timer);
     handleInfieldOffsetCalibration(timer);
-    handleGpsFourierCalibration(timer);
 
     timer->IDs = timer->mac;
     timer->IDr = BUOYIDALL;
@@ -1247,15 +1240,26 @@ void handleTimerRoutines(RoboStruct *timer)
         }
     }
 
-    // LoRa transmission (Dynamic rate: 250ms during manual calibration, 1000ms when active, 5000ms when idle to conserve battery)
+    // LoRa transmission.
+    //
+    // LoRa is the scarce transport, not WiFi: at the library default SF7/125 kHz a 116 byte
+    // TOPDATA occupies the channel for 195 ms, so one frame a second is already ~20% of the air
+    // per buoy. Station keeping does not need it. While LOCKED it used to send TOPDATA every
+    // second - three buoys plus the old broadcast-relaying repeater came to roughly 195% channel
+    // occupancy, and the frames that lost the argument were the commands: a COMPUTE STARTLINE
+    // computed correctly and its SETLOCKPOS frames never got through.
+    //
+    // 5 s in every holding state now, and one frame per tick instead of two. The CYD still gets
+    // 4 Hz over UDP whenever the field WiFi is up (see udpInterval above); LoRa only has to keep
+    // the fleet view alive at long range.
+    //
+    // REMOTE is deliberately left at 250 ms. It is hand-driven, one buoy at a time, and the
+    // operator needs the feedback - but note that is ~78% channel occupancy on its own, so it is
+    // the next thing to look at if the air still feels full.
     unsigned long loraInterval = 5000;
     if (timer->status == REMOTE)
     {
         loraInterval = 250; // Ultra-fast 4Hz LoRa updates during manual calibration!
-    }
-    else if (timer->status != IDLE && timer->status != IDLING)
-    {
-        loraInterval = 1000;
     }
 
     if (lastLoraTx + loraInterval < millis())
@@ -1273,10 +1277,28 @@ void handleTimerRoutines(RoboStruct *timer)
         }
         else
         {
-            timer->cmd = BUOYPOS;
-            xQueueSend(loraOut, (void *)timer, 10); // send out through Lora
+            // TOPDATA every tick, BUOYPOS only every fourth.
+            //
+            // These two were briefly alternated, which halved the idle airtime but also pushed
+            // TOPDATA out to one per 10 s - and TOPDATA is the ONLY frame carrying Imag, the
+            // pre-table heading a compass calibration reads. The CYD refuses to capture a point
+            // when Imag is older than MANCAL_HEADING_STALE_MS, so on a LoRa-only link every MAN
+            // CAL press would have failed with NO IRON HEADING. Anything that needs a live
+            // heading needs TOPDATA at the full tick rate.
+            //
+            // BUOYPOS is kept, thinly, for one field: topAccuP, this Top's own battery
+            // percentage, which no other frame carries. It reaches a peer Top through
+            // MergeBuoyData and nothing else on the network reads it - the CYD parses BUOYPOS
+            // but explicitly skips that field - so once per 20 s is ample for a battery gauge.
+            static unsigned char idleTick = 0;
             timer->cmd = TOPDATA;
             xQueueSend(loraOut, (void *)timer, 10); // send out through Lora
+            if ((idleTick % 4) == 0)
+            {
+                timer->cmd = BUOYPOS;
+                xQueueSend(loraOut, (void *)timer, 10); // send out through Lora
+            }
+            idleTick++;
         }
     }
 
@@ -1368,6 +1390,46 @@ static uint32_t calculateCommandHash(const RoboStruct &msg)
  * @param RfOut Pointer to the RoboStruct to be updated with incoming data.
  * @param buoyPara Array of pointers to RoboStructs for all buoys.
  */
+/**
+ * @brief Acknowledges a unicast command over LoRa, if the sender asked for one.
+ *
+ * Nothing in RoboTop ever put an ACK on the air before this. Senders ask for one - SENDTRACK marks
+ * its SETLOCKPOS frames GETACK, the CYD marks its own SET - and LoraTask duly files them with
+ * retry = 5, but removeAckMsg() and the ACK branch of onReceive() were both waiting for a reply
+ * that no firmware in the fleet ever sent. So every such command burnt all five retransmissions,
+ * and because the duplicate filter is skipped for ack == GETACK, each copy re-executed at the far
+ * end and provoked its own broadcast in turn.
+ *
+ * The reply is cheap: RoboCode() emits only "cmd,status" when ack == ACK, about 20 bytes and 46 ms
+ * on the air at SF7 - against up to five 108 ms retransmits plus everything they cause.
+ *
+ * Broadcasts are never acknowledged: removeAckMsg() matches an ACK to a pending entry by
+ * recipient, and an entry addressed to BUOYIDALL can never match, so an ACK for one is pure
+ * channel load. Sent regardless of which interface the command ARRIVED on, because it is the LoRa
+ * retry table that has to be cleared - if the UDP copy won the race, the radio retransmits still
+ * need stopping.
+ *
+ * @param in   The command just received.
+ * @param self This buoy's own data, for our MAC and current status.
+ * @param cmd  The command to name in the reply - the sender matches an ACK on it.
+ */
+static void ackOverLora(const RoboStruct *in, const RoboStruct *self, int cmd)
+{
+    bool wants_ack = (in->ack == GETACK || in->ack == SET);
+    bool unicast_to_me = (in->IDr == self->mac || in->IDr == self->IDs);
+    if (!wants_ack || !unicast_to_me) return;
+
+    static RoboStruct ackMsg;   // static: ~500 bytes, and this runs on the loop task
+    ackMsg = RoboStruct();
+    ackMsg.IDr = in->IDs;
+    ackMsg.IDs = self->mac;
+    ackMsg.cmd = cmd;
+    ackMsg.status = self->status;
+    ackMsg.ack = ACK;
+    xQueueSend(loraOut, (void *)&ackMsg, 10);
+}
+
+
 void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
 {
     RoboStruct RfIn;
@@ -1559,6 +1621,13 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             case COMPUTESTART:
                 if (RfIn.IDr == RfOut->mac || ((RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) && (RfIn.IDs == 0x99 || RfIn.IDs == 0x98)))
                 {
+                    // Tell the sender we heard it. This is the ONE command where the operator has no
+                    // other confirmation: the compute happens on this buoy, and its result reaches the
+                    // fleet as SETLOCKPOS BETWEEN buoys - so a CYD that lost the button press sees
+                    // exactly what a CYD whose press arrived sees, which is nothing. The ACK says
+                    // "heard", not "computed": a refusal for too few locked buoys, or for no wind
+                    // reading, still only beeps and prints here.
+                    ackOverLora(&RfIn, RfOut, COMPUTESTART);
                     printf("#Status set to COMPUTESTART\r\n");
                     RfOut->status = COMPUTESTART;
                     RfOut->lastSerOut = 0; // Force immediate update to sub
@@ -1574,6 +1643,13 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             case COMPUTETRACK:
                 if (RfIn.IDr == RfOut->mac || ((RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) && (RfIn.IDs == 0x99 || RfIn.IDs == 0x98)))
                 {
+                    // Tell the sender we heard it. This is the ONE command where the operator has no
+                    // other confirmation: the compute happens on this buoy, and its result reaches the
+                    // fleet as SETLOCKPOS BETWEEN buoys - so a CYD that lost the button press sees
+                    // exactly what a CYD whose press arrived sees, which is nothing. The ACK says
+                    // "heard", not "computed": a refusal for too few locked buoys, or for no wind
+                    // reading, still only beeps and prints here.
+                    ackOverLora(&RfIn, RfOut, COMPUTETRACK);
                     printf("#Status set to COMPUTETRACK\r\n");
                     RfOut->status = COMPUTETRACK;
                     RfOut->lastSerOut = 0; // Force immediate update to sub
@@ -1814,7 +1890,8 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     if (RfIn.IDr == RfOut->mac || RfIn.IDr == RfOut->IDs || RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) {
                         if (RfIn.ack == SET) {
-                            cal8NotePress(RfIn.cal8Action, RfIn.cal8Next);
+                            // The sender's own serial, not one of ours - see cal8NotePress().
+                            cal8NotePress(RfIn.cal8Action, RfIn.cal8Next, RfIn.cal8Seq);
                         } else {
                             RfIn.IDr = BUOYIDALL;
                             RfIn.IDs = espMac();
@@ -1990,6 +2067,40 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case SETLOCKPOS: // store new data into position database and sail to it
+            {
+                // Acknowledge FIRST, before RfIn is reused below - the reply has to carry the
+                // original sender's id, and the block further down overwrites RfIn.IDs.
+                //
+                // Nothing in RoboTop ever put an ACK on the air. SENDTRACK asks for one
+                // (LoraTx.ack = GETACK), LoraTask duly files the frame with retry = 5, and
+                // removeAckMsg() and the ACK branch of onReceive() are both there waiting for a
+                // reply that no firmware in the fleet ever sent. Every SETLOCKPOS therefore burnt
+                // all five retransmits, and because the 5 s duplicate filter above is skipped for
+                // ack == GETACK, each copy re-executed and re-broadcast LOCKPOS. One COMPUTE
+                // STARTLINE on three buoys came to about 6.6 s of airtime - injected into a
+                // channel that was already full - so the setpoints were transmitted and then lost
+                // to collisions. Exactly the symptom: the line computes, the buoys never sail.
+                //
+                // The ACK is cheap: RoboCode() emits only "cmd,status" when ack == ACK, so the
+                // whole frame is ~20 bytes, ~46 ms on the air. One of those retires up to five
+                // 108 ms retransmits and everything they in turn provoke.
+                //
+                // Sent regardless of which interface the command arrived on: it is the LoRa retry
+                // table that needs clearing, so if the UDP copy won the race the ACK still has to
+                // go out over LoRa to stop the radio retransmits.
+                ackOverLora(&RfIn, RfOut, SETLOCKPOS);
+
+                // A retransmit that arrives before our ACK gets home asks for a waypoint we are
+                // already holding. Storing it again is harmless, but re-broadcasting LOCKPOS costs
+                // another 113 ms of air for no new information, so the duplicate stops here.
+                bool same_target = (RfOut->status == LOCKED &&
+                                    RfOut->tgLat == RfIn.tgLat && RfOut->tgLng == RfIn.tgLng);
+                if (same_target)
+                {
+                    printf("#SETLOCKPOS duplicate - already holding this waypoint, ACK only\r\n");
+                    break;
+                }
+
                 RfOut->tgLat = RfIn.tgLat;
                 RfOut->tgLng = RfIn.tgLng;
                 RfIn.IDs = RfOut->mac; // Put this Id in field for positioning
@@ -2017,6 +2128,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 xQueueSend(udpOut, (void *)&RfIn, 0);
                 xQueueSend(loraOut, (void *)&RfIn, 10);
                 break;
+            }
             case IDLING:
             case IDLE:
                 if (RfIn.IDr == RfOut->mac || ((RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) && (RfIn.IDs == 0x99 || RfIn.IDs == 0x98)))
@@ -2129,31 +2241,6 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             case CALIBRATE_MAGNETIC_COMPASS:
                 RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
-                break;
-            case GPS_FOURIER_CALIBRATE:
-                // Runs entirely on the Top - it steers the buoy and does the arithmetic, and only
-                // talks to the Sub through TGDIRSPEED and STORE_INTERPOLATION_TABLE. So this is
-                // NOT forwarded to the Sub, it just arms our own state machine.
-                if (RfIn.IDr == RfOut->mac || ((RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) && (RfIn.IDs == 0x99 || RfIn.IDs == 0x98)))
-                {
-                    if (RfOut->status != GPS_FOURIER_CALIBRATE)
-                    {
-                        // Latched into mainData before the status flips, because the state machine
-                        // reads the mode out of mainData on the pass where it starts the run.
-                        RfOut->gpsCalStillWater = RfIn.gpsCalStillWater;
-                        RfOut->gpsCalStartHeading = RfIn.gpsCalStartHeading;
-                        printf("#Status set to GPS_FOURIER_CALIBRATE (%s, start dir: %.0f deg)\r\n",
-                               RfIn.gpsCalStillWater ? "still water" : "pair averaged",
-                               (double)RfIn.gpsCalStartHeading);
-                        RfOut->status = GPS_FOURIER_CALIBRATE;
-                    }
-                }
-                else
-                {
-                    // Forward across interfaces
-                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
-                    else xQueueSend(udpOut, (void *)&RfIn, 0);
-                }
                 break;
             case REBOOT:
                 // Belt and braces against a reboot storm. A sender that puts REBOOT in the LoRa
@@ -2450,7 +2537,8 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             // The Sub's answer to a guided calibration press. Cache it for this Top's own page,
             // then pass it on unchanged: the handheld and the dashboard are watching the same run
             // and must see the same step, which only works if nobody re-derives it.
-            cal8NoteState(serDataIn.cal8Active, serDataIn.cal8Next, serDataIn.cal8Captured);
+            cal8NoteState(serDataIn.cal8Active, serDataIn.cal8Next, serDataIn.cal8Captured,
+                          serDataIn.cal8Mask, serDataIn.cal8Seq);
             serDataIn.IDr = BUOYIDALL;
             serDataIn.IDs = espMac();
             xQueueSend(udpOut, (void *)&serDataIn, pdMS_TO_TICKS(100));
@@ -2462,8 +2550,7 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             printf("Interpolation table from Sub:");
             for (int i = 0; i < 8; i++) printf(" %.2f", serDataIn.interpolationTable[i]);
             printf("\r\n");
-            gpsCalibTableReply(&serDataIn);
-            // Also feed the web page's MAN CAL working copy - see topwifi.h.
+            // Feed the web page's MAN CAL working copy - see topwifi.h.
             mancalNoteTable(serDataIn.interpolationTable, serDataIn.interpEnabled);
 
             // Broadcast the table over UDP and LoRa so clients can receive it!

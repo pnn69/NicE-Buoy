@@ -2,7 +2,9 @@
 #define GPSSIM_H_
 #include "main.h"
 
-// Bench simulator for the GPS Fourier calibration, see gpscalib.cpp.
+// Bench simulator: drives position and heading from a script so the Top can be exercised
+// indoors without a fix. Written for the GPS Fourier calibration, which has since been removed;
+// kept because it is useful for anything that reads position, and independent of what went.
 //
 // The calibration cannot be tested on a bench: six of its eight phases need the buoy to turn onto
 // a heading and then travel 100 m, and with the hull indoors neither the compass nor the GPS ever

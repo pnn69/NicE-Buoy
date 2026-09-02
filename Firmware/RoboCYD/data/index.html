@@ -618,7 +618,7 @@
                             </label>
                         </div>
                         <div style="font-size:11px; color:#888; margin-top:4px;">
-                            Switches the 8-point table from the GPS Fourier calibration on or off.
+                            Switches the 8-point compass table on or off.
                             Off means the compass runs uncorrected, even when a table is stored.
                         </div>
                     </div>
@@ -674,7 +674,6 @@
                         <div style="display:flex; flex-direction:column; gap:6px;">
                             <button type="button" class="btn btn-secondary" id="setup-deskCal-btn">Desk Calibration (60s Figure-8)</button>
                             <button type="button" class="btn btn-secondary" id="setup-setNorth-btn">Set as North</button>
-                            <button type="button" class="btn btn-secondary" id="setup-gpsStill-btn">GPS Fourier Cal - still water</button>
                             <button type="button" class="btn btn-secondary" id="setup-manCal-btn">Manual Compass Calibration (MAN CAL)</button>
                             <button type="button" class="btn btn-secondary" id="setup-reboot-btn">Reboot Buoy</button>
                         </div>
@@ -747,8 +746,8 @@
                 <!-- Starboard Column (with Corr Offset on top) -->
                 <div style="display: flex; flex-direction: column; align-items: center; width: 60px;">
                     <span style="font-size: 0.65rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; line-height: 1;">Step</span>
-                    <span id="mancal-web-offset-val" style="font-size: 1.3rem; font-weight: bold; color: #eab308; line-height: 1;">-</span>
-                    <span id="mancal-web-imag" style="font-size: 0.6rem; color: #64748b; margin-bottom: 8px; line-height: 1.4;">Imag -</span>
+                    <span id="mancal-web-imag" style="font-size: 1.3rem; font-weight: bold; color: #64748b; line-height: 1;">--</span>
+                    <span id="mancal-web-offset-val" style="font-size: 0.6rem; color: #64748b; margin-bottom: 8px; line-height: 1.4;">-</span>
                     
                     <span style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px; font-weight: bold;">STBD</span>
                     <div style="width: 16px; height: 110px; background-color: #0f172a; border-radius: 3px; position: relative;">
@@ -781,18 +780,6 @@
             <!-- Fine-Tuning Symmetrical Buttons -->
             <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 15px;">
                 <div style="display: flex; gap: 8px;">
-                    <button type="button" class="btn" id="mancal-web-sub10" style="background-color: #475569; color: white; padding: 8px 14px; font-size: 0.95rem; font-weight: bold; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.25); cursor: pointer; border: none; outline: none;">-10°</button>
-                    <button type="button" class="btn" id="mancal-web-sub1" style="background-color: #475569; color: white; padding: 8px 14px; font-size: 0.95rem; font-weight: bold; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.25); cursor: pointer; border: none; outline: none;">-1°</button>
-                </div>
-                
-                <div style="text-align: center;">
-                    <span style="font-size: 0.75rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Nudge</span>
-                    <div id="mancal-web-nudge" style="font-size: 1.1rem; font-weight: bold; color: #eab308;">+0&deg;</div>
-                </div>
-                
-                <div style="display: flex; gap: 8px;">
-                    <button type="button" class="btn" id="mancal-web-add1" style="background-color: #475569; color: white; padding: 8px 14px; font-size: 0.95rem; font-weight: bold; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.25); cursor: pointer; border: none; outline: none;">+1°</button>
-                    <button type="button" class="btn" id="mancal-web-add10" style="background-color: #475569; color: white; padding: 8px 14px; font-size: 0.95rem; font-weight: bold; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.25); cursor: pointer; border: none; outline: none;">+10°</button>
                 </div>
             </div>
 
@@ -804,10 +791,9 @@
                 <div style="text-align: center;">
                     <div id="mancal-web-step" style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em;">not started</div>
                     <div id="mancal-web-ask" style="font-size: 1.2rem; font-weight: bold; color: #e2e8f0;">Ready</div>
-                    <div id="mancal-web-hint" style="font-size: 0.7rem; color: #94a3b8; margin-top: 2px;">Press START - it asks for north first</div>
+                    <div id="mancal-web-hint" style="font-size: 0.7rem; color: #94a3b8; margin-top: 2px;">Press START, then turn the hull to Imag 0 and tap N</div>
                 </div>
                 <button type="button" class="btn" id="mancal-web-begin" style="width: 100%; background-color: #3b82f6; color: white; font-weight: bold; font-size: 1rem; padding: 10px 0; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); cursor: pointer; border: none; outline: none;">START CALIBRATION</button>
-                <button type="button" class="btn" id="mancal-web-turn" style="display: none; width: 100%; background-color: #475569; color: white; font-weight: bold; font-size: 0.95rem; padding: 10px 0; border-radius: 6px; cursor: pointer; border: none; outline: none;">TURN THERE</button>
                 <button type="button" class="btn" id="mancal-web-set" style="display: none; width: 100%; background-color: #22c55e; color: black; font-weight: bold; font-size: 1.1rem; padding: 14px 0; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); cursor: pointer; border: none; outline: none;">SET</button>
                 <button type="button" class="btn" id="mancal-web-exit" style="display: none; width: 100%; background-color: #22c55e; color: black; font-weight: bold; font-size: 1.1rem; padding: 14px 0; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); cursor: pointer; border: none; outline: none;">SAVE NEW FOURIER TABLE</button>
                 <div style="font-size: 0.7rem; color: #94a3b8; text-align: center;">

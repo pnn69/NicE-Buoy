@@ -569,16 +569,29 @@ void WiFiTask(void *arg) {
         subServer.send(200, "text/plain", "OK");
     });
     subServer.on("/cal8_set", HTTP_GET, [](){
-        // No leg argument from this page: it talks straight to the buoy with no lossy hop, so there
-        // is no retry to guard against. See cal8Set().
-        int idx = cal8Set();
-        if (idx < 0) { subServer.send(409, "text/plain", "no session, or all eight already captured"); return; }
+        // Which direction this press is for. Defaults to the one the cursor is asking for, so a
+        // page that only ever walks forwards need not pass it.
+        int leg = subServer.hasArg("leg") ? subServer.arg("leg").toInt() : cal8_next;
+
+        // Press serial 0: this page talks straight to the buoy with no lossy hop, so there is no
+        // retry behind the press and nothing to de-duplicate. See cal8Set().
+        int idx = cal8Set(leg, 0);
+        if (idx < 0) {
+            const char *why =
+                (idx == CAL8_SET_NO_SESSION) ? "no calibration session is running" :
+                (idx == CAL8_SET_BAD_LEG)    ? "that direction is not next, and is not captured yet" :
+                (idx == CAL8_SET_DUPLICATE)  ? "repeated or out of step press" :
+                (idx == CAL8_SET_OFF_ANCHOR) ? "Imag is not on zero - turn the hull until it is, then press N" :
+                                               "capture refused";
+            subServer.send(409, "text/plain", why);
+            return;
+        }
         char buf[48];
         snprintf(buf, sizeof(buf), "OK %d %.2f", idx, cal8_captured[idx]);
         subServer.send(200, "text/plain", buf);
     });
     subServer.on("/cal8_save", HTTP_GET, [](){
-        if (!cal8Save()) { subServer.send(409, "text/plain", "not all eight directions captured"); return; }
+        if (!cal8Save()) { subServer.send(409, "text/plain", "not all eight directions captured yet"); return; }
         subServer.send(200, "text/plain", "OK");
     });
     subServer.on("/cal8_cancel", HTTP_GET, [](){
@@ -586,29 +599,39 @@ void WiFiTask(void *arg) {
         subServer.send(200, "text/plain", "OK");
     });
 
-    // Commit whatever table is in RAM, through the one door - which forces north to zero and
-    // folds the rotation into compassOffset. It used to write NVS directly and skip both.
+    // Commit whatever table is in RAM, through the one door - which records the filtering mode it
+    // was measured in and validates the ordering. It used to write NVS directly and skip both.
+    subServer.on("/save_table", HTTP_GET, [](){
+        extern float measured_angles[9];
+        bool usable = storeInterpolationTable(measured_angles);
+        subServer.send(200, "text/plain", usable ? "OK" : "STORED BUT NOT USABLE");
+    });
+    // Legacy aliases. /save_harmonic named a Fourier fit that no longer exists.
     subServer.on("/save_harmonic", HTTP_GET, [](){
         extern float measured_angles[9];
         bool usable = storeInterpolationTable(measured_angles);
         subServer.send(200, "text/plain", usable ? "OK" : "STORED BUT NOT USABLE");
     });
-    // Legacy alias
     subServer.on("/save_interpolation", HTTP_GET, [](){
         extern float measured_angles[9];
         storeInterpolationTable(measured_angles);
         subServer.send(200, "text/plain", "OK");
     });
-    // Back to no correction at all. The identity table already has north at zero, so the rotation
-    // is a no-op here - it goes through the same door anyway, because a second way of writing the
-    // table is a second set of rules waiting to drift.
+    // Back to no correction at all. Goes through the same door as a real calibration, because a
+    // second way of writing the table is a second set of rules waiting to drift.
+    subServer.on("/reset_table", HTTP_GET, [](){
+        float identity[8];
+        for (int i = 0; i < 8; i++) identity[i] = i * 45.0f;
+        storeInterpolationTable(identity);
+        subServer.send(200, "text/plain", "OK");
+    });
+    // Legacy aliases
     subServer.on("/reset_harmonic", HTTP_GET, [](){
         float identity[8];
         for (int i = 0; i < 8; i++) identity[i] = i * 45.0f;
         storeInterpolationTable(identity);
         subServer.send(200, "text/plain", "OK");
     });
-    // Legacy alias
     subServer.on("/reset_interpolation", HTTP_GET, [](){
         float identity[8];
         for (int i = 0; i < 8; i++) identity[i] = i * 45.0f;
@@ -648,35 +671,18 @@ void WiFiTask(void *arg) {
         subServer.send(200, "text/plain", "OK");
     });
 
-    // Pivot towards the leg the session is currently asking for, plus whatever the operator has
-    // nudged. Steering only - it writes nothing. The target is a CORRECTED heading, so the buoy
-    // lands as close to the real direction as its present calibration allows; the operator checks
-    // it against an external compass, nudges, and presses SET. Each run therefore starts you nearer
-    // the mark than the last one did.
-    subServer.on("/cal8_steer", HTTP_GET, [](){
-        mancalSessionPing();
-        if (!cal8_active) { subServer.send(409, "text/plain", "no calibration session"); return; }
-        int leg = cal8_next;
-        if (leg > 7) { subServer.send(409, "text/plain", "all eight already captured"); return; }
-        float nudge = subServer.hasArg("nudge") ? subServer.arg("nudge").toFloat() : 0.0f;
-
-        float target = (float)(leg * 45) + nudge;
-        while (target < 0.0f) target += 360.0f;
-        while (target >= 360.0f) target -= 360.0f;
-
-        // Zero speed and zero distance: a pure pivot on the spot, no forward thrust.
-        if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500))) {
-            mainData.tgDir = target;
-            mainData.tgSpeed = 0;
-            mainData.tgDist = 0;
-            mainData.status = REMOTE;
-            xSemaphoreGive(mainDataMutex);
-        }
-        subServer.send(200, "application/json",
-                       "{\"leg\":" + String(leg) + ",\"nudge\":" + String(nudge, 1) +
-                       ",\"target\":" + String(target, 1) + "}");
-    });
-
+    // /cal8_steer used to live here: it pivoted the buoy towards leg * 45 as a CORRECTED heading,
+    // so the operator could have the hull aim itself at each direction before pressing SET.
+    //
+    // It went with the change of what a leg means. The directions are no longer true bearings the
+    // hull is aimed at - they are stops on a mechanical fixture, 45 degrees apart by construction,
+    // indexed round from wherever the fixture was aligned with Imag = 0. Steering to a true heading
+    // of leg * 45 would take the hull somewhere that has nothing to do with the mark the operator
+    // is about to press, and it would look purposeful while doing it. Turning the buoy is the
+    // fixture's job now.
+    //
+    // mancal_stop below is kept: it is how a session that did start the thrusters gets them
+    // stopped again.
     subServer.on("/mancal_stop", HTTP_GET, [](){
         mancalSessionPing();
         if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500))) {
@@ -730,24 +736,32 @@ void WiFiTask(void *arg) {
         }
     });
 
-    subServer.on("/harmoniccorrection", HTTP_GET, [](){
+    subServer.on("/eightpointcal", HTTP_GET, [](){
         subServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         subServer.sendHeader("Pragma", "no-cache");
         subServer.sendHeader("Expires", "-1");
-        if (LittleFS.exists("/harmoniccorrection.html")) {
-            File file = LittleFS.open("/harmoniccorrection.html", "r");
+        if (LittleFS.exists("/eightpointcal.html")) {
+            File file = LittleFS.open("/eightpointcal.html", "r");
             subServer.streamFile(file, "text/html");
             file.close();
         } else {
-            subServer.send(404, "text/plain", "harmoniccorrection page not found on LittleFS");
+            subServer.send(404, "text/plain", "eightpointcal page not found on LittleFS");
         }
     });
+    // Old names kept as redirects, not deleted. /harmoniccorrection was the address for long enough
+    // to be bookmarked and written down, and it described a Fourier fit that has not existed since
+    // the piecewise interpolation replaced it - so the name had to go, but a dead link would just
+    // look like a broken buoy.
+    subServer.on("/harmoniccorrection", HTTP_GET, [](){
+        subServer.sendHeader("Location", "/eightpointcal");
+        subServer.send(302, "text/plain", "Redirecting...");
+    });
     subServer.on("/linearinterpolation", HTTP_GET, [](){
-        subServer.sendHeader("Location", "/harmoniccorrection");
+        subServer.sendHeader("Location", "/eightpointcal");
         subServer.send(302, "text/plain", "Redirecting...");
     });
     subServer.on("/linerinterpolation", HTTP_GET, [](){
-        subServer.sendHeader("Location", "/harmoniccorrection");
+        subServer.sendHeader("Location", "/eightpointcal");
         subServer.send(302, "text/plain", "Redirecting...");
     });
     subServer.on("/calibration", HTTP_GET, [](){
@@ -787,14 +801,10 @@ void WiFiTask(void *arg) {
         }
     });
     subServer.on("/set_north", HTTP_GET, [](){
-        // Refused while a calibration run holds the heading reference - see cal8Lock(). This is the
-        // one path that does not go through the Top, so without the check here a press on this page
-        // could rotate the deviation curve under a GPS run halfway through its legs.
-        if (cal8RefLocked()) {
-            subServer.send(409, "text/plain",
-                           "a calibration is in progress - it sets north itself when it commits");
-            return;
-        }
+        // Allowed at any time. This used to be refused while a calibration held the heading
+        // reference, because the offset was applied before the table and moving it rotated the
+        // whole deviation curve under the run. The offset is applied after the table now, so it
+        // rotates the output and nothing else - see the pipeline in compass.cpp.
         double newOffset = 0;
         bool success = false;
         if(mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500))){
@@ -973,20 +983,23 @@ void WiFiTask(void *arg) {
         extern float damp_mag;
         extern float damp_att;
         extern volatile float global_fusion_hdg;
-        extern volatile float global_hdg_no_offset;
+        extern volatile float global_hdg_iron;
         extern float measured_angles[9];
         extern float getInterpolatedHeading(float);
         extern volatile bool interp_enabled;
 
         float icm = global_hdg;
 
-        // Perform harmonic curve correction on global_hdg_no_offset (which already includes compassOffset)
-        float harmonic_hdg = getInterpolatedHeading(global_hdg_no_offset);
+        // The full pipeline as the compass task runs it: table, then the trim, then the mounting
+        // offset last. Kept in the same order here, or this preview would disagree with the heading
+        // the buoy actually steers by.
+        float corrected_hdg = getInterpolatedHeading(global_hdg_iron);
         if (mainData.compass_trim_enabled) {
-            harmonic_hdg += mainData.compass_trim;
+            corrected_hdg += mainData.compass_trim;
         }
-        while (harmonic_hdg < 0.0f) harmonic_hdg += 360.0f;
-        while (harmonic_hdg >= 360.0f) harmonic_hdg -= 360.0f;
+        corrected_hdg += (float)mainData.compassOffset;
+        while (corrected_hdg < 0.0f) corrected_hdg += 360.0f;
+        while (corrected_hdg >= 360.0f) corrected_hdg -= 360.0f;
 
         int sbb = (int)mainData.speedBb; 
         int ssb = (int)mainData.speedSb;
@@ -1086,8 +1099,16 @@ void WiFiTask(void *arg) {
         String pointsJson = "[]";
 
         String json = "{\"icm\":" + String(icm, 2) +
-                      ",\"icm_no_offset\":" + String(global_hdg_no_offset, 2) +
-                      ",\"harmonic_hdg\":" + String(harmonic_hdg, 2) +
+                      // Imag: iron corrected and nothing else. Named icm_no_offset until the
+                      // offset moved out of the table's input, at which point the old name stopped
+                      // being a description and started being a lie - it had included the offset
+                      // since the day it was added.
+                      ",\"imag\":" + String(global_hdg_iron, 2) +
+                      // The finished heading: table, trim, then the mounting offset. Called
+                      // harmonic_hdg until the Fourier fit it was named after stopped existing;
+                      // the old key is still emitted below for anything not yet updated.
+                      ",\"corrected_hdg\":" + String(corrected_hdg, 2) +
+                      ",\"harmonic_hdg\":" + String(corrected_hdg, 2) +
                       ",\"fusion_no_offset\":" + String(global_fusion_hdg, 2) +
                       ",\"meas_ang\":" + measAngJson +
                       ",\"speed_bb\":" + String(sbb) +
@@ -1152,6 +1173,9 @@ void WiFiTask(void *arg) {
                       // rather than keeping its own idea of how far along the operator is.
                       ",\"cal8_active\":" + String(cal8_active ? 1 : 0) +
                       ",\"cal8_next\":" + String(cal8_next) +
+                      // Which directions are actually in. The cursor cannot say: re-capturing an
+                      // earlier direction leaves it where it was.
+                      ",\"cal8_mask\":" + String((int)cal8_mask) +
                       ",\"cal8\":[" + String(cal8_captured[0],1) + "," + String(cal8_captured[1],1) + "," +
                         String(cal8_captured[2],1) + "," + String(cal8_captured[3],1) + "," +
                         String(cal8_captured[4],1) + "," + String(cal8_captured[5],1) + "," +

@@ -76,7 +76,13 @@ let mancalWebActiveIndex = null;
 // known:false means the buoy has not answered yet - which is NOT the same as "no run in progress",
 // and every button stays locked until it is settled. Guessing idle here is what would let a press
 // wipe out captures somebody else made from another screen.
-let mancalWebSession = { known: false, active: false, next: 0, captured: Array(8).fill(0) };
+let mancalWebSession = { known: false, active: false, next: 0, mask: 0, seq: 0,
+                         captured: Array(8).fill(0) };
+// The buoy's iron-only heading, and the press this panel is waiting to see confirmed.
+let mancalWebImag = null;
+let mancalWebPendSeq = 0;
+let mancalWebPendLeg = -1;
+let mancalWebPendMs = 0;
 
 // The offsets the buoy is already applying, from its answer to a table GET. Shown while no run is
 // going, so the panel opens on what the buoy is really using rather than on eight zeros - and zero
@@ -87,7 +93,6 @@ let mancalWebOffsetsLoaded = false;
 
 // Where the thrusters are being aimed, relative to the leg being asked for. Steering only: no part
 // of this reaches the table, and SET captures whatever the compass reads at that moment.
-let mancalWebNudge = 0;
 
 let mancalWebQueryTimer = null;
 let mancalWebQueryTries = 0;
@@ -258,8 +263,36 @@ const MANCAL_WEB_LONG = ["NORTH", "NORTH EAST", "EAST", "SOUTH EAST",
                          "SOUTH", "SOUTH WEST", "WEST", "NORTH WEST"];
 
 const mancalWebRunning = () => mancalWebSession.known && mancalWebSession.active;
-const mancalWebComplete = () => mancalWebRunning() && mancalWebSession.next >= 8;
+const mancalWebCaptured = i => (mancalWebSession.mask & (1 << i)) !== 0;
+const mancalWebCount = () => {
+    let n = 0;
+    for (let i = 0; i < 8; i++) if (mancalWebCaptured(i)) n++;
+    return n;
+};
+// The MASK, not the cursor. Re-capturing an earlier direction leaves the cursor where it was, so
+// counting on it would keep SAVE hidden after a redo of an otherwise finished run.
+const mancalWebComplete = () => mancalWebRunning() && mancalWebCount() >= 8;
 const mancalWebLeg = () => Math.min(7, Math.max(0, mancalWebRunning() ? mancalWebSession.next : 0));
+
+// How far Imag may be from zero when N is captured. The same number the buoy enforces
+// (CAL8_ANCHOR_TOL_DEG in RoboSub/src/compass.cpp).
+const MANCAL_WEB_ANCHOR_TOL = 2;
+function mancalWebOnAnchor() {
+    if (mancalWebImag === null) return false;
+    let off = mancalWebImag;
+    while (off > 180) off -= 360;
+    while (off < -180) off += 360;
+    return Math.abs(off) <= MANCAL_WEB_ANCHOR_TOL;
+}
+
+// A capture that has gone out and not yet come back. The next press would carry the same serial and
+// be dropped as a duplicate, so the panel holds rather than let the mark look dead.
+function mancalWebPending() {
+    if (mancalWebPendLeg < 0) return false;
+    if (mancalWebSession.seq === mancalWebPendSeq) { mancalWebPendLeg = -1; return false; }
+    if (Date.now() - mancalWebPendMs > 5000) { mancalWebPendLeg = -1; return false; }
+    return true;
+}
 
 function mancalWebShow(id, on) {
     const el = document.getElementById(id);
@@ -276,17 +309,17 @@ function renderMancalWeb() {
     const running = mancalWebRunning();
     const complete = mancalWebComplete();
     const leg = mancalWebLeg();
-    const done = running ? mancalWebSession.next : 0;
+    const done = running ? mancalWebCount() : 0;
 
-    // The rose reports progress; it is not a selector. The order is the buoy's and cannot be jumped.
+    // The marks ARE the buttons: the one being asked for, and any already in, which a tap replaces.
     document.querySelectorAll(".mancal-web-dot").forEach(btn => {
         const i = parseInt(btn.getAttribute("data-leg"));
-        const captured = running && i < done;
-        const asking = running && !complete && i === leg;
-        btn.disabled = true;
-        btn.style.cursor = "default";
-        btn.title = asking ? "point the bow here, then press SET"
-                  : captured ? "captured" : "";
+        const captured = running && mancalWebCaptured(i);
+        const asking = running && i === leg;
+        btn.disabled = !running || (!asking && !captured);
+        btn.style.cursor = btn.disabled ? "default" : "pointer";
+        btn.title = asking ? (i === 0 ? "turn the hull to Imag 0, then tap" : "tap when the jig is on this mark")
+                  : captured ? "captured - tap to redo" : "";
         btn.style.backgroundColor = asking ? "#3b82f6" : captured ? "#14532d" : "#334155";
         btn.style.color = asking ? "white" : captured ? "#86efac" : "#94a3b8";
         btn.style.border = asking ? "2px solid white"
@@ -300,14 +333,14 @@ function renderMancalWeb() {
         if (!cell) continue;
         let text = "?", colour = "#e2e8f0", opacity = "1";
         if (running) {
-            if (i < done) {
+            if (mancalWebCaptured(i)) {
                 // The deviation from the reference direction - "this hull reads 6 degrees high on
                 // east" - which is the number that means something to the operator.
                 let dev = mancalWebSession.captured[i] - i * 45;
                 while (dev > 180) dev -= 360;
                 while (dev < -180) dev += 360;
                 text = (dev >= 0 ? "+" : "") + dev.toFixed(0) + "\u00b0";
-            } else if (i === leg && !complete) {
+            } else if (i === leg) {
                 text = "<<";
                 colour = "#22c55e";
             } else {
@@ -330,23 +363,21 @@ function renderMancalWeb() {
     const hintEl = document.getElementById("mancal-web-hint");
     const statusEl = document.getElementById("mancal-web-table-status");
     const legEl = document.getElementById("mancal-web-offset-val");
-    const nudgeEl = document.getElementById("mancal-web-nudge");
 
-    if (legEl) legEl.textContent = (running && !complete) ? MANCAL_WEB_DIRS[leg] : "-";
-    if (nudgeEl) nudgeEl.textContent = (mancalWebNudge >= 0 ? "+" : "") + mancalWebNudge + "\u00b0";
+    if (legEl) legEl.textContent = (running && !complete) ? ("next " + MANCAL_WEB_DIRS[leg]) : "-";
+
+    // The anchor gate. Red until the hull is on the compass's own zero, green once it is.
+    const imagEl2 = document.getElementById("mancal-web-imag");
+    if (imagEl2) {
+        imagEl2.textContent = (mancalWebImag === null) ? "--" : Math.round(mancalWebImag) + "\u00b0";
+        imagEl2.style.color = (mancalWebImag === null) ? "#64748b"
+                            : (mancalWebOnAnchor() ? "#22c55e" : "#ef4444");
+    }
 
     mancalWebShow("mancal-web-begin", known && !running);
-    mancalWebShow("mancal-web-turn", running && !complete);
     mancalWebShow("mancal-web-set", running && !complete);
     mancalWebShow("mancal-web-exit", complete);
     mancalWebShow("mancal-web-cancel", running);
-    document.querySelectorAll("#mancal-web-sub10, #mancal-web-sub1, #mancal-web-add1, #mancal-web-add10")
-        .forEach(btn => {
-            const armed = running && !complete;
-            btn.disabled = !armed;
-            btn.style.opacity = armed ? "1" : "0.4";
-            btn.style.cursor = armed ? "pointer" : "not-allowed";
-        });
 
     if (!known) {
         if (stepEl) stepEl.textContent = "waiting for the buoy";
@@ -356,29 +387,37 @@ function renderMancalWeb() {
     } else if (!running) {
         if (stepEl) stepEl.textContent = "not started";
         if (askEl) { askEl.textContent = "Ready"; askEl.style.color = "#e2e8f0"; }
-        if (hintEl) hintEl.textContent = "Press START - it asks for north first";
+        if (hintEl) hintEl.textContent = "Press START, then turn the hull to Imag 0 and tap N";
         if (statusEl) statusEl.textContent = mancalWebOffsetsLoaded
             ? "The corrections the buoy is applying now"
             : "Reading the table from the buoy...";
     } else if (!complete) {
-        if (stepEl) stepEl.textContent = `step ${done + 1} of 8`;
-        if (askEl) {
-            askEl.textContent = `Point the bow ${MANCAL_WEB_LONG[leg]} (${leg * 45}\u00b0)`;
-            askEl.style.color = leg === 0 ? "#f97316" : "#38bdf8";
+        if (stepEl) stepEl.textContent = `${done} of 8 captured`;
+        if (leg === 0) {
+            const ok = mancalWebOnAnchor();
+            if (askEl) {
+                askEl.textContent = ok ? "On zero - tap N" : "Turn to Imag 0";
+                askEl.style.color = ok ? "#22c55e" : "#ef4444";
+            }
+            if (hintEl) hintEl.textContent = "N anchors the run and is only accepted within "
+                                           + `${MANCAL_WEB_ANCHOR_TOL} degrees of zero`;
+        } else {
+            if (askEl) {
+                askEl.textContent = `Index the jig to ${MANCAL_WEB_LONG[leg]}`;
+                askEl.style.color = "#38bdf8";
+            }
+            if (hintEl) hintEl.textContent = "turn the fixture to its next mark, then tap "
+                                           + MANCAL_WEB_DIRS[leg];
         }
-        if (hintEl) hintEl.textContent = leg === 0
-            ? "north defines the reference - this press sets the compass offset"
-            : "check it against an external compass, then press SET";
         const setBtn = document.getElementById("mancal-web-set");
-        if (setBtn) setBtn.textContent = "SET " + MANCAL_WEB_DIRS[leg];
-        const turnBtn = document.getElementById("mancal-web-turn");
-        if (turnBtn) turnBtn.textContent = "TURN TO " + MANCAL_WEB_DIRS[leg];
+        if (setBtn) setBtn.textContent = "CAPTURE " + MANCAL_WEB_DIRS[leg];
         if (statusEl) statusEl.textContent = `Captured so far - ${done} of 8`;
     } else {
         if (stepEl) stepEl.textContent = "all eight captured";
         if (askEl) { askEl.textContent = "Ready to save"; askEl.style.color = "#22c55e"; }
         if (hintEl) hintEl.textContent = "nothing on the buoy has changed yet";
-        if (statusEl) statusEl.textContent = "SAVE writes the offset and the table together";
+        if (statusEl) statusEl.textContent = "SAVE writes the table - the mounting angle is "
+                                           + "Set as North's job";
     }
 }
 
@@ -387,44 +426,59 @@ function renderMancalWeb() {
  * panel repaints, so a lost frame costs one repeated press and can never leave this screen a
  * direction ahead of the hull.
  */
-function mancalWebPress(action) {
+function mancalWebPress(action, leg, seq) {
     if (mancalWebActiveIndex === null) return;
     const b = buoys[mancalWebActiveIndex];
     if (!b || !b.id) return;
     const currStatus = b.data.Status || "7";
-    // Payload: action, the Active field (state the BUOY owns, ignored on arrival), then the leg this
-    // press is for. RoboCompute's decoder needs more than four numbers present before it reads the
-    // action at all, so all three go on the wire.
+    // Payload: action, the Active field (state the BUOY owns, ignored on arrival), the leg this
+    // press is for, then the eight captures and the mask as placeholders, then the serial.
     //
-    // The leg matters for SET. The Top resends presses until the buoy confirms them, because the
-    // serial hop down to the Sub drops most of what is sent, and the leg number is what stops a
-    // late duplicate from capturing the next direction instead. Taken from the buoy's own step
-    // counter, so a resend can only ever mean the leg it was issued for.
-    const leg = mancalWebSession.next;
-    sendCommand(b.id, `${b.id},99,${MsgType.SET},${MsgType.CAL8_SESSION},${currStatus},${action},0,${leg}`);
+    // The placeholders are not padding for its own sake: RoboCompute's decoder keys on the field
+    // COUNT, so a short frame leaves the serial unread and the press arrives unnumbered - which
+    // means "no retry behind this one" and switches the de-duplication off.
+    //
+    // The leg says WHICH direction, because any direction already captured may be captured again
+    // and the buoy cannot infer the target from its own cursor. The serial says WHETHER this is a
+    // new press: the Top resends until the buoy confirms, the serial hop down to the Sub drops much
+    // of what is sent, and a repeat landing after the fixture has moved on would otherwise
+    // overwrite a good capture. See CAL8_SESSION in RoboCompute.h.
+    leg = (leg === undefined) ? mancalWebSession.next : leg;
+    seq = seq || 0;
+    sendCommand(b.id, `${b.id},99,${MsgType.SET},${MsgType.CAL8_SESSION},${currStatus},`
+                    + `${action},0,${leg},0,0,0,0,0,0,0,0,0,${seq}`);
 }
 
-/**
- * Aims the thrusters at the leg being asked for, plus the nudge. A CORRECTED heading, so the hull
- * lands as close to the real direction as the buoy's present calibration allows - closer on every
- * run. Steering only; it writes nothing.
- */
-function mancalWebTurn() {
-    if (mancalWebActiveIndex === null || !mancalWebRunning() || mancalWebComplete()) return;
-    const b = buoys[mancalWebActiveIndex];
-    if (!b || !b.id) return;
-    let dir = mancalWebLeg() * 45 + mancalWebNudge;
-    while (dir < 0) dir += 360;
-    while (dir >= 360) dir -= 360;
-    sendCommand(b.id, `${b.id},98,6,25,25,${dir.toFixed(1)},0.0,,,,`);
+// Capture one direction, numbering the press one past the last the buoy applied.
+function mancalWebCapture(leg) {
+    if (!mancalWebRunning()) return;
+    if (leg !== mancalWebSession.next && !mancalWebCaptured(leg)) return;
+    if (mancalWebPending()) return;
+    if (leg === 0 && !mancalWebOnAnchor()) {
+        alert("Imag is not on zero.\n\nTurn the hull until the Imag reading goes green - within "
+            + MANCAL_WEB_ANCHOR_TOL + " degrees of zero - then tap N. That reading is the "
+            + "compass's own zero and it is what anchors the whole run.");
+        return;
+    }
+    if (mancalWebCaptured(leg) &&
+        !confirm(`Re-capture ${MANCAL_WEB_LONG[leg]}?\n\nThe reading stored for it is replaced `
+               + `by whatever the compass says now.`)) return;
+
+    let seq = mancalWebSession.seq + 1;
+    // 0 means "unnumbered press" to the buoy and is always applied, so the counter steps over it
+    // rather than wrapping onto it - see cal8NextSeq() on the Sub.
+    if (seq > 0xFFFF) seq = 1;
+    mancalWebPendSeq = seq;
+    mancalWebPendLeg = leg;
+    mancalWebPendMs = Date.now();
+    mancalWebPress(Cal8.SET, leg, seq);
 }
 
-/**
- * Asks the buoy what its calibration is doing, and for the table it is running, until both answer.
- * The state matters: every button is locked until it arrives, because starting a second run over
- * somebody else's would throw their captures away. The table is only cosmetic. Gives up after
- * MANCAL_WEB_QUERY_MAX_TRIES rather than retrying an unreachable buoy for ever.
- */
+// mancalWebTurn() used to live here: it pivoted the hull towards leg * 45 as a corrected heading.
+// The directions are stops on a mechanical fixture now, 45 degrees apart by construction and
+// indexed round from wherever it was aligned with Imag = 0, so a true heading of leg * 45 points
+// nowhere in particular. Turning the buoy is the fixture's job.
+
 function mancalWebPollState() {
     if (mancalWebQueryTimer) {
         clearTimeout(mancalWebQueryTimer);
@@ -818,6 +872,10 @@ function parseMessage(message, source, senderIp = null, loraRssi = null, udpRssi
                 mancalWebSession.known = true;
                 mancalWebSession.active = fields[6] !== "0" && fields[6] !== "";
                 mancalWebSession.next = parseInt(fields[7]) || 0;
+                // The mask and the serial are appended after the eight captures, so a buoy too old
+                // to send them leaves this end's copy alone rather than reading as an empty run.
+                if (fields.length >= 17) mancalWebSession.mask = parseInt(fields[16]) || 0;
+                if (fields.length >= 18) mancalWebSession.seq = parseInt(fields[17]) || 0;
                 if (fields.length >= 16) {
                     for (let i = 0; i < 8; i++) {
                         mancalWebSession.captured[i] = parseFloat(fields[8 + i]) || 0;
@@ -826,7 +884,8 @@ function parseMessage(message, source, senderIp = null, loraRssi = null, udpRssi
                 renderMancalWeb();
                 logMessage(`Buoy ${buoyId.toUpperCase()}: calibration `
                          + `${mancalWebSession.active ? "running" : "idle"}, `
-                         + `step ${mancalWebSession.next} of 8`, "UDP IN");
+                         + `asking for ${mancalWebSession.next}, `
+                         + `${mancalWebCount()} of 8 in`, "UDP IN");
             }
         } else if (cmd === 88 && fields.length >= 13) {
             // Received 8-point fourier interpolation table from Sub
@@ -1215,13 +1274,15 @@ function updateGUI() {
                 }
             }
 
-            // Imag alongside it. MAG is what the buoy steers on, Imag is what a capture takes -
-            // seeing the two apart is the only way the correction's effect is visible at all.
-            const imagEl = document.getElementById("mancal-web-imag");
-            if (imagEl) {
-                const im = d["Imag"];
-                imagEl.textContent = (im !== undefined && im !== "" && !isNaN(parseFloat(im)))
-                    ? `Imag ${parseFloat(im).toFixed(0)}°` : "Imag -";
+            // Imag: what a capture takes, and what N is aligned against. Stashed rather than
+            // painted here - renderMancalWeb() owns that element, because the colour depends on
+            // whether the hull is on the anchor and that rule lives in one place.
+            const im = d["Imag"];
+            const imNum = (im !== undefined && im !== "" && !isNaN(parseFloat(im)))
+                        ? parseFloat(im) : null;
+            if (imNum !== mancalWebImag) {
+                mancalWebImag = imNum;
+                renderMancalWeb();
             }
             
             // Update rotating visual compass arrow dynamically in real-time
@@ -1456,28 +1517,14 @@ function initUIEventListeners() {
         });
     });
     
-    // --- Guided eight point calibration: four buttons, each one frame to the buoy -------------
-    // The rose is a progress display now, not a selector, so it has no click handlers at all: the
-    // order is the buoy's and cannot be jumped. renderMancalWeb() keeps every dot disabled.
-
-    // The nudge buttons move where the thrusters are aiming and nothing else. No part of this
-    // reaches the table - SET captures whatever the compass reads at that moment.
-    const mancalWebAdjust = (step) => {
-        if (!mancalWebRunning() || mancalWebComplete()) return;
-        mancalWebNudge += step;
-        if (mancalWebNudge > 180) mancalWebNudge = 180;
-        if (mancalWebNudge < -180) mancalWebNudge = -180;
-        renderMancalWeb();
-        mancalWebTurn();
-    };
-
-    [["mancal-web-sub10", -10], ["mancal-web-sub1", -1],
-     ["mancal-web-add1", 1], ["mancal-web-add10", 10]].forEach(([id, step]) => {
-        const btn = document.getElementById(id);
-        if (!btn) return;
+    // --- Guided eight point calibration -------------------------------------------------------
+    // The marks on the rose are the buttons. renderMancalWeb() decides which are live: the one
+    // being asked for, and any already captured, which a tap replaces.
+    document.querySelectorAll(".mancal-web-dot").forEach(btn => {
         btn.addEventListener("click", (e) => {
+            const i = parseInt(e.currentTarget.getAttribute("data-leg"));
             flashButtonFeedback(e.currentTarget, "#22c55e", "black", 150);
-            mancalWebAdjust(step);
+            mancalWebCapture(i);
         });
     });
 
@@ -1490,30 +1537,17 @@ function initUIEventListeners() {
                     + "Starting a run now could throw away captures made from another screen.");
                 return;
             }
-            mancalWebNudge = 0;
+            mancalWebPendLeg = -1;
             mancalWebPress(Cal8.BEGIN);
         });
     }
 
-    const btnTurn = document.getElementById("mancal-web-turn");
-    if (btnTurn) {
-        btnTurn.addEventListener("click", (e) => {
-            flashButtonFeedback(e.currentTarget, "#3b82f6", "white", 150);
-            mancalWebTurn();
-        });
-    }
-
+    // The same capture as tapping the mark, for the direction currently being asked for.
     const btnSet = document.getElementById("mancal-web-set");
     if (btnSet) {
         btnSet.addEventListener("click", (e) => {
             flashButtonFeedback(e.currentTarget, "#22c55e", "black", 150);
-            if (!mancalWebRunning() || mancalWebComplete()) return;
-            if (mancalWebLeg() === 0 &&
-                !confirm("Is the hull physically pointing NORTH?\n\n"
-                       + "This press defines the reference for the whole calibration: it goes into "
-                       + "the compass offset, so every other direction is measured against it.")) return;
-            mancalWebNudge = 0;
-            mancalWebPress(Cal8.SET);
+            mancalWebCapture(mancalWebLeg());
         });
     }
 
@@ -1560,7 +1594,7 @@ function initUIEventListeners() {
             flashButtonFeedback(e.currentTarget, "#ef4444", "white", 150);
             if (!mancalWebRunning()) return;
             if (!confirm("Discard this calibration run?\n\nNothing has been written to the buoy yet.")) return;
-            mancalWebNudge = 0;
+            mancalWebPendLeg = -1;
             mancalWebPress(Cal8.CANCEL);
             if (mancalWebActiveIndex !== null) {
                 const b = buoys[mancalWebActiveIndex];
@@ -1569,8 +1603,9 @@ function initUIEventListeners() {
         });
     }
 
-    // Commits. The buoy writes the compass offset and all eight entries together or neither, and
-    // beeps when it lands; the panel closes on the buoy's own answer rather than on hope.
+    // Commits. The buoy writes all eight entries or none, and beeps when it lands; the panel closes
+    // on the buoy's own answer rather than on hope. It does NOT touch the compass offset - which
+    // way the sensor is mounted is Set as North's job, and can be done at any time afterwards.
     const btnExit = document.getElementById("mancal-web-exit");
     if (btnExit) {
         btnExit.addEventListener("click", (e) => {
@@ -1691,24 +1726,6 @@ function initUIEventListeners() {
         sendSetupAction(27); // CALIBRATE_MAGNETIC_COMPASS
     });
 
-    // The two modes differ only in how the difference between opposite legs is read. In still
-    // water that difference is residual hard iron and must be corrected; with a current running it
-    // is the current and must be thrown away. Picking the wrong one is not cosmetic - still-water
-    // mode on a tidal day writes the current straight into the compass table.
-    const startGpsFourier = (stillWater) => {
-        const detail = stillWater
-            ? "STILL WATER mode: corrects each heading on its own measurement, including the "
-              + "one-cycle hard-iron error.\n\nOnly choose this if there is genuinely no current "
-              + "and little windage - otherwise the current gets written into the compass table."
-            : "CURRENT RUNNING mode: opposite legs are averaged so a steady current cancels.\n\n"
-              + "Safe in moving water, but it cannot correct one-cycle (hard-iron) error.";
-        if (!confirm("Start the GPS Fourier compass calibration?\n\n" + detail
-                   + "\n\nThe buoy will sail 8 legs of at least 100 m (about 30 minutes) and then "
-                   + "return to where it is now. Make sure it has open water all around and a GPS fix."
-                   + "\n\nPress IDLE at any time to stop.")) return;
-        sendSetupAction(89, stillWater ? "1" : "0"); // GPS_FOURIER_CALIBRATE
-    };
-    document.getElementById("setup-gpsStill-btn").addEventListener("click", () => startGpsFourier(true));
     document.getElementById("setup-manCal-btn").addEventListener("click", () => {
         // 1. Read active setup index FIRST before closing the modal clears it!
         const index = activeSetupBuoyIndex !== null ? activeSetupBuoyIndex : 0;
@@ -1721,10 +1738,12 @@ function initUIEventListeners() {
         if (!b.id) return;
         
         mancalWebActiveIndex = index;
-        mancalWebSession = { known: false, active: false, next: 0, captured: Array(8).fill(0) };
+        mancalWebSession = { known: false, active: false, next: 0, mask: 0, seq: 0,
+                             captured: Array(8).fill(0) };
         mancalWebOffsets.fill(0);
         mancalWebOffsetsLoaded = false;
-        mancalWebNudge = 0;
+        mancalWebImag = null;
+        mancalWebPendLeg = -1;
         mancalWebQueryTries = 0;
 
         // Update header texts

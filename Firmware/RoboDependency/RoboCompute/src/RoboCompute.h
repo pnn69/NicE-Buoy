@@ -117,31 +117,17 @@ typedef enum
     // new one to commit to NVS and recompute the Fourier coefficients from. Either way the Sub
     // answers with ack INF and the table it now holds.
     STORE_INTERPOLATION_TABLE,
-    // Starts the Top's GPS-based Fourier compass calibration run (8 navigation legs).
-    // Payload: fields[5] = gpsCalStillWater, see RoboStruct below. An older node that sends no
-    // payload at all is read as 0, i.e. the current-tolerant pair-averaged mode.
-    GPS_FOURIER_CALIBRATE,
-    // Broadcast progress report while a GPS Fourier calibration is running, ack INF.
-    // Payload order (and the field index a raw comma-splitter such as RoboCYD's sees, where
-    // fields[0..4] are IDr, IDs, ack, cmd, status):
-    //   fields[5]  gpsCalStep      phase, see gpscal_step_t below
-    //   fields[6]  gpsCalLeg       leg being sailed, 0..7, indexes into the 0/180/45/225/... order
-    //   fields[7]  tgDir           heading the buoy was told to steer for this leg
-    //   fields[8]  dirMag          heading it is actually reporting right now
-    //   fields[9]  gpsCalDist      metres covered on this leg so far (0 outside the measuring phase)
-    //   fields[10] gpsCalErr       LIVE signed error of the leg named in fields[6], degrees - the
-    //                              bearing from that leg's start fix to the current fix, minus the
-    //                              commanded heading. This is the value that will be recorded when
-    //                              the leg ends, so it can be watched settling. Valid only once
-    //                              fields[9] has passed 10 m; below that the displacement is too
-    //                              short for a bearing and this reads 0.
-    //   fields[11] gpsCalLastErr   signed error of the last COMPLETED leg, degrees
-    //   fields[12] gpsCalAbort     why the run stopped, see gpscal_abort_t. 0 while it is still
-    //                              running or finished cleanly. Optional: a Top that predates
-    //                              this field simply sends a shorter frame.
-    // One extra frame is forced on completion (step DONE) and on abort (step ABORTED), so a
-    // listener always sees how the run ended rather than just silence.
-    GPS_FOURIER_STATUS,
+    // Slots 89 and 90, once GPS_FOURIER_CALIBRATE and GPS_FOURIER_STATUS: the Top's GPS based
+    // calibration run, which sailed eight legs and inferred the table from the GPS track. Removed
+    // when the offset moved out of the table's input (see the compass chain in
+    // RoboSub/src/compass.cpp) - its residual arithmetic assumed the old ordering and would have
+    // gone on writing plausible, wrong tables without saying so.
+    //
+    // Held open rather than deleted. These are positional enumerators on the wire, so closing the
+    // gap would renumber CAL8_SESSION from 91 to 89 and a node that had not been reflashed would
+    // read every calibration press as something else entirely.
+    RESERVED_WAS_GPS_FOURIER_CALIBRATE,
+    RESERVED_WAS_GPS_FOURIER_STATUS,
 
     // Guided eight point compass calibration, driven remotely. The session itself lives on the
     // Sub - see the block comment in RoboSub/src/compass.cpp - and this is the only way for the
@@ -150,24 +136,39 @@ typedef enum
     // it is how a corrected heading once ended up stored in the table as if it were a raw one.
     //
     // SET carries an action in RoboStruct::cal8Action, see cal8_action_t:
-    //   CAL8_BEGIN   arm a session, ask for north
-    //   CAL8_SET     capture the direction being asked for, then advance 45 degrees
-    //   CAL8_SAVE    write the offset and the table together, or nothing
+    //   CAL8_BEGIN   arm a session
+    //   CAL8_SET     capture the direction named in cal8Next
+    //   CAL8_SAVE    write the table, once all eight are in
     //   CAL8_CANCEL  discard
     //
-    // A CAL8_SET also puts the leg it MEANS in RoboStruct::cal8Next, and the Sub ignores it unless
-    // that matches the step it is actually on. Without that the one press in this protocol that is
-    // not idempotent could not be retried - and it has to be, because the Top-to-Sub link is a
-    // single half-duplex wire that the Sub is talking on continuously. Measured on the bench: eight
-    // presses sent one per second landed twice. Retrying blindly would have captured some legs
-    // twice and skipped others, which is worse than losing the press, so the leg number is what
-    // makes the retry safe. BEGIN, SAVE and CANCEL are idempotent already and ignore the field.
+    // A CAL8_SET names the direction it MEANS in RoboStruct::cal8Next and carries a press serial in
+    // RoboStruct::cal8Seq. Both are needed, for different reasons.
+    //
+    // The leg number says WHICH slot to fill. Any direction that has already been captured may be
+    // captured again, so the Sub cannot infer the target from a cursor the way it used to.
+    //
+    // The serial says WHETHER this is a new press or an echo of one already carried out. The
+    // Top-to-Sub link is a single half-duplex wire that the Sub is talking on continuously, so
+    // presses have to be repeated - measured on the bench, eight presses sent one per second landed
+    // twice. A repeat that arrives after the operator has rotated the hull to the next mark would
+    // otherwise overwrite a good capture with a reading taken from the wrong place. So a presser
+    // sends cal8Seq = the reported cal8Seq + 1, and the Sub applies a press only when it is exactly
+    // one past the last it applied. A duplicate carries the value already used and is dropped.
+    // cal8Seq = 0 means "no retry behind this press" - the Sub's own web page, where the button is
+    // wired straight to the function - and is always applied.
     //
     // GET just asks for the state. Either way the Sub answers with the state:
     //   fields[6]  cal8Action     echo of what was asked for
     //   fields[7]  cal8Active     1 while a session is running
-    //   fields[8]  cal8Next       which direction is being asked for, 0..7, or 8 when all are in
+    //   fields[8]  cal8Next       the direction the guided cursor is asking for next, 0..7, or 8
+    //                             once every direction has been captured at least once
     //   fields[9]  .. fields[16]  the eight captured entries, degrees
+    //   fields[17] cal8Mask       bit i set once direction i has been captured. The cursor alone
+    //                             cannot express this any more: after a redo of an earlier
+    //                             direction the cursor does not move, so "how far along are we" and
+    //                             "which ones are in" are two different questions.
+    //   fields[18] cal8Seq        serial of the last press the Sub APPLIED. A presser reads this to
+    //                             number its next one.
     // All count-guarded, so a node that predates this sends a short frame and leaves the reader's
     // own copy alone rather than reading as an empty session.
     //
@@ -182,14 +183,12 @@ typedef enum
     CAL8_BEGIN = 0,
     CAL8_SET,
     CAL8_SAVE,
-    CAL8_CANCEL,
-    // Claim and release the buoy's heading reference, for a calibration run that is NOT the guided
-    // one - specifically the GPS Fourier run, which lives on the Top and sails eight 100 m legs.
-    // While the claim is held the Sub refuses to move compassOffset, because the offset is the very
-    // domain the table is indexed by: shifting it mid-run silently puts the legs measured before
-    // the shift and the legs measured after it in different frames. See cal8Lock().
-    CAL8_LOCK,
-    CAL8_UNLOCK
+    CAL8_CANCEL
+    // CAL8_LOCK and CAL8_UNLOCK used to sit here. They let the GPS Fourier run claim the buoy's
+    // heading reference, because compassOffset was the domain the table was indexed by and moving
+    // it mid-run put the legs measured before and after in different frames. The offset is now
+    // applied AFTER the table, so it is no longer part of the table's domain, nothing a
+    // calibration measures depends on it, and there is nothing left to lock.
 } cal8_action_t;
 
 // Smallest holding radius the buoy will accept, metres. Below this the station-keeping zones in
@@ -198,44 +197,6 @@ typedef enum
 // CYD used to allow 0.5 and the SETUPDATA path enforced nothing, so the same setting had three
 // different minima depending on where you typed it. One number, here, for all of them.
 #define HOLD_RADIUS_MIN 1.5
-
-// Phase reported in RoboStruct::gpsCalStep by GPS_FOURIER_STATUS.
-typedef enum
-{
-    GPSCAL_IDLE = 0,
-    GPSCAL_FETCH_TABLE = 1, // asking the Sub which interpolation table it is applying
-    GPSCAL_SETTLE = 2,      // steering the leg heading, waiting for it to hold steady
-    GPSCAL_RUN = 3,         // measuring the GPS displacement over the leg
-    GPSCAL_STORE = 4,       // handing the finished table to the Sub
-    GPSCAL_DONE = 5,        // finished, returning to the start position
-    GPSCAL_ABORTED = 6      // stopped early - gpscal_abort_t below says why
-} gpscal_step_t;
-
-// Why a GPS Fourier run stopped, reported in RoboStruct::gpsCalAbort by GPS_FOURIER_STATUS.
-//
-// The reason used to exist only as a string in the Top's progressMsg, which reaches its own web
-// page and nothing else. Over LoRa the CYD could therefore show that a run had aborted but never
-// why, and after fifteen seconds even that aged out and the panel went back to "No calibration
-// running" - indistinguishable from the command never having arrived. Every abort now carries a
-// code, so the display can say what actually went wrong while standing on the shore.
-typedef enum
-{
-    GPSCAL_ABORT_NONE = 0,
-    GPSCAL_ABORT_NO_FIX = 1,          // no GPS fix when the run was asked for
-    GPSCAL_ABORT_SUB_SILENT = 2,      // Sub not answering on the serial link at the start
-    GPSCAL_ABORT_FIX_LOST = 3,        // fix went away mid-run
-    GPSCAL_ABORT_LINK_LOST = 4,       // serial link to the Sub went away mid-run
-    GPSCAL_ABORT_HEADING_FROZEN = 5,  // dirMag bit-identical for too long, compass task hung
-    GPSCAL_ABORT_DRIFTED = 6,         // wandered past the runaway guard from the start position
-    GPSCAL_ABORT_NO_TABLE = 7,        // Sub never reported the table it is applying
-    GPSCAL_ABORT_NO_SETTLE = 8,       // never held the commanded heading long enough to start
-    GPSCAL_ABORT_LEG_UNSTABLE = 9,    // could not hold a leg straight enough to measure it
-    GPSCAL_ABORT_LEG_TOO_SLOW = 10,   // leg did not cover the minimum distance in time
-    GPSCAL_ABORT_TABLE_REFUSED = 11,  // Sub echoed back a different table than it was sent
-    GPSCAL_ABORT_NO_CONFIRM = 12,     // Sub never confirmed the new table
-    GPSCAL_ABORT_TABLE_UNUSABLE = 13  // table stored, but not in increasing order so the Sub
-                                      // ignores it - the buoy is sailing UNCORRECTED
-} gpscal_abort_t;
 
 struct RoboStruct
 {
@@ -266,16 +227,20 @@ struct RoboStruct
     double tgSpeed = 0;
     bool locked = false;
     int trackPos = 0;
-    // The heading with the hard and soft iron correction and the mounting offset applied, but
-    // BEFORE the eight point compass table and before the adaptive trim. Reported as "Imag" on the
-    // wire, alongside dirMag.
+    // The heading with the hard and soft iron correction applied and NOTHING else: before the
+    // eight point compass table, before the mounting offset, before the adaptive trim. Reported as
+    // "Imag" on the wire, alongside dirMag.
     //
     // This is the value the compass table is indexed by, which makes it the one thing a calibration
-    // actually needs. Publishing it means MAN CAL no longer has to switch the table off, wait for
-    // the buoy to confirm, and switch it back on afterwards - a sequence that failed silently and
-    // produced a table applied on top of the one already in effect. With Imag on the wire a
-    // calibration reads a value that is always correct, changes nothing on the buoy, and cannot be
-    // spoiled by the state of the correction or the trim.
+    // actually needs. Publishing it means a calibration reads a value that is always correct,
+    // changes nothing on the buoy, and cannot be spoiled by the state of the correction, the
+    // offset or the trim.
+    //
+    // It used to include compassOffset, because the offset was added before the table and so was
+    // part of the table's domain. Both moved: the offset is now applied after the table, and this
+    // is captured before either. The guided calibration depends on it - the operator turns the hull
+    // until this reads zero, and a zero that shifted every time somebody pressed Set as North would
+    // anchor the whole table somewhere different each run.
     //
     // 0 means "not reported" - the field is count guarded, so a node that predates it simply sends
     // a shorter frame and every reader keeps its own value.
@@ -328,37 +293,25 @@ struct RoboStruct
     // The table and the switch are separate: a stored table that is not applied leaves the
     // compass uncorrected. Carried by SETUPDATA field 20 - see the note in RoboCode().
     bool interpEnabled = false;
-    // Guided eight point calibration, carried by CAL8_SESSION. cal8Action is what a SET asks
-    // for; the rest is state the Sub reports and every other node only ever reads.
+    // Guided eight point calibration, carried by CAL8_SESSION. cal8Action is what a SET asks for,
+    // and on a CAL8_SET cal8Next/cal8Seq say which direction and which press; the rest is state the
+    // Sub reports and every other node only ever reads. See CAL8_SESSION above.
     int cal8Action = 0;
     bool cal8Active = false;
     int cal8Next = 0;
     float cal8Captured[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    // Bit i set once direction i has been captured. Not derivable from cal8Next: a redo of an
+    // earlier direction leaves the cursor where it was.
+    uint8_t cal8Mask = 0;
+    // Serial of the press. Outbound on a CAL8_SET: the one this press means to be. Inbound: the
+    // last one the Sub actually applied. This is what makes a retried press safe.
+    uint16_t cal8Seq = 0;
 
     // Whether the buoy can USE the interpolation table it holds, carried by
     // STORE_INTERPOLATION_TABLE. An out-of-order table is stored and then ignored, so without this
     // a sender could not tell "calibration stored" from "calibration stored and being ignored".
     bool interpUsable = true;
 
-    // Progress of a GPS Fourier calibration run, carried by GPS_FOURIER_STATUS.
-    int gpsCalStep = 0;      // gpscal_step_t
-    int gpsCalLeg = 0;       // 0..7
-    double gpsCalDist = 0;    // metres covered on the current leg
-    double gpsCalErr = 0;     // live signed error of the leg in progress, degrees
-    double gpsCalLastErr = 0; // signed error of the last completed leg, degrees
-    int gpsCalAbort = 0;      // gpscal_abort_t - why the run stopped, 0 while running
-    // How the calibration is allowed to interpret the difference between opposite legs.
-    //
-    // false - pair-averaged. Anything that flips sign between a heading and its opposite is taken
-    //         to be current and discarded. Immune to a steady set, but it also discards a genuine
-    //         one-cycle (hard iron) deviation, which has the identical signature. Corrects the
-    //         constant and two-cycle terms only.
-    // true  - still water. Each leg's error is used directly as the deviation at that heading, so
-    //         the one-cycle term survives and the full curve is corrected. ONLY valid when there
-    //         really is no current and negligible windage - otherwise the current is permanently
-    //         written into the compass table.
-    bool gpsCalStillWater = false;
-    float gpsCalStartHeading = 0.0f;
 };
 
 struct RoboStructGps

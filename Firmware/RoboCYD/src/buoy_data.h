@@ -17,11 +17,14 @@ struct BuoyData {
     // send_buoy_setlockpos(). 7 is IDLE, the state a buoy that has said nothing yet is assumed in.
     int status_code = 7;
     float mag_dir = 0;
-    // The buoy's heading with the iron correction and the mounting offset applied but BEFORE the
-    // eight point compass table and before the adaptive trim - the "Imag" field on the wire. This
-    // is the value the table is indexed by, so it is what a calibration must capture: reading it
-    // needs nothing switched off on the buoy, and it cannot be spoiled by the state of the
-    // correction or the trim.
+    // The buoy's heading with the iron correction applied and NOTHING else: before the eight point
+    // compass table, before the mounting offset, before the adaptive trim - the "Imag" field on the
+    // wire. This is the value the table is indexed by, so it is what a calibration must capture:
+    // reading it needs nothing switched off on the buoy, and it cannot be spoiled by the state of
+    // the correction, the offset or the trim.
+    //
+    // It is also the number the operator turns the hull against. MAN CAL shows it large and refuses
+    // the N mark until it reads zero, which is what anchors the run.
     //
     // mag_dir_iron_ms stays 0 until the buoy actually sends it. A buoy running firmware that
     // predates the field sends a shorter frame, and capturing 0 as a heading would quietly write a
@@ -53,10 +56,6 @@ struct BuoyData {
     double tg_lat = 0;
     double tg_lon = 0;
     unsigned long tg_pos_seen_ms = 0;
-    // Why the last GPS Fourier run stopped (gpscal_abort_t). Sticky: kept after cal_seen_ms
-    // has aged out, so an abort is still readable minutes later instead of blinking past.
-    int cal_abort = 0;
-
     // Setup / Calibration fields (Preloaded with standard baseline defaults, matching the webpage!)
     float kpr = 1.20;
     float kir = 0.10;
@@ -89,6 +88,12 @@ struct BuoyData {
     bool cal8_active = false;
     int cal8_next = 0;
     float cal8[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    // Bit i set once direction i has been captured. This, not cal8_next, is what says whether the
+    // run is complete: a direction may be re-captured, and doing so leaves the cursor where it was.
+    int cal8_mask = 0;
+    // Serial of the last press the buoy applied. A press this screen sends is numbered one past it,
+    // so the Top's resends and the buoy's de-duplication agree on which press is which.
+    int cal8_seq = 0;
     unsigned long cal8_ms = 0;
 
     bool harmonic_enabled = false;
@@ -101,17 +106,6 @@ struct BuoyData {
     bool harmonic_reported = false;
     unsigned long harmonic_reported_ms = 0;
 
-    // GPS Fourier compass calibration progress, from GPS_FOURIER_STATUS (cmd 90).
-    // cal_seen_ms is 0 until the first report arrives; the display uses it to decide whether it
-    // has anything worth showing rather than drawing a stale run from an hour ago.
-    unsigned long cal_seen_ms = 0;
-    int cal_step = 0;        // gpscal_step_t: 0 idle, 1 fetch, 2 settle, 3 run, 4 store, 5 done, 6 aborted
-    int cal_leg = 0;         // 0..7
-    float cal_cmd_dir = 0;   // heading commanded for this leg
-    float cal_dist = 0;      // metres covered on this leg
-    float cal_err = 0;       // live error of the leg in progress
-    float cal_last_err = 0;  // error of the last completed leg
-    float cal_start_heading = 0; // selected direction of the first leg (0..315 deg)
 };
 
 extern BuoyData buoys[3];
@@ -153,12 +147,6 @@ void send_buoy_command(const String &buoy_id, int cmd_code, int ack = 3);
 // LOCKED either way.
 void send_buoy_setlockpos(const String &buoy_id, int status_code, double lat, double lon);
 
-// Starts a GPS Fourier compass calibration run on the buoy's Top. Needs its own sender
-// because send_buoy_command() emits an empty payload, and the still-water flag lives in
-// the first payload field.
-// Accepts start_heading (0..315 deg) as the direction of the first leg.
-void send_gps_fourier_calibrate(const String &buoy_id, bool still_water, float start_heading = 0.0f);
-
 // Query setup parameters from buoy exactly matching webpage GET formatting
 void query_buoy_setup(const String &buoy_id);
 
@@ -170,10 +158,12 @@ void send_buoy_setup(int buoy_idx);
 // screen finds out about a run someone started from a web page. Either way the buoy answers with
 // the state and it lands in BuoyData::cal8_*.
 //
-// leg names the direction a SET is for. The Top resends presses until the buoy confirms them, and
-// the leg number is what stops a late duplicate from capturing the next direction instead - see
-// CAL8_SESSION in RoboCompute.h. Ignored for the other three actions.
-void send_buoy_cal8(const String &buoy_id, int action, int leg = 0, int ack = 2);
+// leg names the direction a SET is for, and seq numbers the press. Both are needed and neither is
+// enough alone: any direction can be captured at any time, so the leg says which slot, and the
+// press is resent by the Top until the buoy confirms it, so the serial says whether an arriving
+// copy is new. Number a SET with BuoyData::cal8_seq + 1. Both ignored for the other three actions.
+// See CAL8_SESSION in RoboCompute.h.
+void send_buoy_cal8(const String &buoy_id, int action, int leg = 0, int ack = 2, int seq = 0);
 
 // Send dynamic DIRDIST (Manual Navigation target direction and speed)
 void send_buoy_dirdist(int buoy_idx);
@@ -181,6 +171,48 @@ void send_buoy_dirdist(int buoy_idx);
 
 // XOR checksum for the $...*CRC envelope every frame on this network has to carry - rfDeCode()
 // drops anything without it. Declared here because senders live outside buoy_data.cpp too.
+
+// ---------------------------------------------------------------------------------------------
+//  Delivery confirmation for the commands that matter
+// ---------------------------------------------------------------------------------------------
+// The CYD used to be write-only. Every command went out once over LoRa and once over UDP and that
+// was the end of it: no acknowledgement was read, nothing was retried, and no screen ever found
+// out whether a buoy had heard anything. track_settings_compute() painted "COMPUTING..." BEFORE
+// touching the radio, so the banner appeared whether the press landed or vanished - which is
+// exactly how an ALIGN STARTLINE could look like it had worked while the fleet never moved.
+//
+// RoboTop now answers a unicast GETACK/SET with an ACK frame (see ackOverLora() there), so there
+// is finally something to wait for. This tracks ONE outstanding command - the operator presses one
+// button at a time - resends it until it is acknowledged, and latches the outcome for the screen.
+//
+// Deliberately NOT applied to every command. Only the ones where a silent loss is expensive and a
+// repeat is harmless are registered: see send_buoy_command(). Remote steering must never be
+// retried, because a stale repeat would fight the operator's next input.
+struct PendingCmd {
+    bool active = false;
+    String target_id = "";
+    int cmd = 0;
+    String frame = "";              // the exact envelope to put back on the air
+    int attempts_left = 0;
+    unsigned long next_due_ms = 0;
+};
+
+extern PendingCmd pending_cmd;
+
+// Latched outcome of the last tracked command. Set by the ACK path / the retry timeout, and
+// cleared by whichever screen reports it, so a banner cannot be missed by a slow repaint.
+extern bool pending_cmd_acked;
+extern bool pending_cmd_failed;
+
+// Registers a just-sent frame as awaiting an ACK. A second call replaces the first - pressing
+// START and then TRACK means the operator wants TRACK, not both.
+void await_ack(const String &target_id, int cmd, const String &frame, int attempts = 3);
+
+// Called from loop(): resends the outstanding command when its retry is due, and gives up (setting
+// pending_cmd_failed) once the attempts are spent.
+void service_pending_cmd();
+
+
 uint8_t calculate_crc(const String &content);
 
 #endif // BUOY_DATA_H

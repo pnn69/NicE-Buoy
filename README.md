@@ -140,7 +140,9 @@ The Top and Sub share **one wire**, half duplex, with hardware separating the tw
 
 1.  **In-Field Compass Spin Calibration** — self-guided rotation while measuring magnetic min/max to derive hard-iron offsets.
 2.  **In-Field Offset Alignment** — sails a straight leg on compass heading, compares the GPS track, and writes the difference to the stored compass offset.
-3.  **GPS Fourier Calibration** — an 8-point harmonic correction table, held on the Sub and reported through `SETUPDATA`.
+3.  **Guided 8-Point Compass Calibration** — the hull is turned to the compass's own zero and then indexed round a mechanical fixture 45° at a time, one capture per mark. Produces the 8-point correction table, which is held on the Sub and reported through `SETUPDATA`. The table describes the hull's magnetic deviation only; which way the sensor is bolted in is a separate setting (**Set as North**), applied after the table.
+
+    A GPS-based version of this used to exist, sailing eight 100 m legs and inferring the table from the track. It was removed when the mounting offset moved out of the table's input — its residual arithmetic assumed the old ordering.
 
 ---
 

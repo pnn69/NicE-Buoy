@@ -527,12 +527,10 @@ void handleSerandRfdata(RoboStruct *ser)
                 printf("STORE_DECLINATION ignored - declination is retired, use the compass offset\r\n");
                 break;
             case STORE_COMPASS_OFFSET:
-                // Same reason as SET_AS_NORTH: this is the table's own domain, not a display trim.
-                if (cal8RefLocked())
-                {
-                    printf("STORE_COMPASS_OFFSET refused: a calibration is in progress\r\n");
-                    break;
-                }
+                // Always allowed. This used to be refused during a calibration run, because the
+                // offset was applied before the table and so was the very domain the table was
+                // indexed by. It is applied after the table now - a plain rotation of the output -
+                // so moving it cannot disturb a run in progress.
                 CompassOffsetCorrection(&dataIn.compassOffset, false);
                 ser->compassOffset = dataIn.compassOffset; // Update running config
                 mainData.compassOffset = dataIn.compassOffset; // Ensure compassTask uses the new offset immediately!
@@ -549,25 +547,15 @@ void handleSerandRfdata(RoboStruct *ser)
                 break;
             case SET_AS_NORTH:
                 {
-                    // Not while a calibration is running. Set as North moves compassOffset, which is
-                    // the domain the table is indexed by, so it rotates the whole deviation curve -
-                    // and a run measuring against that curve would end up combining readings from
-                    // before and after the rotation. Nor is it needed around a run: the guided run's
-                    // first step and the GPS run's north leg both set north themselves, at commit
-                    // time, from a measurement rather than from an eyeball.
-                    if (cal8RefLocked())
-                    {
-                        printf("SET_AS_NORTH refused: a calibration is in progress and it sets north "
-                               "itself when it commits\r\n");
-                        extern QueueHandle_t buzzer;
-                        if (buzzer != NULL) beep(-1, buzzer);
-                        break;
-                    }
+                    // Allowed at any time, including during a calibration run. This is the step
+                    // that says which way the sensor is bolted into the hull, and it is now the
+                    // ONLY thing that rotates the reported heading: the guided run measures the
+                    // hull's deviation and writes nothing but the table. Press it after a
+                    // calibration, or before one, or twice - the table is unaffected either way.
                     double newOffset = 0;
                     bool success = false;
                     if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500))) {
-                        // Solved through the correction curve rather than assuming the offset
-                        // moves the reported heading one for one - see computeSetAsNorthOffset().
+                        // One subtraction through the pipeline - see computeSetAsNorthOffset().
                         // The old "compassOffset - dirMag" needed three or four presses to creep
                         // onto north; this lands on it first time.
                         extern float computeSetAsNorthOffset(void);
@@ -714,20 +702,11 @@ void handleSerandRfdata(RoboStruct *ser)
                     thrusterSwap(ser, MEM_GET);
                     thrusterInversion(ser, MEM_GET);
                     computeParameters(ser, MEM_GET);
-                    // A setup save carries compassOffset with it, so an unrelated Save from any page
-                    // would move the table's domain mid-run just as surely as Set as North. Keep
-                    // what the run is working against; the rest of the frame still applies.
-                    if (cal8RefLocked())
-                    {
-                        printf("SETUPDATA: keeping the running compass offset %.2f, a calibration is "
-                               "in progress\r\n", mainData.compassOffset);
-                        ser->compassOffset = mainData.compassOffset;
-                        CompasOffset(&mainData, MEM_PUT);
-                    }
-                    else
-                    {
-                        mainData.compassOffset = ser->compassOffset; // compassTask uses it at once
-                    }
+                    // A setup save carries compassOffset with it. That used to have to be held
+                    // back during a calibration run, because the offset was the table's own domain;
+                    // it is applied after the table now, so an unrelated Save can no longer disturb
+                    // a run in progress.
+                    mainData.compassOffset = ser->compassOffset; // compassTask uses it at once
 
                     // The Setup page's "Active Trim Enabled" tick box travels in THIS frame
                     // (SETUPDATA field 16, see RoboCode()), not in ADAPTIVE_TRIM. Until now only
@@ -793,27 +772,29 @@ void handleSerandRfdata(RoboStruct *ser)
                             // switches the correction off.
                             mancalSessionBegin();
                             break;
-                        case CAL8_LOCK:
-                            // A calibration run elsewhere - the GPS Fourier run on the Top - taking
-                            // this buoy's heading reference for its duration.
-                            cal8Lock(true);
-                            mancalSessionBegin();
-                            break;
-                        case CAL8_UNLOCK:
-                            cal8Lock(false);
-                            mancalSessionEnd();
-                            break;
                         case CAL8_SET:
-                            // The leg the sender meant. A press that crossed with an earlier copy of
-                            // itself names a leg already captured and is dropped rather than eating
-                            // the next one - see cal8Set().
-                            if (cal8Set(dataIn.cal8Next) < 0)
-                                printf("CAL8: set ignored - wrong leg, no session, or all eight captured\r\n");
-                            mancalSessionPing();   // the operator is still working
+                            {
+                                // Which direction, and which press. The serial is what makes a
+                                // retried press safe on a wire that drops much of what crosses it -
+                                // see cal8Set().
+                                int r = cal8Set(dataIn.cal8Next, dataIn.cal8Seq);
+                                if (r < 0)
+                                {
+                                    const char *why =
+                                        (r == CAL8_SET_NO_SESSION) ? "no session is running" :
+                                        (r == CAL8_SET_BAD_LEG)    ? "that direction is not next and is not captured yet" :
+                                        (r == CAL8_SET_DUPLICATE)  ? "repeated or out of step press" :
+                                        (r == CAL8_SET_OFF_ANCHOR) ? "Imag is not on zero, turn the hull" :
+                                                                     "unknown reason";
+                                    printf("CAL8: capture of %d deg ignored - %s\r\n",
+                                           dataIn.cal8Next * 45, why);
+                                }
+                                mancalSessionPing();   // the operator is still working
+                            }
                             break;
                         case CAL8_SAVE:
                             if (cal8Save()) mancalSessionEnd();
-                            else printf("CAL8: save refused - not all eight captured\r\n");
+                            else printf("CAL8: save refused - not all eight directions captured\r\n");
                             break;
                         case CAL8_CANCEL:
                             cal8Cancel();
@@ -837,6 +818,8 @@ void handleSerandRfdata(RoboStruct *ser)
                     response.cal8Active = cal8_active;
                     response.cal8Next = cal8_next;
                     for (int i = 0; i < 8; i++) response.cal8Captured[i] = cal8_captured[i];
+                    response.cal8Mask = cal8_mask;
+                    response.cal8Seq = cal8_seq;
                     xQueueSend(serOut, (void *)&response, 10);
                 }
                 break;
@@ -898,9 +881,9 @@ void handleSerandRfdata(RoboStruct *ser)
                             if (buzzer != NULL) beep(usable ? 1000 : -1, buzzer);
                         }
 
-                        // Echo back what actually landed in NVS - which is the ROTATED table, not
-                        // the one that was sent. Senders compare the echo against what they sent,
-                        // so they have to compare it relative to entry 0; see gpscalib.cpp.
+                        // Echo back what actually landed in NVS. Stored verbatim now - the table
+                        // used to be rotated so entry 0 came out at zero, with the rotation folded
+                        // into compassOffset, so an echo never matched what was sent.
                         RoboStruct response = mainData;
                         response.IDs = mainData.mac;
                         response.IDr = dataIn.IDs;
@@ -1330,7 +1313,7 @@ void loop(void)
         // Imag - the same heading but before the eight point table and the adaptive trim, which is
         // the value that table is indexed by. Published so a calibration can read it directly
         // instead of having to switch the correction off first. See RoboStruct::imag.
-        mainData.imag = GetHeadingNoOffset();
+        mainData.imag = GetHeadingIron();
         //***************************************************************************************************
         //      new serial message and udp
         //***************************************************************************************************
