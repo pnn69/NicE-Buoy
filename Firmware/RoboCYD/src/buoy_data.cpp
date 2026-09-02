@@ -358,9 +358,6 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         // Tri-state so that "0"/empty means the buoy never reported it - a plain 0 could not
         // be told apart from the zero-compression RoboTop applies to the payload.
         if (fields.size() > 23 && fields[23] != "" && fields[23] != "0")
-            buoys[buoy_idx].harmonic_enabled = (fields[23] == "2");
-            buoys[buoy_idx].harmonic_reported = (fields[23] == "2");
-            buoys[buoy_idx].harmonic_reported_ms = millis();
 
         // Mark setup parameters as successfully loaded if this is the buoy currently active!
         if (selected_buoy_idx == buoy_idx) {
@@ -414,7 +411,7 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         // was off when it was generated). Taking every frame that comes past meant the correct
         // values landed and were then overwritten with zeros a moment later. It also means the
         // Sub's echo of a STORE can no longer wipe out what the operator has dialled in.
-        // Field 13 is the Sub saying whether this table is IN EFFECT. When it is not, the frame
+        // Field 13 is the Sub saying whether this table is USABLE. When it is not, the frame
         // carries the identity table rather than the stored one, and latching it would show a
         // calibrated buoy as having no corrections at all. Tri-stated on the field count so a
         // node that predates the flag is not read as "off".
@@ -424,16 +421,9 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
             extern volatile unsigned long mancal_table_echo_ms;
             mancal_table_echo_ms = millis();
         }
-        // The table frame says whether the correction is in effect, so it is a second, more
-        // frequent source of truth than the SETUPDATA reply while MAN CAL is running.
-        if (fields.size() >= 14) {
-            buoys[buoy_idx].harmonic_reported = (atoi(fields[13].c_str()) != 0);
-            buoys[buoy_idx].harmonic_reported_ms = millis();
-        }
-
-        bool table_in_effect = (fields.size() < 14) || (atoi(fields[13].c_str()) != 0);
-        if (!table_in_effect) {
-            Serial.println("Ignoring interpolation table: the Sub reports its correction is OFF, "
+        bool table_usable = (fields.size() < 14) || (atoi(fields[13].c_str()) != 0);
+        if (!table_usable) {
+            Serial.println("Ignoring interpolation table: the Sub reports it is not usable, "
                            "so this is the identity table and not the stored one.");
         }
         else if (selected_buoy_idx == buoy_idx && in_man_fourier_cal_mode && !mancal_offsets_loaded) {
@@ -568,8 +558,7 @@ void send_buoy_setup(int buoy_idx) {
             // threw away up to half a degree of it.
             b.max_speed, b.min_speed, b.pivot_speed, b.compass_offset, b.hold_radius,
             b.rev_bb ? 1 : 0, b.rev_sb ? 1 : 0, b.swap_bb_sb ? 1 : 0, b.compass_trim_enabled ? 1 : 0,
-            b.dock_app_dist, b.dock_app_dir, b.dock_to_wp ? 1 : 0,
-            b.harmonic_enabled ? 2 : 1);
+            b.dock_app_dist, b.dock_app_dir, b.dock_to_wp ? 1 : 0);
             
     uint8_t crc = calculate_crc(cmdPayload);
     char finalPacket[320];

@@ -82,8 +82,6 @@ struct BuoyData {
     int dock_app_dist = 20;
     int dock_app_dir = 180;
     bool dock_to_wp = false;
-    // Whether the buoy applies its 8-point Fourier compass table (the Sub's interp_enabled).
-    // SETUPDATA fields[23], tri-state on the wire: 1 = off, 2 = on, empty = not reported.
     // ---- guided eight point calibration, mirrored from the buoy ----------------------------
     // Every value here arrived in a CAL8_SESSION frame the buoy sent. The CYD never writes them
     // itself and never derives them, because the session belongs to the buoy: see the block
@@ -103,15 +101,10 @@ struct BuoyData {
     int cal8_seq = 0;
     unsigned long cal8_ms = 0;
 
-    bool harmonic_enabled = false;
-    // What the BUOY last said about its harmonic correction, as opposed to what we last asked for.
-    // harmonic_enabled above is our intent: the CYD writes it itself the moment it sends a change,
-    // so it says nothing about whether the buoy heard. MAN CAL has to know the difference - it
-    // captures against the raw compass, and a capture taken while the correction is still running
-    // silently produces a table that gets applied on top of the one already in effect.
-    // Written ONLY by parse_buoy_packet(), from frames the buoy sent.
-    bool harmonic_reported = false;
-    unsigned long harmonic_reported_ms = 0;
+    // The "apply the compass table" switch used to live here, with a second copy recording what
+    // the buoy had reported so MAN CAL could tell intent from fact. Both are gone: the table is
+    // applied unconditionally, so there is nothing to intend and nothing to disagree about. The
+    // SETUPDATA field is still sent, always "on", because the frame is positional.
 
 };
 

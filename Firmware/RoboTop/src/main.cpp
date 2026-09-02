@@ -1750,7 +1750,6 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                         // second over ADAPTIVE_TRIM, but taking it here means the Setup page shows
                         // the new state at once instead of on the next broadcast.
                         RfOut->compass_trim_enabled = RfIn.compass_trim_enabled;
-                        RfOut->interpEnabled = RfIn.interpEnabled;
                         if (RfIn.IDs == 0x98 || RfIn.IDs == 0x99) {
                             RfOut->dockApproachDist = RfIn.dockApproachDist;
                             RfOut->dockApproachDir = RfIn.dockApproachDir;
@@ -2502,7 +2501,6 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                 target->compass_trim_enabled = serDataIn.compass_trim_enabled;
                 // The harmonic correction switch lives on the Sub; this reply is the only
                 // place the Top ever learns its state.
-                target->interpEnabled = serDataIn.interpEnabled;
                 target->sub_status++; // Use sub_status as a local revision counter for Web UI
 
                 // Inject our local docking parameters into the sub response before forwarding!
@@ -2564,7 +2562,7 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             for (int i = 0; i < 8; i++) printf(" %.2f", serDataIn.interpolationTable[i]);
             printf("\r\n");
             // Feed the web page's MAN CAL working copy - see topwifi.h.
-            mancalNoteTable(serDataIn.interpolationTable, serDataIn.interpEnabled);
+            mancalNoteTable(serDataIn.interpolationTable, serDataIn.interpUsable);
 
             // Broadcast the table over UDP and LoRa so clients can receive it!
             serDataIn.IDr = BUOYIDALL;

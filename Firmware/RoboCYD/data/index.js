@@ -857,7 +857,6 @@ function parseMessage(message, source, senderIp = null, loraRssi = null, udpRssi
             // RoboTop compresses an all-zero token to "", so a plain 0 could not be told apart
             // from a field an older node never sent - leave the last known value alone then.
             if (fields.length > 23 && fields[23] !== "" && fields[23] !== "0") {
-                parsedData["harmonic_enabled"] = (fields[23] === "2") ? "1" : "0";
             }
         } else if (cmd === MsgType.ADAPTIVE_TRIM && fields.length >= 6) {
             Object.assign(parsedData, {
@@ -1853,7 +1852,6 @@ function querySetupAndPoll() {
         document.getElementById("setup-compassTrimEnabled").checked = trimEn;
         document.getElementById("setup-revBB").checked = b.data["revBB"] === "1";
         document.getElementById("setup-revSB").checked = b.data["revSB"] === "1";
-        document.getElementById("setup-harmonic").checked = b.data["harmonic_enabled"] === "1";
         document.getElementById("setup-swap").checked = b.data["swap_BB_SB"] === "1";
         document.getElementById("setup-dockAppDist").value = parseInt(b.data["dockAppDist"]) || 20;
         document.getElementById("setup-dockAppDir").value = parseInt(b.data["dockAppDir"]) || 180;
@@ -1904,9 +1902,7 @@ function saveSetupForm() {
         trimEn,
         document.getElementById("setup-dockAppDist").value,
         document.getElementById("setup-dockAppDir").value,
-        document.getElementById("setup-dockToWP").checked ? "1" : "0",
-        // Tri-state, see the parser above: never a plain 0.
-        document.getElementById("setup-harmonic").checked ? "2" : "1"
+        document.getElementById("setup-dockToWP").checked ? "1" : "0"
     ];
     
     // Construct message: Target,99,SET,SETUPDATA,Status,vals...

@@ -26,7 +26,7 @@ String netHealthLine();
 // mancalNoteTable() is called from handleSerialData() for every table frame the Sub sends up, so
 // the copy tracks whatever the Sub really has rather than what we last asked for.
 // ---------------------------------------------------------------------------------------------
-void mancalNoteTable(const float *table, bool inEffect);
+void mancalNoteTable(const float *table, bool usable);
 
 // ---------------------------------------------------------------------------------------------
 // Guided eight point calibration. The Top holds no state of its own here beyond a cache for its

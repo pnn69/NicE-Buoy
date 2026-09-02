@@ -270,7 +270,7 @@ enum SetupSlot {
     S_SPD_P  = 4,  S_SPD_I  = 5,  S_SPD_D = 6,
     S_MAXSPD = 8,  S_MINSPD = 9,  S_PIVOT = 10,
     S_COMPOFF = 12, S_HOLDRAD = 13,
-    S_TRIMEN = 16, S_HARMONIC = 17,
+    S_TRIMEN = 16,
     S_REVBB  = 20, S_REVSB = 21, S_SWAP = 22,
     S_APPDIST = 24, S_APPDIR = 25, S_DOCKWP = 26,
     S_DESKCAL = 32, S_SETNORTH = 33, S_REBOOT = 34,
@@ -280,7 +280,7 @@ enum SetupSlot {
 static const char *SETUP_NAMES[SETUP_SLOTS] = {
     /* 1 PID              */ "Rud P:", "Rud I:", "Rud D:", "",      "Spd P:", "Spd I:", "Spd D:", "",
     /* 2 SPEED & COMPASS  */ "MaxSpd:", "MinSpd:", "PvtSpd:", "",   "CompOff:", "HoldRad:", "", "",
-    /* 3 TRIM & THRUSTERS */ "TrimEn:", "Harmonic:", "", "",        "BB Inv:", "SB Inv:", "Swap:", "",
+    /* 3 TRIM & THRUSTERS */ "TrimEn:", "", "", "",                  "BB Inv:", "SB Inv:", "Swap:", "",
     /* 4 DOCKING          */ "Appr Dist", "Appr Dir", "DockToWP", "", "", "", "", "",
     /* 5 CALIBRATION      */ "Desk Cal", "Set North", "Reboot", "",   "MAN CAL", "", "", ""
 };
@@ -305,14 +305,13 @@ static inline bool setup_slot_is_action(int slot) {
 }
 
 static inline bool setup_slot_is_bool(int slot) {
-    return slot == S_TRIMEN || slot == S_HARMONIC || slot == S_REVBB ||
+    return slot == S_TRIMEN || slot == S_REVBB ||
            slot == S_REVSB  || slot == S_SWAP     || slot == S_DOCKWP;
 }
 
 static bool setup_bool_get(const BuoyData &b, int slot) {
     switch (slot) {
         case S_TRIMEN:   return b.compass_trim_enabled;
-        case S_HARMONIC: return b.harmonic_enabled;
         case S_REVBB:    return b.rev_bb;
         case S_REVSB:    return b.rev_sb;
         case S_SWAP:     return b.swap_bb_sb;
@@ -324,7 +323,6 @@ static bool setup_bool_get(const BuoyData &b, int slot) {
 static void setup_bool_toggle(BuoyData &b, int slot) {
     switch (slot) {
         case S_TRIMEN:   b.compass_trim_enabled = !b.compass_trim_enabled; break;
-        case S_HARMONIC: b.harmonic_enabled     = !b.harmonic_enabled;     break;
         case S_REVBB:    b.rev_bb               = !b.rev_bb;               break;
         case S_REVSB:    b.rev_sb               = !b.rev_sb;               break;
         case S_SWAP:     b.swap_bb_sb           = !b.swap_bb_sb;           break;

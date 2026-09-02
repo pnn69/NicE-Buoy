@@ -540,15 +540,15 @@ void cal8Service(void)
     cal8Send(SET, cal8PendAction, cal8PendLeg, cal8PendSeq);
 }
 
-void mancalNoteTable(const float *table, bool inEffect)
+void mancalNoteTable(const float *table, bool usable)
 {
-    // The Sub answers with the table that is IN EFFECT, not the one in NVS. With its correction
-    // switched off that is the identity table, indistinguishable from a genuinely uncalibrated
-    // buoy unless it says so - which it now does. Latching it would report a calibrated buoy as
-    // having no corrections at all.
-    if (!inEffect)
+    // The Sub answers with the table that is IN EFFECT, not the one in NVS. When its table is not
+    // usable - out of order, or measured under the old convention - what it reports is the identity
+    // table, indistinguishable from a genuinely uncalibrated buoy unless it says so, which it does.
+    // Latching it would report a calibrated buoy as having no corrections at all.
+    if (!usable)
     {
-        printf("MANCAL: ignoring table - the Sub reports its correction is OFF, so this is the "
+        printf("MANCAL: ignoring table - the Sub reports it is not usable, so this is the "
                "identity table and not the stored one\r\n");
         return;
     }
@@ -739,7 +739,8 @@ void WiFiTask(void *arg)
         json += "\"swap_BB_SB\":\"" + String(mainData.swap_BB_SB ? "true" : "false") + "\",";
         json += "\"compass_trim_enabled\":\"" + String(mainData.compass_trim_enabled ? "true" : "false") + "\",";
         json += "\"compass_trim\":\"" + String(mainData.compass_trim, 3) + "\",";
-        json += "\"harmonicEnabled\":\"" + String(mainData.interpEnabled ? "true" : "false") + "\",";
+        // Always true: the compass table is applied unconditionally. Kept on the wire so an older
+        // page still parses; the thing worth watching now is whether the table is USABLE.
         json += "\"dockAppDist\":\"" + String(mainData.dockApproachDist) + "\",";
         json += "\"dockAppDir\":\"" + String(mainData.dockApproachDir) + "\",";
         json += "\"dockToWP\":\"" + String(mainData.dockingToWaypoint ? "true" : "false") + "\",";
@@ -828,7 +829,6 @@ void WiFiTask(void *arg)
             json += "\"swap_BB_SB\":\"" + String(buoyPara[i].swap_BB_SB ? "true" : "false") + "\",";
             json += "\"compass_trim_enabled\":\"" + String(buoyPara[i].compass_trim_enabled ? "true" : "false") + "\",";
             json += "\"compass_trim\":\"" + String(buoyPara[i].compass_trim, 3) + "\",";
-            json += "\"harmonicEnabled\":\"" + String(buoyPara[i].interpEnabled ? "true" : "false") + "\",";
             json += "\"dockAppDist\":\"" + String(buoyPara[i].dockApproachDist) + "\",";
             json += "\"dockAppDir\":\"" + String(buoyPara[i].dockApproachDir) + "\",";
             json += "\"dockToWP\":\"" + String(buoyPara[i].dockingToWaypoint ? "true" : "false") + "\",";
@@ -1039,7 +1039,6 @@ void WiFiTask(void *arg)
                     mainData.swap_BB_SB = server.arg("swap_BB_SB").toInt();
                     if (server.hasArg("compass_trim_enabled")) mainData.compass_trim_enabled = (server.arg("compass_trim_enabled").toInt() != 0);
                     // Owned by the Sub - the Top only relays it, so there is nothing to store here.
-                    if (server.hasArg("harmonic")) mainData.interpEnabled = (server.arg("harmonic").toInt() != 0);
                     if (server.hasArg("dockAppDist")) mainData.dockApproachDist = server.arg("dockAppDist").toInt();
                     if (server.hasArg("dockAppDir")) mainData.dockApproachDir = server.arg("dockAppDir").toInt();
                     if (server.hasArg("dockToWP")) mainData.dockingToWaypoint = (server.arg("dockToWP").toInt() != 0);
@@ -1116,7 +1115,6 @@ void WiFiTask(void *arg)
                     msg.revSB = server.arg("revSB").toInt();
                     msg.swap_BB_SB = server.arg("swap_BB_SB").toInt();
                     if (server.hasArg("compass_trim_enabled")) msg.compass_trim_enabled = (server.arg("compass_trim_enabled").toInt() != 0);
-                    if (server.hasArg("harmonic")) msg.interpEnabled = (server.arg("harmonic").toInt() != 0);
                     if (server.hasArg("dockAppDist")) msg.dockApproachDist = server.arg("dockAppDist").toInt();
                     if (server.hasArg("dockAppDir")) msg.dockApproachDir = server.arg("dockAppDir").toInt();
                     if (server.hasArg("dockToWP")) msg.dockingToWaypoint = (server.arg("dockToWP").toInt() != 0);

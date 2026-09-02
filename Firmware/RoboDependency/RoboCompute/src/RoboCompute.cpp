@@ -70,13 +70,6 @@ void RoboDecode(String data, RoboStruct *dataStore)
           if (count > 17) dataStore->dockApproachDist = numbers[17].toInt();
           if (count > 18) dataStore->dockApproachDir = numbers[18].toInt();
           if (count > 19) dataStore->dockingToWaypoint = (bool)numbers[19].toInt();
-          // Tri-state, see RoboCode(): 0 (or empty) means the sender did not specify it, so keep
-          // whatever we already have; 1 = off, 2 = on.
-          if (count > 20)
-          {
-              int interp = numbers[20].toInt();
-              if (interp != 0) dataStore->interpEnabled = (interp == 2);
-          }
           break;
     case IDLE:
         dataStore->speed = 0;
@@ -314,16 +307,12 @@ void RoboDecode(String data, RoboStruct *dataStore)
             for (int i = 0; i < 8; i++)
                 dataStore->interpolationTable[i] = numbers[2 + i].toFloat();
         }
-        // Trailing flag: whether the correction this table describes is actually IN EFFECT.
-        // The Sub answers a GET with the table that is in effect, not the one in NVS, so with the
-        // correction switched off it reports the identity table 0,45,90,... - which a reader
-        // cannot otherwise tell apart from a genuinely uncalibrated buoy. Every UI got that wrong
-        // at least once. Count-guarded like the rest: a frame from a node that predates this
-        // leaves the receiver's own value alone rather than reading as "off".
-        if (count > 10) dataStore->interpEnabled = (bool)numbers[10].toInt();
-        // Count-guarded like the rest: a node that predates this field leaves the reader's own
-        // value alone rather than reading as "unusable", which would condemn a good calibration.
-        if (count > 11) dataStore->interpUsable = (bool)numbers[11].toInt();
+        // Trailing flag: whether this table can actually be USED. An out-of-order table, or one
+        // measured under the old convention, is stored and then ignored - so "the buoy has a
+        // table" and "the buoy is corrected" are different questions, and this answers the second.
+        // The Sub reports the identity table when this is false, which a reader could not
+        // otherwise tell apart from a genuinely uncalibrated buoy.
+        if (count > 10) dataStore->interpUsable = (bool)numbers[10].toInt();
         break;
     default:
         printf("RoboDecode: Unknown CMD %d\r\n", dataStore->cmd);
@@ -360,12 +349,6 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->dockApproachDist);
         out += "," + String(dataOut->dockApproachDir);
         out += "," + String((int)dataOut->dockingToWaypoint);
-        // Deliberately tri-state - 1 = off, 2 = on - and NOT the plain 0/1 the fields above use.
-        // The zero-compressor at the end of this function turns an all-zero token into "", so a
-        // plain 0 would be indistinguishable from a field that a shorter frame never sent at all.
-        // RoboControl.py still writes SETUPDATA frames that stop at swap_BB_SB, and those must
-        // not be able to silently switch the harmonic correction off.
-        out += "," + String(dataOut->interpEnabled ? 2 : 1);
         break;
     case DIRSPEED:
         out += "," + formatFloat(dataOut->dirMag, 2);
@@ -561,10 +544,8 @@ String RoboCode(const RoboStruct *dataOut)
         // from a truncated one.
         for (int i = 0; i < 8; i++)
             out += "," + formatFloat(dataOut->interpolationTable[i], 2);
-        // ... followed by whether that table is in effect, see the decoder for why.
-        out += "," + String((int)dataOut->interpEnabled);
-        // ... and whether it is usable at all. In effect but not usable is a real state: the buoy
-        // ignores an out-of-order table and sails uncorrected.
+        // ... followed by whether it is usable at all. Stored but not usable is a real state: the
+        // buoy ignores an out-of-order table and sails uncorrected, see the decoder.
         out += "," + String((int)dataOut->interpUsable);
         break;
     case DOCKED:
@@ -1277,7 +1258,6 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
     // not something worth relying on here.
     case STORE_INTERPOLATION_TABLE:
         for (int i = 0; i < 8; i++) dst->interpolationTable[i] = src.interpolationTable[i];
-        dst->interpEnabled = src.interpEnabled;
         dst->interpUsable = src.interpUsable;
         break;
 

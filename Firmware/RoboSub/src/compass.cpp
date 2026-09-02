@@ -42,7 +42,12 @@ bool icm_ready = false;
 bool magRejected = false;
 bool firstHeadingRun = true;
 bool yaw_initialized = false;
-volatile bool interp_enabled = false;
+// interp_enabled used to live here. The compass table is applied unconditionally now: a stored
+// table describes this hull's magnetic deviation, and there is no operating case for measuring it
+// and then choosing to sail wrong. The only thing that can still suppress it is
+// interp_table_usable, which is not a preference - it means the table cannot be interpolated (out
+// of order) or was measured under the old convention, and applying it would be worse than not.
+// An identity table is how you say "no correction" now, and /reset_table writes one.
 uint32_t lastMicros = 0;
 uint32_t lastInitTime = 0;
 float baselineMag = 50.0f;
@@ -416,9 +421,6 @@ bool InitCompass(void)
                       interp_table_mode, icm_mode);
     }
     computeFourierCoefficients();
-    bool temp_enabled = false;
-    memInterpEnabled(&temp_enabled, MEM_GET);
-    interp_enabled = temp_enabled;
 
     // Reset complementary yaw filter tracking state on sensor restart
     yaw_initialized = false;
@@ -992,10 +994,9 @@ void CompassTask(void *arg) {
                 // by, and the value the guided calibration turns the hull against.
                 global_hdg_iron = heading;
 
-                // Apply the 8-point piecewise correction as a production add-on if enabled by the user!
-                if (interp_enabled) {
-                    heading = getInterpolatedHeading(heading);
-                }
+                // Always. getInterpolatedHeading() returns the input untouched when the table is
+                // not usable, so that one check covers every case in which no correction is right.
+                heading = getInterpolatedHeading(heading);
 
                 // Apply adaptive waypoint bias trim if enabled
                 if (mainData.compass_trim_enabled) {
@@ -1290,10 +1291,6 @@ bool storeInterpolationTable(const float *eight)
     memInterpTableRev(&interp_table_rev, MEM_PUT);
     computeFourierCoefficients();          // validates the ordering, see there
 
-    bool enable = true;
-    interp_enabled = true;
-    memInterpEnabled(&enable, MEM_PUT);
-
     extern int global_params_rev;
     global_params_rev++;
 
@@ -1338,7 +1335,7 @@ float computeSetAsNorthOffset(void)
 {
     float trim = mainData.compass_trim_enabled ? (float)mainData.compass_trim : 0.0f;
 
-    float corrected = interp_enabled ? getInterpolatedHeading(global_hdg_iron) : global_hdg_iron;
+    float corrected = getInterpolatedHeading(global_hdg_iron);
 
     float offset = -(corrected + trim);
     while (offset < -180.0f) offset += 360.0f;

@@ -722,16 +722,7 @@ void memEscNeutral(int *bb, int *sb, bool get)
 /**
  * @brief Reads or writes the linear interpolation enable state to Preferences NVM.
  */
-void memInterpEnabled(bool *enabled, bool get)
-{
-    startMem();
-    if (get)
-    {
-        *enabled = storage.getBool("interp_en", false);
-    }
-    else
-    {
-        storage.putBool("interp_en", *enabled);
-    }
-    stopMem();
-}
+// memInterpEnabled() used to live here, backing the "apply the compass table" switch with the NVS
+// key "interp_en". The switch is gone - the table is always applied - so nothing reads or writes
+// it. The key itself is left in NVS rather than erased: it is a few bytes, and deleting settings a
+// downgrade would want back has caused more trouble here than leaving them.

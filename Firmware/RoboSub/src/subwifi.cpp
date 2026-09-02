@@ -539,21 +539,10 @@ void WiFiTask(void *arg) {
             subServer.send(400, "text/plain", "Err");
         }
     });
-    subServer.on("/set_interp_enabled", HTTP_GET, [](){
-        if (subServer.hasArg("enabled")) {
-            extern volatile bool interp_enabled;
-            bool temp_enabled = (subServer.arg("enabled") == "1");
-            interp_enabled = temp_enabled;
-            
-            // Save to Preferences NVS immediately
-            extern void memInterpEnabled(bool *, bool);
-            memInterpEnabled(&temp_enabled, MEM_PUT);
-            
-            subServer.send(200, "text/plain", "OK");
-        } else {
-            subServer.send(400, "text/plain", "Err");
-        }
-    });
+    // /set_interp_enabled used to live here. The compass table is applied unconditionally now, so
+    // there is nothing to switch: a table describes this hull's deviation, and choosing to sail
+    // wrong is not a setting. /reset_table writes an identity table, which is how you say
+    // "no correction" and means it.
     // /set_harmonic_point and /set_interpolation_point are gone. They wrote one table entry at a
     // time, straight into RAM, with no north rule and no ordering check, and a later save committed
     // whatever was left there. That is the free-order editing the guided run replaced - see
@@ -701,18 +690,7 @@ void WiFiTask(void *arg) {
     // page, so closing this tab or moving to the plain calibration page mid-run loses nothing: the
     // captures are still there and the next page picks up at the same step.
     subServer.on("/mancal_exit", HTTP_GET, [](){
-        extern volatile bool interp_enabled;
         mancalSessionEnd(); // release PWRENABLE and the watchdog back to the normal timers
-
-        // The correction stays on. A buoy left with it off reports the identity table to everything
-        // that asks (see STORE_INTERPOLATION_TABLE in main.cpp), so its stored calibration becomes
-        // invisible to the CYD and the dashboard even though it is still there.
-        if (!interp_enabled) {
-            bool enable = true;
-            interp_enabled = true;
-            memInterpEnabled(&enable, MEM_PUT);
-            global_params_rev++;
-        }
 
         if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500))) {
             mainData.tgSpeed = 0;
@@ -986,7 +964,6 @@ void WiFiTask(void *arg) {
         extern volatile float global_hdg_iron;
         extern float measured_angles[9];
         extern float getInterpolatedHeading(float);
-        extern volatile bool interp_enabled;
 
         float icm = global_hdg;
 
@@ -1157,12 +1134,11 @@ void WiFiTask(void *arg) {
                       ",\"damp_gyro\":" + String(damp_gyro, 3) +
                       ",\"damp_mag\":" + String(damp_mag, 3) +
                       ",\"damp_att\":" + String(damp_att, 3) +
-                      ",\"harmonic_enabled\":" + String(interp_enabled ? 1 : 0) +
                       // Whether the 8 point table can actually be interpolated. Interpolation
                       // needs the measured angles to increase all the way round, and one
                       // mis-aimed direction breaks that. When this is 0 the compass is running
-                      // UNCORRECTED however harmonic_enabled reads, so the pages can say so
-                      // instead of leaving it to the serial log.
+                      // UNCORRECTED - which is now the ONLY way it runs uncorrected, since the
+                      // table is otherwise always applied.
                       ",\"table_ok\":" + String(interp_table_usable ? 1 : 0) +
                       // Which filtering mode the table was measured in, and whether that is the one
                       // running. A mismatch means the correction is being applied to a different

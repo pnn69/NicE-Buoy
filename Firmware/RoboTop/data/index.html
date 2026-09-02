@@ -398,16 +398,6 @@ input[type=checkbox] {
             <label for="compass_trim_enabled" style="font-size:14px; font-weight:bold;">Active Trim Enabled</label>
         </div>
 
-        <h4 style="margin: 5px 0 2px 0;">Compass Correction Table</h4>
-        <div style="display:flex; align-items:center; gap:5px; margin-bottom:2px;">
-            <input id="harmonic" type="checkbox" style="width:20px; height:20px; margin:0;">
-            <label for="harmonic" style="font-size:14px; font-weight:bold;">Apply Fourier compass table</label>
-        </div>
-        <div style="font-size:11px; color:#888; margin-bottom:10px;">
-            Switches the 8-point compass table on or off. Off means the compass runs
-            uncorrected, even when a table is stored.
-        </div>
-        
         <h4 style="margin: 8px 0 5px 0;">Thruster Settings</h4>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
             <div style="display:flex; align-items:center; gap:5px;">
@@ -507,7 +497,6 @@ function updateConfig() {
         revSB: getChecked('revSB'),
         swap_BB_SB: getChecked('swap_BB_SB'),
         compass_trim_enabled: getChecked('compass_trim_enabled'),
-        harmonic: getChecked('harmonic'),
         dockAppDist: getVal('dockAppDist'),
         dockAppDir: getVal('dockAppDir'),
         dockToWP: getChecked('dockToWP')
@@ -627,7 +616,7 @@ function blankSetupFields() {
         const el = document.getElementById(id);
         if (el) el.value = "";
     });
-    ["revBB","revSB","swap_BB_SB","compass_trim_enabled","harmonic","dockToWP"].forEach(id => {
+    ["revBB","revSB","swap_BB_SB","compass_trim_enabled","dockToWP"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.checked = false;
     });
@@ -738,7 +727,6 @@ function updateSetupModal() {
             setChecked("revSB", b.revSB);
             setChecked("swap_BB_SB", b.swap_BB_SB);
             setChecked("compass_trim_enabled", b.compass_trim_enabled);
-            setChecked("harmonic", b.harmonicEnabled);
             setChecked("dockToWP", b.dockToWP);
         }
     }
