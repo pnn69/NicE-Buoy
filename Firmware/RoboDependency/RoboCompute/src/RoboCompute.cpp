@@ -790,7 +790,7 @@ double distanceBetween(double lat1, double lon1, double lat2, double lon2)
     double dLat = lat2 - lat1, dLon = lon2 - lon1;
     double a = sin(dLat / 2) * sin(dLat / 2) + cos(lat1) * cos(lat2) * sin(dLon / 2) * sin(dLon / 2);
     double c = 2 * atan2(sqrt(a), sqrt(1 - a));
-    return 6372795.0 * c;
+    return EARTH_MEAN_RADIUS * c;
 }
 
 double calculateBearing(double lat1, double lon1, double lat2, double lon2)
@@ -815,7 +815,14 @@ void adjustPositionDirDist(double bearing_deg, double distance,
                            double *lat2_deg, double *lon2_deg)
 {
     double lat1 = radians(lat1_deg), lon1 = radians(lon1_deg), bearing = radians(bearing_deg);
-    double ad = distance / 6371000.0;
+    // EARTH_MEAN_RADIUS, the same figure distanceBetween() measures with. It used to be 6371000
+    // here against 6372795 there - 1 part in 3549 - which made placing a point at distance d and
+    // then measuring back to it return 1.000282 * d. recalcStartLine() does exactly that round
+    // trip: it takes the length off the two ends and lays the squared line out at the same length.
+    // So every press of ALIGN STARTLINE grew the line by 0.028%. Far too little to be the reason a
+    // line looks a different length - 9 mm on a 31 m line - but the two must agree, because the
+    // whole design of that function is that measuring and placing are inverses.
+    double ad = distance / EARTH_MEAN_RADIUS;
     double lat2 = asin(sin(lat1) * cos(ad) + cos(lat1) * sin(ad) * cos(bearing));
     double lon2 = lon1 + atan2(sin(bearing) * sin(ad) * cos(lat1), cos(ad) - sin(lat1) * sin(lat2));
     *lat2_deg = degrees(lat2);
