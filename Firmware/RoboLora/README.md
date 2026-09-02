@@ -49,10 +49,27 @@ because it is by some margin the strongest transmitter on the network — measur
 arrives at -76 and -83 dBm against a handheld's -102 and -103 — which is exactly why standing it
 near a weak node is useful, and exactly why the repeater was added.
 
-The repeater is ported from RoboTop, where the design has already been through its mistakes: dedup
-cache, per-MAC staggered slots so relays do not collide, cancel-on-heard so only the earliest node
-in range actually transmits, and **unicast only, except `LORA_LINK`**. That one exception exists so
-every node gets the same picture of who hears whom.
+#### The repeater
+
+RoboLora had **no** repeater until recently, so standing the gateway near a weak node did nothing
+for anybody but the gateway. It has one now, ported from RoboTop with the same constants
+(`REPEATER_CACHE_SIZE` 16 / `REPEATER_TIMEOUT_MS` 20 s, `REPEAT_SLOTS` 4, `REPEAT_NODE_SLOTS` 5,
+`REPEAT_SLOT_MS` 250, `REPEAT_BASE_MS` 40, `REPEAT_JITTER_MS` 60, `REPEAT_EXPIRY_MS` 3000) — they
+must stay equal across firmwares, because the slot budget is sized against the *sender's* retry
+interval and the sender may be any node.
+
+**The full explanation of the mechanism, and of why each rule exists, is in the RoboTop README
+(§2b).** In short: a frame addressed to somebody else is relayed in case that somebody is out of the
+sender's range but in ours; unicast only, because relaying broadcast telemetry once measured at
+~195% channel occupancy and starved the traffic that mattered; `LORA_LINK` is the one broadcast
+exception, because a link report's entire purpose is to arrive from a node you cannot hear directly;
+a 20 s verbatim dedup cache stops it circling; relays are deferred into per-MAC slots so two nodes
+never transmit at the same instant; and a queued relay is cancelled the moment the frame is heard
+from anyone else, so only the lowest-slot node in range actually spends the airtime.
+
+Why it is worth having *here* in particular: measured at the two Tops, the gateway arrives at -76
+and -83 dBm against a handheld's -102 and -103. It is the strongest transmitter on the network, so
+it is the most useful relay on it.
 
 > **Consequence for everything that consumes frames.** A `LORA_LINK` sender is *not* necessarily a
 > buoy. Once the gateway started reporting, every consumer that registered "any sender with a

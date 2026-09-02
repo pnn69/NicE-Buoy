@@ -37,6 +37,74 @@ The numbers are stack sizes in bytes, and they matter. `LoraTask` was once given
     > **A broadcast must never ask for an ACK.** An ACK for `IDr = BUOYIDALL` can never match in `removeAckMsg()`, so the frame occupies its slot for all five retransmits and re-broadcasts each time. Beacons use `INF`.
 *   **Self-Healing SPI Watchdog**: if transmission fails over a 500 ms window the radio is assumed locked and `InitLora()` forces a full re-init.
 
+### 2b. The transparent repeater
+
+A node relays frames addressed to **someone else**, in case that someone is out of the sender's
+range but inside ours. Every rule below exists because the naive version of it failed in the field,
+so they are worth reading before changing any of them. Same design in `RoboLora`.
+
+**Unicast only — with one exception.** Broadcasts are not relayed. They used to be, simply because
+a broadcast is not "addressed specifically to us" and so fell through into the relay branch. All
+periodic telemetry is broadcast (`handleTimerRoutines` sets `IDr = BUOYIDALL`), so every Top
+rebroadcast every other Top's telemetry. At SF7/125 kHz a 116-byte `TOPDATA` is ~195 ms of airtime,
+so three locked buoys sending one frame a second came to roughly **195% channel occupancy**. The
+channel could not carry it, and what got dropped was the traffic that mattered — a COMPUTE STARTLINE
+would compute and its `SETLOCKPOS` frames would never arrive. Relaying a broadcast buys nothing
+anyway: a node close enough to hear the relay had almost certainly heard the original, and every
+buoy broadcasts its own telemetry regardless.
+
+The exception is **`LORA_LINK`**, and it is an exception precisely because neither of those
+arguments holds: the whole point of a link report is to arrive from a node you *cannot* hear
+directly, and nobody else can produce it on that node's behalf. One frame a minute per node is about
+0.2% of the channel.
+
+**Dedup cache** (`checkAndRecordRepeaterMessage`, 16 entries, 20 s). A frame is matched verbatim and
+relayed at most once per 20 s window. This is what stops a relay going round in circles between two
+nodes that can both hear each other.
+
+**Deferred, staggered relays.** A relay is queued with a due time, not transmitted from inside
+`onReceive()`. Synchronous relaying meant every node that heard the frame relayed it in the same
+millisecond, so the relays collided with each other — and a node is deaf while it transmits, so each
+one also missed whatever else was on the air. Nothing about that design could work with more than
+one relay in the field.
+
+The delay comes from the node's **own MAC** (`repeatDelayMs()`), folded down to one of
+`REPEAT_NODE_SLOTS`, so two nodes holding the same frame are never due at the same moment. Pure
+randomness would still collide occasionally; a MAC-derived slot cannot, provided the two boards fold
+to different slots. A small random jitter is added only to break the tie when they do not.
+
+| Constant | Value | Why |
+|---|---|---|
+| `REPEAT_SLOTS` | 4 | relays that may be waiting at once |
+| `REPEAT_NODE_SLOTS` | 5 | distinct per-MAC time slots |
+| `REPEAT_SLOT_MS` | 250 | wider than the airtime of any frame relayed, so slot 0 finishes before slot 1 starts |
+| `REPEAT_BASE_MS` | 40 | dead time before slot 0, lets the sender's tail clear |
+| `REPEAT_JITTER_MS` | 60 | tie-break when two MACs fold to the same slot |
+| `REPEAT_EXPIRY_MS` | 3000 | give up on a relay the radio will not accept |
+
+**The slot budget is bounded by the retry interval, not chosen freely**: `4 x 250 + 40 + 60 =
+1100 ms`, comfortably inside the ~1500 ms the sender's retry table waits. Widen the slots or add
+more and relays start landing after the retransmit they were meant to save.
+
+**Cancel on heard** (`cancelRepeat`). Before anything else in `onReceive()`, a queued relay matching
+the frame just heard is dropped — somebody beat us to it, or the sender resent it. Deliberately
+ahead of the early returns, so it applies to frames addressed to us as well. Combined with the
+stagger, this means **in practice only the lowest-slot node in range actually transmits**: the
+others hear that relay, drop their copy, and the frame reaches the far node exactly once.
+`cancelRepeatOnAck` does the same when an ACK proves the target already has it — matched on
+`cmd` + `target_id` rather than on the text, because the ACK is not the frame.
+
+**Two boards can share a slot**, and with three Tops and five slots that is not unlikely. Not fatal:
+both relay at once, that relay is lost to the collision, and the sender's next retransmit produces a
+fresh attempt with newly drawn jitter. The stagger removes the *guaranteed* collision the old
+synchronous design had; it does not have to remove every possible one.
+
+**A wedged radio does not disable the repeater.** If `sendLora()`'s inter-packet guard keeps
+refusing, the slot stays busy and is retried next pass rather than being dropped — the old
+fire-and-forget call lost the relay on every guarded return. After `REPEAT_EXPIRY_MS` the relay is
+stale enough to be useless and the slot is freed, which is also what stops one stuck transceiver
+silently holding every slot.
+
 ### 3. WiFi, Web Dashboard and OTA (`topwifi.cpp`)
 *   **Priority list**: `NicE_WiFi` → `Robo_WiFi` → its own `TOP_<id>` AP. No scanning — the SSIDs are tried in order with a blind `WiFi.begin()`, because `WiFi.scanNetworks()` blocks for seconds and drags the single radio off the AP channel.
 *   **Passwords**: `NicE_WiFi` is `!Ni1001100110`; `Robo_WiFi` and the fallback AP are **`geenanker`**.
