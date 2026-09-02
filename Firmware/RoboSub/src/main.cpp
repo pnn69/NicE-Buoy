@@ -545,6 +545,36 @@ void handleSerandRfdata(RoboStruct *ser)
                     xQueueSend(serOut, (void *)&response, 10);
                 }
                 break;
+            case SET_AS_LEVEL:
+                {
+                    // The attitude the hull is at now becomes the datum. See memMountLevel(): the
+                    // sensor may not be bolted in flat, so without this the bubble reports the
+                    // sensor's own angle and can never centre however level the boat is - which
+                    // invites tilting the hull to satisfy it, and that is what ruins a run.
+                    float p = 0.0f, r = 0.0f;
+                    if (mainDataMutex && xSemaphoreTake(mainDataMutex, pdMS_TO_TICKS(500)))
+                    {
+                        mount_pitch = global_pitch_raw;
+                        mount_roll = global_roll_raw;
+                        p = mount_pitch;
+                        r = mount_roll;
+                        xSemaphoreGive(mainDataMutex);
+                    }
+                    memMountLevel(&mount_pitch, &mount_roll, MEM_PUT);
+                    global_params_rev++;
+                    printf("SET_AS_LEVEL: datum is now pitch %.2f roll %.2f\r\n", p, r);
+                    extern QueueHandle_t buzzer;
+                    if (buzzer != NULL) beep(-1, buzzer);
+
+                    RoboStruct response = mainData;
+                    response.IDs = mainData.mac;
+                    response.IDr = dataIn.IDs;
+                    response.cmd = SET_AS_LEVEL;
+                    response.ack = INF;
+                    response.status = IDLING;
+                    xQueueSend(serOut, (void *)&response, 10);
+                }
+                break;
             case SET_AS_NORTH:
                 {
                     // Allowed at any time, including during a calibration run. This is the step
