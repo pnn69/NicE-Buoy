@@ -14,6 +14,7 @@ bool lora_enabled = true;
 // Setup Screen Mode on display
 bool in_setup_mode = false;
 bool setup_data_loaded = false; // Initialize to false
+bool setup_await_refresh = false;
 bool in_mannav_mode = false;    // Initialize to false
 
 unsigned long last_udp_blink_ms = 0;
@@ -513,8 +514,12 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         // So once the screen has its initial load the operator owns these fields until they leave:
         // entering Setup clears setup_data_loaded and re-asks, and that is what repopulates them.
         // The telemetry above is untouched - it is not edited and the screen needs it live.
+        // ... unless we asked the buoy to change one of them and this is the answer. Set as North
+        // is committed by the Sub, not here, and RoboTop re-reads the setup as soon as it forwards
+        // the command - so this one frame is the new offset arriving, not the old one coming back.
         if (in_setup_mode && setup_data_loaded && buoy_idx == selected_buoy_idx) {
-            return;
+            if (!setup_await_refresh) return;
+            setup_await_refresh = false;
         }
         Serial.printf("Parsing SETUPDATA for Buoy: %s (fields: %d)\n", sender_id.c_str(), fields.size());
         if (fields.size() > 5) buoys[buoy_idx].kpr = atof(fields[5].c_str());

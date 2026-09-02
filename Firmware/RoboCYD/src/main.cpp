@@ -2325,6 +2325,40 @@ void setup() {
     draw_resting_ui();
 }
 
+// Set as North, sent as a command rather than worked out here.
+//
+// This screen used to do its own arithmetic - compass_offset - mag_dir written into buoys[], then
+// a jump to the compass page and a wait for SAVE - and that was wrong three ways at once. The
+// value sat in the very struct incoming SETUPDATA is parsed into, so RoboTop's 20 s resync put the
+// buoy's old offset back underneath it. It needed a SAVE the operator had to know to press. And it
+// threw them onto a page they had not asked for, which is what "it jumps to another screen" was.
+//
+// Underneath all that it duplicated a solve the buoy already owns. computeSetAsNorthOffset() on the
+// Sub reads the heading out of the pipeline AFTER the compass table and the trim and lands on north
+// in one press; this end had the superseded version, the one whose own comment records that it took
+// three or four presses to creep there.
+//
+// So let the buoy do it. SET_AS_NORTH (87) is exactly what the Top's web page sends - the version
+// that works - and the Sub commits the offset to its own NVS and beeps. RoboTop re-reads the setup
+// immediately afterwards (requestSubSetup("after SET_AS_NORTH")), and setup_await_refresh is what
+// lets that reply past the guard keeping stray SETUPDATA off an open Setup screen, so the new
+// offset appears on the compass page without anybody having to save anything.
+static void setup_send_set_north(BuoyData &b) {
+    send_buoy_command(b.id, 87 /* SET_AS_NORTH */, 6 /* INF */);
+    setup_await_refresh = true;
+
+    tft.fillRect(0, 60, tft.width(), 120, TFT_BLACK);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextSize(2);
+    tft.setTextColor(TFT_CYAN, TFT_BLACK);
+    tft.drawString("NORTH SET", tft.width() / 2, 100);
+    tft.setTextSize(1);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.drawString("the buoy stored the offset", tft.width() / 2, 130);
+    tft.drawString("itself - no SAVE needed", tft.width() / 2, 146);
+    delay(1500);
+}
+
 void loop() {
     handle_ota();
 
@@ -2720,17 +2754,14 @@ void loop() {
                             else if (setup_slot_is_bool(selected_param_idx)) {
                                 // Boolean Toggles: Symmetrical instant toggles on tap!
                                 setup_bool_toggle(b, selected_param_idx);
-                            } else if (selected_param_idx == S_SETNORTH && setup_data_loaded) {
-                                // "SET NORTH" acts as a quick instant trigger. It only rewrites the
-                                // compass offset, so it must not run before the buoy has told us what
-                                // that offset currently is - otherwise it computes from a zero.
-                                b.compass_offset = b.compass_offset - b.mag_dir;
-                                while (b.compass_offset < -180) b.compass_offset += 360;
-                                while (b.compass_offset > 180) b.compass_offset -= 360;
-                                // Jump to the compass page and highlight the offset so the computed
-                                // value is actually visible, then SAVE sends it.
-                                setup_page = S_COMPOFF / 8;
-                                selected_param_idx = S_COMPOFF;
+                            } else if (selected_param_idx == S_SETNORTH) {
+                                // No setup_data_loaded gate any more: nothing is computed here, so
+                                // there is no stale local value to compute it from. The CALIBRATION
+                                // page is an action page and its buttons work whether or not the
+                                // parameter pages have been populated, the same as Set as Level.
+                                setup_send_set_north(b);
+                                reset_button_draw_cache();
+                                draw_setup_static();
                             }
                         }
                     }
@@ -2841,13 +2872,8 @@ void loop() {
                             delay(1800);
                             setup_overlay_drawn = true;
                         } else if (selected_param_idx == S_SETNORTH) {
-                            if (setup_data_loaded) {
-                                b.compass_offset = b.compass_offset - b.mag_dir;
-                                while (b.compass_offset < -180) b.compass_offset += 360;
-                                while (b.compass_offset > 180) b.compass_offset -= 360;
-                                setup_page = S_COMPOFF / 8;
-                                selected_param_idx = S_COMPOFF;
-                            }
+                            setup_send_set_north(b);
+                            setup_overlay_drawn = true;
                         } else {
                             setup_adjust(b, selected_param_idx, true);
                         }

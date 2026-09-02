@@ -118,6 +118,11 @@ extern bool lora_enabled;
 // Global Flag to manage local screen setups
 extern bool in_setup_mode;
 extern bool setup_data_loaded; // True once SETUPDATA is successfully received from the buoy!
+// Let exactly one incoming SETUPDATA past the guard that otherwise keeps the Setup screen's fields
+// to itself while it is open. Set by anything that asks the BUOY to change one of those fields, so
+// the answer it sends back is shown rather than dropped as somebody else's traffic - Set as North
+// is the case that needs it, since RoboTop re-reads the Sub the moment it forwards the command.
+extern bool setup_await_refresh;
 extern bool in_mannav_mode;    // True when manually navigating the buoy!
 
 extern unsigned long last_udp_blink_ms;      // Any incoming UDP packet
