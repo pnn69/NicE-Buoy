@@ -146,6 +146,146 @@ RoboStruct chkAckMsg(void)
 //***************************************************************************************************
 //  Receive and decode incoming lora message
 //***************************************************************************************************
+// Forward declaration to resolve scope order for the repeater, as in RoboTop.
+bool sendLora(String loraTransmitt);
+static void maybeRepeat(const String &incoming, const RoboStruct &in);
+
+//***************************************************************************************************
+//  Transparent repeater
+//***************************************************************************************************
+// Ported from RoboTop, where the design has already been through its mistakes - see the comments
+// there. The short version:
+//
+//   dedup cache      the same frame is not relayed twice inside REPEATER_TIMEOUT_MS
+//   staggered slots  the delay comes from THIS board's own MAC, so two relays are never due in the
+//                    same millisecond. A synchronous relay had every node transmit at once, and a
+//                    node is deaf while it transmits, so the relays collided and each node also
+//                    missed whatever else was on the air.
+//   cancel on heard  a pending relay is dropped when that exact frame is heard again, so in
+//                    practice only the earliest node in range actually transmits it
+//   unicast only     broadcasts are not relayed, except LORA_LINK. Relaying telemetry buys nothing
+//                    and costs the channel dearly; a link report's whole purpose is to arrive from
+//                    a node you cannot hear directly.
+//
+// Why this gateway wants one: it is the strongest transmitter measured on this network, and it is
+// mains-portable in a way the buoys are not. Standing it between a weak handheld and the buoys
+// turns a marginal one-shot command into two strong hops.
+#define REPEATER_CACHE_SIZE 16
+#define REPEATER_TIMEOUT_MS 20000UL
+#define REPEAT_SLOTS 4
+#define REPEAT_NODE_SLOTS 5
+#define REPEAT_SLOT_MS 250
+#define REPEAT_BASE_MS 40
+#define REPEAT_JITTER_MS 60
+#define REPEAT_EXPIRY_MS 3000
+
+struct RepeaterCacheEntry { String message = ""; unsigned long last_repeated_ms = 0; };
+static RepeaterCacheEntry repeaterCache[REPEATER_CACHE_SIZE];
+static int repeaterCacheIndex = 0;
+
+struct RepeatSlot {
+    String message = "";
+    unsigned long due_ms = 0;
+    bool busy = false;
+    unsigned long target_id = 0;
+    int cmd = 0;
+};
+static RepeatSlot repeatSlots[REPEAT_SLOTS];
+
+static bool checkAndRecordRepeaterMessage(const String &msg)
+{
+    unsigned long now = millis();
+    for (int i = 0; i < REPEATER_CACHE_SIZE; i++)
+    {
+        if (repeaterCache[i].message == msg)
+        {
+            if (now - repeaterCache[i].last_repeated_ms < REPEATER_TIMEOUT_MS) return false;
+            repeaterCache[i].last_repeated_ms = now;
+            return true;
+        }
+    }
+    repeaterCache[repeaterCacheIndex].message = msg;
+    repeaterCache[repeaterCacheIndex].last_repeated_ms = now;
+    repeaterCacheIndex = (repeaterCacheIndex + 1) % REPEATER_CACHE_SIZE;
+    return true;
+}
+
+// This board's own slot, folded from its MAC: stable, needs no configuration, and cannot collide
+// with another node unless the two fold to the same value.
+static unsigned long repeatDelayMs(void)
+{
+    uint32_t id = (uint32_t)espMac();
+    id ^= id >> 16;
+    id ^= id >> 8;
+    int slot = (int)(id % REPEAT_NODE_SLOTS);
+    return REPEAT_BASE_MS + (unsigned long)slot * REPEAT_SLOT_MS + random(0, REPEAT_JITTER_MS);
+}
+
+static void queueRepeat(const String &msg, unsigned long target_id, int cmd)
+{
+    for (int i = 0; i < REPEAT_SLOTS; i++)
+    {
+        if (!repeatSlots[i].busy)
+        {
+            repeatSlots[i].message = msg;
+            repeatSlots[i].due_ms = millis() + repeatDelayMs();
+            repeatSlots[i].target_id = target_id;
+            repeatSlots[i].cmd = cmd;
+            repeatSlots[i].busy = true;
+            return;
+        }
+    }
+    Serial.println("#LoRa Repeat: slots full, frame not relayed");
+}
+
+// Somebody beat us to it, or the sender resent it - either way ours is no longer needed.
+static void cancelRepeat(const String &msg)
+{
+    for (int i = 0; i < REPEAT_SLOTS; i++)
+        if (repeatSlots[i].busy && repeatSlots[i].message == msg)
+        {
+            repeatSlots[i].message = "";
+            repeatSlots[i].busy = false;
+            return;
+        }
+}
+
+// The node it was meant for has answered, so relaying it now would only add noise.
+static void cancelRepeatOnAck(const RoboStruct *in)
+{
+    for (int i = 0; i < REPEAT_SLOTS; i++)
+        if (repeatSlots[i].busy && repeatSlots[i].cmd == in->cmd && repeatSlots[i].target_id == in->IDs)
+        {
+            repeatSlots[i].message = "";
+            repeatSlots[i].busy = false;
+            return;
+        }
+}
+
+static void drainRepeats(void)
+{
+    unsigned long now = millis();
+    for (int i = 0; i < REPEAT_SLOTS; i++)
+    {
+        if (repeatSlots[i].busy && (long)(now - repeatSlots[i].due_ms) >= 0)
+        {
+            if (sendLora(repeatSlots[i].message))
+            {
+                Serial.println("#LoRa Repeat: forwarding <" + repeatSlots[i].message + ">");
+                repeatSlots[i].message = "";
+                repeatSlots[i].busy = false;
+            }
+            else if ((long)(now - repeatSlots[i].due_ms) > REPEAT_EXPIRY_MS)
+            {
+                Serial.println("#LoRa Repeat: expired, dropping relay");
+                repeatSlots[i].message = "";
+                repeatSlots[i].busy = false;
+            }
+            return;
+        }
+    }
+}
+
 //***************************************************************************************************
 //  LoRa link quality
 //***************************************************************************************************
@@ -224,6 +364,18 @@ static bool linkAlive(const LinkPeer &p)
 static int linkMean(const LinkPeer &p)
 {
     return p.count ? (int)(p.rssiSum / (long)p.count) : (int)p.lastRssi;
+}
+
+// Relay a frame addressed to somebody else, in case that somebody is out of the sender's range but
+// in ours. Called at the end of onReceive().
+static void maybeRepeat(const String &incoming, const RoboStruct &in)
+{
+    bool is_from_me = (in.IDs == espMac());
+    bool is_addressed_to_me = (in.IDr == buoyId || in.IDr == 0x99);
+    bool is_broadcast = (in.IDr == BUOYIDALL || in.IDr == 0);
+    bool relay_worthy = !is_broadcast || in.cmd == LORA_LINK;
+    if (is_from_me || is_addressed_to_me || !relay_worthy) return;
+    if (checkAndRecordRepeaterMessage(incoming)) queueRepeat(incoming, in.IDr, in.cmd);
 }
 
 void linkReportService(void)
@@ -320,6 +472,11 @@ void onReceive(int packetSize)
     // somebody else's traffic measures the path just as well as hearing our own.
     if (in.IDs != espMac() && linkFirstCopy(incoming))
         linkNote((uint32_t)in.IDs, in.loralstmsg);
+
+    // If we were about to relay this exact frame we no longer need to - somebody beat us to it, or
+    // the sender resent it. Ahead of the addressing tests so it applies to frames meant for us too.
+    cancelRepeat(incoming);
+    if (in.ack == ACK) cancelRepeatOnAck(&in);
     if ((in.IDr == buoyId || in.IDr == 0x99) && in.ack == ACK) // A message form me so check if its a ACK message
     {
         removeAckMsg(in);
@@ -339,6 +496,9 @@ void onReceive(int packetSize)
         }
     }
     xQueueSend(loraToMain, (void *)&in, 10); // send to main
+
+    // Last, so relaying can never delay handling a frame that was for us.
+    maybeRepeat(incoming, in);
 }
 
 //***************************************************************************************************
@@ -391,6 +551,9 @@ void LoraTask(void *arg)
     {
         // Continuously poll the LoRa FIFO buffer to process incoming packets
         onReceive(LoRa.parsePacket());
+
+        // Put out any relay whose backoff has expired - see queueRepeat().
+        drainRepeats();
 
         // One link report a minute - see linkReportService().
         linkReportService();

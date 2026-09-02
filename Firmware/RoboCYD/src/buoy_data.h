@@ -218,6 +218,31 @@ void service_pending_cmd();
 void link_note(const String &id, int rssi);
 void service_lora_link_report();
 
+// One LORA_LINK report as some other node sent it: what THAT node heard. Kept so the handheld can
+// show the whole matrix on its own screen, which is the only display available where this actually
+// matters - out in the field there is no WiFi, so the web page is exactly what you cannot reach.
+#define LINK_MAX_REPORTS 4
+#define LINK_MAX_PEERS_RX 7
+struct LinkReport {
+    String reporter = "";
+    String peer[LINK_MAX_PEERS_RX];
+    int16_t rssi[LINK_MAX_PEERS_RX] = {0};
+    uint16_t count[LINK_MAX_PEERS_RX] = {0};
+    uint8_t peers = 0;
+    unsigned long ms = 0;
+};
+
+// Every directed link we know of - "from heard by to". Ours come from what this handheld hears
+// directly; the rest from the reports above. Returns how many were written.
+struct LinkEdge {
+    String from;
+    String to;
+    int16_t rssi;
+    uint16_t count;
+    unsigned long ms;
+};
+int link_edges(LinkEdge *out, int max_out);
+
 
 uint8_t calculate_crc(const String &content);
 

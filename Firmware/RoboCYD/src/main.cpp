@@ -301,6 +301,127 @@ static void draw_mancal_action_band(bool known, bool running, bool complete, boo
     }
 }
 
+// ---------------------------------------------------------------------------------------------
+//  LoRa link screen
+// ---------------------------------------------------------------------------------------------
+// The same matrix as the web pages, on the glass. That is not duplication: out in the field there
+// is no WiFi, so the web page is precisely the thing you cannot reach - and the field is where
+// watching a link fade actually matters. Everything shown here arrives over LoRa, so the screen
+// works exactly as far as the radio does, which is the point.
+bool in_lora_link_mode = false;
+extern bool link_screen_dirty;   // set by parse_buoy_packet() when a report lands
+
+// Bands as margin against where this radio gives out. Both ends run the arduino-LoRa defaults,
+// SF7 at 125 kHz, and the SX1276 datasheet puts sensitivity there at -123 dBm - which is also about
+// the thermal noise floor in that bandwidth, so it is a real cliff rather than a soft fade.
+#define LINK_RSSI_GOOD (-105)
+#define LINK_RSSI_WEAK (-115)
+#define LINK_EDGE_STALE_MS 300000UL
+
+static uint16_t link_rssi_colour(int rssi) {
+    if (rssi >= LINK_RSSI_GOOD) return TFT_GREEN;
+    if (rssi >= LINK_RSSI_WEAK) return TFT_YELLOW;
+    return TFT_RED;
+}
+
+// Short enough for a 240 px line. The handheld is "CYD"; a Top is the last four of its id, which is
+// what distinguishes them and what is printed on the boot screen.
+static String link_short(const String &id) {
+    if (id == "98") return "CYD";
+    if (id == "99") return "PC";
+    if (id.length() > 4) return id.substring(id.length() - 4);
+    return id;
+}
+
+void draw_lora_link_screen() {
+    int w = tft.width();
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextColor(TFT_CYAN, TFT_BLACK);
+    tft.setTextSize(2);
+    tft.setTextDatum(TC_DATUM);
+    tft.drawString("LORA LINKS", w / 2, 12);
+    tft.drawFastHLine(10, 36, w - 20, TFT_WHITE);
+
+    tft.setTextSize(1);
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.setTextDatum(TL_DATUM);
+    tft.drawString("link", 12, 44);
+    tft.drawString("out", 120, 44);
+    tft.drawString("in", 178, 44);
+
+    LinkEdge e[24];
+    int n = link_edges(e, 24);
+
+    // Pair the two directions of each link. One number cannot tell a deaf antenna from a long
+    // path; two can, which is the whole reason this is a matrix.
+    struct Pair { String a, b; int ab, ba; uint16_t ca, cb; };
+    Pair pair[12];
+    int np = 0;
+    for (int i = 0; i < n; i++) {
+        if (millis() - e[i].ms > LINK_EDGE_STALE_MS) continue;
+        int found = -1;
+        for (int p = 0; p < np; p++) {
+            if ((pair[p].a == e[i].from && pair[p].b == e[i].to) ||
+                (pair[p].a == e[i].to && pair[p].b == e[i].from)) { found = p; break; }
+        }
+        if (found < 0) {
+            if (np >= 12) continue;
+            found = np++;
+            pair[found].a = e[i].from;
+            pair[found].b = e[i].to;
+            pair[found].ab = 1; pair[found].ba = 1;   // 1 = "no reading", rssi is always negative
+            pair[found].ca = 0; pair[found].cb = 0;
+        }
+        if (pair[found].a == e[i].from) { pair[found].ab = e[i].rssi; pair[found].ca = e[i].count; }
+        else                            { pair[found].ba = e[i].rssi; pair[found].cb = e[i].count; }
+    }
+
+    if (np == 0) {
+        tft.setTextDatum(MC_DATUM);
+        tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+        tft.drawString("nothing heard over LoRa yet", w / 2, 120);
+        tft.drawString("each node reports once a minute", w / 2, 136);
+    }
+
+    // Worst first - the marginal link is the one being looked for.
+    for (int a = 0; a < np - 1; a++)
+        for (int b = a + 1; b < np; b++) {
+            int sa = (pair[a].ab > 0 ? pair[a].ba : (pair[a].ba > 0 ? pair[a].ab : (pair[a].ab < pair[a].ba ? pair[a].ab : pair[a].ba)));
+            int sb = (pair[b].ab > 0 ? pair[b].ba : (pair[b].ba > 0 ? pair[b].ab : (pair[b].ab < pair[b].ba ? pair[b].ab : pair[b].ba)));
+            if (sb < sa) { Pair t = pair[a]; pair[a] = pair[b]; pair[b] = t; }
+        }
+
+    int y = 58;
+    for (int p = 0; p < np && y < 280; p++) {
+        tft.setTextSize(1);
+        tft.setTextDatum(TL_DATUM);
+        tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+        tft.drawString(link_short(pair[p].a) + ">" + link_short(pair[p].b), 12, y);
+
+        char buf[12];
+        if (pair[p].ab > 0) { tft.setTextColor(TFT_DARKGREY, TFT_BLACK); sprintf(buf, "--"); }
+        else { tft.setTextColor(link_rssi_colour(pair[p].ab), TFT_BLACK); sprintf(buf, "%d", pair[p].ab); }
+        tft.drawString(buf, 120, y);
+
+        if (pair[p].ba > 0) { tft.setTextColor(TFT_DARKGREY, TFT_BLACK); sprintf(buf, "--"); }
+        else { tft.setTextColor(link_rssi_colour(pair[p].ba), TFT_BLACK); sprintf(buf, "%d", pair[p].ba); }
+        tft.drawString(buf, 178, y);
+        y += 13;
+    }
+
+    // "out" is us transmitting where this handheld is one end - the direction it cannot measure
+    // for itself, and the one that decides whether a command lands.
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextSize(1);
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.drawString("out = left node heard by right", 12, 286);
+    tft.drawString("green >-105  amber >-115  red below", 12, 298);
+
+    tft.fillRoundRect(10, 306, w - 20, 0, 0, TFT_BLACK);
+    tft.fillRoundRect(70, 306, 100, 0, 0, TFT_BLACK);
+    link_screen_dirty = false;
+}
+
 // The one-line complaint band under the rose.
 static void mancal_warn(const char *msg) {
     // Borrows the eight point strip's row. Transient: mancal_is_dirty below forces a full repaint,
@@ -355,7 +476,7 @@ enum SetupSlot {
     S_REVBB  = 20, S_REVSB = 21, S_SWAP = 22,
     S_APPDIST = 24, S_APPDIR = 25, S_DOCKWP = 26,
     S_DESKCAL = 32, S_SETNORTH = 33, S_REBOOT = 34,
-    S_MANCAL = 36, S_SETLEVEL = 37
+    S_MANCAL = 36, S_SETLEVEL = 37, S_LINKS = 38
 };
 
 static const char *SETUP_NAMES[SETUP_SLOTS] = {
@@ -363,7 +484,7 @@ static const char *SETUP_NAMES[SETUP_SLOTS] = {
     /* 2 SPEED & COMPASS  */ "MaxSpd:", "MinSpd:", "PvtSpd:", "",   "CompOff:", "HoldRad:", "", "",
     /* 3 TRIM & THRUSTERS */ "TrimEn:", "", "", "",                  "BB Inv:", "SB Inv:", "Swap:", "",
     /* 4 DOCKING          */ "Appr Dist", "Appr Dir", "DockToWP", "", "", "", "", "",
-    /* 5 CALIBRATION      */ "Desk Cal", "Set North", "Reboot", "",   "MAN CAL", "Set Level", "", ""
+    /* 5 CALIBRATION      */ "Desk Cal", "Set North", "Reboot", "",   "MAN CAL", "Set Level", "LoRa Links", ""
 };
 
 // Shown where the screen used to just say "SETUP" - these are the <h4> headings of the web form.
@@ -382,7 +503,7 @@ static inline bool setup_slot_used(int slot) {
 // Slots that DO something when "+" is pressed rather than holding a number.
 static inline bool setup_slot_is_action(int slot) {
     return slot == S_DESKCAL || slot == S_SETNORTH || slot == S_REBOOT ||
-           slot == S_MANCAL || slot == S_SETLEVEL;
+           slot == S_MANCAL || slot == S_SETLEVEL || slot == S_LINKS;
 }
 
 static inline bool setup_slot_is_bool(int slot) {
@@ -535,6 +656,7 @@ void draw_track_buttons(bool force);
 void draw_track_lock_hint();
 void draw_line_len_label(const char *text, uint16_t color);
 void draw_mancal_static();
+void draw_lora_link_screen();
 void update_mancal_dynamic();
 void draw_mancal_offset_strip();
 void enter_man_fourier_cal(int buoy_idx);
@@ -1672,7 +1794,8 @@ void update_setup_dynamic() {
             tft.setTextColor(on ? TFT_GREEN : textColor, TFT_BLACK);
             sprintf(buf, "%s %s", SETUP_NAMES[global_idx], on ? "YES" : "NO");
             tft.drawString(buf, x + 54, y + 16);
-        } else if (global_idx == S_MANCAL || global_idx == S_REBOOT || global_idx == S_SETLEVEL) {
+        } else if (global_idx == S_MANCAL || global_idx == S_REBOOT || global_idx == S_SETLEVEL ||
+                   global_idx == S_LINKS) {
             tft.setTextColor(TFT_ORANGE, TFT_BLACK);
             tft.drawString(SETUP_NAMES[global_idx], x + 54, y + 16);
         } else if (setup_slot_is_action(global_idx)) {
@@ -2220,6 +2343,31 @@ void loop() {
     // is up. Both are cheap no-ops when nothing is outstanding.
     service_pending_cmd();
     service_lora_link_report();
+
+    // The link screen owns the display while it is up. Repainted only when a new report has
+    // landed, or once every few seconds so the ages and this node's own counts stay honest.
+    if (in_lora_link_mode) {
+        static unsigned long link_next_paint = 0;
+        if (link_screen_dirty || (long)(millis() - link_next_paint) >= 0) {
+            link_next_paint = millis() + 4000;
+            draw_lora_link_screen();
+        }
+        {
+            int tx = 0, ty = 0;
+            if (get_touch_point(tx, ty)) {
+                // Anywhere returns to Setup: there is nothing on this screen to press, so a whole
+                // screen of BACK is friendlier than one small target with wet hands.
+                in_lora_link_mode = false;
+                in_setup_mode = true;
+                last_transition_ms = millis();
+                reset_button_draw_cache();
+                draw_resting_ui();
+                delay(250);
+            }
+        }
+        delay(20);
+        return;
+    }
     if (selected_buoy_idx == -1 && in_track_settings_mode) {
         track_settings_ack_poll();
     }
@@ -2663,6 +2811,12 @@ void loop() {
                             tft.drawString("REBOOTING BUOY", tft.width() / 2, 110);
                             delay(1500);
                             setup_overlay_drawn = true;
+                        } else if (selected_param_idx == S_LINKS) {
+                            in_lora_link_mode = true;
+                            in_setup_mode = false;
+                            last_transition_ms = millis();
+                            draw_lora_link_screen();
+                            delay(300);   // let the opening press clear before the screen takes touches
                         } else if (selected_param_idx == S_SETLEVEL) {
                             // Declare the hull level where it sits. The buoy reads its own sensor
                             // and stores the datum - see SET_AS_LEVEL in RoboCompute.h.

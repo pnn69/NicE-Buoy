@@ -128,6 +128,37 @@ void service_lora_link_report() {
     }
 }
 
+LinkReport link_reports[LINK_MAX_REPORTS];
+bool link_screen_dirty = true;
+
+// Everything we know, flattened into directed edges. Our own receive table supplies the links
+// pointing AT us; the reports supply the rest, including the ones pointing away from us that this
+// node cannot measure for itself.
+int link_edges(LinkEdge *out, int max_out) {
+    int n = 0;
+    for (int i = 0; i < LINK_PEERS_TRACKED && n < max_out; i++) {
+        if (link_peer[i].count == 0) continue;
+        out[n].from = link_peer[i].id;
+        out[n].to = "98";
+        out[n].rssi = (int16_t)(link_peer[i].sum / link_peer[i].count);
+        out[n].count = link_peer[i].count;
+        out[n].ms = millis();
+        n++;
+    }
+    for (int r = 0; r < LINK_MAX_REPORTS && n < max_out; r++) {
+        if (link_reports[r].reporter.length() == 0) continue;
+        for (int p = 0; p < link_reports[r].peers && n < max_out; p++) {
+            out[n].from = link_reports[r].peer[p];
+            out[n].to = link_reports[r].reporter;
+            out[n].rssi = link_reports[r].rssi[p];
+            out[n].count = link_reports[r].count[p];
+            out[n].ms = link_reports[r].ms;
+            n++;
+        }
+    }
+    return n;
+}
+
 PendingCmd pending_cmd;
 bool pending_cmd_acked = false;
 bool pending_cmd_failed = false;
@@ -243,8 +274,8 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     }
     
     // TELEMETRY: Ignore any auxiliary command echoes, except standard status updates, SETUPDATA (83),
-    // CAL8_SESSION (91), ATTITUDE (92), the interpolation table (88) and the waypoint beacons
-    // LOCKPOS (21) / DOCKPOS (23).
+    // CAL8_SESSION (91), ATTITUDE (92), LORA_LINK (94), the interpolation table (88) and the
+    // waypoint beacons LOCKPOS (21) / DOCKPOS (23).
     //
     // 91 was missing from this list from the day the guided calibration was added, so every reply
     // the buoy sent about a run was dropped here - 200 lines above the parser that wanted it. The
@@ -257,7 +288,7 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     // recipient re-broadcasts it as LOCKPOS under its own ID anyway
     // (RoboTop/src/main.cpp, case SETLOCKPOS), which is the copy we want.
     if (cmd != 51 && cmd != 19 && cmd != 83 && cmd != 21 && cmd != 23 && cmd != 88 &&
-        cmd != 91 && cmd != 92) return;
+        cmd != 91 && cmd != 92 && cmd != 94) return;
 
     String sender_id = fields[1];
     sender_id.trim();
@@ -456,6 +487,35 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
             Serial.println("On-screen Setup Data loaded successfully from Buoy!");
         }
     }
+    // Parse LORA_LINK (CMD = 94) - what some other node hears. Stored whole rather than merged
+    // into one table, because the reporter's identity IS the measurement: "b578 heard the CYD at
+    // -103" and "the CYD heard b578 at -108" are two different links, not two samples of one.
+    if (cmd == 94 && fields.size() >= 6) {
+        int slot = -1, oldest = 0;
+        for (int i = 0; i < LINK_MAX_REPORTS; i++) {
+            if (link_reports[i].reporter == sender_id) { slot = i; break; }
+            if (link_reports[i].reporter.length() == 0) { slot = i; break; }
+            if (link_reports[i].ms < link_reports[oldest].ms) oldest = i;
+        }
+        if (slot < 0) slot = oldest;
+        LinkReport &r = link_reports[slot];
+        r.reporter = sender_id;
+        r.ms = millis();
+        r.peers = 0;
+        for (int i = 6; i + 2 < (int)fields.size() && r.peers < LINK_MAX_PEERS_RX; i += 3) {
+            String pid = fields[i];
+            pid.trim();
+            if (pid.length() == 0) break;
+            r.peer[r.peers] = pid;
+            r.rssi[r.peers] = (int16_t)atoi(fields[i + 1].c_str());
+            r.count[r.peers] = (uint16_t)atoi(fields[i + 2].c_str());
+            r.peers++;
+        }
+        extern bool link_screen_dirty;
+        link_screen_dirty = true;
+        return;   // carries no telemetry - nothing below applies
+    }
+
     // Parse ATTITUDE (CMD = 92) - pitch and roll, for MAN CAL's level. UDP only, so it simply
     // never arrives over a LoRa-only link and pitch_ms stays 0 - which the screen shows as an
     // unknown level rather than a level one.
