@@ -128,6 +128,13 @@ closing long press is one of them — so "three short then long" arrives as `104
 Anything else beeps the error tone and does nothing — deliberately including every plain short
 press. Silence would be indistinguishable from a flat battery or a jammed switch.
 
+> **`110` stores wherever the buoy IS.** Nine short presses and a long one is an easy sequence to
+> arrive at by accident, it overwrites the stored dock with the buoy's current position, and nothing
+> keeps the previous value. That happened on the bench, 3.8 km from the water, and there was no way
+> to put it back - so `SETDOCKPOS` (22) now writes the dock from coordinates over the air. The
+> command number and the codec always existed; only the Top's handler was missing. `DOCKPOS` (23)
+> with `ack = GET` reads it back out of NVS, which is how a write should be checked.
+
 > **Two codes have MOVED.** `105` used to be store-as-dock and is now *dock*; `110` used to be the
 > desk magnetic calibration and is now *store-as-dock*. Muscle memory from the old scheme will do
 > the wrong thing.

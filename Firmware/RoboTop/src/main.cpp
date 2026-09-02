@@ -2149,10 +2149,49 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     RfOut->tgLat = RfOut->lat;
                     RfOut->tgLng = RfOut->lng;
                     memDockPos(RfOut, MEM_PUT);
-                    beep(1000, buzzer);
+                    // beep(1), matching the button path. beep(1000) is the single flat tone the
+                    // button plays on every press, so "dock stored" sounded like "press felt".
+                    beep(1, buzzer);
                 }
                 else
                 {
+                    beep(-1, buzzer);
+                }
+                break;
+            case SETDOCKPOS:
+                // Write the dock position from COORDINATES, rather than by standing the boat on it.
+                //
+                // This handler did not exist. STOREASDOC - the button, the web page and the serial
+                // path alike - can only ever store lat/lng, the position the buoy is at right now,
+                // so the dock could only be set by physically taking the hull there. That is fine
+                // as the normal workflow and useless as the only one: nine short presses and a long
+                // one is an easy sequence to arrive at by accident, it overwrites the stored dock
+                // with wherever the buoy happens to be, and nothing anywhere keeps the previous
+                // value. Exactly that happened on the bench, 3.8 km from the water, and the
+                // original was unrecoverable - there was no command in the fleet that could put it
+                // back.
+                //
+                // The command number and the codec were already there: SETDOCKPOS decodes tgLat and
+                // tgLng alongside SETLOCKPOS in RoboCompute, and MergeBuoyData already carries
+                // them. Only this arm was missing.
+                //
+                // memDockPos() is handed RfIn, NOT RfOut. It writes through tgLat/tgLng, and RfOut
+                // is mainData - whose tgLat/tgLng is the LIVE target the buoy is steering at. See
+                // the same warning on the MEM_GET path above; storing a dock must not move a buoy
+                // that is holding station.
+                if (RfIn.tgLat != 0.0 && RfIn.tgLng != 0.0)
+                {
+                    memDockPos(&RfIn, MEM_PUT);
+                    printf("#Dock position set from command: %.9f,%.9f\r\n", RfIn.tgLat, RfIn.tgLng);
+                    udpLog("DOCKPOS stored from command %.9f,%.9f", RfIn.tgLat, RfIn.tgLng);
+                    beep(1, buzzer);
+                }
+                else
+                {
+                    // 0/0 is what an absent or unparsable pair decodes to, and it is a real place
+                    // in the Gulf of Guinea. Refusing is the only safe reading of "no coordinate".
+                    printf("#Dock position NOT set - command carried no coordinate\r\n");
+                    udpLog("DOCKPOS refused: command carried no coordinate");
                     beep(-1, buzzer);
                 }
                 break;
