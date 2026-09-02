@@ -1326,7 +1326,13 @@ static void mancal_save_table_and_exit(int buoy_index) {
     unsigned long before = b.cal8_ms;
     send_buoy_cal8(b.id, 2 /* CAL8_SAVE */, 8);
 
-    unsigned long wait_until = millis() + 4000;
+    // Longer than the TOP's retry budget, deliberately. The Top resends a press until the buoy's
+    // own state shows it landed - CAL8_MAX_TRIES (12) x CAL8_RETRY_MS (400 ms) = 4.8 s, plus the
+    // serial round trip on top. This used to wait 4 s, so it could give up and report NO REPLY
+    // while the Top was still several attempts from success, on a link that drops most of what is
+    // sent and therefore usually needs those attempts. The operator then saw a failed save that
+    // went on to succeed a second later, with the screen already saying it had not.
+    unsigned long wait_until = millis() + 8000;
     while ((b.cal8_ms == before || b.cal8_active) && (long)(millis() - wait_until) < 0) {
         handle_wifi_clients();
         check_lora_packets();
@@ -1355,7 +1361,8 @@ static void mancal_save_table_and_exit(int buoy_index) {
         tft.drawString("NO REPLY", tft.width() / 2, 225);
         tft.setTextSize(1);
         tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-        tft.drawString("NOT saved - the run is still open", tft.width() / 2, 248);
+        tft.drawString("NOT saved - the run is still open", tft.width() / 2, 244);
+        tft.drawString("all captures kept - press SAVE again", tft.width() / 2, 258);
     }
     delay(stored ? 1200 : 2500);
 
