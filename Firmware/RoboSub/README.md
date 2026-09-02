@@ -144,6 +144,22 @@ Every parameter in the NVS section below lives here. The Top holds a RAM copy on
 hull-specific** - they describe the physical boat, not this board - so moving a Sub to another hull
 carries the wrong values with it until they are re-entered.
 
+### 5d. Set as North belongs to the buoy
+
+`SET_AS_NORTH` (87) is solved here and nowhere else, by `computeSetAsNorthOffset()`: it takes the
+heading out of the pipeline *after* the compass table and the trim, negates it, and stores the
+result as `compassOffset` in NVS. Absolute, not incremental — it does not read the previous offset —
+so pressing it twice is idempotent and a command delivered over both LoRa and UDP does no harm.
+
+That absoluteness is the point. The retired `compassOffset - dirMag` needed three or four presses to
+creep onto north; this lands on it first time. The handheld carried a copy of the old formula until
+recently and did its own arithmetic locally, which is why Set as North worked from the Top's web
+page and not from the CYD. Both now send the command and let the buoy answer it. **Do not
+re-implement this solve at the sending end** — the offset depends on the state of the table and the
+trim, which only the Sub knows.
+
+`SET_AS_LEVEL` (93) follows the same rule for the attitude datum.
+
 > `main.cpp`'s command filter accepts **any** `SETUPDATA` regardless of addressing
 > (`|| dataIn.cmd == SETUPDATA`). Harmless while the Sub has no UDP input path, but worth
 > remembering before one is added.
@@ -154,6 +170,19 @@ carries the wrong values with it until they are re-entered.
 
 *   **Battery Telemetry (`adc.cpp`)**: Reads battery voltages via ESP32 ADC pins, applies smoothing filters to eliminate voltage sags from thruster surges, and logs the cell power telemetry.
 *   **Sounder Feedback (`buzzer.cpp`)**: Drives a piezo sounder, emitting audible frequencies and beep sequences to signal boot status, profile loading status, and save actions.
+    *   **A save now chirps (`beep(6)`, 2000 Hz for 80 ms).** A save made during a calibration
+        happens with somebody stood over the hull and nowhere near a screen, so "did that take?" is
+        a question only the buoy can answer. Fired after the `MEM_PUT`s and the reload, so it means
+        the values are in NVS rather than that a frame arrived — and **debounced at one second**,
+        because a SAVE goes out on LoRa *and* UDP and the Top forwards both copies a few hundred
+        milliseconds apart. Two chirps for one press would read as two saves.
+    *   **Its own tone, not a reuse.** Every neighbour already means something: `10` is the
+        button-press tick, `1` the rising tune for a computation that produced a result, `5` the
+        compass-table tune, `-1` failure.
+    *   **`SET_AS_NORTH` was playing `beep(-1)` on success** — the failure tone, the one a buoy plays
+        when a start line cannot be computed. It stores the compass offset in NVS, so it plays the
+        save chirp now. The same mix-up had already been found and fixed in `subwifi.cpp`; a good
+        save has to sound like one, or the operator learns to ignore the buzzer altogether.
 *   **Visual Status Matrices (`leds.cpp` / `leds.h`)**: Displays system states, communication connectivity, and battery low warnings via an addressable WS2812B RGB NeoPixel array.
 
 ---

@@ -25,6 +25,26 @@ RoboLora manages the relay of long-range telemetry frames with low latency, brid
 *   **Parameter Optimization**: Implements full runtime setting configurations for carrier frequency, signal bandwidth, spreading factors, and coding rates to maintain reliable link budgets in harsh weather conditions.
 *   **Asynchronous Polling**: Runs an optimized FreeRTOS background task to monitor the LoRa FIFO buffer, raising real-time interrupts upon packet arrivals to prevent buffer overflows.
 
+### 1b. The gateway is a first-class node on the air
+
+RoboLora does not only relay. It **reports its own link quality** (`LORA_LINK`, cmd 94, once a
+minute) and it **repeats** for others, so it transmits under its own ID like any buoy. Worth knowing
+because it is by some margin the strongest transmitter on the network — measured at the two Tops it
+arrives at -76 and -83 dBm against a handheld's -102 and -103 — which is exactly why standing it
+near a weak node is useful, and exactly why the repeater was added.
+
+The repeater is ported from RoboTop, where the design has already been through its mistakes: dedup
+cache, per-MAC staggered slots so relays do not collide, cancel-on-heard so only the earliest node
+in range actually transmits, and **unicast only, except `LORA_LINK`**. That one exception exists so
+every node gets the same picture of who hears whom.
+
+> **Consequence for everything that consumes frames.** A `LORA_LINK` sender is *not* necessarily a
+> buoy. Once the gateway started reporting, every consumer that registered "any sender with a
+> plausible ID" gave it a buoy slot — it appeared in the CYD's three-slot menu and in the web
+> dashboard's panels with no position, no heading and nothing to steer, and it displaced something
+> that had all three. Both were fixed at the reading end: only `TOPDATA` and `BUOYPOS` prove a
+> sender is a buoy. Anything new that parses this protocol must apply the same rule.
+
 ### 2. Local OLED Diagnostic Screen (`oled_ssd1306.cpp` / `oled_ssd1306.h`)
 *   **Hardware Interface**: Drives a localized monochrome SSD1306 OLED screen over I2C.
 *   **Live Status Monitoring**: Displays vital real-time diagnostics including:

@@ -68,6 +68,26 @@ Buoys also carry **the waypoint they were told to hold**, taken from `LOCKPOS`/`
 meant to be. It ages out on a timestamp (`buoy_has_waypoint()`), because a Top stops beaconing the
 moment it leaves `LOCKED`/`DOCKED`, and a stale mark on the plot is worse than no mark.
 
+**Only real telemetry claims a slot.** There are three, and `LORA_LINK` (94) is answered and
+returned from before the slot search ever runs. A link report says what a node *hears*; it does not
+say the node is a buoy. RoboLora reports its links like everybody else, and while every sender was
+eligible the gateway walked into a slot and sat there — a row in the menu with no heading, no
+position and nothing to steer, and one fewer slot for something that has all three. Nothing is lost
+by refusing it: a node that is also a buoy is registered by its own `TOPDATA`/`BUOYPOS` anyway.
+
+**The Setup screen owns its fields while it is open.** `buoys[]` is not only the fleet model, it is
+also the Setup screen's edit buffer — there is no separate copy — so an incoming `SETUPDATA` lands
+directly on unsaved work. And one arrives constantly: RoboTop re-reads the Sub's settings every
+`SUB_SETUP_RESYNC_MS` (20 s) and broadcasts the answer to `BUOYIDALL` on both transports, asked for
+or not. That poll is right in itself, and it was written against the *web* dialog, which fills its
+fields once on open and is genuinely safe from it. This screen reads `buoys[]` live, so it was not:
+values dialled in on `+`/`-` reverted a few seconds later, and Set as North's computed offset was
+replaced by the buoy's old one before SAVE could send it. Once the screen has its initial load the
+parser leaves those fields alone until it is left; entering Setup clears `setup_data_loaded` and
+re-asks, so they are still fresh every time it opens. `setup_await_refresh` lets exactly one reply
+through afterwards, for the case below. Telemetry is untouched — it is not edited, and the screen
+needs it live.
+
 ### `main.cpp` — screen and menu
 *   Menu buttons are laid out to the button edges rather than centred, so a full
     `Buoy n: b7a5b578` fits beside a one-character status badge.
@@ -81,6 +101,48 @@ moment it leaves `LOCKED`/`DOCKED`, and a stale mark on the plot is worse than n
 *   A waypoint further from the fleet than a sane course mark is **pegged to the rim** rather than
     stretching the plot until the buoys are unreadable.
 
+### Setup actions the **buoy** performs
+
+Set as North used to be arithmetic done here: `compass_offset - mag_dir` written into `buoys[]`,
+followed by a jump to the compass page and a wait for SAVE. It sent nothing. That failed three ways
+at once — the value was overwritten by the resync described above, it needed a SAVE the operator had
+to know to press, and the page jump is what "it jumps to another screen" meant. Underneath all of it
+the formula was the superseded one: the Sub retired `compassOffset - dirMag` because it took three
+or four presses to creep onto north, which is exactly what pressing the button repeatedly looks
+like.
+
+It now sends **`SET_AS_NORTH` (87)** — the same command the Top's web page sends. The Sub solves it
+with `computeSetAsNorthOffset()`, which reads the heading out of the pipeline *after* the compass
+table and the trim and lands on north in one press, commits it to its own NVS and beeps. RoboTop
+re-reads the setup immediately (`requestSubSetup("after SET_AS_NORTH")`) and that reply is the one
+`setup_await_refresh` admits, so the new offset appears on the compass page by itself. Nothing to
+save, no page jump, and one implementation of the solve instead of two.
+
+Set as Level (`SET_AS_LEVEL`, 93) already worked this way and is unchanged. The rule for this page
+is now uniform: **if the buoy owns the value, the buoy computes it.**
+
+### Wind is both ends of the line
+
+Port and starboard used to be decided by `pick_wind_reference_buoy()` — the first buoy in the list
+with a non-zero reading, i.e. whichever one happened to be there. Two anemometers a line's length
+apart disagree by a few degrees in steady air and by rather more in a shifty one, and there is no
+reason to prefer either.
+
+`start_line_wind()` returns the **mean of what the two line-end buoys report**, found via
+`find_start_line_pair()` — the closest pair, measured where they actually are. With three buoys the
+upwind mark is left out: it is no part of the line. `mean_wind_dir()` is a vector mean, not an
+arithmetic one, or 350° and 10° would average to 180° instead of 0°. A buoy reading 0/0 has no
+reading rather than a northerly, so it drops out and the other end is used alone.
+
+The wind **label** now comes from the same place as the geometry. Showing one buoy's reading beside
+a line squared to a different figure is how an operator stops trusting both. The spread printed next
+to it is the *worse* of the two, not their mean — it is a confidence figure, and two readings do not
+make a shifty wind steady.
+
+The same solve exists in three places on purpose, and they have to stay in step: `meanWindDir()` in
+RoboCompute for the squaring the Top actually performs, `mean_wind_dir()` here, and
+`mapMeanWindDir()` in `index.js`.
+
 ### `cyd_wifi.cpp` — web, WebSocket and UDP
 *   Serves `index.html`, `index.js`, `style.css` from SPIFFS, plus a **standalone fullscreen map**
     in its own tab with an independent redraw loop and a canvas sized to the window.
@@ -91,6 +153,40 @@ moment it leaves `LOCKED`/`DOCKED`, and a stale mark on the plot is worse than n
 *   Commands typed by the browser are forwarded **verbatim** to both LoRa and UDP; the CYD does not
     stamp IDs. The web UI builds the whole frame, addressing it to a specific buoy with sender `99`
     (hex `0x99`).
+
+#### The web map had to be taught what the screen already knew
+
+The dashboard map and the touchscreen map disagreed, and the touchscreen was right. Three reasons,
+all now fixed in `index.js`:
+
+*   **It never read the waypoint.** `LOCKPOS`/`DOCKPOS` are the only frames carrying a set point as
+    coordinates, and the page had no handler for either despite defining the enum. It reconstructed
+    each waypoint by projecting `Target Dir`/`Target Dist` off the buoy's own fix — and that
+    reconstruction is refused when the reported distance is 0, which is exactly what a buoy that has
+    *arrived* reports. So the moment the fleet settled on station every waypoint vanished and the
+    map fell back to measuring between two hulls wandering inside their hold radius. It now records
+    the real coordinates and ages them out on the same 20 s window the firmware uses, deliberately
+    the same figure so the two views drop a stale mark together. Projection survives only as a
+    fallback before a waypoint frame has been heard.
+*   **The line is drawn between the hulls.** That is what the crew can see from the water, and what
+    the touchscreen always drew. The *figure* beside it is still measured off the two waypoints
+    where both ends have one — the dots wander, the waypoints do not, and EXECUTE has to be able to
+    put the line back where it was but longer. Without both waypoints the length still shows and
+    `-`/`+`/EXECUTE grey out rather than firing on a target that cannot be computed.
+*   **The gateway took a panel.** Same defect as in the firmware, same fix: only `TOPDATA` and
+    `BUOYPOS` prove a sender is a buoy. RoboLora has no fix so it never reached the map itself, but
+    it did occupy one of three slots.
+
+#### No confirmation dialogs
+
+All five `confirm()` popups are gone. A modal in the middle of a field job is the worst place for
+one, and each was guarding something that did not need it: EXECUTE is already the deliberate second
+step after dialling a length in and stays greyed out until the figure differs; re-capturing a
+calibration leg writes nothing until CLOSE and is the normal way to *fix* a bad reading, so the
+dialog blocked the recovery rather than the mistake; discarding a run loses nothing, as the dialog
+itself said; the desk calibration's instructions belong on the page beside the button, not behind a
+dismissal; and a reboot loses nothing because every setting is in NVS. What happened is still
+reported — after the fact, in the map message and the log, rather than in the way.
 
 > A caveat worth knowing: `index.js`'s `handleJsonFallback()` contains
 > `b.id = b.id || "0001"`, and `"0001"` parses as hex `1` — which **is** `BUOYIDALL`. A command sent

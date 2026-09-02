@@ -58,17 +58,45 @@ The numbers are stack sizes in bytes, and they matter. `LoraTask` was once given
 ### 5. Who owns the tuning
 The **Sub** owns it. PID gains, `compassOffset`, `holdRad`, `revBB`/`revSB`/`swap_BB_SB` live in the Sub's NVS; the Top keeps a RAM copy fetched with `SETUPDATA` when the serial link comes up. `/data` reports `rev` (the count of replies received) and `SubOk` (serial alive) — `rev: 0` with real values elsewhere means the Top has never heard back and is running on zeroed gains.
 
+**The mirror is re-read every `SUB_SETUP_RESYNC_MS` (20 s), not only on connect.** Anything that
+changes a setting without going through a Setup dialog — `SET_AS_NORTH`, the Sub's own web page,
+an in-field calibration — used to leave this Top serving a stale value indefinitely; measured on the
+bench, a Sub on `-43.30` against a Top still reporting `-53.00` minutes later. Re-asking the owner
+is the only thing that covers all of them, and it is self-healing.
+
+> **Consequence for anything that reads `/data` or the broadcast live.** The reply goes out to
+> `BUOYIDALL` on **both** transports, asked for or not. That is safe for the web Setup dialog, which
+> fills its fields once on open, and it was written with that in mind. It is *not* safe for a client
+> that edits a live-updating copy of the same struct: the CYD's Setup screen did exactly that, and
+> every value dialled in was replaced by the buoy's own a few seconds later. The fix belongs at the
+> reading end — see the RoboCYD README — but the behaviour to design against is here.
+
 ### 6. Automated Regatta Start Line & Track Calculations
 To facilitate competitive sailing regattas, RoboTop coordinates the positions of multiple buoys to automatically establish a fair, geometrically synchronized starting line:
 
 *   **Intelligent Triangulation & Role Determination (`calcTrackPos`)**: Rather than relying on static or arrival-order database slots, RoboTop uses geometric triangulation and wind vectors to determine the roles of the three buoys (`PORT`, `STARBOARD`, `HEAD`):
     *   **Starting Line Identification**: Computes the Great-Circle distances between all three buoy pairs. The two buoys with the **shortest distance** between them are the starting line pins; the furthest is the upwind **HEAD** buoy.
-    *   **Port vs. Starboard Allocation**: Calculates the bearing between the two pins and measures the signed smallest angular difference against the live wind direction $W_{\text{dir}}$. Positive ($\ge 0^\circ$) makes the first buoy **PORT**; negative makes it **STARBOARD**.
+    *   **Port vs. Starboard Allocation**: Calculates the bearing between the two pins and measures the signed smallest angular difference against $W_{\text{dir}}$. Positive ($\ge 0^\circ$) makes the first buoy **PORT**; negative makes it **STARBOARD**.
+*   **$W_{\text{dir}}$ is the mean of BOTH pins' wind, not one buoy's (`meanWindDir`)**: it used to
+    be `rsl[0].wDir` — whichever buoy the command happened to reach. Two anemometers a line's length
+    apart disagree by a few degrees in steady air and by rather more in a shifty one, and there is
+    no reason to prefer either; the mean squares the line to the wind *across* the line, which is
+    the wind the fleet actually starts in. In a three-buoy course the upwind **HEAD** mark is left
+    out of the average on purpose — it is no part of the line, and it is the furthest from where the
+    start happens. All three consumers now use it: `recalcStartLine()`, `reCalcTrack()` (which hangs
+    the head mark's bearing, the offset back down to the line and the starboard side off this one
+    figure) and `calcTrackPos()`. Slot 0 remains the fallback, because `handleStatus()` puts this
+    buoy's filtered wind there and the compute guards have already refused to run without it.
 *   **Geographical Midpoint & Width**: Computes the pins' midpoint by coordinate average and the line width $d$ by Haversine.
 *   **Wind-Aligned Perpendicular Squaring (`recalcStartLine`)**: The line must be exactly perpendicular to the wind:
     *   Port end bearing: $\theta_{\text{Port}} = (W_{\text{dir}} + 270^\circ) \bmod 360^\circ$
     *   Starboard end bearing: $\theta_{\text{Starboard}} = (W_{\text{dir}} + 90^\circ) \bmod 360^\circ$
-*   **Vector Position Projection (`adjustPositionDirDist`)**: Projects new targets outward from the midpoint along those bearings by $d/2$, squaring the line to the wind while keeping midpoint and length intact.
+*   **Vector Position Projection (`adjustPositionDirDist`)**: Projects new targets outward from the midpoint along those bearings by $d/2$, squaring the line to the wind while keeping midpoint and length intact. *Length intact* now holds exactly: this function placed with an earth radius of 6371000 m while `distanceBetween()` measured with 6372795 m, so measuring $d$ and then placing at $d$ returned $1.000282\,d$ and every press of ALIGN STARTLINE grew the line by 0.028%. Both use `EARTH_MEAN_RADIUS`. It was 9 mm on a 31 m line and never the reason a line looked a different length — but the whole design of `recalcStartLine()` is that measuring and placing are inverses, and they were not.
+*   **The line is computed from the lock TARGETS, not the hulls.** The screens draw it between the
+    actual positions, because that is what the crew can see; the arithmetic deliberately does not.
+    Feed it hull positions and each press picks up wherever the buoys were wandering inside their
+    hold radius, so the line changes length every time it is aligned. Targets are fixed, so the
+    length is preserved. You see the hulls, the maths uses the targets.
 *   **Asynchronous Coordination Broadcast (`SENDTRACK`)**: Dispatches updated coordinates to Port, Starboard and Head over LoRa.
 
 ### 7. Advanced Circular Wind Telemetry & Standard Deviation
