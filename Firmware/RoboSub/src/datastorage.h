@@ -37,6 +37,7 @@ void memInterpolationTable(float *angles, bool get);
 // the mode is the table's input, so a table measured in one mode is meaningless in another.
 void memInterpTableMode(int *mode, bool get);
 void memInterpTableRev(int *rev, bool get);
+void memMountLevel(float *pitch, float *roll, bool get);
 void memEscNeutral(int *bb, int *sb, bool get);
 
 #endif /* DATASTORAGE_H_ */

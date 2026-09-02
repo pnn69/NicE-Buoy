@@ -499,7 +499,13 @@ void send_buoy_cal8(const String &buoy_id, int action, int leg, int ack, int seq
 
     Serial.printf("CAL8 %s action %d leg %d seq %d: %s\n", ack == 1 ? "GET" : "SET", action, leg,
                   seq, finalPacket.c_str());
-    send_lora_packet(finalPacket);
+    // UDP only, no LoRa. Calibration happens with somebody stood over the hull, so WiFi is in range
+    // by definition - and putting these on the air was doing real harm, not just costing airtime.
+    // Measured on the bench: one press reached the Top 35 times, because it went out on both
+    // transports, the other Top relayed what it heard, and the LoRa retransmit table added more.
+    // Every copy meant another frame down the half-duplex wire to the Sub, which was already
+    // dropping most of what it was given - so the flood was feeding the very loss it looked like
+    // noise around.
     udp_broadcast(finalPacket);
 }
 

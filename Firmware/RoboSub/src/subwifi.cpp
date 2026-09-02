@@ -778,6 +778,32 @@ void WiFiTask(void *arg) {
             subServer.send(404, "text/plain", "calibration page not found on LittleFS");
         }
     });
+    // Declare the hull level where it sits now. The attitude the sensor reports at this instant
+    // becomes the datum, and every bubble from here on shows departure from it.
+    //
+    // Press this with the hull floating the way it floats, NOT tilted to make the sensor read flat.
+    // A fixed mounting tilt is absorbed by the compass table, because the table maps whatever the
+    // compass reads at each direction back to the truth and does not care why it reads it. What the
+    // table cannot absorb is the hull being at a DIFFERENT attitude at each stop, or at a different
+    // attitude while sailing than while being calibrated - so the thing worth measuring is change,
+    // and that is what a datum makes visible.
+    subServer.on("/set_level", HTTP_GET, [](){
+        mount_pitch = global_pitch_raw;
+        mount_roll = global_roll_raw;
+        memMountLevel(&mount_pitch, &mount_roll, MEM_PUT);
+        global_params_rev++;
+        char buf[80];
+        snprintf(buf, sizeof(buf), "OK pitch %.2f roll %.2f", mount_pitch, mount_roll);
+        subServer.send(200, "text/plain", buf);
+    });
+    subServer.on("/clear_level", HTTP_GET, [](){
+        mount_pitch = 0.0f;
+        mount_roll = 0.0f;
+        memMountLevel(&mount_pitch, &mount_roll, MEM_PUT);
+        global_params_rev++;
+        subServer.send(200, "text/plain", "OK");
+    });
+
     subServer.on("/set_north", HTTP_GET, [](){
         // Allowed at any time. This used to be refused while a calibration held the heading
         // reference, because the offset was applied before the table and moving it rotated the
@@ -982,6 +1008,7 @@ void WiFiTask(void *arg) {
         int ssb = (int)mainData.speedSb;
         double ir = mainData.ir;
         double ip = mainData.ip;
+        // Levelled - departure from the declared datum, which is what a bubble should show.
         double pitch = mainData.pitch;
         double roll = mainData.roll;
         float vatt = mainData.subAccuV;
@@ -1143,6 +1170,12 @@ void WiFiTask(void *arg) {
                       // Which filtering mode the table was measured in, and whether that is the one
                       // running. A mismatch means the correction is being applied to a different
                       // heading source than it was measured on - the table looks perfectly valid.
+                      // The level datum, and the raw attitude it is measured from. pitch/roll
+                      // above are already levelled; these say how crooked the sensor is mounted.
+                      ",\"mount_pitch\":" + String(mount_pitch, 2) +
+                      ",\"mount_roll\":" + String(mount_roll, 2) +
+                      ",\"pitch_raw\":" + String(global_pitch_raw, 2) +
+                      ",\"roll_raw\":" + String(global_roll_raw, 2) +
                       ",\"table_mode\":" + String(interp_table_mode) +
                       ",\"mode_match\":" + String(interpTableModeMatches() ? 1 : 0) +
                       // Guided calibration session, so every interface can render the same state

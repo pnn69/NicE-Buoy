@@ -623,6 +623,33 @@ void memDampingFactors(float *acc, float *gyro, float *mag, float *att, bool get
  * A number, not a flag, because this has already changed once and will change again if the chain
  * is ever reordered. See INTERP_TABLE_REV in compass.h.
  */
+/**
+ * @brief The attitude this hull sits at when it is level, so the bubble can be about the HULL.
+ *
+ * The sensor is not necessarily bolted in flat - on one hull it plainly is not - so the raw pitch
+ * and roll carry a fixed mounting error that no amount of levelling the boat will remove. Reported
+ * as-is, the bubble can never centre and the operator is invited to tilt the hull to satisfy it,
+ * which is the one thing that genuinely ruins a calibration.
+ *
+ * Recording the offset once turns the reading into "how far from where you said level is", which is
+ * the question worth asking. Exactly the same idea as compassOffset for heading.
+ */
+void memMountLevel(float *pitch, float *roll, bool get)
+{
+    startMem();
+    if (get)
+    {
+        *pitch = storage.getFloat("mnt_pitch", 0.0f);
+        *roll = storage.getFloat("mnt_roll", 0.0f);
+    }
+    else
+    {
+        storage.putFloat("mnt_pitch", *pitch);
+        storage.putFloat("mnt_roll", *roll);
+    }
+    stopMem();
+}
+
 void memInterpTableRev(int *rev, bool get)
 {
     startMem();

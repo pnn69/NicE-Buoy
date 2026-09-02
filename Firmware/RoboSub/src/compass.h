@@ -84,6 +84,13 @@ bool interpTableRevOk(void);
 // Which filtering mode the stored table was measured in (-1 = not recorded, older calibration), and
 // whether that is the mode running now. A table measured in another mode is applied to a different
 // heading source entirely - see the comment on interp_table_mode in compass.cpp.
+// The attitude this hull sits at when it is level, and the raw reading it was taken from. See
+// memMountLevel() - the sensor may not be bolted in flat, and the bubble is about the hull.
+extern float mount_pitch;
+extern float mount_roll;
+extern volatile float global_pitch_raw;
+extern volatile float global_roll_raw;
+
 extern int interp_table_mode;
 bool interpTableModeMatches(void);
 

@@ -348,6 +348,12 @@
                             pitch <span id="level-pitch">-</span><br>
                             roll&nbsp; <span id="level-roll">-</span>
                         </div>
+                        <button id="btn-level" class="btn" style="margin-top:0.5rem; padding:0.35rem 0.7rem;
+                                font-size:0.75rem; background:#30363d; color:#c9d1d9;">SET LEVEL HERE</button>
+                        <div id="level-mount" style="font-size:0.7rem; color:var(--text-muted); margin-top:0.25rem;">
+                            &nbsp;</div>
+                        <div style="display:none;">
+                        </div>
                         <div style="font-size:0.7rem; color:#6b7280; margin-top:0.35rem; max-width:190px;">
                             The heading comes from the horizontal part of the field, so a tilted
                             sensor mixes in the vertical part - which is the bigger one here. List
@@ -414,6 +420,7 @@
             call('/cal8_set?leg=' + leg);
         }
         let storedTable = [0, 45, 90, 135, 180, 225, 270, 315];
+        let mountPitch = 0, mountRoll = 0;
         let busy = false;
 
         function getShortestRotation(current, target) {
@@ -437,6 +444,15 @@
                 if (confirm('Discard this calibration run? Nothing has been written yet.')) call('/cal8_cancel');
             };
             document.getElementById('btn-reset').onclick = resetTable;
+            document.getElementById('btn-level').onclick = async () => {
+                if (!confirm('Declare the hull level as it sits RIGHT NOW?\\n\\n'
+                    + 'Do this with the boat floating the way it floats - do NOT tilt it to '
+                    + 'make the bubble centre. A fixed mounting tilt is absorbed by the '
+                    + 'compass table; what ruins a calibration is the hull sitting at a '
+                    + 'different angle at each stop, and that is what this makes visible.')) return;
+                const t = await call('/set_level');
+                if (t && t.startsWith('OK')) alert('Level datum set: ' + t.slice(3));
+            };
         };
 
         // Every button is one call to the buoy. No local bookkeeping: the next poll shows what the
@@ -491,6 +507,8 @@
                         session.mask = data.cal8_mask || 0;
                         if (Array.isArray(data.cal8)) session.captured = data.cal8;
                     }
+                    mountPitch = data.mount_pitch || 0;
+                    mountRoll = data.mount_roll || 0;
                     paintLevel(data.pitch, data.roll);
                     paintImag();
                     paintSession();
@@ -589,6 +607,17 @@
 
             document.getElementById('level-pitch').innerText = pitch.toFixed(1) + '\u00b0';
             document.getElementById('level-roll').innerText = roll.toFixed(1) + '\u00b0';
+            // Say plainly when there is no datum. Without one the bubble is showing the
+            // SENSOR's angle, which on a crooked mount never centres however level the hull
+            // is - and chasing it by tilting the boat is the one thing that wrecks a run.
+            const mnt = document.getElementById('level-mount');
+            if (mnt) {
+                const has = (mountPitch || mountRoll);
+                mnt.innerText = has
+                    ? 'datum ' + mountPitch.toFixed(1) + '\u00b0 / ' + mountRoll.toFixed(1) + '\u00b0'
+                    : 'no datum - showing the sensor, not the hull';
+                mnt.style.color = has ? 'var(--text-muted)' : 'var(--orange)';
+            }
 
             // Tint SET when the hull is out. Deliberately not disabled: sometimes a buoy has to be
             // calibrated on a permanent slight list, and that is the operator's call to make - but

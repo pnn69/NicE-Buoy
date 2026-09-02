@@ -2552,8 +2552,10 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                           serDataIn.cal8Mask, serDataIn.cal8Seq);
             serDataIn.IDr = BUOYIDALL;
             serDataIn.IDs = espMac();
+            // UDP only, matching the presses - see send_buoy_cal8() on the CYD. A reply on LoRa
+            // costs channel time to tell a screen that is by definition on WiFi something it has
+            // already been told.
             xQueueSend(udpOut, (void *)&serDataIn, pdMS_TO_TICKS(100));
-            xQueueSend(loraOut, (void *)&serDataIn, pdMS_TO_TICKS(100));
             break;
         case STORE_INTERPOLATION_TABLE:
             // Answer to either half of the calibration handshake: the table the Sub is running, or

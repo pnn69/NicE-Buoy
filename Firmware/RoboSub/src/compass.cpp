@@ -67,6 +67,16 @@ int interp_table_mode = -1;
 // Which convention the stored table was measured under - see INTERP_TABLE_REV in compass.h.
 int interp_table_rev = INTERP_TABLE_REV;
 
+// The attitude this hull sits at when it is level - see memMountLevel(). Subtracted from the raw
+// reading before anything is told about it, so every bubble on every screen is measuring the same
+// thing: departure from the attitude the operator declared level, not the angle of a sensor that
+// may well be bolted in crooked.
+float mount_pitch = 0.0f;
+float mount_roll = 0.0f;
+// The uncorrected reading, kept so the Sub's own page can show what the mounting offset actually is.
+volatile float global_pitch_raw = 0.0f;
+volatile float global_roll_raw = 0.0f;
+
 // False when the table cannot be interpolated - see computeFourierCoefficients(). An uncorrected
 // compass is wrong by the deviation; a compass corrected through a broken table is wrong by
 // anything at all, so the first is the safer failure.
@@ -404,6 +414,12 @@ bool InitCompass(void)
     // pass after every reboot on a -1 it never read, which is worse than not having it.
     memInterpTableMode(&interp_table_mode, MEM_GET);
     memInterpTableRev(&interp_table_rev, MEM_GET);
+    memMountLevel(&mount_pitch, &mount_roll, MEM_GET);
+    if (mount_pitch != 0.0f || mount_roll != 0.0f)
+    {
+        Serial.printf("Level datum: pitch %.2f roll %.2f - the bubble reports departure from "
+                      "this, not from the sensor's own horizontal\r\n", mount_pitch, mount_roll);
+    }
     if (!interpTableRevOk())
     {
         Serial.printf("WARNING: the stored compass table is revision %d and this firmware runs "
@@ -1017,8 +1033,13 @@ void CompassTask(void *arg) {
 
                 global_hdg = heading;
                 mainData.dirMag = heading;
-                mainData.roll = roll;    // Restored unswapped roll orientation
-                mainData.pitch = -pitch; // Inverted physical pitch orientation
+                // Raw first, then levelled. Everything downstream - the Sub's page, the ATTITUDE
+                // frame, the handheld's bubble - gets the levelled pair, so they all agree about
+                // what "flat" means without each having to know how the sensor is mounted.
+                global_roll_raw = roll;
+                global_pitch_raw = -pitch;
+                mainData.roll = roll - mount_roll;           // unswapped roll orientation
+                mainData.pitch = -pitch - mount_pitch;       // inverted physical pitch orientation
 
                 if (compass) xQueueOverwrite(compass, (void *)&heading);
 
