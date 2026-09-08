@@ -1035,9 +1035,15 @@ bool recalcStartLine(struct RoboStruct rsl[3])
     return false;
 }
 
-// Same line, further apart. See the header for why this is not recalcStartLine() with a different
-// length: that one squares to the wind, and a race officer asking for ten more metres is not asking
-// to have the line rotated as well. Nothing here reads a wind direction.
+// Same line, a different length. See the header for why this is not recalcStartLine() with a
+// different length: that one squares to the wind, and a race officer asking for five more metres is
+// not asking to have the line rotated as well. Nothing here reads a wind direction.
+//
+// A negative `metres` shrinks, and needs no separate path: newLen carries the sign and the two
+// bearings are read from the ends as they stand, so each buoy walks back down the bearing it was
+// already on. What must not be done is to let a negative half-length through the position maths -
+// that would step each end PAST the midpoint and out the far side, swapping port and starboard.
+// The MIN_START_LINE_M floor below is what prevents it.
 bool extendStartLine(struct RoboStruct rsl[3], double metres)
 {
     double d0 = distanceBetween(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng);
@@ -1069,7 +1075,7 @@ bool extendStartLine(struct RoboStruct rsl[3], double metres)
         // Two ends on the same spot have no bearing between them to preserve, so a line shrunk to
         // nothing cannot be grown again - it would come back on whatever bearing the rounding
         // happened to produce.
-        printf("# Start line not extended: %.1f m + %.1f m is below the %.1f m floor\r\n",
+        printf("# Start line not resized: %.1f m %+.1f m is below the %.1f m floor\r\n",
                len, metres, (double)MIN_START_LINE_M);
         return false;
     }
@@ -1088,9 +1094,10 @@ bool extendStartLine(struct RoboStruct rsl[3], double metres)
     adjustPositionDirDist(brgB, newLen / 2.0, midLat, midLng, &rsl[b].tgLat, &rsl[b].tgLng);
 
     // trackPos is deliberately left alone. The ends keep the roles they were given when the line
-    // was squared; moving a buoy further out along its own bearing cannot change which side it is.
-    printf("# Start line extended %.1f m -> %.1f m, bearing and midpoint unchanged\r\n",
-           len, newLen);
+    // was squared; sliding a buoy along the bearing it is already on cannot change which side of
+    // the midpoint it is on, in either direction, because the floor above keeps it from reaching.
+    printf("# Start line %s %.1f m -> %.1f m, bearing and midpoint unchanged\r\n",
+           (metres < 0) ? "shortened" : "extended", len, newLen);
     return true;
 }
 

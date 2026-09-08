@@ -227,7 +227,17 @@ typedef enum
     // thing when the wind has shifted and the wrong thing when all that is wanted is a longer line
     // in the same place. Appended at the end of the enum so every existing command keeps its
     // number and an un-reflashed node still decodes everything it did before.
-    EXTENDSTART
+    EXTENDSTART,
+    // The same move in the other direction: shrink the start line by the same fixed step, midpoint
+    // and bearing untouched. Its own enumerator rather than a signed distance on EXTENDSTART,
+    // because what travels between the nodes here is a status, not a payload - there is no field
+    // alongside it to carry a sign, and inventing one would mean every reader had to be reflashed
+    // together to know which way the line was about to move. Appended at the end for the same
+    // reason EXTENDSTART was: an un-reflashed node keeps decoding everything it did before, and
+    // simply does not know this one.
+    //
+    // Refused rather than clamped once the line is down at MIN_START_LINE_M - see extendStartLine().
+    SHORTENSTART
 } msg_t;
 
 // What a CAL8_SESSION SET is asking the buoy to do. Carried in RoboStruct::cal8Action.
@@ -453,9 +463,14 @@ double meanWindDir(double dirA, double stdA, double dirB, double stdB, double fa
 bool recalcStartLine(struct RoboStruct rsl[3]);
 
 // Move the two start line ends apart by `metres` in total, half each, keeping the midpoint and the
-// bearing exactly as they are. Needs no wind reading, because nothing rotates. Returns false when
-// there is no usable pair, when either end has no lock position, or when the result would be
-// shorter than MIN_START_LINE_M.
+// bearing exactly as they are. Needs no wind reading, because nothing rotates. A NEGATIVE `metres`
+// draws them together by the same rule and along the same two bearings, which is what SHORTENSTART
+// sends. Returns false when there is no usable pair, when either end has no lock position, or when
+// the result would be shorter than MIN_START_LINE_M.
+//
+// Not clamped to the floor, refused at it. A clamp would beep success and move the buoys somewhere
+// other than where the press asked for, and the next press would report success again while
+// nothing moved at all - so a line already at the floor would read exactly like a working one.
 #define MIN_START_LINE_M 5.0
 bool extendStartLine(struct RoboStruct rsl[3], double metres);
 bool reCalcTrack(struct RoboStruct rsl[3]);
