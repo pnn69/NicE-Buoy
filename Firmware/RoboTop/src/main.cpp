@@ -112,9 +112,9 @@ PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
 //***************************************************************************************************
 /**
  * @brief Initializes the system, peripherals, and tasks.
- * 
- * This function sets up serial communication, PID controller, pins, 
- * memory, and various queues. It also creates several FreeRTOS tasks 
+ *
+ * This function sets up serial communication, PID controller, pins,
+ * memory, and various queues. It also creates several FreeRTOS tasks
  * for buzzer, LED, GPS, WiFi, Serial, and LoRa operations.
  */
 void setup()
@@ -196,7 +196,7 @@ void setup()
     // that overflowed. rfCode() returns an Arduino String and onReceive() decodes into a ~500-byte
     // RoboStruct, both on this stack, and a dock puts several through it back to back.
     xTaskCreatePinnedToCore(LoraTask, "LoraTask", 8192, &mainData, configMAX_PRIORITIES - 2, NULL, 1);
-    
+
     // Load local params
     mainData.mac = espMac();
     mainData.IDs = mainData.mac;
@@ -218,7 +218,6 @@ void setup()
     // mainData.tgLat = 52.29302221327865;
     // mainData.tgLng = 4.932541137977593;
     // memDockPos(&mainData, MEM_PUT);
-
 
     // Nothing else is restored here, on purpose. Thruster inversion and swap describe the
     // wiring at the Sub - esc.cpp is the only code in the system that applies them - and the
@@ -255,43 +254,49 @@ void setup()
 //***************************************************************************************************
 //      keypress detection (Background Task Driven Polling)
 //***************************************************************************************************
-// How much one press of "extend start line" adds, in metres, split half to each end. A fixed step
-// rather than a settable one: this is the button on the buoy, which has no way to show a number and
-// no way to take one back - press it twice for twenty metres.
-#define START_LINE_STEP_M 10.0
+// How much one press of "extend start line" adds, or one press of "shorten start line" takes away,
+// in metres, split half to each end. A fixed step rather than a settable one: this is the button on
+// the buoy, which has no way to show a number and no way to take one back - press it twice for ten
+// metres.
+//
+// 5 m to agree with the other two ways of moving the line: TS_LINE_STEP_M on the CYD touchscreen
+// and MAP_LINE_STEP_M in the dashboard's index.js. It was 10 here, which meant a line nudged out
+// from the handheld could not be nudged back from the buoy - the operator would have had to know
+// which screen had last touched it to know what one press was worth.
+#define START_LINE_STEP_M 5.0
 
 #define LONG_PRESS_DURATION 5000 // ms
-#define PRESS_TIMEOUT 500       // ms
+#define PRESS_TIMEOUT 500        // ms
 
 /**
  * @brief Detects and counts button presses with timeout and long-press support.
  * Runs in the background buttonTask.
- * 
- * @return int The number of short presses, or 100 + short press count for a sequence ending in a long press. 
+ *
+ * @return int The number of short presses, or 100 + short press count for a sequence ending in a long press.
  *         Returns -1 if no action is completed.
  */
 int countKeyPressesWithTimeoutAndFinalLongPress()
 {
     unsigned long currentTime = millis();
     int rawState = digitalRead(BUTTON_PIN);
-    
+
     // Integrating debounce: button state must be stable for 50ms
     static int stableState = LOW;
     static int lastRawState = LOW;
     static unsigned long lastStateChangeTime = 0;
-    
+
     if (rawState != lastRawState)
     {
         lastStateChangeTime = currentTime;
         lastRawState = rawState;
     }
-    
+
     if ((currentTime - lastStateChangeTime) >= 25) // Must remain stable for 50ms
     {
         if (rawState != stableState)
         {
             stableState = rawState;
-            
+
             // Stable press transition (LOW -> HIGH)
             if (stableState == HIGH)
             {
@@ -299,7 +304,7 @@ int countKeyPressesWithTimeoutAndFinalLongPress()
                 pressCount++;
                 isLongPress = false;
                 oneSecondBeepReported = false; // Reset on press
-                
+
                 // Play instant feedback beep at the exact moment of physical press (true single 100ms tone)
                 if (buzzer != NULL)
                 {
@@ -313,19 +318,23 @@ int countKeyPressesWithTimeoutAndFinalLongPress()
             }
         }
     }
-    
-   
-    // One second hold beep detection (button held HIGH for more than 1000ms)
+
+    // One second hold beep detection (button held HIGH for more than 1000ms).
+    //
+    // This one is LONG on purpose. Every press already ticks, so a sequence such as "short, long"
+    // came out as tick-tick-tick: three sounds of the same length, and no way to hear which of them
+    // meant the hold had registered - which is the only one that matters, because the long press is
+    // what actually fires the action.
     if (stableState == HIGH && (currentTime - pressStartTime > 1000) && !oneSecondBeepReported)
     {
         oneSecondBeepReported = true;
         isLongPress = true;
         if (buzzer != NULL)
         {
-            beep(1000, buzzer); // Beep again with a true single 100ms tone!
+            beep(7, buzzer); // Long 1000Hz tone: the hold has been seen, the button can be released
         }
     }
-    
+
     // Timeout check: button must be stable LOW, some presses registered, and PRESS_TIMEOUT elapsed since last release
     if (stableState == LOW && pressCount > 0 && (currentTime - lastReleaseTime > PRESS_TIMEOUT))
     {
@@ -334,14 +343,14 @@ int countKeyPressesWithTimeoutAndFinalLongPress()
         {
             result = 100 + pressCount;
         }
-        
+
         // Reset states for the next sequence
         pressCount = 0;
         isLongPress = false;
-       
+
         return result;
     }
-    
+
     return -1;
 }
 
@@ -383,7 +392,9 @@ void buttonTask(void *arg)
 //  countKeyPressesWithTimeoutAndFinalLongPress() returns 100 + (number of presses in the sequence),
 //  and the closing long press is one of them - so "three short then long" arrives here as 104.
 //
-//      101   long                       lock / unlock
+//      1     short                      unlock
+//      4     short x4                   shorten start line by START_LINE_STEP_M (SHORTENSTART)
+//      101   long                       lock
 //      102   short, long                align start line   (COMPUTESTART)
 //      103   short x2, long             align track        (COMPUTETRACK)
 //      104   short x3, long             extend start line by START_LINE_STEP_M  (EXTENDSTART)
@@ -392,6 +403,20 @@ void buttonTask(void *arg)
 //
 //  Anything else beeps the failure tone and does nothing, deliberately including every plain short
 //  press: silence would be indistinguishable from a flat battery or a jammed switch.
+//
+//  Two exceptions to the long-press rule, and both are worth knowing about rather than being
+//  quietly relied on. Short-alone unlock (1) predates the scheme. Short x4 (4) is the shrink, and
+//  it is the mirror of 104 rather than of 105 on purpose: a race officer trimming a line presses
+//  extend and shorten alternately, and a rule that made one of them a hold and the other not would
+//  be learned wrong within a minute. What it costs is that four knocks in a row, each inside the
+//  500 ms PRESS_TIMEOUT, will take five metres off the line - which is why this one is bound to the
+//  only action here that neither starts a boat moving to a new place nor writes anything to NVS.
+//  It moves two targets by 2.5 m each and one more press puts them back.
+//
+//  Its near neighbour is 105, DOCKING, which is short x4 THEN a hold. Releasing that fifth press
+//  too early lands on 5, not on 4 - it is still counted, just not as a long one - so a fumbled hold
+//  beeps the failure tone rather than resizing the line. Abandoning the sequence after the fourth
+//  press does shrink it, and that is the one way to get here by accident.
 //
 //  Removed with the rest: the desk magnetic calibration (was short x9 + long) and
 //  CALC_COMPASS_OFFSET (was ten short). Neither is lost - both are on the Top's web page and on the
@@ -404,7 +429,7 @@ void buttonTask(void *arg)
 //***************************************************************************************************
 /**
  * @brief Processes button press results and updates the buoy status.
- * 
+ *
  * @param key Pointer to the RoboStruct containing the buoy's state and data.
  */
 void handleKeyPress(RoboStruct *key)
@@ -416,22 +441,21 @@ void handleKeyPress(RoboStruct *key)
         {
             switch (presses)
             {
-            case 101: // long: lock / unlock
-                if ((key->status != LOCKED) && (key->status != DOCKED))
-                {
-                    key->status = LOCKING;
-                }
-                else
-                {
-                    key->status = IDLING;
-                }
+            case 1: // short: unlock
+                key->status = IDLING;
+                break;
+            case 101: // long: lock
+                key->status = LOCKING;
                 key->loralstmsg = 0;
                 break;
             case 102: // short, long: align start line
                 key->status = COMPUTESTART;
                 break;
-            case 103: // short x2, long: align track
+                case 103: // short x2, long: align track
                 key->status = COMPUTETRACK;
+                break;
+            case 4: // short x4: shorten the start line
+                key->status = SHORTENSTART;
                 break;
             case 104: // short x3, long: extend the start line
                 key->status = EXTENDSTART;
@@ -455,24 +479,32 @@ void handleKeyPress(RoboStruct *key)
 //***************************************************************************************************
 /**
  * @brief Controls the button's LED behavior based on the buoy's status and GPS fix.
- * 
+ *
  * @param sta Pointer to the RoboStruct containing the buoy's status and GPS fix state.
  */
 void buttonLight(RoboStruct *sta)
 {
     static int lastCalibState = 0;
     int currentCalibState = (sta->status == CALIBRATE_MAGNETIC_COMPASS ||
-                             sta->status == INFIELD_CALIBRATE) ? 1 : 0;
-    
-    if (currentCalibState != lastCalibState) {
-        if (currentCalibState == 1) {
+                             sta->status == INFIELD_CALIBRATE)
+                                ? 1
+                                : 0;
+
+    if (currentCalibState != lastCalibState)
+    {
+        if (currentCalibState == 1)
+        {
             mainCollorStatus.color = CRGB::Purple;
             mainCollorStatus.blink = BLINK_FAST;
-        } else {
+        }
+        else
+        {
             mainCollorStatus.color = CRGB::Black;
             mainCollorStatus.blink = BLINK_OFF;
-            if (sta->status == ERROR) beep(3, buzzer);
-            else beep(5, buzzer);
+            if (sta->status == ERROR)
+                beep(3, buzzer);
+            else
+                beep(5, buzzer);
         }
         xQueueSend(ledStatus, (void *)&mainCollorStatus, 0);
         lastCalibState = currentCalibState;
@@ -551,7 +583,7 @@ static void adoptOwnTrackTarget(RoboStruct *stat, RoboStruct buoyPara[3])
 //***************************************************************************************************
 /**
  * @brief Handles state machine transitions and associated actions for the buoy.
- * 
+ *
  * @param stat Pointer to the current buoy's RoboStruct.
  * @param buoyPara Array of RoboStructs for all buoys in the system.
  */
@@ -584,20 +616,50 @@ static int lastHoldingStatus = IDLE;
 // through for one iteration and then leaves. Never a description of where the buoy is.
 static inline bool isCommandStatus(int s)
 {
-    return s == COMPUTESTART || s == COMPUTETRACK || s == EXTENDSTART || s == SENDTRACK;
+    return s == COMPUTESTART || s == COMPUTETRACK || s == EXTENDSTART || s == SHORTENSTART ||
+           s == SENDTRACK || s == STOREASDOC;
 }
 
 static int lockedBuoyCount(RoboStruct *stat, RoboStruct buoyPara[3])
 {
     int n = 0;
     int own = isCommandStatus(stat->status) ? lastHoldingStatus : stat->status;
-    if (own == LOCKED || own == LOCKING) n++;
+    if (own == LOCKED || own == LOCKING)
+        n++;
     for (int i = 1; i < 3; i++)
     {
-        if (buoyPara[i].IDs == 0) continue;
-        if (buoyPara[i].status == LOCKED || buoyPara[i].status == LOCKING) n++;
+        if (buoyPara[i].IDs == 0)
+            continue;
+        if (buoyPara[i].status == LOCKED || buoyPara[i].status == LOCKING)
+            n++;
     }
     return n;
+}
+
+// Put the buoy back exactly where the refused command found it.
+//
+// A command that is refused has to be a no-op. Every bail-out below used to end with
+// "stat->status = (tgLat && tgLng) ? LOCKED : IDLE", which is not a restore at all - it is a guess
+// made from the target coordinates, and the guess is wrong in precisely the case the guard exists
+// for. An idle buoy still carries the target of whatever it did last, so asking for ALIGN STARTLINE
+// with nothing locked played the failure beep and then LOCKED the buoy onto that stale waypoint: it
+// answers "I cannot do that" by driving off to hold station on an old mark. The other direction is
+// just as wrong - a DOCKED or REMOTE buoy came back as LOCKED or IDLE.
+//
+// lastHoldingStatus is what this buoy actually WAS before its status was overwritten with the
+// command, recorded at the top of loop(). That is the only honest answer to "what were we doing".
+//
+// The two tests are backstops, not the decision: never claim LOCKED while tgLat/tgLng are still 0
+// (a lock on a zero target reports a bogus destination to the fleet and the display), and never
+// restore a command status, which would run the refused command again next iteration.
+static void restoreHoldingStatus(RoboStruct *stat)
+{
+    int back = lastHoldingStatus;
+    if ((back == LOCKED || back == LOCKING) && (stat->tgLat == 0.0 || stat->tgLng == 0.0))
+        back = IDLE;
+    if (back <= 0 || isCommandStatus(back))
+        back = IDLE;
+    stat->status = back;
 }
 
 // Ask our own Sub to report its stored settings. See the call site in the serial handler for
@@ -686,16 +748,16 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
             xQueueSend(udpOut, (void *)stat, 0);   // update WiFi
             xQueueSend(loraOut, (void *)stat, 10); // send out through Lora
             RouteToPoint(stat->lat, stat->lng, stat->tgLat, stat->tgLng, &stat->tgDist, &stat->tgDir);
-            
-            /* 
+
+            /*
              * IMPORTANT NAVIGATION SAFETY FIX:
              * On entering the LOCKED state from LOCKING, we must reset tgDist to 0.0.
              * This prevents any initial transient/stale distance values from being sent to the sub-unit.
-             * Without this reset, the PID speed controllers would see a non-zero distance on the very first 
+             * Without this reset, the PID speed controllers would see a non-zero distance on the very first
              * frame and immediately spin the motors at full burst before the routing calculations stabilize.
              */
             stat->tgDist = 0.0;
-            
+
             stat->cmd = RESET_SPEED_RUD_PID;
             xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
             xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
@@ -730,7 +792,7 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         // Broadcast the loaded dock position (tgLat and tgLng) to update the Web UI and LoRa network
         if (stat->dockingToWaypoint == true)
         {
-            //change the waypoint with the given offset
+            // change the waypoint with the given offset
             adjustPositionDirDist((double)stat->dockApproachDir, (double)stat->dockApproachDist, stat->tgLat, stat->tgLng, &stat->tgLat, &stat->tgLng);
             printf("Docking waypoint-> tgLat:%.8f tgLng:%.8f\r\n", stat->tgLat, stat->tgLng);
         }
@@ -749,15 +811,19 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
 
         crumb(15);
         udpLog("DOCK 15 broadcast done, about to route");
-        if (stat->lat != 0.0 && stat->lng != 0.0 && stat->tgLat != 0.0 && stat->tgLng != 0.0) {
+        if (stat->lat != 0.0 && stat->lng != 0.0 && stat->tgLat != 0.0 && stat->tgLng != 0.0)
+        {
             RouteToPoint(stat->lat, stat->lng, stat->tgLat, stat->tgLng, &stat->tgDist, &stat->tgDir);
             crumb(16);
             udpLog("DOCK 16 routed dist=%.2f dir=%.2f", stat->tgDist, stat->tgDir);
-        } else {
-            if (stat->tgLat == 0.0) printf("WARNING: Dock position not set in memory!\r\n");
         }
-        
-        /* 
+        else
+        {
+            if (stat->tgLat == 0.0)
+                printf("WARNING: Dock position not set in memory!\r\n");
+        }
+
+        /*
          * IMPORTANT DOCKING SAFETY FIX:
          * To prevent thrusters from reacting at full power on entering DOCKED mode,
          * we immediately override and reset the computed tgDist and tgDir to 0.0 during state transition.
@@ -765,7 +831,7 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
          */
         stat->tgDist = 0.0;
         stat->tgDir = 0.0;
-        
+
         stat->cmd = RESET_SPEED_RUD_PID;
         xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
         xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
@@ -782,10 +848,11 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         if (lockedBuoyCount(stat, buoyPara) < 2)
         {
             printf("#Start line NOT computed - need TWO locked buoys, have %d\r\n",
-                   lockedBuoyCount(stat, buoyPara));
+                   lockedBuoyCount(stat, buoyPara));
+
             udpLog("GUARD refused: %d locked buoy(s), need 2", lockedBuoyCount(stat, buoyPara));
             beep(-1, buzzer);
-            stat->status = (stat->tgLat != 0.0 && stat->tgLng != 0.0) ? LOCKED : IDLE;
+            restoreHoldingStatus(stat);
             break;
         }
         // The start line is squared against THIS buoy's wind reading, so refuse when we do not
@@ -796,10 +863,7 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         {
             printf("#Start line NOT computed - this buoy has no wind reading (wDir/wStd are 0)\r\n");
             beep(-1, buzzer);
-            // Hold whatever waypoint we already had, but never claim LOCKED without one:
-            // tgLat/tgLng is 0 until something sets a real target, and a buoy sitting in LOCKED
-            // on a zero target reports a bogus destination to the fleet and the display.
-            stat->status = (stat->tgLat != 0.0 && stat->tgLng != 0.0) ? LOCKED : IDLE;
+            restoreHoldingStatus(stat);
             break;
         }
         buoyPara[0].wDir = stat->wDir;
@@ -824,10 +888,7 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         {
             printf("#Start line NOT computed - lock all deployed buoys first\r\n");
             beep(-1, buzzer);
-            // Hold whatever waypoint we already had, but never claim LOCKED without one:
-            // tgLat/tgLng is 0 until something sets a real target, and a buoy sitting in LOCKED
-            // on a zero target reports a bogus destination to the fleet and the display.
-            stat->status = (stat->tgLat != 0.0 && stat->tgLng != 0.0) ? LOCKED : IDLE;
+            restoreHoldingStatus(stat);
         }
         break;
     case EXTENDSTART:
@@ -836,10 +897,11 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         if (lockedBuoyCount(stat, buoyPara) < 2)
         {
             printf("#Start line NOT extended - need TWO locked buoys, have %d\r\n",
-                   lockedBuoyCount(stat, buoyPara));
+                   lockedBuoyCount(stat, buoyPara));
+
             udpLog("GUARD refused: %d locked buoy(s), need 2", lockedBuoyCount(stat, buoyPara));
             beep(-1, buzzer);
-            stat->status = (stat->tgLat != 0.0 && stat->tgLng != 0.0) ? LOCKED : IDLE;
+            restoreHoldingStatus(stat);
             break;
         }
         // No wind guard here, unlike COMPUTESTART. Nothing rotates - the line keeps its bearing and
@@ -855,7 +917,7 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         else
         {
             beep(-1, buzzer);
-            stat->status = (stat->tgLat != 0.0 && stat->tgLng != 0.0) ? LOCKED : IDLE;
+            restoreHoldingStatus(stat);
         }
         break;
     case COMPUTETRACK:
@@ -866,7 +928,7 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
             printf("#Track NOT computed - need THREE locked buoys, have %d\r\n",
                    lockedBuoyCount(stat, buoyPara));
             beep(-1, buzzer);
-            stat->status = (stat->tgLat != 0.0 && stat->tgLng != 0.0) ? LOCKED : IDLE;
+            restoreHoldingStatus(stat);
             break;
         }
         // Same wind guard as COMPUTESTART: the whole track is laid out relative to wDir.
@@ -874,10 +936,7 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         {
             printf("#Track NOT computed - this buoy has no wind reading (wDir/wStd are 0)\r\n");
             beep(-1, buzzer);
-            // Hold whatever waypoint we already had, but never claim LOCKED without one:
-            // tgLat/tgLng is 0 until something sets a real target, and a buoy sitting in LOCKED
-            // on a zero target reports a bogus destination to the fleet and the display.
-            stat->status = (stat->tgLat != 0.0 && stat->tgLng != 0.0) ? LOCKED : IDLE;
+            restoreHoldingStatus(stat);
             break;
         }
         buoyPara[0].wDir = stat->wDir;
@@ -899,10 +958,7 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         {
             printf("#Track NOT computed - needs three buoys with a lock position\r\n");
             beep(-1, buzzer);
-            // Hold whatever waypoint we already had, but never claim LOCKED without one:
-            // tgLat/tgLng is 0 until something sets a real target, and a buoy sitting in LOCKED
-            // on a zero target reports a bogus destination to the fleet and the display.
-            stat->status = (stat->tgLat != 0.0 && stat->tgLng != 0.0) ? LOCKED : IDLE;
+            restoreHoldingStatus(stat);
         }
         break;
     case SENDTRACK:
@@ -954,12 +1010,16 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
             // felt you press the button". Nine short presses and a long one deserve a definite
             // answer.
             beep(1, buzzer);
+            stat->status = IDLING;
         }
         else
         {
+            // Refused for want of a fix, so change nothing - same rule as the compute guards. This
+            // used to drop through to IDLING below, which meant a locked buoy answered "I have no
+            // GPS fix" by unlocking itself.
             beep(-1, buzzer);
+            restoreHoldingStatus(stat);
         }
-        stat->status = IDLING;
         break;
     default:
         break;
@@ -971,7 +1031,7 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
 //***************************************************************************************************
 /**
  * @brief Manages the in-field compass calibration state machine.
- * 
+ *
  * @param timer Pointer to the RoboStruct containing calibration state and data.
  */
 void handleInfieldCompassCalibration(RoboStruct *timer)
@@ -995,7 +1055,7 @@ void handleInfieldCompassCalibration(RoboStruct *timer)
             calibStartTime = millis();
             calibPhase = 1;
             printf("#INFIELD_COMPASS: Phase 0 (Home recorded: %f, %f)\r\n", lat0, lon0);
-            
+
             // Trigger sub to do the spins
             RoboStruct cmdMsg;
             cmdMsg.cmd = INFIELD_CALIBRATE;
@@ -1019,7 +1079,7 @@ void handleInfieldCompassCalibration(RoboStruct *timer)
         // We'll just wait for the timeout (~190s) here as a backup if IDLE isn't caught,
         // or actually, if we let `handleSerialData` change `status` to `IDLE`, this state machine breaks before returning home!
         // We should intercept `IDLE` inside handleSerialData, or better, we just check if elapsed time > 160000ms
-        
+
         unsigned long elapsed = millis() - calibStartTime;
         if (elapsed >= 165000) // 165 seconds = 2 mins 45 seconds (3 phases = 60+60+30 + 15 buffer)
         {
@@ -1038,7 +1098,7 @@ void handleInfieldCompassCalibration(RoboStruct *timer)
 //***************************************************************************************************
 /**
  * @brief Manages the in-field compass offset calibration state machine.
- * 
+ *
  * @param timer Pointer to the RoboStruct containing calibration state and data.
  */
 void handleInfieldOffsetCalibration(RoboStruct *timer)
@@ -1109,17 +1169,19 @@ void handleInfieldOffsetCalibration(RoboStruct *timer)
             // Phase 3: Record End Point P2 and Calculate Offset
             lat2 = timer->lat;
             lon2 = timer->lng;
-            
+
             double gpsCourse1 = calculateAngle(lat1, lon1, lat2, lon2);
             double newOffset = gpsCourse1 - 180.0;
-            
-            while (newOffset > 180.0) newOffset -= 360.0;
-            while (newOffset < -180.0) newOffset += 360.0;
+
+            while (newOffset > 180.0)
+                newOffset -= 360.0;
+            while (newOffset < -180.0)
+                newOffset += 360.0;
 
             timer->compassOffset += newOffset;
-            
+
             printf("#INFIELD_OFFSET: Phase 3 (P2 recorded: %f, %f). GPS Course: %.2f. New Offset: %.2f\r\n", lat2, lon2, gpsCourse1, newOffset);
-            
+
             // Send new offset to Sub
             RoboStruct offsetMsg;
             offsetMsg.cmd = STORE_COMPASS_OFFSET;
@@ -1127,7 +1189,7 @@ void handleInfieldOffsetCalibration(RoboStruct *timer)
             offsetMsg.ack = INF;
             offsetMsg.compassOffset = timer->compassOffset;
             xQueueSend(serOut, (void *)&offsetMsg, 0);
-            
+
             calibPhase = 4;
         }
         // else if (calibPhase == 4 && elapsed < 140000)
@@ -1157,18 +1219,18 @@ void handleInfieldOffsetCalibration(RoboStruct *timer)
             // // Phase 7: Record Final Point P3 and Validate
             // lat3 = timer->lat;
             // lon3 = timer->lng;
-            
+
             // double gpsCourse2 = calculateAngle(lat2_stable, lon2_stable, lat3, lon3);
             // double validationError = abs(gpsCourse2 - 0.0);
             // while (validationError > 180.0) validationError -= 360.0;
-            
+
             // printf("#INFIELD_OFFSET: Phase 7 (P3 recorded). GPS Course: %.2f. Error: %.2f\r\n", gpsCourse2, abs(validationError));
-            
+
             // // Stop motors
             // cmdMsg.tgDir = 0.0;
             // cmdMsg.speedSet = 0;
             // xQueueSend(serOut, (void *)&cmdMsg, 0);
-            
+
             // Phase 8: Return Home
             timer->tgLat = lat0;
             timer->tgLng = lon0;
@@ -1185,7 +1247,7 @@ void handleInfieldOffsetCalibration(RoboStruct *timer)
 //***************************************************************************************************
 /**
  * @brief Executes periodic tasks and handles timed data transmissions.
- * 
+ *
  * @param timer Pointer to the RoboStruct containing the buoy's data and timers.
  */
 void handleTimerRoutines(RoboStruct *timer)
@@ -1215,11 +1277,11 @@ void handleTimerRoutines(RoboStruct *timer)
         if (timer->status == LOCKED || timer->status == DOCKED)
         {
             timer->lastSerOut = millis() + 250;
-            if (statusChanged) 
+            if (statusChanged)
             {
                 timer->tgDist = 0.0;
-            } 
-            else if (timer->lat != 0.0 && timer->lng != 0.0 && timer->tgLat != 0.0 && timer->tgLng != 0.0) 
+            }
+            else if (timer->lat != 0.0 && timer->lng != 0.0 && timer->tgLat != 0.0 && timer->tgLng != 0.0)
             {
                 RouteToPoint(timer->lat, timer->lng, timer->tgLat, timer->tgLng, &timer->tgDist, &timer->tgDir);
                 // Second leg of a two-stage dock approach: once the offset waypoint is reached,
@@ -1235,7 +1297,9 @@ void handleTimerRoutines(RoboStruct *timer)
                     memDockPos(timer, MEM_GET);
                     timer->dockingToWaypoint = false;
                 }
-            } else {
+            }
+            else
+            {
                 timer->tgDist = 0;
                 timer->tgDir = 0;
             }
@@ -1305,19 +1369,19 @@ void handleTimerRoutines(RoboStruct *timer)
         if ((timer->status == LOCKED || timer->status == DOCKED))
         {
             timer->cmd = TOPDATA;
-            xQueueSend(udpOut, (void *)timer, 10);  // send out through wifi
+            xQueueSend(udpOut, (void *)timer, 10); // send out through wifi
         }
         else if (timer->status == REMOTE)
         {
-            timer->cmd = TOPDATA; // Send standard TOPDATA (51) so the CYD can parse it at 10Hz!
-            xQueueSend(udpOut, (void *)timer, 10);  // send out through wifi
+            timer->cmd = TOPDATA;                  // Send standard TOPDATA (51) so the CYD can parse it at 10Hz!
+            xQueueSend(udpOut, (void *)timer, 10); // send out through wifi
         }
         else
         {
             timer->cmd = BUOYPOS;
-            xQueueSend(udpOut, (void *)timer, 10);  // send out through wifi
+            xQueueSend(udpOut, (void *)timer, 10); // send out through wifi
             timer->cmd = TOPDATA;
-            xQueueSend(udpOut, (void *)timer, 10);  // send out through wifi
+            xQueueSend(udpOut, (void *)timer, 10); // send out through wifi
         }
 
         // Attitude, and only ever down this queue - there is no loraOut counterpart on purpose.
@@ -1361,7 +1425,7 @@ void handleTimerRoutines(RoboStruct *timer)
         }
         else if (timer->status == REMOTE)
         {
-            timer->cmd = TOPDATA; // Send standard TOPDATA (51) so the CYD can parse it at 4Hz!
+            timer->cmd = TOPDATA;                   // Send standard TOPDATA (51) so the CYD can parse it at 4Hz!
             xQueueSend(loraOut, (void *)timer, 10); // send out through Lora
         }
         else
@@ -1408,19 +1472,19 @@ void handleTimerRoutines(RoboStruct *timer)
 //  Command Hash Generator (FNV-1a 32-bit Hash)
 // ***************************************************************************************************
 /**
- * @brief Computes a lightweight 32-bit FNV-1a hash of the core control and parameter fields 
+ * @brief Computes a lightweight 32-bit FNV-1a hash of the core control and parameter fields
  *        of an incoming RoboStruct telemetry/command structure.
- * 
+ *
  * DESIGN RATIONALE:
  * Inside the main execution thread, raw command strings (e.g. from LoRa or UDP WiFi packets)
- * have already been parsed and discarded by background listener tasks before being pushed 
- * into binary queues (`loraIn` and `udpIn`). Therefore, we cannot compare the raw string 
+ * have already been parsed and discarded by background listener tasks before being pushed
+ * into binary queues (`loraIn` and `udpIn`). Therefore, we cannot compare the raw string
  * or its direct CRC checksum in this routine.
- * 
- * To implement highly fast and memory-efficient duplicate detection without storing bulky 
- * 500-byte structures in a history cache, we serialize only the active control and 
+ *
+ * To implement highly fast and memory-efficient duplicate detection without storing bulky
+ * 500-byte structures in a history cache, we serialize only the active control and
  * parameter-bearing fields of the struct and feed them into a 32-bit FNV-1a non-cryptographic hash.
- * 
+ *
  * FIELDS INCLUDED IN THE HASH:
  * - `cmd`: The command identifier (identifies the operation)
  * - `IDs`: The source/sender identifier (identifies who sent it)
@@ -1429,11 +1493,11 @@ void handleTimerRoutines(RoboStruct *timer)
  * - `ack`: The acknowledgment behavior/flag (e.g. SET, GET, ACK)
  * - `tgLat` / `tgLng`: The destination GPS coordinates for navigation target updates
  * - `tgDir` / `tgSpeed` / `tgDist`: The direct steering control parameters
- * 
+ *
  * FIELDS EXCLUDED (To avoid false mismatches on identical commands):
  * - `loralstmsg`: Excluded because it holds the real-time RSSI signal strength (which varies).
  * - `lastLoraIn`: Excluded because it holds the receipt timestamp (which changes on every packet).
- * 
+ *
  * @param msg The incoming decoded command structure to hash.
  * @return uint32_t A highly unique 32-bit hash representing the semantic payload of the command.
  */
@@ -1444,28 +1508,30 @@ static uint32_t calculateCommandHash(const RoboStruct &msg)
     const uint32_t prime = 16777619U;
 
     // Helper lambda to sequentially feed byte arrays into the FNV-1a multiplier step
-    auto hashBytes = [&](const uint8_t* bytes, size_t len) {
-        for (size_t i = 0; i < len; i++) {
+    auto hashBytes = [&](const uint8_t *bytes, size_t len)
+    {
+        for (size_t i = 0; i < len; i++)
+        {
             hash ^= bytes[i];
             hash *= prime;
         }
     };
 
     // Feed the core operational identity fields
-    hashBytes((const uint8_t*)&msg.cmd, sizeof(msg.cmd));
-    hashBytes((const uint8_t*)&msg.IDs, sizeof(msg.IDs));
-    hashBytes((const uint8_t*)&msg.IDr, sizeof(msg.IDr));
-    hashBytes((const uint8_t*)&msg.status, sizeof(msg.status));
-    hashBytes((const uint8_t*)&msg.ack, sizeof(msg.ack));
+    hashBytes((const uint8_t *)&msg.cmd, sizeof(msg.cmd));
+    hashBytes((const uint8_t *)&msg.IDs, sizeof(msg.IDs));
+    hashBytes((const uint8_t *)&msg.IDr, sizeof(msg.IDr));
+    hashBytes((const uint8_t *)&msg.status, sizeof(msg.status));
+    hashBytes((const uint8_t *)&msg.ack, sizeof(msg.ack));
 
     // Feed the target geographical coordinates (critical for waypoint setting deduplication)
-    hashBytes((const uint8_t*)&msg.tgLat, sizeof(msg.tgLat));
-    hashBytes((const uint8_t*)&msg.tgLng, sizeof(msg.tgLng));
+    hashBytes((const uint8_t *)&msg.tgLat, sizeof(msg.tgLat));
+    hashBytes((const uint8_t *)&msg.tgLng, sizeof(msg.tgLng));
 
     // Feed direct navigation metrics (critical for steering commands)
-    hashBytes((const uint8_t*)&msg.tgDir, sizeof(msg.tgDir));
-    hashBytes((const uint8_t*)&msg.tgSpeed, sizeof(msg.tgSpeed));
-    hashBytes((const uint8_t*)&msg.tgDist, sizeof(msg.tgDist));
+    hashBytes((const uint8_t *)&msg.tgDir, sizeof(msg.tgDir));
+    hashBytes((const uint8_t *)&msg.tgSpeed, sizeof(msg.tgSpeed));
+    hashBytes((const uint8_t *)&msg.tgDist, sizeof(msg.tgDist));
 
     return hash;
 }
@@ -1475,7 +1541,7 @@ static uint32_t calculateCommandHash(const RoboStruct &msg)
 // ***************************************************************************************************
 /**
  * @brief Processes incoming data from LoRa or UDP (WiFi).
- * 
+ *
  * @param RfOut Pointer to the RoboStruct to be updated with incoming data.
  * @param buoyPara Array of pointers to RoboStructs for all buoys.
  */
@@ -1506,9 +1572,10 @@ static void ackOverLora(const RoboStruct *in, const RoboStruct *self, int cmd)
 {
     bool wants_ack = (in->ack == GETACK || in->ack == SET);
     bool unicast_to_me = (in->IDr == self->mac || in->IDr == self->IDs);
-    if (!wants_ack || !unicast_to_me) return;
+    if (!wants_ack || !unicast_to_me)
+        return;
 
-    static RoboStruct ackMsg;   // static: ~500 bytes, and this runs on the loop task
+    static RoboStruct ackMsg; // static: ~500 bytes, and this runs on the loop task
     ackMsg = RoboStruct();
     ackMsg.IDr = in->IDs;
     ackMsg.IDs = self->mac;
@@ -1517,7 +1584,6 @@ static void ackOverLora(const RoboStruct *in, const RoboStruct *self, int cmd)
     ackMsg.ack = ACK;
     xQueueSend(loraOut, (void *)&ackMsg, 10);
 }
-
 
 void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
 {
@@ -1544,17 +1610,18 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                    (unsigned long)RfIn.IDs, from_udp ? "udp" : "lora");
         }
 
-        // ===========================================================================================
-        //  5-Second Control/State Command Deduplication Filter
-        // ===========================================================================================
-        // To prevent duplicate command execution, we cache the 32-bit FNV-1a hashes of recently 
-        // processed commands. When a command arrives via LoRa and UDP simultaneously, the second 
-        // transmission will be silently discarded if its contents are identical.
-        // ===========================================================================================
-        #define CMD_HISTORY_SIZE 32
-        #define CMD_DUP_TIMEOUT_MS 5000UL // 5-second duplicate suppression window
+// ===========================================================================================
+//  5-Second Control/State Command Deduplication Filter
+// ===========================================================================================
+// To prevent duplicate command execution, we cache the 32-bit FNV-1a hashes of recently
+// processed commands. When a command arrives via LoRa and UDP simultaneously, the second
+// transmission will be silently discarded if its contents are identical.
+// ===========================================================================================
+#define CMD_HISTORY_SIZE 32
+#define CMD_DUP_TIMEOUT_MS 5000UL // 5-second duplicate suppression window
 
-        struct CommandHistoryEntry {
+        struct CommandHistoryEntry
+        {
             uint32_t hash = 0;           // 32-bit FNV-1a hash of the command fields
             unsigned long timestamp = 0; // The millisecond timestamp when the command was processed
         };
@@ -1564,8 +1631,8 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
 
         // CRITICAL FILTERING RULE:
         // We only apply duplicate detection to active control or state-changing commands.
-        // We explicitly skip telemetry packets (BUOYPOS, TOPDATA, SUBDATA, SUBACCU, SUBPWR). 
-        // Telemetry must bypass deduplication so that they always update the live database 
+        // We explicitly skip telemetry packets (BUOYPOS, TOPDATA, SUBDATA, SUBACCU, SUBPWR).
+        // Telemetry must bypass deduplication so that they always update the live database
         // with "last seen" timestamps and current metrics, even if the values have not changed.
         if (RfIn.cmd != BUOYPOS && RfIn.cmd != TOPDATA && RfIn.cmd != SUBDATA && RfIn.cmd != SUBACCU && RfIn.cmd != SUBPWR && RfIn.ack != GET && RfIn.ack != GETACK)
         {
@@ -1596,7 +1663,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             // Save the unique command hash and timestamp in the circular history buffer
             cmdHistory[cmdHistoryIndex].hash = currentHash;
             cmdHistory[cmdHistoryIndex].timestamp = now;
-            
+
             // Advance the circular buffer index
             cmdHistoryIndex = (cmdHistoryIndex + 1) % CMD_HISTORY_SIZE;
         }
@@ -1631,9 +1698,12 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             // Always bridge to the interface the packet did NOT arrive on. Sending it back out
             // on the arrival interface re-broadcasts it with the original sender ID, which the
             // IDs != espMac() self-filter in udp_setup cannot catch -> endless rebroadcast loop.
-            if (from_udp) {
+            if (from_udp)
+            {
                 xQueueSend(loraOut, (void *)&RfIn, 0);
-            } else {
+            }
+            else
+            {
                 xQueueSend(udpOut, (void *)&RfIn, 0);
             }
             return; // Done with bridging
@@ -1704,8 +1774,10 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 else
                 {
                     // Forward across interfaces
-                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
-                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                    if (from_udp)
+                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else
+                        xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
 
@@ -1726,8 +1798,10 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 else
                 {
                     // Forward across interfaces
-                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
-                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                    if (from_udp)
+                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else
+                        xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
 
@@ -1748,8 +1822,10 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 else
                 {
                     // Forward across interfaces
-                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
-                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                    if (from_udp)
+                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else
+                        xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             case LOCKPOS: // store new data into position database
@@ -1764,8 +1840,10 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 else
                 {
                     // Forward across interfaces
-                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
-                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                    if (from_udp)
+                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else
+                        xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             case PIDRUDDER:
@@ -1777,15 +1855,18 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 else
                 {
                     // Forward across interfaces
-                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
-                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                    if (from_udp)
+                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else
+                        xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             case PIDRUDDERSET:
                 printf("#PIDRUDDERSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kpr, RfIn.Kir, RfIn.Kdr);
                 RfIn.ack = SET; // Tell Sub to save to EEPROM
                 RfIn.IDr = BUOYIDALL;
-                if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE)
+                {
                     printf("ERROR: Failed to queue PIDRUDDERSET to serOut!\r\n");
                 }
                 break;
@@ -1798,8 +1879,10 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 else
                 {
                     // Forward across interfaces
-                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
-                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                    if (from_udp)
+                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else
+                        xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             case SETUPDATA:
@@ -1812,15 +1895,21 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 bool is_local = (RfIn.IDs == RfOut->mac || RfIn.IDs == 0x98 || RfIn.IDs == 0x99 || from_udp);
                 if (is_local && (RfIn.ack == 1 || RfIn.ack == 3 || RfIn.ack == 2)) // 1=GET, 2=SET, 3=GETACK
                 {
-                    
-                    if (RfIn.ack == 2 || RfIn.ack == 3) { // 2=SET, 3=GETACK
+
+                    if (RfIn.ack == 2 || RfIn.ack == 3)
+                    { // 2=SET, 3=GETACK
                         // Deliberately not written to our own flash: every value below belongs
                         // to the Sub, which commits it when we forward this frame with ack = SET.
                         // We keep a RAM copy only so the web page and the CYD have something to
                         // show until the Sub reports back.
-                        RfOut->Kpr = RfIn.Kpr; RfOut->Kir = RfIn.Kir; RfOut->Kdr = RfIn.Kdr;
-                        RfOut->Kps = RfIn.Kps; RfOut->Kis = RfIn.Kis; RfOut->Kds = RfIn.Kds;
-                        RfOut->maxSpeed = RfIn.maxSpeed; RfOut->minSpeed = RfIn.minSpeed;
+                        RfOut->Kpr = RfIn.Kpr;
+                        RfOut->Kir = RfIn.Kir;
+                        RfOut->Kdr = RfIn.Kdr;
+                        RfOut->Kps = RfIn.Kps;
+                        RfOut->Kis = RfIn.Kis;
+                        RfOut->Kds = RfIn.Kds;
+                        RfOut->maxSpeed = RfIn.maxSpeed;
+                        RfOut->minSpeed = RfIn.minSpeed;
                         RfOut->pivotSpeed = RfIn.pivotSpeed;
                         RfOut->compassOffset = RfIn.compassOffset;
                         RfOut->holdRad = RfIn.holdRad;
@@ -1831,13 +1920,14 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                         // second over ADAPTIVE_TRIM, but taking it here means the Setup page shows
                         // the new state at once instead of on the next broadcast.
                         RfOut->compass_trim_enabled = RfIn.compass_trim_enabled;
-                        if (RfIn.IDs == 0x98 || RfIn.IDs == 0x99) {
+                        if (RfIn.IDs == 0x98 || RfIn.IDs == 0x99)
+                        {
                             RfOut->dockApproachDist = RfIn.dockApproachDist;
                             RfOut->dockApproachDir = RfIn.dockApproachDir;
                             RfOut->dockingToWaypoint = RfIn.dockingToWaypoint;
                             memDockApproach(RfOut, MEM_PUT);
                         }
-                        
+
                         // Never commit an all-zero PID block to the Sub.
                         //
                         // We hold these in RAM only, filled from the Sub's SETUPDATA reply. When
@@ -1862,9 +1952,14 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                             {
                                 printf("#SETUPDATA: all-zero PID block from a stale sender - "
                                        "substituting ours and forwarding the rest\r\n");
-                                RfIn.Kpr = RfOut->Kpr; RfIn.Kir = RfOut->Kir; RfIn.Kdr = RfOut->Kdr;
-                                RfIn.Kps = RfOut->Kps; RfIn.Kis = RfOut->Kis; RfIn.Kds = RfOut->Kds;
-                                if (RfIn.maxSpeed == 0 && RfIn.minSpeed == 0) {
+                                RfIn.Kpr = RfOut->Kpr;
+                                RfIn.Kir = RfOut->Kir;
+                                RfIn.Kdr = RfOut->Kdr;
+                                RfIn.Kps = RfOut->Kps;
+                                RfIn.Kis = RfOut->Kis;
+                                RfIn.Kds = RfOut->Kds;
+                                if (RfIn.maxSpeed == 0 && RfIn.minSpeed == 0)
+                                {
                                     RfIn.maxSpeed = RfOut->maxSpeed;
                                     RfIn.minSpeed = RfOut->minSpeed;
                                 }
@@ -1880,30 +1975,33 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
 
                         // FORWARD TO SUB: Force the Sub to physically commit these parameters to its local persistent EEPROM/flash.
                         RfIn.ack = SET;
-                        if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                        if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE)
+                        {
                             printf("ERROR: Failed to queue SETUPDATA forward request to serOut!\r\n");
                         }
-                        else{
+                        else
+                        {
                             printf("#SETUPDATA: Updated parameters from Sub. Forwarding to Sub to save permanently. maxSpeed=%d\r\n", RfIn.maxSpeed);
-                        } 
+                        }
+                    }
 
-                    } 
-                    
                     // Route Tracking: Record the sender ID who initiated the request,
                     // allowing us to route the Sub's asynchronous reply back to the correct requester.
                     lastSetupRequester = RfIn.IDs;
 
-                    // Forward to Sub to trigger a fresh update. 
+                    // Forward to Sub to trigger a fresh update.
                     // Overwrite the sender ID with our own Top MAC address to ensure the half-duplex serial driver
                     // recognizes and ignores self-echoed transactions.
                     // Only forward to our local Sub if the command is explicitly addressed to us.
                     // A broadcast SETUPDATA would otherwise make every buoy commit another buoy's
                     // configuration to its own Sub EEPROM.
-                    if (RfIn.IDr == RfOut->mac) {
+                    if (RfIn.IDr == RfOut->mac)
+                    {
                         RfIn.IDr = BUOYIDALL;
                         RfIn.IDs = espMac();
                         printf("DEBUG_SETUPDATA: Forwarding to Sub via serOut. maxSpeed=%d, ack=%d\r\n", RfIn.maxSpeed, RfIn.ack);
-                        if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                        if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE)
+                        {
                             printf("ERROR: Failed to queue SETUPDATA forward request to serOut!\r\n");
                         }
                     }
@@ -1923,19 +2021,26 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     // showed our PID / limits / compass values under that buoy's number, and its
                     // rev counter advanced, which is what made the wrong data look freshly
                     // fetched rather than stale.
-                    if (RfIn.IDs == RfOut->mac || RfIn.IDs == RfOut->IDs) {
+                    if (RfIn.IDs == RfOut->mac || RfIn.IDs == RfOut->IDs)
+                    {
                         targetIdx = 0;
                     }
-                    else {
-                        for (int i = 1; i < 3; i++) {
-                            if (buoyPara[i]->IDs == RfIn.IDs) {
+                    else
+                    {
+                        for (int i = 1; i < 3; i++)
+                        {
+                            if (buoyPara[i]->IDs == RfIn.IDs)
+                            {
                                 targetIdx = i;
                                 break;
                             }
                         }
-                        if (targetIdx == -1) {
-                            for (int i = 1; i < 3; i++) {
-                                if (buoyPara[i]->IDs == 0) {
+                        if (targetIdx == -1)
+                        {
+                            for (int i = 1; i < 3; i++)
+                            {
+                                if (buoyPara[i]->IDs == 0)
+                                {
                                     targetIdx = i;
                                     break;
                                 }
@@ -1943,7 +2048,8 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                         }
                     }
 
-                    if (targetIdx != -1) {
+                    if (targetIdx != -1)
+                    {
                         // Merge instead of assigning: a SETUPDATA reply carries no position or
                         // status, so a plain overwrite would blank the remote buoy's fix until
                         // its next telemetry packet arrived.
@@ -1959,11 +2065,14 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                         // slot 0 could only be selected when its IDs already equalled RfIn.IDs.
                         // Now that a reply matching our MAC also lands here, an unguarded
                         // assignment would overwrite the logical ID synced from the Sub.
-                        if (targetIdx == 0 && RfOut->IDs == 0) RfOut->IDs = RfIn.IDs;
+                        if (targetIdx == 0 && RfOut->IDs == 0)
+                            RfOut->IDs = RfIn.IDs;
                     }
                     // Forward across interfaces
-                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
-                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                    if (from_udp)
+                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else
+                        xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             }
@@ -1978,14 +2087,19 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 bool is_local = (RfIn.IDs == RfOut->mac || RfIn.IDs == 0x98 || RfIn.IDs == 0x99 || from_udp);
                 if (is_local && (RfIn.ack == GET || RfIn.ack == GETACK || RfIn.ack == SET))
                 {
-                    if (RfIn.IDr == RfOut->mac || RfIn.IDr == RfOut->IDs || RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) {
-                        if (RfIn.ack == SET) {
+                    if (RfIn.IDr == RfOut->mac || RfIn.IDr == RfOut->IDs || RfIn.IDr == BUOYIDALL || RfIn.IDr == 0)
+                    {
+                        if (RfIn.ack == SET)
+                        {
                             // The sender's own serial, not one of ours - see cal8NotePress().
                             cal8NotePress(RfIn.cal8Action, RfIn.cal8Next, RfIn.cal8Seq);
-                        } else {
+                        }
+                        else
+                        {
                             RfIn.IDr = BUOYIDALL;
                             RfIn.IDs = espMac();
-                            if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                            if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE)
+                            {
                                 printf("ERROR: Failed to queue CAL8_SESSION forward to serOut!\r\n");
                             }
                         }
@@ -1993,8 +2107,10 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 else
                 {
-                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
-                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                    if (from_udp)
+                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else
+                        xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             }
@@ -2004,11 +2120,13 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 bool is_local = (RfIn.IDs == RfOut->mac || RfIn.IDs == 0x98 || RfIn.IDs == 0x99 || from_udp);
                 if (is_local && (RfIn.ack == 1 || RfIn.ack == 3 || RfIn.ack == 2)) // 1=GET, 2=SET, 3=GETACK
                 {
-                    if (RfIn.IDr == RfOut->mac || RfIn.IDr == RfOut->IDs || RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) {
+                    if (RfIn.IDr == RfOut->mac || RfIn.IDr == RfOut->IDs || RfIn.IDr == BUOYIDALL || RfIn.IDr == 0)
+                    {
                         RfIn.IDr = BUOYIDALL;
                         RfIn.IDs = espMac();
                         printf("DEBUG_INTERPOLATION_TABLE: Forwarding to Sub via serOut. ack=%d\r\n", RfIn.ack);
-                        if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                        if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE)
+                        {
                             printf("ERROR: Failed to queue STORE_INTERPOLATION_TABLE forward request to serOut!\r\n");
                         }
                     }
@@ -2016,8 +2134,10 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 else
                 {
                     // Forward across interfaces
-                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
-                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                    if (from_udp)
+                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else
+                        xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             }
@@ -2026,7 +2146,8 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfOut->cmd = PIDSPEEDSET;
                 RfIn.ack = SET; // Tell Sub to save to EEPROM
                 RfIn.IDr = BUOYIDALL;
-                if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE)
+                {
                     printf("ERROR: Failed to queue PIDSPEEDSET to serOut!\r\n");
                 }
                 RfOut->Kps = RfIn.Kps;
@@ -2044,27 +2165,32 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 else
                 {
                     // Forward across interfaces
-                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
-                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                    if (from_udp)
+                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else
+                        xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             case REMOTE:
                 if (RfIn.IDr == RfOut->mac || ((RfIn.IDr == BUOYIDALL || RfIn.IDr == 0) && (RfIn.IDs == 0x99 || RfIn.IDs == 0x98)))
                 {
-                    if (RfOut->status != REMOTE) {
+                    if (RfOut->status != REMOTE)
+                    {
                         beep(1, buzzer);
                         RfOut->status = REMOTE;
                     }
                     RfOut->tgDir = RfIn.tgDir;
                     RfOut->tgSpeed = RfIn.tgSpeed;
                     xQueueSend(serOut, (void *)&RfIn, 0); // update sub
-                    RfOut->lastSerOut = 0; // Force immediate update to sub
+                    RfOut->lastSerOut = 0;                // Force immediate update to sub
                 }
                 else
                 {
                     // Forward across interfaces
-                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
-                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                    if (from_udp)
+                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else
+                        xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             case DIRDIST:
@@ -2074,7 +2200,8 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     adjustPositionDirDist(RfIn.tgDir, RfIn.tgDist, RfOut->lat, RfOut->lng, &RfOut->tgLat, &RfOut->tgLng);
                     RouteToPoint(RfOut->lat, RfOut->lng, RfOut->tgLat, RfOut->tgLng, &RfOut->tgDist, &RfOut->tgDir);
 
-                    if (RfOut->status != LOCKED) {
+                    if (RfOut->status != LOCKED)
+                    {
                         RfIn.cmd = RESET_SPEED_RUD_PID;
                         xQueueSend(serOut, (void *)&RfIn, 0); // update sub only if transitioning
                     }
@@ -2087,8 +2214,10 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     // but do NOT execute it as a command for ourselves!
                     AddDataToBuoyBase(RfIn, buoyPara);
                     // Forward across interfaces
-                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
-                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                    if (from_udp)
+                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else
+                        xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             case LOCKING:
@@ -2104,8 +2233,10 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 else
                 {
                     // Forward across interfaces
-                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
-                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                    if (from_udp)
+                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else
+                        xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             case DOCKPOS: // Someone is asking where our dock is - answer, do not act on it
@@ -2136,8 +2267,10 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfIn.IDs = RfOut->mac;
                 RfIn.cmd = DOCKPOS;
                 RfIn.ack = INF;
-                if (from_udp) xQueueSend(udpOut, (void *)&RfIn, 0);
-                else xQueueSend(loraOut, (void *)&RfIn, 0);
+                if (from_udp)
+                    xQueueSend(udpOut, (void *)&RfIn, 0);
+                else
+                    xQueueSend(loraOut, (void *)&RfIn, 0);
                 crumb(23);
                 udpLog("DOCKPOS answered to %08lX via %s", (unsigned long)RfIn.IDr,
                        from_udp ? "udp" : "lora");
@@ -2272,8 +2405,10 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 else
                 {
                     // Forward across interfaces
-                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
-                    else xQueueSend(udpOut, (void *)&RfIn, 0);
+                    if (from_udp)
+                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                    else
+                        xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
                 break;
             case SUBACCU:
@@ -2318,7 +2453,8 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 break;
             case MAXMINPWRSET:
                 RfIn.ack = SET; // Tell Sub to save to EEPROM
-                if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE)
+                {
                     printf("ERROR: Failed to queue MAXMINPWRSET to serOut!\r\n");
                 }
                 break;
@@ -2326,33 +2462,41 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfOut->compassOffset = RfIn.compassOffset; // Update Top Buoy's local data
                 break;
             case ADAPTIVE_TRIM:
-                {
-                    RfOut->compass_trim = RfIn.compass_trim;
-                    RfOut->compass_trim_enabled = RfIn.compass_trim_enabled;
+            {
+                RfOut->compass_trim = RfIn.compass_trim;
+                RfOut->compass_trim_enabled = RfIn.compass_trim_enabled;
 
-                    int targetIdx = -1;
-                    for (int i = 0; i < 3; i++) {
-                        if (buoyPara[i]->IDs == RfIn.IDs) {
+                int targetIdx = -1;
+                for (int i = 0; i < 3; i++)
+                {
+                    if (buoyPara[i]->IDs == RfIn.IDs)
+                    {
+                        targetIdx = i;
+                        break;
+                    }
+                }
+                if (targetIdx == -1)
+                {
+                    for (int i = 0; i < 3; i++)
+                    {
+                        if (buoyPara[i]->IDs == 0)
+                        {
                             targetIdx = i;
                             break;
                         }
                     }
-                    if (targetIdx == -1) {
-                        for (int i = 0; i < 3; i++) {
-                            if (buoyPara[i]->IDs == 0) {
-                                targetIdx = i;
-                                break;
-                            }
-                        }
-                    }
-                    if (targetIdx != -1) {
-                        buoyPara[targetIdx]->compass_trim = RfIn.compass_trim;
-                        buoyPara[targetIdx]->compass_trim_enabled = RfIn.compass_trim_enabled;
-                    }
-                    if (from_udp) xQueueSend(loraOut, (void *)&RfIn, 0);
-                    else xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
-                
+                if (targetIdx != -1)
+                {
+                    buoyPara[targetIdx]->compass_trim = RfIn.compass_trim;
+                    buoyPara[targetIdx]->compass_trim_enabled = RfIn.compass_trim_enabled;
+                }
+                if (from_udp)
+                    xQueueSend(loraOut, (void *)&RfIn, 0);
+                else
+                    xQueueSend(udpOut, (void *)&RfIn, 0);
+            }
+
                 RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
                 break;
@@ -2384,9 +2528,11 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 // acknowledged by a buoy that is busy restarting, so every retry lands on a
                 // freshly booted Top and reboots it again. Ignoring reboots for the first few
                 // seconds of a boot breaks that cycle whatever the sender does.
-                if (millis() < 15000) {
+                if (millis() < 15000)
+                {
                     printf("REBOOT ignored: only %lu ms since boot, treating it as a retry of the "
-                           "reboot we just performed.\r\n", millis());
+                           "reboot we just performed.\r\n",
+                           millis());
                     break;
                 }
                 RfIn.IDr = BUOYIDALL;
@@ -2394,7 +2540,8 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 printf("REBOOT command received! Forwarding to Sub and rebooting Top...\r\n");
                 {
                     extern QueueHandle_t buzzer;
-                    if (buzzer != NULL) {
+                    if (buzzer != NULL)
+                    {
                         beep(2, buzzer);
                     }
                 }
@@ -2416,7 +2563,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
 // ***************************************************************************************************
 /**
  * @brief Processes incoming GPS data from the GPS queue and applies filtering.
- * 
+ *
  * @param gps Pointer to the RoboStruct where GPS coordinates and fix status will be updated.
  */
 void handleGpsData(RoboStruct *gps)
@@ -2465,9 +2612,9 @@ void handleGpsData(RoboStruct *gps)
                 // Large jump: might be an outlier OR the buoy was moved
                 gpsErrorCnt++;
                 Serial.printf("Potential GPS outlier (dist: %.2f m), count: %u\r\n", dist, gpsErrorCnt);
-                
+
                 // If we get many consecutive outliers, accept the new position
-                if (gpsErrorCnt > 30) 
+                if (gpsErrorCnt > 30)
                 {
                     Serial.println("Accepting new GPS position after persistent outliers.");
                     gpsErrorCnt = 0;
@@ -2491,7 +2638,7 @@ void handleGpsData(RoboStruct *gps)
 //***************************************************************************************************
 /**
  * @brief Processes incoming serial data from the sub-controller.
- * 
+ *
  * @param ser Pointer to the RoboStruct to be updated with serial data.
  */
 void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
@@ -2558,9 +2705,10 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
         // For serial data, we ALWAYS update the local 'ser' (mainData)
         // This prevents remote buoy slots from "stealing" the update if IDs match.
         RoboStruct *target = ser;
-        
+
         // Update local identity if the sub reports a different ID
-        if (serDataIn.IDs != 0 && serDataIn.IDs != ser->IDs) {
+        if (serDataIn.IDs != 0 && serDataIn.IDs != ser->IDs)
+        {
             // printf("Syncing local buoy ID from %08X to %08X\r\n", (unsigned int)ser->IDs, (unsigned int)serDataIn.IDs);
             ser->IDs = serDataIn.IDs;
         }
@@ -2575,7 +2723,8 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
         switch (serDataIn.cmd)
         {
         case ADAPTIVE_TRIM:
-            if (target) {
+            if (target)
+            {
                 target->compass_trim = serDataIn.compass_trim;
                 target->compass_trim_enabled = serDataIn.compass_trim_enabled;
             }
@@ -2602,11 +2751,14 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             xQueueSend(ledPwr, (void *)&mainPwrData, 0);
             break;
         case SETUPDATA:
-            if (serDataIn.ack == 1 || serDataIn.ack == 3 || serDataIn.ack == 2) { // 1=GET, 2=SET, 3=GETACK
+            if (serDataIn.ack == 1 || serDataIn.ack == 3 || serDataIn.ack == 2)
+            { // 1=GET, 2=SET, 3=GETACK
                 // This is a request from PC (Serial) -> Forward to Sub
                 serDataIn.IDr = BUOYIDALL; // Force Sub to accept the request
                 xQueueSend(serOut, (void *)&serDataIn, 0);
-            } else if (serDataIn.ack == INF) {
+            }
+            else if (serDataIn.ack == INF)
+            {
                 // This is the response coming FROM the Sub
                 // Update the correct buoy's data
                 target->Kpr = serDataIn.Kpr;
@@ -2646,16 +2798,18 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                 uint64_t subID = serDataIn.IDs; // Save Sub's actual ID before overwriting
 
                 // Ensure sender ID matches the Top's MAC address so the PC's UI maps it to the correct buoy
-                serDataIn.IDs = espMac(); 
+                serDataIn.IDs = espMac();
 
-                if (xQueueSend(udpOut, (void *)&serDataIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                if (xQueueSend(udpOut, (void *)&serDataIn, pdMS_TO_TICKS(250)) != pdTRUE)
+                {
                     printf("ERROR: Failed to queue SETUPDATA response to udpOut!\r\n");
                 }
-                
+
                 // For LoRa, always broadcast with IDr = BUOYIDALL (1) matching the protocol standard and ensuring
                 // both the physical screen (0x98) and its webpage Setup clients receive the response successfully.
                 RoboStruct loraDataOut = serDataIn;
-                if (xQueueSend(loraOut, (void *)&loraDataOut, pdMS_TO_TICKS(250)) != pdTRUE) {
+                if (xQueueSend(loraOut, (void *)&loraDataOut, pdMS_TO_TICKS(250)) != pdTRUE)
+                {
                     printf("ERROR: Failed to queue SETUPDATA response to loraOut!\r\n");
                 }
 
@@ -2663,7 +2817,8 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                 serDataIn.ack = ACK;
                 serDataIn.IDr = subID; // Send back to the Sub's actual ID
                 serDataIn.IDs = espMac();
-                if (xQueueSend(serOut, (void *)&serDataIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                if (xQueueSend(serOut, (void *)&serDataIn, pdMS_TO_TICKS(250)) != pdTRUE)
+                {
                     printf("ERROR: Failed to queue SETUPDATA ACK to serOut!\r\n");
                 }
 
@@ -2688,7 +2843,8 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             // Answer to either half of the calibration handshake: the table the Sub is running, or
             // the echo of the one it has just stored.
             printf("Interpolation table from Sub:");
-            for (int i = 0; i < 8; i++) printf(" %.2f", serDataIn.interpolationTable[i]);
+            for (int i = 0; i < 8; i++)
+                printf(" %.2f", serDataIn.interpolationTable[i]);
             printf("\r\n");
             // Feed the web page's MAN CAL working copy - see topwifi.h.
             mancalNoteTable(serDataIn.interpolationTable, serDataIn.interpUsable);
@@ -2696,10 +2852,12 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             // Broadcast the table over UDP and LoRa so clients can receive it!
             serDataIn.IDr = BUOYIDALL;
             serDataIn.IDs = espMac();
-            if (xQueueSend(udpOut, (void *)&serDataIn, pdMS_TO_TICKS(100)) != pdTRUE) {
+            if (xQueueSend(udpOut, (void *)&serDataIn, pdMS_TO_TICKS(100)) != pdTRUE)
+            {
                 printf("ERROR: Failed to queue table broadcast to udpOut!\r\n");
             }
-            if (xQueueSend(loraOut, (void *)&serDataIn, pdMS_TO_TICKS(100)) != pdTRUE) {
+            if (xQueueSend(loraOut, (void *)&serDataIn, pdMS_TO_TICKS(100)) != pdTRUE)
+            {
                 printf("ERROR: Failed to queue table broadcast to loraOut!\r\n");
             }
             break;
@@ -2710,7 +2868,7 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             ser->speedBb = serDataIn.speedBb;
             ser->speedSb = serDataIn.speedSb;
             printf("M:%03.0f T:%03.0f D:%03.1f   BB:%d SB:%d\r\n", ser->dirMag, ser->tgDir, ser->tgDist, ser->speedBb, ser->speedSb);
-            
+
             mainPwrData.ledBb = ser->speedBb;
             mainPwrData.ledSb = ser->speedSb;
             xQueueSend(ledPwr, (void *)&mainPwrData, 0);
@@ -2728,17 +2886,20 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             break;
         case IDLE:
             // Prevent delayed IDLE from Sub buoy from canceling an active state
-            if (ser->status == IDLING || ser->status == IDLE) {
+            if (ser->status == IDLING || ser->status == IDLE)
+            {
                 ser->status = IDLE;
             }
             break;
         case LOCKED:
-            if (ser->status != LOCKED && ser->status != LOCKING && ser->status != LOCKPOS) {
+            if (ser->status != LOCKED && ser->status != LOCKING && ser->status != LOCKPOS)
+            {
                 ser->status = LOCKED;
             }
             break;
         case DOCKED:
-            if (ser->status != DOCKED && ser->status != DOCKING) {
+            if (ser->status != DOCKED && ser->status != DOCKING)
+            {
                 ser->status = DOCKED;
             }
             break;
@@ -2771,7 +2932,7 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             {
                 // This is a response from Sub -> Forward to PC/LoRa/UDP
                 // printf("Received PID/PWR data from sub. CMD: %d\r\n", serDataIn.cmd);
-                
+
                 // IMPORTANT: Send the actual protocol string to the PC via Serial so RoboControl.py sees it!
                 Serial.println(rfCode(&serDataIn));
 
@@ -2781,16 +2942,19 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                 forwardMsg.IDr = BUOYIDALL;
                 forwardMsg.IDs = espMac();
 
-                if (xQueueSend(udpOut, (void *)&forwardMsg, pdMS_TO_TICKS(250)) != pdTRUE) {
+                if (xQueueSend(udpOut, (void *)&forwardMsg, pdMS_TO_TICKS(250)) != pdTRUE)
+                {
                     printf("ERROR: Failed to queue PID/PWR response to udpOut!\r\n");
                 }
-                if (xQueueSend(loraOut, (void *)&forwardMsg, pdMS_TO_TICKS(250)) != pdTRUE) {
+                if (xQueueSend(loraOut, (void *)&forwardMsg, pdMS_TO_TICKS(250)) != pdTRUE)
+                {
                     printf("ERROR: Failed to queue PID/PWR response to loraOut!\r\n");
                 }
 
                 // Acknowledge the Sub to stop its retry loop
                 serDataIn.ack = GETACK;
-                if (xQueueSend(serOut, (void *)&serDataIn, pdMS_TO_TICKS(250)) != pdTRUE) {
+                if (xQueueSend(serOut, (void *)&serDataIn, pdMS_TO_TICKS(250)) != pdTRUE)
+                {
                     printf("ERROR: Failed to queue PID/PWR ACK to serOut!\r\n");
                 }
             }
@@ -2833,7 +2997,8 @@ bool subSerialAlive(void)
 {
     // Nothing received since boot: millis() - 0 is small for the first seconds, which would
     // otherwise read as "alive" before the Sub has ever spoken.
-    if (lastRealSerIn == 0) return false;
+    if (lastRealSerIn == 0)
+        return false;
     // Note that the serial watchdog parks lastRealSerIn in the future as a grace period after a
     // wakeup. The unsigned subtraction then wraps to a huge value, which correctly reads as dead -
     // the Sub really is silent while it reboots.
@@ -2849,7 +3014,8 @@ bool subSerialAlive(void)
 void loop(void)
 {
     mainData.mac = espMac();
-    if (mainData.IDs == 0) mainData.IDs = espMac();
+    if (mainData.IDs == 0)
+        mainData.IDs = espMac();
     Serial.println("Main loop running!");
     {
         char tag[20];
@@ -2866,7 +3032,8 @@ void loop(void)
     while (true)
     {
         // Safety: Ensure status is never 0 (which greys out buttons)
-        if (mainData.status <= 0) mainData.status = IDLE;
+        if (mainData.status <= 0)
+            mainData.status = IDLE;
 
         // Ensure mac is always set correctly
         mainData.mac = espMac();
@@ -2874,7 +3041,8 @@ void loop(void)
         // Keep placeholder in sync for dashboard
         // What we are, before any command handler this iteration can overwrite it with what we
         // have been told to do. See lockedBuoyCount() for why the difference matters.
-        if (!isCommandStatus(mainData.status)) lastHoldingStatus = mainData.status;
+        if (!isCommandStatus(mainData.status))
+            lastHoldingStatus = mainData.status;
         buoyPara[0] = mainData;
 
         // Slot 0 is us, and only us. We answer to two identities: the physical MAC and the
@@ -2899,7 +3067,7 @@ void loop(void)
         crumb(90);
         handleTimerRoutines(&mainData);
         mancalSessionService();
-    cal8Service();   // resend a calibration press until the Sub shows it landed
+        cal8Service(); // resend a calibration press until the Sub shows it landed
         {
             static unsigned long lastHealth = 0;
             if (millis() - lastHealth > 2000)
@@ -2955,7 +3123,7 @@ void loop(void)
             RoboStruct wakeupMsg;
             wakeupMsg.cmd = WAKEUP;
             xQueueSend(serOut, (void *)&wakeupMsg, 0);
-            
+
             // Set a future grace period to prevent spamming wakeup before sub can respond
             lastRealSerIn = millis() + 10000; // 15-second delay until next potential watchdog trigger
             isSerConnected = false;
