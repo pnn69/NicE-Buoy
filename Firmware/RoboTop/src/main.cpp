@@ -451,7 +451,7 @@ void handleKeyPress(RoboStruct *key)
             case 102: // short, long: align start line
                 key->status = COMPUTESTART;
                 break;
-                case 103: // short x2, long: align track
+            case 103: // short x2, long: align track
                 key->status = COMPUTETRACK;
                 break;
             case 4: // short x4: shorten the start line
@@ -892,11 +892,16 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         }
         break;
     case EXTENDSTART:
+    case SHORTENSTART:
+        // One case for both directions. The two differ by the sign of a distance and by nothing
+        // else - same guard, same beeps, same SENDTRACK afterwards - so splitting them would be two
+        // copies of a guard that has already been got wrong once, see lockedBuoyCount() above.
+        //
         // Same lock guard as COMPUTESTART, and for the same reason: an unlocked buoy carries a
-        // stale target, and this would faithfully extend a line drawn through wherever it last was.
+        // stale target, and this would faithfully resize a line drawn through wherever it last was.
         if (lockedBuoyCount(stat, buoyPara) < 2)
         {
-            printf("#Start line NOT extended - need TWO locked buoys, have %d\r\n",
+            printf("#Start line NOT resized - need TWO locked buoys, have %d\r\n",
                    lockedBuoyCount(stat, buoyPara));
 
             udpLog("GUARD refused: %d locked buoy(s), need 2", lockedBuoyCount(stat, buoyPara));
@@ -904,10 +909,16 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
             restoreHoldingStatus(stat);
             break;
         }
-        // No wind guard here, unlike COMPUTESTART. Nothing rotates - the line keeps its bearing and
-        // only its ends move apart - so there is no wind reading to be wrong about, and this stays
-        // usable on a buoy whose compass has failed.
-        if (extendStartLine(buoyPara, START_LINE_STEP_M))
+        // No wind guard here, unlike COMPUTESTART. Nothing rotates - the line keeps its bearing
+        // and only its ends move along it - so there is no wind reading to be wrong about, and this
+        // stays usable on a buoy whose compass has failed.
+        //
+        // extendStartLine() refuses rather than clamps at MIN_START_LINE_M, so a shrink that would
+        // collapse the line falls through to the else below and beeps the failure tone. That is the
+        // intent: the operator has to hear that the line did not move, and a clamp would have
+        // beeped success and moved the ends somewhere other than where the press asked for.
+        if (extendStartLine(buoyPara, (stat->status == SHORTENSTART) ? -START_LINE_STEP_M
+                                                                     : START_LINE_STEP_M))
         {
             beep(1, buzzer);
             adoptOwnTrackTarget(stat, buoyPara);
