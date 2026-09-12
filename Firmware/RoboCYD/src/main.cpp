@@ -298,6 +298,35 @@ static bool mancal_press_pending(const BuoyData &b) {
 #define MANCAL_TILT_GOOD_DEG 2.0f
 #define MANCAL_TILT_POOR_DEG 5.0f
 
+// SET LEVEL, beside the big Imag reading. It used to be an action slot on the CALIBRATION page,
+// which is the wrong place for it: levelling the hull and measuring its deviation are one job, and
+// this is the screen that shows the bubble. Setting the datum two menus away from the instrument
+// that reports it meant doing it blind.
+//
+// It sits to the RIGHT of the number rather than under it, which is where it looks like it belongs:
+// the strip at y 98..110 is the hint line, and the rose labels start at y 120, so the only header
+// space wide enough for a real target is beside the reading. The Imag repaint below is clipped to
+// x < MANCAL_LVL_X so it cannot wipe the button on every update.
+#define MANCAL_LVL_X 164
+#define MANCAL_LVL_Y  62
+#define MANCAL_LVL_W  64
+#define MANCAL_LVL_H  32
+
+// Two taps to commit. This writes a datum to the buoy and it sits within reach of a thumb going for
+// the rose, so one stray press must not be able to redefine what level means halfway through a run.
+// Disarms itself, so an arming tap that is then thought better of costs nothing.
+#define MANCAL_LEVEL_ARM_MS 4000UL
+static unsigned long mancal_level_armed_ms = 0;
+
+static bool mancal_level_armed(void) {
+    if (mancal_level_armed_ms == 0) return false;
+    if (millis() - mancal_level_armed_ms > MANCAL_LEVEL_ARM_MS) {
+        mancal_level_armed_ms = 0;
+        return false;
+    }
+    return true;
+}
+
 // The bubble, in the middle of the rose. Full scale at the outer ring is 10 degrees.
 static void draw_mancal_level(const BuoyData &b, bool known) {
     const int r_out = 22;                       // 10 deg
@@ -335,6 +364,24 @@ static void draw_mancal_level(const BuoyData &b, bool known) {
     if (mag > lim && mag > 0.001f) { dx = dx * lim / mag; dy = dy * lim / mag; }
 
     tft.fillCircle(MANCAL_CX + (int)dx, MANCAL_CY + (int)dy, 4, col);
+}
+
+// The SET LEVEL button. Armed it goes yellow and says what the second tap will do, because a
+// control that silently changes meaning between one press and the next is worse than no guard.
+static void draw_mancal_level_button(bool armed) {
+    const uint16_t fill = armed ? TFT_YELLOW : tft.color565(30, 30, 30);
+    const uint16_t edge = armed ? TFT_YELLOW : TFT_CYAN;
+    const uint16_t ink  = armed ? TFT_BLACK  : TFT_CYAN;
+
+    tft.fillRoundRect(MANCAL_LVL_X, MANCAL_LVL_Y, MANCAL_LVL_W, MANCAL_LVL_H, 4, fill);
+    tft.drawRoundRect(MANCAL_LVL_X, MANCAL_LVL_Y, MANCAL_LVL_W, MANCAL_LVL_H, 4, edge);
+
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextSize(1);
+    tft.setTextColor(ink, fill);
+    const int cx = MANCAL_LVL_X + MANCAL_LVL_W / 2;
+    tft.drawString(armed ? "TAP"   : "SET",   cx, MANCAL_LVL_Y + 11);
+    tft.drawString(armed ? "AGAIN" : "LEVEL", cx, MANCAL_LVL_Y + 22);
 }
 
 // The action band, bottom of the screen. Pulled out of update_mancal_dynamic() so a press can put
@@ -560,7 +607,7 @@ enum SetupSlot {
     S_REVBB  = 20, S_REVSB = 21, S_SWAP = 22,
     S_APPDIST = 24, S_APPDIR = 25, S_DOCKWP = 26,
     S_DESKCAL = 32, S_SETNORTH = 33, S_REBOOT = 34,
-    S_MANCAL = 36, S_SETLEVEL = 37, S_LINKS = 38
+    S_MANCAL = 36, S_LINKS = 38
 };
 
 static const char *SETUP_NAMES[SETUP_SLOTS] = {
@@ -568,7 +615,7 @@ static const char *SETUP_NAMES[SETUP_SLOTS] = {
     /* 2 SPEED & COMPASS  */ "MaxSpd:", "MinSpd:", "PvtSpd:", "",   "CompOff:", "HoldRad:", "", "",
     /* 3 TRIM & THRUSTERS */ "TrimEn:", "", "", "",                  "BB Inv:", "SB Inv:", "Swap:", "",
     /* 4 DOCKING          */ "Appr Dist", "Appr Dir", "DockToWP", "", "", "", "", "",
-    /* 5 CALIBRATION      */ "Desk Cal", "Set North", "Reboot", "",   "MAN CAL", "Set Level", "LoRa Links", ""
+    /* 5 CALIBRATION      */ "Desk Cal", "Set North", "Reboot", "",   "MAN CAL", "", "LoRa Links", ""
 };
 
 // Shown where the screen used to just say "SETUP" - these are the <h4> headings of the web form.
@@ -587,7 +634,7 @@ static inline bool setup_slot_used(int slot) {
 // Slots that DO something when "+" is pressed rather than holding a number.
 static inline bool setup_slot_is_action(int slot) {
     return slot == S_DESKCAL || slot == S_SETNORTH || slot == S_REBOOT ||
-           slot == S_MANCAL || slot == S_SETLEVEL || slot == S_LINKS;
+           slot == S_MANCAL || slot == S_LINKS;
 }
 
 static inline bool setup_slot_is_bool(int slot) {
@@ -1881,8 +1928,7 @@ void update_setup_dynamic() {
             tft.setTextColor(on ? TFT_GREEN : textColor, TFT_BLACK);
             sprintf(buf, "%s %s", SETUP_NAMES[global_idx], on ? "YES" : "NO");
             tft.drawString(buf, x + 54, y + 16);
-        } else if (global_idx == S_MANCAL || global_idx == S_REBOOT || global_idx == S_SETLEVEL ||
-                   global_idx == S_LINKS) {
+        } else if (global_idx == S_MANCAL || global_idx == S_REBOOT || global_idx == S_LINKS) {
             tft.setTextColor(TFT_ORANGE, TFT_BLACK);
             tft.drawString(SETUP_NAMES[global_idx], x + 54, y + 16);
         } else if (setup_slot_is_action(global_idx)) {
@@ -1906,7 +1952,6 @@ void update_setup_dynamic() {
         uint16_t col = TFT_DARKGREY;
         if (armed) {
             col = (selected_param_idx == S_MANCAL || selected_param_idx == S_REBOOT) ? TFT_ORANGE
-                : (selected_param_idx == S_SETLEVEL) ? TFT_CYAN
                 : TFT_YELLOW;
         }
         tft.setTextColor(col, TFT_BLACK);
@@ -2656,7 +2701,48 @@ void loop() {
                     return;
                 }
 
-                // 1. The footer. Tested first because it is the way out, and a screen you cannot
+                // 1. SET LEVEL, beside the Imag reading. Two taps: the first arms, the second
+                //    commits. Tested before the regions below because it overlaps none of them and
+                //    has nothing to do with the state of the run - the datum can be set before a
+                //    run, during one, or with no session armed at all.
+                if (touchY >= MANCAL_LVL_Y && touchY < MANCAL_LVL_Y + MANCAL_LVL_H &&
+                    touchX >= MANCAL_LVL_X && touchX < MANCAL_LVL_X + MANCAL_LVL_W) {
+                    if (!mancal_level_armed()) {
+                        mancal_level_armed_ms = millis();
+                        draw_mancal_level_button(true);
+                        mancal_warn("TAP AGAIN TO SET LEVEL");
+                        return;
+                    }
+                    mancal_level_armed_ms = 0;
+
+                    // Declare the hull level where it sits. The buoy reads its own sensor and
+                    // stores the datum - see SET_AS_LEVEL in RoboCompute.h.
+                    //
+                    // The wording matters more than it looks. The bubble shows the SENSOR's angle
+                    // until a datum is set, and on a hull where the sensor is not bolted in flat it
+                    // will never centre - which invites tilting the boat to satisfy it. That is the
+                    // one thing that genuinely ruins a run: a fixed mounting tilt is absorbed by
+                    // the compass table, but the hull sitting at a different attitude at each stop
+                    // is not.
+                    Serial.println("MANCAL: SET LEVEL - storing the current attitude as the datum");
+                    send_buoy_command(b.id, 93 /* SET_AS_LEVEL */, 6 /* INF */);
+
+                    tft.fillRect(0, 120, tft.width(), 116, TFT_BLACK);
+                    tft.setTextDatum(MC_DATUM);
+                    tft.setTextSize(2);
+                    tft.setTextColor(TFT_CYAN, TFT_BLACK);
+                    tft.drawString("LEVEL SET", tft.width() / 2, 150);
+                    tft.setTextSize(1);
+                    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+                    tft.drawString("the bubble now reads departure", tft.width() / 2, 180);
+                    tft.drawString("from THIS attitude - do not tilt", tft.width() / 2, 196);
+                    tft.drawString("the hull to centre it", tft.width() / 2, 212);
+                    delay(1800);
+                    mancal_is_dirty = true;   // puts the rose and the bubble back
+                    return;
+                }
+
+                // 2. The footer. Tested first because it is the way out, and a screen you cannot
                 //    leave is worse than one that does nothing.
                 if (touchY >= 296 && touchY <= 320) {
                     if (touchX >= 10 && touchX <= 118) {
@@ -2842,7 +2928,7 @@ void loop() {
                                 // No setup_data_loaded gate any more: nothing is computed here, so
                                 // there is no stale local value to compute it from. The CALIBRATION
                                 // page is an action page and its buttons work whether or not the
-                                // parameter pages have been populated, the same as Set as Level.
+                                // parameter pages have been populated, the same as MAN CAL.
                                 setup_send_set_north(b);
                                 reset_button_draw_cache();
                                 draw_setup_static();
@@ -2932,29 +3018,6 @@ void loop() {
                             last_transition_ms = millis();
                             draw_lora_link_screen();
                             delay(300);   // let the opening press clear before the screen takes touches
-                        } else if (selected_param_idx == S_SETLEVEL) {
-                            // Declare the hull level where it sits. The buoy reads its own sensor
-                            // and stores the datum - see SET_AS_LEVEL in RoboCompute.h.
-                            //
-                            // The wording matters more than it looks. The bubble shows the SENSOR's
-                            // angle until a datum is set, and on a hull where the sensor is not
-                            // bolted in flat it will never centre - which invites tilting the boat
-                            // to satisfy it. That is the one thing that genuinely ruins a run: a
-                            // fixed mounting tilt is absorbed by the compass table, but the hull
-                            // being at a different attitude at each stop is not.
-                            send_buoy_command(b.id, 93 /* SET_AS_LEVEL */, 6 /* INF */);
-                            tft.fillRect(0, 60, tft.width(), 120, TFT_BLACK);
-                            tft.setTextDatum(MC_DATUM);
-                            tft.setTextSize(2);
-                            tft.setTextColor(TFT_CYAN, TFT_BLACK);
-                            tft.drawString("LEVEL SET", tft.width() / 2, 100);
-                            tft.setTextSize(1);
-                            tft.setTextColor(TFT_WHITE, TFT_BLACK);
-                            tft.drawString("the bubble now reads departure", tft.width() / 2, 130);
-                            tft.drawString("from THIS attitude - do not tilt", tft.width() / 2, 146);
-                            tft.drawString("the hull to centre it", tft.width() / 2, 162);
-                            delay(1800);
-                            setup_overlay_drawn = true;
                         } else if (selected_param_idx == S_SETNORTH) {
                             setup_send_set_north(b);
                             setup_overlay_drawn = true;
@@ -3970,6 +4033,7 @@ void enter_man_fourier_cal(int buoy_idx) {
     mancal_is_dirty = true;
     mancal_begin_sent = false;
     mancal_press_leg = -1;
+    mancal_level_armed_ms = 0;   // never inherit an arming tap from a previous visit
     // Forget any earlier answer: this screen must not show a stale run as the current one.
     b.cal8_ms = 0;
 
@@ -4162,7 +4226,9 @@ void update_mancal_dynamic() {
         last_imag_col = imag_col;
         last_live_drawn = imag_live;
 
-        tft.fillRect(0, 62, w, 34, TFT_BLACK);
+        // Clipped short of the SET LEVEL button, which lives in this band - see MANCAL_LVL_X.
+        // Full width here would blank it on every change of the reading, which is every pass.
+        tft.fillRect(0, 62, MANCAL_LVL_X - 4, 34, TFT_BLACK);
         tft.setTextDatum(MC_DATUM);
         tft.setTextSize(4);
         char imag_buf[16];
@@ -4188,6 +4254,16 @@ void update_mancal_dynamic() {
         char mag_buf[16];
         sprintf(mag_buf, "%0.0f", b.mag_dir);
         tft.drawString(mag_buf, 15, 62);
+    }
+
+    // ---- the SET LEVEL button -----------------------------------------------------------
+    // Redrawn on the arm/disarm edge as well as on a full repaint, so the button returns to SET
+    // by itself when MANCAL_LEVEL_ARM_MS runs out rather than sitting there looking armed.
+    static bool last_level_armed = false;
+    const bool level_armed = mancal_level_armed();
+    if (mancal_is_dirty || level_armed != last_level_armed) {
+        last_level_armed = level_armed;
+        draw_mancal_level_button(level_armed);
     }
 
     // ---- the hint line ------------------------------------------------------------------
