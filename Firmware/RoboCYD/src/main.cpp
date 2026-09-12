@@ -216,6 +216,18 @@ static int mancal_leg(const BuoyData &b) {
 // Nothing may be pressed until the buoy has said whether a run is already going. Starting a second
 // one over the top of somebody else's would silently throw away their captures.
 static bool mancal_known(const BuoyData &b) { return b.cal8_ms != 0; }
+// The serial for the next press: one past the last the buoy reported applying, stepping over 0
+// because 0 means "unnumbered press" to the buoy and is always applied - so wrapping onto it would
+// quietly switch the de-duplication off.
+//
+// Used by all four actions now, not just the captures. A press reaches the buoy many times over -
+// one was measured coming back six times on LoRa across 8 seconds, because every receiver repeats
+// what it hears once - and without a serial the buoy cannot tell a late copy of an old BEGIN from
+// a new one, so it re-arms the run and the captures vanish. See cal8SeqRejects() on the Sub.
+static int mancal_next_seq(const BuoyData &b) {
+    int s = b.cal8_seq + 1;
+    return (s > 0xFFFF) ? 1 : s;
+}
 
 // Is the buoy's Imag arriving, and recently enough to believe?
 static bool mancal_imag_live(const BuoyData &b) {
@@ -1652,7 +1664,7 @@ static void mancal_save_table_and_exit(int buoy_index) {
     // and it beeps at the same moment. This screen used to print CALIBRATION COMPLETE whether or
     // not anything had landed.
     unsigned long before = b.cal8_ms;
-    send_buoy_cal8(b.id, 2 /* CAL8_SAVE */, 8);
+    send_buoy_cal8(b.id, 2 /* CAL8_SAVE */, 8, 2, mancal_next_seq(b));
 
     // Longer than the TOP's retry budget, deliberately: CAL8_MAX_TRIES (25) x CAL8_RETRY_MS
     // (600 ms) = 15 s, plus the serial round trip. Give up sooner than the Top does and the screen
@@ -2665,7 +2677,7 @@ void loop() {
                     }
                     if (touchX >= 122 && touchX <= 230 && mancal_running(b)) {
                         Serial.println("MANCAL: CANCEL RUN - discarding, nothing was written");
-                        send_buoy_cal8(b.id, 3 /* CAL8_CANCEL */, 0);
+                        send_buoy_cal8(b.id, 3 /* CAL8_CANCEL */, 0, 2, mancal_next_seq(b));
                         mancal_press_leg = -1;
                         // Do not re-arm behind the operator's back. The action band turns back
                         // into START and the next run is a deliberate press.
@@ -2690,7 +2702,7 @@ void loop() {
 
                     if (!mancal_running(b)) {
                         Serial.println("MANCAL: START - arming a guided eight point run");
-                        send_buoy_cal8(b.id, 0 /* CAL8_BEGIN */, 0);
+                        send_buoy_cal8(b.id, 0 /* CAL8_BEGIN */, 0, 2, mancal_next_seq(b));
                         mancal_begin_sent = true;
                         mancal_press_leg = -1;
                         mancal_warn("STARTING...");
@@ -2771,10 +2783,7 @@ void loop() {
                     // Number the press one past the last the buoy applied. Every resend the Top
                     // makes carries the same number, so exactly one capture lands - see
                     // CAL8_SESSION in RoboCompute.h.
-                    mancal_press_seq = b.cal8_seq + 1;
-                    // 0 means "unnumbered press" to the buoy and is always applied, so the counter
-                    // steps over it rather than wrapping onto it - see cal8NextSeq() on the Sub.
-                    if (mancal_press_seq > 0xFFFF) mancal_press_seq = 1;
+                    mancal_press_seq = mancal_next_seq(b);
                     mancal_press_leg = dir;
                     mancal_press_ms = millis();
                     Serial.printf("MANCAL: capture %s (%d deg), Imag %.1f, seq %d\n",
@@ -4004,7 +4013,7 @@ void service_mancal_entry() {
     if (!mancal_harmonic_pending && !mancal_begin_sent && mancal_known(b) && !mancal_running(b)) {
         mancal_begin_sent = true;
         Serial.println("MANCAL: no run in progress - arming one");
-        send_buoy_cal8(b.id, 0 /* CAL8_BEGIN */, 0);
+        send_buoy_cal8(b.id, 0 /* CAL8_BEGIN */, 0, 2, mancal_next_seq(b));
         mancal_is_dirty = true;
         return;
     }

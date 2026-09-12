@@ -27,8 +27,18 @@ int linMagCalib(int *corr);
 
 // Guided eight point compass calibration. See the block comment in compass.cpp: the rules live
 // there once, and every interface drives the same session rather than repeating the arithmetic.
-void cal8Begin(void);
-void cal8Cancel(void);
+//
+// seq is the press serial, and it is what makes a press safe on a link that repeats it. Every LoRa
+// receiver repeats what it hears once, and a Top bridges a UDP command it is not the target of onto
+// the air - so one press was measured coming back six more times across 8 seconds. A copy arriving
+// later than the Top's own duplicate window used to be applied a SECOND time, and for BEGIN that
+// means silently wiping every capture the operator has already made. Numbering all four actions,
+// not just SET, is what lets a stale copy be told from a fresh press.
+//
+// Pass 0 for a press with no retry behind it, such as the Sub's own web page: 0 means "unnumbered"
+// and is always applied. Returns false when the press was rejected as a repeat or out of step.
+bool cal8Begin(unsigned int seq = 0);
+bool cal8Cancel(unsigned int seq = 0);
 
 // Why a capture did not happen. Negative so cal8Set() can return the filled index on success, and
 // distinct so an interface can say which of them it was - "the press did nothing" is the one
@@ -45,7 +55,7 @@ typedef enum
 // seq is the press serial that makes a retried press safe; pass 0 when there is no retry behind the
 // press. See cal8Set() in compass.cpp.
 int  cal8Set(int leg, unsigned int seq = 0);
-bool cal8Save(void);         // commits the table; never touches compassOffset
+bool cal8Save(unsigned int seq = 0); // commits the table; never touches compassOffset
 
 extern bool cal8_active;
 extern int cal8_next;        // the direction being asked for, 0..7, or 8 when every one is in

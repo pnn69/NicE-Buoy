@@ -466,42 +466,40 @@ void cal8NotePress(int action, int leg, uint16_t seq)
     // another serial write into a half-duplex wire that was already dropping most of what it was
     // given. BEGIN, SAVE and CANCEL are idempotent and carry no serial, so before this there was
     // nothing to tell an echo from a press.
-    if (cal8PendAction == action && (action != CAL8_SET || seq == cal8PendSeq))
+    // The same press we are already working on. Judged on the serial for every action now, not
+    // just SET: BEGIN, SAVE and CANCEL used to be forced to seq 0 here on the grounds that they
+    // are idempotent, which is true of a repeat that lands while the session is where it was and
+    // false of one that lands after it has moved on. A BEGIN echo re-armed the run and threw away
+    // the captures; a SAVE echo re-opened a press on a session that had already closed.
+    if (cal8PendAction == action && seq == cal8PendSeq)
     {
         return;
     }
 
-    if (action == CAL8_SET)
+    if (seq == 0)
     {
-        if (seq == 0)
-        {
-            // Ours to number: one past the last serial the Sub reported applying. Every resend
-            // below carries this same number, so the Sub applies the first copy to arrive and
-            // drops the rest - which is the whole point, now that a press can name a direction
-            // that is already captured and so cannot be spotted as a duplicate by its leg alone.
-            seq = (uint16_t)(cal8Seq + 1);
-            if (seq == 0) seq = 1;   // 0 means "unnumbered", see cal8NextSeq() on the Sub
-        }
-        else
-        {
-            // Somebody else's press, already numbered. Two retry loops are now stacked - the
-            // sender resending to us, us resending to the Sub - and the serial is what stops them
-            // multiplying. Drop a repeat here rather than re-arm on it.
-            if (seq == cal8Seq)
-            {
-                printf("CAL8: press seq %u already applied by the Sub, ignoring the repeat\r\n", seq);
-                return;
-            }
-            if (cal8PendAction == CAL8_SET && seq == cal8PendSeq)
-            {
-                printf("CAL8: press seq %u is already in flight, ignoring the repeat\r\n", seq);
-                return;
-            }
-        }
+        // Ours to number: one past the last serial the Sub reported applying. Every resend below
+        // carries this same number, so the Sub applies the first copy to arrive and drops the rest
+        // - which is the whole point, now that a press can name a direction that is already
+        // captured and so cannot be spotted as a duplicate by its leg alone.
+        seq = (uint16_t)(cal8Seq + 1);
+        if (seq == 0) seq = 1;   // 0 means "unnumbered", see cal8NextSeq() on the Sub
     }
     else
     {
-        seq = 0;   // BEGIN, SAVE and CANCEL are idempotent and carry no serial
+        // Somebody else's press, already numbered. Two retry loops are now stacked - the sender
+        // resending to us, us resending to the Sub - and the serial is what stops them
+        // multiplying. Drop a repeat here rather than re-arm on it.
+        if (seq == cal8Seq)
+        {
+            printf("CAL8: press seq %u already applied by the Sub, ignoring the repeat\r\n", seq);
+            return;
+        }
+        if (cal8PendAction >= 0 && seq == cal8PendSeq)
+        {
+            printf("CAL8: press seq %u is already in flight, ignoring the repeat\r\n", seq);
+            return;
+        }
     }
 
     cal8PendAction = action;
@@ -519,18 +517,18 @@ void cal8NotePress(int action, int leg, uint16_t seq)
 static bool cal8PressLanded(void)
 {
     if (!cal8Valid) return false;
-    switch (cal8PendAction)
-    {
-    case CAL8_BEGIN:  return cal8Active && cal8Next == 0 && cal8Mask == 0;
-    // The serial, not the cursor. A capture that redid an earlier direction leaves the cursor
-    // exactly where it was, so "the cursor has moved past the leg we sent" would never come true
-    // and the press would be resent until the retries ran out - twelve more captures of a hull
-    // that is by then pointing somewhere else.
-    case CAL8_SET:    return cal8Active && cal8Seq == cal8PendSeq;
-    case CAL8_SAVE:   return !cal8Active;   // the Sub closes the session when it commits
-    case CAL8_CANCEL: return !cal8Active;
-    default:          return true;
-    }
+    if (cal8PendAction < 0) return false;
+
+    // One test for all four, now that every action is numbered. The Sub reports the serial of the
+    // last press it APPLIED, so our own number coming back is proof this press landed - and proof
+    // it was ours, rather than somebody else's on the same shared session.
+    //
+    // The serial, not the cursor and not the session flag. A capture that redid an earlier
+    // direction leaves the cursor exactly where it was, so "the cursor has moved past the leg we
+    // sent" would never come true and the press would be resent until the retries ran out. And
+    // "!cal8Active" was true of any closed session, so a SAVE the Sub REFUSED - pressed on a run
+    // already closed, writing nothing - was reported to the presser as a successful store.
+    return cal8Seq == cal8PendSeq;
 }
 
 void cal8Service(void)

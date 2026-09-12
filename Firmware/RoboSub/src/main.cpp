@@ -796,7 +796,9 @@ void handleSerandRfdata(RoboStruct *ser)
                         switch (dataIn.cal8Action)
                         {
                         case CAL8_BEGIN:
-                            cal8Begin();
+                            // The serial goes in too. A BEGIN echo arriving mid-run would other-
+                            // wise clear the captures already made - see cal8SeqRejects().
+                            if (!cal8Begin(dataIn.cal8Seq)) break;
                             // Hold PWRENABLE and park the serial watchdog, exactly as the Sub's own
                             // page does, or the buoy can shut down halfway through a run driven
                             // from the CYD.
@@ -823,12 +825,11 @@ void handleSerandRfdata(RoboStruct *ser)
                             }
                             break;
                         case CAL8_SAVE:
-                            if (cal8Save()) mancalSessionEnd();
-                            else printf("CAL8: save refused - not all eight directions captured\r\n");
+                            if (cal8Save(dataIn.cal8Seq)) mancalSessionEnd();
+                            else printf("CAL8: save refused - repeated press, or not all eight directions captured\r\n");
                             break;
                         case CAL8_CANCEL:
-                            cal8Cancel();
-                            mancalSessionEnd();
+                            if (cal8Cancel(dataIn.cal8Seq)) mancalSessionEnd();
                             break;
                         default:
                             printf("CAL8: unknown action %d\r\n", dataIn.cal8Action);

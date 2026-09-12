@@ -1190,25 +1190,72 @@ uint16_t cal8NextSeq(uint16_t s)
     return n == 0 ? 1 : n;
 }
 
-void cal8Begin(void)
+// Should this press be ignored? Shared by all four actions, so a repeat of any of them is refused
+// the same way and cal8_seq means one thing throughout: the serial of the last press APPLIED.
+//
+// A presser numbers its press one past the serial the buoy last reported. So a serial we have
+// already applied belongs to a press already done, and one that is neither that nor the next in
+// line belongs to something older still. Both are echoes and neither may be applied again.
+//
+// That second rule is the one that matters. Every LoRa receiver repeats what it hears once, and a
+// Top bridges a UDP command it is not the target of onto the air, so a single press was measured
+// coming back six more times across 8 seconds - long enough to outlive the Top's own duplicate
+// window and be executed twice. For SET that costs a reading taken from the wrong place; for BEGIN
+// it silently clears every capture the operator has made. An echo of an old BEGIN carries a serial
+// from before the captures started, and this is what catches it.
+//
+// 0 means "unnumbered press" - nothing retrying behind it, nothing to de-duplicate - and is always
+// applied. That is how the Sub's own web page drives a session over a link with no lossy hop.
+static bool cal8SeqRejects(unsigned int seq, const char *what)
 {
+    if (seq == 0) return false;
+    if (seq == cal8_seq)
+    {
+        Serial.printf("8 point calibration: %s press %u already applied, ignoring the repeat\r\n",
+                      what, seq);
+        return true;
+    }
+    if (seq != (unsigned int)cal8NextSeq(cal8_seq))
+    {
+        Serial.printf("8 point calibration: %s press %u out of step, expected %u - stale copy\r\n",
+                      what, seq, (unsigned int)cal8NextSeq(cal8_seq));
+        return true;
+    }
+    return false;
+}
+
+bool cal8Begin(unsigned int seq)
+{
+    if (cal8SeqRejects(seq, "BEGIN")) return false;
+
     cal8_active = true;
     cal8_next = 0;
     cal8_mask = 0;
-    cal8_seq = 0;
+    // cal8_seq is deliberately NOT cleared. It is the record of which presses have been applied,
+    // and clearing it would make the echo of this very BEGIN - which carries the serial just
+    // consumed - read as a fresh press all over again, wiping whatever has been captured since.
+    // The counter only ever advances; cal8NextSeq() steps over 0 so it can never wrap onto
+    // "unnumbered".
+    if (seq != 0) cal8_seq = (uint16_t)seq;
     for (int i = 0; i < 8; i++) cal8_captured[i] = 0.0f;
     Serial.println("8 point calibration: started. Turn the hull until Imag reads 0, then press N");
+    return true;
 }
 
-void cal8Cancel(void)
+bool cal8Cancel(unsigned int seq)
 {
+    if (cal8SeqRejects(seq, "CANCEL")) return false;
+
     cal8_active = false;
     // Back to nothing, not "finished at step 8". A closed session that still reports a step makes
     // every screen watching it show a run that is not there.
     cal8_next = 0;
     cal8_mask = 0;
-    cal8_seq = 0;
+    // cal8_seq survives, for the same reason it survives cal8Begin(): it is what tells the echo of
+    // this press apart from the next real one.
+    if (seq != 0) cal8_seq = (uint16_t)seq;
     Serial.println("8 point calibration: cancelled, nothing written");
+    return true;
 }
 
 // Capture one direction. Returns the index just filled, or a negative cal8_set_result_t saying why
@@ -1240,20 +1287,7 @@ int cal8Set(int leg, unsigned int seq)
         return CAL8_SET_BAD_LEG;
     }
 
-    if (seq != 0)
-    {
-        if (seq == cal8_seq)
-        {
-            Serial.printf("8 point calibration: press %u already applied, ignoring the repeat\r\n", seq);
-            return CAL8_SET_DUPLICATE;
-        }
-        if (seq != (unsigned int)cal8NextSeq(cal8_seq))
-        {
-            Serial.printf("8 point calibration: press %u is out of step, expected %u\r\n",
-                          seq, (unsigned int)cal8NextSeq(cal8_seq));
-            return CAL8_SET_DUPLICATE;
-        }
-    }
+    if (cal8SeqRejects(seq, "SET")) return CAL8_SET_DUPLICATE;
 
     float imag = GetHeadingIron();
 
@@ -1323,13 +1357,17 @@ bool storeInterpolationTable(const float *eight)
 
 // Commit. Refuses until every direction has been captured at least once - the mask, not the cursor,
 // because a redo leaves the cursor where it was.
-bool cal8Save(void)
+bool cal8Save(unsigned int seq)
 {
+    if (cal8SeqRejects(seq, "SAVE")) return false;
     if (!cal8_active || cal8_mask != 0xFF) return false;
 
     bool usable = storeInterpolationTable(cal8_captured);
 
     cal8_active = false;
+    // Recorded only on the path that actually wrote. A save refused for an incomplete run has not
+    // consumed the serial, so the next genuine press carries the same number and is still in step.
+    if (seq != 0) cal8_seq = (uint16_t)seq;
 
     Serial.printf("8 point calibration SAVED, usable=%d. Compass offset untouched - set which way "
                   "the sensor is mounted with Set as North.\r\n", usable ? 1 : 0);
