@@ -1544,6 +1544,28 @@ static uint32_t calculateCommandHash(const RoboStruct &msg)
     hashBytes((const uint8_t *)&msg.tgSpeed, sizeof(msg.tgSpeed));
     hashBytes((const uint8_t *)&msg.tgDist, sizeof(msg.tgDist));
 
+    // And what a guided calibration press actually MEANS - without these, every CAL8_SESSION press
+    // hashes to the same value. send_buoy_cal8() sends BEGIN, each of the eight captures and SAVE
+    // alike as cmd 91, status 7, ack SET from 0x98 with an empty navigation payload, so nothing
+    // above can tell them apart. The 5 second filter below then passed ONE calibration press per
+    // window and discarded the rest in silence.
+    //
+    // That is invisible while capturing, because turning the hull to the next fixture stop takes
+    // longer than the window - the eight captures of a real run were 5.4 s to 18.6 s apart and
+    // every one landed. It is fatal on SAVE, which is the one press that does not wait: pressed
+    // 3.4 s after the last capture, it hashed identical to it and was dropped, and the screen
+    // reported NO REPLY on a calibration the buoy had never been asked to store. Measured on the
+    // bench: 20 identical SAVE presses 1.5 s apart, 5 accepted, one per window.
+    //
+    // Hashed rather than exempted from the filter. Calibration presses really do arrive many times
+    // over - one UDP press was measured coming back six more times on LoRa across 8 seconds - so
+    // suppressing an identical repeat is exactly right. What was wrong was calling two DIFFERENT
+    // presses the same thing. Every other command is unaffected: cal8Action, cal8Next and cal8Seq
+    // are zero in anything that is not a CAL8_SESSION frame.
+    hashBytes((const uint8_t *)&msg.cal8Action, sizeof(msg.cal8Action));
+    hashBytes((const uint8_t *)&msg.cal8Next, sizeof(msg.cal8Next));
+    hashBytes((const uint8_t *)&msg.cal8Seq, sizeof(msg.cal8Seq));
+
     return hash;
 }
 
@@ -1642,10 +1664,19 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
 
         // CRITICAL FILTERING RULE:
         // We only apply duplicate detection to active control or state-changing commands.
-        // We explicitly skip telemetry packets (BUOYPOS, TOPDATA, SUBDATA, SUBACCU, SUBPWR).
+        // We explicitly skip telemetry packets (BUOYPOS, TOPDATA, SUBDATA, SUBACCU, SUBPWR,
+        // ATTITUDE, LORA_LINK).
         // Telemetry must bypass deduplication so that they always update the live database
         // with "last seen" timestamps and current metrics, even if the values have not changed.
-        if (RfIn.cmd != BUOYPOS && RfIn.cmd != TOPDATA && RfIn.cmd != SUBDATA && RfIn.cmd != SUBACCU && RfIn.cmd != SUBPWR && RfIn.ack != GET && RfIn.ack != GETACK)
+        //
+        // ATTITUDE and LORA_LINK were missing from that list, and they are telemetry by every
+        // definition that matters here: they arrive several times a second and carry nothing but a
+        // fresh reading. Because calculateCommandHash() does not cover pitch, roll or the link
+        // table, every one of them hashed the same as the last, so a peer's attitude got through
+        // at most ONCE PER WINDOW and the rest were discarded - measured at roughly eight drops a
+        // second across the two Tops. That is the feed behind MAN CAL's bubble level, which is the
+        // instrument the operator levels the hull against before a calibration run.
+        if (RfIn.cmd != BUOYPOS && RfIn.cmd != TOPDATA && RfIn.cmd != SUBDATA && RfIn.cmd != SUBACCU && RfIn.cmd != SUBPWR && RfIn.cmd != ATTITUDE && RfIn.cmd != LORA_LINK && RfIn.ack != GET && RfIn.ack != GETACK)
         {
             uint32_t currentHash = calculateCommandHash(RfIn);
             bool isDuplicate = false;
@@ -1667,7 +1698,16 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
 
             if (isDuplicate)
             {
-                // Silent return to discard the redundant duplicate command
+                // Say so, rather than returning in silence. A command that vanishes without a trace
+                // looks exactly like a dead link from both ends, and that is what sent a hunt for a
+                // lost calibration save into the serial wire and the LoRa relay - for a frame this
+                // line had already thrown away.
+                if (!noisyCmd(RfIn.cmd))
+                {
+                    udpLog("RF drop duplicate cmd=%d ack=%d IDr=%08lX IDs=%08lX within %lums",
+                           RfIn.cmd, RfIn.ack, (unsigned long)RfIn.IDr,
+                           (unsigned long)RfIn.IDs, CMD_DUP_TIMEOUT_MS);
+                }
                 return;
             }
 
