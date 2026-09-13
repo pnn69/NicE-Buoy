@@ -79,6 +79,11 @@ struct BuoyData {
     bool rev_sb = false;
     bool swap_bb_sb = false;
     bool compass_trim_enabled = false;
+    // Compass steadiness, from SETUPDATA. pr_damping is the pitch/roll damping behind MAN CAL's
+    // bubble, 0.00 to 0.99; compass_avg is the heading averaging window, 1 to 200 samples. Both
+    // live in the Sub's NVS - these are the screen's working copies, sent on SAVE SETUP.
+    float pr_damping = 0.0f;
+    int compass_avg = 1;
     int dock_app_dist = 20;
     int dock_app_dir = 180;
     bool dock_to_wp = false;
@@ -100,6 +105,11 @@ struct BuoyData {
     // so the Top's resends and the buoy's de-duplication agree on which press is which.
     int cal8_seq = 0;
     unsigned long cal8_ms = 0;
+
+    // When the buoy last confirmed a SET_AS_LEVEL. 0 until it has ever answered one. MAN CAL waits
+    // on this rather than assuming: the datum is written on the buoy, so the buoy is the only thing
+    // that can say it happened.
+    unsigned long level_ms = 0;
 
     // The "apply the compass table" switch used to live here, with a second copy recording what
     // the buoy had reported so MAN CAL could tell intent from fact. Both are gone: the table is
@@ -137,6 +147,10 @@ extern unsigned long last_lora_tx_ms;
 // True while this buoy's reported waypoint is fresh enough to plot. RoboTop re-broadcasts
 // LOCKPOS every 5 s for as long as it holds station, so four missed beacons means it stopped.
 bool buoy_has_waypoint(const BuoyData &b);
+
+// Tell the screen its cached pixels are gone - see ui_paint_seq in main.cpp. Call after anything
+// that clears the display, or the dynamic elements stay blank until their values happen to change.
+void ui_invalidate();
 
 void parse_buoy_packet(const String &packetStr, const String &source, int rssi = -999);
 // ack defaults to GETACK (3), which puts the packet in RoboTop's LoRa retransmit table

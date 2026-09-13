@@ -315,7 +315,11 @@ static bool mancal_press_pending(const BuoyData &b) {
 // Two taps to commit. This writes a datum to the buoy and it sits within reach of a thumb going for
 // the rose, so one stray press must not be able to redefine what level means halfway through a run.
 // Disarms itself, so an arming tap that is then thought better of costs nothing.
-#define MANCAL_LEVEL_ARM_MS 4000UL
+// Generous on purpose. At 4 s this was unusable outdoors: the arming tap spent 900 ms of its own
+// window inside mancal_warn()'s delay(), leaving about three seconds to land a second accurate tap
+// on a 64x32 target on a resistive panel, and a tap that came late only re-armed it - so the
+// button could be pressed all day and never commit.
+#define MANCAL_LEVEL_ARM_MS 10000UL
 static unsigned long mancal_level_armed_ms = 0;
 
 static bool mancal_level_armed(void) {
@@ -366,6 +370,16 @@ static void draw_mancal_level(const BuoyData &b, bool known) {
     tft.fillCircle(MANCAL_CX + (int)dx, MANCAL_CY + (int)dy, 4, col);
 }
 
+// The warn row, without the 900 ms block mancal_warn() carries. An arming tap must not spend a
+// quarter of its own window sitting in a delay().
+static void mancal_note(const char *msg, uint16_t col) {
+    tft.fillRect(0, 242, tft.width(), 13, TFT_BLACK);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextSize(1);
+    tft.setTextColor(col, TFT_BLACK);
+    tft.drawString(msg, tft.width() / 2, 249);
+}
+
 // The SET LEVEL button. Armed it goes yellow and says what the second tap will do, because a
 // control that silently changes meaning between one press and the next is worse than no guard.
 static void draw_mancal_level_button(bool armed) {
@@ -375,6 +389,12 @@ static void draw_mancal_level_button(bool armed) {
 
     tft.fillRoundRect(MANCAL_LVL_X, MANCAL_LVL_Y, MANCAL_LVL_W, MANCAL_LVL_H, 4, fill);
     tft.drawRoundRect(MANCAL_LVL_X, MANCAL_LVL_Y, MANCAL_LVL_W, MANCAL_LVL_H, 4, edge);
+    // Armed gets a second ring. The whole point of the two-tap is that the operator can SEE which
+    // of the two states it is in, and one thin outline in sunlight is not enough to carry that.
+    if (armed) {
+        tft.drawRoundRect(MANCAL_LVL_X - 1, MANCAL_LVL_Y - 1,
+                          MANCAL_LVL_W + 2, MANCAL_LVL_H + 2, 5, TFT_WHITE);
+    }
 
     tft.setTextDatum(MC_DATUM);
     tft.setTextSize(1);
@@ -382,6 +402,71 @@ static void draw_mancal_level_button(bool armed) {
     const int cx = MANCAL_LVL_X + MANCAL_LVL_W / 2;
     tft.drawString(armed ? "TAP"   : "SET",   cx, MANCAL_LVL_Y + 11);
     tft.drawString(armed ? "AGAIN" : "LEVEL", cx, MANCAL_LVL_Y + 22);
+}
+
+// Commit the level datum, and report what actually happened rather than what was attempted.
+//
+// The first version printed "LEVEL SET" the instant the press went out. It had no choice: the
+// buoy's answer was dropped twice on the way back - the Top had no serial case for SET_AS_LEVEL,
+// and the CYD's telemetry filter did not list cmd 93 - so there was nothing to wait for. Both
+// ends are fixed now, so this waits for the buoy to say it wrote the datum.
+//
+// The resend waits out RoboTop's duplicate window. SET_AS_LEVEL carries no payload whatsoever, so
+// every press hashes to the same value and a repeat inside CMD_DUP_TIMEOUT_MS is discarded there
+// in silence - see calculateCommandHash(). Pressing again quickly is exactly what an operator does
+// when nothing appears to happen, and it is exactly the thing that cannot work.
+static void mancal_level_commit(BuoyData &b) {
+    tft.fillRect(0, 120, tft.width(), 116, TFT_BLACK);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextSize(2);
+    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+    tft.drawString("LEVELLING...", tft.width() / 2, 150);
+
+    const unsigned long before = b.level_ms;
+    bool stored = false;
+
+    for (int attempt = 0; attempt < 2 && !stored; attempt++) {
+        Serial.printf("MANCAL: SET LEVEL, attempt %d\n", attempt + 1);
+        send_buoy_command(b.id, 93 /* SET_AS_LEVEL */, 6 /* INF */);
+
+        // Longer than CMD_DUP_TIMEOUT_MS (5 s) so the second attempt is a fresh press to the Top
+        // rather than a duplicate of the first.
+        const unsigned long until = millis() + 5600;
+        while (b.level_ms == before && (long)(millis() - until) < 0) {
+            handle_wifi_clients();
+            check_lora_packets();
+            delay(20);
+        }
+        stored = (b.level_ms != before);
+    }
+
+    tft.fillRect(0, 120, tft.width(), 116, TFT_BLACK);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextSize(2);
+    if (stored) {
+        tft.setTextColor(TFT_CYAN, TFT_BLACK);
+        tft.drawString("LEVEL SET", tft.width() / 2, 150);
+        tft.setTextSize(1);
+        tft.setTextColor(TFT_WHITE, TFT_BLACK);
+        // The wording matters more than it looks. The bubble shows the SENSOR's angle until a
+        // datum is set, and on a hull where the sensor is not bolted in flat it will never centre
+        // however level the boat is - which invites tilting the hull to satisfy it. That is the
+        // one thing that genuinely ruins a run: a fixed mounting tilt is absorbed by the compass
+        // table, but the hull sitting at a different attitude at each stop is not.
+        tft.drawString("the bubble now reads departure", tft.width() / 2, 180);
+        tft.drawString("from THIS attitude - do not tilt", tft.width() / 2, 196);
+        tft.drawString("the hull to centre it", tft.width() / 2, 212);
+    } else {
+        tft.setTextColor(TFT_RED, TFT_BLACK);
+        tft.drawString("NO REPLY", tft.width() / 2, 150);
+        tft.setTextSize(1);
+        tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+        tft.drawString("the buoy did not confirm the datum", tft.width() / 2, 180);
+        tft.drawString("NOT set - the old one still stands", tft.width() / 2, 196);
+        tft.drawString("tap SET LEVEL twice to try again", tft.width() / 2, 212);
+    }
+    delay(stored ? 1800 : 2600);
+    mancal_is_dirty = true;   // puts the rose and the bubble back
 }
 
 // The action band, bottom of the screen. Pulled out of update_mancal_dynamic() so a press can put
@@ -467,6 +552,7 @@ static String link_short(const String &id) {
 void draw_lora_link_screen() {
     int w = tft.width();
     tft.fillScreen(TFT_BLACK);
+    ui_invalidate();   // the pixels are gone - no cache may claim otherwise
     tft.setTextColor(TFT_CYAN, TFT_BLACK);
     tft.setTextSize(2);
     tft.setTextDatum(TC_DATUM);
@@ -607,7 +693,10 @@ enum SetupSlot {
     S_REVBB  = 20, S_REVSB = 21, S_SWAP = 22,
     S_APPDIST = 24, S_APPDIR = 25, S_DOCKWP = 26,
     S_DESKCAL = 32, S_SETNORTH = 33, S_REBOOT = 34,
-    S_MANCAL = 36, S_LINKS = 38
+    S_MANCAL = 36, S_LINKS = 38,
+    // The bottom row of the CALIBRATION page: the two settings that steady the compass enough to
+    // calibrate against. S_DAMP took the slot Set Level vacated.
+    S_DAMP = 35, S_AVG = 39
 };
 
 static const char *SETUP_NAMES[SETUP_SLOTS] = {
@@ -615,7 +704,7 @@ static const char *SETUP_NAMES[SETUP_SLOTS] = {
     /* 2 SPEED & COMPASS  */ "MaxSpd:", "MinSpd:", "PvtSpd:", "",   "CompOff:", "HoldRad:", "", "",
     /* 3 TRIM & THRUSTERS */ "TrimEn:", "", "", "",                  "BB Inv:", "SB Inv:", "Swap:", "",
     /* 4 DOCKING          */ "Appr Dist", "Appr Dir", "DockToWP", "", "", "", "", "",
-    /* 5 CALIBRATION      */ "Desk Cal", "Set North", "Reboot", "",   "MAN CAL", "", "LoRa Links", ""
+    /* 5 CALIBRATION      */ "Desk Cal", "Set North", "Reboot", "Damp:", "MAN CAL", "", "LoRa Links", "Avg:"
 };
 
 // Shown where the screen used to just say "SETUP" - these are the <h4> headings of the web form.
@@ -681,6 +770,8 @@ static void setup_value_text(const BuoyData &b, int slot, char *out, size_t n) {
         case S_HOLDRAD: snprintf(out, n, "%0.1fm", b.hold_radius); break;
         case S_APPDIST: snprintf(out, n, "%dm", b.dock_app_dist); break;
         case S_APPDIR:  snprintf(out, n, "%d deg", b.dock_app_dir); break;
+        case S_DAMP:    snprintf(out, n, "%0.2f", b.pr_damping); break;
+        case S_AVG:     snprintf(out, n, "%d", b.compass_avg); break;
         default:        if (n) out[0] = 0; break;
     }
 }
@@ -696,6 +787,11 @@ static float setup_step(int slot) {
         case S_RUD_I: case S_RUD_D: case S_SPD_I: case S_SPD_D: return 0.005f;
         case S_MAXSPD: case S_MINSPD:                           return 5.0f;
         case S_COMPOFF: case S_APPDIST: case S_APPDIR:          return 1.0f;
+        // The same steps the Sub's own web form uses: 0.01 on the damping, whole samples on the
+        // averaging. Fine on both, because the low end of Avg is where each step changes the feel
+        // most and Damp is only ever useful in small moves.
+        case S_DAMP:                                            return 0.01f;
+        case S_AVG:                                             return 1.0f;
         case S_HOLDRAD:                                         return 0.5f;
         default:                                                return 0.05f;
     }
@@ -707,6 +803,14 @@ static float setup_step(int slot) {
 static void setup_adjust(BuoyData &b, int slot, bool plus) {
     float st = setup_step(slot) * (plus ? 1.0f : -1.0f);
     switch (slot) {
+        // Clamped to the ranges the Sub enforces on arrival, so the screen cannot show a value
+        // the buoy will not accept - see /setparam cavg and prdamp in subwifi.cpp.
+        case S_DAMP: b.pr_damping += st;
+                     if (b.pr_damping < 0.0f) b.pr_damping = 0.0f;
+                     if (b.pr_damping > 0.99f) b.pr_damping = 0.99f; break;
+        case S_AVG:  b.compass_avg += (int)(plus ? 1 : -1);
+                     if (b.compass_avg < 1) b.compass_avg = 1;
+                     if (b.compass_avg > 200) b.compass_avg = 200; break;
         case S_RUD_P: b.kpr += st; if (b.kpr < 0) b.kpr = 0; break;
         case S_RUD_I: b.kir += st; if (b.kir < 0) b.kir = 0; break;
         case S_RUD_D: b.kdr += st; if (b.kdr < 0) b.kdr = 0; break;
@@ -897,6 +1001,22 @@ void draw_compass_arrow(int cx, int cy, int L, float angle_deg, uint16_t color) 
 // Track selected parameter index on the 16-parameter SETUP screen on display
 int selected_param_idx = 0; // Defaults to Rudder P (0)
 
+// Bumped every time the glass is cleared.
+//
+// The dynamic draw routines keep a per-element cache so a value that has not moved is not redrawn
+// on every pass - that is what stops the screen flickering, and it is worth keeping. But a cache
+// that survives a fillScreen() is a lie: the pixels are gone and the cache still says they are
+// there. Anything cleared while its value happens to be steady then stays blank until the value
+// next moves, and for a thruster bar holding a constant that is for ever.
+//
+// Measured on a live buoy: the telemetry was perfect on the wire and on this device's own web page
+// - which reads the same buoys[] array - while the TFT showed the voltage bar blank and the
+// thruster bars missing. The data was never wrong; only the rendering was stale.
+//
+// Each draw routine keeps its own copy of this counter and empties its caches when the two differ.
+volatile uint32_t ui_paint_seq = 0;
+void ui_invalidate() { ui_paint_seq++; }
+
 void reset_button_draw_cache() {
     for (int i = 0; i < 3; i++) {
         last_drawn_ids[i] = "RESET"; // Force mismatch
@@ -910,6 +1030,7 @@ void draw_setup_static() {
     int idx = selected_buoy_idx;
     
     tft.fillScreen(TFT_BLACK);
+    ui_invalidate();   // the pixels are gone - no cache may claim otherwise
     
     // Header title
     tft.setTextColor(TFT_CYAN, TFT_BLACK);
@@ -930,8 +1051,11 @@ void draw_setup_static() {
     // If not loaded yet, these buttons are drawn disabled (Dark Grey) to protect the buoy NVM!
     // On the ACTIONS page "+" starts the selected calibration and "-" has no meaning at all, so
     // they are gated separately. Elsewhere both follow the setup-loaded guard as before.
-    bool adjPlusUsable = setup_data_loaded || setup_is_action_page(setup_page);
-    bool adjMinusUsable = setup_data_loaded && !setup_is_action_page(setup_page);
+    // Per slot, not per page. The CALIBRATION page carries two ordinary numbers now, and the
+    // page-level test disabled "-" outright on it - so Damp and Avg could only ever be turned up.
+    // An action slot still needs no loaded setup data; a number does.
+    bool adjPlusUsable = setup_data_loaded || setup_slot_is_action(selected_param_idx);
+    bool adjMinusUsable = setup_data_loaded && !setup_slot_is_action(selected_param_idx);
     uint16_t adjMinusColor = adjMinusUsable ? TFT_RED : TFT_DARKGREY;
     uint16_t adjMinusText = adjMinusUsable ? TFT_WHITE : TFT_LIGHTGREY;
     tft.fillRoundRect(15, 195, 60, 30, 4, adjMinusColor);
@@ -978,6 +1102,7 @@ void draw_nav_static() {
     int idx = selected_buoy_idx;
 
     tft.fillScreen(TFT_BLACK);
+    ui_invalidate();   // the pixels are gone - no cache may claim otherwise
 
     // update_nav_dynamic() leaves a 40 pixel text padding behind. Left set, the opaque
     // background band around the W and E labels bites a chunk out of the compass circle.
@@ -1071,6 +1196,7 @@ void draw_mannav_static() {
     int idx = selected_buoy_idx;
 
     tft.fillScreen(TFT_BLACK);
+    ui_invalidate();   // the pixels are gone - no cache may claim otherwise
 
     // Same stale padding hazard as draw_nav_static(): clear it before the compass labels
     tft.setTextPadding(0);
@@ -1179,7 +1305,11 @@ void update_mannav_dynamic() {
     static bool was_mannav_mode = false;
     static bool was_setup_mode = false;
     
-    if (selected_buoy_idx != last_buoy_idx || in_mannav_mode != was_mannav_mode || in_setup_mode != was_setup_mode) {
+    static uint32_t last_paint_seq = 0;
+    const bool repainted = (last_paint_seq != ui_paint_seq);
+    last_paint_seq = ui_paint_seq;
+    
+    if (repainted || selected_buoy_idx != last_buoy_idx || in_mannav_mode != was_mannav_mode || in_setup_mode != was_setup_mode) {
         last_buoy_idx = selected_buoy_idx;
         was_mannav_mode = in_mannav_mode;
         was_setup_mode = in_setup_mode;
@@ -1763,6 +1893,7 @@ void draw_resting_ui() {
     int h = tft.height();
     
     tft.fillScreen(TFT_BLACK);
+    ui_invalidate();   // the pixels are gone - no cache may claim otherwise
     
     if (selected_buoy_idx == -1) {
         if (in_track_settings_mode) {
@@ -1871,7 +2002,7 @@ void update_setup_dynamic() {
     
     // Page 4 carries no setup values at all, only the calibration actions and their progress, so
     // it must not be held behind the SETUPDATA reply the way the parameter pages are.
-    if (!setup_data_loaded && !setup_is_action_page(setup_page)) {
+    if (!setup_data_loaded && !setup_slot_is_action(selected_param_idx)) {
         // Display beautiful loading overlay while awaiting the NMEA response packet from buoy
         tft.setTextSize(2);
         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
@@ -1943,7 +2074,7 @@ void update_setup_dynamic() {
     // Draw currently selected value in big text in center of adjustment row (Y: 195 to 225)
     tft.setTextSize(2);
     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-    if (setup_is_action_page(setup_page)) {
+    if (setup_is_action_page(setup_page) && setup_slot_is_action(selected_param_idx)) {
         // Clear the strip between the two buttons (they occupy x 15..75 and x 165..225).
         tft.fillRect(78, 196, 84, 28, TFT_BLACK);
         bool armed = setup_slot_is_action(selected_param_idx);
@@ -1981,13 +2112,18 @@ void update_nav_dynamic() {
     static float last_bb_power = -999;
     static float last_sb_power = -999;
     static float last_battery_v = -1.0;
+    static float last_pid_i = -99999.0f;
     static String last_nav_status = "";
     static bool was_mannav_mode = false;
     static bool was_setup_mode = false;
     static String last_gps_fix = "";
     
-    // Reset caches on buoy selection or screen mode change
-    if (selected_buoy_idx != last_buoy_idx || in_mannav_mode != was_mannav_mode || in_setup_mode != was_setup_mode) {
+    // Reset caches on buoy selection, screen mode change, or any repaint that cleared the glass.
+    static uint32_t last_paint_seq = 0;
+    const bool repainted = (last_paint_seq != ui_paint_seq);
+    last_paint_seq = ui_paint_seq;
+
+    if (repainted || selected_buoy_idx != last_buoy_idx || in_mannav_mode != was_mannav_mode || in_setup_mode != was_setup_mode) {
         last_buoy_idx = selected_buoy_idx;
         was_mannav_mode = in_mannav_mode;
         was_setup_mode = in_setup_mode;
@@ -1995,6 +2131,7 @@ void update_nav_dynamic() {
         last_bb_power = -999;
         last_sb_power = -999;
         last_battery_v = -1.0;
+        last_pid_i = -99999.0f;
         last_nav_status = "";
         last_gps_fix = "";
         
@@ -2044,6 +2181,28 @@ void update_nav_dynamic() {
     
     // Allocate 128 bytes on the stack for buffer formatting (fixes stack smashing watchdog reboots!)
     char buf[128];
+
+    // --- Speed PID integral term, immediately above the N of the compass rose ---
+    //
+    // This is the number that says how hard station keeping is actually working. The I term winds
+    // up against a current or a wind the buoy cannot out-run, so watching it is how you tell
+    // "holding easily" from "holding at its limit" - and it does that long before the position
+    // error itself shows anything.
+    //
+    // It goes in the band between the header rule at y 27 and the N label at y 44, which is the
+    // only clear strip on this screen: the title ends at y 21 and every dynamic field below starts
+    // at y 45. Cached like everything else here so a steady value is not redrawn on every pass,
+    // and reset with the rest when the glass is cleared - see ui_paint_seq.
+    if (b.pid_i != last_pid_i) {
+        last_pid_i = b.pid_i;
+        tft.setTextSize(1);
+        tft.setTextDatum(MC_DATUM);
+        tft.setTextPadding(84);          // erases the old value; 84 px spans the widest reading
+        tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+        sprintf(buf, "Ispd %0.1f", b.pid_i);
+        tft.drawString(buf, 120, 36);
+        tft.setTextPadding(0);           // never leave padding set - it eats into the rose
+    }
     
     // Print BB and SB percentage text below speedbars using text padding to eliminate flicker
     tft.setTextSize(2); // Increased speedbar percentage text to font size 2!
@@ -2692,53 +2851,39 @@ void loop() {
                 // hull.
                 BuoyData &b = buoys[selected_buoy_idx];
 
-                // Nothing is pressable until the buoy has said whether a run is already going.
-                // Offering START before that could throw away captures somebody else made from a
-                // web page - the session is shared on purpose.
-                if (!mancal_known(b) && touchY < 296) {
-                    mancal_warn("ASKING BUOY...");
-                    delay(20);
-                    return;
-                }
-
                 // 1. SET LEVEL, beside the Imag reading. Two taps: the first arms, the second
-                //    commits. Tested before the regions below because it overlaps none of them and
-                //    has nothing to do with the state of the run - the datum can be set before a
-                //    run, during one, or with no session armed at all.
+                //    commits.
+                //
+                //    Tested BEFORE the "has the buoy answered yet" gate below, not after it. The
+                //    level datum has nothing to do with the calibration session - it can be set
+                //    before a run, during one, or with no session armed at all - and sitting
+                //    behind that gate meant a buoy which had not yet reported its session state
+                //    refused to level, with "ASKING BUOY..." as the only explanation offered.
                 if (touchY >= MANCAL_LVL_Y && touchY < MANCAL_LVL_Y + MANCAL_LVL_H &&
                     touchX >= MANCAL_LVL_X && touchX < MANCAL_LVL_X + MANCAL_LVL_W) {
                     if (!mancal_level_armed()) {
+                        // Arm, and say so without blocking. mancal_warn() delays 900 ms, which is
+                        // a quarter of the window the second tap has to arrive in, and it writes
+                        // its message at y 249 - under the rose, 190 px from the finger that just
+                        // pressed the button, in 6x8 text. Outdoors that reads as a control that
+                        // does nothing at all.
                         mancal_level_armed_ms = millis();
                         draw_mancal_level_button(true);
-                        mancal_warn("TAP AGAIN TO SET LEVEL");
+                        mancal_note("TAP SET LEVEL AGAIN TO CONFIRM", TFT_YELLOW);
+                        delay(20);
                         return;
                     }
                     mancal_level_armed_ms = 0;
+                    mancal_level_commit(b);
+                    return;
+                }
 
-                    // Declare the hull level where it sits. The buoy reads its own sensor and
-                    // stores the datum - see SET_AS_LEVEL in RoboCompute.h.
-                    //
-                    // The wording matters more than it looks. The bubble shows the SENSOR's angle
-                    // until a datum is set, and on a hull where the sensor is not bolted in flat it
-                    // will never centre - which invites tilting the boat to satisfy it. That is the
-                    // one thing that genuinely ruins a run: a fixed mounting tilt is absorbed by
-                    // the compass table, but the hull sitting at a different attitude at each stop
-                    // is not.
-                    Serial.println("MANCAL: SET LEVEL - storing the current attitude as the datum");
-                    send_buoy_command(b.id, 93 /* SET_AS_LEVEL */, 6 /* INF */);
-
-                    tft.fillRect(0, 120, tft.width(), 116, TFT_BLACK);
-                    tft.setTextDatum(MC_DATUM);
-                    tft.setTextSize(2);
-                    tft.setTextColor(TFT_CYAN, TFT_BLACK);
-                    tft.drawString("LEVEL SET", tft.width() / 2, 150);
-                    tft.setTextSize(1);
-                    tft.setTextColor(TFT_WHITE, TFT_BLACK);
-                    tft.drawString("the bubble now reads departure", tft.width() / 2, 180);
-                    tft.drawString("from THIS attitude - do not tilt", tft.width() / 2, 196);
-                    tft.drawString("the hull to centre it", tft.width() / 2, 212);
-                    delay(1800);
-                    mancal_is_dirty = true;   // puts the rose and the bubble back
+                // Nothing else is pressable until the buoy has said whether a run is already
+                // going. Offering START before that could throw away captures somebody else made
+                // from a web page - the session is shared on purpose.
+                if (!mancal_known(b) && touchY < 296) {
+                    mancal_warn("ASKING BUOY...");
+                    delay(20);
                     return;
                 }
 
@@ -2943,7 +3088,7 @@ void loop() {
                     // The action pages hold no editable parameters. Only their own boxes
                     // respond here; anything else still selected from another page must be left
                     // alone rather than edited invisibly.
-                    bool adjArmed = !setup_is_action_page(setup_page) ||
+                    bool adjArmed = !setup_slot_is_action(selected_param_idx) ||
                                     setup_slot_is_action(selected_param_idx);
 
                     // Set by any branch below that paints a full-width overlay over the Setup grid.
@@ -3111,15 +3256,24 @@ void loop() {
                 // 3. Slider 2 (Speed) Controls (Y: 235 to 265) - Aligned with Y: 250 track!
                 else if (touchY >= 235 && touchY <= 265) {
                     float max_spd = buoys[selected_buoy_idx].max_speed;
+                    // A tenth of the range per press, not a fixed 5%.
+                    //
+                    // The step was hard-coded at 5.0 while the clamp is max_speed, so the buttons
+                    // only worked when the limit was much larger than the step. With maxSpeed set
+                    // to 5 - which is what both buoys were running - one press went from 0 straight
+                    // to the limit and every press after it did nothing, which reads exactly like a
+                    // dead button. Twenty presses end to end now, whatever the limit is.
+                    float step = max_spd / 10.0f;
+                    if (step < 0.1f) step = 0.1f;   // a tiny limit still has to be reachable
                     if (touchX >= 10 && touchX <= 55) {
-                        // Left Minus Button Tap: Decrease by 5%
-                        buoys[selected_buoy_idx].tg_speed -= 5.0;
+                        // Left Minus Button Tap
+                        buoys[selected_buoy_idx].tg_speed -= step;
                         if (buoys[selected_buoy_idx].tg_speed < -max_spd) buoys[selected_buoy_idx].tg_speed = -max_spd;
                         send_buoy_dirdist(selected_buoy_idx);
                         reset_button_draw_cache();
                     } else if (touchX >= 185 && touchX <= 230) {
-                        // Right Plus Button Tap: Increase by 5%
-                        buoys[selected_buoy_idx].tg_speed += 5.0;
+                        // Right Plus Button Tap
+                        buoys[selected_buoy_idx].tg_speed += step;
                         if (buoys[selected_buoy_idx].tg_speed > max_spd) buoys[selected_buoy_idx].tg_speed = max_spd;
                         send_buoy_dirdist(selected_buoy_idx);
                         reset_button_draw_cache();
@@ -3312,6 +3466,7 @@ void loop() {
 
 void draw_calibration_screen() {
     tft.fillScreen(TFT_BLACK);
+    ui_invalidate();   // the pixels are gone - no cache may claim otherwise
     
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.setTextSize(2);
@@ -3357,6 +3512,7 @@ void handle_touch_calibration() {
             Serial.println("Calibration timeout! Discarding changes.");
             
             tft.fillScreen(TFT_BLACK);
+            ui_invalidate();   // the pixels are gone - no cache may claim otherwise
             tft.setTextColor(TFT_RED, TFT_BLACK);
             tft.setTextSize(2);
             tft.setTextDatum(MC_DATUM);
@@ -3427,6 +3583,7 @@ void handle_touch_calibration() {
             save_screen_start_ms = millis();
             
             tft.fillScreen(TFT_BLACK);
+            ui_invalidate();   // the pixels are gone - no cache may claim otherwise
             tft.setTextColor(TFT_WHITE, TFT_BLACK);
             tft.setTextSize(2);
             tft.setTextDatum(MC_DATUM);
@@ -3476,6 +3633,7 @@ void handle_touch_calibration() {
                 
                 // Success Screen Feedback
                 tft.fillScreen(TFT_BLACK);
+                ui_invalidate();   // the pixels are gone - no cache may claim otherwise
                 tft.setTextColor(TFT_GREEN, TFT_BLACK);
                 tft.setTextSize(2);
                 tft.setTextDatum(MC_DATUM);
@@ -4174,6 +4332,7 @@ void draw_mancal_offset_strip() {
 void draw_mancal_static() {
     int w = tft.width();
     tft.fillScreen(TFT_BLACK);
+    ui_invalidate();   // the pixels are gone - no cache may claim otherwise
 
     tft.setTextColor(TFT_CYAN, TFT_BLACK);
     tft.setTextSize(2);

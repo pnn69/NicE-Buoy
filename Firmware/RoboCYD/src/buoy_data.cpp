@@ -288,8 +288,11 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     // is the wrong buoy and the waypoint would be filed against the computer instead of the
     // recipient re-broadcasts it as LOCKPOS under its own ID anyway
     // (RoboTop/src/main.cpp, case SETLOCKPOS), which is the copy we want.
+    // 93 is SET_AS_LEVEL coming back from the buoy - the confirmation that the level datum was
+    // actually written. It was missing here, so the reply was dropped by this filter and MAN CAL
+    // had no way to tell a levelling that worked from one that never arrived.
     if (cmd != 51 && cmd != 19 && cmd != 83 && cmd != 21 && cmd != 23 && cmd != 88 &&
-        cmd != 91 && cmd != 92 && cmd != 94) return;
+        cmd != 91 && cmd != 92 && cmd != 93 && cmd != 94) return;
 
     String sender_id = fields[1];
     sender_id.trim();
@@ -404,8 +407,17 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     // Status text mapping
     if (status_code == 7) {
         buoys[buoy_idx].status = "IDLE";
-        buoys[buoy_idx].bb_power = 0; // Explicitly reset thrusters to 0% when IDLE!
-        buoys[buoy_idx].sb_power = 0;
+        // The thruster powers are NOT forced to zero here any more, and must not be.
+        //
+        // "IDLE means the motors are off" is simply untrue, and DOCKED is worse: a docked buoy
+        // runs its thrusters continuously to hold station. Measured on the wire while this screen
+        // showed 0%: status=16, bb=5, sb=-5, four times a second, steadily. The buoy was holding
+        // itself in place and the display was throwing the evidence away - which is also why the
+        // device's own web page disagreed with its screen, since that reads the raw frame over the
+        // websocket and never touches buoys[].
+        //
+        // Nothing is needed in its place. TOPDATA carries bb/sb in every frame at 4 Hz and is the
+        // only thing that ever writes them, so the real value arrives continuously in every state.
         // An idle buoy is not steering at anything, so drop its waypoint at once rather than
         // letting it fade out over the staleness window - the mark would otherwise sit on the
         // map for another 20 s claiming a target the buoy has already abandoned.
@@ -416,8 +428,8 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     else if (status_code == 15) buoys[buoy_idx].status = "DOCKING";
     else if (status_code == 16) {
         buoys[buoy_idx].status = "DOCKED";
-        buoys[buoy_idx].bb_power = 0; // Reset thrusters when DOCKED
-        buoys[buoy_idx].sb_power = 0;
+        // Not zeroed - see the note under IDLE above. This is the state where holding station
+        // means the thrusters are MOST likely to be running.
     }
     else if (status_code == 25) {
         buoys[buoy_idx].status = "REMOTE";
@@ -446,6 +458,21 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         if (fields.size() > 21) {
             buoys[buoy_idx].current = atof(fields[21].c_str());
         }
+        // Fires only when a TOPDATA lands a value that should never be zero, and names the
+        // transport that carried it. Silent in normal running.
+        //
+        // Kept because it is the only way to see this from outside: a Top that has not yet heard
+        // from its Sub genuinely sends 0 V, RoboCode() compresses the zero to "", and atof("")
+        // gives 0 - so the bar reads empty on a frame that is perfectly well formed. That happens
+        // for a few seconds after every Top reboot and is expected; a burst at any other time is
+        // not, and this is what makes the difference visible.
+        if (buoys[buoy_idx].battery_v == 0.0f) {
+            cyd_log("SUSPECT rx %s cmd51 from %s n=%d st=%s volt='%s' bb='%s' sb='%s'",
+                    source.c_str(), sender_id.c_str(), (int)fields.size(),
+                    fields[4].c_str(), fields[15].c_str(),
+                    fields[11].c_str(), fields[12].c_str());
+        }
+
         // Imag - see BuoyData::mag_dir_iron. numbers[19] in RoboCompute's TOPDATA, which is
         // fields[22] here. Appended to the frame, so an older buoy simply does not send it and
         // mag_dir_iron_ms stays 0.
@@ -454,6 +481,12 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
             buoys[buoy_idx].mag_dir_iron_ms = millis();
         }
 
+    }
+    // A TOPDATA too short for the block above is skipped entirely and every value it carries is
+    // left stale. Silent until now.
+    else if (cmd == 51) {
+        cyd_log("SUSPECT rx %s cmd51 SHORT from %s n=%d - whole frame ignored",
+                source.c_str(), sender_id.c_str(), (int)fields.size());
     }
     // Parse BUOYPOS (CMD = 19)
     else if (cmd == 19 && fields.size() >= 14) {
@@ -540,6 +573,11 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         if (fields.size() > 20) buoys[buoy_idx].dock_app_dist = atoi(fields[20].c_str());
         if (fields.size() > 21) buoys[buoy_idx].dock_app_dir = atoi(fields[21].c_str());
         if (fields.size() > 22) buoys[buoy_idx].dock_to_wp = (fields[22] == "1");
+        // Appended after the dock settings - see prDamping/compassAvg in RoboCompute.h. Guarded on
+        // the field count, so a buoy too old to send them leaves this end's copy alone rather than
+        // reading as damping 0 and averaging 0.
+        if (fields.size() > 23) buoys[buoy_idx].pr_damping = atof(fields[23].c_str());
+        if (fields.size() > 24) buoys[buoy_idx].compass_avg = atoi(fields[24].c_str());
         // Field 23 used to carry the "apply the compass table" switch. The switch is gone and the
         // Sub no longer sends the field, so there is nothing to read here - and nothing to guard
         // the block below with either. Removing the assignments alone left the if() standing with
@@ -551,6 +589,13 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
             setup_data_loaded = true;
             Serial.println("On-screen Setup Data loaded successfully from Buoy!");
         }
+    }
+
+    // Parse SET_AS_LEVEL (CMD = 93) - the buoy confirming it stored the attitude datum. It
+    // carries no payload at all (see RoboCode()), so arrival IS the whole message.
+    if (cmd == 93) {
+        buoys[buoy_idx].level_ms = millis();
+        Serial.printf("LEVEL confirmed by %s\n", sender_id.c_str());
     }
 
     // Parse ATTITUDE (CMD = 92) - pitch and roll, for MAN CAL's level. UDP only, so it simply
@@ -633,10 +678,22 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
     }
 }
 
+// The serial for the next operator press. One counter for this handheld, stepping over 0 because
+// 0 means "unnumbered" to a receiver. See cmdSeq in RoboCompute.h.
+static uint16_t cyd_press_seq = 0;
+static uint16_t next_press_seq() {
+    if (++cyd_press_seq == 0) cyd_press_seq = 1;
+    return cyd_press_seq;
+}
+
 void send_buoy_command(const String &buoy_id, int cmd_code, int ack) {
     // Standard command formatting: $Target,Sender,ACK,CMD,Status,Data1,Data2...*CRC
     // Use unique Display Sender ID "98" to ensure proper bi-directional LoRa routing!
-    String cmdStr = buoy_id + ",98," + String(ack) + "," + String(cmd_code) + "," + String(cmd_code) + ",,,,,,";
+    // Six empty fields, then the press serial in numbers[7] - the slot every command that uses it
+    // leaves free. Without it a DOCK press was executed up to 23 times and an IDLE pressed
+    // beforehand kept re-executing after it, so the buoy oscillated between the two.
+    String cmdStr = buoy_id + ",98," + String(ack) + "," + String(cmd_code) + "," + String(cmd_code)
+                  + ",,,,,," + String((int)next_press_seq());
     
     uint8_t crc = calculate_crc(cmdStr);
     char crc_buf[8];
@@ -742,7 +799,11 @@ void send_buoy_setup(int buoy_idx) {
     
     // Construct standard SET command payload using SET (2) and unique Display Sender ID "98"
     char cmdPayload[256];
-    sprintf(cmdPayload, "%s,98,2,83,7,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.0f,%0.0f,%0.2f,%0.2f,%0.1f,%d,%d,%d,%d,%d,%d,%d,%d",
+    // Nineteen specifiers for eighteen arguments is what this used to carry: one %d too many, so
+    // the last field was whatever happened to be on the stack. It was harmless only because the
+    // decoder stops at dockingToWaypoint and never read it - but it sits exactly where prDamping
+    // now goes, so the stray one is removed here rather than left to misalign the two new fields.
+    sprintf(cmdPayload, "%s,98,2,83,7,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.0f,%0.0f,%0.2f,%0.2f,%0.1f,%d,%d,%d,%d,%d,%d,%d,%0.2f,%d",
             b.id.c_str(),
             b.kpr, b.kir, b.kdr, b.kps, b.kis, b.kds,
             // compassOffset goes out with 2 decimals, matching what the Sub already puts on the
@@ -752,7 +813,8 @@ void send_buoy_setup(int buoy_idx) {
             // threw away up to half a degree of it.
             b.max_speed, b.min_speed, b.pivot_speed, b.compass_offset, b.hold_radius,
             b.rev_bb ? 1 : 0, b.rev_sb ? 1 : 0, b.swap_bb_sb ? 1 : 0, b.compass_trim_enabled ? 1 : 0,
-            b.dock_app_dist, b.dock_app_dir, b.dock_to_wp ? 1 : 0);
+            b.dock_app_dist, b.dock_app_dir, b.dock_to_wp ? 1 : 0,
+            b.pr_damping, b.compass_avg);
             
     uint8_t crc = calculate_crc(cmdPayload);
     char finalPacket[320];
@@ -773,8 +835,11 @@ void send_buoy_dirdist(int buoy_idx) {
     // Data1 (tgDir) = tg_dir
     // Data2 (tgSpeed) = tg_speed
     char cmdPayload[256];
-    sprintf(cmdPayload, "%s,98,6,25,25,%0.1f,%0.1f,,,,",
-            b.id.c_str(), b.tg_dir, b.tg_speed);
+    // Trailing field is the press serial, numbers[7] - see send_buoy_command() above. A slider
+    // drag sends many of these and each one is numbered, so the newest always wins and a late
+    // echo can never put the old speed back.
+    sprintf(cmdPayload, "%s,98,6,25,25,%0.1f,%0.1f,,,,%d",
+            b.id.c_str(), b.tg_dir, b.tg_speed, (int)next_press_seq());
             
     uint8_t crc = calculate_crc(cmdPayload);
     char finalPacket[320];
