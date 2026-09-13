@@ -2609,20 +2609,27 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 // datum lives in the Sub's NVS and is not carried in SETUPDATA, so there is
                 // nothing here to refresh.
                 //
-                // ONLY when it is a command. ack INF means this frame is a REPORT - a Sub saying
-                // it has already stored a datum - and executing a report as an order is how one
-                // press levelled every hull in the fleet, repeatedly: the Sub answered, the answer
-                // was relayed, both Tops read the answer as a fresh command, both Subs levelled
-                // and answered in turn, and round it went. A reply is never an instruction.
-                if (RfIn.ack != SET && RfIn.ack != GETACK) break;
+                // ONLY when it is a command, never when it is a report. Executing a report as an
+                // order is how one press levelled every hull in the fleet, repeatedly: the Sub
+                // answered, the answer was relayed, both Tops read the answer as a fresh command,
+                // both Subs levelled and answered in turn, and round it went.
+                //
+                // Discriminated by SENDER, not by ack. The first attempt tested the ack and broke
+                // the feature outright, because a command and its reply BOTH use INF here - the
+                // CYD presses this with ack INF (send_buoy_command(id, 93, 6)) and the Sub answers
+                // with INF too, so no ack test can separate them. What does separate them is who
+                // sent it: an order comes from a presser, 0x98 the handheld or 0x99 the web, and a
+                // report comes from a Top or a Sub under its own MAC.
+                if (RfIn.ack == INF && RfIn.IDs != 0x98 && RfIn.IDs != 0x99) break;
                 RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0);
                 break;
             case SET_AS_NORTH:
-                // Same guard as SET_AS_LEVEL above. Nothing broadcasts a SET_AS_NORTH reply today,
-                // so this has never fired - but the shape is identical and the next thing to relay
-                // one would set the whole fleet's north from a single press.
-                if (RfIn.ack != SET && RfIn.ack != GETACK) break;
+                // Same guard as SET_AS_LEVEL above, and for the same reason. Nothing broadcasts a
+                // SET_AS_NORTH reply today, so this has never fired - but the shape is identical
+                // and the next thing to relay one would set the whole fleet's north from a single
+                // press.
+                if (RfIn.ack == INF && RfIn.IDs != 0x98 && RfIn.IDs != 0x99) break;
                 RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
                 // This one changes compassOffset in the Sub's NVS, so re-read it rather than
