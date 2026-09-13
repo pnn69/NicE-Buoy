@@ -707,6 +707,15 @@ void handleSerandRfdata(RoboStruct *ser)
                     thrusterSwap(&response, MEM_GET);
                     thrusterInversion(&response, MEM_GET);
                     computeParameters(&response, MEM_GET); 
+                    {
+                        // The two compass steadiness settings ride along in SETUPDATA now, so the
+                        // handheld can read and change them. They live in compass.cpp rather than
+                        // in RoboStruct, so they are copied in and out by hand at both ends.
+                        extern float pr_damping;
+                        extern int compass_avg_len;
+                        response.prDamping = pr_damping;
+                        response.compassAvg = compass_avg_len;
+                    }
                     udpLog("SETUPDATA reply -> IDr=%08lX", (unsigned long)response.IDr);
                     xQueueSend(serOut, (void *)&response, 10);
 // printf("Sent SETUPDATA back to %X\r\n", response.IDr);
@@ -743,6 +752,32 @@ void handleSerandRfdata(RoboStruct *ser)
                     // web page - the tick box looked like it had no effect at all.
                     // Only the FLAG is carried here; the accumulated trim value is not in this
                     // frame and must be left exactly as it is.
+                    //
+                    // Compass steadiness travels in the same frame. Clamped to the limits the
+                    // Sub's own page enforces, and written only when the value actually changed -
+                    // so a sender that predates these fields, which leaves compassAvg at its
+                    // default of 1, cannot silently switch the heading averaging off on every save.
+                    {
+                        extern float pr_damping;
+                        extern int compass_avg_len;
+                        if (dataIn.compassAvg >= 1 && dataIn.compassAvg <= 200 &&
+                            dataIn.compassAvg != compass_avg_len)
+                        {
+                            compass_avg_len = dataIn.compassAvg;
+                            memCompassAvg(&compass_avg_len, MEM_PUT);
+                            printf("SETUPDATA: compass averaging set to %d\r\n", compass_avg_len);
+                        }
+                        // Negative means the frame did not carry it - see prDamping's default.
+                        float d = dataIn.prDamping;
+                        if (d < 0.0f) d = -1.0f;
+                        if (d > 0.99f) d = 0.99f;
+                        if (d >= 0.0f && fabsf(d - pr_damping) > 0.0005f)
+                        {
+                            pr_damping = d;
+                            memPrDamping(&pr_damping, MEM_PUT);
+                            printf("SETUPDATA: pitch/roll damping set to %.2f\r\n", pr_damping);
+                        }
+                    }
                     mainData.compass_trim_enabled = dataIn.compass_trim_enabled;
                     {
                         float trim_val = (float)mainData.compass_trim;
