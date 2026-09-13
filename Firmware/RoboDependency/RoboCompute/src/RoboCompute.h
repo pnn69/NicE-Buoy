@@ -373,6 +373,43 @@ struct RoboStruct
     // last one the Sub actually applied. This is what makes a retried press safe.
     uint16_t cal8Seq = 0;
 
+    // Serial of an operator PRESS - IDLE, LOCK, DOCK, REMOTE. Same idea as cal8Seq and for the
+    // same reason, generalised to the commands a human pushes a button for.
+    //
+    // One press does not arrive once. It goes out on LoRa and UDP both, ack GETACK puts it in
+    // RoboTop's retransmit table, every LoRa receiver repeats what it hears once, and the other
+    // Top bridges the UDP copy onto the air as well. Measured: a single DOCK press arrived at its
+    // Top 51 times spread over 27 seconds.
+    //
+    // Suppressing duplicates by content cannot fix that, because the echo tail outlives any
+    // sensible window: a 5 second filter let each command through once per 5 seconds, and since
+    // IDLE and DOCK are DIFFERENT commands they never suppressed each other - so an IDLE pressed
+    // before a DOCK kept re-executing after it and the buoy oscillated IDLE, DOCKED, IDLE, DOCKED
+    // for half a minute.
+    //
+    // A serial fixes it properly: the receiver executes a press only if it is NEWER than the last
+    // one it acted on, so a stale echo can never overtake a fresh press however long it circulates.
+    // 0 means "unnumbered" - a node that predates this - and falls back to the content filter.
+    // Carried in numbers[7], which is free on every command that uses it. See RoboCode().
+    uint16_t cmdSeq = 0;
+
+    // Compass steadiness, carried in SETUPDATA so it can be reached from the handheld instead of
+    // only from the Sub's own web page. Both live in the Sub's NVS and are read by CompassTask.
+    //
+    // prDamping is the exponential damping on pitch and roll, 0.00 (none) to 0.99 (most) - the
+    // bubble level on MAN CAL. compassAvg is the heading averaging window, 1 to 200 samples. A
+    // jumpy sensor makes a compass calibration very hard to take, and until now the only way to
+    // steady it was a laptop on the Sub's page.
+    //
+    // Appended to the END of the frame, after dockingToWaypoint, so a node that predates them
+    // sends a shorter frame and every count-guarded field before this is untouched.
+    // Defaults are SENTINELS, not values. A sender that predates these fields leaves them at the
+    // default, and the receiver must be able to tell that apart from a real setting - otherwise an
+    // un-flashed handheld saving the setup page would arrive carrying "averaging = 1" and switch
+    // the heading averaging off on a buoy that was running 20.
+    float prDamping = -1.0f;   // < 0 means the frame did not carry it
+    int compassAvg = 0;        // 0 means the frame did not carry it (the real range starts at 1)
+
     // What this node hears, carried by LORA_LINK. linkPeers is how many entries are filled.
     uint32_t linkPeerId[LORA_LINK_MAX_PEERS] = {0};
     int16_t linkRssi[LORA_LINK_MAX_PEERS] = {0};

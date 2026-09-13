@@ -70,10 +70,32 @@ void RoboDecode(String data, RoboStruct *dataStore)
           if (count > 17) dataStore->dockApproachDist = numbers[17].toInt();
           if (count > 18) dataStore->dockApproachDir = numbers[18].toInt();
           if (count > 19) dataStore->dockingToWaypoint = (bool)numbers[19].toInt();
+          // Appended after the dock settings - see prDamping/compassAvg in RoboCompute.h.
+          if (count > 20) dataStore->prDamping = numbers[20].toFloat();
+          if (count > 21) dataStore->compassAvg = numbers[21].toInt();
           break;
     case IDLE:
         dataStore->speed = 0;
         dataStore->tgDist = 0;
+        // Count-guarded: a node that predates the serial sends a shorter frame and leaves this 0,
+        // which means "unnumbered" and falls back to the content filter. See cmdSeq.
+        if (count > 7) dataStore->cmdSeq = (uint16_t)numbers[7].toInt();
+        break;
+    // The three a human actually presses. IDLE, LOCKED and DOCKED are the states a buoy REPORTS;
+    // IDLING, LOCKING and DOCKING are the commands that ASK for them, and those are what the
+    // handheld sends - cmd 8, 12 and 15 on the wire.
+    //
+    // They had no case here at all and fell through to default, so cmdSeq was never read and the
+    // press gate in RoboTop was skipped on every press. The encoder groups DOCKED with DOCKING and
+    // LOCKED with LOCKING; this decoder does not, and assuming it mirrored the encoder is what made
+    // the serial look broken when it had been on the wire the whole time.
+    //
+    // Only the serial is taken. The payload these carry is the sender's idea of the target, which
+    // the receiver works out for itself - reading it here would change unrelated behaviour.
+    case IDLING:
+    case LOCKING:
+    case DOCKING:
+        if (count > 7) dataStore->cmdSeq = (uint16_t)numbers[7].toInt();
         break;
     case DOCKED:
     case LOCKED:
@@ -82,10 +104,12 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->tgSpeed = numbers[4].toDouble();
         dataStore->wDir = numbers[5].toDouble();
         dataStore->wStd = numbers[6].toDouble();
+        if (count > 7) dataStore->cmdSeq = (uint16_t)numbers[7].toInt();
         break;
     case REMOTE:
         dataStore->tgDir = numbers[2].toDouble();
         dataStore->tgSpeed = numbers[3].toDouble();
+        if (count > 7) dataStore->cmdSeq = (uint16_t)numbers[7].toInt();
         break;
     case DIRSPEED:
         dataStore->dirMag = numbers[2].toDouble();
@@ -366,6 +390,8 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String(dataOut->dockApproachDist);
         out += "," + String(dataOut->dockApproachDir);
         out += "," + String((int)dataOut->dockingToWaypoint);
+        out += "," + formatFloat(dataOut->prDamping, 2);
+        out += "," + String(dataOut->compassAvg);
         break;
     case DIRSPEED:
         out += "," + formatFloat(dataOut->dirMag, 2);
@@ -584,14 +610,21 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + formatFloat(dataOut->tgSpeed, 1);
         out += "," + formatFloat(dataOut->wDir, 1);
         out += "," + formatFloat(dataOut->wStd, 1);
+        // numbers[7] - the press serial. Emitted here as well as decoded, because the copy that
+        // does the damage is the one a peer Top RE-ENCODES onto LoRa: drop the serial there and
+        // the echo becomes indistinguishable from a fresh press again.
+        out += "," + String((int)dataOut->cmdSeq);
         break;
     case REMOTE:
         out += "," + formatFloat(dataOut->tgDir, 0);
         out += "," + formatFloat(dataOut->tgSpeed, 0);
+        out += ",,,";                                  // pad numbers[4..6]
+        out += "," + String((int)dataOut->cmdSeq);     // numbers[7]
         break;
     case IDLE:
     case IDLING:
-        out += ",0,0";
+        out += ",0,0,,,";                              // numbers[2..6]
+        out += "," + String((int)dataOut->cmdSeq);     // numbers[7]
         break;
     case PING:
         return String(PING);
@@ -1388,6 +1421,8 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
         dst->dockApproachDist = src.dockApproachDist;
         dst->dockApproachDir = src.dockApproachDir;
         dst->dockingToWaypoint = src.dockingToWaypoint;
+        dst->prDamping = src.prDamping;
+        dst->compassAvg = src.compassAvg;
         break;
 
     case ADAPTIVE_TRIM:
