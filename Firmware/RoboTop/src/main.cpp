@@ -1676,7 +1676,23 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
         // at most ONCE PER WINDOW and the rest were discarded - measured at roughly eight drops a
         // second across the two Tops. That is the feed behind MAN CAL's bubble level, which is the
         // instrument the operator levels the hull against before a calibration run.
-        if (RfIn.cmd != BUOYPOS && RfIn.cmd != TOPDATA && RfIn.cmd != SUBDATA && RfIn.cmd != SUBACCU && RfIn.cmd != SUBPWR && RfIn.cmd != ATTITUDE && RfIn.cmd != LORA_LINK && RfIn.ack != GET && RfIn.ack != GETACK)
+        //
+        // GET is exempt because it is a pure query: it changes nothing, and asking twice must
+        // always be allowed. GETACK is NOT exempt, and used to be - which was the whole problem.
+        // On this network GETACK does not mean "query", it is what send_buoy_command() marks a
+        // STATE-CHANGING command with so RoboTop will retransmit it. Exempting it meant every
+        // copy of a DOCK, LOCK or IDLE press was executed.
+        //
+        // And the copies are many. One press is transmitted on both LoRa and UDP; the retransmit
+        // table resends it up to five times; every LoRa receiver repeats what it hears once; and
+        // the other Top bridges the UDP copy onto the air as well. Measured from one DOCK press:
+        // 51 arrivals at the target Top spread over 27 seconds, of which 23 got past the
+        // "already DOCKING/DOCKED" guard and ran the handler again - each one beeping, re-reading
+        // NVS, re-broadcasting DOCKPOS and resetting the speed and rudder PIDs mid-manoeuvre.
+        //
+        // A lost first copy is still fine: it was never hashed, so the retransmit that follows is
+        // the first one SEEN and is accepted normally.
+        if (RfIn.cmd != BUOYPOS && RfIn.cmd != TOPDATA && RfIn.cmd != SUBDATA && RfIn.cmd != SUBACCU && RfIn.cmd != SUBPWR && RfIn.cmd != ATTITUDE && RfIn.cmd != LORA_LINK && RfIn.ack != GET)
         {
             uint32_t currentHash = calculateCommandHash(RfIn);
             bool isDuplicate = false;
@@ -1774,6 +1790,43 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             // its own telemetry on LoRa, so nobody needs us to repeat it, and the collisions it
             // caused were losing the packets that mattered.
             xQueueSend(loraOut, (void *)&RfIn, 0);
+        }
+
+        // --- ONE PRESS, ONE EXECUTION ---------------------------------------------------------
+        //
+        // An operator press reaches us many times over - measured at 51 arrivals from one DOCK,
+        // spread across 27 seconds, because it goes out on both transports, sits in a retransmit
+        // table, is repeated once by every LoRa receiver and is bridged onto the air by the peer
+        // Top as well. The content filter above cannot help: its window is 5 seconds and the tail
+        // is thirty, and IDLE and DOCK hash differently so they never suppressed each other. An
+        // IDLE pressed BEFORE a DOCK therefore kept re-executing after it, and the buoy went
+        // IDLE, DOCKED, IDLE, DOCKED for half a minute.
+        //
+        // The serial settles it by ordering rather than by timing: act only on a press NEWER than
+        // the last one acted on, and a stale echo can never overtake a fresh press however long it
+        // circulates. See cmdSeq in RoboCompute.h.
+        if (RfIn.cmdSeq != 0 && (RfIn.IDs == 0x98 || RfIn.IDs == 0x99) &&
+            (RfIn.cmd == IDLE || RfIn.cmd == IDLING || RfIn.cmd == LOCKING ||
+             RfIn.cmd == DOCKING || RfIn.cmd == REMOTE))
+        {
+            // Two pressers: the handheld (0x98) and the web (0x99). Each numbers its own presses.
+            static uint16_t lastPressSeq[2] = {0, 0};
+            const int slot = (RfIn.IDs == 0x98) ? 0 : 1;
+            const int16_t delta = (int16_t)(RfIn.cmdSeq - lastPressSeq[slot]);
+
+            // delta <= 0 is not newer. The lower bound is what lets a presser that has RESTARTED
+            // back in: its counter begins again at 1, which is hundreds behind and would otherwise
+            // lock it out for good. An echo is only ever a few presses behind, never dozens.
+            if (delta <= 0 && delta > -32)
+            {
+                if (!noisyCmd(RfIn.cmd))
+                {
+                    udpLog("RF drop stale press cmd=%d seq=%u last=%u",
+                           RfIn.cmd, (unsigned)RfIn.cmdSeq, (unsigned)lastPressSeq[slot]);
+                }
+                return;
+            }
+            lastPressSeq[slot] = RfIn.cmdSeq;
         }
 
         // --- LOCAL HANDLING (For this buoy or ALL) ---
@@ -2555,10 +2608,21 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 // Forwarded like SET_AS_NORTH, but with no setup re-read behind it: the level
                 // datum lives in the Sub's NVS and is not carried in SETUPDATA, so there is
                 // nothing here to refresh.
+                //
+                // ONLY when it is a command. ack INF means this frame is a REPORT - a Sub saying
+                // it has already stored a datum - and executing a report as an order is how one
+                // press levelled every hull in the fleet, repeatedly: the Sub answered, the answer
+                // was relayed, both Tops read the answer as a fresh command, both Subs levelled
+                // and answered in turn, and round it went. A reply is never an instruction.
+                if (RfIn.ack != SET && RfIn.ack != GETACK) break;
                 RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0);
                 break;
             case SET_AS_NORTH:
+                // Same guard as SET_AS_LEVEL above. Nothing broadcasts a SET_AS_NORTH reply today,
+                // so this has never fired - but the shape is identical and the next thing to relay
+                // one would set the whole fleet's north from a single press.
+                if (RfIn.ack != SET && RfIn.ack != GETACK) break;
                 RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
                 // This one changes compassOffset in the Sub's NVS, so re-read it rather than
@@ -2911,6 +2975,20 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             {
                 printf("ERROR: Failed to queue table broadcast to loraOut!\r\n");
             }
+            break;
+        case SET_AS_LEVEL:
+            // The Sub's answer to a levelling press. Relayed so whoever pressed it can tell that
+            // it landed - there was no case here at all, so the confirmation died on this hop and
+            // every presser had to assume it had worked. The CYD printed "LEVEL SET" the moment
+            // the press went out, which is the same lie the calibration save used to tell.
+            //
+            // UDP only, matching the press: the screen that sent it is on WiFi by definition, and
+            // this frame carries nothing anyone on LoRa needs.
+            // IDr is left exactly as the Sub set it: the node that asked for the levelling. It
+            // used to be overwritten with BUOYIDALL here, which turned a private confirmation into
+            // a fleet-wide broadcast that every Top then obeyed.
+            serDataIn.IDs = espMac();
+            xQueueSend(udpOut, (void *)&serDataIn, pdMS_TO_TICKS(100));
             break;
         case PONG:
             break;
