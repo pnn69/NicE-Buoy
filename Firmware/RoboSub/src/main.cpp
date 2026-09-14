@@ -338,6 +338,8 @@ static void cleanBegin(RoboStruct *ser)
     if ((long)(millis() - cleanCooldownUntil) < 0)
     {
         printf("CLEAN ignored - cleaned less than %d ms ago\r\n", CLEAN_COOLDOWN_MS);
+        udpLog("CLEAN ignored - cooldown, %lu ms left",
+               (unsigned long)(cleanCooldownUntil - millis()));
         return;
     }
 
@@ -438,8 +440,10 @@ void handleSerandRfdata(RoboStruct *ser)
                     // CLEANING come back. See cleanLastSeq.
                     if (dataIn.cmdSeq != 0 && dataIn.cmdSeq == cleanLastSeq)
                     {
-                        break;
+                        break;   // a resend of the one we are already acting on
                     }
+                    udpLog("CLEAN_THRUSTERS in seq=%u status=%d",
+                           (unsigned)dataIn.cmdSeq, ser->status);
                     if (dataIn.cmdSeq != 0) cleanLastSeq = dataIn.cmdSeq;
                     printf("CLEAN_THRUSTERS received (seq %u)\r\n", (unsigned)dataIn.cmdSeq);
                     cleanBegin(ser);

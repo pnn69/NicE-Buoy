@@ -347,6 +347,10 @@ input[type=checkbox] {
         <button id="btnLock" onclick="sendCommand('LOCK')">LOCK</button>
         <button id="btnDock" onclick="sendCommand('DOCK')">DOCK</button>
         <button id="btnSetup" onclick="openSetup()">SETUP</button>
+        <!-- Clear weed out of the props on demand. Amber rather than the default, because
+             unlike LOCK/DOCK/SETUP this one spins both thrusters the moment it is pressed
+             and the hull may be in somebody hands. Confirmed for the same reason. -->
+        <button id="btnClean" onclick="cleanNow()" style="background:#f59e0b; color:#1a1a1a;">CLEAN NOW</button>
         <!-- Only shown while the buoy is under remote control. LOCK/DOCK are the normal way
              out (drive it there, then lock it), but there was no way to simply hand control
              back without also commanding a manoeuvre. Never greyed out by the GPS-fix rule:
@@ -585,6 +589,21 @@ function getStatusText(status) {
         case 89: return "GPS FOURIER CAL";
         default: return "STATUS: " + s;
     }
+}
+
+// CLEAN NOW. Its own function rather than sendCommand('CLEAN') so the confirmation cannot be
+// skipped by accident: both props run for about ten seconds at the configured speed limit, and
+// the person reading this page is usually the person standing over the boat.
+function cleanNow() {
+    if (!confirm("Clear the thrusters?" + String.fromCharCode(10) + String.fromCharCode(10)
+               + "Both props run for about 10 seconds - astern, ahead, then each side on its"
+               + " own. Keep hands clear.")) return;
+    fetch(`/command?bid=${currentBuoy}&cmd=CLEAN`)
+        .then(r => r.text())
+        .then(() => { const b = document.getElementById("btnClean");
+                      if (b) { b.textContent = "CLEANING..."; setTimeout(() => {
+                          b.textContent = "CLEAN NOW"; }, 11000); } })
+        .catch(e => console.error("CLEAN failed:", e));
 }
 
 function sendCommand(cmd) {
@@ -1490,11 +1509,21 @@ function updateUI() {
     // the "did not send its setup" timeout on a blank form - which is also dangerous, because
     // UPDATE CONFIG on a blank form writes zeros. Grey the button instead of offering that.
     // SubOk is absent for older firmware and in the offline test data: treat unknown as OK.
+    const subOk = (b.SubOk === undefined) ? true
+                  : (String(b.SubOk).trim().toLowerCase() === "true" || String(b.SubOk).trim() === "1");
     if (btnSetup) {
-        const subOk = (b.SubOk === undefined) ? true
-                      : (String(b.SubOk).trim().toLowerCase() === "true" || String(b.SubOk).trim() === "1");
         btnSetup.disabled = !subOk;
         btnSetup.title = subOk ? "" : "Sub is not sending data";
+    }
+
+    // The same gate, for the same reason. The Sub is the only thing that can turn a prop, so
+    // a silent one cannot clean - and a button that looks live and does nothing is precisely
+    // how "that buoy does not come alive" gets reported with nothing to go on. Say which of the
+    // two it is on the button itself.
+    const btnClean = document.getElementById("btnClean");
+    if (btnClean) {
+        btnClean.disabled = !subOk;
+        btnClean.title = subOk ? "Clear weed out of the thrusters" : "Sub is not sending data";
     }
 
     updateSetupModal();

@@ -219,7 +219,7 @@ void cleanStart(void)
 {
     // Already running: a repeat of the command, which is expected - the Top resends it until the
     // Sub shows it landed. Restarting here would stretch one press into an endless wash cycle.
-    if (cleanRunning) return;
+    if (cleanRunning) return;   // silent on purpose: the resend loop makes this the common case
 
     // Never over the top of a compass calibration. EscTask forces neutral for the whole run
     // (global_is_calibrating), so the bursts would not reach the water anyway, and the vibration
@@ -228,6 +228,7 @@ void cleanStart(void)
     if (global_is_calibrating)
     {
         printf("CLEAN refused - a compass calibration is running\r\n");
+        udpLog("CLEAN refused - a compass calibration is running");
         return;
     }
 

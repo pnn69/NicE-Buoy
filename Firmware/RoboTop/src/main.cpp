@@ -748,7 +748,10 @@ static void cleanRequest(const char *why)
 {
     if (cleanEntered || cleanPendTries >= 0)
     {
-        // Already cleaning, or already asking. Nothing to add.
+        // Already cleaning, or already asking. Nothing to add - but say so, because from the
+        // outside this is indistinguishable from the press having been lost.
+        udpLog("CLEAN request %s DROPPED - entered=%d pending=%d", why,
+               (int)cleanEntered, cleanPendTries);
         return;
     }
     if (++cleanOwnSeq == 0) cleanOwnSeq = 1; // 0 means "unnumbered" to the Sub, so skip it
@@ -2897,6 +2900,9 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 //
                 // Discriminated by sender for the same reason SET_AS_LEVEL is: a command and the
                 // buoy's own report both travel with ack INF, so only "who sent it" separates them.
+                udpLog("CLEAN_THRUSTERS rx IDs=%08lX IDr=%08lX seq=%u status=%d",
+                       (unsigned long)RfIn.IDs, (unsigned long)RfIn.IDr,
+                       (unsigned)RfIn.cmdSeq, RfOut->status);
                 if (RfIn.IDs != 0x98 && RfIn.IDs != 0x99) break;
                 cleanRequest("CLEAN NOW pressed");
                 break;
