@@ -155,17 +155,9 @@ let setupCheckRetries = 0;
 window.addEventListener("load", () => {
     // The map page hides <main> and runs its own bootstrap - the cards are not in play there.
     if (isMapView) return;
-    initWebSockets();
     initUIEventListeners();
     initBuoyDetailViews();
-    
-    // Autodiscover IP for WebSocket
-    const wsUrlInput = document.getElementById("ws-url");
-    if (wsUrlInput) {
-        const host = window.location.hostname || "192.168.1.165";
-        wsUrlInput.value = `ws://${host}:81`;
-    }
-    
+
     // Draw initial empty gauges
     for (let i = 0; i < 3; i++) {
         drawThrustBar(document.getElementById(`bb-bar-${i}`), 0);
@@ -514,31 +506,40 @@ function mancalWebPollState() {
 }
 
 // WebSockets (Acts as a Bridge to UDP server or back to ESP32 Web Server)
-function initWebSockets() {
-    const connBtn = document.getElementById("ws-connect-btn");
-    connBtn.addEventListener("click", () => {
-        if (socket) {
-            disconnectWebSocket();
-        } else {
-            connectWebSocket();
-        }
-    });
+//
+// The gateway is port 81 on whatever device served this page - there is nothing to configure, and
+// the header no longer pretends there is. The address box, the Connect button and the Connected
+// badge were all removed: two separate load handlers overwrote whatever had been typed into the box
+// with exactly this address, the connection was made automatically half a second after load either
+// way, and the button's one working function was to break a link that had no other way back.
+//
+// That last part is the piece worth replacing, so cleanupWS() retries on its own now. A CYD left
+// running on the boat has to survive the Top rebooting without somebody finding the page to reload
+// it, and there is no longer a button to press when it does.
+const WS_GATEWAY_PORT = 81;
+const WS_RETRY_MS = 3000;
+let wsRetryTimer = null;
+
+function wsGatewayUrl() {
+    // The fallback is for the page opened from a file rather than from a buoy; served normally,
+    // hostname is the device and this is just its own address back again.
+    const host = window.location.hostname || "192.168.1.165";
+    return `ws://${host}:${WS_GATEWAY_PORT}`;
 }
 
 function connectWebSocket() {
-    const url = document.getElementById("ws-url").value.trim();
-    if (!url) return;
-    
+    if (wsRetryTimer) {
+        clearTimeout(wsRetryTimer);
+        wsRetryTimer = null;
+    }
+    // The dashboard bootstrap, the map bootstrap and a retry can all ask at once. One is enough.
+    if (socket) return;
+
+    const url = wsGatewayUrl();
     logMessage(`Connecting to WS: ${url}...`, "UDP");
     socket = new WebSocket(url);
-    
-    const statusEl = document.getElementById("ws-status");
-    const connBtn = document.getElementById("ws-connect-btn");
-    
+
     socket.onopen = () => {
-        statusEl.textContent = "Connected";
-        statusEl.className = "status-indicator status-connected";
-        connBtn.textContent = "Disconnect WS";
         logMessage(`Connected to WebSocket`, "UDP IN");
     };
     
@@ -623,20 +624,14 @@ function connectWebSocket() {
     };
 }
 
-function disconnectWebSocket() {
-    if (socket) {
-        socket.close();
-    }
-    cleanupWS();
-}
-
 function cleanupWS() {
     socket = null;
-    const statusEl = document.getElementById("ws-status");
-    const connBtn = document.getElementById("ws-connect-btn");
-    statusEl.textContent = "Disconnected";
-    statusEl.className = "status-indicator status-disconnected";
-    connBtn.textContent = "Connect WS";
+    if (!wsRetryTimer) {
+        wsRetryTimer = setTimeout(() => {
+            wsRetryTimer = null;
+            connectWebSocket();
+        }, WS_RETRY_MS);
+    }
 }
 
 // Fallback JSON handling for legacy index.js WebSocket formats
@@ -2083,14 +2078,11 @@ if (isMapView) {
             }
         }
         
-        // Point the gateway at the device this page was served from, exactly as the dashboard's
-        // load handler does. That handler returns early in map view, so without this the map tab
-        // connects to the placeholder baked into index.html and never receives any telemetry.
-        const wsUrlInput = document.getElementById("ws-url");
-        if (wsUrlInput && window.location.hostname) {
-            wsUrlInput.value = `ws://${window.location.hostname}:81`;
-        }
-
+        // The map tab used to need its own copy of "point the gateway at the device that served
+        // this page", because the dashboard's load handler returns early in map view and the
+        // address box would otherwise still hold the placeholder baked into index.html.
+        // wsGatewayUrl() works that out at connect time, so both views get it for free.
+        //
         // Auto connect WebSocket if not already connected
         if (typeof connectWebSocket === "function") {
             setTimeout(connectWebSocket, 100);

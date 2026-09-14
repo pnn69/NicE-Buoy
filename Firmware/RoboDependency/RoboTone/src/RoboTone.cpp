@@ -133,6 +133,21 @@ void beep(int sound, QueueHandle_t buzzer)
         Data.duration = 80;
         xQueueSend(buzzer, (void *)&Data, 10);
         break;
+    case 7:
+        // One LONG tone: "the long press has been seen, let go".
+        //
+        // The button gives a 100ms tick on every press, so a sequence of short presses closed by a
+        // long one used to be three identical ticks - press, press, and the one that says the hold
+        // registered - with nothing to tell the last apart from the others. Length is the only cue
+        // left once pitch is already spoken for, so the hold gets a tone five times as long as the
+        // tick. The operator can hear the difference with the buoy at arm's length and their eyes
+        // on the water rather than on the hull.
+        Data.hz = 1000;
+        Data.repeat = 0;
+        Data.pause = 0;
+        Data.duration = 500;
+        xQueueSend(buzzer, (void *)&Data, 10);
+        break;
     case 10:
         xQueueSend(buzzer, (void *)&tones[10], 5);
         break;
