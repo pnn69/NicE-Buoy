@@ -3191,6 +3191,13 @@ void loop() {
                             // Numbered by send_buoy_command() like every other press, which is
                             // what stops the copies that reach the Top from becoming several runs.
                             send_buoy_command(b.id, 97, 6); // CLEAN_THRUSTERS
+                            // Logged on the way out, with the heap, because this press has been
+                            // reported to take the screen down with it occasionally. Whatever the
+                            // cause turns out to be, "the last thing it said was CLEAN NOW, then
+                            // BOOT" is the difference between a reboot and a lock-up, and neither
+                            // leaves any other trace on a device with no serial cable attached.
+                            cyd_log("CLEAN NOW pressed for %s heap=%u", b.id.c_str(),
+                                    (unsigned)ESP.getFreeHeap());
                             tft.fillRect(0, 60, tft.width(), 120, TFT_BLACK);
                             tft.setTextDatum(MC_DATUM);
                             tft.setTextSize(2);

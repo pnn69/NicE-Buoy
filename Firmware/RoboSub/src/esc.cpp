@@ -134,19 +134,31 @@ int escActualPulseSb(void) { return servoSB.attached() ? servoSB.readMicrosecond
 //  Thruster cleaning sequence - see the block comment in esc.h
 // ---------------------------------------------------------------------------------------------
 // Mirrors EscTask's own esc_power_on, which is a local to that task and so invisible from here.
-// Written at the three places that change it, read by the wake wait in cleanStart()/cleanService().
-static bool esc_power_state = false;
+// Written at the three places that change it, read by the wake wait in cleanService().
+//
+// volatile because the writer and the reader are different tasks on different cores: EscTask sets
+// it, the main loop spins waiting for it. Without this the compiler is entitled to hoist the read
+// out of the wait and the wait would never see it change.
+static volatile bool esc_power_state = false;
 
-// One row per step: what each thruster is asked for, and for how long.
+// Ask for the ESCs to be brought up, WITHOUT going through the speed queue.
+//
+// The queue cannot be relied on for this. EscTask wakes when it RECEIVES a non-zero speed, and
+// escspeed is ten deep - while the buoy sits in IDLE the main loop pushes a zero into it on every
+// pass of loop(), a few hundred times a second, so it stands permanently full of zeros. A wake that
+// has to queue behind that backlog arrives late, or not at all when the send times out. That is a
+// silly thing for "start the motors" to depend on, so it no longer does.
+static volatile bool esc_wake_request = false;
+void escRequestWake(void) { esc_wake_request = true; }
+
+// One row per step: which WAY each thruster turns, and for how long. The magnitude is not in the
+// table - see cleanPower below.
 //
 // CLEAN_BURST_MS is the 2 s the sequence is specified in. The stops between the bursts are not idle
 // time - they exist because driving a spinning prop straight through zero into the other direction
 // is what stalls an ESC, and a fouled prop is already close to stalling. So the blade is given a
 // moment to slow first: 100 ms across the astern-to-ahead reversal, where it is only unloading, and
 // 400 ms where a thruster is being stopped and left stopped while the other one works.
-//
-// Full scale, not maxSpeed. maxSpeed is a station keeping limit chosen for smooth holding, and
-// throwing weed off a blade is precisely the job that needs everything the thruster has.
 //
 // Nine steps, about 9.7 s in total.
 #define CLEAN_BURST_MS 2000
@@ -160,24 +172,40 @@ static bool esc_power_state = false;
 
 struct CleanStep
 {
-    int bb;
-    int sb;
+    int bbDir; // -1 astern, 0 stopped, +1 ahead
+    int sbDir;
     unsigned long ms;
     const char *what;
 };
 
 static const CleanStep cleanSteps[] = {
-    {   0,    0, CLEAN_SETTLE_MS, "stop sailing"        },
-    {-100, -100, CLEAN_BURST_MS,  "both astern"         },
-    {   0,    0, CLEAN_PAUSE_MS,  "pause"               },
-    { 100,  100, CLEAN_BURST_MS,  "both ahead"          },
-    {   0,    0, CLEAN_SETTLE_MS, "stop"                },
-    {-100,    0, CLEAN_BURST_MS,  "BB astern"           },
-    {   0,    0, CLEAN_SETTLE_MS, "BB stop"             },
-    {   0, -100, CLEAN_BURST_MS,  "SB astern"           },
-    {   0,    0, CLEAN_SETTLE_MS, "SB stop"             },
+    {  0,  0, CLEAN_SETTLE_MS, "stop sailing" },
+    { -1, -1, CLEAN_BURST_MS,  "both astern"  },
+    {  0,  0, CLEAN_PAUSE_MS,  "pause"        },
+    { +1, +1, CLEAN_BURST_MS,  "both ahead"   },
+    {  0,  0, CLEAN_SETTLE_MS, "stop"         },
+    { -1,  0, CLEAN_BURST_MS,  "BB astern"    },
+    {  0,  0, CLEAN_SETTLE_MS, "BB stop"      },
+    {  0, -1, CLEAN_BURST_MS,  "SB astern"    },
+    {  0,  0, CLEAN_SETTLE_MS, "SB stop"      },
 };
 #define CLEAN_STEPS (int)(sizeof(cleanSteps) / sizeof(cleanSteps[0]))
+
+// How hard the bursts push, in percent, captured when the run starts.
+//
+// maxSpeed, NOT full scale. The configured limit is the most this buoy is ever asked for while it
+// is sailing - pidrudspeed.cpp clamps the station keeping output to exactly +/-maxSpeed - and a
+// cleaning burst has no business exceeding what the hull, the mounts and the battery are set up
+// for. On the boats as configured today that makes the bursts +15% and -15% rather than +/-100%.
+//
+// minSpeed is deliberately not used for the astern direction even though it reads like the natural
+// pair. It is a different quantity - a floor on the drive the speed PID applies, not a ceiling on
+// reverse - and its default is 0, so a buoy that had never had it set would run the astern half of
+// this sequence at nothing at all and report a clean it had not performed.
+//
+// Captured once, at the start, so a SETUPDATA landing mid-run cannot change the thrust half way
+// through a burst.
+static int cleanPower = 0;
 
 static bool cleanRunning = false;
 static bool cleanWaking = false;
@@ -203,16 +231,37 @@ void cleanStart(void)
         return;
     }
 
+    // Refused rather than run at zero thrust. A buoy with maxSpeed 0 cannot move at all, so the
+    // sequence would be ten seconds of stopped props reported as a completed clean - and "it says
+    // CLEANING and nothing turns" is precisely the fault this whole path has already cost a
+    // morning to. If it cannot do the job it says so instead.
+    cleanPower = mainData.maxSpeed;
+    if (cleanPower > 100) cleanPower = 100;
+    if (cleanPower < 1)
+    {
+        printf("CLEAN refused - maxSpeed is %d, there is no thrust to clean with\r\n", cleanPower);
+        udpLog("CLEAN refused - maxSpeed=%d", cleanPower);
+        return;
+    }
+
     cleanRunning = true;
     cleanStep = 0;
     // Wake first, time the steps afterwards. If the ESCs are asleep, EscTask blocks for ~3.5 s in
     // startESC() and writes neutral throughout - so a sequence that started its clock now would
     // spend its first two bursts commanding a thruster that was not listening yet.
-    cleanWaking = !esc_power_state;
+    //
+    // ALWAYS ask, and ALWAYS wait for the answer - never "only if the flag says they are asleep".
+    // That test looks equivalent and is not: it trusts the flag in the one direction where being
+    // wrong is invisible. If the flag says awake and they are not, the sequence drives ten seconds
+    // of full-scale bursts into hardware with no power, reports that it cleaned, and nothing turns.
+    // Waiting unconditionally costs nothing when they really are up - EscTask confirms it on the
+    // next pass - and removes the only way this can fail silently.
+    escRequestWake();
+    cleanWaking = true;
     cleanWakeDeadline = millis() + CLEAN_WAKE_TIMEOUT_MS;
     cleanStepEnd = millis() + cleanSteps[0].ms;
-    printf("CLEAN start: %d steps%s\r\n", CLEAN_STEPS, cleanWaking ? " (waiting for the ESCs)" : "");
-    udpLog("CLEAN start steps=%d waking=%d", CLEAN_STEPS, (int)cleanWaking);
+    printf("CLEAN start: %d steps at %d%%, waiting for the ESCs\r\n", CLEAN_STEPS, cleanPower);
+    udpLog("CLEAN start steps=%d power=%d%% escpwr=%d", CLEAN_STEPS, cleanPower, (int)esc_power_state);
 }
 
 void cleanAbort(void)
@@ -235,23 +284,26 @@ bool cleanService(int *speedBbOut, int *speedSbOut)
 
     if (cleanWaking)
     {
-        // A non-zero command is what makes EscTask bring the supply back, so ask for the first
-        // burst while waiting rather than sitting at neutral and never being woken.
-        *speedBbOut = cleanSteps[1].bb;
-        *speedSbOut = cleanSteps[1].sb;
+        // Stopped while waiting, not already at the first burst. escRequestWake() is what brings
+        // the supply back now, so there is nothing to gain by commanding thrust here - and plenty
+        // to lose: in->speedBb is published in the telemetry, so asking for -100% while the ESCs
+        // are still arming puts a full astern burst on every screen for three and a half seconds
+        // while the props are not moving at all. Which is exactly the reading that made this
+        // fault so hard to see from the outside.
+        *speedBbOut = 0;
+        *speedSbOut = 0;
         if (esc_power_state)
         {
             cleanWaking = false;
             cleanStepEnd = millis() + cleanSteps[0].ms;
             printf("CLEAN: ESCs are up, starting the sequence\r\n");
+            udpLog("CLEAN ESCs up, running the sequence");
         }
         else if ((long)(millis() - cleanWakeDeadline) >= 0)
         {
             printf("CLEAN abandoned - the ESCs never came up\r\n");
             udpLog("CLEAN abandoned - ESCs never came up");
             cleanRunning = false;
-            *speedBbOut = 0;
-            *speedSbOut = 0;
             return false;
         }
         return true;
@@ -270,12 +322,13 @@ bool cleanService(int *speedBbOut, int *speedSbOut)
             return false;
         }
         cleanStepEnd = millis() + cleanSteps[cleanStep].ms;
-        printf("CLEAN step %d/%d: %s (bb %d sb %d)\r\n", cleanStep + 1, CLEAN_STEPS,
-               cleanSteps[cleanStep].what, cleanSteps[cleanStep].bb, cleanSteps[cleanStep].sb);
+        printf("CLEAN step %d/%d: %s (bb %d%% sb %d%%)\r\n", cleanStep + 1, CLEAN_STEPS,
+               cleanSteps[cleanStep].what, cleanSteps[cleanStep].bbDir * cleanPower,
+               cleanSteps[cleanStep].sbDir * cleanPower);
     }
 
-    *speedBbOut = cleanSteps[cleanStep].bb;
-    *speedSbOut = cleanSteps[cleanStep].sb;
+    *speedBbOut = cleanSteps[cleanStep].bbDir * cleanPower;
+    *speedSbOut = cleanSteps[cleanStep].sbDir * cleanPower;
     return true;
 }
 
@@ -343,7 +396,15 @@ void EscTask(void *arg)
         }
 
         // Power Management Logic
-        if (spsb != 0 || spbb != 0)
+        //
+        // esc_wake_request is the second way in, for a caller that needs the ESCs up before it has
+        // any speed to ask for - see escRequestWake(). It is cleared here, once, whether or not the
+        // supply had to be switched: the request means "make sure they are up", and they now are.
+        // The 30 s timer is pushed out either way, so the zero-speed steps of a cleaning sequence
+        // cannot let the supply drop out from under the run.
+        bool wakeAsked = esc_wake_request;
+        if (wakeAsked) esc_wake_request = false;
+        if (spsb != 0 || spbb != 0 || wakeAsked)
         {
             offStamp = millis() + 30000; // Reset 30s timer
             if (!esc_power_on)
@@ -353,6 +414,13 @@ void EscTask(void *arg)
                 esc_power_on = true;
                 esc_power_state = true;
                 spsbAct = 0; spbbAct = 0;
+            }
+            else
+            {
+                // Already up. The flag has to be set even so, because it is what the cleaning
+                // sequence waits on and it would otherwise stay false from boot until the first
+                // sleep/wake cycle - see the note in cleanStart().
+                esc_power_state = true;
             }
         }
         else if (millis() > offStamp)

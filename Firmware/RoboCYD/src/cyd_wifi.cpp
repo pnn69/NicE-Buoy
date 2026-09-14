@@ -398,6 +398,16 @@ void init_wifi_and_ota()
     {
         Serial.println("Failed to bind UDP port 1001!");
     }
+
+    // Say so, out loud, on the network. A handheld that resets leaves no other trace: there is no
+    // serial cable on the boat, the screen redraws itself so a reboot and a repaint look identical,
+    // and every other node on this network announces itself. Anyone watching UDP:1002 can now tell
+    // "the CYD restarted" from "the CYD stopped responding", which are different faults.
+    //
+    // After udp.listen(), because cyd_log() sends through that socket.
+    cyd_log("BOOT ip=%s rssi=%d heap=%u",
+            (WiFi.getMode() == WIFI_AP ? WiFi.softAPIP() : WiFi.localIP()).toString().c_str(),
+            (int)WiFi.RSSI(), (unsigned)ESP.getFreeHeap());
 }
 
 void handle_ota()
@@ -428,7 +438,19 @@ void cyd_log(const char *fmt, ...)
     char line[220];
     snprintf(line, sizeof(line), "CYD %lu %s\n", (unsigned long)millis(), body);
     Serial.print(line);
-    udp.broadcastTo(line, 1002);
+    // 255.255.255.255, not broadcastTo().
+    //
+    // broadcastTo() sends to the SUBNET broadcast - 192.168.1.255 here - and not one of these
+    // lines ever arrived at the PC. Measured: nine minutes of listening on 1002 caught every Top
+    // and both Subs and nothing at all from this device, while its own once-a-minute LORA_LINK
+    // report was logging the whole time. The Subs and Tops have always used the all-ones address
+    // (see the note in RoboSub/src/udplog.cpp) and they are received fine, so this now matches
+    // them rather than being the one node on the network whose logging quietly goes nowhere.
+    //
+    // That mattered more than a missing log line: it is the only way to watch this device in the
+    // field, there is no serial cable on the boat, and a handheld that reboots leaves no trace
+    // without it.
+    udp.writeTo((const uint8_t *)line, strlen(line), IPAddress(255, 255, 255, 255), 1002);
 }
 
 void broadcast_websocket_udp(const String &payload, int rssi, const String &ip)

@@ -1363,6 +1363,16 @@ void handleTimerRoutines(RoboStruct *in)
         }
         break;
     case IDLE:
+        // On the 20 ms tick, like every other state that touches the thrusters. This used to send
+        // on EVERY pass of loop() - a few hundred a second into a queue ten deep - so an idle buoy
+        // kept escspeed permanently full of zeros. Nothing needed that rate: the value is a
+        // constant zero, and EscTask holds the last thing it received.
+        //
+        // What it cost was the way OUT of idle. EscTask brings the supply back when it RECEIVES a
+        // non-zero speed, and the first one had to queue behind ten stale zeros - so waking the
+        // thrusters depended on winning a race against this line. See escRequestWake().
+        if (pidTimer >= millis()) break;
+        pidTimer = millis() + 20; // 20ms
         escOut.speedbb = 0;
         escOut.speedsb = 0;
         in->speedBb = 0;

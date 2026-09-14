@@ -38,6 +38,12 @@ int escActualPulseSb(void);
 // The buoy reports CLEANING while this runs and goes back to the status it had when it started -
 // see CLEAN_THRUSTERS in RoboCompute.h.
 //
+// Bring the ESCs up, without putting a speed in the queue to do it. EscTask wakes on RECEIVING a
+// non-zero speed, and escspeed is ten deep while IDLE pushes a zero into it on every pass of
+// loop() - so a wake that has to queue behind that arrives late or not at all. Anything that needs
+// the thrusters powered before it has a speed to ask for calls this instead.
+void escRequestWake(void);
+
 // Waking the ESCs is part of the sequence, not the caller's problem. EscTask drops their supply
 // after 30 s of stop and bringing it back takes about 3.5 s of blocking arming inside that task,
 // during which every pulse written is neutral whatever is in the queue - so a run started on a
