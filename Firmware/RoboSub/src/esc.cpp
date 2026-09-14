@@ -130,6 +130,155 @@ void startESC(void)
 int escActualPulseBb(void) { return servoBB.attached() ? servoBB.readMicroseconds() : 0; }
 int escActualPulseSb(void) { return servoSB.attached() ? servoSB.readMicroseconds() : 0; }
 
+// ---------------------------------------------------------------------------------------------
+//  Thruster cleaning sequence - see the block comment in esc.h
+// ---------------------------------------------------------------------------------------------
+// Mirrors EscTask's own esc_power_on, which is a local to that task and so invisible from here.
+// Written at the three places that change it, read by the wake wait in cleanStart()/cleanService().
+static bool esc_power_state = false;
+
+// One row per step: what each thruster is asked for, and for how long.
+//
+// CLEAN_BURST_MS is the 2 s the sequence is specified in. The stops between the bursts are not idle
+// time - they exist because driving a spinning prop straight through zero into the other direction
+// is what stalls an ESC, and a fouled prop is already close to stalling. So the blade is given a
+// moment to slow first: 100 ms across the astern-to-ahead reversal, where it is only unloading, and
+// 400 ms where a thruster is being stopped and left stopped while the other one works.
+//
+// Full scale, not maxSpeed. maxSpeed is a station keeping limit chosen for smooth holding, and
+// throwing weed off a blade is precisely the job that needs everything the thruster has.
+//
+// Nine steps, about 9.7 s in total.
+#define CLEAN_BURST_MS 2000
+#define CLEAN_SETTLE_MS 400
+#define CLEAN_PAUSE_MS 100
+
+// How long to wait for the ESCs to come back up before giving up on the run. Generous next to the
+// ~3.5 s startESC() actually takes, because CLEAN NOW may be pressed on a buoy that has been sat
+// still long enough for EscTask to have cut their supply.
+#define CLEAN_WAKE_TIMEOUT_MS 8000
+
+struct CleanStep
+{
+    int bb;
+    int sb;
+    unsigned long ms;
+    const char *what;
+};
+
+static const CleanStep cleanSteps[] = {
+    {   0,    0, CLEAN_SETTLE_MS, "stop sailing"        },
+    {-100, -100, CLEAN_BURST_MS,  "both astern"         },
+    {   0,    0, CLEAN_PAUSE_MS,  "pause"               },
+    { 100,  100, CLEAN_BURST_MS,  "both ahead"          },
+    {   0,    0, CLEAN_SETTLE_MS, "stop"                },
+    {-100,    0, CLEAN_BURST_MS,  "BB astern"           },
+    {   0,    0, CLEAN_SETTLE_MS, "BB stop"             },
+    {   0, -100, CLEAN_BURST_MS,  "SB astern"           },
+    {   0,    0, CLEAN_SETTLE_MS, "SB stop"             },
+};
+#define CLEAN_STEPS (int)(sizeof(cleanSteps) / sizeof(cleanSteps[0]))
+
+static bool cleanRunning = false;
+static bool cleanWaking = false;
+static int cleanStep = 0;
+static unsigned long cleanStepEnd = 0;
+static unsigned long cleanWakeDeadline = 0;
+
+bool cleanActive(void) { return cleanRunning; }
+
+void cleanStart(void)
+{
+    // Already running: a repeat of the command, which is expected - the Top resends it until the
+    // Sub shows it landed. Restarting here would stretch one press into an endless wash cycle.
+    if (cleanRunning) return;
+
+    // Never over the top of a compass calibration. EscTask forces neutral for the whole run
+    // (global_is_calibrating), so the bursts would not reach the water anyway, and the vibration
+    // and current draw are exactly what that guard exists to keep out of the readings.
+    extern bool global_is_calibrating;
+    if (global_is_calibrating)
+    {
+        printf("CLEAN refused - a compass calibration is running\r\n");
+        return;
+    }
+
+    cleanRunning = true;
+    cleanStep = 0;
+    // Wake first, time the steps afterwards. If the ESCs are asleep, EscTask blocks for ~3.5 s in
+    // startESC() and writes neutral throughout - so a sequence that started its clock now would
+    // spend its first two bursts commanding a thruster that was not listening yet.
+    cleanWaking = !esc_power_state;
+    cleanWakeDeadline = millis() + CLEAN_WAKE_TIMEOUT_MS;
+    cleanStepEnd = millis() + cleanSteps[0].ms;
+    printf("CLEAN start: %d steps%s\r\n", CLEAN_STEPS, cleanWaking ? " (waiting for the ESCs)" : "");
+    udpLog("CLEAN start steps=%d waking=%d", CLEAN_STEPS, (int)cleanWaking);
+}
+
+void cleanAbort(void)
+{
+    if (!cleanRunning) return;
+    cleanRunning = false;
+    cleanWaking = false;
+    printf("CLEAN aborted at step %d\r\n", cleanStep);
+    udpLog("CLEAN aborted at step %d", cleanStep);
+}
+
+bool cleanService(int *speedBbOut, int *speedSbOut)
+{
+    if (!cleanRunning)
+    {
+        *speedBbOut = 0;
+        *speedSbOut = 0;
+        return false;
+    }
+
+    if (cleanWaking)
+    {
+        // A non-zero command is what makes EscTask bring the supply back, so ask for the first
+        // burst while waiting rather than sitting at neutral and never being woken.
+        *speedBbOut = cleanSteps[1].bb;
+        *speedSbOut = cleanSteps[1].sb;
+        if (esc_power_state)
+        {
+            cleanWaking = false;
+            cleanStepEnd = millis() + cleanSteps[0].ms;
+            printf("CLEAN: ESCs are up, starting the sequence\r\n");
+        }
+        else if ((long)(millis() - cleanWakeDeadline) >= 0)
+        {
+            printf("CLEAN abandoned - the ESCs never came up\r\n");
+            udpLog("CLEAN abandoned - ESCs never came up");
+            cleanRunning = false;
+            *speedBbOut = 0;
+            *speedSbOut = 0;
+            return false;
+        }
+        return true;
+    }
+
+    if ((long)(millis() - cleanStepEnd) >= 0)
+    {
+        cleanStep++;
+        if (cleanStep >= CLEAN_STEPS)
+        {
+            cleanRunning = false;
+            *speedBbOut = 0;
+            *speedSbOut = 0;
+            printf("CLEAN done\r\n");
+            udpLog("CLEAN done");
+            return false;
+        }
+        cleanStepEnd = millis() + cleanSteps[cleanStep].ms;
+        printf("CLEAN step %d/%d: %s (bb %d sb %d)\r\n", cleanStep + 1, CLEAN_STEPS,
+               cleanSteps[cleanStep].what, cleanSteps[cleanStep].bb, cleanSteps[cleanStep].sb);
+    }
+
+    *speedBbOut = cleanSteps[cleanStep].bb;
+    *speedSbOut = cleanSteps[cleanStep].sb;
+    return true;
+}
+
 void calculateLedColor(int speed, uint8_t& r, uint8_t& g) {
     if (speed > 0) { r = 0; g = map(speed, 0, 100, 0, 255); }
     else if (speed < 0) { r = map(speed, -100, 0, 255, 0); g = 0; }
@@ -169,6 +318,7 @@ void EscTask(void *arg)
     // Start with power enabled
     startESC();
     esc_power_on = true;
+    esc_power_state = true;
     offStamp = millis() + 60000; // 60s initial grace period
     printf("ESC control task started.\r\n");
     
@@ -201,6 +351,7 @@ void EscTask(void *arg)
                 printf("ESCs Waking Up from sleep.\r\n");
                 startESC();
                 esc_power_on = true;
+                esc_power_state = true;
                 spsbAct = 0; spbbAct = 0;
             }
         }
@@ -213,6 +364,7 @@ void EscTask(void *arg)
                 servoBB.detach(); // Free the PWM pins when powered down
                 servoSB.detach();
                 esc_power_on = false;
+                esc_power_state = false;
                 Serial.println("ESCs entered sleep mode (power pins LOW)");
             }
             spsb = 0; spbb = 0; spsbAct = 0; spbbAct = 0;

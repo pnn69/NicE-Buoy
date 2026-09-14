@@ -26,6 +26,8 @@ const MsgType = {
     UNLOCK: 24,
     REMOTE: 25,
     REMOTING: 26,
+    CLEAN_THRUSTERS: 97,
+    CLEANING: 98,
     DIRDIST: 47,
     TOPDATA: 51,
     PIDRUDDER: 55,
@@ -696,7 +698,8 @@ function updateGUI() {
             } else {
                 statusBanner.textContent = currentStatus === MsgType.IDLE ? "IDLE" :
                                            [MsgType.LOCKING, MsgType.LOCKED].includes(currentStatus) ? "LOCKED" :
-                                           [MsgType.DOCKING, MsgType.DOCKED].includes(currentStatus) ? "DOCKING" : `STATUS ${currentStatus}`;
+                                           [MsgType.DOCKING, MsgType.DOCKED].includes(currentStatus) ? "DOCKING" :
+                                           currentStatus === MsgType.CLEANING ? "CLEANING" : `STATUS ${currentStatus}`;
             }
         }
         

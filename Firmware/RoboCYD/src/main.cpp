@@ -689,7 +689,7 @@ enum SetupSlot {
     S_SPD_P  = 4,  S_SPD_I  = 5,  S_SPD_D = 6,
     S_MAXSPD = 8,  S_MINSPD = 9,  S_PIVOT = 10,
     S_COMPOFF = 12, S_HOLDRAD = 13,
-    S_TRIMEN = 16,
+    S_TRIMEN = 16, S_AUTOCLN = 17, S_CLEANNOW = 18,
     S_REVBB  = 20, S_REVSB = 21, S_SWAP = 22,
     S_APPDIST = 24, S_APPDIR = 25, S_DOCKWP = 26,
     S_DESKCAL = 32, S_SETNORTH = 33, S_REBOOT = 34,
@@ -702,7 +702,7 @@ enum SetupSlot {
 static const char *SETUP_NAMES[SETUP_SLOTS] = {
     /* 1 PID              */ "Rud P:", "Rud I:", "Rud D:", "",      "Spd P:", "Spd I:", "Spd D:", "",
     /* 2 SPEED & COMPASS  */ "MaxSpd:", "MinSpd:", "PvtSpd:", "",   "CompOff:", "HoldRad:", "", "",
-    /* 3 TRIM & THRUSTERS */ "TrimEn:", "", "", "",                  "BB Inv:", "SB Inv:", "Swap:", "",
+    /* 3 TRIM & THRUSTERS */ "TrimEn:", "AutoCln:", "CLEAN NOW", "", "BB Inv:", "SB Inv:", "Swap:", "",
     /* 4 DOCKING          */ "Appr Dist", "Appr Dir", "DockToWP", "", "", "", "", "",
     /* 5 CALIBRATION      */ "Desk Cal", "Set North", "Reboot", "Damp:", "MAN CAL", "", "LoRa Links", "Avg:"
 };
@@ -712,23 +712,30 @@ static const char *SETUP_PAGE_TITLES[SETUP_PAGES] = {
     "PID", "SPEED & COMPASS", "TRIM & THRUSTERS", "DOCKING", "CALIBRATION"
 };
 
-// Pages holding no editable value. They must not be held behind the SETUPDATA reply the way the
-// parameter pages are, and "-" means nothing on them.
-static inline bool setup_is_action_page(int page) { return page == 4; }
+// setup_is_action_page() used to live here, and claimed to be what kept the action pages from being
+// held behind the SETUPDATA reply. It never did that - the loading gate in update_setup_dynamic()
+// has always asked about the selected SLOT - and its one real caller was the big readout, which
+// wanted the same per-slot question. CLEAN NOW is an action on a page full of settings, so the page
+// and the slot are no longer the same question and the page version has nothing left to answer.
 
 static inline bool setup_slot_used(int slot) {
     return slot >= 0 && slot < SETUP_SLOTS && SETUP_NAMES[slot][0] != 0;
 }
 
 // Slots that DO something when "+" is pressed rather than holding a number.
+//
+// CLEAN NOW is the first of these to sit on a page that is NOT an action page. Nothing here cared
+// about the page - the test has always been per slot - but the big readout below did, so that is
+// where the assumption had to come out.
 static inline bool setup_slot_is_action(int slot) {
     return slot == S_DESKCAL || slot == S_SETNORTH || slot == S_REBOOT ||
-           slot == S_MANCAL || slot == S_LINKS;
+           slot == S_MANCAL || slot == S_LINKS || slot == S_CLEANNOW;
 }
 
 static inline bool setup_slot_is_bool(int slot) {
     return slot == S_TRIMEN || slot == S_REVBB ||
-           slot == S_REVSB  || slot == S_SWAP     || slot == S_DOCKWP;
+           slot == S_REVSB  || slot == S_SWAP     || slot == S_DOCKWP ||
+           slot == S_AUTOCLN;
 }
 
 static bool setup_bool_get(const BuoyData &b, int slot) {
@@ -738,6 +745,7 @@ static bool setup_bool_get(const BuoyData &b, int slot) {
         case S_REVSB:    return b.rev_sb;
         case S_SWAP:     return b.swap_bb_sb;
         case S_DOCKWP:   return b.dock_to_wp;
+        case S_AUTOCLN:  return b.clean_enabled;
         default:         return false;
     }
 }
@@ -749,6 +757,7 @@ static void setup_bool_toggle(BuoyData &b, int slot) {
         case S_REVSB:    b.rev_sb               = !b.rev_sb;               break;
         case S_SWAP:     b.swap_bb_sb           = !b.swap_bb_sb;           break;
         case S_DOCKWP:   b.dock_to_wp           = !b.dock_to_wp;           break;
+        case S_AUTOCLN:  b.clean_enabled        = !b.clean_enabled;        break;
         default: break;
     }
 }
@@ -2059,7 +2068,11 @@ void update_setup_dynamic() {
             tft.setTextColor(on ? TFT_GREEN : textColor, TFT_BLACK);
             sprintf(buf, "%s %s", SETUP_NAMES[global_idx], on ? "YES" : "NO");
             tft.drawString(buf, x + 54, y + 16);
-        } else if (global_idx == S_MANCAL || global_idx == S_REBOOT || global_idx == S_LINKS) {
+        } else if (global_idx == S_MANCAL || global_idx == S_REBOOT || global_idx == S_LINKS ||
+                   global_idx == S_CLEANNOW) {
+            // Orange marks the buttons that DO something to the boat the moment they are confirmed,
+            // as against the ones that only open a screen. CLEAN NOW runs both thrusters at full
+            // scale for ten seconds, which is firmly in the first group.
             tft.setTextColor(TFT_ORANGE, TFT_BLACK);
             tft.drawString(SETUP_NAMES[global_idx], x + 54, y + 16);
         } else if (setup_slot_is_action(global_idx)) {
@@ -2074,19 +2087,24 @@ void update_setup_dynamic() {
     // Draw currently selected value in big text in center of adjustment row (Y: 195 to 225)
     tft.setTextSize(2);
     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-    if (setup_is_action_page(setup_page) && setup_slot_is_action(selected_param_idx)) {
+    // Whether the SELECTED SLOT is an action, and whether it is on the page being looked at. It
+    // used to ask whether the PAGE was an action page, which was the same question only for as
+    // long as every action lived on the CALIBRATION page. CLEAN NOW does not, and without this the
+    // readout under a selected CLEAN NOW fell through to setup_value_text() - which has no entry
+    // for an action slot, so the strip went blank and the button looked dead.
+    //
+    // The "SELECT ACTION" wording this used to be able to draw is gone with it. It was conditional
+    // on a flag recomputed from the test that had already been passed to get in here, so it was
+    // always true and the alternative could never be reached.
+    if (setup_slot_is_action(selected_param_idx) && (selected_param_idx / 8) == setup_page) {
         // Clear the strip between the two buttons (they occupy x 15..75 and x 165..225).
         tft.fillRect(78, 196, 84, 28, TFT_BLACK);
-        bool armed = setup_slot_is_action(selected_param_idx);
         tft.setTextDatum(MC_DATUM); // set, not inherited - TFT_eSPI datum is global state
         tft.setTextSize(1); // "TAP + TO RUN" at size 2 is 144 px and the gap is 84
-        uint16_t col = TFT_DARKGREY;
-        if (armed) {
-            col = (selected_param_idx == S_MANCAL || selected_param_idx == S_REBOOT) ? TFT_ORANGE
-                : TFT_YELLOW;
-        }
+        uint16_t col = (selected_param_idx == S_MANCAL || selected_param_idx == S_REBOOT ||
+                        selected_param_idx == S_CLEANNOW) ? TFT_ORANGE : TFT_YELLOW;
         tft.setTextColor(col, TFT_BLACK);
-        tft.drawString(armed ? "TAP + TO RUN" : "SELECT ACTION", 120, 210);
+        tft.drawString("TAP + TO RUN", 120, 210);
     } else if (setup_slot_is_bool(selected_param_idx)) {
         tft.drawString(setup_bool_get(b, selected_param_idx) ? "YES" : "NO", 115, 210);
     } else {
@@ -2397,6 +2415,14 @@ static char status_badge(const String &status, bool &settled_out) {
     if (status == "DOCKING")   return 'D';
     if (status == "REMOTE")    return 'R';
     if (status == "GPS CALIB") return 'C';
+    // Not settled, deliberately, even though the buoy is holding a real waypoint underneath this:
+    // for these ten seconds the station keeping loops are not driving the thrusters, and a plain
+    // "L" would claim it was holding position while both props are at full reverse.
+    //
+    // 'C' as well, which is not the collision it looks like: nothing in this firmware produces the
+    // string "GPS CALIB" any more - the GPS calibration run was removed and its two command slots
+    // stand reserved (see RoboCompute.h) - so the line above it can no longer match.
+    if (status == "CLEANING")  return 'C';
     return '?';
 }
 
@@ -3155,6 +3181,25 @@ void loop() {
                             tft.setTextSize(2);
                             tft.setTextColor(TFT_ORANGE, TFT_BLACK);
                             tft.drawString("REBOOTING BUOY", tft.width() / 2, 110);
+                            delay(1500);
+                            setup_overlay_drawn = true;
+                        } else if (selected_param_idx == S_CLEANNOW) {
+                            // INF, not GETACK: the buoy's answer to this is the CLEANING status
+                            // arriving in its telemetry, not an ACK, and GETACK would leave the
+                            // frame in the LoRa retry table to be sent five times over.
+                            //
+                            // Numbered by send_buoy_command() like every other press, which is
+                            // what stops the copies that reach the Top from becoming several runs.
+                            send_buoy_command(b.id, 97, 6); // CLEAN_THRUSTERS
+                            tft.fillRect(0, 60, tft.width(), 120, TFT_BLACK);
+                            tft.setTextDatum(MC_DATUM);
+                            tft.setTextSize(2);
+                            tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+                            tft.drawString("CLEANING", tft.width() / 2, 100);
+                            tft.setTextSize(1);
+                            tft.setTextColor(TFT_WHITE, TFT_BLACK);
+                            tft.drawString("both thrusters astern, ahead,", tft.width() / 2, 130);
+                            tft.drawString("then each one on its own", tft.width() / 2, 148);
                             delay(1500);
                             setup_overlay_drawn = true;
                         } else if (selected_param_idx == S_LINKS) {

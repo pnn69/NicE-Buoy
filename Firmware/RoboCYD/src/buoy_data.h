@@ -87,6 +87,11 @@ struct BuoyData {
     int dock_app_dist = 20;
     int dock_app_dir = 180;
     bool dock_to_wp = false;
+    // Automatic thruster cleaning. Unlike everything above it this one lives in the TOP's NVS, not
+    // the Sub's - the Top is the node that knows a waypoint has been set and how far off it is.
+    // It travels in the same SETUPDATA frame regardless, which is why it is here beside the rest.
+    // Defaults on, matching the Top.
+    bool clean_enabled = true;
     // ---- guided eight point calibration, mirrored from the buoy ----------------------------
     // Every value here arrived in a CAL8_SESSION frame the buoy sent. The CYD never writes them
     // itself and never derives them, because the session belongs to the buoy: see the block

@@ -73,6 +73,9 @@ void RoboDecode(String data, RoboStruct *dataStore)
           // Appended after the dock settings - see prDamping/compassAvg in RoboCompute.h.
           if (count > 20) dataStore->prDamping = numbers[20].toFloat();
           if (count > 21) dataStore->compassAvg = numbers[21].toInt();
+          // Automatic thruster cleaning, appended after the steadiness pair - see cleanEnabled in
+          // RoboCompute.h.
+          if (count > 22) dataStore->cleanEnabled = (bool)numbers[22].toInt();
           break;
     case IDLE:
         dataStore->speed = 0;
@@ -95,6 +98,9 @@ void RoboDecode(String data, RoboStruct *dataStore)
     case IDLING:
     case LOCKING:
     case DOCKING:
+    // CLEAN NOW is a press like the other four and is numbered like them. It carries nothing else:
+    // the sequence and its timings belong to the Sub, so the command is the whole message.
+    case CLEAN_THRUSTERS:
         if (count > 7) dataStore->cmdSeq = (uint16_t)numbers[7].toInt();
         break;
     case DOCKED:
@@ -355,6 +361,10 @@ void RoboDecode(String data, RoboStruct *dataStore)
         // otherwise tell apart from a genuinely uncalibrated buoy.
         if (count > 10) dataStore->interpUsable = (bool)numbers[10].toInt();
         break;
+    case CLEANING:
+        // Carries nothing but its status, which was read above before this switch. Listed so it
+        // does not log itself as an unknown command on every hop.
+        break;
     default:
         printf("RoboDecode: Unknown CMD %d\r\n", dataStore->cmd);
         break;
@@ -392,6 +402,7 @@ String RoboCode(const RoboStruct *dataOut)
         out += "," + String((int)dataOut->dockingToWaypoint);
         out += "," + formatFloat(dataOut->prDamping, 2);
         out += "," + String(dataOut->compassAvg);
+        out += "," + String((int)dataOut->cleanEnabled);
         break;
     case DIRSPEED:
         out += "," + formatFloat(dataOut->dirMag, 2);
@@ -625,6 +636,19 @@ String RoboCode(const RoboStruct *dataOut)
     case IDLING:
         out += ",0,0,,,";                              // numbers[2..6]
         out += "," + String((int)dataOut->cmdSeq);     // numbers[7]
+        break;
+    case CLEAN_THRUSTERS:
+        // Padded to put the press serial in numbers[7], which is where every other press carries
+        // it and where this decoder reads it. Emitted as well as decoded for the same reason the
+        // holding states do it: a peer that re-encodes the frame onto the other transport must not
+        // strip the serial, or its copy becomes indistinguishable from a fresh press.
+        out += ",0,0,,,";                              // numbers[2..6]
+        out += "," + String((int)dataOut->cmdSeq);     // numbers[7]
+        break;
+    case CLEANING:
+        // No payload. The status field of the envelope, already emitted above, is the entire
+        // message - see CLEANING in RoboCompute.h. Listed rather than left to the default so it
+        // does not log itself as an unknown formatter four times a second.
         break;
     case PING:
         return String(PING);
@@ -1423,6 +1447,7 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
         dst->dockingToWaypoint = src.dockingToWaypoint;
         dst->prDamping = src.prDamping;
         dst->compassAvg = src.compassAvg;
+        dst->cleanEnabled = src.cleanEnabled;
         break;
 
     case ADAPTIVE_TRIM:
@@ -1461,6 +1486,14 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
         for (int i = 0; i < 8; i++) dst->cal8Captured[i] = src.cal8Captured[i];
         dst->cal8Mask = src.cal8Mask;
         dst->cal8Seq = src.cal8Seq;
+        break;
+
+    // Listed for the same reason STORE_INTERPOLATION_TABLE is: neither carries a payload beyond
+    // the envelope, so the wholesale copy below would blank the buoy's position, battery and set
+    // point every time one went past. The envelope above already carries the status, which is the
+    // whole point of CLEANING.
+    case CLEAN_THRUSTERS:
+    case CLEANING:
         break;
 
     default:

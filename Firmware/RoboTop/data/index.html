@@ -412,6 +412,13 @@ input[type=checkbox] {
                 <input id="swap_BB_SB" type="checkbox" style="width:20px; height:20px;">
                 <label for="swap_BB_SB">Swap BB/SB Thrusters</label>
             </div>
+            <div style="display:flex; align-items:center; gap:5px; grid-column: span 2;">
+                <input id="cleanEn" type="checkbox" style="width:20px; height:20px;">
+                <label for="cleanEn">Auto-clean thrusters on a long run</label>
+            </div>
+            <div style="display:flex; align-items:center; gap:5px; grid-column: span 2;">
+                <button onclick="sendSetupCommand('CLEAN')" style="width:100%; background:#f59e0b; color:white; font-weight:bold;">CLEAN NOW</button>
+            </div>
         </div>
 
         <h4 style="margin: 8px 0 5px 0;">Docking Approach Settings</h4>
@@ -499,7 +506,8 @@ function updateConfig() {
         compass_trim_enabled: getChecked('compass_trim_enabled'),
         dockAppDist: getVal('dockAppDist'),
         dockAppDir: getVal('dockAppDir'),
-        dockToWP: getChecked('dockToWP')
+        dockToWP: getChecked('dockToWP'),
+        cleanEn: getChecked('cleanEn')
     };
 
     let url = `/command?bid=${currentBuoy}&cmd=SETUPDATA`;
@@ -572,6 +580,7 @@ function getStatusText(status) {
         case 17: return "DOC";
         case 24: return "UNLOCK";
         case 25: return "REMOTE";
+        case 98: return "CLEANING";
         case 26: return "REMOTEING";
         case 89: return "GPS FOURIER CAL";
         default: return "STATUS: " + s;
@@ -616,7 +625,7 @@ function blankSetupFields() {
         const el = document.getElementById(id);
         if (el) el.value = "";
     });
-    ["revBB","revSB","swap_BB_SB","compass_trim_enabled","dockToWP"].forEach(id => {
+    ["revBB","revSB","swap_BB_SB","compass_trim_enabled","dockToWP","cleanEn"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.checked = false;
     });
@@ -728,6 +737,7 @@ function updateSetupModal() {
             setChecked("swap_BB_SB", b.swap_BB_SB);
             setChecked("compass_trim_enabled", b.compass_trim_enabled);
             setChecked("dockToWP", b.dockToWP);
+            setChecked("cleanEn", b.cleanEn);
         }
     }
 }

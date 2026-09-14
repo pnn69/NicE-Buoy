@@ -234,6 +234,11 @@ void updateOled(RoboStruct *buoy, adcDataType *adc) {
         case LOCKING:
         case DOCKED:
         case DOCKING:
+        // Cleaning is a pause in the middle of holding station, and the buoy goes straight back to
+        // it - so the lock screen, with its bearing and distance to the mark, stays the right thing
+        // to be looking at. The default below would have dropped to the idle screen and made a
+        // routine ten second clean look as though the buoy had given up on its waypoint.
+        case CLEANING:
             drawLockScreen(buoy, adc);
             break;
 

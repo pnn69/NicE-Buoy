@@ -292,6 +292,91 @@ void handleStatus(RoboStruct *stat)
         }
     }
 }
+
+// ---------------------------------------------------------------------------------------------
+//  Thruster cleaning - the Sub's half. The sequence itself is in esc.cpp; this is the state
+//  around it: what the buoy was doing before, and how it gets back there.
+// ---------------------------------------------------------------------------------------------
+
+// The status to go back to when the sequence finishes. "continue in the same status as was before
+// entering this function" is the whole requirement, and the only honest way to meet it is to write
+// the status down before it is overwritten.
+static int cleanRestoreStatus = IDLE;
+
+// Serial of the last CLEAN_THRUSTERS actually acted on, and a floor under how often the sequence
+// may run. Both are needed and they cover different things.
+//
+// The serial rejects a REPEAT: the Top resends the command until it sees CLEANING come back, so
+// copies keep arriving after the sequence has started and one that arrived after it FINISHED would
+// start the whole thing again. cleanStart() ignores a repeat while it is running, which covers the
+// first case but not the second.
+//
+// The cooldown covers a sender that numbers nothing - a serial console, or a node old enough to
+// leave cmdSeq at 0 - where there is no serial to compare. Five seconds, matching the content
+// duplicate window the rest of the fleet uses: long enough to outlive an echo, short enough that
+// an operator pressing CLEAN NOW again because they want another go is not silently refused.
+static uint16_t cleanLastSeq = 0;
+static unsigned long cleanCooldownUntil = 0;
+#define CLEAN_COOLDOWN_MS 5000
+
+// Tell the Top at once, rather than waiting up to SUBDATA_SERIAL_INTERVAL_MS for the next
+// telemetry frame to carry the new status. The Top follows the status, not this frame, so losing
+// it costs a quarter of a second of display and nothing else.
+static void cleanReport(RoboStruct *ser)
+{
+    RoboStruct msg = *ser;
+    msg.IDs = mainData.mac;
+    msg.IDr = BUOYIDALL;
+    msg.cmd = CLEANING;
+    msg.ack = INF;
+    xQueueSend(serOut, (void *)&msg, 0);
+}
+
+static void cleanBegin(RoboStruct *ser)
+{
+    if (ser->status == CLEANING) return;
+    if ((long)(millis() - cleanCooldownUntil) < 0)
+    {
+        printf("CLEAN ignored - cleaned less than %d ms ago\r\n", CLEAN_COOLDOWN_MS);
+        return;
+    }
+
+    cleanStart();
+    if (!cleanActive()) return; // refused - a calibration is running, see cleanStart()
+
+    // IDLING is a ramp, not a place. Restoring to it would put the buoy back into a ramp down that
+    // has already happened, and pendingStatus behind it would then be applied on top of whatever
+    // the cleaning left - so the ramp is resolved here instead and the pending step dropped.
+    cleanRestoreStatus = (ser->status == IDLING) ? ((pendingStatus != -1) ? pendingStatus : IDLE)
+                                                 : ser->status;
+    if (ser->status == IDLING) pendingStatus = -1;
+
+    ser->status = CLEANING;
+    ser->tgSpeed = 0;
+    // The PIDs are not driving the thrusters for the next ten seconds, and their ramp state and
+    // I-term would otherwise come back stale: the I-term would have wound up against an error
+    // nothing was acting on, and the ramps would still hold the last full-scale burst.
+    resetRudPid();
+    resetSpeedPid();
+    printf("CLEANING - will return to status %d\r\n", cleanRestoreStatus);
+    cleanReport(ser);
+}
+
+// Stop cleaning because the operator asked for something else. The command they pressed wins; this
+// only makes sure the thrusters and the PIDs are handed over in a known state.
+static void cleanInterrupt(RoboStruct *ser)
+{
+    if (!cleanActive() && ser->status != CLEANING) return;
+    cleanAbort();
+    cleanCooldownUntil = millis() + CLEAN_COOLDOWN_MS;
+    ser->speedBb = 0;
+    ser->speedSb = 0;
+    escOut.speedbb = 0;
+    escOut.speedsb = 0;
+    xQueueSend(escspeed, (void *)&escOut, 10);
+    resetRudPid();
+    resetSpeedPid();
+}
 //***************************************************************************************************
 //  Handle incoming data
 //***************************************************************************************************
@@ -334,6 +419,10 @@ void handleSerandRfdata(RoboStruct *ser)
             {
             case IDLE:
             case IDLING:
+                // An operator asking for IDLE outranks a cleaning run. This is the stop button:
+                // it has to work while the thrusters are at full scale, which is exactly when
+                // somebody is most likely to press it.
+                cleanInterrupt(ser);
                 if (ser->status != IDLING && ser->status != IDLE)
                 {
                     ser->tgDist = 0;
@@ -343,8 +432,32 @@ void handleSerandRfdata(RoboStruct *ser)
                     printf("IDLE command received. Initiating smooth motor ramp down.\r\n");
                 }
                 break;
+            case CLEAN_THRUSTERS:
+                {
+                    // Repeats are expected, not exceptional - the Top resends this until it sees
+                    // CLEANING come back. See cleanLastSeq.
+                    if (dataIn.cmdSeq != 0 && dataIn.cmdSeq == cleanLastSeq)
+                    {
+                        break;
+                    }
+                    if (dataIn.cmdSeq != 0) cleanLastSeq = dataIn.cmdSeq;
+                    printf("CLEAN_THRUSTERS received (seq %u)\r\n", (unsigned)dataIn.cmdSeq);
+                    cleanBegin(ser);
+                }
+                break;
             case DIRDIST:
                 {
+                    // Station keeping updates keep arriving for the first frame or two after the
+                    // cleaning starts, and for the whole run if the Top never hears about it. They
+                    // must not end the run: the target is worth taking, the status change is not.
+                    // Noted as where to go back to, so a waypoint set DURING a clean is not lost.
+                    if (ser->status == CLEANING)
+                    {
+                        ser->tgDir = dataIn.tgDir;
+                        ser->tgDist = dataIn.tgDist;
+                        cleanRestoreStatus = (dataIn.status == DOCKED) ? DOCKED : LOCKED;
+                        break;
+                    }
                     int targetStatus = (dataIn.status == DOCKED) ? DOCKED : LOCKED;
                     if (ser->status != targetStatus)
                     {
@@ -367,6 +480,8 @@ void handleSerandRfdata(RoboStruct *ser)
                 }
                 break;
             case TGDIRSPEED:
+                // Hand steering, like REMOTE below: somebody is driving, so give them the boat.
+                cleanInterrupt(ser);
                 if (ser->status != TGDIRSPEED)
                 {
                     printf("TGDIRSPEED command received!");
@@ -380,6 +495,7 @@ void handleSerandRfdata(RoboStruct *ser)
                 ser->tgSpeed = dataIn.speedSet; // Important: update tgSpeed so PID uses it
                 break;
             case REMOTE:
+                cleanInterrupt(ser);
                 if (ser->status != REMOTE)
                 {
                     printf("REMOTE command received!");
@@ -389,6 +505,14 @@ void handleSerandRfdata(RoboStruct *ser)
                 ser->tgSpeed = dataIn.tgSpeed;
                 break;
             case LOCKED:
+                // Same treatment as DIRDIST above, and for the same reason: the Top re-announces
+                // the holding state periodically, so one of these arriving mid-run is routine and
+                // must not cut the cleaning short. It changes where we go back to, nothing else.
+                if (ser->status == CLEANING)
+                {
+                    cleanRestoreStatus = LOCKED;
+                    break;
+                }
                 if (ser->status != LOCKED)
                 {
                     if (ser->status == DOCKED)
@@ -411,6 +535,11 @@ void handleSerandRfdata(RoboStruct *ser)
                 }
                 break;
             case DOCKED:
+                if (ser->status == CLEANING)
+                {
+                    cleanRestoreStatus = DOCKED;
+                    break;
+                }
                 if (ser->status != DOCKED)
                 {
                     if (ser->status == LOCKED)
@@ -1074,6 +1203,19 @@ void handleSerialTimeOut(RoboStruct *ser)
         return;
     }
 
+    // A cleaning run is the buoy's own business and takes about ten seconds, during which the
+    // Top has nothing to send it: its station keeping stream is suspended because the PIDs are not
+    // driving anything. Left alone, the 5 s watchdog below would read that quiet as a broken link
+    // and idle the buoy half way through - which is also the one moment the thrusters are at full
+    // scale, so it would idle them from full reverse.
+    //
+    // The link is not being trusted here, only credited for the run: the clock is pushed forward,
+    // not stopped, so a link that really has died is caught 5 s after the sequence ends.
+    if (ser->status == CLEANING)
+    {
+        ser->lastSerIn = millis();
+    }
+
     if (ser->lastSerIn + 1000 * 5 < millis())
     {
         if (mainLedStatus.color != CRGB::Red)
@@ -1113,6 +1255,16 @@ void handleSerialTimeOut(RoboStruct *ser)
  */
 void handleTimerRoutines(RoboStruct *in)
 {
+    // Belt and braces. case CLEANING below is the only thing that advances the cleaning sequence,
+    // so any path that moves the status elsewhere without going through cleanInterrupt() - a desk
+    // calibration pressed mid-run, a serial timeout, something added later - would leave the
+    // machine latched on and quietly refusing to ever clean again. One test here covers all of
+    // them, including the ones that do not exist yet.
+    if (cleanActive() && in->status != CLEANING)
+    {
+        cleanInterrupt(in);
+    }
+
     switch (in->status)
     {
     case LOCKED:
@@ -1174,6 +1326,40 @@ void handleTimerRoutines(RoboStruct *in)
             escOut.speedbb = in->speedBb;
             escOut.speedsb = in->speedSb;
             xQueueSend(escspeed, (void *)&escOut, 10);
+        }
+        break;
+    case CLEANING:
+        // The step machine owns the thrusters outright here - no PID, no ramping, no maxSpeed.
+        // Written straight into in->speedBb/speedSb as well as the queue so the telemetry, the
+        // power LEDs and the dashboard bars all show what the props are really doing; an
+        // ten second full-scale burst that reported 0% would look exactly like a fault.
+        //
+        // On the same 20 ms tick as every other state that drives the thrusters, and for the same
+        // reason: loop() runs about two hundred times a second and escspeed is ten deep, so
+        // writing on every pass would push the queue to its limit and start blocking the loop on
+        // the 10 tick send timeout.
+        if (pidTimer < millis())
+        {
+            pidTimer = millis() + 20; // 20ms
+            int bb = 0, sb = 0;
+            bool stillCleaning = cleanService(&bb, &sb);
+            in->speedBb = bb;
+            in->speedSb = sb;
+            escOut.speedbb = bb;
+            escOut.speedsb = sb;
+            xQueueSend(escspeed, (void *)&escOut, 10);
+            if (!stillCleaning)
+            {
+                // Back to exactly what the buoy was doing, with the controllers reset so the first
+                // station keeping pass starts from zero rather than from the last burst.
+                cleanCooldownUntil = millis() + CLEAN_COOLDOWN_MS;
+                in->status = cleanRestoreStatus;
+                in->locked = false;
+                initRudPid(in);
+                initSpeedPid(in);
+                printf("CLEANING finished - back to status %d\r\n", in->status);
+                cleanReport(in);
+            }
         }
         break;
     case IDLE:

@@ -435,6 +435,13 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         buoys[buoy_idx].status = "REMOTE";
         buoys[buoy_idx].tg_pos_seen_ms = 0; // Hand steering - no waypoint to hold. Same reason as IDLE.
     }
+    else if (status_code == 98) {
+        // Clearing the thrusters, about ten seconds of it. The waypoint is deliberately NOT
+        // dropped the way IDLE and REMOTE drop it: the buoy still owns the mark it was sailing to
+        // and goes straight back to holding it, so taking it off the map for ten seconds would
+        // make a routine clean look like the target had been abandoned.
+        buoys[buoy_idx].status = "CLEANING";
+    }
     else buoys[buoy_idx].status = "MODE " + String(status_code);
     
     // Parse TOPDATA (CMD = 51)
@@ -578,6 +585,9 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
         // reading as damping 0 and averaging 0.
         if (fields.size() > 23) buoys[buoy_idx].pr_damping = atof(fields[23].c_str());
         if (fields.size() > 24) buoys[buoy_idx].compass_avg = atoi(fields[24].c_str());
+        // Automatic thruster cleaning, appended after the steadiness pair. Same count guard: a Top
+        // too old to send it leaves this screen's copy alone rather than reading as OFF.
+        if (fields.size() > 25) buoys[buoy_idx].clean_enabled = (fields[25] == "1");
         // Field 23 used to carry the "apply the compass table" switch. The switch is gone and the
         // Sub no longer sends the field, so there is nothing to read here - and nothing to guard
         // the block below with either. Removing the assignments alone left the if() standing with
@@ -803,7 +813,7 @@ void send_buoy_setup(int buoy_idx) {
     // the last field was whatever happened to be on the stack. It was harmless only because the
     // decoder stops at dockingToWaypoint and never read it - but it sits exactly where prDamping
     // now goes, so the stray one is removed here rather than left to misalign the two new fields.
-    sprintf(cmdPayload, "%s,98,2,83,7,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.0f,%0.0f,%0.2f,%0.2f,%0.1f,%d,%d,%d,%d,%d,%d,%d,%0.2f,%d",
+    sprintf(cmdPayload, "%s,98,2,83,7,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.0f,%0.0f,%0.2f,%0.2f,%0.1f,%d,%d,%d,%d,%d,%d,%d,%0.2f,%d,%d",
             b.id.c_str(),
             b.kpr, b.kir, b.kdr, b.kps, b.kis, b.kds,
             // compassOffset goes out with 2 decimals, matching what the Sub already puts on the
@@ -814,7 +824,7 @@ void send_buoy_setup(int buoy_idx) {
             b.max_speed, b.min_speed, b.pivot_speed, b.compass_offset, b.hold_radius,
             b.rev_bb ? 1 : 0, b.rev_sb ? 1 : 0, b.swap_bb_sb ? 1 : 0, b.compass_trim_enabled ? 1 : 0,
             b.dock_app_dist, b.dock_app_dir, b.dock_to_wp ? 1 : 0,
-            b.pr_damping, b.compass_avg);
+            b.pr_damping, b.compass_avg, b.clean_enabled ? 1 : 0);
             
     uint8_t crc = calculate_crc(cmdPayload);
     char finalPacket[320];

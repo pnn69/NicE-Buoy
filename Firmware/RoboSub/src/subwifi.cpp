@@ -1027,6 +1027,7 @@ void WiFiTask(void *arg) {
             case SPBBSPSB: statusStr = "SPBBSPSB"; break;
             case CALIBRATE_MAGNETIC_COMPASS: statusStr = "CAL_MAG"; break;
             case INFIELD_CALIBRATE: statusStr = "CAL_FIELD"; break;
+            case CLEANING: statusStr = "CLEANING"; break;
         }
 
         /*

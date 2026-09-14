@@ -102,3 +102,22 @@ void memDockApproach(RoboStruct *buoy, bool get)
     stopMem();
 }
 
+// Defaults to ON for a key that has never been written. A buoy that has collected weed cannot hold
+// station, and an operator who has never heard of this setting is better served by it working than
+// by having to find it first.
+void memCleanEnabled(RoboStruct *buoy, bool get)
+{
+    startMem();
+    if (get)
+    {
+        buoy->cleanEnabled = storage.getBool("cleanEn", true);
+        printf("NVM LOAD memCleanEnabled: %s\r\n", buoy->cleanEnabled ? "ON" : "OFF");
+    }
+    else
+    {
+        storage.putBool("cleanEn", buoy->cleanEnabled);
+        printf("NVM SAVE memCleanEnabled: %s\r\n", buoy->cleanEnabled ? "ON" : "OFF");
+    }
+    stopMem();
+}
+

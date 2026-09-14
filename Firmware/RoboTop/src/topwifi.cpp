@@ -765,6 +765,7 @@ void WiFiTask(void *arg)
         json += "\"dockAppDist\":\"" + String(mainData.dockApproachDist) + "\",";
         json += "\"dockAppDir\":\"" + String(mainData.dockApproachDir) + "\",";
         json += "\"dockToWP\":\"" + String(mainData.dockingToWaypoint ? "true" : "false") + "\",";
+        json += "\"cleanEn\":\"" + String(mainData.cleanEnabled ? "true" : "false") + "\",";
         json += "\"TgLat\":\"" + String(mainData.tgLat, 6) + "\",";
         json += "\"TgLng\":\"" + String(mainData.tgLng, 6) + "\",";
         json += "\"Lat\":\"" + String(mainData.lat, 6) + "\",";
@@ -856,6 +857,7 @@ void WiFiTask(void *arg)
             json += "\"dockAppDist\":\"" + String(buoyPara[i].dockApproachDist) + "\",";
             json += "\"dockAppDir\":\"" + String(buoyPara[i].dockApproachDir) + "\",";
             json += "\"dockToWP\":\"" + String(buoyPara[i].dockingToWaypoint ? "true" : "false") + "\",";
+            json += "\"cleanEn\":\"" + String(buoyPara[i].cleanEnabled ? "true" : "false") + "\",";
             json += "\"TgLat\":\"" + String(buoyPara[i].tgLat, 6) + "\",";
             json += "\"TgLng\":\"" + String(buoyPara[i].tgLng, 6) + "\",";
             json += "\"Lat\":\"" + String(buoyPara[i].lat, 6) + "\",";
@@ -1002,6 +1004,7 @@ void WiFiTask(void *arg)
             }
         }
         else if (cmdStr == "SETUP" || cmdStr == "SUBSETUP" || cmdStr == "SETUPDATA") cmdEnum = SETUPDATA;
+        else if (cmdStr == "CLEAN") cmdEnum = CLEAN_THRUSTERS;
         else if (cmdStr == "IDLE") { if (bid == 1) mainData.status = IDLING; cmdEnum = IDLING; }
         else if (cmdStr == "DIRDIST") { 
             cmdEnum = DIRDIST; 
@@ -1066,11 +1069,14 @@ void WiFiTask(void *arg)
                     if (server.hasArg("dockAppDist")) mainData.dockApproachDist = server.arg("dockAppDist").toInt();
                     if (server.hasArg("dockAppDir")) mainData.dockApproachDir = server.arg("dockAppDir").toInt();
                     if (server.hasArg("dockToWP")) mainData.dockingToWaypoint = (server.arg("dockToWP").toInt() != 0);
+                    if (server.hasArg("cleanEn")) mainData.cleanEnabled = (server.arg("cleanEn").toInt() != 0);
 
-                    // Only the docking approach is ours to keep. The PIDs, speed limits,
-                    // compass offset and thruster wiring flags belong to the Sub; they reach it
-                    // in the SETUPDATA frame built below and it stores them itself.
+                    // The docking approach and the auto-clean switch are the only two that are
+                    // ours to keep. The PIDs, speed limits, compass offset and thruster wiring
+                    // flags belong to the Sub; they reach it in the SETUPDATA frame built below
+                    // and it stores them itself.
                     memDockApproach(&mainData, MEM_PUT);
+                    memCleanEnabled(&mainData, MEM_PUT);
 
                     msg = mainData;
                     msg.IDs = 0x99; msg.IDr = mainData.mac;
@@ -1142,10 +1148,16 @@ void WiFiTask(void *arg)
                     if (server.hasArg("dockAppDist")) msg.dockApproachDist = server.arg("dockAppDist").toInt();
                     if (server.hasArg("dockAppDir")) msg.dockApproachDir = server.arg("dockAppDir").toInt();
                     if (server.hasArg("dockToWP")) msg.dockingToWaypoint = (server.arg("dockToWP").toInt() != 0);
+                    if (server.hasArg("cleanEn")) msg.cleanEnabled = (server.arg("cleanEn").toInt() != 0);
                     msg.ack = SET;
                 } else {
                     msg.ack = GET;
                 }
+            } else if (cmdEnum == CLEAN_THRUSTERS) {
+                // INF, not the SET this branch defaults to. The buoy answers a clean with the
+                // CLEANING status in its telemetry, never with an ACK, so a SET would sit in
+                // the LoRa retry table for all five retransmits with nothing able to clear it.
+                msg.ack = INF;
             } else if (cmdEnum == ADAPTIVE_TRIM) {
                 if (server.hasArg("compass_trim")) msg.compass_trim = server.arg("compass_trim").toFloat();
                 if (server.hasArg("compass_trim_enabled")) msg.compass_trim_enabled = (server.arg("compass_trim_enabled").toInt() != 0);

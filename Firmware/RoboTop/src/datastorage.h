@@ -14,5 +14,9 @@ void apParameters(String *ap, String *ww, bool get);
 void CompassCalibrationFactorsFloat(float *MaxX, float *MaxY, float *MaxZ, float *MinX, float *MinY, float *MinZ, bool get);
 void memDockPos(RoboStruct *buoy, bool get);
 void memDockApproach(RoboStruct *buoy, bool get);
+// Whether the automatic thruster cleaning is armed. Top-owned, like the dock approach above, and
+// carried in SETUPDATA so every front end can read and change it - see cleanEnabled in
+// RoboCompute.h.
+void memCleanEnabled(RoboStruct *buoy, bool get);
 
 #endif /* DATASTORAGE_H_ */

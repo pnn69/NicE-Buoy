@@ -237,7 +237,27 @@ typedef enum
     // simply does not know this one.
     //
     // Refused rather than clamped once the line is down at MIN_START_LINE_M - see extendStartLine().
-    SHORTENSTART
+    SHORTENSTART,
+    // Clear weed and debris out of the thrusters: a short burst astern, a burst ahead, then each
+    // thruster astern on its own. The whole sequence lives in the Sub - see cleanService() in
+    // RoboSub/src/esc.cpp - and this only says when to run it.
+    //
+    // Sent by a Top when a buoy has closed to CLEAN_TRIGGER_DIST_M of a waypoint it was set more
+    // than that distance away from, and by a presser (0x98 the handheld, 0x99 the web) for CLEAN
+    // NOW. A press carries a serial in cmdSeq like every other press, for the same reason: the
+    // Top-to-Sub wire drops most of what is sent, so the command has to be repeated, and a repeat
+    // that arrived after the sequence had finished would run the whole thing a second time.
+    CLEAN_THRUSTERS,
+    // What the buoy REPORTS while that sequence is running, in exactly the way IDLING reports the
+    // ramp down. Its own status rather than a flag, because it is a state the buoy is IN: the
+    // station keeping PIDs are not driving the thrusters, so nothing that reads the status can be
+    // allowed to think the buoy is still holding position.
+    //
+    // The Sub puts this in the status field of its SUBDATA telemetry, four times a second, for as
+    // long as the sequence lasts. The Top follows that - see cleanService() in RoboTop - rather
+    // than being told once at each end, so a lost frame costs 250 ms of display and cannot leave
+    // either end stuck in a state the other has left.
+    CLEANING
 } msg_t;
 
 // What a CAL8_SESSION SET is asking the buoy to do. Carried in RoboStruct::cal8Action.
@@ -267,6 +287,16 @@ typedef enum
 // CYD used to allow 0.5 and the SETUPDATA path enforced nothing, so the same setting had three
 // different minima depending on where you typed it. One number, here, for all of them.
 #define HOLD_RADIUS_MIN 1.5
+
+// How far a newly set waypoint has to be for the thrusters to be cleaned on the way to it, and -
+// the same number - how close the buoy has to get before the cleaning runs. Metres.
+//
+// One constant for both ends of the rule on purpose. A run long enough to collect weed is a run
+// longer than this, and the cleaning is wanted at the END of it: the buoy arrives with clear
+// thrusters and settles onto the mark, instead of trying to hold station on a fouled one. So the
+// Top arms the cleaning when the target it has just been given is further away than this, and
+// fires it when the distance has come back down to it. See CLEAN_THRUSTERS.
+#define CLEAN_TRIGGER_DIST_M 20.0
 
 struct RoboStruct
 {
@@ -409,6 +439,18 @@ struct RoboStruct
     // the heading averaging off on a buoy that was running 20.
     float prDamping = -1.0f;   // < 0 means the frame did not carry it
     int compassAvg = 0;        // 0 means the frame did not carry it (the real range starts at 1)
+
+    // Whether the automatic thruster cleaning is armed at all, carried in SETUPDATA after the two
+    // compass steadiness fields. Owned by the TOP, not the Sub: the Top is the node that knows a
+    // waypoint has been set and how far away it is, so it is the node that decides. It sits in
+    // SETUPDATA anyway because that is the one frame every front end already reads and writes, and
+    // the dock approach settings alongside it are Top-owned for the same reason.
+    //
+    // Defaults true, and presence is decided by the field COUNT like everything else in that
+    // frame - a sender that predates this simply sends a shorter frame and the Top keeps what it
+    // has in NVS. CLEAN NOW is deliberately NOT gated on this: the switch turns off the automatic
+    // trigger, not the buoy's ability to clean itself when somebody asks.
+    bool cleanEnabled = true;
 
     // What this node hears, carried by LORA_LINK. linkPeers is how many entries are filled.
     uint32_t linkPeerId[LORA_LINK_MAX_PEERS] = {0};

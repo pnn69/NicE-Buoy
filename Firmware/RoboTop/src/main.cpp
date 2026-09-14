@@ -212,6 +212,10 @@ void setup()
     RoboStruct dockCfg;
     memDockPos(&dockCfg, MEM_GET);
     memDockApproach(&mainData, MEM_GET);
+    // Ours to remember, like the dock approach above and for the same reason: the Top is the node
+    // that knows a waypoint has been set and how far off it is, so the Top is the node that decides
+    // whether to clean on the way. See cleanCheck().
+    memCleanEnabled(&mainData, MEM_GET);
 
     // Automatically migrate stored NVM dock position to the new requested default
     // printf("Updating stored Dock Position to the new default: 52.29302221327865, 4.932541137977593\r\n");
@@ -614,10 +618,17 @@ static int lastHoldingStatus = IDLE;
 
 // A status that is really an instruction: something the buoy is being asked to DO, which it passes
 // through for one iteration and then leaves. Never a description of where the buoy is.
+//
+// CLEANING is the one entry here that is not an instruction - it is a real state, and the buoy sits
+// in it for about ten seconds. It belongs in the same list because both uses want the same
+// answer from it. lastHoldingStatus must not become CLEANING, or the cleaning would be what a
+// refused command restored the buoy to; and a buoy that was holding a lock position when the
+// cleaning started still owns that position, so lockedBuoyCount() should go on counting it while
+// the props are being cleared. Both fall out of "look past this one to what the buoy really was".
 static inline bool isCommandStatus(int s)
 {
     return s == COMPUTESTART || s == COMPUTETRACK || s == EXTENDSTART || s == SHORTENSTART ||
-           s == SENDTRACK || s == STOREASDOC;
+           s == SENDTRACK || s == STOREASDOC || s == CLEANING;
 }
 
 static int lockedBuoyCount(RoboStruct *stat, RoboStruct buoyPara[3])
@@ -667,6 +678,219 @@ static void restoreHoldingStatus(RoboStruct *stat)
 // the log; a one-off request passes a string so it is traceable.
 #define SUB_SETUP_RESYNC_MS 20000
 static unsigned long lastSubSetupResyncMs = 0;
+
+// ***************************************************************************************************
+//  Thruster cleaning - the Top's half
+// ***************************************************************************************************
+//
+// The Sub owns the sequence and the Top owns the decision, because they know different things. Only
+// the Sub can drive the thrusters; only the Top knows that a waypoint has just been set and how far
+// away it is. So this end watches the distance, asks, and then simply follows.
+//
+// Asking is a resend loop rather than one write down the wire. The Top-to-Sub link is a single
+// half-duplex wire that the Sub is talking on continuously, and measured on the bench it drops most
+// of what is sent - eight calibration presses sent one per second landed twice. The same shape as
+// cal8Service() in topwifi.cpp: keep asking until the buoy shows it heard, then stop.
+//
+// FOLLOWING is the other half, and it is deliberately not a handshake. The Sub reports CLEANING in
+// the status field of its own telemetry, four times a second, for as long as the sequence runs. The
+// Top mirrors that into its own status while the reports keep coming and puts the old status back
+// when they stop. Nothing is latched at either end, so no lost frame can leave one of them stuck in
+// a state the other has left - the worst a lost frame costs is 250 ms of display.
+#define CLEAN_RETRY_MS 400
+#define CLEAN_MAX_TRIES 8
+// How long a single CLEANING report is believed for. Three telemetry frames, so a couple of lost
+// ones do not flicker the display, and short enough that the end of the run is not sat on.
+#define CLEAN_SUB_HOLD_MS 900
+// Hard ceiling on the whole thing. The sequence is about ten seconds; this exists only so that a
+// Sub which somehow reported CLEANING for ever could not hold this end out of station keeping.
+#define CLEAN_MAX_MS 25000
+
+static bool cleanArmed = false;
+static unsigned long cleanArmWindowUntil = 0;
+static double cleanLastTgLat = 0.0;
+static double cleanLastTgLng = 0.0;
+
+static int cleanPendTries = -1; // -1 = nothing in flight
+static unsigned long cleanPendNextMs = 0;
+static uint16_t cleanPendSeq = 0;
+
+static unsigned long cleanSubSeenMs = 0;
+static bool cleanEntered = false;
+static int cleanRestoreStatus = IDLE;
+static unsigned long cleanEnteredMs = 0;
+
+// Serial of the request, as the Sub will see it. Always minted HERE, never taken from whoever
+// asked - the numbers a presser issues and the numbers this Top issues both start at 1, so
+// forwarding a press serial would sooner or later hand the Sub the same number twice in a row and
+// its duplicate gate would swallow a real press. A presser's repeats are already dealt with by the
+// press serial gate at the top of handleRfData(), so there is nothing left for the Sub's serial to
+// do except tell one of OUR requests from a resend of it.
+static uint16_t cleanOwnSeq = 0;
+
+static void cleanSend(void)
+{
+    RoboStruct msg = {};
+    msg.cmd = CLEAN_THRUSTERS;
+    msg.ack = INF;
+    msg.status = CLEAN_THRUSTERS;
+    msg.IDr = BUOYIDALL;
+    msg.IDs = espMac();
+    msg.cmdSeq = cleanPendSeq;
+    if (xQueueSend(serOut, (void *)&msg, pdMS_TO_TICKS(100)) != pdTRUE)
+    {
+        printf("ERROR: Failed to queue CLEAN_THRUSTERS to serOut!\r\n");
+    }
+}
+
+// Ask our Sub to clean. why is for the log only.
+static void cleanRequest(const char *why)
+{
+    if (cleanEntered || cleanPendTries >= 0)
+    {
+        // Already cleaning, or already asking. Nothing to add.
+        return;
+    }
+    if (++cleanOwnSeq == 0) cleanOwnSeq = 1; // 0 means "unnumbered" to the Sub, so skip it
+    cleanPendSeq = cleanOwnSeq;
+    cleanPendTries = 1;
+    cleanPendNextMs = millis() + CLEAN_RETRY_MS;
+    cleanSend();
+    printf("#CLEAN requested (%s), seq %u\r\n", why, (unsigned)cleanPendSeq);
+    udpLog("CLEAN request %s seq=%u", why, (unsigned)cleanPendSeq);
+}
+
+// The Sub's own status, straight off its telemetry. Called for every frame it sends, so "has it
+// stopped saying CLEANING" is answered by a timestamp rather than by a message that has to arrive.
+static void cleanNoteSubStatus(int subStatus)
+{
+    if (subStatus == CLEANING) cleanSubSeenMs = millis();
+}
+
+// Should the cleaning run now? Called once per station keeping tick, with tgDist freshly routed.
+//
+// Two conditions, in the order the operator would describe them: the waypoint we have just been
+// given is further off than CLEAN_TRIGGER_DIST_M, and then later the buoy has closed to within it.
+//
+// The arm is bounded by a short WINDOW after the target changes rather than taken on the very next
+// tick. Several paths reset tgDist to 0.0 for a tick or two on purpose, as a guard against a full
+// power burst before the routing settles - the DOCKED transition is the clearest, where the first
+// tick after the target is loaded reports 0 m however far away the dock is. Deciding on that tick
+// would mean never arming for a dock. Waiting for the first real distance inside the window gets it
+// right for every path without any of them having to know about this one.
+//
+// And the window is why it is an arm rather than plain hysteresis on the distance: a buoy blown
+// more than CLEAN_TRIGGER_DIST_M off a station it is already holding is not a new waypoint, and
+// cleaning the thrusters on its way back is not what was asked for.
+static void cleanCheck(RoboStruct *stat)
+{
+    if (stat->tgLat != cleanLastTgLat || stat->tgLng != cleanLastTgLng)
+    {
+        cleanLastTgLat = stat->tgLat;
+        cleanLastTgLng = stat->tgLng;
+        cleanArmed = false;
+        cleanArmWindowUntil = millis() + 3000;
+    }
+
+    if ((long)(millis() - cleanArmWindowUntil) < 0)
+    {
+        if (stat->cleanEnabled && stat->tgDist > CLEAN_TRIGGER_DIST_M)
+        {
+            cleanArmed = true;
+            cleanArmWindowUntil = 0;
+            printf("#CLEAN armed - the new waypoint is %.0f m off\r\n", stat->tgDist);
+        }
+        return;
+    }
+
+    // tgDist > 0.0 is not pedantry. An exact zero is the "not routed yet" value those same safety
+    // resets write, and firing on it would clean the thrusters the instant a target was accepted
+    // rather than on arrival at it.
+    if (cleanArmed && stat->tgDist > 0.0 && stat->tgDist <= CLEAN_TRIGGER_DIST_M)
+    {
+        cleanArmed = false;
+        cleanRequest("closed to the waypoint");
+    }
+}
+
+// Resend an unconfirmed request, and mirror the Sub's CLEANING into our own status while it lasts.
+static void cleanService(RoboStruct *stat)
+{
+    bool subCleaning = (cleanSubSeenMs != 0) &&
+                       ((long)(millis() - cleanSubSeenMs) < (long)CLEAN_SUB_HOLD_MS);
+
+    if (cleanPendTries >= 0)
+    {
+        if (subCleaning)
+        {
+            printf("#CLEAN seq %u confirmed after %d attempt%s\r\n", (unsigned)cleanPendSeq,
+                   cleanPendTries, cleanPendTries == 1 ? "" : "s");
+            cleanPendTries = -1;
+        }
+        else if ((long)(millis() - cleanPendNextMs) >= 0)
+        {
+            if (cleanPendTries >= CLEAN_MAX_TRIES)
+            {
+                // Loudly, and then leave everything exactly as it was. The buoy carries on sailing
+                // with dirty thrusters, which is what it was doing anyway.
+                printf("#CLEAN seq %u NEVER confirmed after %d attempts - giving up\r\n",
+                       (unsigned)cleanPendSeq, cleanPendTries);
+                udpLog("CLEAN seq=%u never confirmed", (unsigned)cleanPendSeq);
+                cleanPendTries = -1;
+            }
+            else
+            {
+                cleanPendTries++;
+                cleanPendNextMs = millis() + CLEAN_RETRY_MS;
+                cleanSend();
+            }
+        }
+    }
+
+    if (!cleanEntered)
+    {
+        // Only ever entered from a state the buoy can be sat in and returned to. IDLE is included
+        // because CLEAN NOW at the dock is the commonest use of the button - somebody has just
+        // lifted the hull out, seen the weed and wants it thrown off before the boat goes back in -
+        // and a screen still reading IDLE through ten seconds of full-scale thrust is a lie
+        // that matters, because the props are turning and a hand may be near them.
+        //
+        // Everything else is excluded: the LOCKING/DOCKING/IDLING transients are on their way
+        // somewhere and would be restored to a place the buoy has already left, and REMOTE cannot
+        // co-occur - the Sub abandons a run the moment hand steering arrives.
+        if (subCleaning && (stat->status == LOCKED || stat->status == DOCKED || stat->status == IDLE))
+        {
+            cleanRestoreStatus = stat->status;
+            cleanEntered = true;
+            cleanEnteredMs = millis();
+            stat->status = CLEANING;
+            printf("#CLEANING - will return to status %d\r\n", cleanRestoreStatus);
+        }
+        return;
+    }
+
+    // Somebody else has moved the status on while we were cleaning: an IDLE, a LOCK, a DOCK. Their
+    // command wins outright. Let go of the restore rather than fighting for it - putting LOCKED back
+    // over an operator's IDLE would be the buoy refusing to stop.
+    if (stat->status != CLEANING)
+    {
+        printf("#CLEANING abandoned - the status moved to %d\r\n", stat->status);
+        cleanEntered = false;
+        return;
+    }
+
+    bool overrun = (long)(millis() - cleanEnteredMs) >= (long)CLEAN_MAX_MS;
+    if (!subCleaning || overrun)
+    {
+        if (overrun) printf("#CLEANING timed out after %d ms\r\n", CLEAN_MAX_MS);
+        stat->status = cleanRestoreStatus;
+        cleanEntered = false;
+        // Route and talk to the Sub on the very next pass instead of up to 5 s later, so station
+        // keeping picks up where it left off.
+        stat->lastSerOut = 0;
+        printf("#CLEANING finished - back to status %d\r\n", stat->status);
+    }
+}
 
 static void requestSubSetup(const char *reason)
 {
@@ -1285,6 +1509,13 @@ void handleTimerRoutines(RoboStruct *timer)
     if (timer->lastSerOut < millis())
     {
         timer->lastSerOut = millis() + 5000;
+        // An armed cleaning run belongs to the waypoint the buoy was sailing to. Once it has
+        // stopped sailing there - idled, put into REMOTE, sent off to dock - the run is stale, and
+        // leaving it armed would fire it on arrival at whatever the NEXT lock turned out to be.
+        if (timer->status != LOCKED && timer->status != DOCKED && timer->status != CLEANING)
+        {
+            cleanArmed = false;
+        }
         if (timer->status == LOCKED || timer->status == DOCKED)
         {
             timer->lastSerOut = millis() + 250;
@@ -1325,6 +1556,9 @@ void handleTimerRoutines(RoboStruct *timer)
                 return;
             }
             distErrorCnt = 0;
+            // Behind the 10 km sanity check on purpose: a distance the buoy refuses to sail is not
+            // a distance worth arming a cleaning run against either.
+            cleanCheck(timer);
             timer->cmd = DIRDIST;
             xQueueSend(serOut, (void *)timer, 0); // send course and distance to sub
             timer->cmd = DIRMDIRTGDIRG;
@@ -1807,7 +2041,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
         // circulates. See cmdSeq in RoboCompute.h.
         if (RfIn.cmdSeq != 0 && (RfIn.IDs == 0x98 || RfIn.IDs == 0x99) &&
             (RfIn.cmd == IDLE || RfIn.cmd == IDLING || RfIn.cmd == LOCKING ||
-             RfIn.cmd == DOCKING || RfIn.cmd == REMOTE))
+             RfIn.cmd == DOCKING || RfIn.cmd == REMOTE || RfIn.cmd == CLEAN_THRUSTERS))
         {
             // Two pressers: the handheld (0x98) and the web (0x99). Each numbers its own presses.
             static uint16_t lastPressSeq[2] = {0, 0};
@@ -2030,6 +2264,12 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                             RfOut->dockApproachDir = RfIn.dockApproachDir;
                             RfOut->dockingToWaypoint = RfIn.dockingToWaypoint;
                             memDockApproach(RfOut, MEM_PUT);
+                            // Ours as well, and committed here rather than forwarded. Only a
+                            // presser may change it: a SETUPDATA relayed by another buoy carries
+                            // THAT buoy's setting, and the guard above exists because letting one
+                            // through is how the dock approach settings once reset themselves.
+                            RfOut->cleanEnabled = RfIn.cleanEnabled;
+                            memCleanEnabled(RfOut, MEM_PUT);
                         }
 
                         // Never commit an all-zero PID block to the Sub.
@@ -2644,6 +2884,22 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
                 break;
+            case CLEAN_THRUSTERS:
+                // CLEAN NOW, from the handheld or the web page. NOT forwarded straight down the
+                // wire like the commands above: the Sub hears less than half of what is sent to it,
+                // so it goes through the same resend-until-confirmed path the automatic trigger uses
+                // and every presser gets that reliability without implementing it.
+                //
+                // The serial the Sub sees is minted by cleanRequest(), not taken from the press -
+                // see cleanOwnSeq. The press serial gate at the top of this function has already
+                // dropped the repeats of this press, and cleanRequest() refuses while a request is
+                // in flight or a run is under way, so there is nothing left for it to carry.
+                //
+                // Discriminated by sender for the same reason SET_AS_LEVEL is: a command and the
+                // buoy's own report both travel with ack INF, so only "who sent it" separates them.
+                if (RfIn.IDs != 0x98 && RfIn.IDs != 0x99) break;
+                cleanRequest("CLEAN NOW pressed");
+                break;
             case REBOOT:
                 // Belt and braces against a reboot storm. A sender that puts REBOOT in the LoRa
                 // retransmit table (ack GETACK/SET -> retry = 5 in loratop.cpp) can never be
@@ -2852,6 +3108,10 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             }
             break;
         case SUBDATA:
+            // Is the Sub cleaning its thrusters? Read from the status this frame already carries
+            // rather than from a message of its own, so it is answered four times a second for as
+            // long as the run lasts and cannot be missed. See cleanService().
+            cleanNoteSubStatus(serDataIn.status);
             target->dirMag = serDataIn.dirMag;
             // Imag - the heading before the Sub's compass table and trim. Relayed onward in
             // TOPDATA so a calibration can read it without switching anything off on the buoy.
@@ -2908,6 +3168,11 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                 serDataIn.dockApproachDist = target->dockApproachDist;
                 serDataIn.dockApproachDir = target->dockApproachDir;
                 serDataIn.dockingToWaypoint = target->dockingToWaypoint;
+                // And the automatic cleaning switch, for the same reason and it matters more here.
+                // The Sub does not own this setting and never reads the field, so its reply carries
+                // whatever RoboStruct's default happens to be - a hard "on" - and a Setup page that
+                // believed it could never show the switch turned off.
+                serDataIn.cleanEnabled = target->cleanEnabled;
 
                 // IMPORTANT: Send the actual protocol string to the PC via Serial so RoboControl.py sees it!
                 Serial.println(rfCode(&serDataIn));
@@ -3012,6 +3277,14 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
         case SUBACCU:
             ser->subAccuV = serDataIn.subAccuV;
             ser->subAccuP = serDataIn.subAccuP;
+            break;
+        case CLEANING:
+            // The Sub announcing the start and the end of a run, so the display does not have to
+            // wait up to a telemetry interval for either. Fed into the same timestamp the telemetry
+            // feeds, which is what cleanService() actually acts on - this frame arriving is a
+            // shortcut, never the thing being relied on.
+            cleanNoteSubStatus(serDataIn.status);
+            printf("#Sub reports status %d after a cleaning run\r\n", serDataIn.status);
             break;
         case IDLING:
             if (ser->status != IDLING && ser->status != IDLE)
@@ -3204,6 +3477,7 @@ void loop(void)
         handleTimerRoutines(&mainData);
         mancalSessionService();
         cal8Service(); // resend a calibration press until the Sub shows it landed
+        cleanService(&mainData); // resend a clean press, and follow the Sub in and out of CLEANING
         {
             static unsigned long lastHealth = 0;
             if (millis() - lastHealth > 2000)

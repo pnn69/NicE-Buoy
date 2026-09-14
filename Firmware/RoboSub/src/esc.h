@@ -21,6 +21,36 @@ extern int esc_neutral_sb;
 int escActualPulseBb(void);
 int escActualPulseSb(void);
 
+// ---------------------------------------------------------------------------------------------
+// Thruster cleaning.
+//
+// Weed and plastic collect in the props on a long run, and a fouled thruster cannot hold station:
+// it delivers less thrust than the PID asked for, in a direction that depends on what is wrapped
+// round it. The cure is mechanical - run it hard astern to throw the debris off the blades, then
+// hard ahead to clear what the reverse pulled in, then each side on its own so a single blocked
+// prop cannot be masked by the other one pushing.
+//
+// Driven as a step machine from the main loop, NOT as a delay chain. The steps add up to about
+// ten seconds and loop() is also feeding the compass, the telemetry and the serial watchdog in
+// that time; blocking through it would drop the heading stream and hand the Top a buoy that had
+// apparently stopped talking.
+//
+// The buoy reports CLEANING while this runs and goes back to the status it had when it started -
+// see CLEAN_THRUSTERS in RoboCompute.h.
+//
+// Waking the ESCs is part of the sequence, not the caller's problem. EscTask drops their supply
+// after 30 s of stop and bringing it back takes about 3.5 s of blocking arming inside that task,
+// during which every pulse written is neutral whatever is in the queue - so a run started on a
+// buoy that has been sat still waits for them rather than counting its 2 s bursts against a
+// thruster that is not listening yet.
+// ---------------------------------------------------------------------------------------------
+void cleanStart(void);
+bool cleanActive(void);
+void cleanAbort(void);
+// Advance the sequence and write the thrusters. Returns true while it is still running, false on
+// the pass that finishes it.
+bool cleanService(int *speedBbOut, int *speedSbOut);
+
 void initescqueue(void);
 void startESC(void);
 void beepESC(void);
