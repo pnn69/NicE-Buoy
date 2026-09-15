@@ -534,36 +534,20 @@ void handle_wifi_clients()
     // Serve the wildcard DNS that drives the captive portal.
     dnsServer.processNextRequest();
 
-    // Re-check for home in the background, but only while nobody is connected to us. With a Top
-    // or a phone attached, migrating would tear Robo_WiFi out from under them - and on the CYD
-    // clients are the normal state, so this only ever fires when the fleet is off or out of
-    // range. It is the "carried everything indoors" case, and it saves a power cycle.
-    static unsigned long lastHomeCheck = 0;
-    unsigned long now = millis();
-    if (WiFi.softAPgetStationNum() > 0)
-    {
-        lastHomeCheck = now;
-        return;
-    }
-    if (now - lastHomeCheck < 45000)
-    {
-        return;
-    }
-    lastHomeCheck = now;
-
-    Serial.println("[WiFi] nobody on Robo_WiFi - checking whether we are home yet");
-    WiFi.mode(WIFI_AP_STA);
-    if (try_connect(HOME_SSID, HOME_PASS, 8000))
-    {
-        dnsServer.stop();
-        WiFi.softAPdisconnect(true);
-        WiFi.mode(WIFI_STA);
-        apActive = false;
-        Serial.println("[WiFi] home found - Robo_WiFi folded away");
-        start_mdns();
-    }
-    else
-    {
-        WiFi.mode(WIFI_AP);
-    }
+    // Once we are Robo_WiFi we STAY Robo_WiFi, until the next power cycle.
+    //
+    // There used to be a background re-check here that tried to migrate home again whenever no
+    // client was attached. It looked harmless - "it saves a power cycle" - and in the field it was
+    // anything but, for a reason that is not visible from the code it was written in:
+    //
+    //   handle_wifi_clients() is called from loop(). The re-check calls try_connect(), which
+    //   blocks in a delay(100) wait for up to 8 SECONDS when the SSID is not there. So every 45 s
+    //   in which no Top happened to be attached, the entire main loop stalled for eight seconds -
+    //   no LoRa transmit, no touch response, no screen update - and it did it precisely when the
+    //   fleet was out of range, which is the moment the handheld has to keep working.
+    //
+    // Falling back to the AP only ever happens away from home anyway, and being the network is
+    // what this device is FOR out there. So there is nothing to migrate back to and nothing worth
+    // stalling the loop to look for. Coming home, a reboot puts it back on NicE_WiFi; in the
+    // meantime it is reachable on Robo_WiFi at 192.168.4.1, OTA included.
 }
