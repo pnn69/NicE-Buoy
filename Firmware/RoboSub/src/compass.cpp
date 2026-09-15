@@ -57,6 +57,23 @@ float damp_acc = 0.15f;
 float damp_gyro = 0.15f;
 float damp_mag = 0.15f;
 float damp_att = 0.15f;
+
+// The one door every pitch/roll damping change goes through.
+//
+// Two NVS keys describe one number - "pr_damping" and its complement "damp_att" - because the
+// slider on ShowActualData names it one way and every other interface names it the other. They
+// cannot be allowed to drift: whichever is stale wins at the next boot. So clamp once, write both,
+// and give every caller the same behaviour.
+void setPrDamping(float d)
+{
+    if (!isfinite(d)) return;
+    if (d < 0.0f) d = 0.0f;
+    if (d > 0.99f) d = 0.99f;
+    pr_damping = d;
+    damp_att = 1.0f - pr_damping;
+    memPrDamping(&pr_damping, MEM_PUT);
+    memDampingFactors(&damp_acc, &damp_gyro, &damp_mag, &damp_att, MEM_PUT);
+}
 float measured_angles[9] = {0.0f, 45.0f, 90.0f, 135.0f, 180.0f, 225.0f, 270.0f, 315.0f, 360.0f};
 // Which ICM filtering mode the stored table was measured in, or -1 if it predates the record.
 // The mode selects which heading variant feeds the pipeline, and that variant IS the table's
@@ -397,10 +414,19 @@ bool InitCompass(void)
     memCompassAvg(&compass_avg_len, MEM_GET);
     memPrDamping(&pr_damping, MEM_GET);
     memDampingFactors(&damp_acc, &damp_gyro, &damp_mag, &damp_att, MEM_GET);
-    // Attitude damping dynamically maps to pr_damping (where pr_damping = 1.0f - damp_att)
-    pr_damping = 1.0f - damp_att;
-    if (pr_damping < 0.0f) pr_damping = 0.0f;
-    if (pr_damping > 0.99f) pr_damping = 0.99f;
+    // damp_att is the attitude SLIDER's name for this setting, not a second setting: nothing
+    // reads it except the mapping below, and pr_damping is what the filter actually uses.
+    //
+    // It used to be the authority here - pr_damping = 1.0f - damp_att - and that quietly threw
+    // away every value written through any other route. The Sub's own "Damp:" field, the CYD's
+    // CALIBRATION page and SETUPDATA all write pr_damping and none of them write damp_att, so a
+    // hull set to 0.99 came back up at 1.00 - 0.15 = 0.85 on the next boot, which looks exactly
+    // like a save that never happened. Measured on the fleet 2026-09-15: Sub fe914818 had been
+    // set through the number field and rebooted (prdamp 0.85, damp_att 0.15), Sub fe914828 had
+    // been set through the slider (prdamp 0.99, damp_att 0.01) - same firmware, opposite result.
+    //
+    // pr_damping is the stored value. The mirror is derived from it, never the other way round.
+    damp_att = 1.0f - pr_damping;
     
     float trim_val = 0.0f;
     bool trim_en = false;

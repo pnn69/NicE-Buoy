@@ -104,4 +104,11 @@ extern volatile float global_roll_raw;
 extern int interp_table_mode;
 bool interpTableModeMatches(void);
 
+// Pitch/roll damping. Set it through here and nowhere else - two NVS keys describe this one number
+// (see setPrDamping() in compass.cpp) and writing only one of them loses the setting at the next
+// boot. Clamps to 0.00..0.99 and persists both.
+extern float pr_damping;
+extern float damp_att;
+void setPrDamping(float d);
+
 #endif /* COMPASS_H_ */

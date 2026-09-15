@@ -524,12 +524,10 @@ void WiFiTask(void *arg) {
             } else if (sensor == "mag") {
                 damp_mag = val;
             } else if (sensor == "att") {
-                damp_att = val;
-                // Sync attitude damping directly with pr_damping
-                pr_damping = 1.0f - val;
-                if (pr_damping < 0.0f) pr_damping = 0.0f;
-                if (pr_damping > 0.99f) pr_damping = 0.99f;
-                memPrDamping(&pr_damping, MEM_PUT);
+                // One number, one owner. This slider names it as the complement, so convert here
+                // and let setPrDamping() clamp it and write BOTH keys - see compass.cpp. Setting
+                // damp_att on its own was half of why the value did not survive a reboot.
+                setPrDamping(1.0f - val);
             }
 
             memDampingFactors(&damp_acc, &damp_gyro, &damp_mag, &damp_att, MEM_PUT);
@@ -889,9 +887,8 @@ void WiFiTask(void *arg) {
                 esc_neutral_sb = t; paramUpdated = true;
             }
             else if(p=="prdamp"){
-                pr_damping = v;
-                if (pr_damping < 0.0f) pr_damping = 0.0f;
-                if (pr_damping > 0.99f) pr_damping = 0.99f;
+                // Applied below rather than here: setPrDamping() writes NVS, and every other
+                // parameter on this page does its store outside the mutex too.
                 paramUpdated = true;
             }
             
@@ -920,7 +917,7 @@ void WiFiTask(void *arg) {
                 memCompassTrim(&trim_val, &trim_en, MEM_PUT);
             }
             else if(p=="prdamp"){
-                memPrDamping(&pr_damping, MEM_PUT);
+                setPrDamping(v);
             }
             else if(p=="nbb" || p=="nsb"){
                 memEscNeutral(&esc_neutral_bb, &esc_neutral_sb, MEM_PUT);

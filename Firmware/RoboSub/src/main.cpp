@@ -906,8 +906,10 @@ void handleSerandRfdata(RoboStruct *ser)
                         if (d > 0.99f) d = 0.99f;
                         if (d >= 0.0f && fabsf(d - pr_damping) > 0.0005f)
                         {
-                            pr_damping = d;
-                            memPrDamping(&pr_damping, MEM_PUT);
+                            // Through the single writer, which also updates the damp_att
+                            // mirror. Writing pr_damping alone stored a value the next
+                            // boot overwrote from the stale mirror - see setPrDamping().
+                            setPrDamping(d);
                             printf("SETUPDATA: pitch/roll damping set to %.2f\r\n", pr_damping);
                         }
                     }
