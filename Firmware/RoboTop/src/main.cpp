@@ -941,7 +941,7 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         stat->cmd = IDLE;
         stat->status = IDLE;
         xQueueSend(udpOut, (void *)stat, 0);  // update WiFi
-        xQueueSend(loraOut, (void *)stat, 0); // update Lora
+        loraSend(stat); // update Lora
         stat->ack = GETACK;
         xQueueSend(serOut, (void *)stat, 20); // update sub
         break;
@@ -973,7 +973,7 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
             AddDataToBuoyBase(*stat, buoyParaPtrs); // store position for later calculations Track positioning
             // IDr,IDs,ACK,MSG,LAT,LON
             xQueueSend(udpOut, (void *)stat, 0);   // update WiFi
-            xQueueSend(loraOut, (void *)stat, 10); // send out through Lora
+            loraSend(stat); // send out through Lora
             RouteToPoint(stat->lat, stat->lng, stat->tgLat, stat->tgLng, &stat->tgDist, &stat->tgDir);
 
             /*
@@ -987,10 +987,10 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
 
             stat->cmd = RESET_SPEED_RUD_PID;
             xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
-            xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
+            loraSend(stat); // send course and distance to sub
             stat->cmd = DIRDIST;
             xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
-            xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
+            loraSend(stat); // send course and distance to sub
         }
         else
         {
@@ -1034,7 +1034,7 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         // over for each. Nothing downstream reads ack for these commands.
         stat->ack = INF;
         xQueueSend(udpOut, (void *)stat, 0);
-        xQueueSend(loraOut, (void *)stat, 10);
+        loraSend(stat);
 
         crumb(15);
         udpLog("DOCK 15 broadcast done, about to route");
@@ -1061,10 +1061,10 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
 
         stat->cmd = RESET_SPEED_RUD_PID;
         xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
-        xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
+        loraSend(stat); // send course and distance to sub
         stat->cmd = DIRDIST;
         xQueueSend(serOut, (void *)stat, 0);  // send course and distance to sub
-        xQueueSend(loraOut, (void *)stat, 0); // send course and distance to sub
+        loraSend(stat); // send course and distance to sub
         break;
 
     case COMPUTESTART:
@@ -1217,7 +1217,7 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
                 LoraTx.IDs = stat->mac;
                 LoraTx.cmd = SETLOCKPOS;
                 LoraTx.ack = GETACK;
-                xQueueSend(loraOut, (void *)&LoraTx, 10); // send out through Lora
+                loraSend(&LoraTx); // send out through Lora
                 xQueueSend(udpOut, (void *)&LoraTx, 10);  // send out through WiFi
             }
         }
@@ -1574,19 +1574,52 @@ void handleTimerRoutines(RoboStruct *timer)
             // without our target until the next manual lock, and their field view drew nothing.
             // ack = INF keeps this out of the LoRa ACK retry table: it is a beacon, and the next
             // one is only 5 s away, so retransmitting each copy 5x would just add channel load.
+            // The waypoint beacon, and it is urgent-class traffic now - see loraIsUrgent(). A
+            // waypoint is the one piece of state a buoy must NOT be allowed to miss, so it goes
+            // ahead of telemetry and is never dropped to make room for a reading.
+            //
+            // Which is exactly why the cadence had to change with it. Repeating an unchanged
+            // waypoint every 5 s for ever, at a priority that cannot be throttled, is precisely
+            // the traffic that fills a small channel to no purpose: after the first few copies
+            // everyone within earshot already has it.
+            //
+            // So it is fast while it is NEW and slow once it has been said. A change to either
+            // coordinate restarts the fast phase, which is the case that actually matters - a new
+            // waypoint goes out at once and keeps going out until it has had every chance to land.
             static unsigned long nextWaypointBeacon = 0;
-            if (timer->tgLat != 0.0 && timer->tgLng != 0.0 && millis() > nextWaypointBeacon)
+            static double lastBeaconLat = 0.0;
+            static double lastBeaconLng = 0.0;
+            static int beaconFastLeft = 0;
+            if (timer->tgLat != 0.0 && timer->tgLng != 0.0)
             {
-                nextWaypointBeacon = millis() + 5000;
-                unsigned long savedIDr = timer->IDr;
-                int savedAck = timer->ack;
-                timer->IDr = BUOYIDALL;
-                timer->cmd = (timer->status == DOCKED) ? DOCKPOS : LOCKPOS;
-                timer->ack = INF;
-                xQueueSend(udpOut, (void *)timer, 0);
-                xQueueSend(loraOut, (void *)timer, 0);
-                timer->IDr = savedIDr;
-                timer->ack = savedAck;
+                if (timer->tgLat != lastBeaconLat || timer->tgLng != lastBeaconLng)
+                {
+                    lastBeaconLat = timer->tgLat;
+                    lastBeaconLng = timer->tgLng;
+                    beaconFastLeft = 6;   // ~30 s of 5 s beacons behind every change
+                    nextWaypointBeacon = 0;
+                }
+                if (millis() > nextWaypointBeacon)
+                {
+                    if (beaconFastLeft > 0)
+                    {
+                        beaconFastLeft--;
+                        nextWaypointBeacon = millis() + 5000;
+                    }
+                    else
+                    {
+                        nextWaypointBeacon = millis() + 30000;
+                    }
+                    unsigned long savedIDr = timer->IDr;
+                    int savedAck = timer->ack;
+                    timer->IDr = BUOYIDALL;
+                    timer->cmd = (timer->status == DOCKED) ? DOCKPOS : LOCKPOS;
+                    timer->ack = INF;
+                    xQueueSend(udpOut, (void *)timer, 0);
+                    loraSend(timer);
+                    timer->IDr = savedIDr;
+                    timer->ack = savedAck;
+                }
             }
         }
         else if (timer->status == REMOTE) // Remote controlled
@@ -1632,7 +1665,7 @@ void handleTimerRoutines(RoboStruct *timer)
             xQueueSend(udpOut, (void *)timer, 10); // send out through wifi
         }
 
-        // Attitude, and only ever down this queue - there is no loraOut counterpart on purpose.
+        // Attitude, and only ever down this queue - it is never given to loraSend() on purpose.
         // See ATTITUDE in RoboCompute.h: it feeds the handheld's bubble level during a
         // calibration, which is a WiFi-range activity by definition, and putting it on the air
         // would cost LoRa channel time on every frame to deliver a level that updated once every
@@ -1669,12 +1702,12 @@ void handleTimerRoutines(RoboStruct *timer)
         if ((timer->status == LOCKED || timer->status == DOCKED))
         {
             timer->cmd = TOPDATA;
-            xQueueSend(loraOut, (void *)timer, 10); // send out through Lora
+            loraSend(timer); // send out through Lora
         }
         else if (timer->status == REMOTE)
         {
             timer->cmd = TOPDATA;                   // Send standard TOPDATA (51) so the CYD can parse it at 4Hz!
-            xQueueSend(loraOut, (void *)timer, 10); // send out through Lora
+            loraSend(timer); // send out through Lora
         }
         else
         {
@@ -1693,11 +1726,11 @@ void handleTimerRoutines(RoboStruct *timer)
             // but explicitly skips that field - so once per 20 s is ample for a battery gauge.
             static unsigned char idleTick = 0;
             timer->cmd = TOPDATA;
-            xQueueSend(loraOut, (void *)timer, 10); // send out through Lora
+            loraSend(timer); // send out through Lora
             if ((idleTick % 4) == 0)
             {
                 timer->cmd = BUOYPOS;
-                xQueueSend(loraOut, (void *)timer, 10); // send out through Lora
+                loraSend(timer); // send out through Lora
             }
             idleTick++;
         }
@@ -1852,7 +1885,7 @@ static void ackOverLora(const RoboStruct *in, const RoboStruct *self, int cmd)
     ackMsg.cmd = cmd;
     ackMsg.status = self->status;
     ackMsg.ack = ACK;
-    xQueueSend(loraOut, (void *)&ackMsg, 10);
+    loraSend(&ackMsg);
 }
 
 void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
@@ -2004,7 +2037,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             // IDs != espMac() self-filter in udp_setup cannot catch -> endless rebroadcast loop.
             if (from_udp)
             {
-                xQueueSend(loraOut, (void *)&RfIn, 0);
+                loraSend(&RfIn);
             }
             else
             {
@@ -2026,7 +2059,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             // frames every 5 s. The relayed copies are pure waste: every buoy already broadcasts
             // its own telemetry on LoRa, so nobody needs us to repeat it, and the collisions it
             // caused were losing the packets that mattered.
-            xQueueSend(loraOut, (void *)&RfIn, 0);
+            loraSend(&RfIn);
         }
 
         // --- ONE PRESS, ONE EXECUTION ---------------------------------------------------------
@@ -2116,7 +2149,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     // Forward across interfaces
                     if (from_udp)
-                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                        loraSend(&RfIn);
                     else
                         xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
@@ -2140,7 +2173,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     // Forward across interfaces
                     if (from_udp)
-                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                        loraSend(&RfIn);
                     else
                         xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
@@ -2164,7 +2197,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     // Forward across interfaces
                     if (from_udp)
-                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                        loraSend(&RfIn);
                     else
                         xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
@@ -2182,7 +2215,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     // Forward across interfaces
                     if (from_udp)
-                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                        loraSend(&RfIn);
                     else
                         xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
@@ -2197,7 +2230,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     // Forward across interfaces
                     if (from_udp)
-                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                        loraSend(&RfIn);
                     else
                         xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
@@ -2221,7 +2254,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     // Forward across interfaces
                     if (from_udp)
-                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                        loraSend(&RfIn);
                     else
                         xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
@@ -2417,7 +2450,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     }
                     // Forward across interfaces
                     if (from_udp)
-                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                        loraSend(&RfIn);
                     else
                         xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
@@ -2455,7 +2488,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 else
                 {
                     if (from_udp)
-                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                        loraSend(&RfIn);
                     else
                         xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
@@ -2482,7 +2515,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     // Forward across interfaces
                     if (from_udp)
-                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                        loraSend(&RfIn);
                     else
                         xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
@@ -2513,7 +2546,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     // Forward across interfaces
                     if (from_udp)
-                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                        loraSend(&RfIn);
                     else
                         xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
@@ -2535,7 +2568,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     // Forward across interfaces
                     if (from_udp)
-                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                        loraSend(&RfIn);
                     else
                         xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
@@ -2562,7 +2595,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     AddDataToBuoyBase(RfIn, buoyPara);
                     // Forward across interfaces
                     if (from_udp)
-                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                        loraSend(&RfIn);
                     else
                         xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
@@ -2581,7 +2614,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     // Forward across interfaces
                     if (from_udp)
-                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                        loraSend(&RfIn);
                     else
                         xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
@@ -2617,7 +2650,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 if (from_udp)
                     xQueueSend(udpOut, (void *)&RfIn, 0);
                 else
-                    xQueueSend(loraOut, (void *)&RfIn, 0);
+                    loraSend(&RfIn);
                 crumb(23);
                 udpLog("DOCKPOS answered to %08lX via %s", (unsigned long)RfIn.IDr,
                        from_udp ? "udp" : "lora");
@@ -2735,7 +2768,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 RfIn.ack = INF; // INF, not SET: SET would enter the LoRa ACK retry table and be
                                 // retransmitted 5x, and the periodic re-broadcast already covers loss
                 xQueueSend(udpOut, (void *)&RfIn, 0);
-                xQueueSend(loraOut, (void *)&RfIn, 10);
+                loraSend(&RfIn);
                 break;
             }
             case IDLING:
@@ -2753,7 +2786,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     // Forward across interfaces
                     if (from_udp)
-                        xQueueSend(loraOut, (void *)&RfIn, 0);
+                        loraSend(&RfIn);
                     else
                         xQueueSend(udpOut, (void *)&RfIn, 0);
                 }
@@ -2795,7 +2828,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     // For status updates from other buoys, only forward to UDP for local display
                     xQueueSend(udpOut, (void *)&RfIn, 0);
-                    xQueueSend(loraOut, (void *)&RfIn, 0); // For status updates from other buoys
+                    loraSend(&RfIn); // For status updates from other buoys
                 }
                 break;
             case MAXMINPWRSET:
@@ -2839,7 +2872,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     buoyPara[targetIdx]->compass_trim_enabled = RfIn.compass_trim_enabled;
                 }
                 if (from_udp)
-                    xQueueSend(loraOut, (void *)&RfIn, 0);
+                    loraSend(&RfIn);
                 else
                     xQueueSend(udpOut, (void *)&RfIn, 0);
             }
@@ -3201,9 +3234,9 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                 // For LoRa, always broadcast with IDr = BUOYIDALL (1) matching the protocol standard and ensuring
                 // both the physical screen (0x98) and its webpage Setup clients receive the response successfully.
                 RoboStruct loraDataOut = serDataIn;
-                if (xQueueSend(loraOut, (void *)&loraDataOut, pdMS_TO_TICKS(250)) != pdTRUE)
+                if (!loraSend(&loraDataOut))
                 {
-                    printf("ERROR: Failed to queue SETUPDATA response to loraOut!\r\n");
+                    printf("ERROR: Failed to queue SETUPDATA response for LoRa!\r\n");
                 }
 
                 // Send an explicit ACK back to the Sub to clear its retransmission queue
@@ -3249,9 +3282,9 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
             {
                 printf("ERROR: Failed to queue table broadcast to udpOut!\r\n");
             }
-            if (xQueueSend(loraOut, (void *)&serDataIn, pdMS_TO_TICKS(100)) != pdTRUE)
+            if (!loraSend(&serDataIn))
             {
-                printf("ERROR: Failed to queue table broadcast to loraOut!\r\n");
+                printf("ERROR: Failed to queue table broadcast for LoRa!\r\n");
             }
             break;
         case SET_AS_LEVEL:
@@ -3361,9 +3394,9 @@ void handleSerialData(RoboStruct *ser, RoboStruct *buoyPara[3])
                 {
                     printf("ERROR: Failed to queue PID/PWR response to udpOut!\r\n");
                 }
-                if (xQueueSend(loraOut, (void *)&forwardMsg, pdMS_TO_TICKS(250)) != pdTRUE)
+                if (!loraSend(&forwardMsg))
                 {
-                    printf("ERROR: Failed to queue PID/PWR response to loraOut!\r\n");
+                    printf("ERROR: Failed to queue PID/PWR response for LoRa!\r\n");
                 }
 
                 // Acknowledge the Sub to stop its retry loop
@@ -3571,7 +3604,7 @@ void loop(void)
             statusUpdate.ack = INF;
             statusUpdate.cmd = (mainData.status == LOCKED || mainData.status == DOCKED) ? TOPDATA : BUOYPOS;
             xQueueSend(udpOut, (void *)&statusUpdate, 0);
-            xQueueSend(loraOut, (void *)&statusUpdate, 0);
+            loraSend(&statusUpdate);
         }
     }
 }

@@ -4,9 +4,10 @@
 #include "io_top.h"
 #include "main.h"
 #include "topwifi.h"
+#include "udplog.h"
 
 // Forward declaration to resolve scope order for repeater
-bool sendLora(String loraTransmitt);
+bool sendLora(String loraTransmitt, bool urgent = true);
 
 static const char *TAG = "lora.cpp";
 static bool loraOk = false;
@@ -17,7 +18,9 @@ static RoboStruct loraMsgin = {};
 static RoboStruct pendingMsg[10] = {};
 static RoboStruct loraStruct;
 static unsigned long transmittReady = 0;
-QueueHandle_t loraOut;
+// Two transmit queues, strictly ordered. See loraSend() below for why there are two.
+QueueHandle_t loraOutHi;
+QueueHandle_t loraOutLo;
 QueueHandle_t loraIn;
 static unsigned long buoyId = 0;
 static RoboStruct *pMainData = NULL;
@@ -57,7 +60,11 @@ bool InitLora(void)
 void initloraqueue(void)
 {
     loraIn = xQueueCreate(10, sizeof(RoboStruct));
-    loraOut = xQueueCreate(10, sizeof(RoboStruct));
+    // Urgent is deep enough to hold a whole burst - a COMPUTE STARTLINE files one waypoint per
+    // buoy and a mode change follows it. Telemetry gets two slots on purpose: it is overwritten
+    // rather than queued, so depth here is latency, not capacity.
+    loraOutHi = xQueueCreate(8, sizeof(RoboStruct));
+    loraOutLo = xQueueCreate(2, sizeof(RoboStruct));
     InitLora();
     Serial.print("#BuoyId=");
     Serial.println(espMac(), HEX);
@@ -93,6 +100,202 @@ static bool isModeCmd(int cmd)
     default:
         return false;
     }
+}
+
+//***************************************************************************************************
+//  Transmit priority
+//***************************************************************************************************
+// The channel is small and the two kinds of traffic on it are not equally valuable.
+//
+// An operator press - IDLE, LOCK, DOCK, a new waypoint - is a ONE-SHOT event. If its frame is lost
+// the thing simply does not happen, and the operator is left pressing a button that appears dead.
+// Telemetry is a running commentary: every frame is superseded by the next one a few seconds later,
+// so a dropped one costs nothing that the next one does not immediately repair.
+//
+// They used to share a single 10-deep FIFO, which gave them equal standing and produced the worst
+// of both. A press queued behind nine telemetry frames waited for all of them - 1.4 s at SF7, and
+// several seconds at any slower spreading factor - and once the queue was full it was just as
+// likely to be the PRESS that got thrown away, silently, because every xQueueSend here fails the
+// same way whatever it happens to be carrying.
+//
+// So the two are separated:
+//
+//   - urgent has its own queue and is always drained to empty before telemetry is even looked at;
+//   - telemetry gets two slots and is OVERWRITTEN rather than queued when it backs up, because the
+//     newest reading is the only one worth putting on the air;
+//   - telemetry additionally yields the channel - see loraTelemetryMayGo().
+
+// How much of the channel low priority traffic may occupy, as a percentage of wall clock over a
+// rolling window. This is the "keep it clean" dial.
+//
+// Measured, not calculated, so it stays honest if the spreading factor is ever changed: on this
+// library LoRa.endPacket() blocks for the entire time the frame is on the air, so wall clock
+// around it IS the airtime. At SF7 a TOPDATA is about 160 ms, so 25% is roughly fifteen frames in
+// ten seconds - far above the one per five seconds a holding buoy actually sends. The governor is
+// therefore inert in normal operation and only bites when the air is genuinely busy, which is the
+// only time throttling telemetry helps anybody.
+#define LORA_AIR_WINDOW_MS 10000UL
+#define LORA_LO_BUDGET_PCT 25
+
+// A short hold after anything urgent goes out. The far end answers an ACK-seeking command almost
+// at once, and this radio cannot hear while it transmits - so a telemetry frame started in that
+// gap is sent straight over the top of the reply we are waiting for. That is how a command that
+// arrived perfectly well ends up looking unacknowledged.
+#define LORA_QUIET_AFTER_URGENT_MS 400
+
+static unsigned long airWindowStart = 0;
+static unsigned long airLoMs = 0;
+static unsigned long airHiMs = 0;
+static unsigned long lastUrgentTxMs = 0;
+unsigned long loraTelemetryDropped = 0;   // overwritten because a newer reading arrived
+unsigned long loraTelemetryHeld = 0;      // not sent because the channel was wanted elsewhere
+
+/**
+ * @brief Is this frame a command, or a reading?
+ *
+ * Telemetry is listed explicitly and everything else is urgent BY DEFAULT. That default is the
+ * deliberate half: a frame nobody thought to classify is far more likely to be a command than a
+ * reading, and being wrong in that direction costs some airtime, where being wrong in the other
+ * direction costs a press that never arrives.
+ *
+ * DIRDIST is deliberately NOT here. It only reaches the air on a mode transition, where it carries
+ * the zeroed distance that stops the thrusters - which is the last frame in the fleet that should
+ * ever be treated as discardable.
+ */
+static bool loraIsUrgent(const RoboStruct *m)
+{
+    // An ACK is tiny and it is the thing that STOPS a retransmit burst, so it pays for itself
+    // several times over in airtime saved.
+    if (m->ack == ACK)
+        return true;
+
+    switch (m->cmd)
+    {
+    case TOPDATA:
+    case BUOYPOS:
+    case NEWBUOYPOS:
+    case SUBDATA:
+    case SUBACCU:
+    case SUBPWR:
+    case ATTITUDE:
+    case LORA_LINK:
+    case ADAPTIVE_TRIM:
+    case DIRMDIRTGDIRG:
+        return false;
+    default:
+        return true;
+    }
+}
+
+/**
+ * @brief The one door onto the radio. Classifies the frame and queues it in the right class.
+ *
+ * Replaces the bare xQueueSend(loraOut, ...) that used to be written out at forty-odd call sites,
+ * every one of which had to pick a block timeout it had no way to reason about.
+ *
+ * @return true if the frame was accepted for transmission.
+ */
+bool loraSend(const RoboStruct *msg)
+{
+    if (!msg)
+        return false;
+
+    if (loraIsUrgent(msg))
+    {
+        // Never overwritten, and never silently discarded. If this queue ever fills, a real command
+        // has been lost and that must be visible - it is exactly the failure the old shared queue
+        // used to hide.
+        if (xQueueSend(loraOutHi, (const void *)msg, 0) == pdTRUE)
+            return true;
+        udpLog("LORA TX urgent queue FULL - DROPPED cmd=%d ack=%d IDr=%08lX",
+               msg->cmd, msg->ack, (unsigned long)msg->IDr);
+        return false;
+    }
+
+    // Telemetry never blocks and never builds a backlog. A reading that could not go out now is
+    // worthless by the time the queue drains, so the OLDEST is discarded to make room for the
+    // newest - the opposite of what a plain FIFO does when it is full.
+    if (xQueueSend(loraOutLo, (const void *)msg, 0) != pdTRUE)
+    {
+        RoboStruct stale;
+        if (xQueueReceive(loraOutLo, (void *)&stale, 0) == pdTRUE)
+            loraTelemetryDropped++;
+        xQueueSend(loraOutLo, (const void *)msg, 0);
+    }
+    return true;
+}
+
+/**
+ * @brief How many commands are still being retransmitted, waiting for an acknowledgement.
+ */
+static int pendingAckCount(void)
+{
+    int n = 0;
+    for (int i = 0; i < 10; i++)
+        if (pendingMsg[i].cmd != 0)
+            n++;
+    return n;
+}
+
+// Decay rather than reset. A hard reset on the boundary lets a burst that straddles it spend the
+// whole budget twice in quick succession.
+static void airRoll(void)
+{
+    unsigned long now = millis();
+    if (airWindowStart == 0)
+    {
+        airWindowStart = now;
+        return;
+    }
+    if (now - airWindowStart < LORA_AIR_WINDOW_MS)
+        return;
+    airLoMs /= 2;
+    airHiMs /= 2;
+    airWindowStart = now - (LORA_AIR_WINDOW_MS / 2);
+}
+
+/**
+ * @brief May a telemetry frame go out right now?
+ *
+ * Four separate reasons to say no, in cheapest-first order. Any one of them means the channel is
+ * wanted for something that actually matters.
+ */
+static bool loraTelemetryMayGo(void)
+{
+    if (uxQueueMessagesWaiting(loraOutHi) > 0)
+        return false; // a command is queued behind us
+    if (pendingAckCount() > 0)
+        return false; // a command is still being retried
+    if (millis() - lastUrgentTxMs < LORA_QUIET_AFTER_URGENT_MS)
+        return false; // leave the reply some clear air
+
+    airRoll();
+    unsigned long elapsed = millis() - airWindowStart;
+    if (elapsed == 0)
+        return true;
+    return (airLoMs * 100UL) <= ((unsigned long)LORA_LO_BUDGET_PCT * elapsed);
+}
+
+/**
+ * @brief What the governor is doing, for the web page and the debug log.
+ */
+String loraAirJson(void)
+{
+    airRoll();
+    unsigned long elapsed = millis() - airWindowStart;
+    if (elapsed == 0)
+        elapsed = 1;
+    String out = "{";
+    out += "\"loPct\":" + String((int)((airLoMs * 100UL) / elapsed));
+    out += ",\"hiPct\":" + String((int)((airHiMs * 100UL) / elapsed));
+    out += ",\"budgetPct\":" + String(LORA_LO_BUDGET_PCT);
+    out += ",\"qHi\":" + String((int)uxQueueMessagesWaiting(loraOutHi));
+    out += ",\"qLo\":" + String((int)uxQueueMessagesWaiting(loraOutLo));
+    out += ",\"pendingAck\":" + String(pendingAckCount());
+    out += ",\"telemDropped\":" + String(loraTelemetryDropped);
+    out += ",\"telemHeld\":" + String(loraTelemetryHeld);
+    out += "}";
+    return out;
 }
 
 /**
@@ -647,7 +850,7 @@ void linkReportService(void)
     }
     msg.linkPeers = (uint8_t)put;
 
-    xQueueSend(loraOut, (void *)&msg, 0);
+    loraSend(&msg);   // LORA_LINK is telemetry - see loraIsUrgent()
 
     // Fresh window. The counts mean "per minute" or they mean nothing - but lastRssi and lastHeard
     // survive, so a peer that simply had a quiet minute still reads as heard rather than gone.
@@ -780,16 +983,33 @@ void onReceive(int packetSize)
  * @param loraTransmitt The string data to send.
  * @return true if successfully pushed to the LoRa module, false otherwise.
  */
-bool sendLora(String loraTransmitt)
+bool sendLora(String loraTransmitt, bool urgent)
 {
     if (transmittReady < millis())
     {
         if (LoRa.beginPacket()) // start packet
         {
+            unsigned long t0 = millis();
             LoRa.write(loraTransmitt.length());
             LoRa.print(loraTransmitt);
-            LoRa.endPacket(); // finish packet and send it
+            LoRa.endPacket(); // finish packet and send it - BLOCKS for the whole time on air
             // Serial.println("#Lora_o <" + loraTransmitt + ">");
+
+            // endPacket() returns only once the frame has actually gone, so this is the real
+            // occupancy of the channel and not an estimate from a spreading factor nobody sets.
+            // It is what the budget in loraTelemetryMayGo() is measured against.
+            unsigned long air = millis() - t0;
+            airRoll();
+            if (urgent)
+            {
+                airHiMs += air;
+                lastUrgentTxMs = millis();
+            }
+            else
+            {
+                airLoMs += air;
+            }
+
             transmittReady = millis() + 10;
             return true;
         }
@@ -808,12 +1028,70 @@ bool sendLora(String loraTransmitt)
  * 
  * @param arg Task arguments (Pointer to mainData RoboStruct).
  */
-#include "udplog.h"
+
+/**
+ * @brief Put one frame on the air, and file it for retransmission if it asked to be acknowledged.
+ *
+ * Lifted verbatim out of LoraTask() so the urgent and telemetry paths cannot drift apart - they
+ * were one branch before the two queues existed, and the tgDist adjustment below is the kind of
+ * thing that gets fixed in one copy and not the other.
+ */
+static void loraTransmitOne(RoboStruct *msg, bool urgent, unsigned long *retransmittReady)
+{
+    // Set the sender ID to our actual hardware MAC address if not already specified
+    if (msg->IDs == 0)
+        msg->IDs = (pMainData && pMainData->IDs != 0) ? pMainData->IDs : buoyId;
+
+    // Adjust tgDist to be the distance to the actual radius (delta)
+    if (msg->cmd == TOPDATA || msg->cmd == DIRDIST || msg->cmd == LOCKED || msg->cmd == DOCKED)
+    {
+        if (msg->status == LOCKED || msg->status == LOCKING || msg->status == DOCKED || msg->status == DOCKING)
+        {
+            msg->tgDist -= msg->holdRad;
+        }
+    }
+
+    crumbAt(CRUMB_LORA, 202);
+    String loraString = rfCode(msg);
+    int retries = 0;
+    crumbAt(CRUMB_LORA, 203);
+
+    // Non-blocking wait and send loop:
+    // Continues to listen to the radio interface while backing off to avoid missing inbound packets.
+    while (sendLora(String(loraString), urgent) != true)
+    {
+        crumbAt(CRUMB_LORA, 204);
+        onReceive(LoRa.parsePacket()); // Keep receiving while waiting to transmit!
+        vTaskDelay(pdMS_TO_TICKS(10));
+        retries++;
+
+        // Hardware Self-Healing: If transmission fails consistently for 500ms (50 * 10ms),
+        // the radio transceiver may have locked up (SPI glitch or state machine stall).
+        // Force a full hardware-level reset and reinitialization of the LoRa module.
+        if (retries >= 50)
+        {
+            Serial.println("#Error: LoRa send failed. Hardware-resetting LoRa module...");
+            InitLora();
+            break;
+        }
+    }
+
+    // If the transmission expects a receipt confirmation (GETACK/SET), store it in our retry table
+    crumbAt(CRUMB_LORA, 205);
+    if (msg->ack == GETACK || msg->ack == SET)
+    {
+        crumbAt(CRUMB_LORA, 206);
+        msg->retry = 5;
+        storeAckMsg(*msg);                                    // put data in buffer (removed on ack)
+        *retransmittReady = millis() + 900 + random(0, 150);  // give some time for ack
+    }
+}
 
 void LoraTask(void *arg)
 {
     pMainData = (RoboStruct *)arg;
     unsigned long retransmittReady = 0;
+    bool telemetryWasHeld = false;   // edge state for loraTelemetryHeld, see below
     while (1)
     {
         crumbAt(CRUMB_LORA, 200);
@@ -825,54 +1103,38 @@ void LoraTask(void *arg)
         // One link report a minute - see linkReportService().
         linkReportService();
         
-        // Process any telemetry messages queued for LoRa transmission
-        if (xQueueReceive(loraOut, (void *)&loraMsgout, 1) == pdTRUE)
+        // Urgent first, and drained to EMPTY before telemetry is even considered. Not one per
+        // pass: a burst of presses - a COMPUTE STARTLINE files a waypoint per buoy and a mode
+        // change behind it - must not be rationed out with a telemetry frame between each.
+        while (xQueueReceive(loraOutHi, (void *)&loraMsgout, 0) == pdTRUE)
         {
-            // Set the sender ID to our actual hardware MAC address if not already specified
-            if (loraMsgout.IDs == 0) loraMsgout.IDs = (pMainData && pMainData->IDs != 0) ? pMainData->IDs : buoyId;
-            
-            // Adjust tgDist to be the distance to the actual radius (delta)
-            if (loraMsgout.cmd == TOPDATA || loraMsgout.cmd == DIRDIST || loraMsgout.cmd == LOCKED || loraMsgout.cmd == DOCKED) {
-                if (loraMsgout.status == LOCKED || loraMsgout.status == LOCKING || loraMsgout.status == DOCKED || loraMsgout.status == DOCKING) {
-                    loraMsgout.tgDist -= loraMsgout.holdRad;
-                }
-            }
-            
-            crumbAt(CRUMB_LORA, 202);
-            String loraString = rfCode(&loraMsgout);
-            int retries = 0;
-            crumbAt(CRUMB_LORA, 203);
-            
-            // Non-blocking wait and send loop:
-            // Continues to listen to the radio interface while backing off to avoid missing inbound packets.
-            while (sendLora(String(loraString)) != true)
+            loraTransmitOne(&loraMsgout, true, &retransmittReady);
+        }
+
+        // Then at most ONE telemetry frame, and only if the channel is not wanted for something
+        // that matters - see loraTelemetryMayGo(). One per pass on purpose: it keeps the radio
+        // coming back to the receive poll and to the urgent queue between readings.
+        if (uxQueueMessagesWaiting(loraOutLo) > 0)
+        {
+            if (loraTelemetryMayGo())
             {
-                crumbAt(CRUMB_LORA, 204);
-                onReceive(LoRa.parsePacket()); // Keep receiving while waiting to transmit!
-                vTaskDelay(pdMS_TO_TICKS(10)); // Shorter sleep (10ms instead of 50ms) to increase system responsiveness
-                retries++;
-                
-                // Hardware Self-Healing: If transmission fails consistently for 500ms (50 * 10ms),
-                // the radio transceiver may have locked up (SPI glitch or state machine stall).
-                // Force a full hardware-level reset and reinitialization of the LoRa module.
-                if (retries >= 50)             
+                telemetryWasHeld = false;
+                if (xQueueReceive(loraOutLo, (void *)&loraMsgout, 0) == pdTRUE)
                 {
-                    Serial.println("#Error: LoRa send failed. Hardware-resetting LoRa module...");
-                    InitLora();
-                    break;
+                    loraTransmitOne(&loraMsgout, false, &retransmittReady);
                 }
             }
-            // If the transmission expects a receipt confirmation (GETACK/SET), store it in our retry table
-            crumbAt(CRUMB_LORA, 205);
-            if (loraMsgout.ack == GETACK || loraMsgout.ack == SET)
+            else if (!telemetryWasHeld)
             {
-                crumbAt(CRUMB_LORA, 206);
-                loraMsgout.retry = 5;
-                storeAckMsg(loraMsgout);                            // put data in buffer (will be removed on ack)
-                retransmittReady = millis() + 900 + random(0, 150); // give some time for ack
+                // Edge triggered. This loop runs every millisecond or so, so counting each pass
+                // would make the number a measure of how fast the CPU is rather than of how often
+                // telemetry actually gave way - it read in the millions inside a minute.
+                telemetryWasHeld = true;
+                loraTelemetryHeld++;
             }
         }
-        
+
+
         /* Retransmit any pending unacknowledged packets */
         if (retransmittReady < millis())
         {

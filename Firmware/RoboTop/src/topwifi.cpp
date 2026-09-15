@@ -780,6 +780,11 @@ void WiFiTask(void *arg)
         // What this Top hears over LoRa and how well - see linkReportService(). Served on request,
         // which puts nothing on the air; the report itself goes out over LoRa only.
         json += "\"LoraLinks\":" + linkReportJson() + ",";
+        // How the transmit priority is behaving: what share of the channel each class is taking,
+        // what is queued, and how much telemetry was dropped or held back to keep the air clear for
+        // commands. Without this the governor is invisible, and an operator who found the fleet
+        // view slow would have no way to tell "throttled on purpose" from "link failing".
+        json += "\"LoraAir\":" + loraAirJson() + ",";
         // Diagnostics: seconds since boot, and what ended the previous run.
         json += "\"Uptime\":" + String(millis() / 1000) + ",";
         json += "\"Crumb\":" + String(crumbSlotAtLastReset(CRUMB_LOOP)) + ",";
@@ -1172,7 +1177,7 @@ void WiFiTask(void *arg)
             // Do NOT route this via udpIn -- handleRfData() then sees from_udp == true and bridges
             // it to LoRa only, so a WiFi-connected buoy never receives it.
             xQueueSend(udpOut, (void *)&msg, 10);
-            xQueueSend(loraOut, (void *)&msg, 10);
+            loraSend(&msg);
         }
         server.send(200, "text/plain", "OK");
     });
