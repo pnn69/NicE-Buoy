@@ -254,7 +254,33 @@ struct LinkReport {
     uint16_t count[LINK_MAX_PEERS_RX] = {0};
     uint8_t peers = 0;
     unsigned long ms = 0;
+    // How strongly WE heard this reporter's own frame, as opposed to what it says it hears. Kept
+    // because it is the only direct measurement of the path from that node to this handheld, and
+    // for a relay that is the number which decides whether it can help us at all.
+    int16_t heard_rssi = -999;
 };
+
+// The LoRa relay, if one is on the air.
+//
+// RoboLora is a gateway, not a buoy, and it is the strongest transmitter on the network - measured
+// at the two Tops it arrives around 20 dB above this handheld (see RoboLora/README.md). It repeats
+// UNICAST frames, which is exactly the class every operator command falls into, so when it is
+// present the range at which a LOCK, DOCK, IDLE or waypoint still lands is far greater than this
+// handheld can reach on its own. Broadcast telemetry is never repeated, so the fleet view is not
+// affected either way - see the repeater block in RoboTop/src/loratop.cpp.
+//
+// It is not always switched on. That is the whole reason this exists: without it the operator has
+// no way to tell "my command did not arrive because I am out of direct range and the relay is off"
+// from "the button is broken", and those call for completely different responses.
+//
+// A relay is identified the way RoboLora/README.md requires: only TOPDATA and BUOYPOS prove a
+// sender is a buoy, so a node that reports its links but has never sent either is a gateway. That
+// rule generalises - a second gateway would be found the same way, with nothing hard coded.
+//
+// Returns false when no relay has ever been heard. age_ms tells the caller how stale it is; the
+// relay beacons once a minute, so anything under RELAY_PRESENT_MS is "on the air".
+#define RELAY_PRESENT_MS 150000UL
+bool relay_status(String *id, int *rssi, unsigned long *age_ms);
 
 // Every directed link we know of - "from heard by to". Ours come from what this handheld hears
 // directly; the rest from the reports above. Returns how many were written.

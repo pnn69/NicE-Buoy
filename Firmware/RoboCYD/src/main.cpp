@@ -666,6 +666,69 @@ static int mancal_hit_dir(int tx, int ty) {
     return dir;
 }
 
+// ---------------------------------------------------------------------------------------------
+//  The LoRa relay indicator
+// ---------------------------------------------------------------------------------------------
+// RoboLora is a gateway with a far better antenna than this handheld - measured at the two Tops it
+// arrives about 20 dB stronger (RoboLora/README.md). It repeats UNICAST frames, and every operator
+// command is unicast, so while it is on the air a LOCK, DOCK, IDLE or waypoint reaches much further
+// than this handheld can reach by itself. Broadcast telemetry is never repeated, so the fleet view
+// is exactly the same either way - see the repeater block in RoboTop/src/loratop.cpp.
+//
+// And it is not always switched on. That is precisely why this is worth a line on the glass: with
+// nothing shown, an operator whose command did not land cannot tell "out of direct range with the
+// relay off" from "this button is broken", and those are not remotely the same problem.
+//
+// Drawn as its own element with its own cache so a changing signal level does not drag the whole
+// footer through a repaint.
+static String last_drawn_relay = "\x01";   // not a value the formatter can produce
+
+// Defined further down with the rest of the paint bookkeeping; needed here for the cache reset.
+extern volatile uint32_t ui_paint_seq;
+
+static void draw_relay_indicator(int w, int h) {
+    // Empty its own cache whenever the glass was cleared under it. Without this the indicator
+    // would be wiped by the next full repaint and never come back until the relay's signal level
+    // happened to change - which for a steady link is never. That is the exact fault the paint
+    // sequence was added for; see ui_paint_seq.
+    static uint32_t last_paint_seq = 0;
+    if (last_paint_seq != ui_paint_seq) {
+        last_paint_seq = ui_paint_seq;
+        last_drawn_relay = "\x01";
+    }
+
+    String id;
+    int rssi = -999;
+    unsigned long age = 0;
+    bool known = relay_status(&id, &rssi, &age);
+    bool live = known && age <= RELAY_PRESENT_MS;
+
+    // "RLY" plus the level, because the level is what says whether it can actually help: a relay
+    // heard at -110 is on the air but no further use to us than the buoys are.
+    String txt;
+    if (!known)      txt = "";                     // never heard one - say nothing rather than "no"
+    else if (!live)  txt = "RLY off";
+    else if (rssi == -999) txt = "RLY on";         // heard, but only over UDP, so no level to show
+    else             txt = "RLY " + String(rssi);
+
+    if (txt == last_drawn_relay) return;
+    last_drawn_relay = txt;
+
+    // Clipped to its own box, well clear of the "LoRa 433M" label on the left and the traffic dot
+    // on the right.
+    // x starts at 118, not 96: "LoRa 433M" is nine characters of size 2 from x=6, which is 12 px
+    // each and so runs to x=114 - a box starting at 96 clipped its last character off on every
+    // update. The right edge stops at 222, clear of the traffic dot centred on 230.
+    tft.fillRect(118, h - 38, 104, 18, TFT_BLACK);
+    if (txt.length() == 0) return;
+
+    tft.setTextDatum(BR_DATUM);
+    tft.setTextSize(2);
+    tft.setTextColor(live ? TFT_GREEN : TFT_DARKGREY, TFT_BLACK);
+    tft.drawString(txt, 222, h - 22);
+    tft.setTextDatum(BC_DATUM);
+}
+
 // Setup page index (0 for Page 1, 1 for Page 2)
 int setup_page = 0;
 
@@ -1968,8 +2031,14 @@ void draw_resting_ui() {
             tft.setTextSize(2);
             tft.setTextDatum(BC_DATUM);
             
-            // Draw LoRa status on its own line above the IP address
-            tft.drawString("LoRa: 433M", w / 2, h - 22);
+            // Draw LoRa status on its own line above the IP address.
+            //
+            // Left-aligned now rather than centred, because the relay indicator shares this line -
+            // see draw_relay_indicator(). Centring both would put them at unpredictable distances
+            // from each other as the relay text changes width.
+            tft.setTextDatum(BL_DATUM);
+            tft.drawString("LoRa 433M", 6, h - 22);
+            tft.setTextDatum(BC_DATUM);
             
             IPAddress ip;
 
@@ -2583,6 +2652,9 @@ void update_dynamic_ui() {
 
         uint16_t globalUdpDotColor = traffic_dot_color(last_udp_tx_ms, last_udp_blink_ms, 100, TFT_GREEN);
         tft.fillCircle(230, h - 13, 4, globalUdpDotColor);
+
+        // Whether the relay is on the air, beside the band it is on.
+        draw_relay_indicator(w, h);
     } else {
         if (in_man_fourier_cal_mode) {
             // --- Manual Fourier Calibration Screen ---

@@ -135,6 +135,33 @@ bool link_screen_dirty = true;
 // Everything we know, flattened into directed edges. Our own receive table supplies the links
 // pointing AT us; the reports supply the rest, including the ones pointing away from us that this
 // node cannot measure for itself.
+// See the block comment on relay_status() in buoy_data.h for what a relay is and why it matters.
+//
+// The freshest non-buoy reporter wins. "Non-buoy" is decided by the rule RoboLora/README.md sets
+// out - a registered buoy got its slot from TOPDATA or BUOYPOS, so anything reporting links that
+// is NOT in buoys[] is a gateway. Senders 98 and 99 never reach here; parse_buoy_packet() drops
+// our own traffic long before this.
+bool relay_status(String *id, int *rssi, unsigned long *age_ms) {
+    int best = -1;
+    for (int r = 0; r < LINK_MAX_REPORTS; r++) {
+        if (link_reports[r].reporter.length() == 0) continue;
+
+        bool is_buoy = false;
+        for (int b = 0; b < 3; b++) {
+            if (buoys[b].id.length() && buoys[b].id == link_reports[r].reporter) { is_buoy = true; break; }
+        }
+        if (is_buoy) continue;
+
+        if (best < 0 || link_reports[r].ms > link_reports[best].ms) best = r;
+    }
+    if (best < 0) return false;
+
+    if (id) *id = link_reports[best].reporter;
+    if (rssi) *rssi = link_reports[best].heard_rssi;
+    if (age_ms) *age_ms = millis() - link_reports[best].ms;
+    return true;
+}
+
 int link_edges(LinkEdge *out, int max_out) {
     int n = 0;
     for (int i = 0; i < LINK_PEERS_TRACKED && n < max_out; i++) {
@@ -339,6 +366,10 @@ void parse_buoy_packet(const String &packetStr, const String &source, int rssi) 
             LinkReport &r = link_reports[slot];
             r.reporter = sender_id;
             r.ms = millis();
+            // Only from a frame that actually came over the air. The UDP copy carries no signal
+            // level, and letting -999 overwrite a real reading would blank the relay's strength
+            // every time both transports delivered the same beacon.
+            if (!is_udp && rssi != -999) r.heard_rssi = (int16_t)rssi;
             r.peers = 0;
             for (int i = 6; i + 2 < (int)fields.size() && r.peers < LINK_MAX_PEERS_RX; i += 3) {
                 String pid = fields[i];
