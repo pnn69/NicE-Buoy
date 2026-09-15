@@ -28,9 +28,17 @@ WebSocketsServer webSocket(81);
 // the Tops join us, the Sub deliberately does not (it keeps to its own SUB_<id> AP so the client
 // slots stay free for the Tops and a phone).
 //
-// Deciding once, rather than continuously, is on purpose: migrating home mid-session would tear
-// Robo_WiFi out from under every Top at once. We do re-check in the background, but only while
-// nobody is connected to us - see cyd_wifi_background() at the bottom of this file.
+// The decision is revisited, in BOTH directions, because deciding it once at boot was the bug that
+// made this handheld useless in the field:
+//
+//   STA -> AP  if home disappears for STA_LOST_GRACE_MS. This is the one that was missing. A CYD
+//              switched on within reach of the house joined home as a station, and nothing in this
+//              file could ever afterwards make it Robo_WiFi - so carrying it out to the water left
+//              it with no network and no way back to one, and the Tops found nothing to join.
+//   AP -> STA  if home comes back, but only while nobody is connected to us, because migrating
+//              with a Top attached would tear Robo_WiFi out from under it.
+//
+// Both live in handle_wifi_clients() at the bottom of this file.
 static const char *HOME_SSID = "NicE_WiFi";
 static const char *HOME_PASS = "!Ni1001100110";
 static const char *FIELD_SSID = "Robo_WiFi";
@@ -39,6 +47,13 @@ static const char *MDNS_HOST = "robocyd"; // http://robocyd.local, in either mod
 
 static DNSServer dnsServer;   // wildcard DNS, so joining Robo_WiFi opens the dashboard by itself
 static bool apActive = false; // we are currently Robo_WiFi
+
+// How long home may be gone before this handheld gives up on it and becomes Robo_WiFi instead.
+// Long enough that a walk past a thick wall, or a router reboot, does not tear down a working
+// station - and short enough that somebody walking out to the water has a usable network before
+// they get there. The Tops re-check for an SSID every few seconds, so they pick it up quickly
+// once it appears.
+#define STA_LOST_GRACE_MS 20000UL
 
 // mDNS gives us a name that works in both modes. The captive portal below cannot do that: we will
 // not hijack DNS on NicE_WiFi, only on our own network.
@@ -474,6 +489,45 @@ void handle_wifi_clients()
 
     if (!apActive)
     {
+        // We are a station on home, and this is the half of "never stop looking" that was never
+        // written. apActive is set in exactly one place - inside start_field_ap() - and that runs
+        // only when home is ABSENT at boot. So a handheld switched on within reach of home joined
+        // as a station and could never afterwards become Robo_WiFi, whatever happened to the link:
+        // this early return sent every later call straight back out, and there is no WiFi event
+        // handler anywhere to catch the disconnect either.
+        //
+        // The consequence is the whole field failure in one line. Carry the handheld out of range
+        // of the house and it has no network at all and no way back to one - so the Tops, which
+        // look for home and then for Robo_WiFi, find neither and fall back to their own APs. With
+        // no shared network there is no UDP, and on this fleet the guided calibration, the bubble
+        // level and the Set Level confirmation are all UDP-only. That is why the buttons on MAN
+        // CAL did nothing in the field while the Sub's own web page worked perfectly.
+        //
+        // Falling back to the AP also re-arms the home re-check below, which needs apActive to
+        // run - so from here the two directions finally close the loop on each other.
+        static unsigned long staLostSince = 0;
+        if (WiFi.status() == WL_CONNECTED)
+        {
+            staLostSince = 0;
+            return;
+        }
+
+        unsigned long lost = millis();
+        if (staLostSince == 0)
+        {
+            staLostSince = lost;
+            return;
+        }
+        // Ride out a brief dropout rather than tearing the station down over one missed beacon -
+        // the core's own auto-reconnect is given a chance first, and WL_CONNECTED above resets us.
+        if (lost - staLostSince < STA_LOST_GRACE_MS)
+        {
+            return;
+        }
+
+        staLostSince = 0;
+        Serial.println("[WiFi] home is gone - becoming Robo_WiFi so the fleet has something to join");
+        start_field_ap();
         return;
     }
 
