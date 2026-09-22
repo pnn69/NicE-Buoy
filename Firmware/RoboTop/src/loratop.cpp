@@ -102,6 +102,49 @@ static bool isModeCmd(int cmd)
     }
 }
 
+/**
+ * @brief Is this a command whose relay must never be cancelled?
+ *
+ * An operator press is rare and its loss is visible - the buoy simply does not sail. Telemetry is
+ * the opposite: broadcast several times a second, and a dropped frame costs nothing because the
+ * next one is along in a moment. So the two get opposite policies. The cancel-on-heard economy in
+ * cancelRepeat() is worth having for everything else; for these, delivery beats airtime and every
+ * node in range relays, every time.
+ *
+ * Deliberately NOT isModeCmd(): that set exists to decide which pending ACKs supersede each other,
+ * and it includes REMOTE, which the handheld sends continuously while the stick is moving. Relaying
+ * every REMOTE frame from every node would be a flood. It also omits IDLING, which is the code the
+ * CYD actually puts on the air for an IDLE press (cmd 8, not cmd 7) - see send_buoy_command().
+ *
+ * Loop protection does not depend on cancellation: checkAndRecordRepeaterMessage() still lets each
+ * node relay a given frame at most once per REPEATER_TIMEOUT_MS, so a relay cannot ping-pong. What
+ * changes is only that a node which has QUEUED a relay now always sends it.
+ *
+ * @param cmd The command carried by the pending relay.
+ * @return true if the relay must go out regardless of what else is heard.
+ */
+static bool isRelayCritical(int cmd)
+{
+    switch (cmd)
+    {
+    case IDLE:
+    case IDLING:
+    case UNLOCK:
+    case LOCKING:
+    case LOCKED:
+    case LOCKPOS:
+    case SETLOCKPOS:
+    case DOCKING:
+    case DOCKED:
+    case DOCKPOS:
+    case SETDOCKPOS:
+    case DIRDIST:
+        return true;
+    default:
+        return false;
+    }
+}
+
 //***************************************************************************************************
 //  Transmit priority
 //***************************************************************************************************
@@ -590,12 +633,21 @@ static void queueRepeat(const String &msg, unsigned long target_id, int cmd)
  * happens to be earliest, instead of once per node.
  *
  * A transparent repeater cannot tell another node's relay from the original sender's own
- * retransmit - the frame is byte-identical either way - so this cancels on both. That is safe
- * only because of the timing: the longest relay delay is REPEAT_BASE_MS + 3 slots + jitter, about
- * 1100 ms, while the sender's retry table waits ~1500 ms. Our relay has therefore always gone out
- * (and freed its slot) before a retransmit could arrive, so a retransmit never cancels a relay
- * that was still needed. Widening the slots past ~450 ms would break that and starve a genuinely
- * out-of-range node - see the bound noted at REPEAT_SLOT_MS.
+ * retransmit - the frame is byte-identical either way - so this would cancel on both. That was
+ * once defended by a timing margin that does not exist. The claim was that the longest relay delay,
+ * REPEAT_BASE_MS + 4 slots + jitter or about 1100 ms, always beat the sender's ~1500 ms retry. But
+ * 1500 ms is the interval between the SECOND and later retries; the FIRST is
+ * millis() + 900 + random(0, 150) - see loraTransmitOne(). Measured on the air, first retransmits
+ * landed at 911 ms and 1036 ms, and a relay nominally due at 40-99 ms did not actually go out
+ * until 163 ms once the task loop and the inter-packet guard were paid. The top two slots
+ * therefore lost the race, and because checkAndRecordRepeaterMessage() refuses a frame it has
+ * already seen, a cancelled relay could never be re-queued: the retransmit - which is precisely
+ * the evidence that the addressee has NOT answered - disarmed the repeater for twenty seconds.
+ * Two of the five MAC slots never relayed a command at all, deterministically, because the slot
+ * is derived from the board's own MAC.
+ *
+ * So the cancellation no longer applies to isRelayCritical() commands. For everything else it
+ * still earns its keep, and for those the race does not matter: they are not worth a retry anyway.
  *
  * @param msg The frame just received, verbatim.
  */
@@ -603,7 +655,8 @@ static void cancelRepeat(const String &msg)
 {
     for (int i = 0; i < REPEAT_SLOTS; i++)
     {
-        if (repeatSlots[i].busy && repeatSlots[i].message == msg)
+        if (repeatSlots[i].busy && !isRelayCritical(repeatSlots[i].cmd) &&
+            repeatSlots[i].message == msg)
         {
             repeatSlots[i].message = "";
             repeatSlots[i].busy = false;
@@ -621,14 +674,20 @@ static void cancelRepeat(const String &msg)
  * unicast SETLOCKPOS per buoy, and without this the buoys NOT addressed would each relay both of
  * them after they had already been delivered.
  *
+ * isRelayCritical() commands are exempt, for the same reason they are exempt in cancelRepeat().
+ * Note also that almost nothing ACKs today: ackOverLora() is reached only for COMPUTESTART and
+ * COMPUTETRACK, so across three minutes of measured traffic carrying eleven GETACK commands there
+ * was not one ACK on the air. This function is therefore near-dead in practice, which is the other
+ * half of why relays were being cancelled by retransmits instead of by delivery.
+ *
  * @param in A decoded ACK frame just received.
  */
 static void cancelRepeatOnAck(const RoboStruct *in)
 {
     for (int i = 0; i < REPEAT_SLOTS; i++)
     {
-        if (repeatSlots[i].busy && repeatSlots[i].cmd == in->cmd &&
-            repeatSlots[i].target_id == in->IDs)
+        if (repeatSlots[i].busy && !isRelayCritical(repeatSlots[i].cmd) &&
+            repeatSlots[i].cmd == in->cmd && repeatSlots[i].target_id == in->IDs)
         {
             repeatSlots[i].message = "";
             repeatSlots[i].busy = false;

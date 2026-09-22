@@ -707,6 +707,18 @@ static unsigned long lastSubSetupResyncMs = 0;
 #define CLEAN_MAX_MS 25000
 
 static bool cleanArmed = false;
+// Has the first leg of a two-stage dock approach been flown on THIS run?
+//
+// This used to be done by clearing mainData.dockingToWaypoint on arrival, which quietly destroyed
+// the operator's setting. dockingToWaypoint is a stored preference: datastorage.cpp persists it
+// under "dockToWP", topwifi.cpp publishes it in /data, and the Setup page ticks its checkbox from
+// that same field. So once a dock cleared the flag in RAM, the page redrew with the box unticked,
+// and the next SAVE of ANY setting posted dockToWP=0 back - SETUPDATA then wrote it to flash
+// through memDockApproach(MEM_PUT). The setting stayed off from then on. A reboot appeared to fix
+// it, because the boot load put the old NVS value back, which is what made it look intermittent.
+//
+// Per-run state belongs in a per-run variable. Not persisted, not published, not on the wire.
+static bool dockWpLegDone = false;
 static unsigned long cleanArmWindowUntil = 0;
 static double cleanLastTgLat = 0.0;
 static double cleanLastTgLng = 0.0;
@@ -1519,6 +1531,12 @@ void handleTimerRoutines(RoboStruct *timer)
         {
             cleanArmed = false;
         }
+        // Same idea for the dock approach: once the buoy has stopped docking, the run is over and
+        // the next DOCK press starts its first leg again. See dockWpLegDone.
+        if (timer->status != DOCKING && timer->status != DOCKED)
+        {
+            dockWpLegDone = false;
+        }
         if (timer->status == LOCKED || timer->status == DOCKED)
         {
             timer->lastSerOut = millis() + 250;
@@ -1537,10 +1555,15 @@ void handleTimerRoutines(RoboStruct *timer)
                 // the buoy off towards it. dockingToWaypoint is reloaded from NVS as true on
                 // every boot, so it struck the first lock after each restart and then appeared
                 // to cure itself for the rest of the power cycle.
-                if (timer->status == DOCKED && timer->dockingToWaypoint == true && timer->tgDist < 5)
+                //
+                // "Done" is recorded in dockWpLegDone, NOT by clearing dockingToWaypoint - that
+                // is the operator's stored setting, and clearing it here is what silently turned
+                // Dock to Waypoint off on the next settings save. See dockWpLegDone.
+                if (timer->status == DOCKED && timer->dockingToWaypoint == true &&
+                    !dockWpLegDone && timer->tgDist < 5)
                 {
                     memDockPos(timer, MEM_GET);
-                    timer->dockingToWaypoint = false;
+                    dockWpLegDone = true;
                 }
             }
             else

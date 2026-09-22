@@ -238,11 +238,51 @@ static void queueRepeat(const String &msg, unsigned long target_id, int cmd)
     Serial.println("#LoRa Repeat: slots full, frame not relayed");
 }
 
+// Is this a command whose relay must never be cancelled? Same policy and the same reasoning as
+// RoboTop's isRelayCritical() - keep the two lists together. An operator press is rare and its
+// loss is visible; telemetry goes out several times a second and a lost frame costs nothing. So
+// for these, delivery beats airtime and every node in range relays, every time.
+//
+// REMOTE is excluded on purpose (the handheld sends it continuously while the stick moves), and
+// IDLING is included because cmd 8 - not cmd 7 - is what the CYD actually puts on the air for an
+// IDLE press.
+//
+// This does not weaken loop protection: checkAndRecordRepeaterMessage() still lets this board
+// relay a given frame at most once per REPEATER_TIMEOUT_MS.
+static bool isRelayCritical(int cmd)
+{
+    switch (cmd)
+    {
+    case IDLE:
+    case IDLING:
+    case UNLOCK:
+    case LOCKING:
+    case LOCKED:
+    case LOCKPOS:
+    case SETLOCKPOS:
+    case DOCKING:
+    case DOCKED:
+    case DOCKPOS:
+    case SETDOCKPOS:
+    case DIRDIST:
+        return true;
+    default:
+        return false;
+    }
+}
+
 // Somebody beat us to it, or the sender resent it - either way ours is no longer needed.
+//
+// Except that the repeater cannot tell those two apart, and a retransmit is the evidence that the
+// addressee has NOT answered. The sender's FIRST retry comes at 900-1050 ms while the highest
+// relay slots are not due until ~1040-1099 ms, so a command queued on an unlucky board was
+// cancelled and then refused a second slot by the dedup cache. Commands are exempt for that
+// reason; see the long note on RoboTop's cancelRepeat().
 static void cancelRepeat(const String &msg)
 {
     for (int i = 0; i < REPEAT_SLOTS; i++)
-        if (repeatSlots[i].busy && repeatSlots[i].message == msg)
+        if (repeatSlots[i].busy && !isRelayCritical(repeatSlots[i].cmd) &&
+            repeatSlots[i].message == msg)
         {
             repeatSlots[i].message = "";
             repeatSlots[i].busy = false;
@@ -250,11 +290,13 @@ static void cancelRepeat(const String &msg)
         }
 }
 
-// The node it was meant for has answered, so relaying it now would only add noise.
+// The node it was meant for has answered, so relaying it now would only add noise. Commands are
+// exempt, as above - and in practice almost nothing ACKs anyway.
 static void cancelRepeatOnAck(const RoboStruct *in)
 {
     for (int i = 0; i < REPEAT_SLOTS; i++)
-        if (repeatSlots[i].busy && repeatSlots[i].cmd == in->cmd && repeatSlots[i].target_id == in->IDs)
+        if (repeatSlots[i].busy && !isRelayCritical(repeatSlots[i].cmd) &&
+            repeatSlots[i].cmd == in->cmd && repeatSlots[i].target_id == in->IDs)
         {
             repeatSlots[i].message = "";
             repeatSlots[i].busy = false;
