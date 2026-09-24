@@ -109,3 +109,10 @@ desktop.ini
 # Regenerated from platformio.ini - never belongs in the repo. Eleven libdeps
 # gitlinks had been committed by accident, which is why this rule arrived late.
 .pio/
+
+# KiCad scratch output under PCBA_Robobouoy-V4.0.
+# tmp*.rpt are the empty ERC/DRC reports KiCad drops next to the project on
+# every run; project.db is the regenerated jlcpcb plugin cache. Eight of these
+# rode along with the "PCBA added" commit, which is why this rule arrived late.
+tmp*.rpt
+**/jlcpcb/project.db
