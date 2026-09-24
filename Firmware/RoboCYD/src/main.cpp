@@ -1782,8 +1782,26 @@ static void track_line_execute() {
     track_project(mid_lat, mid_lon, brg_a, half, pa_lat, pa_lon);
     track_project(mid_lat, mid_lon, brg_b, half, pb_lat, pb_lon);
 
-    send_buoy_setlockpos(buoys[track_line_a].id, buoys[track_line_a].status_code, pa_lat, pa_lon);
-    send_buoy_setlockpos(buoys[track_line_b].id, buoys[track_line_b].status_code, pb_lat, pb_lon);
+    String frame_a = send_buoy_setlockpos(buoys[track_line_a].id, buoys[track_line_a].status_code,
+                                          pa_lat, pa_lon);
+    String frame_b = send_buoy_setlockpos(buoys[track_line_b].id, buoys[track_line_b].status_code,
+                                          pb_lat, pb_lon);
+
+    // Both ends, and both confirmed. This used to be two fire-and-forget broadcasts, which is the
+    // worst shape a two-recipient command can have: lose one of them and the fleet ends up with
+    // one buoy on the new line and one on the old, so the line is a different length from the one
+    // dialled AND a different length from the one the screen goes on reporting. The Top answers a
+    // SET with an ACK over both transports now (ackCommand there), so there is something to wait
+    // for; await_ack_also() keeps the second end alongside the first instead of replacing it, and
+    // track_settings_ack_poll() reports success only when NEITHER end is still outstanding.
+    //
+    // 20 is SETLOCKPOS. The ACK names the command it answers for, which is how it is matched.
+    // Five attempts rather than the default three. START and TRACK are one frame to one buoy and
+    // are answered from the Top's loop task in a few hundred milliseconds; this is two frames
+    // competing for the same channel, at least one of them bound for a buoy that may only be
+    // reachable over LoRa, so it deserves the longer run before it calls failure.
+    await_ack(buoys[track_line_a].id, 20, frame_a, 5);
+    await_ack_also(buoys[track_line_b].id, 20, frame_b, 5);
 
     // The dialled figure is the line now. Clearing the pending value hands the left hand label back
     // to the live measurement, which walks to the new length as the two buoys motor out to it.
@@ -1852,7 +1870,10 @@ static void track_settings_banner(const char *text, uint16_t color) {
 static void track_settings_ack_poll() {
     if (pending_cmd_acked) {
         pending_cmd_acked = false;
-        track_settings_banner("BUOY GOT IT", TFT_GREEN);
+        // An EXECUTE arms two frames, and after one of those the only answer worth reading is
+        // whether BOTH ends heard it - one end moved is the failure that looks like success.
+        track_settings_banner(pending_cmd_armed > 1 ? "BOTH ENDS GOT IT" : "BUOY GOT IT",
+                              TFT_GREEN);
     } else if (pending_cmd_failed) {
         pending_cmd_failed = false;
         track_settings_banner("NO REPLY - RETRY", TFT_RED);

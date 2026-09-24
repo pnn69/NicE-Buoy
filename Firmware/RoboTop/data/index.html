@@ -958,6 +958,80 @@ function fieldAlign(cmd) {
         .catch(e => fieldMessage("Command failed: " + e, "#f85149"));
 }
 
+// EXECUTE is the only press on this page with TWO recipients, and that is what makes losing one
+// of them so expensive: the fleet ends up with one buoy on the new line and one on the old, so
+// the line is neither the length that was dialled nor the length the read-out goes on claiming.
+// It reads as a start line of the wrong length rather than as a command that half arrived.
+//
+// A browser cannot receive an ACK - it is not on the radio - so delivery is confirmed the
+// stronger way instead: by watching each buoy's REPORTED target until it is the waypoint we
+// asked for. That is the far end reporting the state we wanted, not merely that it heard us.
+// Anything still unconfirmed is re-sent; SETLOCKPOS is idempotent, so a late copy cannot move a
+// buoy anywhere it was not already going.
+//
+// 2 s, not 1: the receiving Top drops an identical repeat inside a 5 s window, so a faster
+// cadence spends airtime on copies that are thrown away on arrival, and airtime is the thing
+// that was losing these waypoints in the first place.
+const FIELD_EXEC_RETRY_MS = 2000;
+const FIELD_EXEC_TRIES = 6;        // ~12 s, comfortably past a LoRa retry round
+// How close the buoy's REPORTED target has to be to the one we sent before it counts as taken.
+// Set by what /data can express, not by what the radio carries: the frame itself is 10 decimals,
+// but /data prints TgLat and TgLng with String(x, 6) - about 11 cm of rounding at this latitude -
+// so a tolerance tight enough for the wire would never match here and every EXECUTE would report
+// a failure it had not had. 2e-6 deg is ~22 cm, four times the rounding and still two orders
+// inside the metres that separate one candidate waypoint from another.
+const FIELD_EXEC_EPS_DEG = 2e-6;
+
+let fieldExecPending = null;       // {targets, tries, metres} while an EXECUTE is unconfirmed
+
+function fieldExecSend(t) {
+    return fetch(`/command?bid=${t.bid}&cmd=SETLOCKPOS&lat=${t.lat.toFixed(10)}&lng=${t.lng.toFixed(10)}`)
+        .then(r => r.text());
+}
+
+// Is that buoy holding the waypoint we sent it? Only LOCKING (12) and LOCKED (13) count: a buoy
+// that has gone to the dock still reports a target, and it is not this one.
+function fieldExecConfirmed(t) {
+    const b = buoyData[t.bid];
+    if (!b) return false;
+    const st = parseInt(b.Status);
+    if (st !== 12 && st !== 13) return false;
+    const lat = parseFloat(b.TgLat), lng = parseFloat(b.TgLng);
+    if (isNaN(lat) || isNaN(lng)) return false;
+    return Math.abs(lat - t.lat) < FIELD_EXEC_EPS_DEG
+        && Math.abs(lng - t.lng) < FIELD_EXEC_EPS_DEG;
+}
+
+function fieldExecService() {
+    if (!fieldExecPending) return;
+    const p = fieldExecPending;
+    const outstanding = p.targets.filter(t => !fieldExecConfirmed(t));
+    const names = () => outstanding.map(t => "buoy " + t.bid).join(" and ");
+
+    if (outstanding.length === 0) {
+        fieldExecPending = null;
+        fieldMessage("Start line set to " + Math.round(p.metres) + " m - both ends confirmed.",
+                     "#56d364");
+        return;
+    }
+    if (p.tries >= FIELD_EXEC_TRIES) {
+        fieldExecPending = null;
+        // Stated as a fact about the LINE rather than about the radio: what the operator has to
+        // know is that the course on the water is not the one on the screen.
+        fieldMessage(names() + " never took the new end - the start line is NOT "
+                   + Math.round(p.metres) + " m. Press EXECUTE again.", "#f85149");
+        return;
+    }
+    p.tries++;
+    fieldMessage("Waiting for " + names() + " to take the new end (attempt " + p.tries + " of "
+               + FIELD_EXEC_TRIES + ")...", "#8b949e");
+    outstanding.forEach(t => fieldExecSend(t).catch(e => console.log(e)));
+}
+
+// Drives the re-send and the verdict for an outstanding EXECUTE. A no-op whenever there is
+// nothing pending, which is almost always.
+setInterval(fieldExecService, FIELD_EXEC_RETRY_MS);
+
 // Move both ends of the line symmetrically about its current midpoint, keeping its present bearing.
 // Length only - squaring it to the wind is what ALIGN STARTLINE is for. SETLOCKPOS is the same
 // command the Top uses to push computed line ends to the other buoy: store the point, sail, lock.
@@ -974,16 +1048,23 @@ function fieldExecute() {
     if (!confirm("Re-align the start line to " + Math.round(fieldLineTgtM) + " m?\n\n"
                + "Both end buoys will motor to their new ends of the line.")) return;
 
+    const pa = fieldProject(midLat, midLng, brgA, half);
+    const pb = fieldProject(midLat, midLng, brgB, half);
     const targets = [
-        { bid: a.bid, pos: fieldProject(midLat, midLng, brgA, half) },
-        { bid: b.bid, pos: fieldProject(midLat, midLng, brgB, half) }
+        { bid: a.bid, lat: pa.lat, lng: pa.lng },
+        { bid: b.bid, lat: pb.lat, lng: pb.lng }
     ];
 
-    Promise.all(targets.map(t =>
-        fetch(`/command?bid=${t.bid}&cmd=SETLOCKPOS&lat=${t.pos.lat.toFixed(10)}&lng=${t.pos.lng.toFixed(10)}`)
-            .then(r => r.text())))
-        .then(() => fieldMessage("Start line set to " + Math.round(fieldLineTgtM) + " m.", "#56d364"))
-        .catch(e => fieldMessage("Command failed: " + e, "#f85149"));
+    // Armed BEFORE the first send, so a buoy that answers unusually fast is already being
+    // watched for rather than missed and then re-sent to.
+    fieldExecPending = { targets: targets, tries: 1, metres: fieldLineTgtM };
+    targets.forEach(t => fieldExecSend(t)
+        .catch(e => fieldMessage("Command failed: " + e, "#f85149")));
+
+    // Not "set to" - nothing is set until both ends say so. fieldExecService() replaces this
+    // with the verdict either way.
+    fieldMessage("Sent " + Math.round(fieldLineTgtM) + " m - waiting for both ends to confirm...",
+                 "#8b949e");
 
     // The dialled figure is the line now. Clearing the pending value hands the read-out back to the
     // live measurement, which walks to the new length as the two buoys motor out to it.

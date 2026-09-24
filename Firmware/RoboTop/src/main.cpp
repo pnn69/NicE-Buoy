@@ -583,6 +583,215 @@ static void adoptOwnTrackTarget(RoboStruct *stat, RoboStruct buoyPara[3])
 }
 
 //***************************************************************************************************
+//  Track push - getting a computed waypoint to the OTHER buoy, and knowing that it landed
+//***************************************************************************************************
+/*
+ * Everything COMPUTESTART, COMPUTETRACK and EXTEND/SHORTEN START compute lives in buoyPara. Our
+ * own end is taken out of it immediately by adoptOwnTrackTarget(); the other buoys' ends used to
+ * be read back out of buoyPara one loop iteration later, in case SENDTRACK. Two things go wrong
+ * with that, and between them they are the "I pressed short-long and only ONE buoy moved" report.
+ *
+ * 1. buoyPara is the live telemetry base. handleRfData() runs AFTER handleStatus() in the same
+ *    iteration, and a peer's LOCKPOS beacon merges straight into buoyPara[i].tgLat/tgLng - see
+ *    MergeBuoyData(). Every locked buoy beacons its waypoint every 5 s while it is new. So in the
+ *    window between computing the line and sending it, the peer's end can be overwritten with the
+ *    waypoint the peer is ALREADY holding. We then send it its own old position back, it matches
+ *    the same_target test at the far end, and it never moves. The computing buoy has meanwhile
+ *    moved to ITS new end, which is exactly what was seen on the water.
+ *
+ * 2. Even when the right coordinate went out, nothing ever checked that it arrived. The LoRa
+ *    retry table retransmits up to five times, but it is cleared by ANY frame from that peer (see
+ *    removeAckMsg), the UDP copy was a single fire-and-forget broadcast, and the loop task never
+ *    learned the outcome either way. A waypoint that was lost was lost silently.
+ *
+ * So the computed ends are SNAPSHOTTED at the moment they are computed, and pushed from the
+ * snapshot - repeatedly, over both transports, until the peer confirms. Two independent things
+ * count as confirmation and either one is enough:
+ *
+ *    - an ACK for SETLOCKPOS from that peer (ackCommand() at the far end sends one on both
+ *      transports now), or
+ *    - that peer's own LOCKPOS beacon showing it holding the waypoint we asked for. This is the
+ *      stronger of the two - it is the far end reporting the state we wanted, not merely that it
+ *      heard us - and it survives a lost ACK.
+ *
+ * The snapshot is what makes the retries safe: every attempt carries the same coordinate, so a
+ * late copy arriving after the peer has already sailed cannot move it anywhere new.
+ */
+#define TRACK_PUSH_SLOTS    2        // buoyPara slots 1 and 2; slot 0 is us and is taken directly
+#define TRACK_PUSH_RETRY_MS 1600UL   // just over the LoRa retry table's own ~1.5 s cadence
+#define TRACK_PUSH_TRIES    8        // ~13 s of trying before we call it and tell the operator
+#define TRACK_PUSH_EPS_DEG  1.0e-7   // ~11 mm: a beacon matches the push, allowing for %.10f
+
+struct TrackPush
+{
+    uint64_t id;            // peer being pushed to; 0 = slot free
+    double lat, lng;        // the waypoint WE computed for it - never re-read from buoyPara
+    // The role we assigned that end. SETLOCKPOS does not carry it on the wire (see RoboCode), so
+    // this is for the log and for telling two pushes apart, not for the peer.
+    int trackPos;
+    int tries;              // attempts spent
+    unsigned long nextTx;   // millis() of the next attempt
+};
+static TrackPush trackPush[TRACK_PUSH_SLOTS];
+
+// One attempt, on BOTH transports. Not one or the other: LoRa is the link that always exists and
+// UDP is the one that actually gets through when the field has WiFi, and a waypoint is the one
+// piece of state a buoy must not be allowed to miss. The far end's 5 s duplicate filter throws
+// away whichever copy arrives second, so this costs nothing at the receiver.
+static void trackPushSend(TrackPush *p, const RoboStruct *stat)
+{
+    static RoboStruct tx;   // static: ~500 bytes, and this runs on the loop task
+    tx = RoboStruct();
+    tx.IDr = p->id;
+    tx.IDs = stat->mac;
+    tx.cmd = SETLOCKPOS;
+    tx.status = LOCKED;
+    tx.ack = GETACK;
+    tx.tgLat = p->lat;
+    tx.tgLng = p->lng;
+    tx.trackPos = p->trackPos;
+
+    p->tries++;
+    p->nextTx = millis() + TRACK_PUSH_RETRY_MS;
+
+    loraSend(&tx);
+    xQueueSend(udpOut, (void *)&tx, 10);
+
+    printf("#Track push %d/%d to %08lX -> (%.10f,%.10f)\r\n",
+           p->tries, TRACK_PUSH_TRIES, (unsigned long)p->id, p->lat, p->lng);
+    udpLog("TRACKPUSH %d/%d to %08lX %.7f,%.7f",
+           p->tries, TRACK_PUSH_TRIES, (unsigned long)p->id, p->lat, p->lng);
+}
+
+// Where the other buoys' ends were BEFORE the computation, so that afterwards we can tell which
+// of them it actually moved. Call this immediately before recalcStartLine()/extendStartLine()/
+// reCalcTrack(), and trackPushQueue() immediately after.
+//
+// Needed because those functions place only the buoys their own geometry concerns. COMPUTESTART
+// squares the line through the two CLOSEST buoys and leaves the upwind mark exactly where it
+// was; extendStartLine() does the same. With three buoys deployed - the normal case - the old
+// fan-out sent that third buoy a SETLOCKPOS carrying its own current position, and SETLOCKPOS is
+// not a no-op: at the far end it LOCKS. A buoy that was idling next to the course got locked onto
+// wherever it happened to be sitting by a command that was never about it.
+static double trackPushWas[3][2];
+
+static void trackPushMark(RoboStruct buoyPara[3])
+{
+    for (int i = 0; i < 3; i++)
+    {
+        trackPushWas[i][0] = buoyPara[i].tgLat;
+        trackPushWas[i][1] = buoyPara[i].tgLng;
+    }
+}
+
+// Take the snapshot and put the first copy on the air straight away, in the same handleStatus()
+// call that computed the line. Immediate rather than deferred to SENDTRACK for the reason in the
+// block comment above: one iteration later is one iteration too many.
+static void trackPushQueue(const RoboStruct *stat, RoboStruct buoyPara[3])
+{
+    for (int i = 1; i < 3; i++)
+    {
+        TrackPush *p = &trackPush[i - 1];
+        *p = TrackPush();
+
+        // trackPos 0 is "never filled in"; -1 is what calcTrackPos() leaves behind when it bails,
+        // and recalcStartLine() overwrites it on the two buoys it actually placed. A slot with no
+        // ID is an empty slot in the buoy base, not a buoy.
+        if (buoyPara[i].IDs == 0 || buoyPara[i].trackPos == 0) continue;
+        if (buoyPara[i].tgLat == 0.0 || buoyPara[i].tgLng == 0.0) continue;
+
+        // Untouched by this computation - see trackPushMark(). An exact comparison is the right
+        // one here: these are the very doubles the geometry just wrote, not a measurement, so a
+        // buoy it placed differs in the last bit and one it ignored is bit-identical.
+        if (buoyPara[i].tgLat == trackPushWas[i][0] &&
+            buoyPara[i].tgLng == trackPushWas[i][1]) continue;
+
+        p->id = buoyPara[i].IDs;
+        p->lat = buoyPara[i].tgLat;
+        p->lng = buoyPara[i].tgLng;
+        p->trackPos = buoyPara[i].trackPos;
+        trackPushSend(p, stat);
+    }
+}
+
+static void trackPushNoteAck(uint64_t fromId, int cmd);
+
+// Retry the ones still outstanding. Called from loop() alongside the other resend services.
+static void trackPushService(const RoboStruct *stat)
+{
+    // Receipts that came in over the radio first. An ACK addressed to us is consumed inside
+    // onReceive() on LoraTask and never reaches handleRfData(), so loratop.cpp hands it over on
+    // this queue instead - see loratop.h. The UDP copy of the same receipt arrives the ordinary
+    // way, through handleRfData(); whichever gets here first retires the push and the other finds
+    // nothing to do.
+    LoraAckNote note;
+    while (xQueueReceive(loraAckIn, (void *)&note, 0) == pdTRUE)
+        trackPushNoteAck(note.from, note.cmd);
+
+    for (int i = 0; i < TRACK_PUSH_SLOTS; i++)
+    {
+        TrackPush *p = &trackPush[i];
+        if (p->id == 0) continue;
+        if ((long)(millis() - p->nextTx) < 0) continue;
+
+        if (p->tries >= TRACK_PUSH_TRIES)
+        {
+            // Give up, and SAY so. A waypoint that never landed leaves one buoy on the new line
+            // and one on the old, which looks from the shore like a line of the wrong length and
+            // is the single most misleading failure this system has. The operator has to hear it.
+            printf("#Track push FAILED to %08lX after %d attempts - that buoy did NOT get its "
+                   "end of the line\r\n", (unsigned long)p->id, p->tries);
+            udpLog("TRACKPUSH FAILED to %08lX after %d attempts", (unsigned long)p->id, p->tries);
+            beep(-1, buzzer);
+            p->id = 0;
+            continue;
+        }
+        trackPushSend(p, stat);
+    }
+}
+
+// An ACK for SETLOCKPOS came back: the peer has the coordinate.
+static void trackPushNoteAck(uint64_t fromId, int cmd)
+{
+    if (cmd != SETLOCKPOS || fromId == 0) return;
+    for (int i = 0; i < TRACK_PUSH_SLOTS; i++)
+    {
+        if (trackPush[i].id != fromId) continue;
+        printf("#Track push to %08lX acknowledged after %d attempt(s)\r\n",
+               (unsigned long)fromId, trackPush[i].tries);
+        udpLog("TRACKPUSH ack from %08lX after %d", (unsigned long)fromId, trackPush[i].tries);
+        trackPush[i].id = 0;
+    }
+}
+
+// The peer's own waypoint beacon says it is holding what we asked for. Better evidence than the
+// ACK - this is the far end reporting the state we wanted - so it retires the push on its own.
+static void trackPushNoteWaypoint(uint64_t fromId, double lat, double lng)
+{
+    if (fromId == 0 || lat == 0.0 || lng == 0.0) return;
+    for (int i = 0; i < TRACK_PUSH_SLOTS; i++)
+    {
+        if (trackPush[i].id != fromId) continue;
+        if (fabs(trackPush[i].lat - lat) > TRACK_PUSH_EPS_DEG) continue;
+        if (fabs(trackPush[i].lng - lng) > TRACK_PUSH_EPS_DEG) continue;
+        printf("#Track push to %08lX confirmed by its own beacon after %d attempt(s)\r\n",
+               (unsigned long)fromId, trackPush[i].tries);
+        udpLog("TRACKPUSH confirmed by beacon from %08lX after %d",
+               (unsigned long)fromId, trackPush[i].tries);
+        trackPush[i].id = 0;
+    }
+}
+
+// Anything still trying? Only for the log line in SENDTRACK - the status itself must not wait on
+// it, see that case.
+static bool trackPushPending(void)
+{
+    for (int i = 0; i < TRACK_PUSH_SLOTS; i++)
+        if (trackPush[i].id != 0) return true;
+    return false;
+}
+
+//***************************************************************************************************
 //  status actions
 //***************************************************************************************************
 /**
@@ -1116,10 +1325,14 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         // in, so testing it here reported success even when recalcStartLine() had bailed out on
         // missing lock positions - complete with the confirmation beep and a SENDTRACK that
         // pushed uncomputed (often zero) positions to the other buoys.
+        trackPushMark(buoyPara);   // remember where the others were, see trackPushQueue()
         if (recalcStartLine(buoyPara))
         {
             beep(1, buzzer);
             adoptOwnTrackTarget(stat, buoyPara);
+            // Snapshot the OTHER buoys' ends and start pushing them now, in this same call - not
+            // out of buoyPara one iteration later. See the trackPush block above for why.
+            trackPushQueue(stat, buoyPara);
             stat->status = SENDTRACK;
             printf("#Send track info\r\n");
         }
@@ -1156,11 +1369,15 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         // collapse the line falls through to the else below and beeps the failure tone. That is the
         // intent: the operator has to hear that the line did not move, and a clamp would have
         // beeped success and moved the ends somewhere other than where the press asked for.
+        trackPushMark(buoyPara);   // remember where the others were, see trackPushQueue()
         if (extendStartLine(buoyPara, (stat->status == SHORTENSTART) ? -START_LINE_STEP_M
                                                                      : START_LINE_STEP_M))
         {
             beep(1, buzzer);
             adoptOwnTrackTarget(stat, buoyPara);
+            // Snapshot the OTHER buoys' ends and start pushing them now, in this same call - not
+            // out of buoyPara one iteration later. See the trackPush block above for why.
+            trackPushQueue(stat, buoyPara);
             stat->status = SENDTRACK;
             printf("#Send track info\r\n");
         }
@@ -1198,10 +1415,14 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         // Same fix as COMPUTESTART. The old test was even weaker here: it ORed the three
         // trackPos values, so one stale entry left over from a previous computation was enough
         // to report success after reCalcTrack() had bailed out.
+        trackPushMark(buoyPara);   // remember where the others were, see trackPushQueue()
         if (reCalcTrack(buoyPara))
         {
             beep(1, buzzer);
             adoptOwnTrackTarget(stat, buoyPara);
+            // Snapshot the OTHER buoys' ends and start pushing them now, in this same call - not
+            // out of buoyPara one iteration later. See the trackPush block above for why.
+            trackPushQueue(stat, buoyPara);
             stat->status = SENDTRACK;
         }
         else
@@ -1212,27 +1433,19 @@ void handleStatus(RoboStruct *stat, RoboStruct buoyPara[3])
         }
         break;
     case SENDTRACK:
-        // Start at 1: slot 0 is us, and our own end of the line was already taken by
-        // adoptOwnTrackTarget() in COMPUTESTART/COMPUTETRACK. The old loop started at 0 and tried
-        // to recognise us by "IDs != stat->buoyId" - buoyId is always 0, so that test never
-        // excluded anything, and we broadcast a SETLOCKPOS addressed to our own Sub's MAC. Our own
-        // is_for_me test in handleRfData() matches that ID, so the packet came back in over UDP and
-        // re-set the target we had just computed.
-        for (int i = 1; i < 3; i++)
-        {
-            if (buoyPara[i].trackPos != 0 && buoyPara[i].IDs != 0)
-            {
-                memcpy(&LoraTx, &buoyPara[i], sizeof(RoboStruct));
-                trackPosPrint(buoyPara[i].trackPos);
-                printf("n = (%.12f,%.12f)\r\n", buoyPara[i].tgLat, buoyPara[i].tgLng);
-                LoraTx.IDr = buoyPara[i].IDs;
-                LoraTx.IDs = stat->mac;
-                LoraTx.cmd = SETLOCKPOS;
-                LoraTx.ack = GETACK;
-                loraSend(&LoraTx); // send out through Lora
-                xQueueSend(udpOut, (void *)&LoraTx, 10);  // send out through WiFi
-            }
-        }
+        // The fan-out itself has already happened - trackPushQueue() put the first copy of every
+        // peer's end on the air inside the same handleStatus() call that computed it, and
+        // trackPushService() keeps at it until each one is confirmed. This case used to BE the
+        // fan-out, reading the coordinates back out of buoyPara one iteration later, which is
+        // where they were being lost; see the trackPush block above.
+        //
+        // What is left is the status, and it goes to LOCKED immediately - deliberately NOT held
+        // while the push is still outstanding. Station keeping is gated on LOCKED/DOCKED (see
+        // handleTimerRoutines), so a buoy parked in SENDTRACK for the length of a retry run would
+        // sit still on its OLD position while telling the other buoy to sail to its new one. The
+        // push retries in the background; this buoy sails to its own end at once.
+        if (trackPushPending())
+            printf("#Track push still outstanding - retrying in the background\r\n");
         stat->status = LOCKED;
         break;
     case START_CALIBRATE_MAGNETIC_COMPASS:
@@ -1872,29 +2085,34 @@ static uint32_t calculateCommandHash(const RoboStruct &msg)
  * @param buoyPara Array of pointers to RoboStructs for all buoys.
  */
 /**
- * @brief Acknowledges a unicast command over LoRa, if the sender asked for one.
+ * @brief Acknowledges a unicast command, if the sender asked for one, on BOTH transports.
  *
- * Nothing in RoboTop ever put an ACK on the air before this. Senders ask for one - SENDTRACK marks
- * its SETLOCKPOS frames GETACK, the CYD marks its own SET - and LoraTask duly files them with
- * retry = 5, but removeAckMsg() and the ACK branch of onReceive() were both waiting for a reply
- * that no firmware in the fleet ever sent. So every such command burnt all five retransmissions,
- * and because the duplicate filter is skipped for ack == GETACK, each copy re-executed at the far
- * end and provoked its own broadcast in turn.
+ * Nothing in RoboTop ever put an ACK on the air before this. Senders ask for one - the track push
+ * marks its SETLOCKPOS frames GETACK, the CYD marks its own SET - and LoraTask duly files them
+ * with retry = 5, but removeAckMsg() and the ACK branch of onReceive() were both waiting for a
+ * reply that no firmware in the fleet ever sent. So every such command burnt all five
+ * retransmissions, and because the duplicate filter is skipped for ack == GETACK, each copy
+ * re-executed at the far end and provoked its own broadcast in turn.
  *
  * The reply is cheap: RoboCode() emits only "cmd,status" when ack == ACK, about 20 bytes and 46 ms
  * on the air at SF7 - against up to five 108 ms retransmits plus everything they cause.
  *
+ * It goes out over UDP as well as LoRa, and the two answer different questions. The LoRa copy is
+ * what clears the radio's retry table. The UDP copy is what the SENDER's application-level track
+ * push is waiting on, and on a field with WiFi it is the copy that actually arrives - a receipt
+ * that only ever travels on the noisier of the two links is a receipt that goes missing exactly
+ * when it is needed. Sent regardless of which interface the command ARRIVED on, for the same
+ * reason in both directions: if one transport won the race, the other still has state to retire.
+ *
  * Broadcasts are never acknowledged: removeAckMsg() matches an ACK to a pending entry by
  * recipient, and an entry addressed to BUOYIDALL can never match, so an ACK for one is pure
- * channel load. Sent regardless of which interface the command ARRIVED on, because it is the LoRa
- * retry table that has to be cleared - if the UDP copy won the race, the radio retransmits still
- * need stopping.
+ * channel load - and with every buoy in the field answering, it is that load times the fleet.
  *
  * @param in   The command just received.
  * @param self This buoy's own data, for our MAC and current status.
  * @param cmd  The command to name in the reply - the sender matches an ACK on it.
  */
-static void ackOverLora(const RoboStruct *in, const RoboStruct *self, int cmd)
+static void ackCommand(const RoboStruct *in, const RoboStruct *self, int cmd)
 {
     bool wants_ack = (in->ack == GETACK || in->ack == SET);
     bool unicast_to_me = (in->IDr == self->mac || in->IDr == self->IDs);
@@ -1909,6 +2127,32 @@ static void ackOverLora(const RoboStruct *in, const RoboStruct *self, int cmd)
     ackMsg.status = self->status;
     ackMsg.ack = ACK;
     loraSend(&ackMsg);
+    xQueueSend(udpOut, (void *)&ackMsg, 10);
+}
+
+// Is this frame ours to ACT ON, as opposed to merely ours to overhear?
+//
+// Two ways in, and only two: a unicast addressed to this buoy - by MAC or by the Sub-synced
+// logical id - or a BROADCAST FROM A PRESSER, which is how a deliberate fleet-wide command like
+// "dock all" is expressed. A broadcast from anything else is another buoy's traffic that merely
+// happens to be addressed to everyone, and acting on it means acting on that buoy's data.
+//
+// The unicast half is already handled before the switch (see the !is_for_me bridge), so in
+// practice this exists for the broadcast half. The movement commands - DIRDIST, LOCKING,
+// DOCKING, IDLE, REMOTE - have always drawn that distinction inline. The settings and
+// calibration commands never did: they tested the ACK, or who SENT the frame, or nothing at all,
+// and then overwrote IDr with BUOYIDALL on the way to the Sub. PIDRUDDERSET, PIDSPEEDSET,
+// MAXMINPWRSET and CALIBRATE_MAGNETIC_COMPASS had neither an address nor an ack test, so any
+// broadcast carrying one of them wrote this buoy's Sub NVS or started a desk calibration.
+//
+// That is reachable rather than theoretical: the web server promotes a unicast to a fleet
+// broadcast when the addressed slot has no id yet (see the BUOYIDALL fallback in topwifi.cpp,
+// now removed), so a settings save aimed at an empty buoy card went to every buoy on the water.
+static inline bool addressedToMe(const RoboStruct &in, const RoboStruct *self)
+{
+    if (in.IDr == self->mac || in.IDr == self->IDs) return true;
+    bool broadcast = (in.IDr == BUOYIDALL || in.IDr == 0);
+    return broadcast && (in.IDs == 0x99 || in.IDs == 0x98);
 }
 
 void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
@@ -2046,6 +2290,26 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
         bool is_broadcast = (RfIn.IDr == BUOYIDALL || RfIn.IDr == 0);
         bool is_for_me = (RfIn.IDr == RfOut->mac || RfIn.IDr == RfOut->IDs || is_broadcast);
         crumb(2);
+
+        // An ACK is a RECEIPT. It is never a command, and it must never be executed as one.
+        //
+        // Over LoRa this never mattered: onReceive() consumes an ACK addressed to us and returns,
+        // so it does not reach this function at all. Over UDP there is no such filter - the frame
+        // arrives through udpIn like any other - and the switch below dispatches on RfIn.cmd. An
+        // ACK for SETLOCKPOS would therefore be run AS a SETLOCKPOS, and RoboCode() emits only
+        // "cmd,status" for an ACK, so its tgLat/tgLng decode as 0,0: the buoy that had just
+        // computed the start line would answer its peer's receipt by setting its own waypoint to
+        // 0,0, locking onto it and broadcasting that to the fleet. Latent until now only because
+        // ackCommand() was LoRa-only; it sends on both transports as of this change.
+        //
+        // Not bridged, either. A receipt is addressed to one node and is of no use to any other,
+        // and copying every ACK in the field onto the radio is the sort of traffic that loses the
+        // waypoints the ACKs are there to confirm.
+        if (RfIn.ack == ACK)
+        {
+            if (is_for_me) trackPushNoteAck(RfIn.IDs, RfIn.cmd);
+            return;
+        }
         if (!noisyCmd(RfIn.cmd))
         {
             udpLog("RF route bcast=%d forme=%d mymac=%08lX myids=%08lX",
@@ -2187,7 +2451,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     // exactly what a CYD whose press arrived sees, which is nothing. The ACK says
                     // "heard", not "computed": a refusal for too few locked buoys, or for no wind
                     // reading, still only beeps and prints here.
-                    ackOverLora(&RfIn, RfOut, COMPUTESTART);
+                    ackCommand(&RfIn, RfOut, COMPUTESTART);
                     printf("#Status set to COMPUTESTART\r\n");
                     RfOut->status = COMPUTESTART;
                     RfOut->lastSerOut = 0; // Force immediate update to sub
@@ -2211,7 +2475,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     // exactly what a CYD whose press arrived sees, which is nothing. The ACK says
                     // "heard", not "computed": a refusal for too few locked buoys, or for no wind
                     // reading, still only beeps and prints here.
-                    ackOverLora(&RfIn, RfOut, COMPUTETRACK);
+                    ackCommand(&RfIn, RfOut, COMPUTETRACK);
                     printf("#Status set to COMPUTETRACK\r\n");
                     RfOut->status = COMPUTETRACK;
                     RfOut->lastSerOut = 0; // Force immediate update to sub
@@ -2227,10 +2491,17 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 break;
             case LOCKPOS: // store new data into position database
                 AddDataToBuoyBase(RfIn, buoyParaPtrs);
+                // A peer announcing the very waypoint we pushed it is better evidence than its
+                // ACK: the ACK says it heard us, this says it acted. It also covers the case
+                // where the ACK itself was lost, which on a full channel is the likely one.
+                trackPushNoteWaypoint(RfIn.IDs, RfIn.tgLat, RfIn.tgLng);
                 break;
             case INFIELD_CALIBRATE:
             case INFIELD_OFFSET_CALIBRATE:
-                if (RfIn.ack == GET || RfIn.ack == GETACK || RfIn.ack == SET)
+                // addressedToMe: a broadcast relayed by another buoy must not start a
+                // calibration run on this hull. See addressedToMe().
+                if (addressedToMe(RfIn, RfOut) &&
+                    (RfIn.ack == GET || RfIn.ack == GETACK || RfIn.ack == SET))
                 {
                     xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 }
@@ -2244,7 +2515,8 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case PIDRUDDER:
-                if (RfIn.ack == GET || RfIn.ack == GETACK)
+                // Read-only, but still only answer for ourselves - see addressedToMe().
+                if (addressedToMe(RfIn, RfOut) && (RfIn.ack == GET || RfIn.ack == GETACK))
                 {
                     RfIn.IDr = BUOYIDALL;
                     xQueueSend(serOut, (void *)&RfIn, 0); // update sub
@@ -2259,6 +2531,10 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case PIDRUDDERSET:
+                // Not ours: a broadcast relayed by another buoy carries THAT buoy's values, and
+                // this writes the Sub's NVS. Had neither an address nor an ack test before.
+                // See addressedToMe().
+                if (!addressedToMe(RfIn, RfOut)) break;
                 printf("#PIDRUDDERSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kpr, RfIn.Kir, RfIn.Kdr);
                 RfIn.ack = SET; // Tell Sub to save to EEPROM
                 RfIn.IDr = BUOYIDALL;
@@ -2268,7 +2544,8 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case PIDSPEED:
-                if (RfIn.ack == GET || RfIn.ack == GETACK)
+                // Read-only, but still only answer for ourselves - see addressedToMe().
+                if (addressedToMe(RfIn, RfOut) && (RfIn.ack == GET || RfIn.ack == GETACK))
                 {
                     RfIn.IDr = BUOYIDALL;
                     xQueueSend(serOut, (void *)&RfIn, 0); // update sub
@@ -2289,7 +2566,11 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 // Check if the command/response is local to the master or if it originates from a remote buoy.
                 // Without this gate a SETUPDATA relayed over LoRa by another buoy would overwrite our own
                 // PID / compass / thruster configuration with that buoy's values.
-                bool is_local = (RfIn.IDs == RfOut->mac || RfIn.IDs == 0x98 || RfIn.IDs == 0x99 || from_udp);
+                // is_local answers "may this sender configure anything", which is a different
+                // question from "was this meant for US" - and `|| from_udp` makes it true for
+                // any UDP frame at all. addressedToMe() supplies the half that was missing.
+                bool is_local = (RfIn.IDs == RfOut->mac || RfIn.IDs == 0x98 || RfIn.IDs == 0x99 || from_udp)
+                                && addressedToMe(RfIn, RfOut);
                 if (is_local && (RfIn.ack == 1 || RfIn.ack == 3 || RfIn.ack == 2)) // 1=GET, 2=SET, 3=GETACK
                 {
 
@@ -2487,7 +2768,11 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 // here instead of down the wire once and hopefully. That means the handheld, the
                 // dashboard and this Top's own page all get the same reliability without any of
                 // them implementing it. See cal8Service().
-                bool is_local = (RfIn.IDs == RfOut->mac || RfIn.IDs == 0x98 || RfIn.IDs == 0x99 || from_udp);
+                // is_local answers "may this sender configure anything", which is a different
+                // question from "was this meant for US" - and `|| from_udp` makes it true for
+                // any UDP frame at all. addressedToMe() supplies the half that was missing.
+                bool is_local = (RfIn.IDs == RfOut->mac || RfIn.IDs == 0x98 || RfIn.IDs == 0x99 || from_udp)
+                                && addressedToMe(RfIn, RfOut);
                 if (is_local && (RfIn.ack == GET || RfIn.ack == GETACK || RfIn.ack == SET))
                 {
                     if (RfIn.IDr == RfOut->mac || RfIn.IDr == RfOut->IDs || RfIn.IDr == BUOYIDALL || RfIn.IDr == 0)
@@ -2520,7 +2805,11 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             case STORE_INTERPOLATION_TABLE:
             {
                 printf("Received STORE_INTERPOLATION_TABLE command. ack=%d, IDs=0x%08lX\r\n", RfIn.ack, RfIn.IDs);
-                bool is_local = (RfIn.IDs == RfOut->mac || RfIn.IDs == 0x98 || RfIn.IDs == 0x99 || from_udp);
+                // is_local answers "may this sender configure anything", which is a different
+                // question from "was this meant for US" - and `|| from_udp` makes it true for
+                // any UDP frame at all. addressedToMe() supplies the half that was missing.
+                bool is_local = (RfIn.IDs == RfOut->mac || RfIn.IDs == 0x98 || RfIn.IDs == 0x99 || from_udp)
+                                && addressedToMe(RfIn, RfOut);
                 if (is_local && (RfIn.ack == 1 || RfIn.ack == 3 || RfIn.ack == 2)) // 1=GET, 2=SET, 3=GETACK
                 {
                     if (RfIn.IDr == RfOut->mac || RfIn.IDr == RfOut->IDs || RfIn.IDr == BUOYIDALL || RfIn.IDr == 0)
@@ -2545,6 +2834,10 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 break;
             }
             case PIDSPEEDSET:
+                // Not ours: a broadcast relayed by another buoy carries THAT buoy's values, and
+                // this writes the Sub's NVS. Had neither an address nor an ack test before.
+                // See addressedToMe().
+                if (!addressedToMe(RfIn, RfOut)) break;
                 printf("#PIDSPEEDSET: %05.2f %05.2f %05.2f\r\n", RfIn.Kps, RfIn.Kis, RfIn.Kds);
                 RfOut->cmd = PIDSPEEDSET;
                 RfIn.ack = SET; // Tell Sub to save to EEPROM
@@ -2615,7 +2908,15 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 {
                     // If it is just a broadcast from another buoy, store its data in the buoyPara base,
                     // but do NOT execute it as a command for ourselves!
-                    AddDataToBuoyBase(RfIn, buoyPara);
+                    //
+                    // Filed by SENDER, so a PRESSER must never reach it: a DIRDIST from the web
+                    // page (0x99) or the handheld (0x98) aimed at another buoy used to allocate
+                    // the CONTROLLER a buoy slot here. That slot shows as a phantom buoy with no
+                    // position, and it is one of only three - so a real third buoy could then
+                    // never be filed at all, vanishing from the fleet view and from the start
+                    // line and track geometry that read this table.
+                    if (RfIn.IDs != 0x98 && RfIn.IDs != 0x99)
+                        AddDataToBuoyBase(RfIn, buoyPara);
                     // Forward across interfaces
                     if (from_udp)
                         loraSend(&RfIn);
@@ -2753,7 +3054,7 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 // Sent regardless of which interface the command arrived on: it is the LoRa retry
                 // table that needs clearing, so if the UDP copy won the race the ACK still has to
                 // go out over LoRa to stop the radio retransmits.
-                ackOverLora(&RfIn, RfOut, SETLOCKPOS);
+                ackCommand(&RfIn, RfOut, SETLOCKPOS);
 
                 // A retransmit that arrives before our ACK gets home asks for a waypoint we are
                 // already holding. Storing it again is harmless, but re-broadcasting LOCKPOS costs
@@ -2843,7 +3144,8 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 printf("STORE_DECLINATION ignored - declination is retired\r\n");
                 break;
             case MAXMINPWR:
-                if (RfIn.ack == GET || RfIn.ack == GETACK)
+                // Read-only, but still only answer for ourselves - see addressedToMe().
+                if (addressedToMe(RfIn, RfOut) && (RfIn.ack == GET || RfIn.ack == GETACK))
                 {
                     xQueueSend(serOut, (void *)&RfIn, 0); // update sub
                 }
@@ -2855,6 +3157,10 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 }
                 break;
             case MAXMINPWRSET:
+                // Not ours: a broadcast relayed by another buoy carries THAT buoy's values, and
+                // this writes the Sub's NVS. Had neither an address nor an ack test before.
+                // See addressedToMe().
+                if (!addressedToMe(RfIn, RfOut)) break;
                 RfIn.ack = SET; // Tell Sub to save to EEPROM
                 if (xQueueSend(serOut, (void *)&RfIn, pdMS_TO_TICKS(250)) != pdTRUE)
                 {
@@ -2866,8 +3172,20 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 break;
             case ADAPTIVE_TRIM:
             {
-                RfOut->compass_trim = RfIn.compass_trim;
-                RfOut->compass_trim_enabled = RfIn.compass_trim_enabled;
+                // Our OWN trim is only ever set by a frame meant for us. These two lines ran
+                // unconditionally, ahead of every id test below, so a peer's broadcast trim -
+                // the Sub re-announces it about once a second - was copied straight into this
+                // buoy's live value and then pushed on to this buoy's Sub. One hull's compass
+                // correction landing on the other is invisible until the two headings disagree.
+                //
+                // The buoyPara bookkeeping below is filed by SENDER and stays exactly as it was:
+                // recording what a peer reports is right, adopting it as ours is not.
+                bool trimForUs = addressedToMe(RfIn, RfOut);
+                if (trimForUs)
+                {
+                    RfOut->compass_trim = RfIn.compass_trim;
+                    RfOut->compass_trim_enabled = RfIn.compass_trim_enabled;
+                }
 
                 int targetIdx = -1;
                 for (int i = 0; i < 3; i++)
@@ -2898,12 +3216,20 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                     loraSend(&RfIn);
                 else
                     xQueueSend(udpOut, (void *)&RfIn, 0);
-            }
 
-                RfIn.IDr = BUOYIDALL;
-                xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
+                // Only our own trim goes down to our own Sub. This sat OUTSIDE the block above
+                // and ran for every ADAPTIVE_TRIM heard, whoever sent it.
+                if (trimForUs)
+                {
+                    RfIn.IDr = BUOYIDALL;
+                    xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
+                }
+            }
                 break;
             case SET_AS_LEVEL:
+                // The INF test below catches a RELAYED reply; this catches a relayed
+                // command. Both are needed - see addressedToMe().
+                if (!addressedToMe(RfIn, RfOut)) break;
                 // Forwarded like SET_AS_NORTH, but with no setup re-read behind it: the level
                 // datum lives in the Sub's NVS and is not carried in SETUPDATA, so there is
                 // nothing here to refresh.
@@ -2924,6 +3250,9 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 xQueueSend(serOut, (void *)&RfIn, 0);
                 break;
             case SET_AS_NORTH:
+                // The INF test below catches a RELAYED reply; this catches a relayed
+                // command. Both are needed - see addressedToMe().
+                if (!addressedToMe(RfIn, RfOut)) break;
                 // Same guard as SET_AS_LEVEL above, and for the same reason. Nothing broadcasts a
                 // SET_AS_NORTH reply today, so this has never fired - but the shape is identical
                 // and the next thing to relay one would set the whole fleet's north from a single
@@ -2940,6 +3269,9 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
             // page and the CYD both offer it, but nothing here forwarded it - so "Desk
             // Calibration" pressed anywhere other than the Top's own button did nothing at all.
             case CALIBRATE_MAGNETIC_COMPASS:
+                // Had neither an address nor an ack test: any broadcast carrying this started a
+                // desk calibration on every hull that could hear it. See addressedToMe().
+                if (!addressedToMe(RfIn, RfOut)) break;
                 RfIn.IDr = BUOYIDALL;
                 xQueueSend(serOut, (void *)&RfIn, 0); // Forward the command to the sub
                 break;
@@ -2963,6 +3295,9 @@ void handleRfData(RoboStruct *RfOut, RoboStruct *buoyPara[3])
                 cleanRequest("CLEAN NOW pressed");
                 break;
             case REBOOT:
+                // A broadcast REBOOT from a presser still reboots the fleet, which is the
+                // intent; one relayed by another buoy no longer does. See addressedToMe().
+                if (!addressedToMe(RfIn, RfOut)) break;
                 // Belt and braces against a reboot storm. A sender that puts REBOOT in the LoRa
                 // retransmit table (ack GETACK/SET -> retry = 5 in loratop.cpp) can never be
                 // acknowledged by a buoy that is busy restarting, so every retry lands on a
@@ -3540,6 +3875,7 @@ void loop(void)
         mancalSessionService();
         cal8Service(); // resend a calibration press until the Sub shows it landed
         cleanService(&mainData); // resend a clean press, and follow the Sub in and out of CLEANING
+        trackPushService(&mainData); // resend a computed waypoint until the other buoy confirms it
         {
             static unsigned long lastHealth = 0;
             if (millis() - lastHealth > 2000)

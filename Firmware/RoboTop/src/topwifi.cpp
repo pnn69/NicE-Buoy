@@ -1117,7 +1117,17 @@ void WiFiTask(void *arg)
             RoboStruct msg = buoyPara[bid-1]; 
             msg.IDs = 0x99;
             msg.IDr = buoyPara[bid-1].IDs;
-            if (msg.IDr == 0) msg.IDr = BUOYIDALL;
+            // An empty slot has no address, and BUOYIDALL is not a stand-in for one. This turned
+            // a command aimed at ONE buoy card into a FLEET BROADCAST whenever that card had not
+            // yet learned its id - precisely the case the operator cannot see, because the card
+            // looks no different. For a settings save that meant one buoy's PID gains, speed
+            // limits and compass offset written into every Sub on the water. Refuse instead:
+            // there is no buoy there to command.
+            if (msg.IDr == 0)
+            {
+                server.send(409, "text/plain", "that buoy slot has no id yet");
+                return;
+            }
             msg.cmd = (msg_t)cmdEnum;
             msg.ack = SET;
 

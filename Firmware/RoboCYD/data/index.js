@@ -2388,6 +2388,70 @@ function mapAlign(cmdId) {
     drawFieldMap();
 }
 
+// EXECUTE is the only press on this page with TWO recipients, and that is what makes losing one
+// of them so expensive: the fleet ends up with one buoy on the new line and one on the old, so
+// the line is neither the length that was dialled nor the length the read-out goes on claiming.
+// It reads as a start line of the wrong length rather than as a command that half arrived, which
+// is the hardest kind of fault to diagnose from a rib.
+//
+// A browser cannot receive an ACK - it is not on the radio - so delivery is confirmed the
+// stronger way instead: by watching each buoy's own LOCKPOS beacon until it reports holding the
+// waypoint we asked for. That is the far end reporting the state we wanted, not merely that it
+// heard us. Anything still unconfirmed is re-sent; SETLOCKPOS is idempotent, so a late copy
+// cannot move a buoy anywhere it was not already going.
+//
+// 2 s, not 1: the receiving Top drops an identical repeat inside a 5 s window, so a faster
+// cadence spends airtime on copies that are thrown away on arrival, and airtime is the thing
+// that was losing these waypoints in the first place.
+const MAP_EXEC_RETRY_MS = 2000;
+const MAP_EXEC_TRIES = 6;          // ~12 s, comfortably past a LoRa retry round
+const MAP_EXEC_EPS_DEG = 1e-7;     // ~11 mm, against the 10 decimals the frame carries
+
+let mapExecPending = null;         // {targets, tries, metres} while an EXECUTE is unconfirmed
+
+function mapExecSend(t) {
+    const status = (buoys[t.index] && buoys[t.index].data.Status) || String(MsgType.IDLE);
+    sendCommand(t.id, t.id + ",99," + MsgType.SET + "," + MsgType.SETLOCKPOS + ","
+                    + status + "," + t.lat.toFixed(10) + "," + t.lng.toFixed(10));
+}
+
+// Is that buoy holding the waypoint we sent it? Read off the beacon it broadcasts on adopting a
+// target, aged out on the same window the plot uses - a buoy that has been switched off must not
+// go on confirming a waypoint with a stale reading.
+function mapExecConfirmed(t) {
+    const b = buoys[t.index];
+    if (!b || !b.wpMs || (Date.now() - b.wpMs) > MAP_WAYPOINT_STALE_MS) return false;
+    return Math.abs(b.wpLat - t.lat) < MAP_EXEC_EPS_DEG
+        && Math.abs(b.wpLng - t.lng) < MAP_EXEC_EPS_DEG;
+}
+
+function mapExecService() {
+    if (!mapExecPending) return;
+    const p = mapExecPending;
+    const outstanding = p.targets.filter(t => !mapExecConfirmed(t));
+    const names = () => outstanding.map(t => t.id.toUpperCase()).join(" and ");
+
+    if (outstanding.length === 0) {
+        mapExecPending = null;
+        mapMessage("Start line set to " + Math.round(p.metres) + " m - both ends confirmed.",
+                   "#22c55e");
+        return;
+    }
+    if (p.tries >= MAP_EXEC_TRIES) {
+        mapExecPending = null;
+        // Named, and stated as a fact about the LINE rather than about the radio: what the
+        // operator has to know is that the course on the water is not the one on the screen.
+        mapMessage(names() + " never took the new end - the start line is NOT "
+                 + Math.round(p.metres) + " m. Press EXECUTE again.", "#f87171");
+        logMessage("EXECUTE gave up: " + names() + " never confirmed the new line end", "UDP OUT");
+        return;
+    }
+    p.tries++;
+    mapMessage("Waiting for " + names() + " to take the new end (attempt " + p.tries + " of "
+             + MAP_EXEC_TRIES + ")...", "#94a3b8");
+    outstanding.forEach(mapExecSend);
+}
+
 // Move both ends of the line symmetrically about its current midpoint, keeping its present bearing.
 // Length only - squaring it to the wind is what ALIGN STARTLINE is for. SETLOCKPOS is the same
 // command the Top uses to push computed line ends to the other buoy: store the point, sail, lock.
@@ -2408,17 +2472,25 @@ function mapExecute() {
     // which is the worst place for one. What happened is reported after the fact, in the map
     // message and in the log.
 
-    [[a, projectCoords(midLat, midLng, brgA, half)],
-     [b, projectCoords(midLat, midLng, brgB, half)]].forEach(function (pair) {
+    const targets = [[a, projectCoords(midLat, midLng, brgA, half)],
+                     [b, projectCoords(midLat, midLng, brgB, half)]].map(function (pair) {
         const end = pair[0], pos = pair[1];
-        const status = (buoys[end.index] && buoys[end.index].data.Status) || String(MsgType.IDLE);
-        sendCommand(end.id, end.id + ",99," + MsgType.SET + "," + MsgType.SETLOCKPOS + ","
-                          + status + "," + pos.lat.toFixed(10) + "," + pos.lng.toFixed(10));
-        logMessage("Buoy " + end.id.toUpperCase() + ": start line end moved to "
-                 + pos.lat.toFixed(6) + ", " + pos.lng.toFixed(6), "UDP OUT");
+        return { index: end.index, id: end.id, lat: pos.lat, lng: pos.lng };
     });
 
-    mapMessage("Start line set to " + Math.round(mapLineTgtM) + " m.", "#22c55e");
+    // Armed BEFORE the first send, so a buoy that answers unusually fast is already being
+    // watched for rather than missed and then re-sent to.
+    mapExecPending = { targets: targets, tries: 1, metres: mapLineTgtM };
+    targets.forEach(function (t) {
+        mapExecSend(t);
+        logMessage("Buoy " + t.id.toUpperCase() + ": start line end moved to "
+                 + t.lat.toFixed(6) + ", " + t.lng.toFixed(6), "UDP OUT");
+    });
+
+    // Not "set to" - nothing is set until both ends say so. mapExecService() replaces this with
+    // the verdict either way.
+    mapMessage("Sent " + Math.round(mapLineTgtM) + " m - waiting for both ends to confirm...",
+               "#94a3b8");
 
     // The dialled figure is the line now. Clearing the pending value hands the read-out back to the
     // live measurement, which walks to the new length as the two buoys motor out to it.
@@ -2856,6 +2928,10 @@ function initStartLinePanel() {
     document.getElementById("map-align-start").addEventListener("click", () => mapAlign(MsgType.COMPUTESTART));
     document.getElementById("map-align-track").addEventListener("click", () => mapAlign(MsgType.COMPUTETRACK));
     document.getElementById("map-execute").addEventListener("click", mapExecute);
+
+    // Drives the re-send and the verdict for an outstanding EXECUTE. A no-op whenever there is
+    // nothing pending, which is almost always.
+    setInterval(mapExecService, MAP_EXEC_RETRY_MS);
 }
 
 // ---------------------------------------------------------------------------------------------

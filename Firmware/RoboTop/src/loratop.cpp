@@ -22,6 +22,9 @@ static unsigned long transmittReady = 0;
 QueueHandle_t loraOutHi;
 QueueHandle_t loraOutLo;
 QueueHandle_t loraIn;
+// See loratop.h: an ACK addressed to us is consumed in onReceive() and never reaches loraIn, so
+// this is how the loop task gets to hear that one arrived.
+QueueHandle_t loraAckIn;
 static unsigned long buoyId = 0;
 static RoboStruct *pMainData = NULL;
 
@@ -65,6 +68,9 @@ void initloraqueue(void)
     // rather than queued, so depth here is latency, not capacity.
     loraOutHi = xQueueCreate(8, sizeof(RoboStruct));
     loraOutLo = xQueueCreate(2, sizeof(RoboStruct));
+    // Four is a whole fan-out's worth of receipts and then some: a COMPUTE STARTLINE pushes at
+    // most two waypoints, and the loop task drains this every pass.
+    loraAckIn = xQueueCreate(4, sizeof(LoraAckNote));
     InitLora();
     Serial.print("#BuoyId=");
     Serial.println(espMac(), HEX);
@@ -985,6 +991,12 @@ void onReceive(int packetSize)
     if (is_addressed_to_me && in.ack == ACK) // A message form me so check if its a ACK message
     {
         removeAckMsg(in);
+        // Hand the receipt up as well. removeAckMsg() only clears the RADIO's retry table; the
+        // application-level retries above it - the track push in main.cpp - have their own
+        // state to retire, and were blind to every ACK that arrived on this transport. A queue
+        // because this runs on LoraTask and that state belongs to loop(). See loratop.h.
+        LoraAckNote note = { (uint64_t)in.IDs, in.cmd };
+        xQueueSend(loraAckIn, (void *)&note, 0);
         // printf("#Lora Ack received buffer cleared\r\n");
         return;
     }

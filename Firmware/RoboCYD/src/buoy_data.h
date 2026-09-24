@@ -169,7 +169,9 @@ void send_buoy_command(const String &buoy_id, int cmd_code, int ack = 3);
 // coordinates live in the payload, which send_buoy_command() leaves empty. status_code is echoed
 // back in the status field the way the dashboard does it; the receiving Top overrides it with
 // LOCKED either way.
-void send_buoy_setlockpos(const String &buoy_id, int status_code, double lat, double lon);
+// Returns the exact frame it put on the air, so a caller that wants delivery confirmed can hand
+// it straight to await_ack()/await_ack_also() without rebuilding it.
+String send_buoy_setlockpos(const String &buoy_id, int status_code, double lat, double lon);
 
 // Query setup parameters from buoy exactly matching webpage GET formatting
 void query_buoy_setup(const String &buoy_id);
@@ -221,16 +223,34 @@ struct PendingCmd {
     unsigned long next_due_ms = 0;
 };
 
-extern PendingCmd pending_cmd;
+// Two slots, not one. Most presses are one command to one buoy, but EXECUTE on the track screen
+// moves BOTH ends of the start line and has to know that both landed - confirming only one of
+// them is worse than confirming neither, because a line with one end moved is a line of the
+// wrong length that looks deliberate. See await_ack_also().
+#define PENDING_CMD_SLOTS 2
+extern PendingCmd pending_cmd[PENDING_CMD_SLOTS];
 
-// Latched outcome of the last tracked command. Set by the ACK path / the retry timeout, and
-// cleared by whichever screen reports it, so a banner cannot be missed by a slow repaint.
+// Latched outcome of the last tracked OPERATION - not of each frame in it. Success is only
+// latched once nothing is still outstanding and nothing gave up along the way; a single frame
+// timing out latches failure for the whole operation. Set by the ACK path / the retry timeout,
+// and cleared by whichever screen reports it, so a banner cannot be missed by a slow repaint.
 extern bool pending_cmd_acked;
 extern bool pending_cmd_failed;
 
-// Registers a just-sent frame as awaiting an ACK. A second call replaces the first - pressing
-// START and then TRACK means the operator wants TRACK, not both.
+// How many frames the current operation armed - 1 for an ordinary press, 2 for an EXECUTE that
+// moves both ends of the line. Only so the banner can say which it is confirming: after an
+// EXECUTE the question the operator actually has is whether BOTH ends heard it.
+extern int pending_cmd_armed;
+
+// Registers a just-sent frame as awaiting an ACK, and DISCARDS anything else outstanding -
+// pressing START and then TRACK means the operator wants TRACK, not both.
 void await_ack(const String &target_id, int cmd, const String &frame, int attempts = 3);
+
+// A further recipient of the SAME operation, tracked alongside the first rather than replacing
+// it. Only EXECUTE needs this: it hands each end of the start line its own waypoint, and the
+// operation has not succeeded until both are acknowledged. Call await_ack() for the first frame
+// and this for the rest, in that order - the outcome flags are reset by await_ack() alone.
+void await_ack_also(const String &target_id, int cmd, const String &frame, int attempts = 3);
 
 // Called from loop(): resends the outstanding command when its retry is due, and gives up (setting
 // pending_cmd_failed) once the attempts are spent.

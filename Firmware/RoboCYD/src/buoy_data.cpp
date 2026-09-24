@@ -187,59 +187,108 @@ int link_edges(LinkEdge *out, int max_out) {
     return n;
 }
 
-PendingCmd pending_cmd;
+PendingCmd pending_cmd[PENDING_CMD_SLOTS];
 bool pending_cmd_acked = false;
 bool pending_cmd_failed = false;
+
+// Set when any frame of the CURRENT operation gives up. Kept separate from pending_cmd_failed,
+// which whichever screen draws the banner clears straight away: without it a two-frame EXECUTE
+// whose first half timed out and whose second half then landed would finish by reporting
+// success, which is the exact failure the confirmation exists to catch.
+static bool pending_op_failed = false;
+int pending_cmd_armed = 0;
 
 // How long to wait for an ACK before resending. RoboTop answers from its loop task, typically well
 // inside 300 ms, so a second is generous - and it deliberately stays clear of the Top's OWN 1500 ms
 // retry cadence, so the two ends are not transmitting on top of each other.
 #define ACK_RETRY_MS 1000UL
 
+static bool pending_any_active() {
+    for (int i = 0; i < PENDING_CMD_SLOTS; i++)
+        if (pending_cmd[i].active) return true;
+    return false;
+}
+
+// Which slot this target belongs in: the one already tracking it if there is one, so a repeat of
+// the same command cannot occupy both; otherwise a free slot. Falling back to slot 0 when there
+// is neither cannot happen with the callers there are - EXECUTE arms exactly two - and losing the
+// older entry is the right way round if it ever does: the newer frame is the one still wanted.
+static PendingCmd *pending_slot_for(const String &target_id) {
+    for (int i = 0; i < PENDING_CMD_SLOTS; i++)
+        if (pending_cmd[i].active && pending_cmd[i].target_id == target_id) return &pending_cmd[i];
+    for (int i = 0; i < PENDING_CMD_SLOTS; i++)
+        if (!pending_cmd[i].active) return &pending_cmd[i];
+    return &pending_cmd[0];
+}
+
+static void pending_arm(const String &target_id, int cmd, const String &frame, int attempts) {
+    PendingCmd *p = pending_slot_for(target_id);
+    p->active = true;
+    p->target_id = target_id;
+    p->cmd = cmd;
+    p->frame = frame;
+    p->attempts_left = attempts - 1;   // the first attempt has already gone out
+    p->next_due_ms = millis() + ACK_RETRY_MS;
+}
+
 void await_ack(const String &target_id, int cmd, const String &frame, int attempts) {
-    pending_cmd.active = true;
-    pending_cmd.target_id = target_id;
-    pending_cmd.cmd = cmd;
-    pending_cmd.frame = frame;
-    pending_cmd.attempts_left = attempts - 1;   // the first attempt has already gone out
-    pending_cmd.next_due_ms = millis() + ACK_RETRY_MS;
+    for (int i = 0; i < PENDING_CMD_SLOTS; i++) {
+        pending_cmd[i].active = false;
+        pending_cmd[i].frame = "";
+    }
     pending_cmd_acked = false;
     pending_cmd_failed = false;
+    pending_op_failed = false;
+    pending_cmd_armed = 1;
+    pending_arm(target_id, cmd, frame, attempts);
+}
+
+void await_ack_also(const String &target_id, int cmd, const String &frame, int attempts) {
+    pending_cmd_armed++;
+    pending_arm(target_id, cmd, frame, attempts);
 }
 
 // An ACK has arrived. Matched on sender AND command: the Top puts its own MAC in the sender field
 // of the reply - which is the id we addressed the command to - and names the command it is
 // answering for. Anything else is somebody else's traffic.
 static void note_ack(const String &sender_id, int cmd) {
-    if (!pending_cmd.active) return;
-    if (pending_cmd.cmd != cmd) return;
-    if (pending_cmd.target_id != sender_id) return;
-
-    Serial.printf("ACK from %s for cmd %d - delivery confirmed\n", sender_id.c_str(), cmd);
-    pending_cmd.active = false;
-    pending_cmd.frame = "";
-    pending_cmd_acked = true;
+    bool hit = false;
+    for (int i = 0; i < PENDING_CMD_SLOTS; i++) {
+        PendingCmd &p = pending_cmd[i];
+        if (!p.active || p.cmd != cmd || p.target_id != sender_id) continue;
+        Serial.printf("ACK from %s for cmd %d - delivery confirmed\n", sender_id.c_str(), cmd);
+        p.active = false;
+        p.frame = "";
+        hit = true;
+    }
+    // Reported for the OPERATION, not for each frame: a two-buoy EXECUTE is done only when
+    // neither end is still outstanding, and not at all if either of them gave up.
+    if (hit && !pending_any_active() && !pending_op_failed) pending_cmd_acked = true;
 }
 
 void service_pending_cmd() {
-    if (!pending_cmd.active) return;
-    if ((long)(millis() - pending_cmd.next_due_ms) < 0) return;
+    for (int i = 0; i < PENDING_CMD_SLOTS; i++) {
+        PendingCmd &p = pending_cmd[i];
+        if (!p.active) continue;
+        if ((long)(millis() - p.next_due_ms) < 0) continue;
 
-    if (pending_cmd.attempts_left <= 0) {
-        Serial.printf("No ACK from %s for cmd %d after all attempts - giving up\n",
-                      pending_cmd.target_id.c_str(), pending_cmd.cmd);
-        pending_cmd.active = false;
-        pending_cmd.frame = "";
-        pending_cmd_failed = true;
-        return;
+        if (p.attempts_left <= 0) {
+            Serial.printf("No ACK from %s for cmd %d after all attempts - giving up\n",
+                          p.target_id.c_str(), p.cmd);
+            p.active = false;
+            p.frame = "";
+            pending_op_failed = true;
+            pending_cmd_failed = true;
+            continue;
+        }
+
+        p.attempts_left--;
+        p.next_due_ms = millis() + ACK_RETRY_MS;
+        Serial.printf("No ACK yet from %s for cmd %d, resending (%d attempt(s) left)\n",
+                      p.target_id.c_str(), p.cmd, p.attempts_left);
+        send_lora_packet(p.frame);
+        udp_broadcast(p.frame);
     }
-
-    pending_cmd.attempts_left--;
-    pending_cmd.next_due_ms = millis() + ACK_RETRY_MS;
-    Serial.printf("No ACK yet for cmd %d, resending (%d attempt(s) left)\n",
-                  pending_cmd.cmd, pending_cmd.attempts_left);
-    send_lora_packet(pending_cmd.frame);
-    udp_broadcast(pending_cmd.frame);
 }
 
 void parse_buoy_packet(const String &packetStr, const String &source, int rssi) {
@@ -795,7 +844,7 @@ void send_buoy_cal8(const String &buoy_id, int action, int leg, int ack, int seq
     udp_broadcast(finalPacket);
 }
 
-void send_buoy_setlockpos(const String &buoy_id, int status_code, double lat, double lon) {
+String send_buoy_setlockpos(const String &buoy_id, int status_code, double lat, double lon) {
     // $Target,Sender,ACK,CMD,Status,Lat,Lng*CRC - RoboCompute's RoboDecode() reads the two
     // coordinates as numbers[2] and numbers[3], counting from the CMD field.
     //
@@ -817,6 +866,11 @@ void send_buoy_setlockpos(const String &buoy_id, int status_code, double lat, do
 
     send_lora_packet(finalPacket);
     udp_broadcast(finalPacket);
+
+    // Handed back so the caller can register it for delivery confirmation. Not registered here:
+    // EXECUTE sends two of these as one operation and has to arm them together, and a sender that
+    // armed itself would have the second frame cancel the first.
+    return finalPacket;
 }
 
 void query_buoy_setup(const String &buoy_id) {
