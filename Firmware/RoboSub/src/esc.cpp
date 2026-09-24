@@ -17,9 +17,9 @@ Servo servoBB;
 Servo servoSB;
 
 // ESC hardware parameters
-#define ESC_FREQ 50       
-#define ESC_MIN_US 1000   
-#define ESC_MAX_US 2000   
+#define ESC_FREQ 50
+#define ESC_MIN_US 1000
+#define ESC_MAX_US 2000
 
 unsigned long escStamp = 0;
 
@@ -40,13 +40,19 @@ int esc_neutral_sb = ESC_NEUTRAL_NOMINAL_US;
  */
 uint16_t speedToPulse(int speed, bool invert, int neutralUs)
 {
-    if (invert) speed = -speed;
-    if (speed > 100) speed = 100;
-    if (speed < -100) speed = -100;
-    if (neutralUs < ESC_NEUTRAL_MIN_US || neutralUs > ESC_NEUTRAL_MAX_US) neutralUs = ESC_NEUTRAL_NOMINAL_US;
+    if (invert)
+        speed = -speed;
+    if (speed > 100)
+        speed = 100;
+    if (speed < -100)
+        speed = -100;
+    if (neutralUs < ESC_NEUTRAL_MIN_US || neutralUs > ESC_NEUTRAL_MAX_US)
+        neutralUs = ESC_NEUTRAL_NOMINAL_US;
 
-    if (speed == 0) return (uint16_t)neutralUs;
-    if (speed > 0)  return (uint16_t)(neutralUs + (long)(ESC_MAX_US - neutralUs) * speed / 100);
+    if (speed == 0)
+        return (uint16_t)neutralUs;
+    if (speed > 0)
+        return (uint16_t)(neutralUs + (long)(ESC_MAX_US - neutralUs) * speed / 100);
     return (uint16_t)(neutralUs + (long)(neutralUs - ESC_MIN_US) * speed / 100);
 }
 
@@ -60,7 +66,7 @@ void triggerESC(void)
     servoSB.writeMicroseconds(speedToPulse(0, false, esc_neutral_sb));
 }
 
-void playTone(int frequency) { }
+void playTone(int frequency) {}
 void beepESC(void) { startESC(); }
 
 void initescqueue(void)
@@ -77,10 +83,10 @@ void startESC(void)
     // Configure Power Pins
     pinMode(ESC_SB_PWR_PIN, OUTPUT);
     pinMode(ESC_BB_PWR_PIN, OUTPUT);
-    
+
     Serial.println("ESCs Power Pins Driven HIGH");
     vTaskDelay(pdMS_TO_TICKS(500)); // Wait half a second for ESCs to boot up
-    
+
     // Attach Servos via ESP32Servo library (Handles LEDC timers automatically and safely)
     servoBB.setPeriodHertz(ESC_FREQ);
     servoSB.setPeriodHertz(ESC_FREQ);
@@ -106,7 +112,7 @@ void startESC(void)
     servoSB.attach(ESC_SB_PIN, ESC_MIN_US, ESC_MAX_US);
     servoBB.setTimerWidth(16);
     servoSB.setTimerWidth(16);
-    
+
     // Each thruster gets ITS OWN stop pulse, not a shared 1500. An ESC whose neutral is calibrated
     // a little low reads a nominal 1500 as a small forward command and creeps for as long as it has
     // power - which is exactly what the starboard thruster was doing after every arming.
@@ -163,7 +169,7 @@ void escRequestWake(void) { esc_wake_request = true; }
 // Nine steps, about 9.7 s in total.
 #define CLEAN_BURST_MS 2000
 #define CLEAN_SETTLE_MS 400
-#define CLEAN_PAUSE_MS 100
+#define CLEAN_PAUSE_MS 500
 
 // How long to wait for the ESCs to come back up before giving up on the run. Generous next to the
 // ~3.5 s startESC() actually takes, because CLEAN NOW may be pressed on a buoy that has been sat
@@ -179,15 +185,15 @@ struct CleanStep
 };
 
 static const CleanStep cleanSteps[] = {
-    {  0,  0, CLEAN_SETTLE_MS, "stop sailing" },
-    { -1, -1, CLEAN_BURST_MS,  "both astern"  },
-    {  0,  0, CLEAN_PAUSE_MS,  "pause"        },
-    { +1, +1, CLEAN_BURST_MS,  "both ahead"   },
-    {  0,  0, CLEAN_SETTLE_MS, "stop"         },
-    { -1,  0, CLEAN_BURST_MS,  "BB astern"    },
-    {  0,  0, CLEAN_SETTLE_MS, "BB stop"      },
-    {  0, -1, CLEAN_BURST_MS,  "SB astern"    },
-    {  0,  0, CLEAN_SETTLE_MS, "SB stop"      },
+    {0, 0, CLEAN_SETTLE_MS, "stop sailing"},
+    {-1, -1, CLEAN_BURST_MS, "both astern"},
+    {0, 0, CLEAN_PAUSE_MS, "pause"},
+    {+1, +1, CLEAN_BURST_MS, "both ahead"},
+    {0, 0, CLEAN_SETTLE_MS, "stop"},
+    {-1, 0, CLEAN_BURST_MS, "BB astern"},
+    {0, 0, CLEAN_SETTLE_MS, "BB stop"},
+    {0, -1, CLEAN_BURST_MS, "SB astern"},
+    {0, 0, CLEAN_SETTLE_MS, "SB stop"},
 };
 #define CLEAN_STEPS (int)(sizeof(cleanSteps) / sizeof(cleanSteps[0]))
 
@@ -219,7 +225,8 @@ void cleanStart(void)
 {
     // Already running: a repeat of the command, which is expected - the Top resends it until the
     // Sub shows it landed. Restarting here would stretch one press into an endless wash cycle.
-    if (cleanRunning) return;   // silent on purpose: the resend loop makes this the common case
+    if (cleanRunning)
+        return; // silent on purpose: the resend loop makes this the common case
 
     // Never over the top of a compass calibration. EscTask forces neutral for the whole run
     // (global_is_calibrating), so the bursts would not reach the water anyway, and the vibration
@@ -237,7 +244,8 @@ void cleanStart(void)
     // CLEANING and nothing turns" is precisely the fault this whole path has already cost a
     // morning to. If it cannot do the job it says so instead.
     cleanPower = mainData.maxSpeed;
-    if (cleanPower > 100) cleanPower = 100;
+    if (cleanPower > 100)
+        cleanPower = 100;
     if (cleanPower < 1)
     {
         printf("CLEAN refused - maxSpeed is %d, there is no thrust to clean with\r\n", cleanPower);
@@ -267,7 +275,8 @@ void cleanStart(void)
 
 void cleanAbort(void)
 {
-    if (!cleanRunning) return;
+    if (!cleanRunning)
+        return;
     cleanRunning = false;
     cleanWaking = false;
     printf("CLEAN aborted at step %d\r\n", cleanStep);
@@ -333,10 +342,23 @@ bool cleanService(int *speedBbOut, int *speedSbOut)
     return true;
 }
 
-void calculateLedColor(int speed, uint8_t& r, uint8_t& g) {
-    if (speed > 0) { r = 0; g = map(speed, 0, 100, 0, 255); }
-    else if (speed < 0) { r = map(speed, -100, 0, 255, 0); g = 0; }
-    else { r = 0; g = 0; }
+void calculateLedColor(int speed, uint8_t &r, uint8_t &g)
+{
+    if (speed > 0)
+    {
+        r = 0;
+        g = map(speed, 0, 100, 0, 255);
+    }
+    else if (speed < 0)
+    {
+        r = map(speed, -100, 0, 255, 0);
+        g = 0;
+    }
+    else
+    {
+        r = 0;
+        g = 0;
+    }
 }
 
 float global_speed_bb = 0;
@@ -351,7 +373,7 @@ void EscTask(void *arg)
     int spsbAct = 0, spbbAct = 0;
     bool esc_power_on = false;
     Message rcv_msg;
-    
+
     // Allow allocation of all timers for ESP32Servo
     ESP32PWM::allocateTimer(0);
     ESP32PWM::allocateTimer(1);
@@ -361,7 +383,8 @@ void EscTask(void *arg)
     // Wait until the gyroscope calibration has completely finished (icm_ready becomes true)
     // to prevent any ESC beeps, vibrations, or initialization currents from polluting the zero-rate gyro calibration!
     extern bool icm_ready;
-    while (!icm_ready) {
+    while (!icm_ready)
+    {
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 
@@ -375,16 +398,20 @@ void EscTask(void *arg)
     esc_power_state = true;
     offStamp = millis() + 60000; // 60s initial grace period
     printf("ESC control task started.\r\n");
-    
+
     extern bool global_is_calibrating;
     while (1)
     {
-        if (global_is_calibrating) {
+        if (global_is_calibrating)
+        {
             // Trimmed neutral, not a bare 1500 - see speedToPulse(). A hard 1500 here was enough
             // to keep an off-centre ESC turning right through a compass calibration.
             servoBB.writeMicroseconds(speedToPulse(0, false, esc_neutral_bb));
             servoSB.writeMicroseconds(speedToPulse(0, false, esc_neutral_sb));
-            spsb = 0; spbb = 0; spsbAct = 0; spbbAct = 0;
+            spsb = 0;
+            spbb = 0;
+            spsbAct = 0;
+            spbbAct = 0;
             vTaskDelay(pdMS_TO_TICKS(50));
             continue;
         }
@@ -404,7 +431,8 @@ void EscTask(void *arg)
         // The 30 s timer is pushed out either way, so the zero-speed steps of a cleaning sequence
         // cannot let the supply drop out from under the run.
         bool wakeAsked = esc_wake_request;
-        if (wakeAsked) esc_wake_request = false;
+        if (wakeAsked)
+            esc_wake_request = false;
         if (spsb != 0 || spbb != 0 || wakeAsked)
         {
             offStamp = millis() + 30000; // Reset 30s timer
@@ -414,7 +442,8 @@ void EscTask(void *arg)
                 startESC();
                 esc_power_on = true;
                 esc_power_state = true;
-                spsbAct = 0; spbbAct = 0;
+                spsbAct = 0;
+                spbbAct = 0;
             }
             else
             {
@@ -436,23 +465,28 @@ void EscTask(void *arg)
                 esc_power_state = false;
                 Serial.println("ESCs entered sleep mode (power pins LOW)");
             }
-            spsb = 0; spbb = 0; spsbAct = 0; spbbAct = 0;
+            spsb = 0;
+            spbb = 0;
+            spsbAct = 0;
+            spbbAct = 0;
         }
 
         // Pulse Generation (No Ramping - Ramping moved to PID)
         if (millis() >= escStamp)
         {
             escStamp = millis() + 20;
-            
+
             // Apply speed directly to actuators (Ramping is now handled in pidrudspeed.cpp)
             spsbAct = spsb;
             spbbAct = spbb;
 
-            if (esc_power_on) {
-                
+            if (esc_power_on)
+            {
+
                 int s_sb = spsbAct;
                 int s_bb = spbbAct;
-                if (mainData.swap_BB_SB) {
+                if (mainData.swap_BB_SB)
+                {
                     s_sb = spbbAct;
                     s_bb = spsbAct;
                 }
@@ -460,14 +494,17 @@ void EscTask(void *arg)
                 servoBB.writeMicroseconds(speedToPulse(s_bb, mainData.revBB, esc_neutral_bb));
                 global_speed_bb = s_bb;
                 global_speed_sb = s_sb;
-            } else {
+            }
+            else
+            {
                 global_speed_bb = 0;
                 global_speed_sb = 0;
             }
         }
 
         // Push telemetry to visual LED queue
-        if (millis() >= ledUpdateStamp) {
+        if (millis() >= ledUpdateStamp)
+        {
             ledUpdateStamp = millis() + 100;
             powerIndicator.ledSb = (int)global_speed_sb;
             powerIndicator.ledBb = (int)global_speed_bb;

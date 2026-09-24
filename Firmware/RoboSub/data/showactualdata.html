@@ -249,6 +249,7 @@
         .btn-success:hover { background: #059669; }
         .btn-danger { background: var(--danger); }
         .btn-danger:hover { background: #dc2626; }
+        #btn-set-level:hover { background: #3c444d; }
 
         #scatter-canvas {
             width: 100%;
@@ -517,6 +518,14 @@
                             <div id="gauge-roll-val" style="font-size:1.4rem; font-weight:bold; color:#38bdf8;">0.0°</div>
                         </div>
                     </div>
+                    <!-- Declare the hull level as it sits right now. Same one call to /set_level
+                         that the 8 point calibration page makes, so the two pages cannot end up
+                         with different ideas of what flat means. The buoy stores the datum in NVS
+                         and subtracts it from every pitch/roll it reports afterwards, so the
+                         bubble above should drop to the centre on the next poll. -->
+                    <button id="btn-set-level" class="btn"
+                            style="width:auto; margin-top:14px; margin-bottom:0; padding:8px 16px; font-size:0.8rem; background:#30363d; color:#c9d1d9; border:1px solid var(--border);">SET LEVEL HERE</button>
+                    <div id="level-mount-datum" style="font-size:0.7rem; color:var(--text-muted); margin-top:6px; text-align:center; min-height:1.1em;">&nbsp;</div>
                 </div>
             </div>
             
@@ -713,9 +722,45 @@
                 });
         }
 
+        // Declare the hull level as it sits right now. /set_level takes the RAW pitch/roll the
+        // compass task is producing, stores it in NVS as the mounting datum, and subtracts it
+        // from every pitch/roll the buoy reports from then on - so the bubble centres and the
+        // telemetry finally reads "how far off level is the hull" rather than "how crooked is
+        // the sensor bolted in".
+        //
+        // Same endpoint and the same warning as the 8 point calibration page: the point is NOT
+        // to tilt the boat until the bubble centres. Set it with the hull floating the way it
+        // floats; a fixed mounting tilt is what this absorbs.
+        function initSetLevelButton() {
+            const btn = document.getElementById('btn-set-level');
+            if (!btn) return;
+            btn.onclick = async () => {
+                if (!confirm('Declare the hull level as it sits RIGHT NOW?\n\n'
+                    + 'Do this with the boat floating the way it floats - do NOT tilt it to '
+                    + 'make the bubble centre. A fixed mounting tilt is absorbed by the '
+                    + 'compass table; what ruins a calibration is the hull sitting at a '
+                    + 'different angle at each stop, and that is what this makes visible.')) return;
+                btn.disabled = true;
+                try {
+                    const r = await fetch('/set_level?t=' + Date.now());
+                    const t = (await r.text()).trim();
+                    if (r.ok && t.startsWith('OK')) {
+                        alert('Level datum set:' + t.slice(2));
+                    } else {
+                        alert('/set_level refused: ' + t);
+                    }
+                } catch (e) {
+                    alert('Network error: ' + e.message);
+                } finally {
+                    btn.disabled = false;
+                }
+            };
+        }
+
         window.addEventListener('load', () => {
             initThreeJS();
             initDampingSliders();
+            initSetLevelButton();
             initWebSockets();
         });
 
@@ -918,6 +963,20 @@
                         if (gpVal) gpVal.innerText = currentPitch.toFixed(1) + '°';
                         const grVal = document.getElementById('gauge-roll-val');
                         if (grVal) grVal.innerText = currentRoll.toFixed(1) + '°';
+
+                        // The stored datum, straight from the buoy rather than remembered here -
+                        // so a datum set on the 8 point page, or cleared out from under us, shows
+                        // up on the next poll without this page having to be told.
+                        const mntEl = document.getElementById('level-mount-datum');
+                        if (mntEl) {
+                            const mp = Number(data.mount_pitch || 0);
+                            const mr = Number(data.mount_roll || 0);
+                            const has = (mp !== 0 || mr !== 0);
+                            mntEl.innerText = has
+                                ? 'datum ' + mp.toFixed(1) + '° / ' + mr.toFixed(1) + '°'
+                                : 'no datum - showing the sensor, not the hull';
+                            mntEl.style.color = has ? 'var(--text-muted)' : '#f59e0b';
+                        }
 
                         // Synchronize Active Filter Radio Button with the active mode
                         // Say it here too, on the page where the mode is actually chosen. The
