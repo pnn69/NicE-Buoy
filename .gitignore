@@ -97,6 +97,8 @@ fp-info-cache
 *.csv# 
 ESP*IDF RoboCYD partition table is sou*ce configuration, not generated da*a
 !Firmware/RoboCYD/partitions_ota*csv
+# JLCPCB generated production output
+PCBA_Robobouoy-V4.0/jlcpcb/production_files/
 
 .gemini/
 gha-creds-*.json
