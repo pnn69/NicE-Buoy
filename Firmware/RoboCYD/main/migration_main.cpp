@@ -4,8 +4,8 @@
 #include <TFT_eSPI.h>
 
 #include "migration_wifi_secrets.h"
-
-static TFT_eSPI tft;
+#include "cyd_display.h"
+#include "cyd_touch.h"
 
 static bool otaStarted = false;
 static bool wifiWasConnected = false;
@@ -140,112 +140,6 @@ static void start_ota()
 
 
 // -----------------------------------------------------------------------------
-// Display
-// -----------------------------------------------------------------------------
-
-static void init_display()
-{
-    tft.init();
-    tft.setRotation(1);
-    tft.fillScreen(TFT_BLACK);
-
-    const int w = tft.width();
-    const int h = tft.height();
-
-    // Screen boundary
-    tft.drawRect(0, 0, w, h, TFT_WHITE);
-
-    tft.setTextDatum(MC_DATUM);
-
-    // Title
-    tft.setTextColor(TFT_GREEN, TFT_BLACK);
-    tft.setTextSize(3);
-    tft.drawString(
-        "RoboCYD",
-        w / 2,
-        45);
-
-    // Framework information
-    tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    tft.setTextSize(2);
-
-    tft.drawString(
-        "ESP-IDF 5.5.5",
-        w / 2,
-        88);
-
-    tft.drawString(
-        "TFT_eSPI OK",
-        w / 2,
-        116);
-
-    // Network / OTA state
-    if (WiFi.status() == WL_CONNECTED)
-    {
-        tft.setTextColor(TFT_CYAN, TFT_BLACK);
-
-        tft.drawString(
-            WiFi.localIP().toString(),
-            w / 2,
-            148);
-
-        tft.setTextColor(TFT_GREEN, TFT_BLACK);
-
-        tft.drawString(
-            "OTA TEST 2",
-            w / 2,
-            178);
-    }
-    else
-    {
-        tft.setTextColor(TFT_RED, TFT_BLACK);
-
-        tft.drawString(
-            "NO WIFI - NO OTA",
-            w / 2,
-            178);
-    }
-
-    // Colour test bars
-    const int barY = 210;
-    const int barH = h - barY;
-    const int barW = w / 4;
-
-    tft.fillRect(
-        0,
-        barY,
-        barW,
-        barH,
-        TFT_RED);
-
-    tft.fillRect(
-        barW,
-        barY,
-        barW,
-        barH,
-        TFT_GREEN);
-
-    tft.fillRect(
-        barW * 2,
-        barY,
-        barW,
-        barH,
-        TFT_BLUE);
-
-    tft.fillRect(
-        barW * 3,
-        barY,
-        w - (barW * 3),
-        barH,
-        TFT_YELLOW);
-
-    Serial.printf(
-        "TFT initialized: %d x %d\n",
-        w,
-        h);
-}
-
-// -----------------------------------------------------------------------------
 // ESP-IDF entry point
 // -----------------------------------------------------------------------------
 
@@ -274,6 +168,43 @@ extern "C" void app_main(void)
 
     // Initialise the display after Wi-Fi.
     init_display();
+    init_touch();
+    tft.fillScreen(TFT_BLACK);
+
+    tft.setTextDatum(MC_DATUM);
+
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.setTextSize(2);
+    tft.drawString(
+        "RoboCYD TOUCH",
+        tft.width() / 2,
+        40
+    );
+
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setTextSize(1);
+    tft.drawString(
+        "ESP-IDF 5.5.5",
+        tft.width() / 2,
+        75
+    );
+
+    tft.setTextColor(TFT_CYAN, TFT_BLACK);
+    tft.drawString(
+        "Touch anywhere",
+        tft.width() / 2,
+        105
+    );
+
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.drawString(
+        "OTA READY",
+        tft.width() / 2,
+        135
+    );
+
+
+
 
     // Start OTA after Wi-Fi and display are available.
     start_ota();
@@ -285,6 +216,25 @@ extern "C" void app_main(void)
         // CRITICAL:
         // RoboCYD is OTA-only, so this must continue to run frequently.
         service_wifi_and_ota();
+        int touchX = 0;
+        int touchY = 0;
+
+        if (get_touch_point(touchX, touchY))
+        {
+            Serial.printf(
+                "Touch at: X=%d, Y=%d\n",
+                touchX,
+                touchY
+            );
+
+            // Visual feedback using the real RoboCYD coordinate system.
+            tft.fillCircle(
+                touchX,
+                touchY,
+                5,
+                TFT_YELLOW
+            );
+        }        
 
         if (millis() - lastReport >= 5000)
         {
