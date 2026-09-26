@@ -7,4 +7,5 @@ idf_component_register(
 
     REQUIRES
         arduino-esp32
+        TFT_eSPI
 )

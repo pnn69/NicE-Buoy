@@ -94,7 +94,10 @@ fp-info-cache
 
 # Exported BOM files
 *.xml
-*.csv
+*.csv# 
+ESP*IDF RoboCYD partition table is sou*ce configuration, not generated da*a
+!Firmware/RoboCYD/partitions_ota*csv
+
 .gemini/
 gha-creds-*.json
 .claude/
@@ -126,3 +129,5 @@ Firmware/RoboCYD/managed_components/
 
 # ESP-IDF backup created when regenerating sdkconfig
 Firmware/RoboCYD/sdkconfig.old
+# Local credentials used during ESP-IDF migration
+Firmware/RoboCYD/main/migration_wifi_secrets.h
