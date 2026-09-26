@@ -121,3 +121,8 @@ Firmware/RoboCYD/build/
 
 # Local VS Code / ESP-IDF extension settings
 Firmware/RoboCYD/.vscode/
+# ESP-IDF managed components are restored from idf_component.yml + dependencies.lock
+Firmware/RoboCYD/managed_components/
+
+# ESP-IDF backup created when regenerating sdkconfig
+Firmware/RoboCYD/sdkconfig.old
