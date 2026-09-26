@@ -121,15 +121,23 @@ desktop.ini
 # rode along with the "PCBA added" commit, which is why this rule arrived late.
 tmp*.rpt
 **/jlcpcb/project.db
-# ESP-IDF build output
+
+
+# ESP-IDF generated files
 Firmware/RoboCYD/build/
 
 # Local VS Code / ESP-IDF extension settings
 Firmware/RoboCYD/.vscode/
+
 # ESP-IDF managed components are restored from idf_component.yml + dependencies.lock
 Firmware/RoboCYD/managed_components/
 
 # ESP-IDF backup created when regenerating sdkconfig
 Firmware/RoboCYD/sdkconfig.old
+
 # Local credentials used during ESP-IDF migration
 Firmware/RoboCYD/main/migration_wifi_secrets.h
+
+# ESP-IDF generated files for RoboLink
+Firmware/RoboLink/build/
+Firmware/RoboLink/sdkconfig.old
