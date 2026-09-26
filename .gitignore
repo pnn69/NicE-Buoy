@@ -116,3 +116,8 @@ desktop.ini
 # rode along with the "PCBA added" commit, which is why this rule arrived late.
 tmp*.rpt
 **/jlcpcb/project.db
+# ESP-IDF build output
+Firmware/RoboCYD/build/
+
+# Local VS Code / ESP-IDF extension settings
+Firmware/RoboCYD/.vscode/
