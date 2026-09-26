@@ -7,6 +7,9 @@
 #include "cyd_lora.h"
 #include "buoy_data.h"
 #include "RGBledDriver.h"
+#include "robo_config.h"
+#include "robo_mesh.h"
+
 
 // Pick the buoy whose wind reading should drive a course computation.
 //
