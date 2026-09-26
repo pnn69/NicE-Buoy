@@ -5925,6 +5925,16 @@
 	)
 	(wire
 		(pts
+			(xy 205.74 85.09) (xy 224.79 85.09)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c6d6097c-a1f2-4442-ba6f-5913df3b2cc3")
+	)
+	(wire
+		(pts
 			(xy 293.37 198.12) (xy 295.91 198.12)
 		)
 		(stroke
@@ -6243,6 +6253,16 @@
 		)
 		(uuid "57ef73d2-e78a-43ec-bda2-03e6df88cba2")
 	)
+	(label "CS_2"
+		(at 219.71 85.09 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "5a5fcf8e-748b-43f8-ad40-a29df4a47998")
+	)
 	(label "RADIO_3"
 		(at 66.04 43.18 0)
 		(effects
@@ -6343,16 +6363,6 @@
 		)
 		(uuid "9e238e3c-cac1-48b4-bb96-46618858eca2")
 	)
-	(label "RADIO_6"
-		(at 66.04 50.8 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "cc8dc6cd-0da5-4e96-b645-3899a6c8dc0f")
-	)
 	(label "RADIO_1"
 		(at 217.17 97.79 0)
 		(effects
@@ -6362,6 +6372,16 @@
 			(justify left bottom)
 		)
 		(uuid "d1cad748-e653-4384-a484-0a88e6ef3371")
+	)
+	(label "CS_2"
+		(at 68.58 50.8 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "d2b54b00-c22d-4b82-b5f7-aa262d9abed0")
 	)
 	(label "RADIO_4"
 		(at 327.66 66.04 0)

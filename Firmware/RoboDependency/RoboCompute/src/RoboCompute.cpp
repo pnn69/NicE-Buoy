@@ -1,6 +1,8 @@
 #include <arduino.h>
 #include "RoboCompute.h"
 
+static constexpr int MAXDATAFIELD = 40;
+
 bool startsWithDollar(const String &str)
 {
     return str.charAt(0) == '$';
@@ -8,13 +10,17 @@ bool startsWithDollar(const String &str)
 
 String formatFloat(double val, int precision)
 {
-    if (val == 0.0) return "0";
+    if (val == 0.0)
+        return "0";
     String s = String(val, precision);
-    if (s.indexOf('.') != -1) {
-        while (s.endsWith("0")) {
+    if (s.indexOf('.') != -1)
+    {
+        while (s.endsWith("0"))
+        {
             s.remove(s.length() - 1);
         }
-        if (s.endsWith(".")) {
+        if (s.endsWith("."))
+        {
             s.remove(s.length() - 1);
         }
     }
@@ -24,65 +30,81 @@ String formatFloat(double val, int precision)
 void RoboDecode(String data, RoboStruct *dataStore)
 {
     dataStore->cmd = -1;
-    String numbers[25];
+    String numbers[MAXDATAFIELD];
     int count = 0;
     String substring = data;
-    while (count < 25)
+    while (count < MAXDATAFIELD)
     {
         int commaIndex = substring.indexOf(',');
-        if (commaIndex == -1) { numbers[count++] = substring; break; }
+        if (commaIndex == -1)
+        {
+            numbers[count++] = substring;
+            break;
+        }
         numbers[count++] = substring.substring(0, commaIndex);
         substring = substring.substring(commaIndex + 1);
     }
-    if (count < 2) return;
+    if (count < 2)
+        return;
     dataStore->cmd = numbers[0].toInt();
     dataStore->status = numbers[1].toInt();
     switch (dataStore->cmd)
     {
     case SETUPDATA:
-          dataStore->Kpr = numbers[2].toDouble();
-          dataStore->Kir = numbers[3].toDouble();
-          dataStore->Kdr = numbers[4].toDouble();
-          dataStore->Kps = numbers[5].toDouble();
-          dataStore->Kis = numbers[6].toDouble();
-          dataStore->Kds = numbers[7].toDouble();
-          dataStore->maxSpeed = numbers[8].toInt();
-          dataStore->minSpeed = numbers[9].toInt();
-          dataStore->pivotSpeed = numbers[10].toDouble();
-          dataStore->compassOffset = numbers[11].toDouble();
-          dataStore->holdRad = numbers[12].toDouble();
-          // Presence is decided by the field COUNT, not by whether the token is empty.
-          // RoboCode() compresses any all-zero token to "" (see the note in the ADAPTIVE_TRIM
-          // case), so an empty field here means the value is zero - testing .length() would make
-          // it impossible to ever clear a flag or set a distance back to 0. A frame that is
-          // simply shorter, from an older node or from the CYD's GET query, leaves the current
-          // values untouched.
-          if (count > 13) dataStore->revBB = (bool)numbers[13].toInt();
-          if (count > 14) dataStore->revSB = (bool)numbers[14].toInt();
-          if (count > 15) dataStore->swap_BB_SB = (bool)numbers[15].toInt();
-          // The CYD has always put these four on the wire (send_buoy_setup() in
-          // RoboCYD/src/buoy_data.cpp) and reads them back at the same offsets, but this decoder
-          // stopped at swap_BB_SB, so they arrived as whatever the receive struct happened to
-          // hold - zero. RoboTop then committed that zero to its NVM on a CYD "SAVE SETUP"
-          // (handleRfData case SETUPDATA), which is how the dock approach settings silently
-          // reset themselves to 0/0/false.
-          if (count > 16) dataStore->compass_trim_enabled = (bool)numbers[16].toInt();
-          if (count > 17) dataStore->dockApproachDist = numbers[17].toInt();
-          if (count > 18) dataStore->dockApproachDir = numbers[18].toInt();
-          if (count > 19) dataStore->dockingToWaypoint = (bool)numbers[19].toInt();
-          // Appended after the dock settings - see prDamping/compassAvg in RoboCompute.h.
-          if (count > 20) dataStore->prDamping = numbers[20].toFloat();
-          if (count > 21) dataStore->compassAvg = numbers[21].toInt();
-          // Automatic thruster cleaning, appended after the steadiness pair - see cleanEnabled in
-          // RoboCompute.h.
-          if (count > 22) dataStore->cleanEnabled = (bool)numbers[22].toInt();
-          break;
+        dataStore->Kpr = numbers[2].toDouble();
+        dataStore->Kir = numbers[3].toDouble();
+        dataStore->Kdr = numbers[4].toDouble();
+        dataStore->Kps = numbers[5].toDouble();
+        dataStore->Kis = numbers[6].toDouble();
+        dataStore->Kds = numbers[7].toDouble();
+        dataStore->maxSpeed = numbers[8].toInt();
+        dataStore->minSpeed = numbers[9].toInt();
+        dataStore->pivotSpeed = numbers[10].toDouble();
+        dataStore->compassOffset = numbers[11].toDouble();
+        dataStore->holdRad = numbers[12].toDouble();
+        // Presence is decided by the field COUNT, not by whether the token is empty.
+        // RoboCode() compresses any all-zero token to "" (see the note in the ADAPTIVE_TRIM
+        // case), so an empty field here means the value is zero - testing .length() would make
+        // it impossible to ever clear a flag or set a distance back to 0. A frame that is
+        // simply shorter, from an older node or from the CYD's GET query, leaves the current
+        // values untouched.
+        if (count > 13)
+            dataStore->revBB = (bool)numbers[13].toInt();
+        if (count > 14)
+            dataStore->revSB = (bool)numbers[14].toInt();
+        if (count > 15)
+            dataStore->swap_BB_SB = (bool)numbers[15].toInt();
+        // The CYD has always put these four on the wire (send_buoy_setup() in
+        // RoboCYD/src/buoy_data.cpp) and reads them back at the same offsets, but this decoder
+        // stopped at swap_BB_SB, so they arrived as whatever the receive struct happened to
+        // hold - zero. RoboTop then committed that zero to its NVM on a CYD "SAVE SETUP"
+        // (handleRfData case SETUPDATA), which is how the dock approach settings silently
+        // reset themselves to 0/0/false.
+        if (count > 16)
+            dataStore->compass_trim_enabled = (bool)numbers[16].toInt();
+        if (count > 17)
+            dataStore->dockApproachDist = numbers[17].toInt();
+        if (count > 18)
+            dataStore->dockApproachDir = numbers[18].toInt();
+        if (count > 19)
+            dataStore->dockingToWaypoint = (bool)numbers[19].toInt();
+        // Appended after the dock settings - see prDamping/compassAvg in RoboCompute.h.
+        if (count > 20)
+            dataStore->prDamping = numbers[20].toFloat();
+        if (count > 21)
+            dataStore->compassAvg = numbers[21].toInt();
+        // Automatic thruster cleaning, appended after the steadiness pair - see cleanEnabled in
+        // RoboCompute.h.
+        if (count > 22)
+            dataStore->cleanEnabled = (bool)numbers[22].toInt();
+        break;
     case IDLE:
         dataStore->speed = 0;
         dataStore->tgDist = 0;
         // Count-guarded: a node that predates the serial sends a shorter frame and leaves this 0,
         // which means "unnumbered" and falls back to the content filter. See cmdSeq.
-        if (count > 7) dataStore->cmdSeq = (uint16_t)numbers[7].toInt();
+        if (count > 7)
+            dataStore->cmdSeq = (uint16_t)numbers[7].toInt();
         break;
     // The three a human actually presses. IDLE, LOCKED and DOCKED are the states a buoy REPORTS;
     // IDLING, LOCKING and DOCKING are the commands that ASK for them, and those are what the
@@ -101,7 +123,8 @@ void RoboDecode(String data, RoboStruct *dataStore)
     // CLEAN NOW is a press like the other four and is numbered like them. It carries nothing else:
     // the sequence and its timings belong to the Sub, so the command is the whole message.
     case CLEAN_THRUSTERS:
-        if (count > 7) dataStore->cmdSeq = (uint16_t)numbers[7].toInt();
+        if (count > 7)
+            dataStore->cmdSeq = (uint16_t)numbers[7].toInt();
         break;
     case DOCKED:
     case LOCKED:
@@ -110,12 +133,14 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->tgSpeed = numbers[4].toDouble();
         dataStore->wDir = numbers[5].toDouble();
         dataStore->wStd = numbers[6].toDouble();
-        if (count > 7) dataStore->cmdSeq = (uint16_t)numbers[7].toInt();
+        if (count > 7)
+            dataStore->cmdSeq = (uint16_t)numbers[7].toInt();
         break;
     case REMOTE:
         dataStore->tgDir = numbers[2].toDouble();
         dataStore->tgSpeed = numbers[3].toDouble();
-        if (count > 7) dataStore->cmdSeq = (uint16_t)numbers[7].toInt();
+        if (count > 7)
+            dataStore->cmdSeq = (uint16_t)numbers[7].toInt();
         break;
     case DIRSPEED:
         dataStore->dirMag = numbers[2].toDouble();
@@ -147,7 +172,8 @@ void RoboDecode(String data, RoboStruct *dataStore)
     case SUBACCU:
         dataStore->subAccuV = numbers[2].toFloat();
         dataStore->subAccuP = numbers[3].toInt();
-        if (count > 4) dataStore->subAccuI = numbers[4].toFloat();
+        if (count > 4)
+            dataStore->subAccuI = numbers[4].toFloat();
         break;
     case PIDRUDDERSET:
     case PIDRUDDER:
@@ -167,7 +193,8 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->speedBb = numbers[4].toInt();
         dataStore->speedSb = numbers[5].toInt();
         dataStore->subAccuV = numbers[6].toFloat();
-        if (count > 7) dataStore->subAccuI = numbers[7].toFloat();
+        if (count > 7)
+            dataStore->subAccuI = numbers[7].toFloat();
         break;
     case TOPPWR:
         dataStore->speedSet = numbers[2].toDouble();
@@ -175,7 +202,8 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->speedBb = numbers[4].toInt();
         dataStore->speedSb = numbers[5].toInt();
         dataStore->topAccuV = numbers[6].toFloat();
-        if (count > 7) dataStore->topAccuI = numbers[7].toFloat();
+        if (count > 7)
+            dataStore->topAccuI = numbers[7].toFloat();
         break;
     case BUOYPOS:
         dataStore->lat = numbers[2].toDouble();
@@ -216,7 +244,8 @@ void RoboDecode(String data, RoboStruct *dataStore)
     case MAXMINPWRSET:
         dataStore->maxSpeed = numbers[2].toInt();
         dataStore->minSpeed = numbers[3].toInt();
-        if (count > 4) dataStore->pivotSpeed = numbers[4].toDouble();
+        if (count > 4)
+            dataStore->pivotSpeed = numbers[4].toDouble();
         break;
     case DIRMDIRTGDIRG:
         dataStore->dirMag = numbers[2].toDouble();
@@ -234,10 +263,12 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->ir = numbers[6].toDouble();
         dataStore->subAccuV = numbers[7].toDouble();
         dataStore->subAccuP = numbers[8].toInt();
-        if (count > 9) dataStore->subAccuI = numbers[9].toFloat();
+        if (count > 9)
+            dataStore->subAccuI = numbers[9].toFloat();
         // Iron corrected heading, see RoboStruct::imag. Count guarded: an older Sub sends a
         // shorter frame and the Top keeps whatever it already had.
-        if (count > 10) dataStore->imag = numbers[10].toDouble();
+        if (count > 10)
+            dataStore->imag = numbers[10].toDouble();
         // Attitude. Count guarded like imag above: an older Sub sends a shorter frame and the Top
         // keeps whatever it had rather than reading a missing field as dead level.
         if (count > 12)
@@ -263,9 +294,11 @@ void RoboDecode(String data, RoboStruct *dataStore)
         dataStore->lng = numbers[15].toDouble();
         dataStore->gpsFix = (bool)numbers[16].toInt();
         dataStore->gpsSat = numbers[17].toInt();
-        if (count > 18) dataStore->subAccuI = numbers[18].toFloat();
+        if (count > 18)
+            dataStore->subAccuI = numbers[18].toFloat();
         // Iron corrected heading, see RoboStruct::imag.
-        if (count > 19) dataStore->imag = numbers[19].toDouble();
+        if (count > 19)
+            dataStore->imag = numbers[19].toDouble();
         break;
     case RAWCOMPASSDATA:
         dataStore->magHard[0] = numbers[2].toDouble();
@@ -309,14 +342,16 @@ void RoboDecode(String data, RoboStruct *dataStore)
         }
         break;
     case LORA_LINK:
-        if (count > 2) dataStore->linkOmitted = (uint8_t)numbers[2].toInt();
+        if (count > 2)
+            dataStore->linkOmitted = (uint8_t)numbers[2].toInt();
         dataStore->linkPeers = 0;
         // Walk the triples until they run out or the cap is reached. An empty id ends the list:
         // RoboCode() compresses an all-zero token to "", so a trailing empty field is padding
         // rather than a peer whose id happens to be zero.
         for (int i = 3; i + 2 < count && dataStore->linkPeers < LORA_LINK_MAX_PEERS; i += 3)
         {
-            if (numbers[i].length() == 0) break;
+            if (numbers[i].length() == 0)
+                break;
             int p = dataStore->linkPeers;
             dataStore->linkPeerId[p] = (uint32_t)strtoul(numbers[i].c_str(), NULL, 16);
             dataStore->linkRssi[p] = (int16_t)numbers[i + 1].toInt();
@@ -342,8 +377,10 @@ void RoboDecode(String data, RoboStruct *dataStore)
         // The captured mask and the press serial, both count-guarded. A node that predates them
         // sends a shorter frame; the mask then stays 0 and a reader falls back to treating
         // cal8Next as the progress, which is what the guided cursor alone used to mean.
-        if (count > 13) dataStore->cal8Mask = (uint8_t)numbers[13].toInt();
-        if (count > 14) dataStore->cal8Seq = (uint16_t)numbers[14].toInt();
+        if (count > 13)
+            dataStore->cal8Mask = (uint8_t)numbers[13].toInt();
+        if (count > 14)
+            dataStore->cal8Seq = (uint16_t)numbers[14].toInt();
         break;
     case STORE_INTERPOLATION_TABLE:
         // Presence is decided by the field COUNT, exactly as in SETUPDATA: RoboCode() compresses
@@ -359,7 +396,8 @@ void RoboDecode(String data, RoboStruct *dataStore)
         // table" and "the buoy is corrected" are different questions, and this answers the second.
         // The Sub reports the identity table when this is false, which a reader could not
         // otherwise tell apart from a genuinely uncalibrated buoy.
-        if (count > 10) dataStore->interpUsable = (bool)numbers[10].toInt();
+        if (count > 10)
+            dataStore->interpUsable = (bool)numbers[10].toInt();
         break;
     case CLEANING:
         // Carries nothing but its status, which was read above before this switch. Listed so it
@@ -375,7 +413,8 @@ String RoboCode(const RoboStruct *dataOut)
 {
     String out = String(dataOut->cmd);
     out += "," + String(dataOut->status);
-    if (dataOut->ack == ACK) return out;
+    if (dataOut->ack == ACK)
+        return out;
     switch (dataOut->cmd)
     {
     case SETUPDATA:
@@ -629,21 +668,21 @@ String RoboCode(const RoboStruct *dataOut)
     case REMOTE:
         out += "," + formatFloat(dataOut->tgDir, 0);
         out += "," + formatFloat(dataOut->tgSpeed, 0);
-        out += ",,,";                                  // pad numbers[4..6]
-        out += "," + String((int)dataOut->cmdSeq);     // numbers[7]
+        out += ",,,";                              // pad numbers[4..6]
+        out += "," + String((int)dataOut->cmdSeq); // numbers[7]
         break;
     case IDLE:
     case IDLING:
-        out += ",0,0,,,";                              // numbers[2..6]
-        out += "," + String((int)dataOut->cmdSeq);     // numbers[7]
+        out += ",0,0,,,";                          // numbers[2..6]
+        out += "," + String((int)dataOut->cmdSeq); // numbers[7]
         break;
     case CLEAN_THRUSTERS:
         // Padded to put the press serial in numbers[7], which is where every other press carries
         // it and where this decoder reads it. Emitted as well as decoded for the same reason the
         // holding states do it: a peer that re-encodes the frame onto the other transport must not
         // strip the serial, or its copy becomes indistinguishable from a fresh press.
-        out += ",0,0,,,";                              // numbers[2..6]
-        out += "," + String((int)dataOut->cmdSeq);     // numbers[7]
+        out += ",0,0,,,";                          // numbers[2..6]
+        out += "," + String((int)dataOut->cmdSeq); // numbers[7]
         break;
     case CLEANING:
         // No payload. The status field of the envelope, already emitted above, is the entire
@@ -662,22 +701,29 @@ String RoboCode(const RoboStruct *dataOut)
     // Compress zeros to empty strings to save bandwidth
     String optimized = "";
     int lastComma = -1;
-    for (unsigned int i = 0; i <= out.length(); i++) {
-        if (i == out.length() || out[i] == ',') {
+    for (unsigned int i = 0; i <= out.length(); i++)
+    {
+        if (i == out.length() || out[i] == ',')
+        {
             String token = out.substring(lastComma + 1, i);
-            if (token.length() > 0) {
+            if (token.length() > 0)
+            {
                 bool isZero = true;
-                for (unsigned int j = 0; j < token.length(); j++) {
-                    if (token[j] != '0' && token[j] != '.' && token[j] != '-') {
+                for (unsigned int j = 0; j < token.length(); j++)
+                {
+                    if (token[j] != '0' && token[j] != '.' && token[j] != '-')
+                    {
                         isZero = false;
                         break;
                     }
                 }
-                if (isZero && token != "-" && token != "." && token != "-.") {
+                if (isZero && token != "-" && token != "." && token != "-.")
+                {
                     token = "";
                 }
             }
-            if (lastComma != -1) optimized += ",";
+            if (lastComma != -1)
+                optimized += ",";
             optimized += token;
             lastComma = i;
         }
@@ -700,7 +746,8 @@ String addCRCToString(String input)
     input.trim();
     input.replace(" ", "");
     byte crc = 0;
-    for (int i = 0; i < input.length(); i++) crc ^= (byte)input.charAt(i);
+    for (int i = 0; i < input.length(); i++)
+        crc ^= (byte)input.charAt(i);
     char crcHex[3];
     sprintf(crcHex, "%02X", crc);
     return "$" + input + "*" + String(crcHex);
@@ -711,20 +758,25 @@ void rfDeCode(String rfIn, RoboStruct *in)
     rfIn.trim();
     in->IDr = -1;
     in->IDs = -1;
-    if (!rfIn.startsWith("$") || rfIn.indexOf('*') == -1) return;
-    if (!verifyCRC(rfIn)) return;
+    if (!rfIn.startsWith("$") || rfIn.indexOf('*') == -1)
+        return;
+    if (!verifyCRC(rfIn))
+        return;
     int starIndex = rfIn.indexOf('*');
     rfIn = rfIn.substring(1, starIndex);
     int comma1 = rfIn.indexOf(',');
-    if (comma1 == -1) return;
+    if (comma1 == -1)
+        return;
     in->IDr = strtoull(rfIn.substring(0, comma1).c_str(), NULL, 16);
     rfIn = rfIn.substring(comma1 + 1);
     int comma2 = rfIn.indexOf(',');
-    if (comma2 == -1) return;
+    if (comma2 == -1)
+        return;
     in->IDs = strtoull(rfIn.substring(0, comma2).c_str(), NULL, 16);
     rfIn = rfIn.substring(comma2 + 1);
     int comma3 = rfIn.indexOf(',');
-    if (comma3 == -1) return;
+    if (comma3 == -1)
+        return;
     in->ack = rfIn.substring(0, comma3).toInt();
     rfIn = rfIn.substring(comma3 + 1);
     RoboDecode(rfIn, in);
@@ -734,9 +786,11 @@ bool verifyCRC(String input)
 {
     int start = input.indexOf('$');
     int end = input.indexOf('*');
-    if (start == -1 || end == -1 || end <= start || end + 2 >= input.length()) return false;
+    if (start == -1 || end == -1 || end <= start || end + 2 >= input.length())
+        return false;
     byte calculatedCRC = 0;
-    for (int i = start + 1; i < end; i++) calculatedCRC ^= input[i];
+    for (int i = start + 1; i < end; i++)
+        calculatedCRC ^= input[i];
     String givenCRC = input.substring(end + 1, end + 3);
     char calculatedCRCHex[3];
     sprintf(calculatedCRCHex, "%02X", calculatedCRC);
@@ -773,8 +827,10 @@ void deviationWindRose(RoboWindStruct *wData)
         sumSin += sin(angleRad);
     }
     double R = sqrt(sumCos * sumCos + sumSin * sumSin) / SAMPELS;
-    if (R > 1.0) R = 1.0;
-    if (R < 0.000001) R = 0.000001;
+    if (R > 1.0)
+        R = 1.0;
+    if (R < 0.000001)
+        R = 0.000001;
     double circStdRad = sqrt(-2.0 * log(R));
     wData->wStd = circStdRad * 180.0 / M_PI;
 }
@@ -789,7 +845,11 @@ void PidDecode(String data, int pid, RoboStruct *buoy)
     while (count < 20)
     {
         int commaIndex = substring.indexOf(',');
-        if (commaIndex == -1) { numbers[count++] = substring; break; }
+        if (commaIndex == -1)
+        {
+            numbers[count++] = substring;
+            break;
+        }
         numbers[count++] = substring.substring(0, commaIndex);
         substring = substring.substring(commaIndex + 1);
     }
@@ -833,7 +893,11 @@ void gpsGem(double &lat, double &lon)
     gpsgem[point][1] = lon;
     point = (point + 1) % 20;
     double sumLat = 0, sumLon = 0;
-    for (int i = 0; i < 20; i++) { sumLat += gpsgem[i][0]; sumLon += gpsgem[i][1]; }
+    for (int i = 0; i < 20; i++)
+    {
+        sumLat += gpsgem[i][0];
+        sumLon += gpsgem[i][1];
+    }
     lat = sumLat / 20;
     lon = sumLon / 20;
 }
@@ -863,7 +927,8 @@ double calculateBearing(double lat1, double lon1, double lat2, double lon2)
 double smallestAngle(double heading1, double heading2)
 {
     double angle = fmod(heading2 - heading1 + 360, 360);
-    if (angle > 180) return angle - 360;
+    if (angle > 180)
+        return angle - 360;
     return angle;
 }
 
@@ -884,8 +949,10 @@ void adjustPositionDirDist(double bearing_deg, double distance,
     double lon2 = lon1 + atan2(sin(bearing) * sin(ad) * cos(lat1), cos(ad) - sin(lat1) * sin(lat2));
     *lat2_deg = degrees(lat2);
     *lon2_deg = degrees(lon2);
-    if (*lon2_deg > 180.0) *lon2_deg -= 360.0;
-    else if (*lon2_deg < -180.0) *lon2_deg += 360.0;
+    if (*lon2_deg > 180.0)
+        *lon2_deg -= 360.0;
+    else if (*lon2_deg < -180.0)
+        *lon2_deg += 360.0;
 }
 
 double calculateAngle(double x1, double y1, double x2, double y2)
@@ -934,10 +1001,8 @@ double computeWindAngle(double windDegrees, double lat, double lon, double centr
 static bool starboardGoesToFirst(double aLat, double aLng, double bLat, double bLng,
                                  double sbLat, double sbLng, double bbLat, double bbLng)
 {
-    double aTakesSb = distanceBetween(aLat, aLng, sbLat, sbLng)
-                    + distanceBetween(bLat, bLng, bbLat, bbLng);
-    double aTakesBb = distanceBetween(aLat, aLng, bbLat, bbLng)
-                    + distanceBetween(bLat, bLng, sbLat, sbLng);
+    double aTakesSb = distanceBetween(aLat, aLng, sbLat, sbLng) + distanceBetween(bLat, bLng, bbLat, bbLng);
+    double aTakesBb = distanceBetween(aLat, aLng, bbLat, bbLng) + distanceBetween(bLat, bLng, sbLat, sbLng);
     return aTakesSb <= aTakesBb;
 }
 
@@ -946,16 +1011,20 @@ double meanWindDir(double dirA, double stdA, double dirB, double stdB, double fa
 {
     bool okA = (dirA != 0.0 || stdA != 0.0);
     bool okB = (dirB != 0.0 || stdB != 0.0);
-    if (!okA && !okB) return fallback;
-    if (!okB) return dirA;
-    if (!okA) return dirB;
+    if (!okA && !okB)
+        return fallback;
+    if (!okB)
+        return dirA;
+    if (!okA)
+        return dirB;
 
     double ra = dirA * M_PI / 180.0, rb = dirB * M_PI / 180.0;
     double x = cos(ra) + cos(rb), y = sin(ra) + sin(rb);
     // Exactly opposite readings have no mean direction, and the perpendicular atan2 would hand
     // back is not one either. That is a fault rather than a wind, so keep the reading the
     // computing buoy was going to use anyway.
-    if (fabs(x) < 1e-9 && fabs(y) < 1e-9) return fallback;
+    if (fabs(x) < 1e-9 && fabs(y) < 1e-9)
+        return fallback;
 
     double m = atan2(y, x) * 180.0 / M_PI;
     return fmod(m + 360.0, 360.0);
@@ -1001,7 +1070,9 @@ bool recalcStartLine(struct RoboStruct rsl[3])
         // the fallback: handleStatus() puts the computing buoy's filtered wind there, and it has
         // already refused to compute at all if that reading is missing.
         angleSb = fmod(meanWindDir(rsl[0].wDir, rsl[0].wStd, rsl[1].wDir, rsl[1].wStd,
-                                   rsl[0].wDir) + 90.0, 360.0);
+                                   rsl[0].wDir) +
+                           90.0,
+                       360.0);
         angleBb = fmod(angleSb + 180.0, 360.0);
 
         // Both candidate ends first, then hand each buoy the one it is nearer to - see
@@ -1033,7 +1104,9 @@ bool recalcStartLine(struct RoboStruct rsl[3])
         twoPointAverage(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng, &midLat, &midLng);
         // Mean of both ends, same as the branch above.
         angleSb = fmod(meanWindDir(rsl[0].wDir, rsl[0].wStd, rsl[2].wDir, rsl[2].wStd,
-                                   rsl[0].wDir) + 90.0, 360.0);
+                                   rsl[0].wDir) +
+                           90.0,
+                       360.0);
         angleBb = fmod(angleSb + 180.0, 360.0);
 
         // Nearest end wins, same as the branch above.
@@ -1066,7 +1139,9 @@ bool recalcStartLine(struct RoboStruct rsl[3])
         // handleStatus() copies the computing buoy's filtered wind into slot 0, and that is the
         // reading the compute guards have already tested.
         angleSb = fmod(meanWindDir(rsl[1].wDir, rsl[1].wStd, rsl[2].wDir, rsl[2].wStd,
-                                   rsl[0].wDir) + 90.0, 360.0);
+                                   rsl[0].wDir) +
+                           90.0,
+                       360.0);
         angleBb = fmod(angleSb + 180.0, 360.0);
 
         // Nearest end wins, same as the branches above.
@@ -1111,9 +1186,24 @@ bool extendStartLine(struct RoboStruct rsl[3], double metres)
     // agree about which pair they are talking about or a press of one undoes a press of the other.
     int a, b;
     double len;
-    if (d0 < d1 && d0 < d2)      { a = 0; b = 1; len = d0; }
-    else if (d1 < d0 && d1 < d2) { a = 0; b = 2; len = d1; }
-    else if (d2 < d0 && d2 < d1) { a = 1; b = 2; len = d2; }
+    if (d0 < d1 && d0 < d2)
+    {
+        a = 0;
+        b = 1;
+        len = d0;
+    }
+    else if (d1 < d0 && d1 < d2)
+    {
+        a = 0;
+        b = 2;
+        len = d1;
+    }
+    else if (d2 < d0 && d2 < d1)
+    {
+        a = 1;
+        b = 2;
+        len = d2;
+    }
     else
     {
         printf("# No usable buoy pair to extend\r\n");
@@ -1277,10 +1367,14 @@ bool reCalcTrack(struct RoboStruct rsl[3])
 
 void trackPosPrint(int c)
 {
-    if (c == HEAD) printf("HEAD");
-    else if (c == PORT) printf("PORT");
-    else if (c == STARBOARD) printf("STARBOARD");
-    else printf("NON");
+    if (c == HEAD)
+        printf("HEAD");
+    else if (c == PORT)
+        printf("PORT");
+    else if (c == STARBOARD)
+        printf("STARBOARD");
+    else
+        printf("NON");
 }
 
 RoboStruct calcTrackPos(RoboStruct rsl[3])
@@ -1294,7 +1388,8 @@ RoboStruct calcTrackPos(RoboStruct rsl[3])
         dir = calculateBearing(rsl[0].tgLat, rsl[0].tgLng, rsl[1].tgLat, rsl[1].tgLng);
         // Mean of the two buoys the line runs between, not slot 0 alone - see meanWindDir().
         if (smallestAngle(meanWindDir(rsl[0].wDir, rsl[0].wStd, rsl[1].wDir, rsl[1].wStd,
-                                      rsl[0].wDir), dir) >= 0)
+                                      rsl[0].wDir),
+                          dir) >= 0)
         {
             rsl[0].trackPos = PORT;
             rsl[1].trackPos = STARBOARD;
@@ -1311,7 +1406,8 @@ RoboStruct calcTrackPos(RoboStruct rsl[3])
     {
         dir = calculateBearing(rsl[0].tgLat, rsl[0].tgLng, rsl[2].tgLat, rsl[2].tgLng);
         if (smallestAngle(meanWindDir(rsl[0].wDir, rsl[0].wStd, rsl[2].wDir, rsl[2].wStd,
-                                      rsl[0].wDir), dir) >= 0)
+                                      rsl[0].wDir),
+                          dir) >= 0)
         {
             rsl[0].trackPos = PORT;
             rsl[1].trackPos = HEAD;
@@ -1329,7 +1425,8 @@ RoboStruct calcTrackPos(RoboStruct rsl[3])
         dir = calculateBearing(rsl[1].tgLat, rsl[1].tgLng, rsl[2].tgLat, rsl[2].tgLng);
         // The two ends are slots 1 and 2 here; slot 0 is the upwind mark and stays the fallback.
         if (smallestAngle(meanWindDir(rsl[1].wDir, rsl[1].wStd, rsl[2].wDir, rsl[2].wStd,
-                                      rsl[0].wDir), dir) >= 0)
+                                      rsl[0].wDir),
+                          dir) >= 0)
         {
             rsl[0].trackPos = HEAD;
             rsl[1].trackPos = PORT;
@@ -1376,70 +1473,100 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
     switch (src.cmd)
     {
     case BUOYPOS:
-        dst->lat = src.lat;             dst->lng = src.lng;
+        dst->lat = src.lat;
+        dst->lng = src.lng;
         dst->dirMag = src.dirMag;
-        dst->wDir = src.wDir;           dst->wStd = src.wStd;
-        dst->topAccuP = src.topAccuP;   dst->subAccuP = src.subAccuP;
-        dst->gpsFix = src.gpsFix;       dst->gpsSat = src.gpsSat;
+        dst->wDir = src.wDir;
+        dst->wStd = src.wStd;
+        dst->topAccuP = src.topAccuP;
+        dst->subAccuP = src.subAccuP;
+        dst->gpsFix = src.gpsFix;
+        dst->gpsSat = src.gpsSat;
         break;
 
     case TOPDATA:
-        dst->dirMag = src.dirMag;       dst->gpsDir = src.gpsDir;
+        dst->dirMag = src.dirMag;
+        dst->gpsDir = src.gpsDir;
         dst->imag = src.imag;
-        dst->tgDir = src.tgDir;         dst->tgDist = src.tgDist;
-        dst->wDir = src.wDir;           dst->wStd = src.wStd;
-        dst->speedBb = src.speedBb;     dst->speedSb = src.speedSb;
-        dst->ip = src.ip;               dst->ir = src.ir;
-        dst->subAccuV = src.subAccuV;   dst->subAccuP = src.subAccuP;
+        dst->tgDir = src.tgDir;
+        dst->tgDist = src.tgDist;
+        dst->wDir = src.wDir;
+        dst->wStd = src.wStd;
+        dst->speedBb = src.speedBb;
+        dst->speedSb = src.speedSb;
+        dst->ip = src.ip;
+        dst->ir = src.ir;
+        dst->subAccuV = src.subAccuV;
+        dst->subAccuP = src.subAccuP;
         dst->subAccuI = src.subAccuI;
-        dst->lat = src.lat;             dst->lng = src.lng;
-        dst->gpsFix = src.gpsFix;       dst->gpsSat = src.gpsSat;
+        dst->lat = src.lat;
+        dst->lng = src.lng;
+        dst->gpsFix = src.gpsFix;
+        dst->gpsSat = src.gpsSat;
         break;
 
     case SUBDATA:
         dst->dirMag = src.dirMag;
         dst->imag = src.imag;
-        dst->speedBb = src.speedBb;     dst->speedSb = src.speedSb;
-        dst->ip = src.ip;               dst->ir = src.ir;
-        dst->subAccuV = src.subAccuV;   dst->subAccuP = src.subAccuP;
+        dst->speedBb = src.speedBb;
+        dst->speedSb = src.speedSb;
+        dst->ip = src.ip;
+        dst->ir = src.ir;
+        dst->subAccuV = src.subAccuV;
+        dst->subAccuP = src.subAccuP;
         dst->subAccuI = src.subAccuI;
-        dst->pitch = src.pitch;         dst->roll = src.roll;
+        dst->pitch = src.pitch;
+        dst->roll = src.roll;
         break;
 
     case SUBACCU:
-        dst->subAccuV = src.subAccuV;   dst->subAccuP = src.subAccuP;
+        dst->subAccuV = src.subAccuV;
+        dst->subAccuP = src.subAccuP;
         dst->subAccuI = src.subAccuI;
         break;
 
     case SUBPWR:
-        dst->speedSet = src.speedSet;   dst->speed = src.speed;
-        dst->speedBb = src.speedBb;     dst->speedSb = src.speedSb;
-        dst->subAccuV = src.subAccuV;   dst->subAccuI = src.subAccuI;
+        dst->speedSet = src.speedSet;
+        dst->speed = src.speed;
+        dst->speedBb = src.speedBb;
+        dst->speedSb = src.speedSb;
+        dst->subAccuV = src.subAccuV;
+        dst->subAccuI = src.subAccuI;
         break;
 
     case LOCKPOS:
     case DOCKPOS:
-        dst->tgLat = src.tgLat;         dst->tgLng = src.tgLng;
-        dst->wDir = src.wDir;           dst->wStd = src.wStd;
+        dst->tgLat = src.tgLat;
+        dst->tgLng = src.tgLng;
+        dst->wDir = src.wDir;
+        dst->wStd = src.wStd;
         break;
 
     case SETLOCKPOS:
     case SETDOCKPOS:
-        dst->tgLat = src.tgLat;         dst->tgLng = src.tgLng;
+        dst->tgLat = src.tgLat;
+        dst->tgLng = src.tgLng;
         break;
 
     case DIRDIST:
-        dst->tgDir = src.tgDir;         dst->tgDist = src.tgDist;
+        dst->tgDir = src.tgDir;
+        dst->tgDist = src.tgDist;
         break;
 
     case SETUPDATA:
-        dst->Kpr = src.Kpr; dst->Kir = src.Kir; dst->Kdr = src.Kdr;
-        dst->Kps = src.Kps; dst->Kis = src.Kis; dst->Kds = src.Kds;
-        dst->maxSpeed = src.maxSpeed;   dst->minSpeed = src.minSpeed;
+        dst->Kpr = src.Kpr;
+        dst->Kir = src.Kir;
+        dst->Kdr = src.Kdr;
+        dst->Kps = src.Kps;
+        dst->Kis = src.Kis;
+        dst->Kds = src.Kds;
+        dst->maxSpeed = src.maxSpeed;
+        dst->minSpeed = src.minSpeed;
         dst->pivotSpeed = src.pivotSpeed;
         dst->compassOffset = src.compassOffset;
         dst->holdRad = src.holdRad;
-        dst->revBB = src.revBB;         dst->revSB = src.revSB;
+        dst->revBB = src.revBB;
+        dst->revSB = src.revSB;
         dst->swap_BB_SB = src.swap_BB_SB;
         dst->compass_trim_enabled = src.compass_trim_enabled;
         dst->dockApproachDist = src.dockApproachDist;
@@ -1460,12 +1587,14 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
     // to prevent. Neither is fed into the buoy base today; that is a property of the callers,
     // not something worth relying on here.
     case STORE_INTERPOLATION_TABLE:
-        for (int i = 0; i < 8; i++) dst->interpolationTable[i] = src.interpolationTable[i];
+        for (int i = 0; i < 8; i++)
+            dst->interpolationTable[i] = src.interpolationTable[i];
         dst->interpUsable = src.interpUsable;
         break;
 
     case ATTITUDE:
-        dst->pitch = src.pitch;         dst->roll = src.roll;
+        dst->pitch = src.pitch;
+        dst->roll = src.roll;
         break;
 
     case LORA_LINK:
@@ -1483,7 +1612,8 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
         dst->cal8Action = src.cal8Action;
         dst->cal8Active = src.cal8Active;
         dst->cal8Next = src.cal8Next;
-        for (int i = 0; i < 8; i++) dst->cal8Captured[i] = src.cal8Captured[i];
+        for (int i = 0; i < 8; i++)
+            dst->cal8Captured[i] = src.cal8Captured[i];
         dst->cal8Mask = src.cal8Mask;
         dst->cal8Seq = src.cal8Seq;
         break;
@@ -1508,7 +1638,8 @@ void MergeBuoyData(RoboStruct *dst, const RoboStruct &src)
 void AddDataToBuoyBase(const RoboStruct &dataIn, RoboStruct *buoyPara[3])
 {
     // An ID of 0 is not a buoy, so never allocate a slot for it.
-    if (dataIn.IDs == 0) return;
+    if (dataIn.IDs == 0)
+        return;
 
     // Two passes, deliberately. The old single pass accepted either an ID match OR the first
     // free slot, whichever came first in index order - so if a buoy was already held in slot 2
@@ -1536,6 +1667,8 @@ void AddDataToBuoyBase(const RoboStruct &dataIn, RoboStruct *buoyPara[3])
 
 int GetDataPosFromBuoyBase(uint64_t id, RoboStruct buoyPara[3])
 {
-    for (int i = 0; i < 3; i++) if (id == buoyPara[i].IDs) return i;
+    for (int i = 0; i < 3; i++)
+        if (id == buoyPara[i].IDs)
+            return i;
     return -1;
 }
