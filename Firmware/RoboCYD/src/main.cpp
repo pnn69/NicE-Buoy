@@ -10,7 +10,6 @@
 #include "robo_config.h"
 #include "robo_mesh.h"
 
-
 // Pick the buoy whose wind reading should drive a course computation.
 //
 // COMPUTESTART/COMPUTETRACK are executed by whichever buoy receives them, and that buoy squares
@@ -26,17 +25,22 @@ static int pick_wind_reference_buoy();
 // RoboCompute.h - kept as a local copy because this screen works from BuoyData, not RoboStructs.
 // Vector mean, not arithmetic: 350 and 10 average to 0, not to 180. A buoy reading 0/0 has no wind
 // reading at all rather than a northerly, so it is left out.
-static float mean_wind_dir(float dirA, float stdA, float dirB, float stdB, float fallback) {
+static float mean_wind_dir(float dirA, float stdA, float dirB, float stdB, float fallback)
+{
     bool okA = (dirA != 0 || stdA != 0);
     bool okB = (dirB != 0 || stdB != 0);
-    if (!okA && !okB) return fallback;
-    if (!okB) return dirA;
-    if (!okA) return dirB;
+    if (!okA && !okB)
+        return fallback;
+    if (!okB)
+        return dirA;
+    if (!okA)
+        return dirB;
     float ra = dirA * PI / 180.0f, rb = dirB * PI / 180.0f;
     float x = cos(ra) + cos(rb), y = sin(ra) + sin(rb);
     // Exactly opposite readings have no mean direction, and the perpendicular atan2 would return
     // is not one either. A fault, not a wind.
-    if (fabs(x) < 1e-6 && fabs(y) < 1e-6) return fallback;
+    if (fabs(x) < 1e-6 && fabs(y) < 1e-6)
+        return fallback;
     float m = atan2(y, x) * 180.0f / PI;
     return fmod(m + 360.0f, 360.0f);
 }
@@ -45,18 +49,31 @@ static float mean_wind_dir(float dirA, float stdA, float dirB, float stdB, float
 // Not where they are supposed to be - the line drawn on this screen is the one the crew can see
 // from the water, and that is the one the wind has to be squared against. Returns false when
 // there are not two buoys with a fix.
-static bool find_start_line_pair(int &a, int &b) {
-    a = -1; b = -1;
+static bool find_start_line_pair(int &a, int &b)
+{
+    a = -1;
+    b = -1;
     double best = -1;
-    for (int i = 0; i < 3; i++) {
-        if (buoys[i].id == "" || !buoys[i].present) continue;
-        if (buoys[i].lat == "N/A" || buoys[i].lat == "" || atof(buoys[i].lat.c_str()) == 0) continue;
-        for (int j = i + 1; j < 3; j++) {
-            if (buoys[j].id == "" || !buoys[j].present) continue;
-            if (buoys[j].lat == "N/A" || buoys[j].lat == "" || atof(buoys[j].lat.c_str()) == 0) continue;
+    for (int i = 0; i < 3; i++)
+    {
+        if (buoys[i].id == "" || !buoys[i].present)
+            continue;
+        if (buoys[i].lat == "N/A" || buoys[i].lat == "" || atof(buoys[i].lat.c_str()) == 0)
+            continue;
+        for (int j = i + 1; j < 3; j++)
+        {
+            if (buoys[j].id == "" || !buoys[j].present)
+                continue;
+            if (buoys[j].lat == "N/A" || buoys[j].lat == "" || atof(buoys[j].lat.c_str()) == 0)
+                continue;
             double d = track_distance_m(atof(buoys[i].lat.c_str()), atof(buoys[i].lon.c_str()),
                                         atof(buoys[j].lat.c_str()), atof(buoys[j].lon.c_str()));
-            if (best < 0 || d < best) { best = d; a = i; b = j; }
+            if (best < 0 || d < best)
+            {
+                best = d;
+                a = i;
+                b = j;
+            }
         }
     }
     return (a >= 0 && b >= 0);
@@ -66,14 +83,17 @@ static bool find_start_line_pair(int &a, int &b) {
 // the wind across the line rather than one anemometer's opinion of it. The third buoy is the
 // upwind mark and is no part of the line, so its reading is left out. Falls back to the single
 // reference buoy when there is no pair yet. Returns false when nothing reports wind at all.
-static bool start_line_wind(float &wdir, float &wstd) {
+static bool start_line_wind(float &wdir, float &wstd)
+{
     int a, b;
-    if (find_start_line_pair(a, b)) {
+    if (find_start_line_pair(a, b))
+    {
         int ref = pick_wind_reference_buoy();
         float fb = (ref >= 0) ? buoys[ref].wind_dir : 0;
         bool okA = (buoys[a].wind_dir != 0 || buoys[a].wind_std != 0);
         bool okB = (buoys[b].wind_dir != 0 || buoys[b].wind_std != 0);
-        if (okA || okB) {
+        if (okA || okB)
+        {
             wdir = mean_wind_dir(buoys[a].wind_dir, buoys[a].wind_std,
                                  buoys[b].wind_dir, buoys[b].wind_std, fb);
             // The spread that goes with an averaged direction is the worse of the two, not their
@@ -84,15 +104,19 @@ static bool start_line_wind(float &wdir, float &wstd) {
         }
     }
     int ref = pick_wind_reference_buoy();
-    if (ref < 0) return false;
+    if (ref < 0)
+        return false;
     wdir = buoys[ref].wind_dir;
     wstd = buoys[ref].wind_std;
     return true;
 }
 
-static int pick_wind_reference_buoy() {
-    for (int i = 0; i < 3; i++) {
-        if (buoys[i].id != "" && (buoys[i].wind_dir != 0 || buoys[i].wind_std != 0)) {
+static int pick_wind_reference_buoy()
+{
+    for (int i = 0; i < 3; i++)
+    {
+        if (buoys[i].id != "" && (buoys[i].wind_dir != 0 || buoys[i].wind_std != 0))
+        {
             return i;
         }
     }
@@ -100,10 +124,10 @@ static int pick_wind_reference_buoy() {
 }
 
 unsigned long lastUIUpdate = 0;
-int lastKnownState = -2; // Used to trigger a static redraw on state change
-bool lastSetupState = false; // Tracks setup screen state transitions
-bool lastMannavState = false; // Tracks manual navigation screen state transitions
-bool lastLoadedState = false; // Tracks setup data loaded transitions
+int lastKnownState = -2;             // Used to trigger a static redraw on state change
+bool lastSetupState = false;         // Tracks setup screen state transitions
+bool lastMannavState = false;        // Tracks manual navigation screen state transitions
+bool lastLoadedState = false;        // Tracks setup data loaded transitions
 bool lastManFourierCalState = false; // Tracks manual Fourier calibration screen state transitions
 
 bool in_man_fourier_cal_mode = false;
@@ -172,8 +196,8 @@ bool mancal_begin_sent = false;
 // dozen degrees on these hulls. A tight window there would show red on a perfectly good capture and
 // teach the operator to ignore the colour. What is worth catching is the gross error - the fixture
 // indexed to the wrong mark, which is out by tens of degrees.
-#define MANCAL_DEV_GOOD_DEG 12.0f    // green: an ordinary amount of deviation
-#define MANCAL_DEV_WARN_DEG 25.0f    // yellow: large, but a real hull can do this
+#define MANCAL_DEV_GOOD_DEG 12.0f // green: an ordinary amount of deviation
+#define MANCAL_DEV_WARN_DEG 25.0f // yellow: large, but a real hull can do this
 
 // A capture that has gone out and not yet been confirmed. Presses are numbered, and the number is
 // one past the last the buoy reported applying - so a second tap sent before the first has landed
@@ -206,14 +230,19 @@ static bool mancal_running(const BuoyData &b) { return b.cal8_ms != 0 && b.cal8_
 // counting on it would leave SAVE greyed out after a redo of an otherwise finished run.
 static bool mancal_complete(const BuoyData &b) { return mancal_running(b) && (b.cal8_mask & 0xFF) == 0xFF; }
 static bool mancal_captured(const BuoyData &b, int i) { return (b.cal8_mask & (1 << i)) != 0; }
-static int mancal_count(const BuoyData &b) {
+static int mancal_count(const BuoyData &b)
+{
     int n = 0;
-    for (int i = 0; i < 8; i++) if (mancal_captured(b, i)) n++;
+    for (int i = 0; i < 8; i++)
+        if (mancal_captured(b, i))
+            n++;
     return n;
 }
 // The direction the buoy is asking for next, or -1 when every one is in.
-static int mancal_leg(const BuoyData &b) {
-    if (!mancal_running(b)) return 0;
+static int mancal_leg(const BuoyData &b)
+{
+    if (!mancal_running(b))
+        return 0;
     return (b.cal8_next >= 0 && b.cal8_next <= 7) ? b.cal8_next : -1;
 }
 // Nothing may be pressed until the buoy has said whether a run is already going. Starting a second
@@ -227,31 +256,40 @@ static bool mancal_known(const BuoyData &b) { return b.cal8_ms != 0; }
 // one was measured coming back six times on LoRa across 8 seconds, because every receiver repeats
 // what it hears once - and without a serial the buoy cannot tell a late copy of an old BEGIN from
 // a new one, so it re-arms the run and the captures vanish. See cal8SeqRejects() on the Sub.
-static int mancal_next_seq(const BuoyData &b) {
+static int mancal_next_seq(const BuoyData &b)
+{
     int s = b.cal8_seq + 1;
     return (s > 0xFFFF) ? 1 : s;
 }
 
 // Is the buoy's Imag arriving, and recently enough to believe?
-static bool mancal_imag_live(const BuoyData &b) {
+static bool mancal_imag_live(const BuoyData &b)
+{
     return b.mag_dir_iron_ms != 0 && (millis() - b.mag_dir_iron_ms) <= MANCAL_HEADING_STALE_MS;
 }
 
 // Is the hull on the compass's own zero? This is what N waits for, and what colours the big
 // reading. Signed distance from zero, so 359 is one degree out and not three hundred and fifty.
-static bool mancal_on_anchor(const BuoyData &b) {
-    if (!mancal_imag_live(b)) return false;
+static bool mancal_on_anchor(const BuoyData &b)
+{
+    if (!mancal_imag_live(b))
+        return false;
     float off = b.mag_dir_iron;
-    while (off > 180.0f) off -= 360.0f;
-    while (off < -180.0f) off += 360.0f;
+    while (off > 180.0f)
+        off -= 360.0f;
+    while (off < -180.0f)
+        off += 360.0f;
     return fabsf(off) <= MANCAL_ANCHOR_TOL;
 }
 
 // Signed gap between the live reading and the direction currently being asked for.
-static float mancal_gap_to_leg(const BuoyData &b, int leg) {
+static float mancal_gap_to_leg(const BuoyData &b, int leg)
+{
     float gap = b.mag_dir_iron - leg * 45.0f;
-    while (gap > 180.0f) gap -= 360.0f;
-    while (gap < -180.0f) gap += 360.0f;
+    while (gap > 180.0f)
+        gap -= 360.0f;
+    while (gap < -180.0f)
+        gap += 360.0f;
     return gap;
 }
 
@@ -260,22 +298,35 @@ static float mancal_gap_to_leg(const BuoyData &b, int leg) {
 // N is a hard gate - the run is anchored on the compass's own zero, so it is pass or fail and red
 // means "do not press yet". The other seven are not a gate at all: they are judged against the
 // direction being asked for, with room for the deviation that is the whole point of measuring.
-static uint16_t mancal_imag_colour(const BuoyData &b, bool running, int leg) {
-    if (!mancal_imag_live(b)) return TFT_DARKGREY;
-    if (!running || leg < 0) return TFT_LIGHTGREY;
-    if (leg == 0) return mancal_on_anchor(b) ? TFT_GREEN : TFT_RED;
+static uint16_t mancal_imag_colour(const BuoyData &b, bool running, int leg)
+{
+    if (!mancal_imag_live(b))
+        return TFT_DARKGREY;
+    if (!running || leg < 0)
+        return TFT_LIGHTGREY;
+    if (leg == 0)
+        return mancal_on_anchor(b) ? TFT_GREEN : TFT_RED;
 
     float gap = fabsf(mancal_gap_to_leg(b, leg));
-    if (gap <= MANCAL_DEV_GOOD_DEG) return TFT_GREEN;
-    if (gap <= MANCAL_DEV_WARN_DEG) return TFT_YELLOW;
+    if (gap <= MANCAL_DEV_GOOD_DEG)
+        return TFT_GREEN;
+    if (gap <= MANCAL_DEV_WARN_DEG)
+        return TFT_YELLOW;
     return TFT_RED;
 }
 
 // True while a capture is out and unconfirmed - see mancal_press_seq.
-static bool mancal_press_pending(const BuoyData &b) {
-    if (mancal_press_leg < 0) return false;
-    if (b.cal8_seq == mancal_press_seq) { mancal_press_leg = -1; return false; }
-    if ((long)(millis() - (mancal_press_ms + MANCAL_PRESS_TIMEOUT_MS)) >= 0) {
+static bool mancal_press_pending(const BuoyData &b)
+{
+    if (mancal_press_leg < 0)
+        return false;
+    if (b.cal8_seq == mancal_press_seq)
+    {
+        mancal_press_leg = -1;
+        return false;
+    }
+    if ((long)(millis() - (mancal_press_ms + MANCAL_PRESS_TIMEOUT_MS)) >= 0)
+    {
         mancal_press_leg = -1;
         return false;
     }
@@ -311,9 +362,9 @@ static bool mancal_press_pending(const BuoyData &b) {
 // space wide enough for a real target is beside the reading. The Imag repaint below is clipped to
 // x < MANCAL_LVL_X so it cannot wipe the button on every update.
 #define MANCAL_LVL_X 164
-#define MANCAL_LVL_Y  62
-#define MANCAL_LVL_W  64
-#define MANCAL_LVL_H  32
+#define MANCAL_LVL_Y 62
+#define MANCAL_LVL_W 64
+#define MANCAL_LVL_H 32
 
 // Two taps to commit. This writes a datum to the buoy and it sits within reach of a thumb going for
 // the rose, so one stray press must not be able to redefine what level means halfway through a run.
@@ -325,9 +376,12 @@ static bool mancal_press_pending(const BuoyData &b) {
 #define MANCAL_LEVEL_ARM_MS 10000UL
 static unsigned long mancal_level_armed_ms = 0;
 
-static bool mancal_level_armed(void) {
-    if (mancal_level_armed_ms == 0) return false;
-    if (millis() - mancal_level_armed_ms > MANCAL_LEVEL_ARM_MS) {
+static bool mancal_level_armed(void)
+{
+    if (mancal_level_armed_ms == 0)
+        return false;
+    if (millis() - mancal_level_armed_ms > MANCAL_LEVEL_ARM_MS)
+    {
         mancal_level_armed_ms = 0;
         return false;
     }
@@ -335,8 +389,9 @@ static bool mancal_level_armed(void) {
 }
 
 // The bubble, in the middle of the rose. Full scale at the outer ring is 10 degrees.
-static void draw_mancal_level(const BuoyData &b, bool known) {
-    const int r_out = 22;                       // 10 deg
+static void draw_mancal_level(const BuoyData &b, bool known)
+{
+    const int r_out = 22; // 10 deg
     const float px_per_deg = r_out / 10.0f;
 
     tft.fillCircle(MANCAL_CX, MANCAL_CY, r_out + 2, TFT_BLACK);
@@ -346,7 +401,8 @@ static void draw_mancal_level(const BuoyData &b, bool known) {
     tft.drawFastHLine(MANCAL_CX - r_out, MANCAL_CY, r_out * 2, tft.color565(45, 45, 45));
     tft.drawFastVLine(MANCAL_CX, MANCAL_CY - r_out, r_out * 2, tft.color565(45, 45, 45));
 
-    if (!known) {
+    if (!known)
+    {
         // Hollow, and centred on nothing in particular - an empty ring reads as "no reading",
         // where a grey ball in the middle would read as "perfectly level".
         tft.setTextDatum(MC_DATUM);
@@ -357,9 +413,9 @@ static void draw_mancal_level(const BuoyData &b, bool known) {
     }
 
     float tilt = sqrtf(b.pitch * b.pitch + b.roll * b.roll);
-    uint16_t col = (tilt <= MANCAL_TILT_GOOD_DEG) ? TFT_GREEN
-                 : (tilt <= MANCAL_TILT_POOR_DEG) ? TFT_ORANGE
-                                                  : TFT_RED;
+    uint16_t col = (tilt <= MANCAL_TILT_GOOD_DEG)   ? TFT_GREEN
+                   : (tilt <= MANCAL_TILT_POOR_DEG) ? TFT_ORANGE
+                                                    : TFT_RED;
 
     // Roll moves the bubble across, pitch moves it up the screen when the bow is up - the way a
     // real bubble sits. Clamped to the rim so a big list parks it at the edge instead of drawing
@@ -368,14 +424,19 @@ static void draw_mancal_level(const BuoyData &b, bool known) {
     float dy = -b.pitch * px_per_deg;
     float mag = sqrtf(dx * dx + dy * dy);
     float lim = (float)(r_out - 4);
-    if (mag > lim && mag > 0.001f) { dx = dx * lim / mag; dy = dy * lim / mag; }
+    if (mag > lim && mag > 0.001f)
+    {
+        dx = dx * lim / mag;
+        dy = dy * lim / mag;
+    }
 
     tft.fillCircle(MANCAL_CX + (int)dx, MANCAL_CY + (int)dy, 4, col);
 }
 
 // The warn row, without the 900 ms block mancal_warn() carries. An arming tap must not spend a
 // quarter of its own window sitting in a delay().
-static void mancal_note(const char *msg, uint16_t col) {
+static void mancal_note(const char *msg, uint16_t col)
+{
     tft.fillRect(0, 242, tft.width(), 13, TFT_BLACK);
     tft.setTextDatum(MC_DATUM);
     tft.setTextSize(1);
@@ -385,16 +446,18 @@ static void mancal_note(const char *msg, uint16_t col) {
 
 // The SET LEVEL button. Armed it goes yellow and says what the second tap will do, because a
 // control that silently changes meaning between one press and the next is worse than no guard.
-static void draw_mancal_level_button(bool armed) {
+static void draw_mancal_level_button(bool armed)
+{
     const uint16_t fill = armed ? TFT_YELLOW : tft.color565(30, 30, 30);
     const uint16_t edge = armed ? TFT_YELLOW : TFT_CYAN;
-    const uint16_t ink  = armed ? TFT_BLACK  : TFT_CYAN;
+    const uint16_t ink = armed ? TFT_BLACK : TFT_CYAN;
 
     tft.fillRoundRect(MANCAL_LVL_X, MANCAL_LVL_Y, MANCAL_LVL_W, MANCAL_LVL_H, 4, fill);
     tft.drawRoundRect(MANCAL_LVL_X, MANCAL_LVL_Y, MANCAL_LVL_W, MANCAL_LVL_H, 4, edge);
     // Armed gets a second ring. The whole point of the two-tap is that the operator can SEE which
     // of the two states it is in, and one thin outline in sunlight is not enough to carry that.
-    if (armed) {
+    if (armed)
+    {
         tft.drawRoundRect(MANCAL_LVL_X - 1, MANCAL_LVL_Y - 1,
                           MANCAL_LVL_W + 2, MANCAL_LVL_H + 2, 5, TFT_WHITE);
     }
@@ -403,7 +466,7 @@ static void draw_mancal_level_button(bool armed) {
     tft.setTextSize(1);
     tft.setTextColor(ink, fill);
     const int cx = MANCAL_LVL_X + MANCAL_LVL_W / 2;
-    tft.drawString(armed ? "TAP"   : "SET",   cx, MANCAL_LVL_Y + 11);
+    tft.drawString(armed ? "TAP" : "SET", cx, MANCAL_LVL_Y + 11);
     tft.drawString(armed ? "AGAIN" : "LEVEL", cx, MANCAL_LVL_Y + 22);
 }
 
@@ -418,7 +481,8 @@ static void draw_mancal_level_button(bool armed) {
 // every press hashes to the same value and a repeat inside CMD_DUP_TIMEOUT_MS is discarded there
 // in silence - see calculateCommandHash(). Pressing again quickly is exactly what an operator does
 // when nothing appears to happen, and it is exactly the thing that cannot work.
-static void mancal_level_commit(BuoyData &b) {
+static void mancal_level_commit(BuoyData &b)
+{
     tft.fillRect(0, 120, tft.width(), 116, TFT_BLACK);
     tft.setTextDatum(MC_DATUM);
     tft.setTextSize(2);
@@ -428,14 +492,16 @@ static void mancal_level_commit(BuoyData &b) {
     const unsigned long before = b.level_ms;
     bool stored = false;
 
-    for (int attempt = 0; attempt < 2 && !stored; attempt++) {
+    for (int attempt = 0; attempt < 2 && !stored; attempt++)
+    {
         Serial.printf("MANCAL: SET LEVEL, attempt %d\n", attempt + 1);
         send_buoy_command(b.id, 93 /* SET_AS_LEVEL */, 6 /* INF */);
 
         // Longer than CMD_DUP_TIMEOUT_MS (5 s) so the second attempt is a fresh press to the Top
         // rather than a duplicate of the first.
         const unsigned long until = millis() + 5600;
-        while (b.level_ms == before && (long)(millis() - until) < 0) {
+        while (b.level_ms == before && (long)(millis() - until) < 0)
+        {
             handle_wifi_clients();
             check_lora_packets();
             delay(20);
@@ -446,7 +512,8 @@ static void mancal_level_commit(BuoyData &b) {
     tft.fillRect(0, 120, tft.width(), 116, TFT_BLACK);
     tft.setTextDatum(MC_DATUM);
     tft.setTextSize(2);
-    if (stored) {
+    if (stored)
+    {
         tft.setTextColor(TFT_CYAN, TFT_BLACK);
         tft.drawString("LEVEL SET", tft.width() / 2, 150);
         tft.setTextSize(1);
@@ -459,7 +526,9 @@ static void mancal_level_commit(BuoyData &b) {
         tft.drawString("the bubble now reads departure", tft.width() / 2, 180);
         tft.drawString("from THIS attitude - do not tilt", tft.width() / 2, 196);
         tft.drawString("the hull to centre it", tft.width() / 2, 212);
-    } else {
+    }
+    else
+    {
         tft.setTextColor(TFT_RED, TFT_BLACK);
         tft.drawString("NO REPLY", tft.width() / 2, 150);
         tft.setTextSize(1);
@@ -469,16 +538,18 @@ static void mancal_level_commit(BuoyData &b) {
         tft.drawString("tap SET LEVEL twice to try again", tft.width() / 2, 212);
     }
     delay(stored ? 1800 : 2600);
-    mancal_is_dirty = true;   // puts the rose and the bubble back
+    mancal_is_dirty = true; // puts the rose and the bubble back
 }
 
 // The action band, bottom of the screen. Pulled out of update_mancal_dynamic() so a press can put
 // WAIT up the moment it goes out, rather than on whatever repaint happens to come next.
-static void draw_mancal_action_band(bool known, bool running, bool complete, bool pending, int done) {
+static void draw_mancal_action_band(bool known, bool running, bool complete, bool pending, int done)
+{
     int w = tft.width();
     tft.setTextDatum(MC_DATUM);
 
-    if (pending) {
+    if (pending)
+    {
         // A capture is out and the buoy has not confirmed it yet. That round trip is the CYD to the
         // Top over the air, the Top to the Sub down a half-duplex wire that drops much of what is
         // sent, and the reply all the way back - so it is normally a moment and occasionally a
@@ -494,27 +565,34 @@ static void draw_mancal_action_band(bool known, bool running, bool complete, boo
     // START when nothing is armed, SAVE once every direction is in, and a dead grey bar in between
     // saying how many are still missing. A 26 px bar is hard to miss and hard to hit by accident,
     // which is what you want for the one press that replaces a calibration.
-    if (!known) {
+    if (!known)
+    {
         tft.fillRoundRect(10, 266, w - 20, 26, 5, tft.color565(40, 40, 40));
         tft.setTextColor(TFT_DARKGREY, tft.color565(40, 40, 40));
         tft.setTextSize(1);
         tft.drawString("WAITING FOR THE BUOY", w / 2, 279);
-    } else if (!running) {
+    }
+    else if (!running)
+    {
         tft.fillRoundRect(10, 266, w - 20, 26, 5, TFT_GREEN);
         tft.setTextColor(TFT_BLACK, TFT_GREEN);
         tft.setTextSize(2);
         tft.drawString("START", w / 2, 279);
-    } else if (complete) {
+    }
+    else if (complete)
+    {
         tft.fillRoundRect(10, 266, w - 20, 26, 5, TFT_GREEN);
         tft.setTextColor(TFT_BLACK, TFT_GREEN);
         tft.setTextSize(2);
         tft.drawString("SAVE TABLE", w / 2, 279);
-    } else {
+    }
+    else
+    {
         uint16_t bg = tft.color565(40, 40, 40);
         tft.fillRoundRect(10, 266, w - 20, 26, 5, bg);
         tft.setTextColor(TFT_DARKGREY, bg);
         tft.setTextSize(1);
-        char save_buf[32];
+        char save_buf[48];
         sprintf(save_buf, "SAVE - %d STILL TO CAPTURE", 8 - done);
         tft.drawString(save_buf, w / 2, 279);
     }
@@ -528,7 +606,7 @@ static void draw_mancal_action_band(bool known, bool running, bool complete, boo
 // watching a link fade actually matters. Everything shown here arrives over LoRa, so the screen
 // works exactly as far as the radio does, which is the point.
 bool in_lora_link_mode = false;
-extern bool link_screen_dirty;   // set by parse_buoy_packet() when a report lands
+extern bool link_screen_dirty; // set by parse_buoy_packet() when a report lands
 
 // Bands as margin against where this radio gives out. Both ends run the arduino-LoRa defaults,
 // SF7 at 125 kHz, and the SX1276 datasheet puts sensitivity there at -123 dBm - which is also about
@@ -537,25 +615,33 @@ extern bool link_screen_dirty;   // set by parse_buoy_packet() when a report lan
 #define LINK_RSSI_WEAK (-115)
 #define LINK_EDGE_STALE_MS 300000UL
 
-static uint16_t link_rssi_colour(int rssi) {
-    if (rssi >= LINK_RSSI_GOOD) return TFT_GREEN;
-    if (rssi >= LINK_RSSI_WEAK) return TFT_YELLOW;
+static uint16_t link_rssi_colour(int rssi)
+{
+    if (rssi >= LINK_RSSI_GOOD)
+        return TFT_GREEN;
+    if (rssi >= LINK_RSSI_WEAK)
+        return TFT_YELLOW;
     return TFT_RED;
 }
 
 // Short enough for a 240 px line. The handheld is "CYD"; a Top is the last four of its id, which is
 // what distinguishes them and what is printed on the boot screen.
-static String link_short(const String &id) {
-    if (id == "98") return "CYD";
-    if (id == "99") return "PC";
-    if (id.length() > 4) return id.substring(id.length() - 4);
+static String link_short(const String &id)
+{
+    if (id == "98")
+        return "CYD";
+    if (id == "99")
+        return "PC";
+    if (id.length() > 4)
+        return id.substring(id.length() - 4);
     return id;
 }
 
-void draw_lora_link_screen() {
+void draw_lora_link_screen()
+{
     int w = tft.width();
     tft.fillScreen(TFT_BLACK);
-    ui_invalidate();   // the pixels are gone - no cache may claim otherwise
+    ui_invalidate(); // the pixels are gone - no cache may claim otherwise
     tft.setTextColor(TFT_CYAN, TFT_BLACK);
     tft.setTextSize(2);
     tft.setTextDatum(TC_DATUM);
@@ -574,29 +660,54 @@ void draw_lora_link_screen() {
 
     // Pair the two directions of each link. One number cannot tell a deaf antenna from a long
     // path; two can, which is the whole reason this is a matrix.
-    struct Pair { String a, b; int ab, ba; uint16_t ca, cb; };
+    struct Pair
+    {
+        String a, b;
+        int ab, ba;
+        uint16_t ca, cb;
+    };
     Pair pair[12];
     int np = 0;
-    for (int i = 0; i < n; i++) {
-        if (millis() - e[i].ms > LINK_EDGE_STALE_MS) continue;
+    for (int i = 0; i < n; i++)
+    {
+        if (millis() - e[i].ms > LINK_EDGE_STALE_MS)
+            continue;
         int found = -1;
-        for (int p = 0; p < np; p++) {
+        for (int p = 0; p < np; p++)
+        {
             if ((pair[p].a == e[i].from && pair[p].b == e[i].to) ||
-                (pair[p].a == e[i].to && pair[p].b == e[i].from)) { found = p; break; }
+                (pair[p].a == e[i].to && pair[p].b == e[i].from))
+            {
+                found = p;
+                break;
+            }
         }
-        if (found < 0) {
-            if (np >= 12) continue;
+        if (found < 0)
+        {
+            if (np >= 12)
+                continue;
             found = np++;
             pair[found].a = e[i].from;
             pair[found].b = e[i].to;
-            pair[found].ab = 1; pair[found].ba = 1;   // 1 = "no reading", rssi is always negative
-            pair[found].ca = 0; pair[found].cb = 0;
+            pair[found].ab = 1;
+            pair[found].ba = 1; // 1 = "no reading", rssi is always negative
+            pair[found].ca = 0;
+            pair[found].cb = 0;
         }
-        if (pair[found].a == e[i].from) { pair[found].ab = e[i].rssi; pair[found].ca = e[i].count; }
-        else                            { pair[found].ba = e[i].rssi; pair[found].cb = e[i].count; }
+        if (pair[found].a == e[i].from)
+        {
+            pair[found].ab = e[i].rssi;
+            pair[found].ca = e[i].count;
+        }
+        else
+        {
+            pair[found].ba = e[i].rssi;
+            pair[found].cb = e[i].count;
+        }
     }
 
-    if (np == 0) {
+    if (np == 0)
+    {
         tft.setTextDatum(MC_DATUM);
         tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
         tft.drawString("nothing heard over LoRa yet", w / 2, 120);
@@ -605,26 +716,49 @@ void draw_lora_link_screen() {
 
     // Worst first - the marginal link is the one being looked for.
     for (int a = 0; a < np - 1; a++)
-        for (int b = a + 1; b < np; b++) {
+        for (int b = a + 1; b < np; b++)
+        {
             int sa = (pair[a].ab > 0 ? pair[a].ba : (pair[a].ba > 0 ? pair[a].ab : (pair[a].ab < pair[a].ba ? pair[a].ab : pair[a].ba)));
             int sb = (pair[b].ab > 0 ? pair[b].ba : (pair[b].ba > 0 ? pair[b].ab : (pair[b].ab < pair[b].ba ? pair[b].ab : pair[b].ba)));
-            if (sb < sa) { Pair t = pair[a]; pair[a] = pair[b]; pair[b] = t; }
+            if (sb < sa)
+            {
+                Pair t = pair[a];
+                pair[a] = pair[b];
+                pair[b] = t;
+            }
         }
 
     int y = 58;
-    for (int p = 0; p < np && y < 280; p++) {
+    for (int p = 0; p < np && y < 280; p++)
+    {
         tft.setTextSize(1);
         tft.setTextDatum(TL_DATUM);
         tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
         tft.drawString(link_short(pair[p].a) + ">" + link_short(pair[p].b), 12, y);
 
         char buf[12];
-        if (pair[p].ab > 0) { tft.setTextColor(TFT_DARKGREY, TFT_BLACK); sprintf(buf, "--"); }
-        else { tft.setTextColor(link_rssi_colour(pair[p].ab), TFT_BLACK); sprintf(buf, "%d", pair[p].ab); }
+        if (pair[p].ab > 0)
+        {
+            tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+            sprintf(buf, "--");
+        }
+        else
+        {
+            tft.setTextColor(link_rssi_colour(pair[p].ab), TFT_BLACK);
+            sprintf(buf, "%d", pair[p].ab);
+        }
         tft.drawString(buf, 120, y);
 
-        if (pair[p].ba > 0) { tft.setTextColor(TFT_DARKGREY, TFT_BLACK); sprintf(buf, "--"); }
-        else { tft.setTextColor(link_rssi_colour(pair[p].ba), TFT_BLACK); sprintf(buf, "%d", pair[p].ba); }
+        if (pair[p].ba > 0)
+        {
+            tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+            sprintf(buf, "--");
+        }
+        else
+        {
+            tft.setTextColor(link_rssi_colour(pair[p].ba), TFT_BLACK);
+            sprintf(buf, "%d", pair[p].ba);
+        }
         tft.drawString(buf, 178, y);
         y += 13;
     }
@@ -643,7 +777,8 @@ void draw_lora_link_screen() {
 }
 
 // The one-line complaint band under the rose.
-static void mancal_warn(const char *msg) {
+static void mancal_warn(const char *msg)
+{
     // Borrows the eight point strip's row. Transient: mancal_is_dirty below forces a full repaint,
     // which puts the strip back.
     tft.fillRect(0, 242, tft.width(), 13, TFT_BLACK);
@@ -657,14 +792,17 @@ static void mancal_warn(const char *msg) {
 
 // Which direction a touch landed on, or -1. A ring rather than eight little boxes: the dots are
 // only 12 px across and a resistive panel poked with a wet finger does not do 12 px.
-static int mancal_hit_dir(int tx, int ty) {
+static int mancal_hit_dir(int tx, int ty)
+{
     float dx = (float)(tx - MANCAL_CX);
     float dy = (float)(ty - MANCAL_CY);
     float dist = sqrtf(dx * dx + dy * dy);
-    if (dist < 16.0f || dist > 78.0f) return -1;      // the middle and the far corners are not marks
+    if (dist < 16.0f || dist > 78.0f)
+        return -1; // the middle and the far corners are not marks
 
-    float ang = atan2f(dx, -dy) * 180.0f / (float)M_PI;   // 0 = up = N, clockwise
-    while (ang < 0.0f) ang += 360.0f;
+    float ang = atan2f(dx, -dy) * 180.0f / (float)M_PI; // 0 = up = N, clockwise
+    while (ang < 0.0f)
+        ang += 360.0f;
     int dir = (int)((ang + 22.5f) / 45.0f) % 8;
     return dir;
 }
@@ -684,18 +822,20 @@ static int mancal_hit_dir(int tx, int ty) {
 //
 // Drawn as its own element with its own cache so a changing signal level does not drag the whole
 // footer through a repaint.
-static String last_drawn_relay = "\x01";   // not a value the formatter can produce
+static String last_drawn_relay = "\x01"; // not a value the formatter can produce
 
 // Defined further down with the rest of the paint bookkeeping; needed here for the cache reset.
 extern volatile uint32_t ui_paint_seq;
 
-static void draw_relay_indicator(int w, int h) {
+static void draw_relay_indicator(int w, int h)
+{
     // Empty its own cache whenever the glass was cleared under it. Without this the indicator
     // would be wiped by the next full repaint and never come back until the relay's signal level
     // happened to change - which for a steady link is never. That is the exact fault the paint
     // sequence was added for; see ui_paint_seq.
     static uint32_t last_paint_seq = 0;
-    if (last_paint_seq != ui_paint_seq) {
+    if (last_paint_seq != ui_paint_seq)
+    {
         last_paint_seq = ui_paint_seq;
         last_drawn_relay = "\x01";
     }
@@ -709,12 +849,17 @@ static void draw_relay_indicator(int w, int h) {
     // "RLY" plus the level, because the level is what says whether it can actually help: a relay
     // heard at -110 is on the air but no further use to us than the buoys are.
     String txt;
-    if (!known)      txt = "";                     // never heard one - say nothing rather than "no"
-    else if (!live)  txt = "RLY off";
-    else if (rssi == -999) txt = "RLY on";         // heard, but only over UDP, so no level to show
-    else             txt = "RLY " + String(rssi);
+    if (!known)
+        txt = ""; // never heard one - say nothing rather than "no"
+    else if (!live)
+        txt = "RLY off";
+    else if (rssi == -999)
+        txt = "RLY on"; // heard, but only over UDP, so no level to show
+    else
+        txt = "RLY " + String(rssi);
 
-    if (txt == last_drawn_relay) return;
+    if (txt == last_drawn_relay)
+        return;
     last_drawn_relay = txt;
 
     // Clipped to its own box, well clear of the "LoRa 433M" label on the left and the traffic dot
@@ -723,7 +868,8 @@ static void draw_relay_indicator(int w, int h) {
     // each and so runs to x=114 - a box starting at 96 clipped its last character off on every
     // update. The right edge stops at 222, clear of the traffic dot centred on 230.
     tft.fillRect(118, h - 38, 104, 18, TFT_BLACK);
-    if (txt.length() == 0) return;
+    if (txt.length() == 0)
+        return;
 
     tft.setTextDatum(BR_DATUM);
     tft.setTextSize(2);
@@ -750,33 +896,49 @@ int setup_page = 0;
 #define SETUP_PAGES 5
 #define SETUP_SLOTS (SETUP_PAGES * 8)
 
-enum SetupSlot {
-    S_RUD_P  = 0,  S_RUD_I  = 1,  S_RUD_D = 2,
-    S_SPD_P  = 4,  S_SPD_I  = 5,  S_SPD_D = 6,
-    S_MAXSPD = 8,  S_MINSPD = 9,  S_PIVOT = 10,
-    S_COMPOFF = 12, S_HOLDRAD = 13,
-    S_TRIMEN = 16, S_AUTOCLN = 17, S_CLEANNOW = 18,
-    S_REVBB  = 20, S_REVSB = 21, S_SWAP = 22,
-    S_APPDIST = 24, S_APPDIR = 25, S_DOCKWP = 26,
-    S_DESKCAL = 32, S_SETNORTH = 33, S_REBOOT = 34,
-    S_MANCAL = 36, S_LINKS = 38,
+enum SetupSlot
+{
+    S_RUD_P = 0,
+    S_RUD_I = 1,
+    S_RUD_D = 2,
+    S_SPD_P = 4,
+    S_SPD_I = 5,
+    S_SPD_D = 6,
+    S_MAXSPD = 8,
+    S_MINSPD = 9,
+    S_PIVOT = 10,
+    S_COMPOFF = 12,
+    S_HOLDRAD = 13,
+    S_TRIMEN = 16,
+    S_AUTOCLN = 17,
+    S_CLEANNOW = 18,
+    S_REVBB = 20,
+    S_REVSB = 21,
+    S_SWAP = 22,
+    S_APPDIST = 24,
+    S_APPDIR = 25,
+    S_DOCKWP = 26,
+    S_DESKCAL = 32,
+    S_SETNORTH = 33,
+    S_REBOOT = 34,
+    S_MANCAL = 36,
+    S_LINKS = 38,
     // The bottom row of the CALIBRATION page: the two settings that steady the compass enough to
     // calibrate against. S_DAMP took the slot Set Level vacated.
-    S_DAMP = 35, S_AVG = 39
+    S_DAMP = 35,
+    S_AVG = 39
 };
 
 static const char *SETUP_NAMES[SETUP_SLOTS] = {
-    /* 1 PID              */ "Rud P:", "Rud I:", "Rud D:", "",      "Spd P:", "Spd I:", "Spd D:", "",
-    /* 2 SPEED & COMPASS  */ "MaxSpd:", "MinSpd:", "PvtSpd:", "",   "CompOff:", "HoldRad:", "", "",
+    /* 1 PID              */ "Rud P:", "Rud I:", "Rud D:", "", "Spd P:", "Spd I:", "Spd D:", "",
+    /* 2 SPEED & COMPASS  */ "MaxSpd:", "MinSpd:", "PvtSpd:", "", "CompOff:", "HoldRad:", "", "",
     /* 3 TRIM & THRUSTERS */ "TrimEn:", "AutoCln:", "CLEAN NOW", "", "BB Inv:", "SB Inv:", "Swap:", "",
     /* 4 DOCKING          */ "Appr Dist", "Appr Dir", "DockToWP", "", "", "", "", "",
-    /* 5 CALIBRATION      */ "Desk Cal", "Set North", "Reboot", "Damp:", "MAN CAL", "", "LoRa Links", "Avg:"
-};
+    /* 5 CALIBRATION      */ "Desk Cal", "Set North", "Reboot", "Damp:", "MAN CAL", "", "LoRa Links", "Avg:"};
 
 // Shown where the screen used to just say "SETUP" - these are the <h4> headings of the web form.
 static const char *SETUP_PAGE_TITLES[SETUP_PAGES] = {
-    "PID", "SPEED & COMPASS", "TRIM & THRUSTERS", "DOCKING", "CALIBRATION"
-};
+    "PID", "SPEED & COMPASS", "TRIM & THRUSTERS", "DOCKING", "CALIBRATION"};
 
 // setup_is_action_page() used to live here, and claimed to be what kept the action pages from being
 // held behind the SETUPDATA reply. It never did that - the loading gate in update_setup_dynamic()
@@ -784,7 +946,8 @@ static const char *SETUP_PAGE_TITLES[SETUP_PAGES] = {
 // wanted the same per-slot question. CLEAN NOW is an action on a page full of settings, so the page
 // and the slot are no longer the same question and the page version has nothing left to answer.
 
-static inline bool setup_slot_used(int slot) {
+static inline bool setup_slot_used(int slot)
+{
     return slot >= 0 && slot < SETUP_SLOTS && SETUP_NAMES[slot][0] != 0;
 }
 
@@ -793,61 +956,122 @@ static inline bool setup_slot_used(int slot) {
 // CLEAN NOW is the first of these to sit on a page that is NOT an action page. Nothing here cared
 // about the page - the test has always been per slot - but the big readout below did, so that is
 // where the assumption had to come out.
-static inline bool setup_slot_is_action(int slot) {
+static inline bool setup_slot_is_action(int slot)
+{
     return slot == S_DESKCAL || slot == S_SETNORTH || slot == S_REBOOT ||
            slot == S_MANCAL || slot == S_LINKS || slot == S_CLEANNOW;
 }
 
-static inline bool setup_slot_is_bool(int slot) {
+static inline bool setup_slot_is_bool(int slot)
+{
     return slot == S_TRIMEN || slot == S_REVBB ||
-           slot == S_REVSB  || slot == S_SWAP     || slot == S_DOCKWP ||
+           slot == S_REVSB || slot == S_SWAP || slot == S_DOCKWP ||
            slot == S_AUTOCLN;
 }
 
-static bool setup_bool_get(const BuoyData &b, int slot) {
-    switch (slot) {
-        case S_TRIMEN:   return b.compass_trim_enabled;
-        case S_REVBB:    return b.rev_bb;
-        case S_REVSB:    return b.rev_sb;
-        case S_SWAP:     return b.swap_bb_sb;
-        case S_DOCKWP:   return b.dock_to_wp;
-        case S_AUTOCLN:  return b.clean_enabled;
-        default:         return false;
+static bool setup_bool_get(const BuoyData &b, int slot)
+{
+    switch (slot)
+    {
+    case S_TRIMEN:
+        return b.compass_trim_enabled;
+    case S_REVBB:
+        return b.rev_bb;
+    case S_REVSB:
+        return b.rev_sb;
+    case S_SWAP:
+        return b.swap_bb_sb;
+    case S_DOCKWP:
+        return b.dock_to_wp;
+    case S_AUTOCLN:
+        return b.clean_enabled;
+    default:
+        return false;
     }
 }
 
-static void setup_bool_toggle(BuoyData &b, int slot) {
-    switch (slot) {
-        case S_TRIMEN:   b.compass_trim_enabled = !b.compass_trim_enabled; break;
-        case S_REVBB:    b.rev_bb               = !b.rev_bb;               break;
-        case S_REVSB:    b.rev_sb               = !b.rev_sb;               break;
-        case S_SWAP:     b.swap_bb_sb           = !b.swap_bb_sb;           break;
-        case S_DOCKWP:   b.dock_to_wp           = !b.dock_to_wp;           break;
-        case S_AUTOCLN:  b.clean_enabled        = !b.clean_enabled;        break;
-        default: break;
+static void setup_bool_toggle(BuoyData &b, int slot)
+{
+    switch (slot)
+    {
+    case S_TRIMEN:
+        b.compass_trim_enabled = !b.compass_trim_enabled;
+        break;
+    case S_REVBB:
+        b.rev_bb = !b.rev_bb;
+        break;
+    case S_REVSB:
+        b.rev_sb = !b.rev_sb;
+        break;
+    case S_SWAP:
+        b.swap_bb_sb = !b.swap_bb_sb;
+        break;
+    case S_DOCKWP:
+        b.dock_to_wp = !b.dock_to_wp;
+        break;
+    case S_AUTOCLN:
+        b.clean_enabled = !b.clean_enabled;
+        break;
+    default:
+        break;
     }
 }
 
 // The value on its own, without the label - used both inside the box and in the big readout
 // between "-" and "+", so the two can never disagree.
-static void setup_value_text(const BuoyData &b, int slot, char *out, size_t n) {
-    switch (slot) {
-        case S_RUD_P:   snprintf(out, n, "%0.3f", b.kpr); break;
-        case S_RUD_I:   snprintf(out, n, "%0.3f", b.kir); break;
-        case S_RUD_D:   snprintf(out, n, "%0.3f", b.kdr); break;
-        case S_SPD_P:   snprintf(out, n, "%0.3f", b.kps); break;
-        case S_SPD_I:   snprintf(out, n, "%0.3f", b.kis); break;
-        case S_SPD_D:   snprintf(out, n, "%0.3f", b.kds); break;
-        case S_PIVOT:   snprintf(out, n, "%0.3f", b.pivot_speed); break;
-        case S_MAXSPD:  snprintf(out, n, "%0.0f", b.max_speed); break;
-        case S_MINSPD:  snprintf(out, n, "%0.0f", b.min_speed); break;
-        case S_COMPOFF: snprintf(out, n, "%0.0f", b.compass_offset); break;
-        case S_HOLDRAD: snprintf(out, n, "%0.1fm", b.hold_radius); break;
-        case S_APPDIST: snprintf(out, n, "%dm", b.dock_app_dist); break;
-        case S_APPDIR:  snprintf(out, n, "%d deg", b.dock_app_dir); break;
-        case S_DAMP:    snprintf(out, n, "%0.2f", b.pr_damping); break;
-        case S_AVG:     snprintf(out, n, "%d", b.compass_avg); break;
-        default:        if (n) out[0] = 0; break;
+static void setup_value_text(const BuoyData &b, int slot, char *out, size_t n)
+{
+    switch (slot)
+    {
+    case S_RUD_P:
+        snprintf(out, n, "%0.3f", b.kpr);
+        break;
+    case S_RUD_I:
+        snprintf(out, n, "%0.3f", b.kir);
+        break;
+    case S_RUD_D:
+        snprintf(out, n, "%0.3f", b.kdr);
+        break;
+    case S_SPD_P:
+        snprintf(out, n, "%0.3f", b.kps);
+        break;
+    case S_SPD_I:
+        snprintf(out, n, "%0.3f", b.kis);
+        break;
+    case S_SPD_D:
+        snprintf(out, n, "%0.3f", b.kds);
+        break;
+    case S_PIVOT:
+        snprintf(out, n, "%0.3f", b.pivot_speed);
+        break;
+    case S_MAXSPD:
+        snprintf(out, n, "%0.0f", b.max_speed);
+        break;
+    case S_MINSPD:
+        snprintf(out, n, "%0.0f", b.min_speed);
+        break;
+    case S_COMPOFF:
+        snprintf(out, n, "%0.0f", b.compass_offset);
+        break;
+    case S_HOLDRAD:
+        snprintf(out, n, "%0.1fm", b.hold_radius);
+        break;
+    case S_APPDIST:
+        snprintf(out, n, "%dm", b.dock_app_dist);
+        break;
+    case S_APPDIR:
+        snprintf(out, n, "%d deg", b.dock_app_dir);
+        break;
+    case S_DAMP:
+        snprintf(out, n, "%0.2f", b.pr_damping);
+        break;
+    case S_AVG:
+        snprintf(out, n, "%d", b.compass_avg);
+        break;
+    default:
+        if (n)
+            out[0] = 0;
+        break;
     }
 }
 
@@ -857,62 +1081,169 @@ static void setup_value_text(const BuoyData &b, int slot, char *out, size_t n) {
 // buoy was not using.
 #define CYD_HOLD_RADIUS_MIN 1.5f
 
-static float setup_step(int slot) {
-    switch (slot) {
-        case S_RUD_I: case S_RUD_D: case S_SPD_I: case S_SPD_D: return 0.005f;
-        case S_MAXSPD: case S_MINSPD:                           return 5.0f;
-        case S_COMPOFF: case S_APPDIST: case S_APPDIR:          return 1.0f;
-        // The same steps the Sub's own web form uses: 0.01 on the damping, whole samples on the
-        // averaging. Fine on both, because the low end of Avg is where each step changes the feel
-        // most and Damp is only ever useful in small moves.
-        case S_DAMP:                                            return 0.01f;
-        case S_AVG:                                             return 1.0f;
-        case S_HOLDRAD:                                         return 0.5f;
-        default:                                                return 0.05f;
+static float setup_step(int slot)
+{
+    switch (slot)
+    {
+    case S_RUD_I:
+    case S_RUD_D:
+    case S_SPD_I:
+    case S_SPD_D:
+        return 0.005f;
+    case S_MAXSPD:
+    case S_MINSPD:
+        return 5.0f;
+    case S_COMPOFF:
+    case S_APPDIST:
+    case S_APPDIR:
+        return 1.0f;
+    // The same steps the Sub's own web form uses: 0.01 on the damping, whole samples on the
+    // averaging. Fine on both, because the low end of Avg is where each step changes the feel
+    // most and Damp is only ever useful in small moves.
+    case S_DAMP:
+        return 0.01f;
+    case S_AVG:
+        return 1.0f;
+    case S_HOLDRAD:
+        return 0.5f;
+    default:
+        return 0.05f;
     }
 }
 
 // One place for the "+" / "-" arithmetic and its limits, instead of the two mirrored if-chains
 // this used to carry - keeping those in step by hand is what let the tap handler and the adjust
 // handler disagree about which slots exist.
-static void setup_adjust(BuoyData &b, int slot, bool plus) {
+static void setup_adjust(BuoyData &b, int slot, bool plus)
+{
     float st = setup_step(slot) * (plus ? 1.0f : -1.0f);
-    switch (slot) {
-        // Clamped to the ranges the Sub enforces on arrival, so the screen cannot show a value
-        // the buoy will not accept - see /setparam cavg and prdamp in subwifi.cpp.
-        case S_DAMP: b.pr_damping += st;
-                     if (b.pr_damping < 0.0f) b.pr_damping = 0.0f;
-                     if (b.pr_damping > 0.99f) b.pr_damping = 0.99f; break;
-        case S_AVG:  b.compass_avg += (int)(plus ? 1 : -1);
-                     if (b.compass_avg < 1) b.compass_avg = 1;
-                     if (b.compass_avg > 200) b.compass_avg = 200; break;
-        case S_RUD_P: b.kpr += st; if (b.kpr < 0) b.kpr = 0; break;
-        case S_RUD_I: b.kir += st; if (b.kir < 0) b.kir = 0; break;
-        case S_RUD_D: b.kdr += st; if (b.kdr < 0) b.kdr = 0; break;
-        case S_SPD_P: b.kps += st; if (b.kps < 0) b.kps = 0; break;
-        case S_SPD_I: b.kis += st; if (b.kis < 0) b.kis = 0; break;
-        case S_SPD_D: b.kds += st; if (b.kds < 0) b.kds = 0; break;
-        case S_MAXSPD: b.max_speed += st;
-                       if (b.max_speed < 0) b.max_speed = 0;
-                       if (b.max_speed > 100) b.max_speed = 100; break;
-        case S_MINSPD: b.min_speed += st;   // may legitimately be negative
-                       if (b.min_speed < -100) b.min_speed = -100;
-                       if (b.min_speed > 100) b.min_speed = 100; break;
-        case S_PIVOT:  b.pivot_speed += st;
-                       if (b.pivot_speed < 0) b.pivot_speed = 0;
-                       if (b.pivot_speed > 1.0) b.pivot_speed = 1.0; break;
-        case S_COMPOFF: b.compass_offset += st;
-                        if (b.compass_offset < -180) b.compass_offset = -180;
-                        if (b.compass_offset > 180) b.compass_offset = 180; break;
-        case S_HOLDRAD: b.hold_radius += st;
-                        if (b.hold_radius < CYD_HOLD_RADIUS_MIN) b.hold_radius = CYD_HOLD_RADIUS_MIN;
-                        if (b.hold_radius > 10.0) b.hold_radius = 10.0; break;
-        case S_APPDIST: b.dock_app_dist += (int)st;
-                        if (b.dock_app_dist < 0) b.dock_app_dist = 0; break;
-        case S_APPDIR:  b.dock_app_dir += (int)st;
-                        if (b.dock_app_dir < 0) b.dock_app_dir += 360;
-                        if (b.dock_app_dir >= 360) b.dock_app_dir -= 360; break;
-        default: break;
+    switch (slot)
+    {
+    // Clamped to the ranges the Sub enforces on arrival, so the screen cannot show a value
+    // the buoy will not accept - see /setparam cavg and prdamp in subwifi.cpp.
+    case S_DAMP:
+        b.pr_damping += st;
+        if (b.pr_damping < 0.0f)
+            b.pr_damping = 0.0f;
+        if (b.pr_damping > 0.99f)
+        {
+            b.pr_damping = 0.99f;
+        }
+        break;
+    case S_AVG:
+        b.compass_avg += (int)(plus ? 1 : -1);
+        if (b.compass_avg < 1)
+            b.compass_avg = 1;
+        if (b.compass_avg > 200)
+        {
+            b.compass_avg = 200;
+        }
+        break;
+    case S_RUD_P:
+        b.kpr += st;
+        if (b.kpr < 0)
+        {
+            b.kpr = 0;
+        }
+        break;
+    case S_RUD_I:
+        b.kir += st;
+        if (b.kir < 0)
+        {
+            b.kir = 0;
+        }
+        break;
+    case S_RUD_D:
+        b.kdr += st;
+        if (b.kdr < 0)
+        {
+            b.kdr = 0;
+        }
+        break;
+    case S_SPD_P:
+        b.kps += st;
+        if (b.kps < 0)
+        {
+            b.kps = 0;
+        }
+        break;
+    case S_SPD_I:
+        b.kis += st;
+        if (b.kis < 0)
+        {
+            b.kis = 0;
+        }
+        break;
+    case S_SPD_D:
+        b.kds += st;
+        if (b.kds < 0)
+        {
+            b.kds = 0;
+        }
+        break;
+    case S_MAXSPD:
+        b.max_speed += st;
+        if (b.max_speed < 0)
+            b.max_speed = 0;
+        if (b.max_speed > 100)
+        {
+            b.max_speed = 100;
+        }
+        break;
+    case S_MINSPD:
+        b.min_speed += st; // may legitimately be negative
+        if (b.min_speed < -100)
+            b.min_speed = -100;
+        if (b.min_speed > 100)
+        {
+            b.min_speed = 100;
+        }
+        break;
+    case S_PIVOT:
+        b.pivot_speed += st;
+        if (b.pivot_speed < 0)
+            b.pivot_speed = 0;
+        if (b.pivot_speed > 1.0)
+        {
+            b.pivot_speed = 1.0;
+        }
+        break;
+    case S_COMPOFF:
+        b.compass_offset += st;
+        if (b.compass_offset < -180)
+            b.compass_offset = -180;
+        if (b.compass_offset > 180)
+        {
+            b.compass_offset = 180;
+        }
+        break;
+    case S_HOLDRAD:
+        b.hold_radius += st;
+        if (b.hold_radius < CYD_HOLD_RADIUS_MIN)
+            b.hold_radius = CYD_HOLD_RADIUS_MIN;
+        if (b.hold_radius > 10.0)
+        {
+            b.hold_radius = 10.0;
+        }
+        break;
+    case S_APPDIST:
+        b.dock_app_dist += (int)st;
+        if (b.dock_app_dist < 0)
+        {
+            b.dock_app_dist = 0;
+        }
+        break;
+    case S_APPDIR:
+        b.dock_app_dir += (int)st;
+        if (b.dock_app_dir < 0)
+            b.dock_app_dir += 360;
+        if (b.dock_app_dir >= 360)
+        {
+            b.dock_app_dir -= 360;
+        }
+        break;
+    default:
+        break;
     }
 }
 int lastSetupPage = -1; // Used to track page swaps
@@ -924,7 +1255,7 @@ int lastSetupPage = -1; // Used to track page swaps
 // the way back. Asking once meant any single loss left "LOADING DATA FROM BUOY..." on screen
 // forever, with leaving and re-entering the screen as the only way to ask again.
 #define SETUP_QUERY_INTERVAL_MS 2500UL
-#define SETUP_QUERY_MAX_TRIES   8
+#define SETUP_QUERY_MAX_TRIES 8
 unsigned long setup_query_next_ms = 0;
 int setup_query_tries = 0;
 
@@ -976,49 +1307,49 @@ void service_mancal_entry();
 // The plot that used to be its own BUOY MAP page now IS this page: the two align buttons and the
 // MAP button that led to it are gone, and the strip below the plot carries the six controls
 // instead. Everything around the plot is size 2 text (12x16 px, max 20 characters per line).
-#define MAP_CX          120  // Plot centre X
-#define MAP_CY          140  // Plot centre Y
-#define MAP_R            72  // Plot half-width: X 48..192, Y 68..212
-#define MAP_HEADER_Y     30  // Range / Demo Mode banner (top of size 2 text)
+#define MAP_CX 120      // Plot centre X
+#define MAP_CY 140      // Plot centre Y
+#define MAP_R 72        // Plot half-width: X 48..192, Y 68..212
+#define MAP_HEADER_Y 30 // Range / Demo Mode banner (top of size 2 text)
 
 // The start line length and the wind sit on the same row as the N cardinal, left and right of it,
 // rather than on two legend lines under the plot - that strip is the button area now. The row is
 // the band between the range banner and the top of the plot.
-#define MAP_NROW_Y       66  // Text baseline, same as the N cardinal (MAP_CY - MAP_R - 2)
-#define MAP_NROW_TOP     48  // Top of the band that is cleared on every refresh
-#define MAP_NROW_H       19  // Height of that band
+#define MAP_NROW_Y 66        // Text baseline, same as the N cardinal (MAP_CY - MAP_R - 2)
+#define MAP_NROW_TOP 48      // Top of the band that is cleared on every refresh
+#define MAP_NROW_H 19        // Height of that band
 #define MAP_NROW_LEFT_R 100  // Right edge of the line length label (the N glyph starts at 114)
 #define MAP_NROW_RIGHT_L 140 // Left edge of the wind label
 
 // Two rows of buttons under the S cardinal, which ends at y=230.
-#define TS_ROW1_Y       234  // - / START / TRACK / +
-#define TS_ROW2_Y       273  // BACK / EXECUTE
-#define TS_BTN_H         35
+#define TS_ROW1_Y 234 // - / START / TRACK / +
+#define TS_ROW2_Y 273 // BACK / EXECUTE
+#define TS_BTN_H 35
 
-#define TS_MINUS_X        6
-#define TS_MINUS_W       40
-#define TS_START_X       51
-#define TS_START_W       66
-#define TS_TRACK_X      122
-#define TS_TRACK_W       66
-#define TS_PLUS_X       193
-#define TS_PLUS_W        41
-#define TS_BACK_X         6
-#define TS_BACK_W       110
-#define TS_EXEC_X       124
-#define TS_EXEC_W       110
+#define TS_MINUS_X 6
+#define TS_MINUS_W 40
+#define TS_START_X 51
+#define TS_START_W 66
+#define TS_TRACK_X 122
+#define TS_TRACK_W 66
+#define TS_PLUS_X 193
+#define TS_PLUS_W 41
+#define TS_BACK_X 6
+#define TS_BACK_W 110
+#define TS_EXEC_X 124
+#define TS_EXEC_W 110
 
 // One press of - or + moves the start line by this much, the same step the dashboard's start line
 // panel uses (START_LINE_STEP_M in data/index.js).
-#define TS_LINE_STEP_M  5.0f
+#define TS_LINE_STEP_M 5.0f
 
 // Text inset for the menu buoy buttons, which span X 10..230. Size 2 text is 12 px per
 // character. The top row is spelled "Buoy1:b7a5b578" with no spaces around the colon: at
 // 14 chars it is 168 px and ends at x=182, well clear of the one-character status badge
 // that sits at 214..226 hard against the right inset. Spelled out as "Buoy n: <id>" it ran
 // to 192 px and left only 8 px of daylight, so the badge painted over the tail of the id.
-#define BTN_PAD_L        14  // Left text edge
-#define BTN_PAD_R        14  // Right text edge, measured from the screen width
+#define BTN_PAD_L 14 // Left text edge
+#define BTN_PAD_R 14 // Right text edge, measured from the screen width
 
 // Furthest a waypoint may be from the fleet centre and still pull the plot range out to fit it.
 // A real course mark is tens of metres away; anything past this is a fault, so the plot keeps
@@ -1030,45 +1361,49 @@ void service_mancal_entry();
 // 500 ms, comfortably longer than the 250 ms UI refresh tick so a one-shot command is never missed
 #define TRAFFIC_TX_BLINK_MS 500
 
-uint16_t traffic_dot_color(unsigned long tx_ms, unsigned long rx_ms, unsigned long rx_window, uint16_t rx_color) {
+uint16_t traffic_dot_color(unsigned long tx_ms, unsigned long rx_ms, unsigned long rx_window, uint16_t rx_color)
+{
     unsigned long now = millis();
 
-    if (tx_ms != 0 && now - tx_ms < TRAFFIC_TX_BLINK_MS) return TFT_RED;
-    if (rx_ms != 0 && now - rx_ms < rx_window) return rx_color;
+    if (tx_ms != 0 && now - tx_ms < TRAFFIC_TX_BLINK_MS)
+        return TFT_RED;
+    if (rx_ms != 0 && now - rx_ms < rx_window)
+        return rx_color;
 
     return TFT_BLACK;
 }
 
 // Helper function to draw beautifully tapered, thick compass arrows with distinct arrowheads at their tips
-void draw_compass_arrow(int cx, int cy, int L, float angle_deg, uint16_t color) {
+void draw_compass_arrow(int cx, int cy, int L, float angle_deg, uint16_t color)
+{
     float theta = angle_deg * PI / 180.0;
-    
+
     // Tip of the arrow
     int tip_x = cx + sin(theta) * L;
     int tip_y = cy - cos(theta) * L;
-    
+
     // Base of the arrowhead (8 pixels down from tip)
     int base_x = cx + sin(theta) * (L - 8);
     int base_y = cy - cos(theta) * (L - 8);
-    
+
     // Wings of the arrowhead (4 pixels offset perpendicular to the base)
     float perp_theta = theta + PI / 2.0;
     int wing_l_x = base_x + sin(perp_theta) * 4;
     int wing_l_y = base_y - cos(perp_theta) * 4;
-    
+
     int wing_r_x = base_x - sin(perp_theta) * 4;
     int wing_r_y = base_y + cos(perp_theta) * 4;
-    
+
     // Base of the shaft at the center (1.5 pixels offset perpendicular)
     int shaft_l_x = cx + sin(perp_theta) * 1.5;
     int shaft_l_y = cy - cos(perp_theta) * 1.5;
-    
+
     int shaft_r_x = cx - sin(perp_theta) * 1.5;
     int shaft_r_y = cy + cos(perp_theta) * 1.5;
-    
+
     // Draw thick shaft as a filled triangle/polygon or just three lines
     tft.fillTriangle(shaft_l_x, shaft_l_y, shaft_r_x, shaft_r_y, base_x, base_y, color);
-    
+
     // Draw arrowhead
     tft.fillTriangle(wing_l_x, wing_l_y, wing_r_x, wing_r_y, tip_x, tip_y, color);
 }
@@ -1092,21 +1427,24 @@ int selected_param_idx = 0; // Defaults to Rudder P (0)
 volatile uint32_t ui_paint_seq = 0;
 void ui_invalidate() { ui_paint_seq++; }
 
-void reset_button_draw_cache() {
-    for (int i = 0; i < 3; i++) {
+void reset_button_draw_cache()
+{
+    for (int i = 0; i < 3; i++)
+    {
         last_drawn_ids[i] = "RESET"; // Force mismatch
-        last_drawn_present[i] = -2;   // Force mismatch
+        last_drawn_present[i] = -2;  // Force mismatch
     }
 }
 
-void draw_setup_static() {
+void draw_setup_static()
+{
     int w = tft.width();
     int h = tft.height();
     int idx = selected_buoy_idx;
-    
+
     tft.fillScreen(TFT_BLACK);
-    ui_invalidate();   // the pixels are gone - no cache may claim otherwise
-    
+    ui_invalidate(); // the pixels are gone - no cache may claim otherwise
+
     // Header title
     tft.setTextColor(TFT_CYAN, TFT_BLACK);
     tft.setTextSize(2);
@@ -1119,9 +1457,9 @@ void draw_setup_static() {
     // Width at text size 2 is 12 px per character on a 240 px screen, so the longer of the
     // two is 18 chars = 216 px and clears both edges by 12 px.
     tft.drawString(SETUP_PAGE_TITLES[setup_page % SETUP_PAGES], w / 2, 5);
-    
+
     tft.drawFastHLine(15, 27, w - 30, TFT_WHITE);
-    
+
     // Draw Single large Plus/Minus Adjustment Buttons Row (Y: 195 to 225)
     // If not loaded yet, these buttons are drawn disabled (Dark Grey) to protect the buoy NVM!
     // On the ACTIONS page "+" starts the selected calibration and "-" has no meaning at all, so
@@ -1138,46 +1476,47 @@ void draw_setup_static() {
     tft.setTextSize(2);
     tft.setTextDatum(MC_DATUM);
     tft.drawString("-", 45, 210);
-    
+
     uint16_t adjPlusColor = adjPlusUsable ? TFT_GREEN : TFT_DARKGREY;
     uint16_t adjPlusText = adjPlusUsable ? TFT_BLACK : TFT_LIGHTGREY;
     tft.fillRoundRect(165, 195, 60, 30, 4, adjPlusColor);
     tft.setTextColor(adjPlusText, adjPlusColor);
     tft.drawString("+", 195, 210);
-    
+
     tft.drawFastHLine(15, 230, w - 30, TFT_WHITE);
-    
+
     // Control buttons at the bottom: BACK (Blue), PAGE Toggle (Orange), & SAVE (Green or Grey depending on loaded state!)
     tft.setFreeFont(&FreeSansBold9pt7b); // Use beautiful bold GFX font!
     tft.setTextSize(1);
     tft.setTextDatum(MC_DATUM);
-    
+
     tft.fillRoundRect(10, 235, 70, 35, 4, TFT_BLUE);
     tft.setTextColor(TFT_WHITE, TFT_BLUE);
     tft.drawString("BACK", 45, 252);
-    
+
     tft.fillRoundRect(85, 235, 70, 35, 4, TFT_ORANGE);
     tft.setTextColor(TFT_BLACK, TFT_ORANGE);
-    char pg_buf[16];
+    char pg_buf[24];
     sprintf(pg_buf, "PG %d/%d", setup_page + 1, SETUP_PAGES);
     tft.drawString(pg_buf, 120, 252);
-    
+
     uint16_t saveBtnColor = setup_data_loaded ? TFT_GREEN : TFT_DARKGREY;
     uint16_t saveTextColor = setup_data_loaded ? TFT_BLACK : TFT_LIGHTGREY;
     tft.fillRoundRect(160, 235, 70, 35, 4, saveBtnColor);
     tft.setTextColor(saveTextColor, saveBtnColor);
     tft.drawString(setup_data_loaded ? "SAVE" : "WAIT", 195, 252);
-    
+
     tft.setFreeFont(NULL); // Restore default font
 }
 
-void draw_nav_static() {
+void draw_nav_static()
+{
     int w = tft.width();
     int h = tft.height();
     int idx = selected_buoy_idx;
 
     tft.fillScreen(TFT_BLACK);
-    ui_invalidate();   // the pixels are gone - no cache may claim otherwise
+    ui_invalidate(); // the pixels are gone - no cache may claim otherwise
 
     // update_nav_dynamic() leaves a 40 pixel text padding behind. Left set, the opaque
     // background band around the W and E labels bites a chunk out of the compass circle.
@@ -1188,9 +1527,9 @@ void draw_nav_static() {
     tft.setTextSize(2);
     tft.setTextDatum(TC_DATUM);
     tft.drawString(buoys[idx].id, w / 2, 5);
-    
+
     tft.drawFastHLine(15, 27, w - 30, TFT_WHITE);
-    
+
     // Draw Compass Rose Circle at center (120, 100)
     tft.drawCircle(120, 100, 45, TFT_WHITE);
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -1200,18 +1539,18 @@ void draw_nav_static() {
     tft.drawString("S", 120, 152);
     tft.drawString("W", 67, 100);
     tft.drawString("E", 173, 100);
-    
+
     // Draw Speedbar Outlines (Left BB, Right SB)
-    tft.drawRect(15, 58, 15, 100, TFT_WHITE); // BB
+    tft.drawRect(15, 58, 15, 100, TFT_WHITE);  // BB
     tft.drawRect(210, 58, 15, 100, TFT_WHITE); // SB
-    
+
     tft.setTextDatum(BC_DATUM);
     tft.setTextSize(2); // Increased speedbar labels to font size 2!
     tft.drawString("BB", 22, 50);
     tft.drawString("SB", 217, 50);
-    
+
     tft.drawFastHLine(15, 166, w - 30, TFT_WHITE);
-    
+
     // Draw Static Voltage Bar outline (Y: 172) - bar still spans 17V to 25V, without the end labels
     tft.drawRect(50, 172, 140, 10, TFT_WHITE);
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
@@ -1219,59 +1558,60 @@ void draw_nav_static() {
     tft.setTextDatum(TL_DATUM);
 
     tft.drawFastHLine(15, 202, w - 30, TFT_WHITE);
-    
+
     // Draw Static Status header on the Left Column (X < 120)
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
     tft.drawString("Status:", 15, 204);
-    
+
     // Draw Static Stacked UDP / LoRa checkboxes on the Right Column (X >= 120, UDP at Y: 204, LoRa lowered to Y: 222!)
     tft.drawRect(125, 204, 11, 11, TFT_WHITE); // UDP box
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.drawString("UDP Enabled", 141, 204);
-    
+
     tft.drawRect(125, 222, 11, 11, TFT_WHITE); // LoRa box (lowered to Y: 222 for supreme readability)
     tft.drawString("LoRa Enabled", 141, 222);
-    
+
     // Row 1 Buttons (LOCK, DOCK, IDLE) at Y: 240 to 275 (height 35)
     tft.setFreeFont(&FreeSansBold9pt7b); // Use beautiful bold GFX font!
     tft.setTextSize(1);
     tft.setTextDatum(MC_DATUM);
-    
+
     tft.fillRoundRect(10, 240, 70, 35, 4, TFT_DARKGREEN);
     tft.setTextColor(TFT_WHITE, TFT_DARKGREEN);
     tft.drawString("LOCK", 45, 257);
-    
+
     tft.fillRoundRect(85, 240, 70, 35, 4, TFT_YELLOW);
     tft.setTextColor(TFT_BLACK, TFT_YELLOW);
     tft.drawString("DOCK", 120, 257);
-    
+
     tft.fillRoundRect(160, 240, 70, 35, 4, TFT_MAROON);
     tft.setTextColor(TFT_WHITE, TFT_MAROON);
     tft.drawString("IDLE", 195, 257);
-    
+
     // Row 2 Buttons (BACK, MANNAV, SETUP) at Y: 280 to 315 (height 35)
     tft.fillRoundRect(10, 280, 70, 35, 4, TFT_BLUE);
     tft.setTextColor(TFT_WHITE, TFT_BLUE);
     tft.drawString("BACK", 45, 297);
-    
+
     tft.fillRoundRect(85, 280, 70, 35, 4, TFT_ORANGE);
     tft.setTextColor(TFT_BLACK, TFT_ORANGE);
     tft.drawString("MAN", 120, 297);
-    
+
     tft.fillRoundRect(160, 280, 70, 35, 4, TFT_DARKGREY);
     tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
     tft.drawString("SETUP", 195, 297);
-    
+
     tft.setFreeFont(NULL); // Restore default font
 }
 
-void draw_mannav_static() {
+void draw_mannav_static()
+{
     int w = tft.width();
     int h = tft.height();
     int idx = selected_buoy_idx;
 
     tft.fillScreen(TFT_BLACK);
-    ui_invalidate();   // the pixels are gone - no cache may claim otherwise
+    ui_invalidate(); // the pixels are gone - no cache may claim otherwise
 
     // Same stale padding hazard as draw_nav_static(): clear it before the compass labels
     tft.setTextPadding(0);
@@ -1281,9 +1621,9 @@ void draw_mannav_static() {
     tft.setTextSize(2);
     tft.setTextDatum(TC_DATUM);
     tft.drawString("MANUAL: " + buoys[idx].id, w / 2, 5);
-    
+
     tft.drawFastHLine(15, 28, w - 30, TFT_WHITE);
-    
+
     // Draw Compass Rose Circle at center (120, 95) with radius 45
     tft.drawCircle(120, 95, 45, TFT_WHITE);
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -1293,16 +1633,16 @@ void draw_mannav_static() {
     tft.drawString("S", 120, 147);
     tft.drawString("W", 67, 95);
     tft.drawString("E", 173, 95);
-    
+
     // Draw Speedbar Outlines (Left BB, Right SB)
-    tft.drawRect(15, 58, 15, 100, TFT_WHITE); // BB
+    tft.drawRect(15, 58, 15, 100, TFT_WHITE);  // BB
     tft.drawRect(210, 58, 15, 100, TFT_WHITE); // SB
-    
+
     tft.setTextDatum(BC_DATUM);
     tft.setTextSize(2); // Increased speedbar labels to font size 2!
     tft.drawString("BB", 22, 50);
     tft.drawString("SB", 217, 50);
-    
+
     // Draw Static Voltage Bar outline (Y: 175) - Shifted down to prevent speedbar overlap!
     tft.drawRect(50, 175, 140, 10, TFT_WHITE);
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
@@ -1310,7 +1650,7 @@ void draw_mannav_static() {
     tft.setTextDatum(TL_DATUM);
     tft.drawString("17V", 25, 176);
     tft.drawString("25V", 197, 176);
-    
+
     // --- Slider 1 (Target Dir) static layout (Y: 210) ---
     // Minus/Decrease Button on Left (X: 15 to 50, Y: 200 to 225)
     tft.fillRoundRect(15, 200, 35, 25, 4, TFT_RED);
@@ -1318,19 +1658,19 @@ void draw_mannav_static() {
     tft.setTextSize(2);
     tft.setTextDatum(MC_DATUM);
     tft.drawString("-", 32, 212);
-    
+
     // Plus/Increase Button on Right (X: 190 to 225, Y: 200 to 225)
     tft.fillRoundRect(190, 200, 35, 25, 4, TFT_GREEN);
     tft.setTextColor(TFT_BLACK, TFT_GREEN);
     tft.drawString("+", 207, 212);
-    
+
     // Track line (X: 60 to 180, width 120)
     tft.drawRoundRect(60, 210, 120, 6, 3, TFT_DARKGREY);
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
     tft.setTextSize(1);
     tft.setTextDatum(TL_DATUM);
     tft.drawString("Direction", 60, 197);
-    
+
     // --- Slider 2 (Speed) static layout (Y: 250) ---
     // Minus/Decrease Button on Left (X: 15 to 50, Y: 240 to 265)
     tft.fillRoundRect(15, 240, 35, 25, 4, TFT_RED);
@@ -1338,37 +1678,38 @@ void draw_mannav_static() {
     tft.setTextSize(2);
     tft.setTextDatum(MC_DATUM);
     tft.drawString("-", 32, 252);
-    
+
     // Plus/Increase Button on Right (X: 190 to 225, Y: 240 to 265)
     tft.fillRoundRect(190, 240, 35, 25, 4, TFT_GREEN);
     tft.setTextColor(TFT_BLACK, TFT_GREEN);
     tft.drawString("+", 207, 252);
-    
+
     // Track line (X: 60 to 180, width 120)
     tft.drawRoundRect(60, 250, 120, 6, 3, TFT_DARKGREY);
     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
     tft.setTextSize(1);
     tft.setTextDatum(TL_DATUM);
     tft.drawString("Speed", 60, 237);
-    
+
     // Bottom Buttons: BACK (left) and IDLE (right) at Y: 275 to 310 (height 35)
     tft.fillRoundRect(15, 275, 100, 35, 4, TFT_BLUE);
     tft.setTextColor(TFT_WHITE, TFT_BLUE);
     tft.setTextSize(2);
     tft.setTextDatum(MC_DATUM);
     tft.drawString("BACK", 65, 292);
-    
+
     tft.fillRoundRect(125, 275, 100, 35, 4, TFT_MAROON);
     tft.setTextColor(TFT_WHITE, TFT_MAROON);
     tft.drawString("IDLE", 175, 292);
 }
 
-void update_mannav_dynamic() {
+void update_mannav_dynamic()
+{
     int w = tft.width();
     int h = tft.height();
     int idx = selected_buoy_idx;
     BuoyData &b = buoys[idx];
-    
+
     // State caches for mannav screen
     static int last_buoy_idx = -1;
     static float last_battery_v = -1.0;
@@ -1379,16 +1720,17 @@ void update_mannav_dynamic() {
     static float last_sb_power = -999;
     static bool was_mannav_mode = false;
     static bool was_setup_mode = false;
-    
+
     static uint32_t last_paint_seq = 0;
     const bool repainted = (last_paint_seq != ui_paint_seq);
     last_paint_seq = ui_paint_seq;
-    
-    if (repainted || selected_buoy_idx != last_buoy_idx || in_mannav_mode != was_mannav_mode || in_setup_mode != was_setup_mode) {
+
+    if (repainted || selected_buoy_idx != last_buoy_idx || in_mannav_mode != was_mannav_mode || in_setup_mode != was_setup_mode)
+    {
         last_buoy_idx = selected_buoy_idx;
         was_mannav_mode = in_mannav_mode;
         was_setup_mode = in_setup_mode;
-        
+
         last_battery_v = -1.0;
         last_tg_dir = -999;
         last_tg_speed = -999;
@@ -1396,127 +1738,145 @@ void update_mannav_dynamic() {
         last_bb_power = -999;
         last_sb_power = -999;
     }
-    
+
     char buf[128];
     tft.setTextSize(1);
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    
+
     // --- 1. Redraw dynamic arrows inside windrose circle (center 120, 95) ---
-    if (b.mag_dir != last_mag_dir || b.tg_dir != last_tg_dir) {
+    if (b.mag_dir != last_mag_dir || b.tg_dir != last_tg_dir)
+    {
         // Erase old arrows
-        if (last_mag_dir != -999.0) draw_compass_arrow(120, 95, 42, last_mag_dir, TFT_BLACK);
-        if (last_tg_dir != -999.0) draw_compass_arrow(120, 95, 36, last_tg_dir, TFT_BLACK);
-        
+        if (last_mag_dir != -999.0)
+            draw_compass_arrow(120, 95, 42, last_mag_dir, TFT_BLACK);
+        if (last_tg_dir != -999.0)
+            draw_compass_arrow(120, 95, 36, last_tg_dir, TFT_BLACK);
+
         last_mag_dir = b.mag_dir;
         last_tg_dir = b.tg_dir;
-        
+
         // Draw new arrows
         draw_compass_arrow(120, 95, 42, last_mag_dir, TFT_GREEN);
         draw_compass_arrow(120, 95, 36, last_tg_dir, TFT_RED);
-        
+
         // Redraw center pivot dot
         tft.fillCircle(120, 95, 3, TFT_WHITE);
     }
-    
+
     // Print Magnetic Direction (Mag) text on the bottom-right of the windrose circle (Y: 130)
     tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
     tft.setTextDatum(TR_DATUM);
     tft.setTextPadding(44); // Overwrite old text in single pass!
     sprintf(buf, "Mag:%0.0f", b.mag_dir);
     tft.drawString(buf, 206, 130);
-    
+
     // Save caches
     last_mag_dir = b.mag_dir;
-    
+
     // --- 2. Update Dynamic Voltage Bar (Y: 175-185) ---
-    if (b.battery_v != last_battery_v) {
+    if (b.battery_v != last_battery_v)
+    {
         last_battery_v = b.battery_v;
         tft.fillRect(51, 176, 138, 8, TFT_BLACK);
         float v = b.battery_v;
-        if (v < 17.0) v = 17.0;
-        if (v > 25.0) v = 25.0;
+        if (v < 17.0)
+            v = 17.0;
+        if (v > 25.0)
+            v = 25.0;
         int fill_w = map(v * 10, 170, 250, 0, 138);
-        
+
         uint16_t barColor = TFT_GREEN;
-        if (b.battery_v < 19.5) barColor = TFT_RED;
-        else if (b.battery_v < 22.0) barColor = TFT_YELLOW;
-        
+        if (b.battery_v < 19.5)
+            barColor = TFT_RED;
+        else if (b.battery_v < 22.0)
+            barColor = TFT_YELLOW;
+
         tft.fillRect(51, 176, fill_w, 8, barColor);
     }
-    
+
     // --- 3. Update BB and SB Speedbars ---
     int mid_y = 108;
-    if (b.bb_power != last_bb_power) {
+    if (b.bb_power != last_bb_power)
+    {
         last_bb_power = b.bb_power;
         tft.fillRect(16, 59, 13, 98, TFT_BLACK); // Clear inner area (Y: 59-157)
-        if (b.bb_power > 0) {
+        if (b.bb_power > 0)
+        {
             int fill_h = (b.bb_power * 49) / 100;
             tft.fillRect(16, mid_y - fill_h, 13, fill_h, TFT_GREEN);
-        } else if (b.bb_power < 0) {
+        }
+        else if (b.bb_power < 0)
+        {
             int fill_h = (-b.bb_power * 49) / 100;
             tft.fillRect(16, mid_y, 13, fill_h, TFT_RED);
         }
         tft.drawFastHLine(15, mid_y, 15, TFT_DARKGREY); // Reset centerline
     }
-    
-    if (b.sb_power != last_sb_power) {
+
+    if (b.sb_power != last_sb_power)
+    {
         last_sb_power = b.sb_power;
         tft.fillRect(211, 59, 13, 98, TFT_BLACK); // Clear inner area
-        if (b.sb_power > 0) {
+        if (b.sb_power > 0)
+        {
             int fill_h = (b.sb_power * 49) / 100;
             tft.fillRect(211, mid_y - fill_h, 13, fill_h, TFT_GREEN);
-        } else if (b.sb_power < 0) {
+        }
+        else if (b.sb_power < 0)
+        {
             int fill_h = (-b.sb_power * 49) / 100;
             tft.fillRect(211, mid_y, 13, fill_h, TFT_RED);
         }
         tft.drawFastHLine(210, mid_y, 15, TFT_DARKGREY); // Reset centerline
     }
-    
+
     // Print BB and SB percentage text below speedbars using text padding to eliminate flicker
     tft.setTextSize(2); // Increased speedbar percentage text to font size 2!
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.setTextDatum(TC_DATUM);
     tft.setTextPadding(45); // Overwrite old text in single pass!
-    
+
     sprintf(buf, "%0.0f%%", b.bb_power);
     tft.drawString(buf, 22, 162);
-    
+
     sprintf(buf, "%0.0f%%", b.sb_power);
     tft.drawString(buf, 217, 162);
-    
+
     // --- 4. Update Sliders (ONLY draw tracks and circular thumbs!) ---
     // TG Dir Slider (Y: 210)
-    if (b.tg_dir != last_tg_dir) {
+    if (b.tg_dir != last_tg_dir)
+    {
         last_tg_dir = b.tg_dir;
         // Clear slider track width area (X: 55 to 185, Y: 201 to 221)
         tft.fillRect(55, 201, 130, 20, TFT_BLACK);
         tft.drawRoundRect(60, 210, 120, 6, 3, TFT_DARKGREY);
-        
+
         // Draw new thumb (X: 60 to 180)
         int thumb_x = 60 + (b.tg_dir * 120) / 360;
         tft.fillCircle(thumb_x, 213, 6, TFT_RED);
     }
-    
+
     // Speed Slider (Y: 250)
-    if (b.tg_speed != last_tg_speed) {
+    if (b.tg_speed != last_tg_speed)
+    {
         last_tg_speed = b.tg_speed;
         // Clear slider track area (X: 55 to 185, Y: 241 to 261)
         tft.fillRect(55, 241, 130, 20, TFT_BLACK);
         tft.drawRoundRect(60, 250, 120, 6, 3, TFT_DARKGREY);
-        
+
         // Draw new thumb (X: 60 to 180)
         float denom = (2.0 * b.max_speed);
         float pct = (denom == 0) ? 0.5 : (b.tg_speed - (-b.max_speed)) / denom;
         int thumb_x = 60 + pct * 120;
         tft.fillCircle(thumb_x, 253, 6, TFT_GREEN);
     }
-    
+
     tft.setTextPadding(0);
-    
+
     // Redraw the main white circle boundary ON TOP of all elements to prevent overlap gaps!
     tft.drawCircle(120, 95, 45, TFT_WHITE);
     tft.fillCircle(120, 95, 3, TFT_WHITE);
-    
+
     // --- 5. Update Blinking Telemetry Indicators (Top-Right, stacked vertically, LoRa on top of UDP) ---
     // Both only blink for traffic belonging to THIS buoy; red while transmitting.
     uint16_t udpDotColor = traffic_dot_color(last_udp_tx_ms, last_udp_sel_blink_ms, 100, TFT_GREEN);
@@ -1539,17 +1899,20 @@ void update_mannav_dynamic() {
 // is the whole point: the buoys creep towards their targets constantly, so a number that ticks
 // while you are trying to set it is unusable.
 // =================================================================================================
-static float track_line_cur_m = -1.0f;  // Live measurement, < 0 when there is no line to measure
-static float track_line_tgt_m = -1.0f;  // Dialled by - / +, < 0 when nothing is pending
-static int track_line_a = -1;           // The two buoys forming the line, indices into buoys[]
+static float track_line_cur_m = -1.0f; // Live measurement, < 0 when there is no line to measure
+static float track_line_tgt_m = -1.0f; // Dialled by - / +, < 0 when nothing is pending
+static int track_line_a = -1;          // The two buoys forming the line, indices into buoys[]
 static int track_line_b = -1;
 
 // How many buoys the controller currently has on the air. Drives the greying out of the buttons:
 // a start line needs two ends, and a track needs the third buoy for the upwind mark.
-static int count_buoys_present() {
+static int count_buoys_present()
+{
     int n = 0;
-    for (int i = 0; i < 3; i++) {
-        if (buoys[i].id != "" && buoys[i].present) n++;
+    for (int i = 0; i < 3; i++)
+    {
+        if (buoys[i].id != "" && buoys[i].present)
+            n++;
     }
     return n;
 }
@@ -1562,15 +1925,20 @@ static int count_buoys_present() {
 // on its way to it. DOCKING/DOCKED do not - a buoy going home is not part of a course.
 // LOCKING (12) counts as locked as well as LOCKED (13): the buoy owns a real lock position and is
 // on its way to it. DOCKING/DOCKED deliberately do not - a buoy going home is not part of a course.
-static bool buoy_is_locked(int i) {
-    if (buoys[i].id == "" || !buoys[i].present) return false;
+static bool buoy_is_locked(int i)
+{
+    if (buoys[i].id == "" || !buoys[i].present)
+        return false;
     return (buoys[i].status_code == 12 || buoys[i].status_code == 13);
 }
 
-static int count_buoys_locked() {
+static int count_buoys_locked()
+{
     int n = 0;
-    for (int i = 0; i < 3; i++) {
-        if (buoy_is_locked(i)) n++;
+    for (int i = 0; i < 3; i++)
+    {
+        if (buoy_is_locked(i))
+            n++;
     }
     return n;
 }
@@ -1579,13 +1947,16 @@ static int count_buoys_locked() {
 // its own fix. Preferring the waypoint keeps the geometry clean: a buoy holding station wanders
 // inside its hold radius, and measuring off that wobble would make the length - and the bearing
 // EXECUTE re-uses - jitter by a couple of metres between refreshes.
-static bool buoy_line_point(const BuoyData &b, double &out_lat, double &out_lon) {
-    if (buoy_has_waypoint(b) && b.tg_lat != 0 && b.tg_lon != 0) {
+static bool buoy_line_point(const BuoyData &b, double &out_lat, double &out_lon)
+{
+    if (buoy_has_waypoint(b) && b.tg_lat != 0 && b.tg_lon != 0)
+    {
         out_lat = b.tg_lat;
         out_lon = b.tg_lon;
         return true;
     }
-    if (b.lat == "N/A" || b.lat == "" || atof(b.lat.c_str()) == 0) return false;
+    if (b.lat == "N/A" || b.lat == "" || atof(b.lat.c_str()) == 0)
+        return false;
     out_lat = atof(b.lat.c_str());
     out_lon = atof(b.lon.c_str());
     return true;
@@ -1593,24 +1964,25 @@ static bool buoy_line_point(const BuoyData &b, double &out_lat, double &out_lon)
 
 // Great circle distance in metres. get_relative_meters() would do for the short legs involved, but
 // this pairs with track_bearing_to()/track_project() below and the three have to agree.
-static double track_distance_m(double lat1, double lon1, double lat2, double lon2) {
+static double track_distance_m(double lat1, double lon1, double lat2, double lon2)
+{
     const double R = 6371000.0, rad = PI / 180.0;
     double dLat = (lat2 - lat1) * rad, dLon = (lon2 - lon1) * rad;
-    double a = sin(dLat / 2) * sin(dLat / 2)
-             + cos(lat1 * rad) * cos(lat2 * rad) * sin(dLon / 2) * sin(dLon / 2);
+    double a = sin(dLat / 2) * sin(dLat / 2) + cos(lat1 * rad) * cos(lat2 * rad) * sin(dLon / 2) * sin(dLon / 2);
     return 2 * R * atan2(sqrt(a), sqrt(1 - a));
 }
 
-static double track_bearing_to(double lat1, double lon1, double lat2, double lon2) {
+static double track_bearing_to(double lat1, double lon1, double lat2, double lon2)
+{
     const double rad = PI / 180.0;
     double y = sin((lon2 - lon1) * rad) * cos(lat2 * rad);
-    double x = cos(lat1 * rad) * sin(lat2 * rad)
-             - sin(lat1 * rad) * cos(lat2 * rad) * cos((lon2 - lon1) * rad);
+    double x = cos(lat1 * rad) * sin(lat2 * rad) - sin(lat1 * rad) * cos(lat2 * rad) * cos((lon2 - lon1) * rad);
     return fmod(atan2(y, x) * 180.0 / PI + 360.0, 360.0);
 }
 
 static void track_project(double lat, double lon, double bearing_deg, double dist_m,
-                          double &out_lat, double &out_lon) {
+                          double &out_lat, double &out_lon)
+{
     const double R = 6371000.0, rad = PI / 180.0;
     double d = dist_m / R;
     double brg = bearing_deg * rad;
@@ -1633,44 +2005,62 @@ static void track_project(double lat, double lon, double bearing_deg, double dis
 // Anything missing - a buoy without a fix, or no wind reading anywhere in the fleet - leaves every
 // role NONE. Green for "present, no course" is honest; guessing a side from incomplete data and
 // painting a buoy red would not be.
-#define ROLE_NONE       0
-#define ROLE_HEAD       1
-#define ROLE_PORT       2
-#define ROLE_STARBOARD  3
+#define ROLE_NONE 0
+#define ROLE_HEAD 1
+#define ROLE_PORT 2
+#define ROLE_STARBOARD 3
 
-static void compute_buoy_roles(int roles[3]) {
-    for (int i = 0; i < 3; i++) roles[i] = ROLE_NONE;
+static void compute_buoy_roles(int roles[3])
+{
+    for (int i = 0; i < 3; i++)
+        roles[i] = ROLE_NONE;
 
     int present = count_buoys_present();
-    if (present < 2 || count_buoys_locked() != present) return;
+    if (present < 2 || count_buoys_locked() != present)
+        return;
 
     double lat[3] = {0, 0, 0}, lon[3] = {0, 0, 0};
     int idx[3], n = 0;
-    for (int i = 0; i < 3; i++) {
-        if (buoys[i].id == "" || !buoys[i].present) continue;
-        if (!buoy_line_point(buoys[i], lat[i], lon[i])) return; // no position, no geometry
+    for (int i = 0; i < 3; i++)
+    {
+        if (buoys[i].id == "" || !buoys[i].present)
+            continue;
+        if (!buoy_line_point(buoys[i], lat[i], lon[i]))
+            return; // no position, no geometry
         idx[n++] = i;
     }
-    if (n != present) return;
+    if (n != present)
+        return;
 
     // The mean of what the two line-end buoys report - see start_line_wind(). One anemometer's
     // opinion used to decide which end was starboard for the whole fleet; two of them, a line's
     // length apart, disagree by a few degrees in steady air and by more in a shifty one.
     float wdir_f = 0, wstd_f = 0;
-    if (!start_line_wind(wdir_f, wstd_f)) return; // Without wind there is no port or starboard side
+    if (!start_line_wind(wdir_f, wstd_f))
+        return; // Without wind there is no port or starboard side
     double wdir = wdir_f;
 
     int a = idx[0], b = idx[1];
-    if (n == 3) {
+    if (n == 3)
+    {
         double best = -1;
-        for (int i = 0; i < n; i++) {
-            for (int j = i + 1; j < n; j++) {
+        for (int i = 0; i < n; i++)
+        {
+            for (int j = i + 1; j < n; j++)
+            {
                 double d = track_distance_m(lat[idx[i]], lon[idx[i]], lat[idx[j]], lon[idx[j]]);
-                if (best < 0 || d < best) { best = d; a = idx[i]; b = idx[j]; }
+                if (best < 0 || d < best)
+                {
+                    best = d;
+                    a = idx[i];
+                    b = idx[j];
+                }
             }
         }
-        for (int i = 0; i < n; i++) {
-            if (idx[i] != a && idx[i] != b) roles[idx[i]] = ROLE_HEAD;
+        for (int i = 0; i < n; i++)
+        {
+            if (idx[i] != a && idx[i] != b)
+                roles[idx[i]] = ROLE_HEAD;
         }
     }
 
@@ -1680,19 +2070,34 @@ static void compute_buoy_roles(int roles[3]) {
     // Smallest signed separation from the starboard bearing, folded to 0..180.
     double da = fabs(fmod(track_bearing_to(mid_lat, mid_lon, lat[a], lon[a]) - sb_bearing + 540.0, 360.0) - 180.0);
     double db = fabs(fmod(track_bearing_to(mid_lat, mid_lon, lat[b], lon[b]) - sb_bearing + 540.0, 360.0) - 180.0);
-    if (da <= db) { roles[a] = ROLE_STARBOARD; roles[b] = ROLE_PORT; }
-    else          { roles[a] = ROLE_PORT;      roles[b] = ROLE_STARBOARD; }
+    if (da <= db)
+    {
+        roles[a] = ROLE_STARBOARD;
+        roles[b] = ROLE_PORT;
+    }
+    else
+    {
+        roles[a] = ROLE_PORT;
+        roles[b] = ROLE_STARBOARD;
+    }
 }
 
 // Fill colour for a buoy, by role. An OFFLINE buoy is greyed out rather than reddened - red means
 // "port hand" here, and a dead buoy must not be mistaken for one that is holding a station.
-static uint16_t buoy_role_color(int idx, const int roles[3]) {
-    if (buoys[idx].id == "" || !buoys[idx].present) return TFT_DARKGREY;
-    switch (roles[idx]) {
-        case ROLE_HEAD:      return TFT_BLUE;
-        case ROLE_STARBOARD: return TFT_GREEN;
-        case ROLE_PORT:      return TFT_RED;
-        default:             break;
+static uint16_t buoy_role_color(int idx, const int roles[3])
+{
+    if (buoys[idx].id == "" || !buoys[idx].present)
+        return TFT_DARKGREY;
+    switch (roles[idx])
+    {
+    case ROLE_HEAD:
+        return TFT_BLUE;
+    case ROLE_STARBOARD:
+        return TFT_GREEN;
+    case ROLE_PORT:
+        return TFT_RED;
+    default:
+        break;
     }
     // No role to show - either the fleet is not fully locked, or there is no wind to take sides
     // against. YELLOW for a buoy that is not holding a station, green once it is. That makes the
@@ -1701,20 +2106,23 @@ static uint16_t buoy_role_color(int idx, const int roles[3]) {
     return buoy_is_locked(idx) ? TFT_GREEN : TFT_YELLOW;
 }
 
-static uint16_t buoy_role_text_color(uint16_t bg) {
+static uint16_t buoy_role_text_color(uint16_t bg)
+{
     return (bg == TFT_GREEN || bg == TFT_YELLOW) ? TFT_BLACK : TFT_WHITE;
 }
 
 // True when both ends of the line are known, i.e. when - / + / EXECUTE have something to work on.
 // Filled in by update_radar_map_dynamic() as a side effect of plotting the line.
-static bool track_line_measured() {
+static bool track_line_measured()
+{
     return track_line_cur_m > 0 && track_line_a >= 0 && track_line_b >= 0;
 }
 
 // One button. Greyed out by filling it dark rather than by hiding it - the layout has to stay put
 // so the operator's finger lands in the same place whether or not the third buoy is on the air.
 static void draw_track_button(int x, int y, int w, const char *label, uint16_t fill,
-                              uint16_t text_col, bool enabled) {
+                              uint16_t text_col, bool enabled)
+{
     uint16_t bg = enabled ? fill : TFT_DARKGREY;
     uint16_t fg = enabled ? text_col : 0x4208; // Barely-there grey: reads as "not now", not as text
     tft.fillRoundRect(x, y, w, TS_BTN_H, 5, bg);
@@ -1733,33 +2141,36 @@ static void draw_track_button(int x, int y, int w, const char *label, uint16_t f
 //   -  START  TRACK  +      - and + dial the line 5 m shorter/longer, START squares it to the
 //   BACK      EXECUTE       wind (needs 2 buoys), TRACK lays out the full course (needs 3), and
 //                           EXECUTE commits whatever - and + have dialled.
-void draw_track_buttons(bool force) {
+void draw_track_buttons(bool force)
+{
     int fleet = count_buoys_present();
     int locked = count_buoys_locked();
-    bool can_len   = (fleet >= 2) && track_line_measured();
+    bool can_len = (fleet >= 2) && track_line_measured();
     // START and TRACK need LOCKED buoys, not merely present ones - see count_buoys_locked().
     bool can_start = (locked >= 2);
     bool can_track = (locked >= 3);
-    bool can_exec  = can_len && track_line_tgt_m > 0
-                     && lroundf(track_line_tgt_m) != lroundf(track_line_cur_m);
+    bool can_exec = can_len && track_line_tgt_m > 0 && lroundf(track_line_tgt_m) != lroundf(track_line_cur_m);
 
     static int last_key = -1;
     int key = (can_len ? 1 : 0) | (can_start ? 2 : 0) | (can_track ? 4 : 0) | (can_exec ? 8 : 0);
     // The EXECUTE caption carries the dialled length, so that has to be in the cache key as well
     key |= (can_exec ? ((int)lroundf(track_line_tgt_m) << 4) : 0);
-    if (!force && key == last_key) return;
+    if (!force && key == last_key)
+        return;
     last_key = key;
 
-    draw_track_button(TS_MINUS_X, TS_ROW1_Y, TS_MINUS_W, "-",     TFT_BROWN,   TFT_WHITE, can_len);
+    draw_track_button(TS_MINUS_X, TS_ROW1_Y, TS_MINUS_W, "-", TFT_BROWN, TFT_WHITE, can_len);
     draw_track_button(TS_START_X, TS_ROW1_Y, TS_START_W, "START", TFT_SKYBLUE, TFT_BLACK, can_start);
-    draw_track_button(TS_TRACK_X, TS_ROW1_Y, TS_TRACK_W, "TRACK", TFT_BLUE,    TFT_WHITE, can_track);
-    draw_track_button(TS_PLUS_X,  TS_ROW1_Y, TS_PLUS_W,  "+",     TFT_BROWN,   TFT_WHITE, can_len);
+    draw_track_button(TS_TRACK_X, TS_ROW1_Y, TS_TRACK_W, "TRACK", TFT_BLUE, TFT_WHITE, can_track);
+    draw_track_button(TS_PLUS_X, TS_ROW1_Y, TS_PLUS_W, "+", TFT_BROWN, TFT_WHITE, can_len);
 
     draw_track_button(TS_BACK_X, TS_ROW2_Y, TS_BACK_W, "BACK", TFT_DARKGREY, TFT_WHITE, true);
 
     char exec_label[16];
-    if (can_exec) snprintf(exec_label, sizeof(exec_label), "GO %dM", (int)lroundf(track_line_tgt_m));
-    else          snprintf(exec_label, sizeof(exec_label), "EXECUTE");
+    if (can_exec)
+        snprintf(exec_label, sizeof(exec_label), "GO %dM", (int)lroundf(track_line_tgt_m));
+    else
+        snprintf(exec_label, sizeof(exec_label), "EXECUTE");
     draw_track_button(TS_EXEC_X, TS_ROW2_Y, TS_EXEC_W, exec_label, TFT_GREEN, TFT_BLACK, can_exec);
 }
 
@@ -1768,12 +2179,16 @@ void draw_track_buttons(bool force) {
 //
 // SETLOCKPOS is the same command the Top uses to push computed start line ends to the other buoy
 // (RoboTop, case SENDTRACK): the receiver stores the point, sails to it and locks.
-static void track_line_execute() {
-    if (!track_line_measured() || track_line_tgt_m <= 0) return;
+static void track_line_execute()
+{
+    if (!track_line_measured() || track_line_tgt_m <= 0)
+        return;
 
     double alat, alon, blat, blon;
-    if (!buoy_line_point(buoys[track_line_a], alat, alon)) return;
-    if (!buoy_line_point(buoys[track_line_b], blat, blon)) return;
+    if (!buoy_line_point(buoys[track_line_a], alat, alon))
+        return;
+    if (!buoy_line_point(buoys[track_line_b], blat, blon))
+        return;
 
     double mid_lat = (alat + blat) / 2.0;
     double mid_lon = (alon + blon) / 2.0;
@@ -1814,7 +2229,8 @@ static void track_line_execute() {
 // Show what - / + have dialled, in the buttons' own colour so it reads as "pending", not as the
 // measurement. Only the label is repainted: replotting the whole map on every press is both slower
 // and visibly flickery when a button is held down and repeats.
-static void track_settings_show_pending() {
+static void track_settings_show_pending()
+{
     char buf[12];
     snprintf(buf, sizeof(buf), "%0.0fM", track_line_tgt_m);
     draw_line_len_label(buf, TFT_ORANGE);
@@ -1832,7 +2248,8 @@ static void track_settings_show_pending() {
 //
 // Both branches repaint the whole strip, so this is also what puts the S back when the fleet
 // locks - the static screen draw is not re-run on a status change.
-void draw_track_lock_hint() {
+void draw_track_lock_hint()
+{
     bool warn = (count_buoys_locked() < 2);
 
     tft.fillRect(0, MAP_CY + MAP_R, 240, TS_ROW1_Y - (MAP_CY + MAP_R) - 1, TFT_BLACK);
@@ -1841,10 +2258,13 @@ void draw_track_lock_hint() {
     tft.setTextSize(2);
     tft.setTextDatum(MC_DATUM);
 
-    if (warn) {
+    if (warn)
+    {
         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
         tft.drawString("LOCK 2 BUOYS FIRST", MAP_CX, MAP_CY + MAP_R + 10);
-    } else {
+    }
+    else
+    {
         tft.setTextColor(TFT_GREEN, TFT_BLACK);
         tft.drawString("S", MAP_CX, MAP_CY + MAP_R + 10);
     }
@@ -1853,7 +2273,8 @@ void draw_track_lock_hint() {
 // A one line message across the middle of the plot, for the moment between pressing a button and
 // the fleet acting on it. It is painted straight over the plot rectangle, which the next refresh
 // wipes anyway, so nothing has to undo it.
-static void track_settings_banner(const char *text, uint16_t color) {
+static void track_settings_banner(const char *text, uint16_t color)
+{
     tft.fillRect(MAP_CX - MAP_R, MAP_CY - 12, MAP_R * 2 + 1, 24, TFT_BLACK);
     tft.setFreeFont(NULL);
     tft.setTextPadding(0);
@@ -1870,14 +2291,18 @@ static void track_settings_banner(const char *text, uint16_t color) {
 // when it has no wind reading, and it reports that only with a beep. So the wording stops at what
 // is actually known - and the map itself shows the outcome, because a successful compute moves the
 // other buoys' waypoints within a second or two.
-static void track_settings_ack_poll() {
-    if (pending_cmd_acked) {
+static void track_settings_ack_poll()
+{
+    if (pending_cmd_acked)
+    {
         pending_cmd_acked = false;
         // An EXECUTE arms two frames, and after one of those the only answer worth reading is
         // whether BOTH ends heard it - one end moved is the failure that looks like success.
         track_settings_banner(pending_cmd_armed > 1 ? "BOTH ENDS GOT IT" : "BUOY GOT IT",
                               TFT_GREEN);
-    } else if (pending_cmd_failed) {
+    }
+    else if (pending_cmd_failed)
+    {
         pending_cmd_failed = false;
         track_settings_banner("NO REPLY - RETRY", TFT_RED);
     }
@@ -1890,7 +2315,8 @@ static void track_settings_ack_poll() {
 // ITS OWN wind. Sending it to "the first buoy in the list" is therefore not safe: a buoy with a
 // failed compass reports wDir/wStd as 0/0, which is indistinguishable from a real due-north calm,
 // and the line silently comes out squared to north. Hence pick_wind_reference_buoy().
-static void track_settings_compute(int cmd_code) {
+static void track_settings_compute(int cmd_code)
+{
     // "SENDING...", not "COMPUTING..." - at this point nothing has been computed and nothing has
     // even been transmitted. The old wording was painted here unconditionally and never revised,
     // so a press that never reached a buoy looked exactly like one that worked. send_buoy_command()
@@ -1899,9 +2325,12 @@ static void track_settings_compute(int cmd_code) {
     track_settings_banner("SENDING...", TFT_YELLOW);
 
     int wind_idx = pick_wind_reference_buoy();
-    if (wind_idx >= 0) {
+    if (wind_idx >= 0)
+    {
         send_buoy_command(buoys[wind_idx].id, cmd_code);
-    } else {
+    }
+    else
+    {
         track_settings_banner("NO WIND DATA!", TFT_RED);
     }
 
@@ -1915,11 +2344,13 @@ static void track_settings_compute(int cmd_code) {
 }
 
 // Commit the eight captured directions to the buoy and leave the screen.
-static void mancal_save_table_and_exit(int buoy_index) {
+static void mancal_save_table_and_exit(int buoy_index)
+{
     BuoyData &b = buoys[buoy_index];
 
-    if (!mancal_complete(b)) {
-        char warn_buf[28];
+    if (!mancal_complete(b))
+    {
+        char warn_buf[40];
         sprintf(warn_buf, "%d STILL TO CAPTURE", 8 - mancal_count(b));
         mancal_warn(warn_buf);
         delay(20);
@@ -1944,7 +2375,8 @@ static void mancal_save_table_and_exit(int buoy_index) {
     // reports NO REPLY on a save that is still in progress and about to succeed - which is exactly
     // what it did when the budget was 4.8 s and this waited 4.
     unsigned long wait_until = millis() + 20000;
-    while ((b.cal8_ms == before || b.cal8_active) && (long)(millis() - wait_until) < 0) {
+    while ((b.cal8_ms == before || b.cal8_active) && (long)(millis() - wait_until) < 0)
+    {
         handle_wifi_clients();
         check_lora_packets();
         delay(20);
@@ -1956,7 +2388,8 @@ static void mancal_save_table_and_exit(int buoy_index) {
     tft.fillRect(0, 195, tft.width(), 100, TFT_BLACK);
     tft.setTextDatum(MC_DATUM);
     tft.setTextSize(2);
-    if (stored) {
+    if (stored)
+    {
         tft.setTextColor(TFT_GREEN, TFT_BLACK);
         tft.drawString("TABLE STORED", tft.width() / 2, 218);
         tft.setTextSize(1);
@@ -1967,7 +2400,9 @@ static void mancal_save_table_and_exit(int buoy_index) {
         tft.setTextColor(TFT_CYAN, TFT_BLACK);
         tft.drawString("now use Set as North for the", tft.width() / 2, 256);
         tft.drawString("mounting angle", tft.width() / 2, 268);
-    } else {
+    }
+    else
+    {
         tft.setTextColor(TFT_RED, TFT_BLACK);
         tft.drawString("NO REPLY", tft.width() / 2, 225);
         tft.setTextSize(1);
@@ -1984,15 +2419,18 @@ static void mancal_save_table_and_exit(int buoy_index) {
     draw_resting_ui();
 }
 
-void draw_resting_ui() {
+void draw_resting_ui()
+{
     int w = tft.width();
     int h = tft.height();
-    
+
     tft.fillScreen(TFT_BLACK);
-    ui_invalidate();   // the pixels are gone - no cache may claim otherwise
-    
-    if (selected_buoy_idx == -1) {
-        if (in_track_settings_mode) {
+    ui_invalidate(); // the pixels are gone - no cache may claim otherwise
+
+    if (selected_buoy_idx == -1)
+    {
+        if (in_track_settings_mode)
+        {
             // --- Static Track Settings Screen: the buoy map, with the course controls under it ---
             tft.setTextPadding(0); // Stale padding from the nav screens would eat into the labels below
             tft.setTextColor(TFT_CYAN, TFT_BLACK);
@@ -2027,34 +2465,36 @@ void draw_resting_ui() {
 
             // Buttons last: they read the length the plot just measured to decide what is live.
             draw_track_buttons(true);
-        } else {
+        }
+        else
+        {
             // --- Static Menu Screen (240x320 Portrait) ---
             tft.setTextColor(TFT_YELLOW, TFT_BLACK);
             tft.setTextSize(2);
             tft.setTextDatum(TC_DATUM);
             tft.drawString("ROBOBUOY", w / 2, 15);
             tft.drawString("CONTROLLER", w / 2, 40);
-            
+
             tft.drawFastHLine(15, 70, w - 30, TFT_WHITE);
-            
+
             // Draw TRACK SETTINGS Button (Y: 210 to 245, X: 10 to 230) - as big as BUOY buttons and BLUE!
             tft.fillRoundRect(10, 210, w - 20, 35, 5, TFT_BLUE);
             tft.setTextColor(TFT_WHITE, TFT_BLUE);
             tft.setTextSize(2);
             tft.setTextDatum(MC_DATUM);
             tft.drawString("TRACK SETTINGS", w / 2, 227);
-            
+
             // Draw Calibrate Touch Button centered (Y: 250 to 278, X: 30 to 210)
             tft.fillRoundRect(30, 250, 180, 28, 4, TFT_DARKGREY);
             tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
             tft.setTextSize(1);
             tft.setTextDatum(MC_DATUM);
             tft.drawString("CALIBRATE TOUCH", w / 2, 264);
-            
+
             tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
             tft.setTextSize(2);
             tft.setTextDatum(BC_DATUM);
-            
+
             // Draw LoRa status on its own line above the IP address.
             //
             // Left-aligned now rather than centred, because the relay indicator shares this line -
@@ -2063,7 +2503,7 @@ void draw_resting_ui() {
             tft.setTextDatum(BL_DATUM);
             tft.drawString("LoRa 433M", 6, h - 22);
             tft.setTextDatum(BC_DATUM);
-            
+
             IPAddress ip;
 
             if (WiFi.getMode() & WIFI_MODE_AP)
@@ -2079,75 +2519,94 @@ void draw_resting_ui() {
             sprintf(ip_buf, "IP: %s", ip.toString().c_str());
             tft.drawString(ip_buf, w / 2, h - 6);
         }
-    } else {
-        if (in_man_fourier_cal_mode) {
+    }
+    else
+    {
+        if (in_man_fourier_cal_mode)
+        {
             // --- Static Manual Fourier Calibration Screen ---
             draw_mancal_static();
-        } else if (in_setup_mode) {
+        }
+        else if (in_setup_mode)
+        {
             // --- Static Setup screen on Display ---
             draw_setup_static();
-        } else if (in_mannav_mode) {
+        }
+        else if (in_mannav_mode)
+        {
             // --- Static Manual Navigation Screen ---
             draw_mannav_static();
-        } else {
+        }
+        else
+        {
             // --- Static Navigation/Compass Screen (Opened directly on tapping buoy!) ---
             draw_nav_static();
         }
     }
 }
 
-void update_setup_dynamic() {
+void update_setup_dynamic()
+{
     int w = tft.width();
     int idx = selected_buoy_idx;
     BuoyData &b = buoys[idx];
     char buf[64];
-    
+
     // Page 4 carries no setup values at all, only the calibration actions and their progress, so
     // it must not be held behind the SETUPDATA reply the way the parameter pages are.
-    if (!setup_data_loaded && !setup_slot_is_action(selected_param_idx)) {
+    if (!setup_data_loaded && !setup_slot_is_action(selected_param_idx))
+    {
         // Display beautiful loading overlay while awaiting the NMEA response packet from buoy
         tft.setTextSize(2);
         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
         tft.setTextDatum(MC_DATUM);
         char lbuf[48];
         bool gaveUp = (setup_query_tries >= SETUP_QUERY_MAX_TRIES);
-        if (gaveUp) {
+        if (gaveUp)
+        {
             tft.setTextColor(TFT_RED, TFT_BLACK);
             tft.drawString("NO REPLY", w / 2, 85);
             tft.drawString("FROM BUOY", w / 2, 115);
-        } else {
+        }
+        else
+        {
             tft.drawString("LOADING DATA", w / 2, 85);
             tft.drawString("FROM BUOY...", w / 2, 115);
         }
-        
+
         tft.setTextSize(1);
         tft.setTextColor(gaveUp ? TFT_ORANGE : TFT_DARKGREY, TFT_BLACK);
         tft.setTextPadding(200); // the attempt counter shortens as it climbs; pad so it self-erases
-        if (gaveUp) {
+        if (gaveUp)
+        {
             tft.drawString("Tap BACK, then SETUP to retry", w / 2, 160);
-        } else {
+        }
+        else
+        {
             sprintf(lbuf, "Awaiting reply - attempt %d of %d", setup_query_tries, SETUP_QUERY_MAX_TRIES);
             tft.drawString(lbuf, w / 2, 160);
         }
         tft.setTextPadding(0);
         return;
     }
-    
+
     tft.setTextSize(1);
     tft.setTextDatum(MC_DATUM);
-    
+
     // Draw the 8 grid boxes of the current page (4 rows x 2 columns). Slots with no name are
     // gaps in the layout and are skipped entirely - drawing them used to leave a stray value in
     // the empty boxes at the bottom of the docking page.
     char vbuf[24];
-    for (int i = 0; i < 8; i++) {
-        int r = i % 4;       // Row index (0 to 3)
-        int c = i / 4;       // Col index (0 to 1)
+    for (int i = 0; i < 8; i++)
+    {
+        int r = i % 4; // Row index (0 to 3)
+        int c = i / 4; // Col index (0 to 1)
         int x = (c == 0) ? 10 : 122;
         int y = 35 + r * 36; // Double-height boxes! (32px height, 4px gap = 36px offset)
 
         int global_idx = setup_page * 8 + i;
-        if (!setup_slot_used(global_idx)) continue;
+        if (!setup_slot_used(global_idx))
+            continue;
 
         // Highlight selected parameter box in Yellow, otherwise draw in Dark Grey
         uint16_t boxColor = (global_idx == selected_param_idx) ? TFT_YELLOW : TFT_DARKGREY;
@@ -2156,21 +2615,28 @@ void update_setup_dynamic() {
         tft.drawRoundRect(x, y, 108, 32, 4, boxColor);
         tft.setTextColor(textColor, TFT_BLACK);
 
-        if (setup_slot_is_bool(global_idx)) {
+        if (setup_slot_is_bool(global_idx))
+        {
             bool on = setup_bool_get(b, global_idx);
             tft.setTextColor(on ? TFT_GREEN : textColor, TFT_BLACK);
             sprintf(buf, "%s %s", SETUP_NAMES[global_idx], on ? "YES" : "NO");
             tft.drawString(buf, x + 54, y + 16);
-        } else if (global_idx == S_MANCAL || global_idx == S_REBOOT || global_idx == S_LINKS ||
-                   global_idx == S_CLEANNOW) {
+        }
+        else if (global_idx == S_MANCAL || global_idx == S_REBOOT || global_idx == S_LINKS ||
+                 global_idx == S_CLEANNOW)
+        {
             // Orange marks the buttons that DO something to the boat the moment they are confirmed,
             // as against the ones that only open a screen. CLEAN NOW runs both thrusters at full
             // scale for ten seconds, which is firmly in the first group.
             tft.setTextColor(TFT_ORANGE, TFT_BLACK);
             tft.drawString(SETUP_NAMES[global_idx], x + 54, y + 16);
-        } else if (setup_slot_is_action(global_idx)) {
+        }
+        else if (setup_slot_is_action(global_idx))
+        {
             tft.drawString(SETUP_NAMES[global_idx], x + 54, y + 16);
-        } else {
+        }
+        else
+        {
             setup_value_text(b, global_idx, vbuf, sizeof(vbuf));
             sprintf(buf, "%s %s", SETUP_NAMES[global_idx], vbuf);
             tft.drawString(buf, x + 54, y + 16);
@@ -2189,22 +2655,29 @@ void update_setup_dynamic() {
     // The "SELECT ACTION" wording this used to be able to draw is gone with it. It was conditional
     // on a flag recomputed from the test that had already been passed to get in here, so it was
     // always true and the alternative could never be reached.
-    if (setup_slot_is_action(selected_param_idx) && (selected_param_idx / 8) == setup_page) {
+    if (setup_slot_is_action(selected_param_idx) && (selected_param_idx / 8) == setup_page)
+    {
         // Clear the strip between the two buttons (they occupy x 15..75 and x 165..225).
         tft.fillRect(78, 196, 84, 28, TFT_BLACK);
         tft.setTextDatum(MC_DATUM); // set, not inherited - TFT_eSPI datum is global state
-        tft.setTextSize(1); // "TAP + TO RUN" at size 2 is 144 px and the gap is 84
+        tft.setTextSize(1);         // "TAP + TO RUN" at size 2 is 144 px and the gap is 84
         uint16_t col = (selected_param_idx == S_MANCAL || selected_param_idx == S_REBOOT ||
-                        selected_param_idx == S_CLEANNOW) ? TFT_ORANGE : TFT_YELLOW;
+                        selected_param_idx == S_CLEANNOW)
+                           ? TFT_ORANGE
+                           : TFT_YELLOW;
         tft.setTextColor(col, TFT_BLACK);
         tft.drawString("TAP + TO RUN", 120, 210);
-    } else if (setup_slot_is_bool(selected_param_idx)) {
+    }
+    else if (setup_slot_is_bool(selected_param_idx))
+    {
         tft.drawString(setup_bool_get(b, selected_param_idx) ? "YES" : "NO", 115, 210);
-    } else {
+    }
+    else
+    {
         setup_value_text(b, selected_param_idx, buf, sizeof(buf));
         tft.drawString(buf, 115, 210);
     }
-    
+
     // Draw real-time traffic dots (UDP and LoRa) in the top-right corner of the setup page header (Y: 13)
     uint16_t udpDotColor = traffic_dot_color(last_udp_tx_ms, last_udp_sel_blink_ms, 100, TFT_GREEN);
     tft.fillCircle(218, 13, 4, udpDotColor);
@@ -2212,12 +2685,13 @@ void update_setup_dynamic() {
     tft.fillCircle(232, 13, 4, loraDotColor);
 }
 
-void update_nav_dynamic() {
+void update_nav_dynamic()
+{
     int w = tft.width();
     int h = tft.height();
     int idx = selected_buoy_idx;
     BuoyData &b = buoys[idx];
-    
+
     // State caches to completely eliminate steady-state flicker on every refresh
     static int last_buoy_idx = -1;
     static float last_bb_power = -999;
@@ -2228,68 +2702,78 @@ void update_nav_dynamic() {
     static bool was_mannav_mode = false;
     static bool was_setup_mode = false;
     static String last_gps_fix = "";
-    
+
     // Reset caches on buoy selection, screen mode change, or any repaint that cleared the glass.
     static uint32_t last_paint_seq = 0;
     const bool repainted = (last_paint_seq != ui_paint_seq);
     last_paint_seq = ui_paint_seq;
 
-    if (repainted || selected_buoy_idx != last_buoy_idx || in_mannav_mode != was_mannav_mode || in_setup_mode != was_setup_mode) {
+    if (repainted || selected_buoy_idx != last_buoy_idx || in_mannav_mode != was_mannav_mode || in_setup_mode != was_setup_mode)
+    {
         last_buoy_idx = selected_buoy_idx;
         was_mannav_mode = in_mannav_mode;
         was_setup_mode = in_setup_mode;
-        
+
         last_bb_power = -999;
         last_sb_power = -999;
         last_battery_v = -1.0;
         last_pid_i = -99999.0f;
         last_nav_status = "";
         last_gps_fix = "";
-        
+
         old_mag_dir = -999.0;
         old_tg_dir = -999.0;
         old_wind_dir = -999.0;
     }
-    
+
     // Clear all dynamic text fields ONCE when transition into/out of IDLE status occurs
-    if (b.status != last_nav_status) {
+    if (b.status != last_nav_status)
+    {
         last_nav_status = b.status;
-        tft.fillRect(34, 45, 60, 12, TFT_BLACK);     // Clear top-left (Dis)
-        tft.fillRect(150, 45, 56, 25, TFT_BLACK);    // Clear top-right (Wnd & Std)
-        tft.fillRect(34, 135, 60, 12, TFT_BLACK);    // Clear bottom-left (Tg)
-        tft.fillRect(150, 135, 56, 12, TFT_BLACK);   // Clear bottom-right (Mag)
+        tft.fillRect(34, 45, 60, 12, TFT_BLACK);   // Clear top-left (Dis)
+        tft.fillRect(150, 45, 56, 25, TFT_BLACK);  // Clear top-right (Wnd & Std)
+        tft.fillRect(34, 135, 60, 12, TFT_BLACK);  // Clear bottom-left (Tg)
+        tft.fillRect(150, 135, 56, 12, TFT_BLACK); // Clear bottom-right (Mag)
     }
 
     // --- 1. Update Speedbars (BB Bow & SB Stern) ---
     int mid_y = 108;
-    
+
     // Only redraw speedbars on value change to prevent constant high-frequency flickering
-    if (b.bb_power != last_bb_power) {
+    if (b.bb_power != last_bb_power)
+    {
         last_bb_power = b.bb_power;
         tft.fillRect(16, 59, 13, 98, TFT_BLACK); // Clear inner area (Lowered to starting Y: 59)
-        if (b.bb_power > 0) {
+        if (b.bb_power > 0)
+        {
             int fill_h = (b.bb_power * 49) / 100;
             tft.fillRect(16, mid_y - fill_h, 13, fill_h, TFT_GREEN);
-        } else if (b.bb_power < 0) {
+        }
+        else if (b.bb_power < 0)
+        {
             int fill_h = (-b.bb_power * 49) / 100;
             tft.fillRect(16, mid_y, 13, fill_h, TFT_RED);
         }
         tft.drawFastHLine(15, mid_y, 15, TFT_DARKGREY); // Reset centerline
     }
-    
-    if (b.sb_power != last_sb_power) {
+
+    if (b.sb_power != last_sb_power)
+    {
         last_sb_power = b.sb_power;
         tft.fillRect(211, 59, 13, 98, TFT_BLACK); // Clear inner area
-        if (b.sb_power > 0) {
+        if (b.sb_power > 0)
+        {
             int fill_h = (b.sb_power * 49) / 100;
             tft.fillRect(211, mid_y - fill_h, 13, fill_h, TFT_GREEN);
-        } else if (b.sb_power < 0) {
+        }
+        else if (b.sb_power < 0)
+        {
             int fill_h = (-b.sb_power * 49) / 100;
             tft.fillRect(211, mid_y, 13, fill_h, TFT_RED);
         }
         tft.drawFastHLine(210, mid_y, 15, TFT_DARKGREY); // Reset centerline
     }
-    
+
     // Allocate 128 bytes on the stack for buffer formatting (fixes stack smashing watchdog reboots!)
     char buf[128];
 
@@ -2304,108 +2788,121 @@ void update_nav_dynamic() {
     // only clear strip on this screen: the title ends at y 21 and every dynamic field below starts
     // at y 45. Cached like everything else here so a steady value is not redrawn on every pass,
     // and reset with the rest when the glass is cleared - see ui_paint_seq.
-    if (b.pid_i != last_pid_i) {
+    if (b.pid_i != last_pid_i)
+    {
         last_pid_i = b.pid_i;
         tft.setTextSize(1);
         tft.setTextDatum(MC_DATUM);
-        tft.setTextPadding(84);          // erases the old value; 84 px spans the widest reading
+        tft.setTextPadding(84); // erases the old value; 84 px spans the widest reading
         tft.setTextColor(TFT_ORANGE, TFT_BLACK);
         sprintf(buf, "Ispd %0.1f", b.pid_i);
         tft.drawString(buf, 120, 36);
-        tft.setTextPadding(0);           // never leave padding set - it eats into the rose
+        tft.setTextPadding(0); // never leave padding set - it eats into the rose
     }
-    
+
     // Print BB and SB percentage text below speedbars using text padding to eliminate flicker
     tft.setTextSize(2); // Increased speedbar percentage text to font size 2!
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.setTextDatum(TC_DATUM);
     tft.setTextPadding(45); // Increased padding to 45px for size 2 text!
-    
+
     sprintf(buf, "%0.0f%%", b.bb_power);
     tft.drawString(buf, 22, 162); // Lowered to Y: 162
-    
+
     sprintf(buf, "%0.0f%%", b.sb_power);
     tft.drawString(buf, 217, 162); // Lowered to Y: 162
-    
+
     // --- 2. Update Trigonometric Compass Rose Arrows ---
     float current_tg = (b.status != "IDLE") ? b.tg_dir : -999.0;
     float current_wind = (b.status != "IDLE") ? b.wind_dir : -999.0;
 
-    if (b.mag_dir != old_mag_dir || current_tg != old_tg_dir || current_wind != old_wind_dir) {
+    if (b.mag_dir != old_mag_dir || current_tg != old_tg_dir || current_wind != old_wind_dir)
+    {
         // Erase old thick arrows first in TFT_BLACK to prevent trails!
-        if (old_mag_dir != -999.0) draw_compass_arrow(120, 100, 42, old_mag_dir, TFT_BLACK);
-        if (old_tg_dir != -999.0) draw_compass_arrow(120, 100, 36, old_tg_dir, TFT_BLACK);
-        if (old_wind_dir != -999.0) draw_compass_arrow(120, 100, 30, old_wind_dir, TFT_BLACK);
-        
+        if (old_mag_dir != -999.0)
+            draw_compass_arrow(120, 100, 42, old_mag_dir, TFT_BLACK);
+        if (old_tg_dir != -999.0)
+            draw_compass_arrow(120, 100, 36, old_tg_dir, TFT_BLACK);
+        if (old_wind_dir != -999.0)
+            draw_compass_arrow(120, 100, 30, old_wind_dir, TFT_BLACK);
+
         // Save new angles for the next erasure cycle
         old_mag_dir = b.mag_dir;
         old_tg_dir = current_tg;
         old_wind_dir = current_wind;
-        
+
         // Draw the new wide dynamic arrows
         draw_compass_arrow(120, 100, 42, old_mag_dir, TFT_GREEN);
-        if (old_tg_dir != -999.0) draw_compass_arrow(120, 100, 36, old_tg_dir, TFT_RED);
-        if (old_wind_dir != -999.0) draw_compass_arrow(120, 100, 30, old_wind_dir, TFT_CYAN);
-        
+        if (old_tg_dir != -999.0)
+            draw_compass_arrow(120, 100, 36, old_tg_dir, TFT_RED);
+        if (old_wind_dir != -999.0)
+            draw_compass_arrow(120, 100, 30, old_wind_dir, TFT_CYAN);
+
         // Redraw center pivot dot to prevent overlap gaps
         tft.fillCircle(120, 100, 3, TFT_WHITE);
     }
-    
+
     // --- 3. Update Cockpit Telemetry Fields around Compass Rose ---
     tft.setTextSize(1);
     tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
 
-    if (b.status != "IDLE") {
+    if (b.status != "IDLE")
+    {
         // Top-Left: Target Distance (Dis) aligned with 4-pixel padding to Left Speedbar
         tft.setTextDatum(TL_DATUM);
         tft.setTextPadding(50); // Reduced padding to 50px (smaller footprint, no circle overlap!)
         sprintf(buf, "Dis:%0.1fm", b.tg_dist);
         tft.drawString(buf, 34, 45);
-        
+
         // Top-Right: Wind Direction and Standard Deviation (Wnd & Std) aligned perfectly flush against Right Speedbar (X: 206)
         tft.setTextDatum(TR_DATUM);
         tft.setTextPadding(44); // Reduced padding to 44px
         sprintf(buf, "Wnd:%0.0f", b.wind_dir);
         tft.drawString(buf, 206, 45);
-        
+
         tft.setTextPadding(44); // Reduced padding to 44px
         sprintf(buf, "Std:%0.0f", b.wind_std);
         tft.drawString(buf, 206, 58);
-        
+
         // Bottom-Left: Target Direction (TgD) aligned with 4-pixel padding to Left Speedbar
         tft.setTextDatum(TL_DATUM);
         tft.setTextPadding(50); // Reduced padding to 50px
         sprintf(buf, "Tg:%0.0f", b.tg_dir);
         tft.drawString(buf, 34, 135);
     }
-    
+
     // Bottom-Right: Magnetic direction (Mag) aligned perfectly flush against Right Speedbar (X: 206) - ALWAYS drawn!
     tft.setTextDatum(TR_DATUM);
     tft.setTextPadding(44); // Reduced padding to 44px
     sprintf(buf, "Mag:%0.0f", b.mag_dir);
     tft.drawString(buf, 206, 135);
-    
+
     // --- 4. Update Dynamic Voltage Bar ---
     // Only redraw the voltage bar if the voltage value actually changed
-    if (b.battery_v != last_battery_v) {
+    if (b.battery_v != last_battery_v)
+    {
         last_battery_v = b.battery_v;
         // Clear inner area
         tft.fillRect(51, 173, 138, 8, TFT_BLACK);
-        
+
         float v = b.battery_v;
-        if (v < 17.0) v = 17.0; // Min limit scaled to 17V!
-        if (v > 25.0) v = 25.0;
+        if (v < 17.0)
+            v = 17.0; // Min limit scaled to 17V!
+        if (v > 25.0)
+            v = 25.0;
         // Map voltage range [17.0V to 25.0V] into [0 to 138] pixels
         int fill_w = map(v * 10, 170, 250, 0, 138);
-        
+
         // Dynamic color coding
         uint16_t barColor = TFT_GREEN;
-        if (b.battery_v < 19.5) barColor = TFT_RED;
-        else if (b.battery_v < 22.0) barColor = TFT_YELLOW;
-        
+        if (b.battery_v < 19.5)
+            barColor = TFT_RED;
+        else if (b.battery_v < 22.0)
+            barColor = TFT_YELLOW;
+
         tft.fillRect(51, 173, fill_w, 8, barColor);
     }
-    
+
     // Print current numeric value and load current below the bar at Y = 184 in BIGGER FONT (Size 2!)
     tft.setTextSize(2); // BIGGER FONT!
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -2413,30 +2910,36 @@ void update_nav_dynamic() {
     tft.setTextPadding(w - 20); // Center-aligned, pads both left and right!
     sprintf(buf, "%0.1fV  %0.0f%%  %0.1fA", b.battery_v, b.battery_pct, b.current);
     tft.drawString(buf, w / 2, 184);
-    
+
     // --- 5. Update Status on Left Column in BIGGER FONT (Size 2!) - Colored CYAN to match top NAV! ---
     tft.setTextColor(TFT_CYAN, TFT_BLACK); // Changed to TFT_CYAN to match top NAV header exactly!
-    tft.setTextSize(2); // BIGGER FONT!
+    tft.setTextSize(2);                    // BIGGER FONT!
     tft.setTextDatum(TL_DATUM);
     tft.setTextPadding(110);
     sprintf(buf, "%-8s", b.status.c_str());
     tft.drawString(buf, 15, 214);
-    
+
     tft.setTextPadding(0); // Reset padding
-    
+
     // --- 6. Draw Ticked Status of Stacked UDP / LoRa Checkboxes (UDP at Y: 204 & LoRa lowered to Y: 222!) ---
-    if (udp_enabled) {
+    if (udp_enabled)
+    {
         tft.fillRect(127, 206, 7, 7, TFT_GREEN);
-    } else {
+    }
+    else
+    {
         tft.fillRect(127, 206, 7, 7, TFT_BLACK);
     }
-    
-    if (lora_enabled) {
+
+    if (lora_enabled)
+    {
         tft.fillRect(127, 224, 7, 7, TFT_GREEN); // Checkbox lowered to Y: 222 (fill offset to 224)
-    } else {
+    }
+    else
+    {
         tft.fillRect(127, 224, 7, 7, TFT_BLACK);
     }
-    
+
     // --- 7. Update Blinking Telemetry Indicators (Top-Right, UDP sits left of LoRa) ---
     // Both only blink for traffic belonging to THIS buoy; red while transmitting.
     uint16_t udpDotColor = traffic_dot_color(last_udp_tx_ms, last_udp_sel_blink_ms, 100, TFT_GREEN);
@@ -2450,42 +2953,49 @@ void update_nav_dynamic() {
     tft.setTextSize(2); // One step bigger (Size 2!)
     tft.setTextDatum(TL_DATUM);
     tft.setTextPadding(55); // Expanded padding (55px) to fully cover -111 or -120 without ghosting!
-    if (b.lora_rssi != -999) {
+    if (b.lora_rssi != -999)
+    {
         sprintf(buf, "%d", b.lora_rssi);
-    } else {
+    }
+    else
+    {
         sprintf(buf, "---");
     }
     tft.drawString(buf, 5, 5);
-    
+
     // --- 9. Dynamic Redraw of LOCK and DOCK buttons based on GPS Fix ---
-    if (b.gps_fix != last_gps_fix) {
+    if (b.gps_fix != last_gps_fix)
+    {
         last_gps_fix = b.gps_fix;
         bool has_fix = (b.gps_fix == "3D" || b.gps_fix == "2D");
-        
+
         tft.setFreeFont(&FreeSansBold9pt7b); // Use bold GFX font
         tft.setTextSize(1);
         tft.setTextDatum(MC_DATUM);
-        
-        if (has_fix) {
+
+        if (has_fix)
+        {
             // Draw active colored buttons
             tft.fillRoundRect(10, 240, 70, 35, 4, TFT_DARKGREEN);
             tft.setTextColor(TFT_WHITE, TFT_DARKGREEN);
             tft.drawString("LOCK", 45, 257);
-            
+
             tft.fillRoundRect(85, 240, 70, 35, 4, TFT_YELLOW);
             tft.setTextColor(TFT_BLACK, TFT_YELLOW);
             tft.drawString("DOCK", 120, 257);
-        } else {
+        }
+        else
+        {
             // Draw disabled grey buttons
             tft.fillRoundRect(10, 240, 70, 35, 4, TFT_DARKGREY);
             tft.setTextColor(TFT_LIGHTGREY, TFT_DARKGREY);
             tft.drawString("LOCK", 45, 257);
-            
+
             tft.fillRoundRect(85, 240, 70, 35, 4, TFT_DARKGREY);
             tft.setTextColor(TFT_LIGHTGREY, TFT_DARKGREY);
             tft.drawString("DOCK", 120, 257);
         }
-        
+
         tft.setFreeFont(NULL); // Restore default font
     }
 }
@@ -2497,17 +3007,25 @@ void update_nav_dynamic() {
 // cannot get a GPS fix sits in LOCKING indefinitely (RoboTop only promotes it to LOCKED once
 // gpsFix is true), and a badge that read a plain "L" there would claim it was holding station
 // when it has not even started. Anything else still gets a letter rather than a blank.
-static char status_badge(const String &status, bool &settled_out) {
+static char status_badge(const String &status, bool &settled_out)
+{
     settled_out = true;
-    if (status == "IDLE")      return 'I';
-    if (status == "LOCKED")    return 'L';
-    if (status == "DOCKED")    return 'D';
+    if (status == "IDLE")
+        return 'I';
+    if (status == "LOCKED")
+        return 'L';
+    if (status == "DOCKED")
+        return 'D';
 
     settled_out = false;
-    if (status == "LOCKING")   return 'L';
-    if (status == "DOCKING")   return 'D';
-    if (status == "REMOTE")    return 'R';
-    if (status == "GPS CALIB") return 'C';
+    if (status == "LOCKING")
+        return 'L';
+    if (status == "DOCKING")
+        return 'D';
+    if (status == "REMOTE")
+        return 'R';
+    if (status == "GPS CALIB")
+        return 'C';
     // Not settled, deliberately, even though the buoy is holding a real waypoint underneath this:
     // for these ten seconds the station keeping loops are not driving the thrusters, and a plain
     // "L" would claim it was holding position while both props are at full reverse.
@@ -2515,32 +3033,40 @@ static char status_badge(const String &status, bool &settled_out) {
     // 'C' as well, which is not the collision it looks like: nothing in this firmware produces the
     // string "GPS CALIB" any more - the GPS calibration run was removed and its two command slots
     // stand reserved (see RoboCompute.h) - so the line above it can no longer match.
-    if (status == "CLEANING")  return 'C';
+    if (status == "CLEANING")
+        return 'C';
     return '?';
 }
 
-void update_dynamic_ui() {
+void update_dynamic_ui()
+{
     int w = tft.width();
     int h = tft.height();
     unsigned long now = millis();
-    
+
     // Check if buoys went offline (> 60 seconds since last transmission)
-    for (int i = 0; i < 3; i++) {
-        if (buoys[i].id != "") {
-            if (now - buoys[i].last_seen_ms > 60000) { // 60 seconds timeout
+    for (int i = 0; i < 3; i++)
+    {
+        if (buoys[i].id != "")
+        {
+            if (now - buoys[i].last_seen_ms > 60000)
+            { // 60 seconds timeout
                 buoys[i].present = false;
             }
         }
     }
-    
-    if (selected_buoy_idx == -1) {
-        if (in_track_settings_mode) {
+
+    if (selected_buoy_idx == -1)
+    {
+        if (in_track_settings_mode)
+        {
             // Track Settings Screen: replot the buoy markers and the start line, then let the
             // buttons pick up any change in what is possible (a third buoy arriving enables
             // TRACK, the fleet going quiet greys the lot out).
             // Refresh at 1 Hz (not the 250 ms UI tick) to keep the markers from flickering.
             static unsigned long last_radar_update_ms = 0;
-            if (now - last_radar_update_ms > 1000) {
+            if (now - last_radar_update_ms > 1000)
+            {
                 last_radar_update_ms = now;
                 update_radar_map_dynamic();
                 draw_track_lock_hint();
@@ -2548,11 +3074,11 @@ void update_dynamic_ui() {
             }
             return;
         }
-        
+
         // --- Menu Screen (Optimized with State Caching to prevent redraw flicker) ---
         tft.setTextSize(2);
         tft.setTextDatum(MC_DATUM);
-        
+
         // Colours follow the course, not the slot: green until the fleet is locked, then starboard
         // green / port red / head blue. Resolved once for all three buttons - the roles are decided
         // by the fleet as a whole, so working them out per button would be three times the work for
@@ -2560,12 +3086,13 @@ void update_dynamic_ui() {
         int roles[3];
         compute_buoy_roles(roles);
 
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 3; i++)
+        {
             int y = 75 + i * 45; // Compact spacing starting at Y: 75!
             int current_present = (buoys[i].id == "") ? -1 : (buoys[i].present ? 1 : 0);
             uint16_t btn_col = buoy_role_color(i, roles);
             uint16_t txt_col = buoy_role_text_color(btn_col);
-            
+
             static String last_drawn_ips[3] = {"", "", ""};
             // The status badge changes on its own, with the ID, presence and IP all unchanged -
             // without it in the cache key the letter would be painted once and then never
@@ -2583,27 +3110,31 @@ void update_dynamic_ui() {
             // Only draw/redraw if the ID, online presence, IP address or status changed!
             if (buoys[i].id != last_drawn_ids[i] || current_present != last_drawn_present[i] ||
                 buoys[i].ip_addr != last_drawn_ips[i] || buoys[i].status != last_drawn_status[i] ||
-                btn_col != last_drawn_col[i]) {
+                btn_col != last_drawn_col[i])
+            {
                 last_drawn_col[i] = btn_col;
                 last_drawn_ids[i] = buoys[i].id;
                 last_drawn_present[i] = current_present;
                 last_drawn_ips[i] = buoys[i].ip_addr;
                 last_drawn_status[i] = buoys[i].status;
-                
+
                 // Clear only this button's area first (height 40!)
                 tft.fillRect(10, y, w - 20, 40, TFT_BLACK);
-                
-                if (current_present == -1) {
+
+                if (current_present == -1)
+                {
                     // Empty slot
                     tft.drawRoundRect(10, y, w - 20, 40, 5, TFT_DARKGREY);
                     tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
                     tft.setTextSize(2);
-                    tft.drawString("Buoy" + String(i+1) + ": [Waiting]", w / 2, y + 20);
-                } else if (current_present == 1) {
+                    tft.drawString("Buoy" + String(i + 1) + ": [Waiting]", w / 2, y + 20);
+                }
+                else if (current_present == 1)
+                {
                     // Present: green, or the role colour once the whole fleet is locked
                     tft.fillRoundRect(10, y, w - 20, 40, 5, btn_col);
                     tft.setTextColor(txt_col, btn_col);
-                    
+
                     // Two rows of size 2 text in the 40 px button, each with a left and a right
                     // field. Everything is aligned to the button edges rather than centred, so
                     // the four columns line up down the whole list and can be read at a glance.
@@ -2612,7 +3143,7 @@ void update_dynamic_ui() {
                     tft.setTextSize(2);
 
                     tft.setTextDatum(TL_DATUM);
-                    tft.drawString("Buoy" + String(i+1) + ":" + buoys[i].id, BTN_PAD_L, y + 3);
+                    tft.drawString("Buoy" + String(i + 1) + ":" + buoys[i].id, BTN_PAD_L, y + 3);
 
                     bool settled = true;
                     char badge = status_badge(buoys[i].status, settled);
@@ -2621,7 +3152,8 @@ void update_dynamic_ui() {
                     // button but vanishes on a red one, so the port hand button uses yellow.
                     uint16_t badge_col = settled ? txt_col
                                                  : ((btn_col == TFT_GREEN || btn_col == TFT_YELLOW)
-                                                        ? TFT_RED : TFT_YELLOW);
+                                                        ? TFT_RED
+                                                        : TFT_YELLOW);
                     tft.setTextColor(badge_col, btn_col);
                     tft.setTextDatum(TR_DATUM);
                     tft.drawString(String(badge), w - BTN_PAD_R, y + 3);
@@ -2639,13 +3171,15 @@ void update_dynamic_ui() {
                     // Leave the datum as this branch always used to, so the [Waiting] / [Offline]
                     // rows below still land where they did before.
                     tft.setTextDatum(TC_DATUM);
-                } else {
+                }
+                else
+                {
                     // Offline: greyed out, NOT red. Red is the port hand mark on this screen now,
                     // and a dead buoy must not read as one that is holding a station.
                     tft.fillRoundRect(10, y, w - 20, 40, 5, TFT_DARKGREY);
                     tft.setTextColor(TFT_LIGHTGREY, TFT_DARKGREY);
                     tft.setTextSize(2);
-                    tft.drawString("Buoy" + String(i+1) + ": [Offline]", w / 2, y + 20);
+                    tft.drawString("Buoy" + String(i + 1) + ": [Offline]", w / 2, y + 20);
                 }
             }
 
@@ -2653,9 +3187,11 @@ void update_dynamic_ui() {
             // drag the whole button through a clear-and-redraw. Blank when the buoy has not been
             // heard over LoRa at all: lora_rssi is -999 then, and printing that would read as a
             // measurement rather than the absence of one.
-            if (current_present == 1) {
+            if (current_present == 1)
+            {
                 String rssi_str = (buoys[i].lora_rssi == -999) ? "" : String(buoys[i].lora_rssi);
-                if (rssi_str != last_drawn_rssi[i]) {
+                if (rssi_str != last_drawn_rssi[i])
+                {
                     last_drawn_rssi[i] = rssi_str;
                     // Expanded clearing rectangle (56px width) to guarantee full erasure of -111
                     tft.fillRect(w - BTN_PAD_R - 56, y + 19, 56, 17, btn_col);
@@ -2679,24 +3215,34 @@ void update_dynamic_ui() {
 
         // Whether the relay is on the air, beside the band it is on.
         draw_relay_indicator(w, h);
-    } else {
-        if (in_man_fourier_cal_mode) {
+    }
+    else
+    {
+        if (in_man_fourier_cal_mode)
+        {
             // --- Manual Fourier Calibration Screen ---
             update_mancal_dynamic();
-        } else if (in_setup_mode) {
+        }
+        else if (in_setup_mode)
+        {
             // --- Setup Dynamic values on Display ---
             update_setup_dynamic();
-        } else if (in_mannav_mode) {
+        }
+        else if (in_mannav_mode)
+        {
             // --- Manual Navigation Screen ---
             update_mannav_dynamic();
-        } else {
+        }
+        else
+        {
             // --- Navigation Screen (Direct dashboard!) ---
             update_nav_dynamic();
         }
     }
 }
 
-void setup() {
+void setup()
+{
     Serial.begin(115200);
 
     // Setup RGB LED
@@ -2756,7 +3302,8 @@ void setup() {
 // immediately afterwards (requestSubSetup("after SET_AS_NORTH")), and setup_await_refresh is what
 // lets that reply past the guard keeping stray SETUPDATA off an open Setup screen, so the new
 // offset appears on the compass page without anybody having to save anything.
-static void setup_send_set_north(BuoyData &b) {
+static void setup_send_set_north(BuoyData &b)
+{
     send_buoy_command(b.id, 87 /* SET_AS_NORTH */, 6 /* INF */);
     setup_await_refresh = true;
 
@@ -2772,10 +3319,12 @@ static void setup_send_set_north(BuoyData &b) {
     delay(1500);
 }
 
-void loop() {
+void loop()
+{
     handle_ota();
 
-    if (in_calibration_mode) {
+    if (in_calibration_mode)
+    {
         handle_touch_calibration();
         delay(20);
         return;
@@ -2793,15 +3342,18 @@ void loop() {
 
     // The link screen owns the display while it is up. Repainted only when a new report has
     // landed, or once every few seconds so the ages and this node's own counts stay honest.
-    if (in_lora_link_mode) {
+    if (in_lora_link_mode)
+    {
         static unsigned long link_next_paint = 0;
-        if (link_screen_dirty || (long)(millis() - link_next_paint) >= 0) {
+        if (link_screen_dirty || (long)(millis() - link_next_paint) >= 0)
+        {
             link_next_paint = millis() + 4000;
             draw_lora_link_screen();
         }
         {
             int tx = 0, ty = 0;
-            if (get_touch_point(tx, ty)) {
+            if (get_touch_point(tx, ty))
+            {
                 // Anywhere returns to Setup: there is nothing on this screen to press, so a whole
                 // screen of BACK is friendlier than one small target with wet hands.
                 in_lora_link_mode = false;
@@ -2815,12 +3367,14 @@ void loop() {
         delay(20);
         return;
     }
-    if (selected_buoy_idx == -1 && in_track_settings_mode) {
+    if (selected_buoy_idx == -1 && in_track_settings_mode)
+    {
         track_settings_ack_poll();
     }
 
     // Trigger dynamic interface redraws on screen state transitions
-    if (selected_buoy_idx != lastKnownState || in_setup_mode != lastSetupState || in_mannav_mode != lastMannavState || in_man_fourier_cal_mode != lastManFourierCalState || setup_data_loaded != lastLoadedState || setup_page != lastSetupPage) {
+    if (selected_buoy_idx != lastKnownState || in_setup_mode != lastSetupState || in_mannav_mode != lastMannavState || in_man_fourier_cal_mode != lastManFourierCalState || setup_data_loaded != lastLoadedState || setup_page != lastSetupPage)
+    {
         lastKnownState = selected_buoy_idx;
         lastSetupState = in_setup_mode;
         lastMannavState = in_mannav_mode;
@@ -2833,18 +3387,22 @@ void loop() {
 
     // Process and sense touchscreen button touches (MAPPED for 240x320 Portrait!)
     int touchX, touchY;
-    if (get_touch_point(touchX, touchY)) {
+    if (get_touch_point(touchX, touchY))
+    {
         Serial.printf("Touch at: X=%d, Y=%d\n", touchX, touchY);
-        
+
         // CRITICAL DEBOUNCE: Ignore all touch inputs for 500ms after any screen transition
         // to prevent touch event leakage/propagation and accidental button clicks!
-        if (millis() - last_transition_ms < 500) {
+        if (millis() - last_transition_ms < 500)
+        {
             delay(20);
             return;
         }
-        
-        if (selected_buoy_idx == -1) {
-            if (in_track_settings_mode) {
+
+        if (selected_buoy_idx == -1)
+        {
+            if (in_track_settings_mode)
+            {
                 // --- TRACK SETTINGS SCREEN TOUCH INTERACTION ---
                 // Row 1: -  START  TRACK  +      Row 2: BACK  EXECUTE
                 // Every branch re-tests the same condition draw_track_buttons() greys the button
@@ -2856,8 +3414,10 @@ void loop() {
                 int locked = count_buoys_locked();
 
                 // MINUS: shorten the start line by 5 m
-                if (row1 && touchX >= TS_MINUS_X && touchX <= TS_MINUS_X + TS_MINUS_W) {
-                    if (fleet >= 2 && track_line_measured()) {
+                if (row1 && touchX >= TS_MINUS_X && touchX <= TS_MINUS_X + TS_MINUS_W)
+                {
+                    if (fleet >= 2 && track_line_measured())
+                    {
                         float base = (track_line_tgt_m > 0) ? track_line_tgt_m : track_line_cur_m;
                         track_line_tgt_m = max(TS_LINE_STEP_M, base - TS_LINE_STEP_M);
                         track_settings_show_pending();
@@ -2865,8 +3425,10 @@ void loop() {
                     }
                 }
                 // PLUS: lengthen the start line by 5 m
-                else if (row1 && touchX >= TS_PLUS_X && touchX <= TS_PLUS_X + TS_PLUS_W) {
-                    if (fleet >= 2 && track_line_measured()) {
+                else if (row1 && touchX >= TS_PLUS_X && touchX <= TS_PLUS_X + TS_PLUS_W)
+                {
+                    if (fleet >= 2 && track_line_measured())
+                    {
                         float base = (track_line_tgt_m > 0) ? track_line_tgt_m : track_line_cur_m;
                         track_line_tgt_m = base + TS_LINE_STEP_M;
                         track_settings_show_pending();
@@ -2874,19 +3436,24 @@ void loop() {
                     }
                 }
                 // START: square the start line to the wind (COMPUTESTART, needs both end buoys)
-                else if (row1 && touchX >= TS_START_X && touchX <= TS_START_X + TS_START_W) {
-                    if (locked >= 2) {
+                else if (row1 && touchX >= TS_START_X && touchX <= TS_START_X + TS_START_W)
+                {
+                    if (locked >= 2)
+                    {
                         track_settings_compute(62);
                     }
                 }
                 // TRACK: lay out the whole course (COMPUTETRACK, needs the third buoy as the mark)
-                else if (row1 && touchX >= TS_TRACK_X && touchX <= TS_TRACK_X + TS_TRACK_W) {
-                    if (locked >= 3) {
+                else if (row1 && touchX >= TS_TRACK_X && touchX <= TS_TRACK_X + TS_TRACK_W)
+                {
+                    if (locked >= 3)
+                    {
                         track_settings_compute(63);
                     }
                 }
                 // BACK: a pending +/- that was never executed is dropped, not remembered
-                else if (row2 && touchX >= TS_BACK_X && touchX <= TS_BACK_X + TS_BACK_W) {
+                else if (row2 && touchX >= TS_BACK_X && touchX <= TS_BACK_X + TS_BACK_W)
+                {
                     track_line_tgt_m = -1.0f;
                     in_track_settings_mode = false;
                     last_transition_ms = millis();
@@ -2894,9 +3461,10 @@ void loop() {
                     draw_resting_ui();
                 }
                 // EXECUTE: move both ends of the line out to the dialled length
-                else if (row2 && touchX >= TS_EXEC_X && touchX <= TS_EXEC_X + TS_EXEC_W) {
-                    if (track_line_measured() && track_line_tgt_m > 0
-                        && lroundf(track_line_tgt_m) != lroundf(track_line_cur_m)) {
+                else if (row2 && touchX >= TS_EXEC_X && touchX <= TS_EXEC_X + TS_EXEC_W)
+                {
+                    if (track_line_measured() && track_line_tgt_m > 0 && lroundf(track_line_tgt_m) != lroundf(track_line_cur_m))
+                    {
                         track_settings_banner("MOVING...", TFT_YELLOW);
                         track_line_execute();
                         delay(800);
@@ -2905,39 +3473,51 @@ void loop() {
                         draw_resting_ui();
                     }
                 }
-            } else {
+            }
+            else
+            {
                 // --- MAIN MENU INTERACTION ---
                 // Button 1: Y 75 to 115, X 10 to 230
-                if (touchY >= 75 && touchY <= 115 && touchX >= 10 && touchX <= 230) {
-                    if (buoys[0].id != "" && buoys[0].present) {
+                if (touchY >= 75 && touchY <= 115 && touchX >= 10 && touchX <= 230)
+                {
+                    if (buoys[0].id != "" && buoys[0].present)
+                    {
                         selected_buoy_idx = 0;
                         last_transition_ms = millis();
                         ChangeRGBColor(RGB_COLOR_3); // Shift LED to blue indicating view
                     }
                 }
                 // Button 2: Y 120 to 160, X 10 to 230
-                else if (touchY >= 120 && touchY <= 160 && touchX >= 10 && touchX <= 230) {
-                    if (buoys[1].id != "" && buoys[1].present) {
+                else if (touchY >= 120 && touchY <= 160 && touchX >= 10 && touchX <= 230)
+                {
+                    if (buoys[1].id != "" && buoys[1].present)
+                    {
                         selected_buoy_idx = 1;
                         last_transition_ms = millis();
                         ChangeRGBColor(RGB_COLOR_3);
                     }
                 }
                 // Button 3: Y 165 to 205, X 10 to 230
-                else if (touchY >= 165 && touchY <= 205 && touchX >= 10 && touchX <= 230) {
-                    if (buoys[2].id != "" && buoys[2].present) {
+                else if (touchY >= 165 && touchY <= 205 && touchX >= 10 && touchX <= 230)
+                {
+                    if (buoys[2].id != "" && buoys[2].present)
+                    {
                         selected_buoy_idx = 2;
                         last_transition_ms = millis();
                         ChangeRGBColor(RGB_COLOR_3);
                     }
                 }
                 // TRACK SETTINGS Button: Y 210 to 245, X 10 to 230
-                else if (touchY >= 210 && touchY <= 245 && touchX >= 10 && touchX <= 230) {
+                else if (touchY >= 210 && touchY <= 245 && touchX >= 10 && touchX <= 230)
+                {
                     unsigned long now = millis();
                     static unsigned long right_touch_start = 0;
-                    if (right_touch_start == 0) {
+                    if (right_touch_start == 0)
+                    {
                         right_touch_start = now;
-                    } else if (now - right_touch_start >= 300) {
+                    }
+                    else if (now - right_touch_start >= 300)
+                    {
                         right_touch_start = 0;
                         in_track_settings_mode = true;
                         last_transition_ms = now;
@@ -2946,22 +3526,28 @@ void loop() {
                     }
                 }
                 // CALIBRATE TOUCH Button: Y 246 to 320, X 10 to 230 (uses the entire bottom screen area for maximum sensitivity!)
-                else if (touchY >= 246 && touchY <= 320 && touchX >= 10 && touchX <= 230) {
+                else if (touchY >= 246 && touchY <= 320 && touchX >= 10 && touchX <= 230)
+                {
                     last_transition_ms = millis();
                     Serial.println("Calibration button tapped! Entering calibration screen.");
                     start_touch_calibration();
                 }
             }
-        } else {
-            if (in_man_fourier_cal_mode) {
+        }
+        else
+        {
+            if (in_man_fourier_cal_mode)
+            {
                 // Symmetrically enforce touch lockout delay to prevent touch propagation leakage!
-                if (millis() - mancal_started_ms < 800) {
+                if (millis() - mancal_started_ms < 800)
+                {
                     return;
                 }
                 // The press that opened this screen may still be down, and the MAN CAL box and its
                 // + button sit on top of the compass rose and the +/- row. Ignore everything until
                 // the glass has been let go of once, or that press steers the buoy on arrival.
-                if (mancal_await_release) {
+                if (mancal_await_release)
+                {
                     return;
                 }
 
@@ -2982,8 +3568,10 @@ void loop() {
                 //    behind that gate meant a buoy which had not yet reported its session state
                 //    refused to level, with "ASKING BUOY..." as the only explanation offered.
                 if (touchY >= MANCAL_LVL_Y && touchY < MANCAL_LVL_Y + MANCAL_LVL_H &&
-                    touchX >= MANCAL_LVL_X && touchX < MANCAL_LVL_X + MANCAL_LVL_W) {
-                    if (!mancal_level_armed()) {
+                    touchX >= MANCAL_LVL_X && touchX < MANCAL_LVL_X + MANCAL_LVL_W)
+                {
+                    if (!mancal_level_armed())
+                    {
                         // Arm, and say so without blocking. mancal_warn() delays 900 ms, which is
                         // a quarter of the window the second tap has to arrive in, and it writes
                         // its message at y 249 - under the rose, 190 px from the finger that just
@@ -3003,7 +3591,8 @@ void loop() {
                 // Nothing else is pressable until the buoy has said whether a run is already
                 // going. Offering START before that could throw away captures somebody else made
                 // from a web page - the session is shared on purpose.
-                if (!mancal_known(b) && touchY < 296) {
+                if (!mancal_known(b) && touchY < 296)
+                {
                     mancal_warn("ASKING BUOY...");
                     delay(20);
                     return;
@@ -3011,8 +3600,10 @@ void loop() {
 
                 // 2. The footer. Tested first because it is the way out, and a screen you cannot
                 //    leave is worse than one that does nothing.
-                if (touchY >= 296 && touchY <= 320) {
-                    if (touchX >= 10 && touchX <= 118) {
+                if (touchY >= 296 && touchY <= 320)
+                {
+                    if (touchX >= 10 && touchX <= 118)
+                    {
                         // BACK. Leaves the run alone: it is on the buoy and has written nothing, so
                         // it can be picked up again here, on the buoy's own web page or on the
                         // handheld. Nothing to put back either - this screen never switched the
@@ -3028,7 +3619,8 @@ void loop() {
                         draw_resting_ui();
                         return;
                     }
-                    if (touchX >= 122 && touchX <= 230 && mancal_running(b)) {
+                    if (touchX >= 122 && touchX <= 230 && mancal_running(b))
+                    {
                         Serial.println("MANCAL: CANCEL RUN - discarding, nothing was written");
                         send_buoy_cal8(b.id, 3 /* CAL8_CANCEL */, 0, 2, mancal_next_seq(b));
                         mancal_press_leg = -1;
@@ -3050,10 +3642,16 @@ void loop() {
                 // within what a resistive panel poked with a finger does, fell into the rose
                 // branch, matched no direction, and returned in silence. The one press that
                 // commits a calibration must not be able to do nothing without saying so.
-                else if (touchY >= 256 && touchY <= 294) {
-                    if (touchX < 0 || touchX > 240) { delay(20); return; }
+                else if (touchY >= 256 && touchY <= 294)
+                {
+                    if (touchX < 0 || touchX > 240)
+                    {
+                        delay(20);
+                        return;
+                    }
 
-                    if (!mancal_running(b)) {
+                    if (!mancal_running(b))
+                    {
                         Serial.println("MANCAL: START - arming a guided eight point run");
                         send_buoy_cal8(b.id, 0 /* CAL8_BEGIN */, 0, 2, mancal_next_seq(b));
                         mancal_begin_sent = true;
@@ -3062,11 +3660,12 @@ void loop() {
                         delay(20);
                         return;
                     }
-                    if (mancal_complete(b)) {
+                    if (mancal_complete(b))
+                    {
                         mancal_save_table_and_exit(selected_buoy_idx);
                         return;
                     }
-                    char warn_buf[28];
+                    char warn_buf[40];
                     sprintf(warn_buf, "%d STILL TO CAPTURE", 8 - mancal_count(b));
                     mancal_warn(warn_buf);
                     delay(20);
@@ -3074,17 +3673,21 @@ void loop() {
                 }
 
                 // 3. The rose. Tapping a mark captures that direction.
-                else if (touchY >= 100 && touchY < 256) {
+                else if (touchY >= 100 && touchY < 256)
+                {
                     int dir = mancal_hit_dir(touchX, touchY);
-                    if (dir < 0) {
+                    if (dir < 0)
+                    {
                         // Below the rose but above the action band - the likeliest near miss is
                         // someone aiming at a mark near the rim, or at the bar just below.
-                        if (touchY > 230) mancal_warn("TAP A MARK, OR THE BAR");
+                        if (touchY > 230)
+                            mancal_warn("TAP A MARK, OR THE BAR");
                         delay(20);
                         return;
                     }
 
-                    if (!mancal_running(b)) {
+                    if (!mancal_running(b))
+                    {
                         mancal_warn("PRESS START FIRST");
                         delay(20);
                         return;
@@ -3093,7 +3696,8 @@ void loop() {
                     // A capture already out and unconfirmed. The next press would carry the same
                     // serial and be dropped as a duplicate, so hold rather than let the button
                     // look dead - see mancal_press_seq.
-                    if (mancal_press_pending(b)) {
+                    if (mancal_press_pending(b))
+                    {
                         mancal_warn("SENDING...");
                         delay(20);
                         return;
@@ -3102,8 +3706,9 @@ void loop() {
                     // Only the direction being asked for, or one already captured. The same rule
                     // the buoy enforces; checked here too so the refusal is immediate and says
                     // which it was, rather than arriving as silence a second later.
-                    if (dir != mancal_leg(b) && !mancal_captured(b, dir)) {
-                        char warn_buf[24];
+                    if (dir != mancal_leg(b) && !mancal_captured(b, dir))
+                    {
+                        char warn_buf[40];
                         sprintf(warn_buf, "%s IS NEXT",
                                 mancal_leg(b) >= 0 ? MANCAL_DIRS[mancal_leg(b)] : "NOTHING");
                         mancal_warn(warn_buf);
@@ -3111,7 +3716,8 @@ void loop() {
                         return;
                     }
 
-                    if (millis() - b.last_seen_ms > MANCAL_HEADING_STALE_MS) {
+                    if (millis() - b.last_seen_ms > MANCAL_HEADING_STALE_MS)
+                    {
                         mancal_warn("NO LIVE HEADING");
                         delay(20);
                         return;
@@ -3120,14 +3726,16 @@ void loop() {
                     // if the field is not coming through then either its firmware predates Imag or
                     // its telemetry has stopped - and in both cases there is no way to see what is
                     // being captured. Refuse rather than calibrate blind.
-                    if (!mancal_imag_live(b)) {
+                    if (!mancal_imag_live(b))
+                    {
                         mancal_warn("NO IRON HEADING");
                         delay(20);
                         return;
                     }
                     // N anchors the run and only counts on the compass's own zero. Refused here as
                     // well as on the buoy, so the operator is told before the press goes anywhere.
-                    if (dir == 0 && !mancal_on_anchor(b)) {
+                    if (dir == 0 && !mancal_on_anchor(b))
+                    {
                         mancal_warn("TURN TO IMAG 0 FIRST");
                         delay(20);
                         return;
@@ -3161,37 +3769,47 @@ void loop() {
 
                 delay(20);
                 return;
-            } else if (in_setup_mode) {
+            }
+            else if (in_setup_mode)
+            {
                 // --- SETUP SCREEN TOUCH INTERACTION ---
                 // 1. Grid Parameter Selection (Y: 35 to 189, covers 4 rows x 2 columns)
                 // With only 4 rows, each box is 32 pixels high with a 4px gap (symmetrical 36px steps),
                 // completely eliminating row touch overlaps and resistive jitter shifts!
-                if (touchY >= 35 && touchY <= 189) {
+                if (touchY >= 35 && touchY <= 189)
+                {
                     {
                         int r = (touchY - 35) / 36;
-                        if (r < 0) r = 0;
-                        if (r > 3) r = 3;
+                        if (r < 0)
+                            r = 0;
+                        if (r > 3)
+                            r = 3;
                         int c = (touchX < 120) ? 0 : 1;
-                        
-                        int local_idx = c * 4 + r; // 0 to 7
+
+                        int local_idx = c * 4 + r;                   // 0 to 7
                         int tapped_idx = setup_page * 8 + local_idx; // Map to 0-15 based on page!
-                        
-                        if (setup_slot_used(tapped_idx)) {
+
+                        if (setup_slot_used(tapped_idx))
+                        {
                             // Change focus selection
                             selected_param_idx = tapped_idx;
 
                             BuoyData &b = buoys[selected_buoy_idx];
-                            if (selected_param_idx == S_MANCAL) {
+                            if (selected_param_idx == S_MANCAL)
+                            {
                                 // Instantly trigger Manual Fourier Calibration!
                                 enter_man_fourier_cal(selected_buoy_idx);
                                 reset_button_draw_cache();
                                 draw_resting_ui();
                                 return;
                             }
-                            else if (setup_slot_is_bool(selected_param_idx)) {
+                            else if (setup_slot_is_bool(selected_param_idx))
+                            {
                                 // Boolean Toggles: Symmetrical instant toggles on tap!
                                 setup_bool_toggle(b, selected_param_idx);
-                            } else if (selected_param_idx == S_SETNORTH) {
+                            }
+                            else if (selected_param_idx == S_SETNORTH)
+                            {
                                 // No setup_data_loaded gate any more: nothing is computed here, so
                                 // there is no stale local value to compute it from. The CALIBRATION
                                 // page is an action page and its buttons work whether or not the
@@ -3204,9 +3822,10 @@ void loop() {
                     }
                 }
                 // 2. Large Plus / Minus Button Clicks (Y: 190 to 230)
-                else if (touchY >= 190 && touchY <= 230) {
+                else if (touchY >= 190 && touchY <= 230)
+                {
                     BuoyData &b = buoys[selected_buoy_idx];
-                    
+
                     // The action pages hold no editable parameters. Only their own boxes
                     // respond here; anything else still selected from another page must be left
                     // alone rather than edited invisibly.
@@ -3221,21 +3840,30 @@ void loop() {
                     // those branches set it: a repaint on every "+" would flicker ordinary edits.
                     bool setup_overlay_drawn = false;
 
-                    if (adjArmed && touchX >= 10 && touchX <= 75) {
+                    if (adjArmed && touchX >= 10 && touchX <= 75)
+                    {
                         // MINUS - no meaning on an action page
-                        if (!setup_slot_is_action(selected_param_idx)) {
-                            if (setup_slot_is_bool(selected_param_idx)) {
+                        if (!setup_slot_is_action(selected_param_idx))
+                        {
+                            if (setup_slot_is_bool(selected_param_idx))
+                            {
                                 setup_bool_toggle(b, selected_param_idx); // toggle on minus too
-                            } else {
+                            }
+                            else
+                            {
                                 setup_adjust(b, selected_param_idx, false);
                             }
                         }
                     }
-                    else if (adjArmed && touchX >= 155 && touchX <= 230) {
+                    else if (adjArmed && touchX >= 155 && touchX <= 230)
+                    {
                         // PLUS
-                        if (setup_slot_is_bool(selected_param_idx)) {
+                        if (setup_slot_is_bool(selected_param_idx))
+                        {
                             setup_bool_toggle(b, selected_param_idx); // toggle on plus as well!
-                        } else if (selected_param_idx == S_MANCAL) {
+                        }
+                        else if (selected_param_idx == S_MANCAL)
+                        {
                             // Symmetrical confirmation delay/press for Manual Cal transition:
                             tft.fillRect(0, 60, tft.width(), 120, TFT_BLACK);
                             tft.setTextDatum(MC_DATUM);
@@ -3252,7 +3880,9 @@ void loop() {
                             // was missing here, which is why coming in this way showed a table of
                             // zeros instead of the corrections the buoy is running.
                             enter_man_fourier_cal(selected_buoy_idx);
-                        } else if (selected_param_idx == S_DESKCAL) {
+                        }
+                        else if (selected_param_idx == S_DESKCAL)
+                        {
                             // Same two-step. 60 s of figure-of-eight on the bench; harmless
                             // afloat but it throws away the running compass calibration.
                             send_buoy_command(b.id, 27, 6); // CALIBRATE_MAGNETIC_COMPASS, ack=INF
@@ -3267,7 +3897,9 @@ void loop() {
                             tft.drawString("for 60 seconds", tft.width() / 2, 148);
                             delay(1500);
                             setup_overlay_drawn = true;
-                        } else if (selected_param_idx == S_REBOOT) {
+                        }
+                        else if (selected_param_idx == S_REBOOT)
+                        {
                             // INF, not GETACK: a rebooting buoy never answers, so GETACK
                             // leaves the packet in the LoRa retry table and reboots it five
                             // times over.
@@ -3279,7 +3911,9 @@ void loop() {
                             tft.drawString("REBOOTING BUOY", tft.width() / 2, 110);
                             delay(1500);
                             setup_overlay_drawn = true;
-                        } else if (selected_param_idx == S_CLEANNOW) {
+                        }
+                        else if (selected_param_idx == S_CLEANNOW)
+                        {
                             // INF, not GETACK: the buoy's answer to this is the CLEANING status
                             // arriving in its telemetry, not an ACK, and GETACK would leave the
                             // frame in the LoRa retry table to be sent five times over.
@@ -3305,16 +3939,22 @@ void loop() {
                             tft.drawString("then each one on its own", tft.width() / 2, 148);
                             delay(1500);
                             setup_overlay_drawn = true;
-                        } else if (selected_param_idx == S_LINKS) {
+                        }
+                        else if (selected_param_idx == S_LINKS)
+                        {
                             in_lora_link_mode = true;
                             in_setup_mode = false;
                             last_transition_ms = millis();
                             draw_lora_link_screen();
-                            delay(300);   // let the opening press clear before the screen takes touches
-                        } else if (selected_param_idx == S_SETNORTH) {
+                            delay(300); // let the opening press clear before the screen takes touches
+                        }
+                        else if (selected_param_idx == S_SETNORTH)
+                        {
                             setup_send_set_north(b);
                             setup_overlay_drawn = true;
-                        } else {
+                        }
+                        else
+                        {
                             setup_adjust(b, selected_param_idx, true);
                         }
                     }
@@ -3322,87 +3962,108 @@ void loop() {
                     // Wipe whatever the overlay left behind. update_setup_dynamic() repaints the
                     // boxes and their values, but nothing else on the page, so the message text
                     // survived between them until the next screen change.
-                    if (setup_overlay_drawn) draw_setup_static();
+                    if (setup_overlay_drawn)
+                        draw_setup_static();
                 }
-                
+
                 // 3. Bottom Control Buttons (Y: 232 to 275) - BACK (left), PAGE (center), SAVE (right)
-                if (touchY >= 232 && touchY <= 275) {
+                if (touchY >= 232 && touchY <= 275)
+                {
                     // BACK Button (X: 5 to 80) - Return, Discard changes
-                    if (touchX >= 5 && touchX <= 80) {
+                    if (touchX >= 5 && touchX <= 80)
+                    {
                         in_setup_mode = false;
                         last_transition_ms = millis();
                         reset_button_draw_cache();
                         draw_resting_ui();
                     }
                     // PAGE Toggle Button (X: 81 to 155) - Toggles Setup Page 1, 2 & 3!
-                    else if (touchX >= 81 && touchX <= 155) {
+                    else if (touchX >= 81 && touchX <= 155)
+                    {
                         setup_page = (setup_page + 1) % SETUP_PAGES;
                         last_transition_ms = millis();
                         reset_button_draw_cache();
                         draw_resting_ui();
                     }
                     // SAVE Button (X: 156 to 235) - Broadcast & Return! Only active if setup data is loaded!
-                    else if (touchX >= 156 && touchX <= 235 && setup_data_loaded) {
+                    else if (touchX >= 156 && touchX <= 235 && setup_data_loaded)
+                    {
                         tft.fillRect(10, 162, 220, 54, TFT_BLACK);
                         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
                         tft.setTextSize(2);
                         tft.setTextDatum(MC_DATUM);
                         tft.drawString("SAVING SETUP...", tft.width() / 2, 190);
-                        
+
                         send_buoy_setup(selected_buoy_idx); // Broadcast SET SETUPDATA
                         delay(800);
-                        
+
                         in_setup_mode = false;
                         last_transition_ms = millis();
                         reset_button_draw_cache();
                         draw_resting_ui();
                     }
                 }
-            } else if (in_mannav_mode) {
+            }
+            else if (in_mannav_mode)
+            {
                 // --- MANUAL NAVIGATION SCREEN TOUCH INTERACTION ---
                 // 1. Compass Rose Tap (Y: 35 to 145) - Tap on circle sets a new target direction
-                if (touchY >= 35 && touchY <= 145) {
+                if (touchY >= 35 && touchY <= 145)
+                {
                     float dx = touchX - 120;
                     float dy = touchY - 95;
-                    float dist = sqrt(dx*dx + dy*dy);
-                    if (dist >= 15 && dist <= 75) {
+                    float dist = sqrt(dx * dx + dy * dy);
+                    if (dist >= 15 && dist <= 75)
+                    {
                         float angle_rad = atan2(dx, -dy);
                         float angle_deg = angle_rad * 180.0 / PI;
-                        if (angle_deg < 0) angle_deg += 360.0;
-                        
+                        if (angle_deg < 0)
+                            angle_deg += 360.0;
+
                         buoys[selected_buoy_idx].tg_dir = angle_deg;
                         send_buoy_dirdist(selected_buoy_idx);
                         reset_button_draw_cache();
                     }
                 }
                 // 2. Slider 1 (TG Dir) Controls (Y: 195 to 225) - Aligned with Y: 210 track!
-                else if (touchY >= 195 && touchY <= 225) {
-                    if (touchX >= 10 && touchX <= 55) {
+                else if (touchY >= 195 && touchY <= 225)
+                {
+                    if (touchX >= 10 && touchX <= 55)
+                    {
                         // Left Minus Button Tap: Decrease by 5 degrees
                         buoys[selected_buoy_idx].tg_dir -= 5.0;
-                        if (buoys[selected_buoy_idx].tg_dir < 0) buoys[selected_buoy_idx].tg_dir += 360.0;
+                        if (buoys[selected_buoy_idx].tg_dir < 0)
+                            buoys[selected_buoy_idx].tg_dir += 360.0;
                         send_buoy_dirdist(selected_buoy_idx);
                         reset_button_draw_cache();
-                    } else if (touchX >= 185 && touchX <= 230) {
+                    }
+                    else if (touchX >= 185 && touchX <= 230)
+                    {
                         // Right Plus Button Tap: Increase by 5 degrees
                         buoys[selected_buoy_idx].tg_dir += 5.0;
-                        if (buoys[selected_buoy_idx].tg_dir >= 360.0) buoys[selected_buoy_idx].tg_dir -= 360.0;
+                        if (buoys[selected_buoy_idx].tg_dir >= 360.0)
+                            buoys[selected_buoy_idx].tg_dir -= 360.0;
                         send_buoy_dirdist(selected_buoy_idx);
                         reset_button_draw_cache();
-                    } else if (touchX >= 58 && touchX <= 182) {
+                    }
+                    else if (touchX >= 58 && touchX <= 182)
+                    {
                         // Center Track Drag (X: 60 to 180, width 120px)
                         float pct = (float)(touchX - 60) / 120.0;
-                        if (pct < 0.0) pct = 0.0;
-                        if (pct > 1.0) pct = 1.0;
+                        if (pct < 0.0)
+                            pct = 0.0;
+                        if (pct > 1.0)
+                            pct = 1.0;
                         float new_tg_dir = pct * 360.0;
-                        
+
                         buoys[selected_buoy_idx].tg_dir = new_tg_dir;
                         send_buoy_dirdist(selected_buoy_idx);
                         reset_button_draw_cache();
                     }
                 }
                 // 3. Slider 2 (Speed) Controls (Y: 235 to 265) - Aligned with Y: 250 track!
-                else if (touchY >= 235 && touchY <= 265) {
+                else if (touchY >= 235 && touchY <= 265)
+                {
                     float max_spd = buoys[selected_buoy_idx].max_speed;
                     // A tenth of the range per press, not a fixed 5%.
                     //
@@ -3412,78 +4073,101 @@ void loop() {
                     // to the limit and every press after it did nothing, which reads exactly like a
                     // dead button. Twenty presses end to end now, whatever the limit is.
                     float step = max_spd / 10.0f;
-                    if (step < 0.1f) step = 0.1f;   // a tiny limit still has to be reachable
-                    if (touchX >= 10 && touchX <= 55) {
+                    if (step < 0.1f)
+                        step = 0.1f; // a tiny limit still has to be reachable
+                    if (touchX >= 10 && touchX <= 55)
+                    {
                         // Left Minus Button Tap
                         buoys[selected_buoy_idx].tg_speed -= step;
-                        if (buoys[selected_buoy_idx].tg_speed < -max_spd) buoys[selected_buoy_idx].tg_speed = -max_spd;
+                        if (buoys[selected_buoy_idx].tg_speed < -max_spd)
+                            buoys[selected_buoy_idx].tg_speed = -max_spd;
                         send_buoy_dirdist(selected_buoy_idx);
                         reset_button_draw_cache();
-                    } else if (touchX >= 185 && touchX <= 230) {
+                    }
+                    else if (touchX >= 185 && touchX <= 230)
+                    {
                         // Right Plus Button Tap
                         buoys[selected_buoy_idx].tg_speed += step;
-                        if (buoys[selected_buoy_idx].tg_speed > max_spd) buoys[selected_buoy_idx].tg_speed = max_spd;
+                        if (buoys[selected_buoy_idx].tg_speed > max_spd)
+                            buoys[selected_buoy_idx].tg_speed = max_spd;
                         send_buoy_dirdist(selected_buoy_idx);
                         reset_button_draw_cache();
-                    } else if (touchX >= 58 && touchX <= 182) {
+                    }
+                    else if (touchX >= 58 && touchX <= 182)
+                    {
                         // Center Track Drag (X: 60 to 180, width 120px)
                         float pct = (float)(touchX - 60) / 120.0;
-                        if (pct < 0.0) pct = 0.0;
-                        if (pct > 1.0) pct = 1.0;
+                        if (pct < 0.0)
+                            pct = 0.0;
+                        if (pct > 1.0)
+                            pct = 1.0;
                         float new_tg_speed = -max_spd + pct * (2.0 * max_spd);
-                        
+
                         buoys[selected_buoy_idx].tg_speed = new_tg_speed;
                         send_buoy_dirdist(selected_buoy_idx);
                         reset_button_draw_cache();
                     }
                 }
                 // 4. BACK & IDLE Buttons (Y: 270 to 320)
-                else if (touchY >= 270 && touchY <= 320) {
-                    if (touchX >= 10 && touchX <= 115) {
+                else if (touchY >= 270 && touchY <= 320)
+                {
+                    if (touchX >= 10 && touchX <= 115)
+                    {
                         // BACK Button: Return to standard navigation page
                         in_mannav_mode = false;
                         last_transition_ms = millis();
                         reset_button_draw_cache();
                         draw_resting_ui();
-                    } else if (touchX >= 120 && touchX <= 230) {
+                    }
+                    else if (touchX >= 120 && touchX <= 230)
+                    {
                         // IDLE Button: Stop the motors, show overlay, and synchronize speed setpoint to 0.0%
                         tft.fillRect(10, 170, 220, 60, TFT_BLACK);
                         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
                         tft.setTextSize(2);
                         tft.setTextDatum(MC_DATUM);
                         tft.drawString("SENDING IDLE...", tft.width() / 2, 195);
-                        
+
                         send_buoy_command(buoys[selected_buoy_idx].id, 8); // Send IDLE (8)
                         delay(600);
-                        
+
                         // Set local manual speed setpoint back to 0.0%
                         buoys[selected_buoy_idx].tg_speed = 0.0;
-                        
+
                         reset_button_draw_cache();
                         draw_resting_ui();
                     }
                 }
-            } else {
+            }
+            else
+            {
                 // --- NAVIGATION PAGE INTERACTION (Directly when selected!) ---
                 // Checkboxes touch checking (Y: 198 to 238, X >= 120) - STACKED & SPACED OUT!
-                if (touchY >= 198 && touchY <= 238 && touchX >= 120) {
-                    if (touchY <= 215) {
+                if (touchY >= 198 && touchY <= 238 && touchX >= 120)
+                {
+                    if (touchY <= 215)
+                    {
                         udp_enabled = !udp_enabled;
                         reset_button_draw_cache();
                         draw_resting_ui();
-                    } else {
+                    }
+                    else
+                    {
                         lora_enabled = !lora_enabled;
                         reset_button_draw_cache();
                         draw_resting_ui();
                     }
                 }
                 // Row 1 Control Buttons: LOCK, DOCK, IDLE (Y: 235 to 277)
-                else if (touchY >= 235 && touchY <= 277) {
+                else if (touchY >= 235 && touchY <= 277)
+                {
                     BuoyData &b = buoys[selected_buoy_idx];
                     bool has_fix = (b.gps_fix == "3D" || b.gps_fix == "2D");
-                    
-                    if (touchX >= 5 && touchX <= 82) {
-                        if (!has_fix) {
+
+                    if (touchX >= 5 && touchX <= 82)
+                    {
+                        if (!has_fix)
+                        {
                             Serial.println("LOCK command ignored: No GPS Fix on Top!");
                             return; // Ignore touch completely if no fix!
                         }
@@ -3495,8 +4179,11 @@ void loop() {
                         send_buoy_command(buoys[selected_buoy_idx].id, 12); // Send LOCK (12)
                         delay(600);
                         draw_resting_ui();
-                    } else if (touchX >= 83 && touchX <= 157) {
-                        if (!has_fix) {
+                    }
+                    else if (touchX >= 83 && touchX <= 157)
+                    {
+                        if (!has_fix)
+                        {
                             Serial.println("DOCK command ignored: No GPS Fix on Top!");
                             return; // Ignore touch completely if no fix!
                         }
@@ -3508,7 +4195,9 @@ void loop() {
                         send_buoy_command(buoys[selected_buoy_idx].id, 15); // Send DOCK (15)
                         delay(600);
                         draw_resting_ui();
-                    } else if (touchX >= 158 && touchX <= 235) {
+                    }
+                    else if (touchX >= 158 && touchX <= 235)
+                    {
                         tft.fillRect(10, 170, 220, 60, TFT_BLACK);
                         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
                         tft.setTextSize(2);
@@ -3520,32 +4209,38 @@ void loop() {
                     }
                 }
                 // Row 2 Actions: BACK, MANNAV, SETUP (Y: 278 to 320)
-                else if (touchY >= 278 && touchY <= 320) {
-                    if (touchX >= 5 && touchX <= 80) {
+                else if (touchY >= 278 && touchY <= 320)
+                {
+                    if (touchX >= 5 && touchX <= 80)
+                    {
                         selected_buoy_idx = -1; // BACK Button: Directly return to main menu!
                         last_transition_ms = millis();
                         ChangeRGBColor(RGB_COLOR_2); // Back to green status LED
-                    } else if (touchX >= 81 && touchX <= 155) {
+                    }
+                    else if (touchX >= 81 && touchX <= 155)
+                    {
                         // MANNAV Button clicked! Enter manual navigation mode!
                         in_mannav_mode = true;
-                        
+
                         // Initialize manual steering setpoints
                         buoys[selected_buoy_idx].tg_speed = 0.0;
                         buoys[selected_buoy_idx].tg_dir = buoys[selected_buoy_idx].mag_dir;
-                        
+
                         // Broadcast initial TGDIRSPEED command immediately to synchronize state!
                         send_buoy_dirdist(selected_buoy_idx);
-                        
+
                         last_transition_ms = millis();
                         reset_button_draw_cache();
                         draw_resting_ui();
-                    } else if (touchX >= 156 && touchX <= 235) {
+                    }
+                    else if (touchX >= 156 && touchX <= 235)
+                    {
                         // SETUP Button clicked! Enter setup mode!
                         in_setup_mode = true;
-                        setup_page = 0; // Default to page 1 on entry
+                        setup_page = 0;            // Default to page 1 on entry
                         setup_data_loaded = false; // Reset loaded flag until buoy actually responds!
                         last_transition_ms = millis();
-                        
+
                         // Send query to buoy to fetch its PID / calibration coefficients exactly matching webpage GET formatting
                         // This is attempt 1; loop() repeats it until the buoy answers.
                         setup_query_tries = 1;
@@ -3557,22 +4252,26 @@ void loop() {
                 }
             }
         }
-    } else {
+    }
+    else
+    {
         // The glass has been let go of, so the press that opened the calibration screen can no
         // longer be mistaken for a tap on it.
         mancal_await_release = false;
 
         // No touch active: reset holding timer
-        if (both_touched_previously) {
+        if (both_touched_previously)
+        {
             both_touched_previously = false;
             // Erase the green holding progress bar
             tft.fillRect(30, 280, 180, 2, TFT_BLACK);
         }
-        if (cal_touch_start != 0) {
+        if (cal_touch_start != 0)
+        {
             cal_touch_start = 0;
             // Erase the green holding progress bar
             tft.fillRect(30, 280, 180, 2, TFT_BLACK);
-            
+
             // Redraw the button back to normal (TFT_DARKGREY)
             tft.fillRoundRect(30, 250, 180, 28, 4, TFT_DARKGREY);
             tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
@@ -3604,7 +4303,8 @@ void loop() {
     service_mancal_entry();
 
     // Refresh dynamic screen details every 250 milliseconds
-    if (millis() - lastUIUpdate > 250) {
+    if (millis() - lastUIUpdate > 250)
+    {
         lastUIUpdate = millis();
         update_dynamic_ui();
     }
@@ -3612,32 +4312,36 @@ void loop() {
     delay(20);
 }
 
-void draw_calibration_screen() {
+void draw_calibration_screen()
+{
     tft.fillScreen(TFT_BLACK);
-    ui_invalidate();   // the pixels are gone - no cache may claim otherwise
-    
+    ui_invalidate(); // the pixels are gone - no cache may claim otherwise
+
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.setTextSize(2);
     tft.setTextDatum(MC_DATUM);
     tft.drawString("TOUCH SCREEN", tft.width() / 2, 110);
     tft.drawString("CALIBRATION", tft.width() / 2, 140);
-    
+
     tft.setTextSize(1);
     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-    
-    if (cal_state == 0) {
+
+    if (cal_state == 0)
+    {
         tft.drawString("Touch the red target in", tft.width() / 2, 180);
         tft.drawString("the TOP-LEFT corner", tft.width() / 2, 200);
-        
+
         // Target at (20, 20)
         tft.drawCircle(20, 20, 8, TFT_RED);
         tft.fillCircle(20, 20, 3, TFT_RED);
         tft.drawFastHLine(5, 20, 30, TFT_WHITE);
         tft.drawFastVLine(20, 5, 30, TFT_WHITE);
-    } else if (cal_state == 1) {
+    }
+    else if (cal_state == 1)
+    {
         tft.drawString("Touch the red target in", tft.width() / 2, 180);
         tft.drawString("the BOTTOM-RIGHT corner", tft.width() / 2, 200);
-        
+
         // Target at (220, 300)
         tft.drawCircle(220, 300, 8, TFT_RED);
         tft.fillCircle(220, 300, 3, TFT_RED);
@@ -3646,30 +4350,34 @@ void draw_calibration_screen() {
     }
 }
 
-void handle_touch_calibration() {
+void handle_touch_calibration()
+{
     // Ignore all touches for the first 800ms after entering calibration
     // to allow the user to lift their finger from the menu button!
-    if (millis() - cal_started_ms < 800) {
+    if (millis() - cal_started_ms < 800)
+    {
         return;
     }
 
-    if (cal_state == 2) {
+    if (cal_state == 2)
+    {
         unsigned long elapsed = millis() - save_screen_start_ms;
-        if (elapsed >= 3000) {
+        if (elapsed >= 3000)
+        {
             // Discard calibration and return
             Serial.println("Calibration timeout! Discarding changes.");
-            
+
             tft.fillScreen(TFT_BLACK);
-            ui_invalidate();   // the pixels are gone - no cache may claim otherwise
+            ui_invalidate(); // the pixels are gone - no cache may claim otherwise
             tft.setTextColor(TFT_RED, TFT_BLACK);
             tft.setTextSize(2);
             tft.setTextDatum(MC_DATUM);
             tft.drawString("CALIBRATION DISCARDED", tft.width() / 2, 120);
             tft.setTextSize(1);
             tft.drawString("Timed out after 3 seconds", tft.width() / 2, 160);
-            
+
             delay(2000);
-            
+
             // Reload old calibration bounds to discard the active changes
             Preferences prefs;
             prefs.begin("touch-cal", true);
@@ -3679,12 +4387,14 @@ void handle_touch_calibration() {
             ts_maxy = prefs.getUShort("maxy", 3800);
             prefs.end();
             apply_calibration(ts_minx, ts_maxx, ts_miny, ts_maxy);
-            
+
             in_calibration_mode = false;
             selected_buoy_idx = -1;
             lastKnownState = -2; // Force complete Menu Screen redraw
             return;
-        } else {
+        }
+        else
+        {
             // Draw progress/countdown bar or text
             int remaining_sec = 3 - (elapsed / 1000);
             char timer_buf[32];
@@ -3697,78 +4407,84 @@ void handle_touch_calibration() {
     }
 
     int rx = 0, ry = 0;
-    if (get_raw_touch_point(rx, ry)) {
+    if (get_raw_touch_point(rx, ry))
+    {
         Serial.printf("Cal Touch: rawX=%d, rawY=%d\n", rx, ry);
-        if (cal_state == 0) {
+        if (cal_state == 0)
+        {
             cal_rx1 = rx;
             cal_ry1 = ry;
             cal_state = 1;
             draw_calibration_screen();
-        } else if (cal_state == 1) {
+        }
+        else if (cal_state == 1)
+        {
             cal_rx2 = rx;
             cal_ry2 = ry;
-            
+
             // Symmetrical math for calculating actual calibration values
             float S_x = (float)(220 - 20) / (cal_ry2 - cal_ry1);
             int cal_miny = cal_ry1 - (20 - 1) / S_x;
             int cal_maxy = cal_miny + 239 / S_x;
-            
+
             float S_y = (float)(300 - 20) / (cal_rx2 - cal_rx1);
             int cal_maxx = cal_rx1 - (20 - 1) / S_y;
             int cal_minx = cal_maxx + 319 / S_y;
-            
+
             // Constrain results to valid physical boundaries
             temp_minx = constrain(cal_minx, 50, 1000);
             temp_maxx = constrain(cal_maxx, 2500, 4000);
             temp_miny = constrain(cal_miny, 50, 1000);
             temp_maxy = constrain(cal_maxy, 2500, 4000);
-            
+
             // Apply bounds immediately to active driver so user can touch the Green Save button!
             apply_calibration(temp_minx, temp_maxx, temp_miny, temp_maxy);
-            
+
             // Draw Save Screen!
             cal_state = 2;
             save_screen_start_ms = millis();
-            
+
             tft.fillScreen(TFT_BLACK);
-            ui_invalidate();   // the pixels are gone - no cache may claim otherwise
+            ui_invalidate(); // the pixels are gone - no cache may claim otherwise
             tft.setTextColor(TFT_WHITE, TFT_BLACK);
             tft.setTextSize(2);
             tft.setTextDatum(MC_DATUM);
             tft.drawString("SAVE CALIBRATION?", tft.width() / 2, 60);
-            
+
             tft.setTextSize(1);
             tft.setTextColor(TFT_YELLOW, TFT_BLACK);
             tft.drawString("Touch the green button to save", tft.width() / 2, 100);
             tft.drawString("Otherwise, it will discard and", tft.width() / 2, 120);
             tft.drawString("exit in 3 seconds.", tft.width() / 2, 140);
-            
+
             // Draw a big green SAVE button
             tft.fillRoundRect(30, 180, 180, 45, 6, TFT_GREEN);
             tft.setTextColor(TFT_BLACK, TFT_GREEN);
             tft.setTextSize(2);
             tft.drawString("SAVE", tft.width() / 2, 202);
-            
-        } else if (cal_state == 2) {
+        }
+        else if (cal_state == 2)
+        {
             // We are in state 2 (Save confirmation screen).
             // Translate raw touch coordinates to calibrated coordinates using temporary bounds to detect the SAVE button press!
             int touchX = map(ry, temp_miny, temp_maxy, 1, 240);
             int touchY = map(rx, temp_maxx, temp_minx, 1, 320);
             touchX = constrain(touchX, 1, 240);
             touchY = constrain(touchY, 1, 320);
-            
+
             Serial.printf("Save screen touch mapped: X=%d, Y=%d\n", touchX, touchY);
-            
+
             // Save button: X: 30 to 210, Y: 180 to 225
-            if (touchX >= 30 && touchX <= 210 && touchY >= 180 && touchY <= 225) {
+            if (touchX >= 30 && touchX <= 210 && touchY >= 180 && touchY <= 225)
+            {
                 // Apply bounds and save permanently!
                 ts_minx = temp_minx;
                 ts_maxx = temp_maxx;
                 ts_miny = temp_miny;
                 ts_maxy = temp_maxy;
-                
+
                 apply_calibration(ts_minx, ts_maxx, ts_miny, ts_maxy);
-                
+
                 Preferences prefs;
                 prefs.begin("touch-cal", false);
                 prefs.putUShort("minx", ts_minx);
@@ -3776,25 +4492,25 @@ void handle_touch_calibration() {
                 prefs.putUShort("miny", ts_miny);
                 prefs.putUShort("maxy", ts_maxy);
                 prefs.end();
-                
+
                 Serial.printf("Saved Touch Calibration permanently: minx=%d, maxx=%d, miny=%d, maxy=%d\n", ts_minx, ts_maxx, ts_miny, ts_maxy);
-                
+
                 // Success Screen Feedback
                 tft.fillScreen(TFT_BLACK);
-                ui_invalidate();   // the pixels are gone - no cache may claim otherwise
+                ui_invalidate(); // the pixels are gone - no cache may claim otherwise
                 tft.setTextColor(TFT_GREEN, TFT_BLACK);
                 tft.setTextSize(2);
                 tft.setTextDatum(MC_DATUM);
                 tft.drawString("CALIBRATION SAVED!", tft.width() / 2, 110);
-                
+
                 tft.setTextSize(1);
                 tft.setTextColor(TFT_WHITE, TFT_BLACK);
                 char buf[64];
                 sprintf(buf, "X: %d-%d  Y: %d-%d", ts_minx, ts_maxx, ts_miny, ts_maxy);
                 tft.drawString(buf, tft.width() / 2, 170);
-                
+
                 delay(2000);
-                
+
                 in_calibration_mode = false;
                 selected_buoy_idx = -1;
                 lastKnownState = -2; // Force complete menu screen redraw
@@ -3803,29 +4519,34 @@ void handle_touch_calibration() {
     }
 }
 
-void start_touch_calibration() {
+void start_touch_calibration()
+{
     in_calibration_mode = true;
     cal_state = 0;
-    cal_rx1 = 0; cal_ry1 = 0;
-    cal_rx2 = 0; cal_ry2 = 0;
+    cal_rx1 = 0;
+    cal_ry1 = 0;
+    cal_rx2 = 0;
+    cal_ry2 = 0;
     cal_started_ms = millis(); // Set transition timestamp for lockout delay!
     draw_calibration_screen();
 }
 
 // Helper function to calculate relative distance in meters between two GPS coordinates
-void get_relative_meters(double lat1, double lon1, double lat2, double lon2, float &out_dx, float &out_dy) {
+void get_relative_meters(double lat1, double lon1, double lat2, double lon2, float &out_dx, float &out_dy)
+{
     double avg_lat = (lat1 + lat2) * 0.5;
     double lat_rad = avg_lat * PI / 180.0;
-    
+
     double meters_per_deg_lat = 111139.0;
     double meters_per_deg_lon = 111320.0 * cos(lat_rad);
-    
+
     out_dx = (lon2 - lon1) * meters_per_deg_lon;
     out_dy = (lat2 - lat1) * meters_per_deg_lat;
 }
 
 // Draw the start line as a thick magenta bar between two plotted buoys (dots are drawn on top afterwards)
-static void draw_start_line_segment(int x1, int y1, int x2, int y2) {
+static void draw_start_line_segment(int x1, int y1, int x2, int y2)
+{
     tft.drawLine(x1, y1, x2, y2, TFT_MAGENTA);
     tft.drawLine(x1, y1 - 1, x2, y2 - 1, TFT_MAGENTA);
     tft.drawLine(x1, y1 + 1, x2, y2 + 1, TFT_MAGENTA);
@@ -3838,7 +4559,8 @@ static void draw_start_line_segment(int x1, int y1, int x2, int y2) {
 // alone cannot erase a previous, longer string, and neither label is inside the plot rectangle that
 // update_radar_map_dynamic() wipes. The datum is BR/BL so both sit on the N glyph's baseline.
 // Size 2 text is 12 px per character, so the left label has room for 8 and the right for 8.
-void draw_line_len_label(const char *text, uint16_t color) {
+void draw_line_len_label(const char *text, uint16_t color)
+{
     tft.fillRect(0, MAP_NROW_TOP, MAP_NROW_LEFT_R + 1, MAP_NROW_H, TFT_BLACK);
     tft.setFreeFont(NULL);
     tft.setTextPadding(0);
@@ -3848,7 +4570,8 @@ void draw_line_len_label(const char *text, uint16_t color) {
     tft.drawString(text, MAP_NROW_LEFT_R, MAP_NROW_Y);
 }
 
-static void draw_wind_label(const char *text, uint16_t color) {
+static void draw_wind_label(const char *text, uint16_t color)
+{
     tft.fillRect(MAP_NROW_RIGHT_L, MAP_NROW_TOP, 240 - MAP_NROW_RIGHT_L, MAP_NROW_H, TFT_BLACK);
     tft.setFreeFont(NULL);
     tft.setTextPadding(0);
@@ -3858,17 +4581,18 @@ static void draw_wind_label(const char *text, uint16_t color) {
     tft.drawString(text, MAP_NROW_RIGHT_L, MAP_NROW_Y);
 }
 
-
 // Draw one buoy marker. No B1/B2/B3 label: the dots are already colour coded
 // (B1 green, B2 orange, B3 cyan) and the label only added clutter to a small plot.
-static void draw_buoy_marker(int x, int y, uint16_t color, int slot) {
+static void draw_buoy_marker(int x, int y, uint16_t color, int slot)
+{
     tft.fillCircle(x, y, 5, color);
     tft.drawCircle(x, y, 5, TFT_WHITE);
 
     // The dots used to be one fixed colour each (B1 green, B2 orange, B3 cyan) and needed no
     // label. They now carry the COURSE colour instead, so three unlocked buoys are three identical
     // green dots - the number is what tells them apart.
-    if (slot < 0) return;
+    if (slot < 0)
+        return;
     tft.setFreeFont(NULL);
     tft.setTextPadding(0);
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -3882,23 +4606,29 @@ static void draw_buoy_marker(int x, int y, uint16_t color, int slot) {
 // should be" against "where it is" - so the two never need labels to tell apart.
 // pegged marks a target that had to be clamped to the plot rim because it lies outside the
 // range the plot covers; the extra outer ring stops it reading as a mark just off the fleet.
-static void draw_waypoint_marker(int x, int y, uint16_t color, bool pegged) {
+static void draw_waypoint_marker(int x, int y, uint16_t color, bool pegged)
+{
     tft.drawCircle(x, y, 4, color);
     tft.drawFastHLine(x - 7, y, 15, color);
     tft.drawFastVLine(x, y - 7, 15, color);
-    if (pegged) tft.drawCircle(x, y, 7, color);
+    if (pegged)
+        tft.drawCircle(x, y, 7, color);
 }
 
 // Dashed leader from a buoy to its waypoint. This is the "how far off am I" line: read its
 // length against the EDGE range in the banner. Dashed so it cannot be confused with the solid
 // magenta start line, and drawn before the buoy dots so those stay on top.
-static void draw_offset_line(int x1, int y1, int x2, int y2, uint16_t color) {
+static void draw_offset_line(int x1, int y1, int x2, int y2, uint16_t color)
+{
     int dx = x2 - x1;
     int dy = y2 - y1;
     int steps = max(abs(dx), abs(dy));
-    if (steps <= 0) return;
-    for (int s = 0; s <= steps; s++) {
-        if (((s / 3) & 1) != 0) continue; // 3 pixels on, 3 off
+    if (steps <= 0)
+        return;
+    for (int s = 0; s <= steps; s++)
+    {
+        if (((s / 3) & 1) != 0)
+            continue; // 3 pixels on, 3 off
         tft.drawPixel(x1 + (dx * s) / steps, y1 + (dy * s) / steps, color);
     }
 }
@@ -3907,12 +4637,17 @@ static void draw_offset_line(int x1, int y1, int x2, int y2, uint16_t color) {
 // row: the strip below the plot is already taken by the S cardinal and the two legends, and
 // the number is easier to read against the leader it belongs to anyway. Size 1 (6x8 px) keeps
 // three of them legible without crowding the marks.
-static void draw_offset_label(int x, int y, float metres, uint16_t color) {
+static void draw_offset_label(int x, int y, float metres, uint16_t color)
+{
     char buf[10];
-    if (metres >= 9999.0f)      snprintf(buf, sizeof(buf), ">9km");
-    else if (metres >= 999.5f)  snprintf(buf, sizeof(buf), "%0.1fk", metres / 1000.0f);
-    else if (metres >= 99.5f)   snprintf(buf, sizeof(buf), "%0.0fm", metres);
-    else                        snprintf(buf, sizeof(buf), "%0.1fm", metres);
+    if (metres >= 9999.0f)
+        snprintf(buf, sizeof(buf), ">9km");
+    else if (metres >= 999.5f)
+        snprintf(buf, sizeof(buf), "%0.1fk", metres / 1000.0f);
+    else if (metres >= 99.5f)
+        snprintf(buf, sizeof(buf), "%0.0fm", metres);
+    else
+        snprintf(buf, sizeof(buf), "%0.1fm", metres);
 
     int text_w = strlen(buf) * 6;
 
@@ -3921,8 +4656,10 @@ static void draw_offset_label(int x, int y, float metres, uint16_t color) {
     // refresh, so anything drawn outside it would leave a trail.
     int lx = x + 9;
     int ly = y + 6;
-    if (lx + text_w > MAP_CX + MAP_R - 1) lx = x - 9 - text_w;
-    if (ly + 8 > MAP_CY + MAP_R - 1)      ly = y - 14;
+    if (lx + text_w > MAP_CX + MAP_R - 1)
+        lx = x - 9 - text_w;
+    if (ly + 8 > MAP_CY + MAP_R - 1)
+        ly = y - 14;
     lx = constrain(lx, MAP_CX - MAP_R + 1, MAP_CX + MAP_R - 1 - text_w);
     ly = constrain(ly, MAP_CY - MAP_R + 1, MAP_CY + MAP_R - 1 - 8);
 
@@ -3937,14 +4674,16 @@ static void draw_offset_label(int x, int y, float metres, uint16_t color) {
 // Draw the wind on the radar: an arrow parked on the upwind rim, blowing inwards towards the centre.
 // wind_dir follows the RoboCompute convention - the compass bearing the wind blows FROM
 // (recalcStartLine() places the HEAD mark in the wDir direction, i.e. upwind).
-static void draw_wind_overlay(int cx, int cy) {
+static void draw_wind_overlay(int cx, int cy)
+{
     // The same wind the roles and the squaring use - the mean of the two line-end buoys, see
     // start_line_wind(). Showing one buoy's reading beside a line laid out against a different
     // figure is how an operator ends up not trusting either. A buoy that has never sent a wind
     // field reads 0/0, which is indistinguishable from a real due-north calm, so it counts as no
     // data rather than as a northerly.
     float wdir = 0, wstd = 0;
-    if (!start_line_wind(wdir, wstd)) {
+    if (!start_line_wind(wdir, wstd))
+    {
         draw_wind_label("---", TFT_DARKGREY);
         return;
     }
@@ -3956,8 +4695,8 @@ static void draw_wind_overlay(int cx, int cy) {
     // Both ends stay inside the plot clear rectangle so the arrow is wiped on every refresh.
     int tail_x = cx + (int)((MAP_R - 4) * s);
     int tail_y = cy - (int)((MAP_R - 4) * c);
-    int tip_x  = cx + (int)((MAP_R - 32) * s);
-    int tip_y  = cy - (int)((MAP_R - 32) * c);
+    int tip_x = cx + (int)((MAP_R - 32) * s);
+    int tip_y = cy - (int)((MAP_R - 32) * c);
 
     // 3 pixel wide shaft
     tft.drawLine(tail_x, tail_y, tip_x, tip_y, TFT_YELLOW);
@@ -3978,16 +4717,20 @@ static void draw_wind_overlay(int cx, int cy) {
     // Right of the N, so 8 characters at size 2. Direction, then the spread when there is one:
     // "145 -3" is 145 degrees give or take 3, the same pair the compass screen shows as Wnd/Std.
     char buf[16];
-    if (wstd != 0) {
+    if (wstd != 0)
+    {
         sprintf(buf, "%03.0f -%0.0f", wdir, wstd);
-    } else {
+    }
+    else
+    {
         sprintf(buf, "%03.0f", wdir);
     }
     draw_wind_label(buf, TFT_YELLOW);
 }
 
 // Dynamically draw buoy markers on the radar map screen in real-time
-void update_radar_map_dynamic() {
+void update_radar_map_dynamic()
+{
     int w = tft.width();
     int h = tft.height();
     int cx = MAP_CX, cy = MAP_CY, r_max = MAP_R;
@@ -4008,8 +4751,10 @@ void update_radar_map_dynamic() {
     double b_lat[3], b_lon[3];
     bool b_valid[3] = {false, false, false};
 
-    for (int i = 0; i < 3; i++) {
-        if (buoys[i].id != "" && buoys[i].lat != "N/A" && buoys[i].lat != "" && atof(buoys[i].lat.c_str()) != 0) {
+    for (int i = 0; i < 3; i++)
+    {
+        if (buoys[i].id != "" && buoys[i].lat != "N/A" && buoys[i].lat != "" && atof(buoys[i].lat.c_str()) != 0)
+        {
             b_lat[i] = atof(buoys[i].lat.c_str());
             b_lon[i] = atof(buoys[i].lon.c_str());
             b_valid[i] = true;
@@ -4020,7 +4765,8 @@ void update_radar_map_dynamic() {
         }
     }
 
-    if (valid_count > 0) {
+    if (valid_count > 0)
+    {
         lat_orig /= valid_count;
         lon_orig /= valid_count;
     }
@@ -4032,8 +4778,10 @@ void update_radar_map_dynamic() {
     bool wp_valid[3] = {false, false, false};
     float wp_off_m[3] = {0, 0, 0};
 
-    for (int i = 0; i < 3; i++) {
-        if (!b_valid[i] || !buoy_has_waypoint(buoys[i])) continue;
+    for (int i = 0; i < 3; i++)
+    {
+        if (!b_valid[i] || !buoy_has_waypoint(buoys[i]))
+            continue;
         wp_lat[i] = buoys[i].tg_lat;
         wp_lon[i] = buoys[i].tg_lon;
         wp_valid[i] = true;
@@ -4054,7 +4802,8 @@ void update_radar_map_dynamic() {
     // Covers the GPS, Demo and no-telemetry paths alike.
     draw_wind_overlay(cx, cy);
 
-    if (valid_count == 0) {
+    if (valid_count == 0)
+    {
         // Nothing below this point produces a real length, and a stale one would leave - / + live
         // over a plot that is either mocked up or empty.
         track_line_cur_m = -1.0f;
@@ -4064,14 +4813,17 @@ void update_radar_map_dynamic() {
 
         // Check if any buoy is active/present
         bool any_present = false;
-        for (int i = 0; i < 3; i++) {
-            if (buoys[i].id != "") {
+        for (int i = 0; i < 3; i++)
+        {
+            if (buoys[i].id != "")
+            {
                 any_present = true;
                 break;
             }
         }
-        
-        if (any_present) {
+
+        if (any_present)
+        {
             // No GPS fix yet, but buoys are present! Let's show a beautiful Demo Mode plot so they can verify!
             tft.fillRect(0, MAP_HEADER_Y, 240, 16, TFT_BLACK);
             tft.setTextColor(TFT_YELLOW, TFT_BLACK);
@@ -4083,14 +4835,17 @@ void update_radar_map_dynamic() {
             int mock_offsets_x[3] = {-36, 36, 0};
             int mock_offsets_y[3] = {32, 32, -45};
             uint16_t buoy_colors[3];
-            for (int i = 0; i < 3; i++) buoy_colors[i] = buoy_role_color(i, plot_roles);
+            for (int i = 0; i < 3; i++)
+                buoy_colors[i] = buoy_role_color(i, plot_roles);
 
             int mock_x[3], mock_y[3];
             bool mock_valid[3] = {false, false, false};
             int mock_count = 0, sum_x = 0, sum_y = 0;
 
-            for (int i = 0; i < 3; i++) {
-                if (buoys[i].id != "") {
+            for (int i = 0; i < 3; i++)
+            {
+                if (buoys[i].id != "")
+                {
                     mock_valid[i] = true;
                     sum_x += mock_offsets_x[i];
                     sum_y += mock_offsets_y[i];
@@ -4099,8 +4854,10 @@ void update_radar_map_dynamic() {
             }
 
             // Centre the mock plot on the middle of whatever is present, exactly like the GPS path does
-            for (int i = 0; i < 3; i++) {
-                if (mock_valid[i]) {
+            for (int i = 0; i < 3; i++)
+            {
+                if (mock_valid[i])
+                {
                     mock_x[i] = cx + mock_offsets_x[i] - sum_x / mock_count;
                     mock_y[i] = cy + mock_offsets_y[i] - sum_y / mock_count;
                 }
@@ -4109,29 +4866,44 @@ void update_radar_map_dynamic() {
             // Start line first, so the buoy dots end up on top of it
             int ma = -1, mb = -1;
             long best_d2 = -1;
-            for (int i = 0; i < 3; i++) {
-                for (int j = i + 1; j < 3; j++) {
-                    if (!mock_valid[i] || !mock_valid[j]) continue;
+            for (int i = 0; i < 3; i++)
+            {
+                for (int j = i + 1; j < 3; j++)
+                {
+                    if (!mock_valid[i] || !mock_valid[j])
+                        continue;
                     long ddx = mock_x[i] - mock_x[j];
                     long ddy = mock_y[i] - mock_y[j];
                     long d2 = ddx * ddx + ddy * ddy;
-                    if (best_d2 < 0 || d2 < best_d2) { best_d2 = d2; ma = i; mb = j; }
+                    if (best_d2 < 0 || d2 < best_d2)
+                    {
+                        best_d2 = d2;
+                        ma = i;
+                        mb = j;
+                    }
                 }
             }
-            if (ma != -1) {
+            if (ma != -1)
+            {
                 draw_start_line_segment(mock_x[ma], mock_y[ma], mock_x[mb], mock_y[mb]);
                 draw_line_len_label("DEMO", TFT_MAGENTA);
-            } else {
+            }
+            else
+            {
                 draw_line_len_label("--", TFT_DARKGREY);
             }
 
-            for (int i = 0; i < 3; i++) {
-                if (mock_valid[i]) {
+            for (int i = 0; i < 3; i++)
+            {
+                if (mock_valid[i])
+                {
                     draw_buoy_marker(mock_x[i], mock_y[i], buoy_colors[i], i);
                 }
             }
             return;
-        } else {
+        }
+        else
+        {
             // No buoy has a valid GPS fix yet and no buoy is active!
             tft.fillRect(0, MAP_HEADER_Y, 240, 16, TFT_BLACK);
             tft.setTextColor(TFT_YELLOW, TFT_BLACK);
@@ -4143,15 +4915,18 @@ void update_radar_map_dynamic() {
             return;
         }
     }
-    
+
     // 2. Scan all buoys to find the maximum relative distance (dx or dy) from the origin to dynamically scale the plot
     float max_dist = 10.0; // Default min scale of 10 meters
-    for (int i = 0; i < 3; i++) {
-        if (b_valid[i]) {
+    for (int i = 0; i < 3; i++)
+    {
+        if (b_valid[i])
+        {
             float dx, dy;
             get_relative_meters(lat_orig, lon_orig, b_lat[i], b_lon[i], dx, dy);
-            float d = sqrt(dx*dx + dy*dy);
-            if (d > max_dist) max_dist = d;
+            float d = sqrt(dx * dx + dy * dy);
+            if (d > max_dist)
+                max_dist = d;
         }
     }
 
@@ -4160,24 +4935,33 @@ void update_radar_map_dynamic() {
     // rather than a course (RoboTop's dock position leaking into tgLat puts it kilometres away),
     // and zooming out to fit it would squash the whole fleet into one pixel. Those are clamped
     // to the rim by the constrain below and drawn with the pegged ring instead.
-    for (int i = 0; i < 3; i++) {
-        if (wp_valid[i]) {
+    for (int i = 0; i < 3; i++)
+    {
+        if (wp_valid[i])
+        {
             float dx, dy;
             get_relative_meters(lat_orig, lon_orig, wp_lat[i], wp_lon[i], dx, dy);
-            float d = sqrt(dx*dx + dy*dy);
-            if (d > max_dist && d <= MAP_WAYPOINT_MAX_M) max_dist = d;
+            float d = sqrt(dx * dx + dy * dy);
+            if (d > max_dist && d <= MAP_WAYPOINT_MAX_M)
+                max_dist = d;
         }
     }
 
     // Determine the optimal discrete scale range (25m, 50m, 100m, 250m, 500m, 1000m)
     float scale_range = 50.0;
-    if (max_dist > 500.0) scale_range = 1000.0;
-    else if (max_dist > 250.0) scale_range = 500.0;
-    else if (max_dist > 100.0) scale_range = 250.0;
-    else if (max_dist > 50.0) scale_range = 100.0;
-    else if (max_dist > 25.0) scale_range = 50.0;
-    else scale_range = 25.0;
-    
+    if (max_dist > 500.0)
+        scale_range = 1000.0;
+    else if (max_dist > 250.0)
+        scale_range = 500.0;
+    else if (max_dist > 100.0)
+        scale_range = 250.0;
+    else if (max_dist > 50.0)
+        scale_range = 100.0;
+    else if (max_dist > 25.0)
+        scale_range = 50.0;
+    else
+        scale_range = 25.0;
+
     // Scale factor: pixels per meter (MAP_R pixels from the centre to the edge = scale_range meters)
     float S = (float)MAP_R / scale_range;
 
@@ -4195,12 +4979,15 @@ void update_radar_map_dynamic() {
     //    port red, head blue. That costs the plot its old fixed green/orange/cyan per slot, which
     //    was the only thing telling the dots apart - so draw_buoy_marker() labels them now.
     uint16_t buoy_colors[3];
-    for (int i = 0; i < 3; i++) buoy_colors[i] = buoy_role_color(i, plot_roles);
+    for (int i = 0; i < 3; i++)
+        buoy_colors[i] = buoy_role_color(i, plot_roles);
 
     int plot_x[3], plot_y[3];
 
-    for (int i = 0; i < 3; i++) {
-        if (b_valid[i]) {
+    for (int i = 0; i < 3; i++)
+    {
+        if (b_valid[i])
+        {
             float dx = 0, dy = 0;
             get_relative_meters(lat_orig, lon_orig, b_lat[i], b_lon[i], dx, dy);
 
@@ -4220,8 +5007,10 @@ void update_radar_map_dynamic() {
     int wp_x[3], wp_y[3];
     bool wp_pegged[3] = {false, false, false};
 
-    for (int i = 0; i < 3; i++) {
-        if (!wp_valid[i]) continue;
+    for (int i = 0; i < 3; i++)
+    {
+        if (!wp_valid[i])
+            continue;
 
         float dx = 0, dy = 0;
         get_relative_meters(lat_orig, lon_orig, wp_lat[i], wp_lon[i], dx, dy);
@@ -4240,15 +5029,19 @@ void update_radar_map_dynamic() {
     int sl_a = -1, sl_b = -1;
     float sl_dist = 0;
 
-    for (int i = 0; i < 3; i++) {
-        for (int j = i + 1; j < 3; j++) {
-            if (!b_valid[i] || !b_valid[j]) continue;
+    for (int i = 0; i < 3; i++)
+    {
+        for (int j = i + 1; j < 3; j++)
+        {
+            if (!b_valid[i] || !b_valid[j])
+                continue;
 
             float dx = 0, dy = 0;
             get_relative_meters(b_lat[i], b_lon[i], b_lat[j], b_lon[j], dx, dy);
             float d = sqrt(dx * dx + dy * dy);
 
-            if (sl_a == -1 || d < sl_dist) {
+            if (sl_a == -1 || d < sl_dist)
+            {
                 sl_dist = d;
                 sl_a = i;
                 sl_b = j;
@@ -4256,7 +5049,8 @@ void update_radar_map_dynamic() {
         }
     }
 
-    if (sl_a != -1) {
+    if (sl_a != -1)
+    {
         // Line first, so the buoy dots are drawn on top of it
         draw_start_line_segment(plot_x[sl_a], plot_y[sl_a], plot_x[sl_b], plot_y[sl_b]);
 
@@ -4269,11 +5063,14 @@ void update_radar_map_dynamic() {
         // length is still shown and track_line_a/b are left clear - which is what greys out
         // - / + / EXECUTE rather than letting them fire on a target that cannot be computed.
         double alat, alon, blat, blon;
-        if (buoy_line_point(buoys[sl_a], alat, alon) && buoy_line_point(buoys[sl_b], blat, blon)) {
+        if (buoy_line_point(buoys[sl_a], alat, alon) && buoy_line_point(buoys[sl_b], blat, blon))
+        {
             track_line_cur_m = (float)track_distance_m(alat, alon, blat, blon);
             track_line_a = sl_a;
             track_line_b = sl_b;
-        } else {
+        }
+        else
+        {
             track_line_cur_m = sl_dist;
             track_line_a = -1;
             track_line_b = -1;
@@ -4282,14 +5079,19 @@ void update_radar_map_dynamic() {
 
         // A pending change takes over the label until EXECUTE commits it or BACK drops it.
         char legend[12];
-        if (track_line_tgt_m > 0) {
+        if (track_line_tgt_m > 0)
+        {
             snprintf(legend, sizeof(legend), "%0.0fM", track_line_tgt_m);
             draw_line_len_label(legend, TFT_ORANGE);
-        } else {
+        }
+        else
+        {
             snprintf(legend, sizeof(legend), "%0.0fM", track_line_cur_m);
             draw_line_len_label(legend, TFT_MAGENTA);
         }
-    } else {
+    }
+    else
+    {
         track_line_cur_m = -1.0f;
         track_line_a = -1;
         track_line_b = -1;
@@ -4299,16 +5101,20 @@ void update_radar_map_dynamic() {
 
     // 4b. Each buoy's waypoint and the gap to it, under the buoy dots so the live position
     //     always wins where the two overlap - which is exactly what "on station" looks like.
-    for (int i = 0; i < 3; i++) {
-        if (!wp_valid[i]) continue;
+    for (int i = 0; i < 3; i++)
+    {
+        if (!wp_valid[i])
+            continue;
         draw_offset_line(plot_x[i], plot_y[i], wp_x[i], wp_y[i], buoy_colors[i]);
         draw_waypoint_marker(wp_x[i], wp_y[i], buoy_colors[i], wp_pegged[i]);
         draw_offset_label(wp_x[i], wp_y[i], wp_off_m[i], buoy_colors[i]);
     }
 
     // 5. Plot each valid active buoy on top of the start line
-    for (int i = 0; i < 3; i++) {
-        if (b_valid[i]) {
+    for (int i = 0; i < 3; i++)
+    {
+        if (b_valid[i])
+        {
             draw_buoy_marker(plot_x[i], plot_y[i], buoy_colors[i], i);
         }
     }
@@ -4330,7 +5136,8 @@ void update_radar_map_dynamic() {
  * trim, so the correction and the trim stay exactly as the operator left them and have no bearing
  * on the result. That removes the one step this screen used to depend on and could not verify.
  */
-void enter_man_fourier_cal(int buoy_idx) {
+void enter_man_fourier_cal(int buoy_idx)
+{
     BuoyData &b = buoys[buoy_idx];
 
     in_man_fourier_cal_mode = true;
@@ -4339,7 +5146,7 @@ void enter_man_fourier_cal(int buoy_idx) {
     mancal_is_dirty = true;
     mancal_begin_sent = false;
     mancal_press_leg = -1;
-    mancal_level_armed_ms = 0;   // never inherit an arming tap from a previous visit
+    mancal_level_armed_ms = 0; // never inherit an arming tap from a previous visit
     // Forget any earlier answer: this screen must not show a stale run as the current one.
     b.cal8_ms = 0;
 
@@ -4371,16 +5178,21 @@ void enter_man_fourier_cal(int buoy_idx) {
  *
  * Once the state is known and no run is in progress, arms one - see mancal_begin_sent.
  */
-void service_mancal_entry() {
-    if (!in_man_fourier_cal_mode) return;
-    if (selected_buoy_idx < 0 || selected_buoy_idx >= 3) return;
+void service_mancal_entry()
+{
+    if (!in_man_fourier_cal_mode)
+        return;
+    if (selected_buoy_idx < 0 || selected_buoy_idx >= 3)
+        return;
     BuoyData &b = buoys[selected_buoy_idx];
-    if (b.id.length() == 0) return;
+    if (b.id.length() == 0)
+        return;
 
     // Arm the session as soon as we know there is not one already. Deliberately after the answer
     // and not on entry: a BEGIN sent over the top of a run somebody started from a web page would
     // throw away their captures without either of them being told.
-    if (!mancal_harmonic_pending && !mancal_begin_sent && mancal_known(b) && !mancal_running(b)) {
+    if (!mancal_harmonic_pending && !mancal_begin_sent && mancal_known(b) && !mancal_running(b))
+    {
         mancal_begin_sent = true;
         Serial.println("MANCAL: no run in progress - arming one");
         send_buoy_cal8(b.id, 0 /* CAL8_BEGIN */, 0, 2, mancal_next_seq(b));
@@ -4388,17 +5200,21 @@ void service_mancal_entry() {
         return;
     }
 
-    if (!mancal_harmonic_pending) return;
+    if (!mancal_harmonic_pending)
+        return;
 
     bool give_up = (mancal_query_tries >= MANCAL_QUERY_MAX_TRIES &&
                     (long)(millis() - mancal_query_next_ms) >= 0);
 
-    if ((mancal_offsets_loaded && mancal_known(b)) || give_up) {
-        if (give_up && !mancal_offsets_loaded) {
+    if ((mancal_offsets_loaded && mancal_known(b)) || give_up)
+    {
+        if (give_up && !mancal_offsets_loaded)
+        {
             Serial.println("Interpolation table never arrived - the idle row will read unknown.");
             mancal_offsets_loaded = true;
         }
-        if (give_up && !mancal_known(b)) {
+        if (give_up && !mancal_known(b))
+        {
             // Left deliberately unknown rather than assumed idle. Every button stays locked and the
             // screen says why: guessing "no run in progress" here is what would let a press wipe
             // out captures made from another screen.
@@ -4409,13 +5225,16 @@ void service_mancal_entry() {
         return;
     }
 
-    if ((long)(millis() - mancal_query_next_ms) >= 0) {
+    if ((long)(millis() - mancal_query_next_ms) >= 0)
+    {
         mancal_query_tries++;
         mancal_query_next_ms = millis() + MANCAL_QUERY_INTERVAL_MS;
         Serial.printf("MAN CAL: no answer yet, retry %d of %d\n",
                       mancal_query_tries, MANCAL_QUERY_MAX_TRIES);
-        if (!mancal_known(b)) send_buoy_cal8(b.id, 0, 0, 1);
-        if (!mancal_offsets_loaded) send_buoy_command(b.id, 88, 1);
+        if (!mancal_known(b))
+            send_buoy_cal8(b.id, 0, 0, 1);
+        if (!mancal_offsets_loaded)
+            send_buoy_command(b.id, 88, 1);
     }
 }
 
@@ -4427,7 +5246,8 @@ void service_mancal_entry() {
  * they are the offsets the buoy is already applying. Cells are in rose order, N first and
  * clockwise, so a cell lines up with the dot above it.
  */
-void draw_mancal_offset_strip() {
+void draw_mancal_offset_strip()
+{
     // Below the rose, not across it: the S label sits at MANCAL_CY + MANCAL_R_LABEL = 236, and a
     // strip that started at 234 erased it on every repaint and was erased back a moment later.
     const int y = 249;
@@ -4438,19 +5258,23 @@ void draw_mancal_offset_strip() {
 
     BuoyData &b = buoys[selected_buoy_idx];
 
-    if (!mancal_known(b)) {
+    if (!mancal_known(b))
+    {
         tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
         tft.drawString("asking the buoy...", tft.width() / 2, y);
         return;
     }
 
-    if (!mancal_running(b)) {
-        if (!mancal_offsets_loaded) {
+    if (!mancal_running(b))
+    {
+        if (!mancal_offsets_loaded)
+        {
             tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
             tft.drawString("reading table from buoy...", tft.width() / 2, y);
             return;
         }
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < 8; i++)
+        {
             char buf[8];
             sprintf(buf, "%+0.0f", mancal_offsets[i]);
             tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
@@ -4459,16 +5283,22 @@ void draw_mancal_offset_strip() {
         return;
     }
 
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 8; i++)
+    {
         char buf[8];
         uint16_t col;
-        if (mancal_captured(b, i)) {
+        if (mancal_captured(b, i))
+        {
             float dev = b.cal8[i] - i * 45.0f;
-            while (dev > 180.0f) dev -= 360.0f;
-            while (dev < -180.0f) dev += 360.0f;
+            while (dev > 180.0f)
+                dev -= 360.0f;
+            while (dev < -180.0f)
+                dev += 360.0f;
             sprintf(buf, "%+0.0f", dev);
             col = TFT_GREEN;
-        } else {
+        }
+        else
+        {
             sprintf(buf, "-");
             col = TFT_DARKGREY;
         }
@@ -4477,10 +5307,11 @@ void draw_mancal_offset_strip() {
     }
 }
 
-void draw_mancal_static() {
+void draw_mancal_static()
+{
     int w = tft.width();
     tft.fillScreen(TFT_BLACK);
-    ui_invalidate();   // the pixels are gone - no cache may claim otherwise
+    ui_invalidate(); // the pixels are gone - no cache may claim otherwise
 
     tft.setTextColor(TFT_CYAN, TFT_BLACK);
     tft.setTextSize(2);
@@ -4492,7 +5323,8 @@ void draw_mancal_static() {
     mancal_is_dirty = true;
 }
 
-void update_mancal_dynamic() {
+void update_mancal_dynamic()
+{
     int w = tft.width();
     BuoyData &b = buoys[selected_buoy_idx];
 
@@ -4506,7 +5338,8 @@ void update_mancal_dynamic() {
     // call in the same pass would answer differently from the first.
     const bool press_pending = mancal_press_pending(b);
 
-    if (mancal_is_dirty) {
+    if (mancal_is_dirty)
+    {
         tft.fillRect(0, 48, w, 272, TFT_BLACK);
 
         // MAG, small and to one side. Imag is what this screen is about, but seeing the corrected
@@ -4528,7 +5361,8 @@ void update_mancal_dynamic() {
     const bool imag_live = mancal_imag_live(b);
     const uint16_t imag_col = mancal_imag_colour(b, running, leg);
     if (mancal_is_dirty || b.mag_dir_iron != last_imag_drawn ||
-        imag_col != last_imag_col || imag_live != last_live_drawn) {
+        imag_col != last_imag_col || imag_live != last_live_drawn)
+    {
         last_imag_drawn = b.mag_dir_iron;
         last_imag_col = imag_col;
         last_live_drawn = imag_live;
@@ -4540,11 +5374,14 @@ void update_mancal_dynamic() {
         tft.setTextSize(4);
         char imag_buf[16];
         tft.setTextColor(imag_col, TFT_BLACK);
-        if (!imag_live) {
+        if (!imag_live)
+        {
             // Not "0" - that is a heading in its own right, and printing it would claim a reading
             // the buoy has not given us.
             sprintf(imag_buf, "--");
-        } else {
+        }
+        else
+        {
             sprintf(imag_buf, "%0.0f", b.mag_dir_iron);
         }
         tft.drawString(imag_buf, w / 2, 79);
@@ -4552,7 +5389,8 @@ void update_mancal_dynamic() {
 
     // MAG, refreshed on its own so it does not drag the big number's repaint with it.
     static float last_mag_drawn = -999.0f;
-    if (mancal_is_dirty || b.mag_dir != last_mag_drawn) {
+    if (mancal_is_dirty || b.mag_dir != last_mag_drawn)
+    {
         last_mag_drawn = b.mag_dir;
         tft.fillRect(15, 62, 44, 10, TFT_BLACK);
         tft.setTextSize(1);
@@ -4568,7 +5406,8 @@ void update_mancal_dynamic() {
     // by itself when MANCAL_LEVEL_ARM_MS runs out rather than sitting there looking armed.
     static bool last_level_armed = false;
     const bool level_armed = mancal_level_armed();
-    if (mancal_is_dirty || level_armed != last_level_armed) {
+    if (mancal_is_dirty || level_armed != last_level_armed)
+    {
         last_level_armed = level_armed;
         draw_mancal_level_button(level_armed);
     }
@@ -4577,15 +5416,16 @@ void update_mancal_dynamic() {
     static int last_hint = -1;
     static float last_hint_gap = -999.0f;
     const float hint_gap = (running && leg >= 0) ? mancal_gap_to_leg(b, leg) : 0.0f;
-    int hint = !known                    ? 0
-             : !imag_live                ? 1
-             : !running                  ? 2
-             : press_pending            ? 3
-             : complete                  ? 4
-             : (leg == 0 && !on_anchor)  ? 5
-             : (leg == 0)                ? 6
-                                         : 7;
-    if (mancal_is_dirty || hint != last_hint || hint_gap != last_hint_gap) {
+    int hint = !known                     ? 0
+               : !imag_live               ? 1
+               : !running                 ? 2
+               : press_pending            ? 3
+               : complete                 ? 4
+               : (leg == 0 && !on_anchor) ? 5
+               : (leg == 0)               ? 6
+                                          : 7;
+    if (mancal_is_dirty || hint != last_hint || hint_gap != last_hint_gap)
+    {
         last_hint = hint;
         last_hint_gap = hint_gap;
         tft.fillRect(0, 98, w, 12, TFT_BLACK);
@@ -4593,20 +5433,47 @@ void update_mancal_dynamic() {
         tft.setTextSize(1);
         const char *txt;
         uint16_t col = TFT_LIGHTGREY;
-        switch (hint) {
-        case 0: txt = "asking the buoy for its state..."; col = TFT_ORANGE; break;
-        case 1: txt = "no Imag from the buoy"; col = TFT_RED; break;
-        case 2: txt = "no run armed - tap START"; col = TFT_ORANGE; break;
-        case 3: txt = "sending..."; col = TFT_YELLOW; break;
-        case 4: txt = "all eight in - SAVE or re-tap to redo"; col = TFT_GREEN; break;
-        case 5: txt = "turn the hull until IMAG is green"; col = TFT_RED; break;
-        case 6: txt = "on zero - tap N to anchor the run"; col = TFT_GREEN; break;
-        default: txt = NULL; break;
+        switch (hint)
+        {
+        case 0:
+            txt = "asking the buoy for its state...";
+            col = TFT_ORANGE;
+            break;
+        case 1:
+            txt = "no Imag from the buoy";
+            col = TFT_RED;
+            break;
+        case 2:
+            txt = "no run armed - tap START";
+            col = TFT_ORANGE;
+            break;
+        case 3:
+            txt = "sending...";
+            col = TFT_YELLOW;
+            break;
+        case 4:
+            txt = "all eight in - SAVE or re-tap to redo";
+            col = TFT_GREEN;
+            break;
+        case 5:
+            txt = "turn the hull until IMAG is green";
+            col = TFT_RED;
+            break;
+        case 6:
+            txt = "on zero - tap N to anchor the run";
+            col = TFT_GREEN;
+            break;
+        default:
+            txt = NULL;
+            break;
         }
-        if (txt) {
+        if (txt)
+        {
             tft.setTextColor(col, TFT_BLACK);
             tft.drawString(txt, w / 2, 104);
-        } else {
+        }
+        else
+        {
             // At the other seven the useful line is the target and the gap to it, because the
             // colour above is judged against that and not against zero.
             char tgt_buf[44];
@@ -4621,7 +5488,8 @@ void update_mancal_dynamic() {
     static int last_mask = -1;
     static int last_leg = -99;
     static bool last_running = false;
-    if (mancal_is_dirty || last_mask != b.cal8_mask || last_leg != leg || last_running != running) {
+    if (mancal_is_dirty || last_mask != b.cal8_mask || last_leg != leg || last_running != running)
+    {
         last_mask = b.cal8_mask;
         last_leg = leg;
         last_running = running;
@@ -4630,7 +5498,8 @@ void update_mancal_dynamic() {
         tft.fillRect(MANCAL_CX - 76, 108, 152, 132, TFT_BLACK);
         uint16_t dimmed = tft.color565(55, 55, 55);
 
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < 8; i++)
+        {
             float angle_rad = i * 45.0f * (float)M_PI / 180.0f;
             int x = MANCAL_CX + (int)(MANCAL_R_DOTS * sin(angle_rad));
             int y = MANCAL_CY - (int)(MANCAL_R_DOTS * cos(angle_rad));
@@ -4638,19 +5507,27 @@ void update_mancal_dynamic() {
             bool captured = running && mancal_captured(b, i);
             bool asking = running && (i == leg);
 
-            if (captured) {
+            if (captured)
+            {
                 // Green means the offset for this direction is in. Still tappable: a re-tap
                 // replaces it, which is the point of being able to go round twice.
                 tft.fillCircle(x, y, 6, TFT_GREEN);
-                if (asking) tft.drawCircle(x, y, 9, TFT_WHITE);
-            } else if (asking) {
+                if (asking)
+                    tft.drawCircle(x, y, 9, TFT_WHITE);
+            }
+            else if (asking)
+            {
                 tft.fillCircle(x, y, 6, TFT_BLUE);
                 tft.drawCircle(x, y, 9, TFT_WHITE);
-            } else if (running) {
+            }
+            else if (running)
+            {
                 // Not its turn yet. The order runs forwards until every direction is in, so these
                 // are barely there rather than looking like something to press.
                 tft.fillCircle(x, y, 3, dimmed);
-            } else {
+            }
+            else
+            {
                 tft.fillCircle(x, y, 4, TFT_DARKGREY);
             }
 
@@ -4658,10 +5535,11 @@ void update_mancal_dynamic() {
             int ly = MANCAL_CY - (int)(MANCAL_R_LABEL * cos(angle_rad));
 
             tft.setTextSize(1);
-            tft.setTextColor(captured ? TFT_GREEN
-                             : asking ? TFT_CYAN
+            tft.setTextColor(captured  ? TFT_GREEN
+                             : asking  ? TFT_CYAN
                              : running ? dimmed
-                             : TFT_LIGHTGREY, TFT_BLACK);
+                                       : TFT_LIGHTGREY,
+                             TFT_BLACK);
             tft.setTextDatum(MC_DATUM);
             tft.drawString(MANCAL_DIRS[i], lx, ly);
         }
@@ -4684,7 +5562,8 @@ void update_mancal_dynamic() {
     static bool last_tilt_known = false;
     const bool tilt_known = (b.pitch_ms != 0) && (millis() - b.pitch_ms <= MANCAL_TILT_STALE_MS);
     if (mancal_is_dirty || tilt_known != last_tilt_known ||
-        b.pitch != last_pitch_drawn || b.roll != last_roll_drawn) {
+        b.pitch != last_pitch_drawn || b.roll != last_roll_drawn)
+    {
         last_pitch_drawn = b.pitch;
         last_roll_drawn = b.roll;
         last_tilt_known = tilt_known;
@@ -4696,7 +5575,8 @@ void update_mancal_dynamic() {
     static int last_strip_mask = -2;
     static bool last_strip_running = false;
     if (mancal_is_dirty || last_strip_loaded != mancal_offsets_loaded ||
-        last_strip_mask != b.cal8_mask || last_strip_running != running) {
+        last_strip_mask != b.cal8_mask || last_strip_running != running)
+    {
         last_strip_loaded = mancal_offsets_loaded;
         last_strip_mask = b.cal8_mask;
         last_strip_running = running;
@@ -4709,14 +5589,20 @@ void update_mancal_dynamic() {
     static bool last_band_pending = false;
     static int last_band_state = -1;
     const bool band_pending = press_pending;
-    const int band_state = (!known ? 0 : !running ? 1 : complete ? 2 : 3) * 16 + done;
-    if (mancal_is_dirty || band_pending != last_band_pending || band_state != last_band_state) {
+    const int band_state = (!known ? 0 : !running ? 1
+                                     : complete   ? 2
+                                                  : 3) *
+                               16 +
+                           done;
+    if (mancal_is_dirty || band_pending != last_band_pending || band_state != last_band_state)
+    {
         last_band_pending = band_pending;
         last_band_state = band_state;
         draw_mancal_action_band(known, running, complete, band_pending, done);
     }
 
-    if (mancal_is_dirty) {
+    if (mancal_is_dirty)
+    {
         // ---- the footer -----------------------------------------------------------------
         // Left half always leaves. CANCEL stays live for the whole run and not only at the end:
         // needing to finish a calibration you have already decided to throw away would be a trap.
@@ -4725,11 +5611,14 @@ void update_mancal_dynamic() {
         tft.setTextColor(TFT_WHITE, TFT_BLUE);
         tft.drawString("BACK", 64, 308);
 
-        if (running) {
+        if (running)
+        {
             tft.fillRoundRect(122, 298, 108, 20, 4, TFT_RED);
             tft.setTextColor(TFT_WHITE, TFT_RED);
             tft.drawString("CANCEL RUN", 176, 308);
-        } else {
+        }
+        else
+        {
             tft.fillRoundRect(122, 298, 108, 20, 4, tft.color565(40, 40, 40));
             tft.setTextColor(TFT_DARKGREY, tft.color565(40, 40, 40));
             tft.drawString("NO RUN", 176, 308);
