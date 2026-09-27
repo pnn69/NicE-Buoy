@@ -18,8 +18,6 @@
 
 static const char *TAG = "WiFi";
 
-static constexpr EventBits_t WIFI_CONNECTED_BIT = BIT0;
-static constexpr EventBits_t WIFI_FAILED_BIT = BIT1;
 static constexpr EventBits_t WIFI_SCAN_DONE_BIT = BIT2;
 
 static EventGroupHandle_t wifi_event_group = nullptr;
@@ -32,8 +30,6 @@ static volatile bool app_scan_ready = false;
 
 static RoboLinkWifiMode current_mode =
     RoboLinkWifiMode::DISCONNECTED;
-
-static bool ap_latched = false;
 
 static void mesh_scan_start_cb()
 {
@@ -65,18 +61,6 @@ static void wifi_event_handler(
 {
     if (event_base == WIFI_EVENT)
     {
-        if (event_id == WIFI_EVENT_STA_DISCONNECTED)
-        {
-            if (!ap_latched)
-            {
-                xEventGroupSetBits(
-                    wifi_event_group,
-                    WIFI_FAILED_BIT);
-            }
-        }
-
-        
-
 
         if (event_id == WIFI_EVENT_SCAN_DONE)
         {
@@ -131,8 +115,8 @@ static void wifi_event_handler(
             if (result == ESP_OK)
             {
                 for (uint16_t i = 0;
-                    i < record_count;
-                    i++)
+                     i < record_count;
+                     i++)
                 {
                     const char *ssid =
                         reinterpret_cast<const char *>(
@@ -141,6 +125,7 @@ static void wifi_event_handler(
                     if (std::strcmp(
                             ssid,
                             HOMELINK_WIFI_SSID) == 0)
+                    // "NicE_WiFi_TEST_NOT_FOUND") == 0)
                     {
                         found_home = true;
                     }
@@ -176,7 +161,6 @@ static void wifi_event_handler(
                 wifi_event_group,
                 WIFI_SCAN_DONE_BIT);
         }
-
     }
 
     if (event_base == IP_EVENT &&
@@ -189,10 +173,6 @@ static void wifi_event_handler(
             TAG,
             "Station IP: " IPSTR,
             IP2STR(&event->ip_info.ip));
-
-        xEventGroupSetBits(
-            wifi_event_group,
-            WIFI_CONNECTED_BIT);
     }
 }
 
@@ -335,60 +315,40 @@ static esp_err_t select_upstream()
         TAG,
         "No configured upstream Wi-Fi found");
 
+    mesh_lite_sta_config_t empty_config = {};
+
+    esp_err_t clear_result =
+        esp_mesh_lite_set_wifi_config(
+            &empty_config);
+
+    if (clear_result != ESP_OK)
+    {
+        ESP_LOGE(
+            TAG,
+            "Failed to clear stale STA configuration");
+
+        return clear_result;
+    }
+
+    clear_result =
+        esp_mesh_lite_set_router_config(
+            &empty_config);
+
+    if (clear_result != ESP_OK)
+    {
+        ESP_LOGE(
+            TAG,
+            "Failed to clear stale Mesh-Lite router configuration");
+
+        return clear_result;
+    }
+
+    ESP_LOGI(
+        TAG,
+        "STA and Mesh-Lite router configuration cleared for no-router mode");
+
     current_mode =
         RoboLinkWifiMode::AP_FIELD;
-
-    return ESP_OK;
-}
-
-static esp_err_t start_field_ap()
-{
-    ESP_LOGI(TAG, "No existing Wi-Fi network found");
-
-    ESP_LOGI(
-        TAG,
-        "Starting fallback AP '%s'",
-        ROBOLINK_WIFI_SSID);
-
-    wifi_config_t config = {};
-
-    std::strncpy(
-        reinterpret_cast<char *>(config.ap.ssid),
-        ROBOLINK_WIFI_SSID,
-        sizeof(config.ap.ssid) - 1);
-
-    config.ap.ssid_len =
-        std::strlen(ROBOLINK_WIFI_SSID);
-
-    std::strncpy(
-        reinterpret_cast<char *>(config.ap.password),
-        ROBOLINK_WIFI_PASS,
-        sizeof(config.ap.password) - 1);
-
-    config.ap.channel = 1;
-    config.ap.max_connection = 8;
-    config.ap.authmode = WIFI_AUTH_WPA2_PSK;
-    config.ap.pmf_cfg.required = false;
-
-    ESP_ERROR_CHECK(
-        esp_wifi_set_mode(WIFI_MODE_AP));
-
-    ESP_ERROR_CHECK(
-        esp_wifi_set_config(
-            WIFI_IF_AP,
-            &config));
-
-    ap_latched = true;
-    current_mode = RoboLinkWifiMode::AP_FIELD;
-
-    ESP_LOGI(
-        TAG,
-        "RoboLink now owns '%s'",
-        ROBOLINK_WIFI_SSID);
-
-    ESP_LOGI(
-        TAG,
-        "AP remains active until reboot");
 
     return ESP_OK;
 }
@@ -507,6 +467,9 @@ esp_err_t robolink_wifi_init()
     esp_mesh_lite_config_t mesh_config =
         ESP_MESH_LITE_DEFAULT_INIT();
 
+    mesh_config.join_mesh_ignore_router_status = true;
+    mesh_config.join_mesh_without_configured_wifi = true;
+
     esp_mesh_lite_init(&mesh_config);
 
     ESP_LOGI(
@@ -524,8 +487,7 @@ esp_err_t robolink_wifi_init()
         ESP_LOGW(
             TAG,
             "Upstream selection failed: %s",
-            esp_err_to_name(upstream_result)
-        );
+            esp_err_to_name(upstream_result));
 
         current_mode =
             RoboLinkWifiMode::AP_FIELD;
@@ -536,22 +498,19 @@ esp_err_t robolink_wifi_init()
     {
         ESP_LOGI(
             TAG,
-            "Starting Mesh-Lite with upstream"
-        );
+            "Starting Mesh-Lite with upstream");
     }
     else
     {
         ESP_LOGI(
             TAG,
-            "Starting Mesh-Lite without upstream"
-        );
+            "Starting Mesh-Lite without upstream");
     }
     esp_mesh_lite_start();
 
     ESP_LOGI(
         TAG,
-        "Mesh-Lite started"
-    );
+        "Mesh-Lite started");
 
     return ESP_OK;
 }
