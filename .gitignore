@@ -137,10 +137,7 @@ Firmware/RoboLink/build/
 Firmware/RoboLink/.history/
 Firmware/RoboLink/sdkconfig.old
 
-
-
-
-
-
+# Shared local Robo credentials and secrets
+Firmware/RoboDependency/robo_secrets.h
 
 PCBA_Robobouoy-V4.0/jlcpcb/production_files
