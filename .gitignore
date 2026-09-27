@@ -131,3 +131,16 @@ Firmware/RoboCYD/managed_components/
 Firmware/RoboCYD/sdkconfig.old
 # Local credentials used during ESP-IDF migration
 Firmware/RoboCYD/main/migration_wifi_secrets.h
+
+# ESP-IDF RoboLink generated/local files
+Firmware/RoboLink/build/
+Firmware/RoboLink/.history/
+Firmware/RoboLink/sdkconfig.old
+
+
+
+
+
+
+
+PCBA_Robobouoy-V4.0/jlcpcb/production_files
