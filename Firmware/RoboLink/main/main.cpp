@@ -11,6 +11,7 @@
 #include "wifi.h"
 #include "udp.h"
 #include "router.h"
+#include "ota.h"
 
 static const char *TAG = "RoboLink";
 
@@ -106,6 +107,7 @@ extern "C" void app_main(void)
     ESP_ERROR_CHECK(packet_queue_init());
 
     ESP_ERROR_CHECK(robolink_wifi_init());
+    ESP_ERROR_CHECK(robolink_ota_start());
     ESP_ERROR_CHECK(udp_start());
 
     ESP_ERROR_CHECK(lora_spi_init());

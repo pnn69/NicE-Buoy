@@ -122,6 +122,38 @@ static const uint8_t FONT_n[8] = {
 
 static const uint8_t FONT_k[8] = {
     0x00, 0x7F, 0x10, 0x28, 0x44, 0x00, 0x00, 0x00};
+static const uint8_t FONT_0[8] = {
+    0x00, 0x3E, 0x51, 0x49, 0x45, 0x3E, 0x00, 0x00};
+
+static const uint8_t FONT_1[8] = {
+    0x00, 0x00, 0x42, 0x7F, 0x40, 0x00, 0x00, 0x00};
+
+static const uint8_t FONT_2[8] = {
+    0x00, 0x62, 0x51, 0x49, 0x49, 0x46, 0x00, 0x00};
+
+static const uint8_t FONT_3[8] = {
+    0x00, 0x22, 0x49, 0x49, 0x49, 0x36, 0x00, 0x00};
+
+static const uint8_t FONT_4[8] = {
+    0x00, 0x18, 0x14, 0x12, 0x7F, 0x10, 0x00, 0x00};
+
+static const uint8_t FONT_5[8] = {
+    0x00, 0x2F, 0x49, 0x49, 0x49, 0x31, 0x00, 0x00};
+
+static const uint8_t FONT_6[8] = {
+    0x00, 0x3E, 0x49, 0x49, 0x49, 0x32, 0x00, 0x00};
+
+static const uint8_t FONT_7[8] = {
+    0x00, 0x01, 0x71, 0x09, 0x05, 0x03, 0x00, 0x00};
+
+static const uint8_t FONT_8[8] = {
+    0x00, 0x36, 0x49, 0x49, 0x49, 0x36, 0x00, 0x00};
+
+static const uint8_t FONT_9[8] = {
+    0x00, 0x26, 0x49, 0x49, 0x49, 0x3E, 0x00, 0x00};
+
+static const uint8_t FONT_DOT[8] = {
+    0x00, 0x00, 0x60, 0x60, 0x00, 0x00, 0x00, 0x00};
 
 esp_err_t oled_write_robolink()
 {
@@ -146,6 +178,82 @@ esp_err_t oled_write_robolink()
     for (const uint8_t *character : text)
     {
         ESP_ERROR_CHECK(oled_data(character, 8));
+    }
+
+    return ESP_OK;
+}
+
+static const uint8_t *oled_ip_character(char c)
+{
+    switch (c)
+    {
+    case '0':
+        return FONT_0;
+    case '1':
+        return FONT_1;
+    case '2':
+        return FONT_2;
+    case '3':
+        return FONT_3;
+    case '4':
+        return FONT_4;
+    case '5':
+        return FONT_5;
+    case '6':
+        return FONT_6;
+    case '7':
+        return FONT_7;
+    case '8':
+        return FONT_8;
+    case '9':
+        return FONT_9;
+    case '.':
+        return FONT_DOT;
+    default:
+        return nullptr;
+    }
+}
+
+esp_err_t oled_write_ip(const char *ip)
+{
+    if (ip == nullptr)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    size_t length = strlen(ip);
+
+    if (length == 0 || length > 15)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    uint8_t width =
+        static_cast<uint8_t>(length * 8);
+
+    uint8_t start_column =
+        static_cast<uint8_t>((128 - width) / 2);
+
+    ESP_ERROR_CHECK(oled_command(0x21));
+    ESP_ERROR_CHECK(oled_command(start_column));
+    ESP_ERROR_CHECK(oled_command(start_column + width - 1));
+
+    ESP_ERROR_CHECK(oled_command(0x22));
+    ESP_ERROR_CHECK(oled_command(5));
+    ESP_ERROR_CHECK(oled_command(5));
+
+    for (size_t i = 0; i < length; i++)
+    {
+        const uint8_t *character =
+            oled_ip_character(ip[i]);
+
+        if (character == nullptr)
+        {
+            return ESP_ERR_INVALID_ARG;
+        }
+
+        ESP_ERROR_CHECK(
+            oled_data(character, 8));
     }
 
     return ESP_OK;

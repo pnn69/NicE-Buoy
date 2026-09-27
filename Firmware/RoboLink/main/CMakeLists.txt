@@ -7,6 +7,7 @@ idf_component_register(
         "wifi.cpp"
         "udp.cpp"
         "router.cpp"
+        "ota.cpp"
 
     INCLUDE_DIRS
         "."
@@ -22,4 +23,6 @@ idf_component_register(
         lwip
         espressif__iot_bridge
         espressif__mesh_lite
+        esp_http_server
+        app_update
 )

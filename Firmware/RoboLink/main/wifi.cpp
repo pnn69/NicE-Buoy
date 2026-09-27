@@ -1,5 +1,6 @@
 #include <cstring>
 #include <cstdlib>
+#include <cstdio>
 
 #include "wifi.h"
 #include "esp_bridge.h"
@@ -15,6 +16,7 @@
 #include "freertos/task.h"
 
 #include "robo_secrets.h"
+#include "oled.h"
 
 static const char *TAG = "WiFi";
 
@@ -125,7 +127,6 @@ static void wifi_event_handler(
                     if (std::strcmp(
                             ssid,
                             HOMELINK_WIFI_SSID) == 0)
-                    // "NicE_WiFi_TEST_NOT_FOUND") == 0)
                     {
                         found_home = true;
                     }
@@ -173,6 +174,25 @@ static void wifi_event_handler(
             TAG,
             "Station IP: " IPSTR,
             IP2STR(&event->ip_info.ip));
+
+        char ip_text[16];
+
+        snprintf(
+            ip_text,
+            sizeof(ip_text),
+            IPSTR,
+            IP2STR(&event->ip_info.ip));
+
+        esp_err_t oled_result =
+            oled_write_ip(ip_text);
+
+        if (oled_result != ESP_OK)
+        {
+            ESP_LOGW(
+                TAG,
+                "Could not display IP: %s",
+                esp_err_to_name(oled_result));
+        }
     }
 }
 
@@ -475,6 +495,13 @@ esp_err_t robolink_wifi_init()
     ESP_LOGI(
         TAG,
         "Mesh-Lite initialized");
+
+    ESP_ERROR_CHECK(
+        esp_mesh_lite_set_allowed_level(1));
+
+    ESP_LOGI(
+        TAG,
+        "RoboLink fixed as Mesh-Lite root at level 1");
 
     ESP_ERROR_CHECK(
         configure_mesh_softap());
