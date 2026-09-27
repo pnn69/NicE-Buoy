@@ -107,20 +107,6 @@ static void udp_receive_task(void *parameter)
 
                 continue;
             }
-
-            char source_ip[INET_ADDRSTRLEN] = {};
-
-            inet_ntoa_r(
-                source_addr.sin_addr,
-                source_ip,
-                sizeof(source_ip));
-
-            ESP_LOGI(
-                TAG,
-                "RX %d bytes from %s:%u",
-                received,
-                source_ip,
-                ntohs(source_addr.sin_port));
         }
 
         shutdown(sock, 0);

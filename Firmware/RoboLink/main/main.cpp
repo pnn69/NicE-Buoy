@@ -103,7 +103,7 @@ extern "C" void app_main(void)
     ESP_ERROR_CHECK(oled_write_robolink());
 
     ESP_ERROR_CHECK(packet_queue_init());
-    
+
     ESP_ERROR_CHECK(robolink_wifi_init());
     ESP_ERROR_CHECK(udp_start());
 
@@ -128,49 +128,26 @@ extern "C" void app_main(void)
         // Process everything currently waiting in the common packet queue.
         while (packet_queue_receive(packet))
         {
-            const char *source_name = "Unknown";
-
-            switch (packet.source)
+            if (packet.source == PacketSource::LORA)
             {
-                case PacketSource::LORA:
-                    source_name = "LoRa";
-                    break;
+                ESP_LOGI(
+                    TAG,
+                    "LoRa RX RSSI=%d len=%u: %s",
+                    packet.rssi,
+                    packet.length,
+                    packet.data
+                );
 
-                case PacketSource::UDP:
-                    source_name = "UDP";
-                    break;
+                gpio_set_level(
+                    (gpio_num_t)LED_PIN,
+                    1
+                );
 
-                case PacketSource::MESH:
-                    source_name = "Mesh";
-                    break;
-
-                case PacketSource::SERIAL:
-                    source_name = "Serial";
-                    break;
+                led_active = true;
+                led_off_time =
+                    xTaskGetTickCount() + pdMS_TO_TICKS(50);
             }
-
-            ESP_LOGI(
-                TAG,
-                "Packet source=%s RSSI=%d len=%u: %s",
-                source_name,
-                packet.rssi,
-                packet.length,
-                packet.data
-            );
-
-            // Short non-blocking communications activity pulse.
-            gpio_set_level(
-                (gpio_num_t)LED_PIN,
-                1
-            );
-
-            led_active = true;
-
-            led_off_time =
-                xTaskGetTickCount() + pdMS_TO_TICKS(50);
-        }
-
-        // Turn the activity LED off when its 50 ms pulse has expired.
+        }        // Turn the activity LED off when its 50 ms pulse has expired.
         if (led_active)
         {
             TickType_t now = xTaskGetTickCount();
@@ -179,8 +156,7 @@ extern "C" void app_main(void)
             {
                 gpio_set_level(
                     (gpio_num_t)LED_PIN,
-                    0
-                );
+                    0);
 
                 led_active = false;
             }
