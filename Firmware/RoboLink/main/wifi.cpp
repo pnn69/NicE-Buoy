@@ -1,6 +1,10 @@
 #include <cstring>
+#include <cstdlib>
 
 #include "wifi.h"
+#include "esp_bridge.h"
+#include "esp_mesh_lite.h"
+#include "esp_mesh_lite_core.h"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_netif.h"
@@ -16,14 +20,42 @@ static const char *TAG = "WiFi";
 
 static constexpr EventBits_t WIFI_CONNECTED_BIT = BIT0;
 static constexpr EventBits_t WIFI_FAILED_BIT = BIT1;
-static constexpr int CONNECT_TIMEOUT_MS = 5000;
+static constexpr EventBits_t WIFI_SCAN_DONE_BIT = BIT2;
 
 static EventGroupHandle_t wifi_event_group = nullptr;
+
+static RoboLinkWifiMode scan_selected_mode =
+    RoboLinkWifiMode::DISCONNECTED;
+
+static volatile bool app_scan_active = false;
+static volatile bool app_scan_ready = false;
 
 static RoboLinkWifiMode current_mode =
     RoboLinkWifiMode::DISCONNECTED;
 
 static bool ap_latched = false;
+
+static void mesh_scan_start_cb()
+{
+    if (app_scan_active)
+    {
+        app_scan_ready = true;
+    }
+}
+
+static void mesh_scan_end_cb()
+{
+    if (app_scan_active)
+    {
+        app_scan_active = false;
+        app_scan_ready = false;
+    }
+}
+
+static esp_mesh_lite_scan_cb_t mesh_scan_callbacks = {
+    .scan_start_cb = mesh_scan_start_cb,
+    .scan_end_cb = mesh_scan_end_cb,
+};
 
 static void wifi_event_handler(
     void *arg,
@@ -42,6 +74,109 @@ static void wifi_event_handler(
                     WIFI_FAILED_BIT);
             }
         }
+
+        
+
+
+        if (event_id == WIFI_EVENT_SCAN_DONE)
+        {
+            if (!app_scan_ready)
+            {
+                return;
+            }
+
+            uint16_t ap_count = 0;
+
+            if (esp_wifi_scan_get_ap_num(&ap_count) != ESP_OK ||
+                ap_count == 0)
+            {
+                scan_selected_mode =
+                    RoboLinkWifiMode::DISCONNECTED;
+
+                xEventGroupSetBits(
+                    wifi_event_group,
+                    WIFI_SCAN_DONE_BIT);
+
+                return;
+            }
+
+            wifi_ap_record_t *records =
+                static_cast<wifi_ap_record_t *>(
+                    calloc(
+                        ap_count,
+                        sizeof(wifi_ap_record_t)));
+
+            if (records == nullptr)
+            {
+                scan_selected_mode =
+                    RoboLinkWifiMode::DISCONNECTED;
+
+                xEventGroupSetBits(
+                    wifi_event_group,
+                    WIFI_SCAN_DONE_BIT);
+
+                return;
+            }
+
+            uint16_t record_count = ap_count;
+
+            esp_err_t result =
+                esp_wifi_scan_get_ap_records(
+                    &record_count,
+                    records);
+
+            bool found_home = false;
+            bool found_field = false;
+
+            if (result == ESP_OK)
+            {
+                for (uint16_t i = 0;
+                    i < record_count;
+                    i++)
+                {
+                    const char *ssid =
+                        reinterpret_cast<const char *>(
+                            records[i].ssid);
+
+                    if (std::strcmp(
+                            ssid,
+                            HOMELINK_WIFI_SSID) == 0)
+                    {
+                        found_home = true;
+                    }
+
+                    if (std::strcmp(
+                            ssid,
+                            ROBOLINK_WIFI_SSID) == 0)
+                    {
+                        found_field = true;
+                    }
+                }
+            }
+
+            free(records);
+
+            if (found_home)
+            {
+                scan_selected_mode =
+                    RoboLinkWifiMode::STA_HOME;
+            }
+            else if (found_field)
+            {
+                scan_selected_mode =
+                    RoboLinkWifiMode::STA_FIELD;
+            }
+            else
+            {
+                scan_selected_mode =
+                    RoboLinkWifiMode::DISCONNECTED;
+            }
+
+            xEventGroupSetBits(
+                wifi_event_group,
+                WIFI_SCAN_DONE_BIT);
+        }
+
     }
 
     if (event_base == IP_EVENT &&
@@ -61,17 +196,11 @@ static void wifi_event_handler(
     }
 }
 
-static bool try_station(
+static esp_err_t configure_upstream(
     const char *ssid,
     const char *password,
-    RoboLinkWifiMode success_mode)
+    RoboLinkWifiMode mode)
 {
-    ESP_LOGI(TAG, "Trying Wi-Fi STA '%s'", ssid);
-
-    xEventGroupClearBits(
-        wifi_event_group,
-        WIFI_CONNECTED_BIT | WIFI_FAILED_BIT);
-
     wifi_config_t config = {};
 
     std::strncpy(
@@ -89,43 +218,127 @@ static bool try_station(
     config.sta.pmf_cfg.required = false;
 
     ESP_ERROR_CHECK(
-        esp_wifi_set_mode(WIFI_MODE_STA));
+        esp_wifi_set_mode(WIFI_MODE_APSTA));
 
-    ESP_ERROR_CHECK(
-        esp_wifi_set_config(
+    esp_err_t result =
+        esp_bridge_wifi_set_config(
             WIFI_IF_STA,
-            &config));
+            &config);
 
-    ESP_ERROR_CHECK(
-        esp_wifi_connect());
-
-    EventBits_t bits = xEventGroupWaitBits(
-        wifi_event_group,
-        WIFI_CONNECTED_BIT | WIFI_FAILED_BIT,
-        pdTRUE,
-        pdFALSE,
-        pdMS_TO_TICKS(CONNECT_TIMEOUT_MS));
-
-    if ((bits & WIFI_CONNECTED_BIT) != 0)
+    if (result != ESP_OK)
     {
-        current_mode = success_mode;
-
-        ESP_LOGI(
+        ESP_LOGE(
             TAG,
-            "Connected to '%s'",
+            "Failed to configure upstream '%s'",
             ssid);
 
-        return true;
+        return result;
+    }
+
+    current_mode = mode;
+
+    ESP_LOGI(
+        TAG,
+        "Mesh-Lite upstream configured: %s",
+        ssid);
+
+    return ESP_OK;
+}
+
+static esp_err_t select_upstream()
+{
+    scan_selected_mode =
+        RoboLinkWifiMode::DISCONNECTED;
+
+    xEventGroupClearBits(
+        wifi_event_group,
+        WIFI_SCAN_DONE_BIT);
+
+    app_scan_active = true;
+    app_scan_ready = false;
+
+    ESP_ERROR_CHECK(
+        esp_mesh_lite_scan_cb_register(
+            &mesh_scan_callbacks));
+
+    ESP_LOGI(
+        TAG,
+        "Starting Mesh-Lite coordinated upstream scan");
+
+    esp_err_t result =
+        esp_mesh_lite_wifi_scan_start(
+            nullptr,
+            pdMS_TO_TICKS(3000));
+
+    if (result != ESP_OK)
+    {
+        app_scan_active = false;
+        app_scan_ready = false;
+
+        ESP_LOGW(
+            TAG,
+            "Mesh-Lite scan start failed: %s",
+            esp_err_to_name(result));
+
+        return result;
+    }
+
+    EventBits_t bits =
+        xEventGroupWaitBits(
+            wifi_event_group,
+            WIFI_SCAN_DONE_BIT,
+            pdTRUE,
+            pdFALSE,
+            pdMS_TO_TICKS(5000));
+
+    if ((bits & WIFI_SCAN_DONE_BIT) == 0)
+    {
+        app_scan_active = false;
+        app_scan_ready = false;
+
+        ESP_LOGW(
+            TAG,
+            "Mesh-Lite upstream scan timed out");
+
+        return ESP_ERR_TIMEOUT;
+    }
+
+    if (scan_selected_mode ==
+        RoboLinkWifiMode::STA_HOME)
+    {
+        ESP_LOGI(
+            TAG,
+            "Preferred upstream found: %s",
+            HOMELINK_WIFI_SSID);
+
+        return configure_upstream(
+            HOMELINK_WIFI_SSID,
+            HOMELINK_WIFI_PASS,
+            RoboLinkWifiMode::STA_HOME);
+    }
+
+    if (scan_selected_mode ==
+        RoboLinkWifiMode::STA_FIELD)
+    {
+        ESP_LOGI(
+            TAG,
+            "Field upstream found: %s",
+            ROBOLINK_WIFI_SSID);
+
+        return configure_upstream(
+            ROBOLINK_WIFI_SSID,
+            ROBOLINK_WIFI_PASS,
+            RoboLinkWifiMode::STA_FIELD);
     }
 
     ESP_LOGW(
         TAG,
-        "Could not connect to '%s'",
-        ssid);
+        "No configured upstream Wi-Fi found");
 
-    esp_wifi_disconnect();
+    current_mode =
+        RoboLinkWifiMode::AP_FIELD;
 
-    return false;
+    return ESP_OK;
 }
 
 static esp_err_t start_field_ap()
@@ -180,6 +393,53 @@ static esp_err_t start_field_ap()
     return ESP_OK;
 }
 
+static esp_err_t configure_mesh_softap()
+{
+    wifi_config_t config = {};
+
+    std::strncpy(
+        reinterpret_cast<char *>(config.ap.ssid),
+        ROBOMESH_WIFI_SSID,
+        sizeof(config.ap.ssid) - 1);
+
+    config.ap.ssid_len =
+        std::strlen(ROBOMESH_WIFI_SSID);
+
+    std::strncpy(
+        reinterpret_cast<char *>(config.ap.password),
+        ROBOMESH_WIFI_PASS,
+        sizeof(config.ap.password) - 1);
+
+    config.ap.channel = 1;
+    config.ap.max_connection = 8;
+    config.ap.authmode = WIFI_AUTH_WPA2_PSK;
+    config.ap.pmf_cfg.required = false;
+
+    esp_err_t result =
+        esp_bridge_wifi_set_config(
+            WIFI_IF_AP,
+            &config);
+
+    if (result != ESP_OK)
+    {
+        ESP_LOGE(
+            TAG,
+            "Failed to configure Mesh-Lite SoftAP");
+        return result;
+    }
+
+    esp_mesh_lite_set_softap_info(
+        ROBOMESH_WIFI_SSID,
+        ROBOMESH_WIFI_PASS);
+
+    ESP_LOGI(
+        TAG,
+        "Mesh-Lite SoftAP configured: %s",
+        ROBOMESH_WIFI_SSID);
+
+    return ESP_OK;
+}
+
 esp_err_t robolink_wifi_init()
 {
     ESP_LOGI(TAG, "Initializing Wi-Fi");
@@ -216,8 +476,7 @@ esp_err_t robolink_wifi_init()
         return ESP_ERR_NO_MEM;
     }
 
-    esp_netif_create_default_wifi_sta();
-    esp_netif_create_default_wifi_ap();
+    esp_bridge_create_all_netif();
 
     wifi_init_config_t init_config =
         WIFI_INIT_CONFIG_DEFAULT();
@@ -245,29 +504,56 @@ esp_err_t robolink_wifi_init()
     ESP_ERROR_CHECK(
         esp_wifi_start());
 
-    if (try_station(
-            HOMELINK_WIFI_SSID,
-            HOMELINK_WIFI_PASS,
-            RoboLinkWifiMode::STA_HOME))
+    esp_mesh_lite_config_t mesh_config =
+        ESP_MESH_LITE_DEFAULT_INIT();
+
+    esp_mesh_lite_init(&mesh_config);
+
+    ESP_LOGI(
+        TAG,
+        "Mesh-Lite initialized");
+
+    ESP_ERROR_CHECK(
+        configure_mesh_softap());
+
+    esp_err_t upstream_result =
+        select_upstream();
+
+    if (upstream_result != ESP_OK)
     {
-        return ESP_OK;
+        ESP_LOGW(
+            TAG,
+            "Upstream selection failed: %s",
+            esp_err_to_name(upstream_result)
+        );
+
+        current_mode =
+            RoboLinkWifiMode::AP_FIELD;
     }
 
-    vTaskDelay(
-        pdMS_TO_TICKS(250));
-
-    if (try_station(
-            ROBOLINK_WIFI_SSID,
-            ROBOLINK_WIFI_PASS,
-            RoboLinkWifiMode::STA_FIELD))
+    if (current_mode == RoboLinkWifiMode::STA_HOME ||
+        current_mode == RoboLinkWifiMode::STA_FIELD)
     {
-        return ESP_OK;
+        ESP_LOGI(
+            TAG,
+            "Starting Mesh-Lite with upstream"
+        );
     }
+    else
+    {
+        ESP_LOGI(
+            TAG,
+            "Starting Mesh-Lite without upstream"
+        );
+    }
+    esp_mesh_lite_start();
 
-    vTaskDelay(
-        pdMS_TO_TICKS(250));
+    ESP_LOGI(
+        TAG,
+        "Mesh-Lite started"
+    );
 
-    return start_field_ap();
+    return ESP_OK;
 }
 
 bool robolink_wifi_connected()

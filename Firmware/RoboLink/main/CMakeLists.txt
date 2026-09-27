@@ -20,4 +20,6 @@ idf_component_register(
         esp_event
         nvs_flash
         lwip
+        espressif__iot_bridge
+        espressif__mesh_lite
 )
