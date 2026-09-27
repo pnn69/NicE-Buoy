@@ -540,3 +540,201 @@ void lora_receive_service()
         ESP_LOGW(TAG, "LoRa packet dropped: packet queue full");
     }
 }
+
+esp_err_t lora_send(const char *data, uint16_t length)
+{
+    constexpr uint8_t REG_FIFO = 0x00;
+    constexpr uint8_t REG_OP_MODE = 0x01;
+    constexpr uint8_t REG_FIFO_ADDR_PTR = 0x0D;
+    constexpr uint8_t REG_FIFO_TX_BASE_ADDR = 0x0E;
+    constexpr uint8_t REG_IRQ_FLAGS = 0x12;
+    constexpr uint8_t REG_PAYLOAD_LENGTH = 0x22;
+    constexpr uint8_t REG_DIO_MAPPING_1 = 0x40;
+
+    constexpr uint8_t MODE_LONG_RANGE = 0x80;
+    constexpr uint8_t MODE_STANDBY = 0x01;
+    constexpr uint8_t MODE_TX = 0x03;
+
+    constexpr uint8_t IRQ_TX_DONE = 0x08;
+
+    constexpr uint16_t MAX_MESSAGE_LENGTH = 159;
+    constexpr TickType_t TX_TIMEOUT = pdMS_TO_TICKS(2000);
+
+    if (data == nullptr)
+    {
+        ESP_LOGE(TAG, "LoRa TX failed: null data");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (length == 0 || length > MAX_MESSAGE_LENGTH)
+    {
+        ESP_LOGE(
+            TAG,
+            "LoRa TX failed: invalid length %u",
+            length
+        );
+
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    ESP_LOGI(
+        TAG,
+        "LoRa TX start len=%u",
+        length
+    );
+
+    ESP_ERROR_CHECK(
+        write_register(
+            REG_OP_MODE,
+            MODE_LONG_RANGE | MODE_STANDBY
+        )
+    );
+
+    uint8_t tx_base =
+        read_register(REG_FIFO_TX_BASE_ADDR);
+
+    ESP_ERROR_CHECK(
+        write_register(
+            REG_FIFO_ADDR_PTR,
+            tx_base
+        )
+    );
+
+    /*
+     * RoboLora framing:
+     *
+     * FIFO byte 0   = raw Robo message length
+     * FIFO bytes 1+ = "$...*CRC"
+     */
+    ESP_ERROR_CHECK(
+        write_register(
+            REG_FIFO,
+            static_cast<uint8_t>(length)
+        )
+    );
+
+    for (uint16_t i = 0; i < length; i++)
+    {
+        ESP_ERROR_CHECK(
+            write_register(
+                REG_FIFO,
+                static_cast<uint8_t>(data[i])
+            )
+        );
+    }
+
+    /*
+     * SX127x payload includes the application length byte.
+     */
+    ESP_ERROR_CHECK(
+        write_register(
+            REG_PAYLOAD_LENGTH,
+            static_cast<uint8_t>(length + 1)
+        )
+    );
+
+    /*
+     * Clear pending IRQ flags before starting TX.
+     */
+    ESP_ERROR_CHECK(
+        write_register(
+            REG_IRQ_FLAGS,
+            0xFF
+        )
+    );
+
+    /*
+     * DIO0 = TxDone.
+     *
+     * We still poll RegIrqFlags, but keeping the DIO mapping
+     * correct makes the radio state consistent.
+     */
+    ESP_ERROR_CHECK(
+        write_register(
+            REG_DIO_MAPPING_1,
+            0x40
+        )
+    );
+
+    TickType_t tx_start =
+        xTaskGetTickCount();
+
+    ESP_ERROR_CHECK(
+        write_register(
+            REG_OP_MODE,
+            MODE_LONG_RANGE | MODE_TX
+        )
+    );
+
+    while (true)
+    {
+        uint8_t irq_flags =
+            read_register(REG_IRQ_FLAGS);
+
+        if ((irq_flags & IRQ_TX_DONE) != 0)
+        {
+            ESP_ERROR_CHECK(
+                write_register(
+                    REG_IRQ_FLAGS,
+                    IRQ_TX_DONE
+                )
+            );
+
+            ESP_LOGI(TAG, "LoRa TX done");
+
+            esp_err_t rx_result =
+                lora_start_receive();
+
+            if (rx_result != ESP_OK)
+            {
+                ESP_LOGE(
+                    TAG,
+                    "LoRa TX completed but RX restore failed"
+                );
+
+                return rx_result;
+            }
+
+            return ESP_OK;
+        }
+
+        TickType_t now =
+            xTaskGetTickCount();
+
+        if ((now - tx_start) >= TX_TIMEOUT)
+        {
+            ESP_LOGE(
+                TAG,
+                "LoRa TX timeout"
+            );
+
+            /*
+             * Force radio out of TX state before restoring RX.
+             */
+            write_register(
+                REG_OP_MODE,
+                MODE_LONG_RANGE | MODE_STANDBY
+            );
+
+            write_register(
+                REG_IRQ_FLAGS,
+                0xFF
+            );
+
+            esp_err_t rx_result =
+                lora_start_receive();
+
+            if (rx_result != ESP_OK)
+            {
+                ESP_LOGE(
+                    TAG,
+                    "LoRa RX recovery failed after TX timeout"
+                );
+            }
+
+            return ESP_ERR_TIMEOUT;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+}

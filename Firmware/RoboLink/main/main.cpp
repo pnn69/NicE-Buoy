@@ -130,14 +130,40 @@ extern "C" void app_main(void)
 
             if (route.valid)
             {
-                if (route.decision == RouterDecision::ALLOW_LORA)
+            if (route.decision == RouterDecision::ALLOW_LORA)
+            {
+                ESP_LOGI(
+                    TAG,
+                    "Router: UDP cmd=%d -> LoRa TX",
+                    route.command
+                );
+
+                esp_err_t tx_result = lora_send(
+                    packet.data,
+                    packet.length
+                );
+
+                if (tx_result == ESP_OK)
                 {
-                    ESP_LOGI(
-                        TAG,
-                        "Router: UDP cmd=%d -> LoRa ALLOW",
-                        route.command);
+                    gpio_set_level(
+                        (gpio_num_t)LED_PIN,
+                        1
+                    );
+
+                    led_active = true;
+                    led_off_time =
+                        xTaskGetTickCount() + pdMS_TO_TICKS(50);
                 }
-                else if (route.decision == RouterDecision::ALLOW_UDP)
+                else
+                {
+                    ESP_LOGE(
+                        TAG,
+                        "Router: LoRa TX failed for cmd=%d: %s",
+                        route.command,
+                        esp_err_to_name(tx_result)
+                    );
+                }
+            }                else if (route.decision == RouterDecision::ALLOW_UDP)
                 {
                     ESP_LOGI(
                         TAG,

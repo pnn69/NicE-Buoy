@@ -8,5 +8,6 @@ esp_err_t lora_check_radio();
 esp_err_t lora_configure();
 esp_err_t lora_start_receive();
 void lora_receive_service();
+esp_err_t lora_send(const char *data, uint16_t length);
 
 #endif /* LORA_H_ */
