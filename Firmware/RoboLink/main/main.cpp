@@ -10,6 +10,7 @@
 #include "packet_queue.h"
 #include "wifi.h"
 #include "udp.h"
+#include "router.h"
 
 static const char *TAG = "RoboLink";
 
@@ -121,13 +122,44 @@ extern "C" void app_main(void)
 
     while (true)
     {
-        // Service incoming LoRa packets.
-        // Valid LoRa packets are placed into packet_queue.
         lora_receive_service();
 
-        // Process everything currently waiting in the common packet queue.
         while (packet_queue_receive(packet))
         {
+            RouterResult route = router_classify(packet);
+
+            if (route.valid)
+            {
+                if (route.decision == RouterDecision::ALLOW_LORA)
+                {
+                    ESP_LOGI(
+                        TAG,
+                        "Router: UDP cmd=%d -> LoRa ALLOW",
+                        route.command);
+                }
+                else if (route.decision == RouterDecision::ALLOW_UDP)
+                {
+                    ESP_LOGI(
+                        TAG,
+                        "Router: LoRa cmd=%d -> UDP ALLOW",
+                        route.command);
+                }
+                else if (route.decision == RouterDecision::DUPLICATE)
+                {
+                    ESP_LOGI(
+                        TAG,
+                        "Router: UDP cmd=%d -> DUPLICATE DROP",
+                        route.command);
+                }
+                else if (route.decision == RouterDecision::BLOCK)
+                {
+                    ESP_LOGW(
+                        TAG,
+                        "Router: cmd=%d BLOCK",
+                        route.command);
+                }
+            }
+
             if (packet.source == PacketSource::LORA)
             {
                 ESP_LOGI(
@@ -135,19 +167,18 @@ extern "C" void app_main(void)
                     "LoRa RX RSSI=%d len=%u: %s",
                     packet.rssi,
                     packet.length,
-                    packet.data
-                );
+                    packet.data);
 
                 gpio_set_level(
                     (gpio_num_t)LED_PIN,
-                    1
-                );
+                    1);
 
                 led_active = true;
                 led_off_time =
                     xTaskGetTickCount() + pdMS_TO_TICKS(50);
             }
-        }        // Turn the activity LED off when its 50 ms pulse has expired.
+        }
+
         if (led_active)
         {
             TickType_t now = xTaskGetTickCount();
@@ -162,8 +193,6 @@ extern "C" void app_main(void)
             }
         }
 
-        // Yield to Wi-Fi, UDP and the other FreeRTOS tasks without
-        // blocking the LoRa receiver for any significant time.
         vTaskDelay(pdMS_TO_TICKS(1));
     }
 }

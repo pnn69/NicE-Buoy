@@ -6,10 +6,12 @@ idf_component_register(
         "packet_queue.cpp"
         "wifi.cpp"
         "udp.cpp"
+        "router.cpp"
 
     INCLUDE_DIRS
         "."
         "../../RoboDependency"
+        "../../RoboDependency/RoboCompute/src"
 
     REQUIRES
         driver
