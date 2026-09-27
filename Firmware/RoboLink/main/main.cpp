@@ -6,6 +6,7 @@
 
 #include "io.h"
 #include "oled.h"
+#include "lora.h"
 
 static const char *TAG = "RoboLink";
 
@@ -38,16 +39,13 @@ static void init_i2c()
     ESP_ERROR_CHECK(
         i2c_new_master_bus(
             &bus_config,
-            &i2c_bus
-        )
-    );
+            &i2c_bus));
 
     ESP_LOGI(
         TAG,
         "I2C initialized: SDA=%d SCL=%d",
         SDA,
-        SCL
-    );
+        SCL);
 }
 
 static void scan_i2c()
@@ -61,16 +59,14 @@ static void scan_i2c()
         esp_err_t result = i2c_master_probe(
             i2c_bus,
             address,
-            50
-        );
+            50);
 
         if (result == ESP_OK)
         {
             ESP_LOGI(
                 TAG,
                 "I2C device found at 0x%02X",
-                address
-            );
+                address);
 
             devices_found++;
         }
@@ -85,8 +81,7 @@ static void scan_i2c()
         ESP_LOGI(
             TAG,
             "I2C scan complete: %d device(s) found",
-            devices_found
-        );
+            devices_found);
     }
 }
 
@@ -104,12 +99,30 @@ extern "C" void app_main(void)
     ESP_ERROR_CHECK(oled_clear());
     ESP_ERROR_CHECK(oled_write_robolink());
 
+    ESP_ERROR_CHECK(lora_spi_init());
+    ESP_ERROR_CHECK(lora_check_radio());
+    ESP_ERROR_CHECK(lora_configure());
+    ESP_ERROR_CHECK(lora_start_receive());
+
+    TickType_t last_led_toggle = xTaskGetTickCount();
+    bool led_state = false;
+
     while (true)
     {
-        gpio_set_level((gpio_num_t)LED_PIN, 1);
-        vTaskDelay(pdMS_TO_TICKS(500));
+        lora_receive_service();
 
-        gpio_set_level((gpio_num_t)LED_PIN, 0);
-        vTaskDelay(pdMS_TO_TICKS(500));
+        TickType_t now = xTaskGetTickCount();
+
+        if ((now - last_led_toggle) >= pdMS_TO_TICKS(500))
+        {
+            last_led_toggle = now;
+
+            led_state = !led_state;
+
+            gpio_set_level(
+                (gpio_num_t)LED_PIN,
+                led_state ? 1 : 0);
+        }
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
