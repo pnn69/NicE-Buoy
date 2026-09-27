@@ -5,8 +5,10 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include <cstring>
 
 #include "io.h"
+#include "packet_queue.h"
 
 static const char *TAG = "LoRa";
 
@@ -521,11 +523,20 @@ void lora_receive_service()
     // RoboLora uses the LF RSSI offset below 525 MHz.
     int rssi = (int)read_register(REG_PKT_RSSI_VALUE) - 164;
 
-    ESP_LOGI(
-        TAG,
-        "LoRa RX RSSI=%d len=%u: %s",
-        rssi,
-        received_length,
-        message
+    RoboPacket packet = {};
+
+    packet.source = PacketSource::LORA;
+    packet.length = received_length;
+    packet.rssi = rssi;
+
+    memcpy(
+        packet.data,
+        message,
+        received_length + 1
     );
+
+    if (!packet_queue_send(packet))
+    {
+        ESP_LOGW(TAG, "LoRa packet dropped: packet queue full");
+    }
 }

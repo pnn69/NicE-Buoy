@@ -7,6 +7,7 @@
 #include "io.h"
 #include "oled.h"
 #include "lora.h"
+#include "packet_queue.h"
 
 static const char *TAG = "RoboLink";
 
@@ -99,29 +100,54 @@ extern "C" void app_main(void)
     ESP_ERROR_CHECK(oled_clear());
     ESP_ERROR_CHECK(oled_write_robolink());
 
+    ESP_ERROR_CHECK(packet_queue_init());
+
     ESP_ERROR_CHECK(lora_spi_init());
     ESP_ERROR_CHECK(lora_check_radio());
     ESP_ERROR_CHECK(lora_configure());
     ESP_ERROR_CHECK(lora_start_receive());
 
-    TickType_t last_led_toggle = xTaskGetTickCount();
-    bool led_state = false;
+    RoboPacket packet = {};
+
+    bool led_active = false;
+    TickType_t led_off_time = 0;
+
+    gpio_set_level((gpio_num_t)LED_PIN, 0);
 
     while (true)
     {
         lora_receive_service();
 
-        TickType_t now = xTaskGetTickCount();
-
-        if ((now - last_led_toggle) >= pdMS_TO_TICKS(500))
+        while (packet_queue_receive(packet))
         {
-            last_led_toggle = now;
-
-            led_state = !led_state;
+            ESP_LOGI(
+                TAG,
+                "Packet source=LoRa RSSI=%d len=%u: %s",
+                packet.rssi,
+                packet.length,
+                packet.data);
 
             gpio_set_level(
                 (gpio_num_t)LED_PIN,
-                led_state ? 1 : 0);
+                1);
+
+            led_active = true;
+            led_off_time =
+                xTaskGetTickCount() + pdMS_TO_TICKS(50);
+        }
+
+        if (led_active)
+        {
+            TickType_t now = xTaskGetTickCount();
+
+            if ((int32_t)(now - led_off_time) >= 0)
+            {
+                gpio_set_level(
+                    (gpio_num_t)LED_PIN,
+                    0);
+
+                led_active = false;
+            }
         }
         vTaskDelay(pdMS_TO_TICKS(1));
     }

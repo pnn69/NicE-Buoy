@@ -3,6 +3,7 @@ idf_component_register(
         "main.cpp"
         "oled.cpp"
         "lora.cpp"
+        "packet_queue.cpp"
 
     INCLUDE_DIRS
         "."
